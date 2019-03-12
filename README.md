@@ -6,7 +6,7 @@ Pyright was created to address gaps in existing Python type checkers like [mypy]
 ### Speed
 Pyright is typically 5x or more faster than mypy and other type checkers that are written in Python. It is meant for large Python source bases. It can run in a "watch" mode and performs fast incremental updates when files are modified.
 
-### No Python Dependence
+### No Dependency on Python Environment
 Pyright is written in TypeScript and runs within node. It does not require a Python environment to be installed and does not rely on imported packages to be installed. This is especially useful when used with the VS Code editor, which uses node as its extension runtime.
 
 ### Configurability
@@ -62,6 +62,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Support for generics
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
 * Move error strings out of the main code files so they can be localized
+* More complete documentation - especially for configuration options
 * Add lots of tests
 * Address the many TODO comments in the code
 * Parameter type inference based on default value assignment
