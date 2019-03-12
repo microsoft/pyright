@@ -4,18 +4,18 @@
 
 Pyright was created to address gaps in existing Python type checkers like [mypy](http://mypy-lang.org).
 ### Speed
-Pyright is typically 5x or more faster than mypy and other type checkers that are written in Python. It is meant for large Python source bases. It can run in a "watch" mode and performs fast incremental updates when files are modified.
+Pyright is typically 5x or more faster than mypy and other type checkers that are written in Python. It is meant for large Python source bases. It can run in a “watch” mode and performs fast incremental updates when files are modified.
 
 ### No Dependency on Python Environment
-Pyright is written in TypeScript and runs within node. It does not require a Python environment to be installed and does not rely on imported packages to be installed. This is especially useful when used with the VS Code editor, which uses node as its extension runtime.
+Pyright is written in TypeScript and runs within node. It does not require a Python environment or imported third-party packages to be installed. This is especially useful when used with the VS Code editor, which uses node as its extension runtime.
 
 ### Configurability
-Pyright supports a flexible configuration file that provides granular control over settings. Different "execution environments" can be specified for different subsets of a source base. Each environment can specify different PYTHON_PATH settings, python language version, and platform target.
+Pyright supports flexible configuration that provides granular control over settings. Different “execution environments” can be specified for different subsets of a source base. Each environment can specify different PYTHON_PATH settings, python language version, and platform target.
 
 ### Type Checking Features
 Pyright supports:
 
-* [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints (currently missing support for generic)
+* [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints (currently missing support for generics)
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
 * [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
 * Type inference for function return values, instance variables, class variables, and globals
