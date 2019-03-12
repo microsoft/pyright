@@ -1,5 +1,16 @@
+# pyright
 
-# Contributing
+Static type checker for the Python language
+
+
+## Build Instructions
+1. Install [nodejs](https://nodejs.org/en/)
+2. Open terminal window in main directory of cloned source
+3. Execute "npm install" to download dependencies
+4. Execute "npm run build"
+
+
+## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us

@@ -1,0 +1,11 @@
+{
+    "include": [
+        "missingfile.py",
+        "presentfile.py",
+        "missingdirectory",
+        "subfolder"
+    ],
+    "exclude": [
+        "subfolder/presentfile2.py"
+    ]
+}

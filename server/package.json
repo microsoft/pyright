@@ -1,0 +1,40 @@
+{
+    "name": "pyright",
+    "displayName": "pyright",
+    "description": "Linter and type checker for the Python language",
+    "version": "1.0.0",
+    "license": "MIT",
+    "scripts": {
+        "start": "npm run start:analyzer && npm run start:server",
+        "start:analyzer": "npm i && npm run build:analyzer",
+        "start:server": "npm i && npm run build:server",
+        "build": "npm run build:server && npm run build:analyzer",
+        "build:analyzer": "npm run tslint && tsc",
+        "build:server": "npm run installServer && webpack",
+        "installServer": "node ./customInstallServerIntoExtension.js ../client ./package.json ./tsconfig.json ./package-lock.json",
+        "watch": "tsc --watch",
+        "tslint": "tslint --project tsconfig.json --fix",
+        "test": "jest"
+    },
+    "dependencies": {
+        "assert": "^1.4.1",
+        "command-line-args": "^5.0.2",
+        "typescript-char": "^0.0.0",
+        "vscode-languageserver": "^5.1.0"
+    },
+    "devDependencies": {
+        "@types/command-line-args": "^5.0.0",
+        "@types/jest": "^24.0.9",
+        "@types/node": "^11.10.5",
+        "jest": "^24.1.0",
+        "ts-jest": "^24.0.0",
+        "tslint": "^5.13.1",
+        "tslint-microsoft-contrib": "^6.1.0",
+        "ts-loader": "^5.3.1",
+        "typescript": "^3.3.3333",
+        "webpack": "^4.27.1",
+        "webpack-cli": "^3.0.8"
+    },
+    "types": "out/main.d.ts",
+    "main": "out/main.js"
+}
