@@ -1,4 +1,4 @@
-~[](https://github.com/Microsoft/pyright/blob/master/docs/img/PyrightLarge.png)
+![Pyright](/docs/img/PyrightLarge.png)
 
 # Static type checker for the Python language
 
