@@ -20,9 +20,9 @@ import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
 import { Symbol } from './symbol';
-import { AnyType, ClassType, ClassTypeFlags, EllipsisType,
-    FunctionParameter, FunctionType, FunctionTypeFlags, ModuleType, NoneType, ObjectType,
-    OverloadedFunctionType, PropertyType, TupleType, Type, TypeVarType, UnionType, UnknownType } from './types';
+import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
+    FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
+    PropertyType, TupleType, Type, TypeVarType, UnionType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 export class TypeAnnotation {
@@ -91,7 +91,7 @@ export class TypeAnnotation {
             type = this.getTypeFromName(node, currentScope,
                 diagSink, false, transformBuiltInTypes);
         } else if (node instanceof EllipsisNode) {
-            type = EllipsisType.create();
+            type = AnyType.create();
         } else if (node instanceof ConstantNode) {
             if (node.token.type === TokenType.Keyword) {
                 if (node.token.keywordType === KeywordType.None) {

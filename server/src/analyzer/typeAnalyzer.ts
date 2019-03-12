@@ -35,9 +35,9 @@ import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { TypeAnnotation } from './typeAnnotation';
 import { TypeConstraint, TypeConstraintBuilder, TypeConstraintResults } from './typeConstraint';
-import { AnyType, ClassType, ClassTypeFlags, EllipsisType, FunctionType,
-    FunctionTypeFlags, ModuleType, NoneType, ObjectType,
-    OverloadedFunctionType, PropertyType, TupleType, Type, TypeCategory, TypeVarType, UnboundType, UnionType, UnknownType } from './types';
+import { AnyType, ClassType, ClassTypeFlags, FunctionType, FunctionTypeFlags, ModuleType,
+    NoneType, ObjectType, OverloadedFunctionType, PropertyType, TupleType, Type, TypeCategory,
+    TypeVarType, UnboundType, UnionType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface ParamAssignmentInfo {
@@ -715,13 +715,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let typeOfExpr = this._getTypeOfExpressionWithTypeConstraints(node.rightExpression);
 
-        // In a stub file, an assignment to ellipsis means "any".
-        if (this._fileInfo.isStubFile) {
-            if (typeOfExpr instanceof EllipsisType) {
-                typeOfExpr = AnyType.create();
-            }
-        }
-
         if (!(node.leftExpression instanceof NameNode) ||
                 !this._assignTypeForPossibleEnumeration(node.leftExpression, typeOfExpr)) {
             this._assignTypeToPossibleTuple(node.leftExpression, typeOfExpr);
@@ -1251,7 +1244,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 exprType = NoneType.create();
             }
         } else if (node instanceof EllipsisNode) {
-            exprType = EllipsisType.create();
+            exprType = AnyType.create();
         } else if (node instanceof MemberAccessExpressionNode) {
             exprType = this._getTypeOfMemberAccessNode(node);
         } else if (node instanceof CallExpressionNode) {

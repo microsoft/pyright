@@ -26,9 +26,6 @@ export enum TypeCategory {
     // Special "None" type defined in Python.
     None,
 
-    // Special "Ellipsis" type defined in Python.
-    Ellipsis,
-
     // Immutable sequence of typed values.
     Tuple,
 
@@ -520,24 +517,6 @@ export class PropertyType extends Type {
         let returnTypeString = recursionCount > 0 ?
             returnType.asStringInternal(recursionCount - 1) : '';
         return returnTypeString;
-    }
-}
-
-export class EllipsisType extends Type {
-    category = TypeCategory.Ellipsis;
-
-    private static _instance = new EllipsisType();
-    static create() {
-        // Use a single instance to reduce memory allocation.
-        return this._instance;
-    }
-
-    isAny(): boolean {
-        return true;
-    }
-
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
-        return '...';
     }
 }
 
