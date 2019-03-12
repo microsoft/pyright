@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Pyright CLI",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceRoot}/server/src/pyright.ts",
+      "protocol": "inspector",
+      "cwd": "${workspaceRoot}",
+      "preLaunchTask": "npm: build:analyzer",
+      "args": [
+        "-p",
+        "${workspaceRoot}/../brain",
+        "-w"
+      ],
+      "internalConsoleOptions": "openOnSessionStart",
+      "outFiles": [
+        "${workspaceRoot}/client/server/**/*.js"
+      ]
+    },
+    {
+      "name": "Pyright Language Client",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceRoot}/client/out/src/extension.js",
+      "preLaunchTask": "npm: build",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/client"
+      ],
+      "stopOnEntry": false,
+      "smartStep": true,
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceRoot}/server/out/**/*.js"
+      ]
+    },
+    {
+      "name": "Pyright Language Server",
+      "type": "node",
+      "request": "attach",
+      "protocol": "inspector",
+      "port": 6600,
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceRoot}/server/out/**/*.js"
+      ]
+    }
+  ]
+}
