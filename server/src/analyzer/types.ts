@@ -195,35 +195,50 @@ export interface BaseClass {
     type: Type;
 }
 
+interface ClassDetails {
+    classFlags: ClassTypeFlags;
+    className: string;
+    baseClasses: BaseClass[];
+    classFields: SymbolTable;
+    instanceFields: SymbolTable;
+    typeParameters: TypeVarType[];
+}
+
 export class ClassType extends Type {
     category = TypeCategory.Class;
 
-    private _classFlags: ClassTypeFlags;
-    private _className: string;
-    private _baseClasses: BaseClass[] = [];
-    private _classFields = new SymbolTable();
-    private _instanceFields = new SymbolTable();
+    private _classDetails: ClassDetails;
 
-    // A generic class will have one or more type variables.
-    // private _typeVariables: TypeVarType[] = [];
+    // A generic class that has been completely or partially
+    // specialized will have type arguments that correspond to
+    // some or all of the type parameters. Unspecified type
+    // parameters are undefined.
+    private _typeArguments?: (Type | undefined)[];
 
     constructor(name: string, flags: ClassTypeFlags) {
         super();
-        this._className = name;
-        this._classFlags = flags;
+
+        this._classDetails = {
+            className: name,
+            classFlags: flags,
+            baseClasses: [],
+            classFields: new SymbolTable(),
+            instanceFields: new SymbolTable(),
+            typeParameters: []
+        };
     }
 
     isSpecialBuiltIn() {
-        return !!(this._classFlags & ClassTypeFlags.SpecialBuiltIn);
+        return !!(this._classDetails.classFlags & ClassTypeFlags.SpecialBuiltIn);
     }
 
     isBuiltIn() {
-        return !!(this._classFlags & ClassTypeFlags.BuiltInClass);
+        return !!(this._classDetails.classFlags & ClassTypeFlags.BuiltInClass);
     }
 
     isProtocol() {
         // Does the class directly 'derive' from "Protocol"?
-        return this._baseClasses.find(bc => {
+        return this._classDetails.baseClasses.find(bc => {
             if (bc.type instanceof ClassType) {
                 if (bc.type.isBuiltIn() && bc.type.getClassName() === 'Protocol') {
                     return true;
@@ -234,50 +249,50 @@ export class ClassType extends Type {
     }
 
     getClassName() {
-        return this._className;
+        return this._classDetails.className;
     }
 
     hasDecorators() {
-        return !!(this._classFlags & ClassTypeFlags.HasDecorators);
+        return !!(this._classDetails.classFlags & ClassTypeFlags.HasDecorators);
     }
 
     getBaseClasses(): BaseClass[] {
-        return this._baseClasses;
+        return this._classDetails.baseClasses;
     }
 
     addBaseClass(type: Type, isMetaclass: boolean) {
-        this._baseClasses.push({ isMetaclass, type });
+        this._classDetails.baseClasses.push({ isMetaclass, type });
     }
 
     updateBaseClassType(index: number, type: Type) {
-        const didChange = !type.isSame(this._baseClasses[index].type);
-        this._baseClasses[index].type = type;
+        const didChange = !type.isSame(this._classDetails.baseClasses[index].type);
+        this._classDetails.baseClasses[index].type = type;
         return didChange;
     }
 
     getClassFields(): SymbolTable {
-        return this._classFields;
+        return this._classDetails.classFields;
     }
 
     setClassFields(nameMap: SymbolTable) {
-        this._classFields = nameMap;
+        this._classDetails.classFields = nameMap;
     }
 
     getInstanceFields(): SymbolTable {
-        return this._instanceFields;
+        return this._classDetails.instanceFields;
     }
 
     setInstanceFields(nameMap: SymbolTable) {
-        this._instanceFields = nameMap;
+        this._classDetails.instanceFields = nameMap;
     }
 
     isSame(type2: Type): boolean {
         return super.isSame(type2) &&
-            this._className === (type2 as ClassType)._className;
+            this._classDetails.className === (type2 as ClassType)._classDetails.className;
     }
 
     asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
-        return 'class ' + this._className;
+        return 'class ' + this._classDetails.className;
     }
 
     // Determines whether this is a subclass (derived class)
@@ -290,7 +305,7 @@ export class ClassType extends Type {
         // Handle built-in types like 'dict' and 'list', which are all
         // subclasses of object even though they are not explicitly declared
         // that way.
-        if (this.isBuiltIn() && type2._className === 'object' && type2.isBuiltIn()) {
+        if (this.isBuiltIn() && type2._classDetails.className === 'object' && type2.isBuiltIn()) {
             return true;
         }
 
@@ -350,73 +365,89 @@ export enum FunctionTypeFlags {
     HasCustomDecorators = 8
 }
 
+interface FunctionDetails {
+    flags: FunctionTypeFlags;
+    parameters: FunctionParameter[];
+    declaredReturnType?: Type;
+    inferredReturnType: InferredType;
+    typeParameters: TypeVarType[];
+}
+
 export class FunctionType extends Type {
     category = TypeCategory.Function;
 
-    private _parameters: FunctionParameter[] = [];
-    private _declaredReturnType?: Type;
-    private _inferredReturnType = new InferredType();
-    private _flags: FunctionTypeFlags;
+    private _functionDetails: FunctionDetails;
+
+    // A generic function that has been completely or partially
+    // specialized will have type arguments that correspond to
+    // some or all of the type parameters. Unspecified type
+    // parameters are undefined.
+    private _typeArguments?: (Type | undefined)[];
 
     constructor(flags: FunctionTypeFlags) {
         super();
-        this._flags = flags;
+        this._functionDetails = {
+            flags,
+            parameters: [],
+            inferredReturnType: new InferredType(),
+            typeParameters: []
+        };
     }
 
     isInstanceMethod(): boolean {
-        return (this._flags & FunctionTypeFlags.InstanceMethod) !== 0;
+        return (this._functionDetails.flags & FunctionTypeFlags.InstanceMethod) !== 0;
     }
 
     isClassMethod(): boolean {
-        return (this._flags & FunctionTypeFlags.ClassMethod) !== 0;
+        return (this._functionDetails.flags & FunctionTypeFlags.ClassMethod) !== 0;
     }
 
     getParameters() {
-        return this._parameters;
+        return this._functionDetails.parameters;
     }
 
     setParameters(params: FunctionParameter[]) {
-        this._parameters = params;
+        this._functionDetails.parameters = params;
     }
 
     addParameter(param: FunctionParameter) {
-        this._parameters.push(param);
+        this._functionDetails.parameters.push(param);
     }
 
     getDeclaredReturnType() {
-        return this._declaredReturnType;
+        return this._functionDetails.declaredReturnType;
     }
 
     setDeclaredReturnType(type?: Type): boolean {
-        const typeChanged = !this._declaredReturnType || !type ||
-            !this._declaredReturnType.isSame(type);
-        this._declaredReturnType = type;
+        const typeChanged = !this._functionDetails.declaredReturnType || !type ||
+            !this._functionDetails.declaredReturnType.isSame(type);
+        this._functionDetails.declaredReturnType = type;
 
         return typeChanged;
     }
 
     getInferredReturnType() {
-        return this._inferredReturnType;
+        return this._functionDetails.inferredReturnType;
     }
 
     getEffectiveReturnType() {
-        if (this._declaredReturnType) {
-            return this._declaredReturnType;
+        if (this._functionDetails.declaredReturnType) {
+            return this._functionDetails.declaredReturnType;
         }
 
-        return this._inferredReturnType.getType();
+        return this._functionDetails.inferredReturnType.getType();
     }
 
     hasCustomDecorators(): boolean {
-        return (this._flags & FunctionTypeFlags.HasCustomDecorators) !== undefined;
+        return (this._functionDetails.flags & FunctionTypeFlags.HasCustomDecorators) !== undefined;
     }
 
     clearHasCustomDecoratorsFlag() {
-        this._flags &= ~FunctionTypeFlags.HasCustomDecorators;
+        this._functionDetails.flags &= ~FunctionTypeFlags.HasCustomDecorators;
     }
 
     asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
-        let paramTypeString = this._parameters.map(param => {
+        let paramTypeString = this._functionDetails.parameters.map(param => {
             let paramString = '';
             if (param.category === ParameterCategory.VarArgList) {
                 paramString += '*';
