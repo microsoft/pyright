@@ -134,7 +134,8 @@ export class TypeAnnotation {
             }
         }
 
-        let classType = new ClassType(className, ClassTypeFlags.None);
+        let classType = new ClassType(className, ClassTypeFlags.None,
+            AnalyzerNodeInfo.getTypeSourceId(node));
         const classFields = classType.getClassFields();
         classFields.set('__class__', new Symbol(classType, DefaultTypeSourceId));
         const instanceFields = classType.getInstanceFields();
@@ -437,7 +438,7 @@ export class TypeAnnotation {
             switch (className) {
                 case 'Callable': {
                     // A 'Callable' with no parameters is a generic function.
-                    type = this._createCallableType([], diagSink);
+                    type = this._createCallableType(type, [], diagSink);
                     break;
                 }
 
@@ -450,7 +451,7 @@ export class TypeAnnotation {
                 case 'Set':
                 case 'Tuple':
                 case 'Type': {
-                    type = this._createSpecialType(className, [], currentScope, diagSink);
+                    type = this._createSpecialType(type, [], diagSink);
                     break;
                 }
 
@@ -528,14 +529,6 @@ export class TypeAnnotation {
         return undefined;
     }
 
-    private static _validateTypeArgs(typeArgs: TypeResult[], diagSink: TextRangeDiagnosticSink) {
-        // Make sure there are no redundant type args.
-        // TODO - need to implement
-
-        // Make sure type args are reachable according to scoping rules.
-        // TODO - need to implement
-    }
-
     private static _getTypeFromIndexExpression(node: IndexExpressionNode,
             currentScope: Scope, diagSink: TextRangeDiagnosticSink): TypeResult {
 
@@ -556,12 +549,14 @@ export class TypeAnnotation {
 
                 switch (className) {
                     case 'Callable': {
-                        type = this._createCallableType(typeArgs, diagSink);
+                        type = this._createCallableType(baseTypeResult.type,
+                            typeArgs, diagSink);
                         break;
                     }
 
                     case 'Optional': {
-                        type = this._createOptional(node.baseExpression, typeArgs, diagSink);
+                        type = this._createOptional(node.baseExpression,
+                            typeArgs, diagSink);
                         break;
                     }
 
@@ -573,27 +568,26 @@ export class TypeAnnotation {
 
                     case 'ClassVar':
                     case 'Deque':
-                    case 'Generic':
                     case 'List':
                     case 'FrozenSet':
                     case 'Set': {
-                        type = this._createSpecialType(className, typeArgs,
-                            currentScope, diagSink, 1);
+                        type = this._createSpecialType(baseTypeResult.type, typeArgs,
+                            diagSink, 1);
                         break;
                     }
 
                     case 'ChainMap':
                     case 'Dict':
                     case 'DefaultDict': {
-                        type = this._createSpecialType(className, typeArgs,
-                            currentScope, diagSink, 2);
+                        type = this._createSpecialType(baseTypeResult.type, typeArgs,
+                            diagSink, 2);
                         break;
                     }
 
                     case 'Protocol':
                     case 'Tuple': {
-                        type = this._createSpecialType(className, typeArgs,
-                            currentScope, diagSink);
+                        type = this._createSpecialType(baseTypeResult.type, typeArgs,
+                            diagSink);
                         break;
                     }
 
@@ -601,6 +595,11 @@ export class TypeAnnotation {
                         type = this._createUnionType(typeArgs);
                         break;
                     }
+
+                    case 'Generic':
+                        type = this._createGenericType(node.baseExpression,
+                            baseTypeResult.type, typeArgs, diagSink);
+                        break;
                 }
             }
 
@@ -618,6 +617,14 @@ export class TypeAnnotation {
         }
 
         return { type, isClassType, node };
+    }
+
+    private static _validateTypeArgs(typeArgs: TypeResult[], diagSink: TextRangeDiagnosticSink) {
+        // Make sure there are no redundant type args.
+        // TODO - need to implement
+
+        // Make sure type args are reachable according to scoping rules.
+        // TODO - need to implement
     }
 
     private static _getTypeArgs(node: ExpressionNode, currentScope: Scope,
@@ -745,16 +752,35 @@ export class TypeAnnotation {
         return TypeUtils.combineTypesArray(types);
     }
 
+    private static _createGenericType(errorNode: ExpressionNode, classType: ClassType,
+            typeArgs: TypeResult[], diagSink: TextRangeDiagnosticSink): Type {
+
+        // Make sure there's at least one type arg.
+        if (typeArgs.length === 0) {
+            diagSink.addErrorWithTextRange(
+                `'Generic' requires at least one type argument`, errorNode);
+        }
+
+        // Make sure that all of the type args are typeVars.
+        typeArgs.forEach(typeArg => {
+            if (!(typeArg.type instanceof TypeVarType)) {
+                diagSink.addErrorWithTextRange(
+                    `Type argument for 'Generic' must be a type variable`, typeArg.node);
+            }
+        });
+
+        return this._createSpecialType(classType, typeArgs, diagSink);
+    }
+
     // Converts the type parameters for a Callable type. It should
     // have zero to two parameters. The first parameter, if present, should be
     // either an ellipsis or a list of parameter types. The second parameter, if
     // present, should specify the return type.
-    private static _createCallableType(typeArgs: TypeResult[],
-            diagSink: TextRangeDiagnosticSink): FunctionType {
+    private static _createCallableType(classType: Type,
+            typeArgs: TypeResult[], diagSink: TextRangeDiagnosticSink): FunctionType {
 
         let functionType = new FunctionType(FunctionTypeFlags.None);
         functionType.setDeclaredReturnType(AnyType.create());
-        let paramList: Type[] | undefined;
 
         if (typeArgs.length > 0) {
             if (typeArgs[0].typeList) {
@@ -785,14 +811,23 @@ export class TypeAnnotation {
         return functionType;
     }
 
-    private static _createSpecialType(className: string, typeArgs: TypeResult[],
-            currentScope: Scope, diagSink: TextRangeDiagnosticSink,
-            paramLimit?: number): Type {
+    private static _createSpecialType(classType: ClassType, typeArgs: TypeResult[],
+            diagSink: TextRangeDiagnosticSink, paramLimit?: number): Type {
 
-        // let typeParam = this.getType(indexExpression, currentScope, diagSink, false);
-        // TODO - need to implement
+        let typeArgCount = typeArgs.length;
+        // Make sure the parameter list count is correct.
+        if (paramLimit !== undefined && typeArgCount > paramLimit) {
+            diagSink.addErrorWithTextRange(
+                `Expected at most ${ paramLimit } type arguments`, typeArgs[paramLimit].node);
+            typeArgCount = paramLimit;
+        }
 
-        return this.getBuiltInType(currentScope, className.toLowerCase());
+        let specializedType = classType.cloneForSpecialization();
+        for (let i = 0; i < typeArgCount; i++) {
+            specializedType.addTypeArgument(typeArgs[i].type);
+        }
+
+        return specializedType;
     }
 
     private static _getBooleanValue(node: ExpressionNode, diagSink: TextRangeDiagnosticSink): boolean {

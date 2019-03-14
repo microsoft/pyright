@@ -196,8 +196,9 @@ export interface BaseClass {
 }
 
 interface ClassDetails {
-    classFlags: ClassTypeFlags;
-    className: string;
+    name: string;
+    flags: ClassTypeFlags;
+    typeSourceId: TypeSourceId;
     baseClasses: BaseClass[];
     classFields: SymbolTable;
     instanceFields: SymbolTable;
@@ -213,14 +214,15 @@ export class ClassType extends Type {
     // specialized will have type arguments that correspond to
     // some or all of the type parameters. Unspecified type
     // parameters are undefined.
-    private _typeArguments?: (Type | undefined)[];
+    private _typeArguments?: (Type | Type[])[];
 
-    constructor(name: string, flags: ClassTypeFlags) {
+    constructor(name: string, flags: ClassTypeFlags, typeSourceId: TypeSourceId) {
         super();
 
         this._classDetails = {
-            className: name,
-            classFlags: flags,
+            name,
+            flags,
+            typeSourceId,
             baseClasses: [],
             classFields: new SymbolTable(),
             instanceFields: new SymbolTable(),
@@ -228,12 +230,19 @@ export class ClassType extends Type {
         };
     }
 
+    cloneForSpecialization(): ClassType {
+        let newClassType = new ClassType(this._classDetails.name,
+            this._classDetails.flags, this._classDetails.typeSourceId);
+        newClassType._classDetails = this._classDetails;
+        return newClassType;
+    }
+
     isSpecialBuiltIn() {
-        return !!(this._classDetails.classFlags & ClassTypeFlags.SpecialBuiltIn);
+        return !!(this._classDetails.flags & ClassTypeFlags.SpecialBuiltIn);
     }
 
     isBuiltIn() {
-        return !!(this._classDetails.classFlags & ClassTypeFlags.BuiltInClass);
+        return !!(this._classDetails.flags & ClassTypeFlags.BuiltInClass);
     }
 
     isProtocol() {
@@ -249,11 +258,11 @@ export class ClassType extends Type {
     }
 
     getClassName() {
-        return this._classDetails.className;
+        return this._classDetails.name;
     }
 
     hasDecorators() {
-        return !!(this._classDetails.classFlags & ClassTypeFlags.HasDecorators);
+        return !!(this._classDetails.flags & ClassTypeFlags.HasDecorators);
     }
 
     getBaseClasses(): BaseClass[] {
@@ -287,12 +296,47 @@ export class ClassType extends Type {
     }
 
     isSame(type2: Type): boolean {
-        return super.isSame(type2) &&
-            this._classDetails.className === (type2 as ClassType)._classDetails.className;
+        if (!super.isSame(type2)) {
+            return false;
+        }
+
+        let classType2 = type2 as ClassType;
+
+        // If the class details are common, it's the same class.
+        if (this._classDetails === classType2._classDetails) {
+            return true;
+        }
+
+        // In a few cases (e.g. with NamedTuple classes) we allocate a
+        // new class type for every type analysis pass. To detect this
+        // case, we will use the typeSourceId field.
+        if (this._classDetails.typeSourceId === classType2._classDetails.typeSourceId) {
+            return true;
+        }
+
+        return false;
+    }
+
+    getObjectName(recursionCount = AsStringMaxRecursionCount): string {
+        let objName = this._classDetails.name;
+
+        if (this._typeArguments) {
+            objName += '[' + this._typeArguments.map(typeArg => {
+                if (typeArg instanceof Type) {
+                    return typeArg.asStringInternal(recursionCount);
+                } else {
+                    return '[' + typeArg.map(type => {
+                        return type.asStringInternal(recursionCount);
+                    }).join(', ') + ']';
+                }
+            }).join(', ') + ']';
+        }
+
+        return objName;
     }
 
     asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
-        return 'class ' + this._classDetails.className;
+        return 'Type[' + this.getObjectName(recursionCount) + ']';
     }
 
     // Determines whether this is a subclass (derived class)
@@ -305,7 +349,7 @@ export class ClassType extends Type {
         // Handle built-in types like 'dict' and 'list', which are all
         // subclasses of object even though they are not explicitly declared
         // that way.
-        if (this.isBuiltIn() && type2._classDetails.className === 'object' && type2.isBuiltIn()) {
+        if (this.isBuiltIn() && type2._classDetails.name === 'object' && type2.isBuiltIn()) {
             return true;
         }
 
@@ -320,6 +364,17 @@ export class ClassType extends Type {
         }
 
         return false;
+    }
+
+    addTypeArgument(typeArg: Type | Type[]) {
+        if (!this._typeArguments) {
+            this._typeArguments = [];
+        }
+        this._typeArguments.push(typeArg);
+    }
+
+    getTypeArguments() {
+        return this._typeArguments;
     }
 }
 
@@ -345,7 +400,7 @@ export class ObjectType extends Type {
     }
 
     asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
-        return this._classType.getClassName();
+        return this._classType.getObjectName();
     }
 }
 

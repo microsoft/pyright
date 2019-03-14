@@ -129,7 +129,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             classFlags |= ClassTypeFlags.HasDecorators;
         }
 
-        let classType = new ClassType(node.name.nameToken.value, classFlags);
+        let classType = new ClassType(node.name.nameToken.value, classFlags,
+            AnalyzerNodeInfo.getTypeSourceId(node));
 
         // Don't walk the arguments for stub files because of forward
         // declarations.

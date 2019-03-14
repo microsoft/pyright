@@ -691,8 +691,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         'Set', 'FrozenSet', 'Deque', 'ChainMap'];
                     if (specialTypes.find(t => t === assignedName)) {
                         // Synthesize a class.
-                        specialType = new ClassType(assignedName,
-                            ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
+                        let specialClassType = new ClassType(assignedName,
+                            ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
+                            DefaultTypeSourceId);
+
+                        let baseClass = TypeAnnotation.getBuiltInType(this._currentScope,
+                            assignedName.toLowerCase());
+                        if (baseClass instanceof ClassType) {
+                            specialClassType.addBaseClass(baseClass, false);
+                        }
+
+                        specialType = specialClassType;
                     }
                 }
 
@@ -936,8 +945,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     'Final', 'Literal'];
                 if (specialTypes.find(t => t === assignedName)) {
                     // Synthesize a class.
-                    specialType = new ClassType(assignedName,
-                        ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
+                    let specialClassType = new ClassType(assignedName,
+                        ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
+                        AnalyzerNodeInfo.getTypeSourceId(node));
+
+                    let baseClass = TypeAnnotation.getBuiltInType(this._currentScope,
+                        assignedName.toLowerCase());
+                    if (baseClass instanceof ClassType) {
+                        specialClassType.addBaseClass(baseClass, false);
+                    }
+
+                    specialType = specialClassType;
                 }
 
                 if (specialType) {
