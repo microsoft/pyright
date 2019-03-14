@@ -1943,9 +1943,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _validateConstructorArguments(node: CallExpressionNode, type: ClassType) {
         let validatedTypes = false;
         const initMethodMember = TypeUtils.lookUpClassMember(type, '__init__', false);
-        if (initMethodMember && initMethodMember.symbol) {
-            const initMethodType = TypeUtils.getEffectiveTypeOfMember(initMethodMember);
-            this._validateCallArguments(node, initMethodType, true);
+        if (initMethodMember) {
+            if (initMethodMember.symbol) {
+                const initMethodType = TypeUtils.getEffectiveTypeOfMember(initMethodMember);
+                this._validateCallArguments(node, initMethodType, true);
+            } else {
+                // If we received a defined result with no symbol, that
+                // means one of the base classes was an "any" type, so
+                // we don't know if it has a valid intializer.
+            }
+
             validatedTypes = true;
         }
 
@@ -1961,7 +1968,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (!validatedTypes && node.arguments.length > 0) {
             this._addError(
-                `Expected 0 arguments to '${ type.getClassName() }' constructor`, node);
+                `Expected no arguments to '${ type.getClassName() }' constructor`, node);
         }
     }
 

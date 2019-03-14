@@ -816,7 +816,7 @@ export class TypeAnnotation {
         let typeParameters = classType.getTypeParameters();
         if (typeArgCount > typeParameters.length) {
             if (typeParameters.length === 0) {
-                diagSink.addErrorWithTextRange(`No type arguments were expected`,
+                diagSink.addErrorWithTextRange(`Expected no type arguments`,
                     typeArgs[typeParameters.length].node);
             } else {
                 diagSink.addErrorWithTextRange(
