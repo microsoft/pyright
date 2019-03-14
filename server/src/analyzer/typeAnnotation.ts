@@ -26,94 +26,26 @@ import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
 import { TypeUtils } from './typeUtils';
 
 interface TypeResult {
-    type: Type | undefined;
-    isClassType: boolean;
+    type: Type;
+    typeList?: TypeResult[];
+    isClassType?: boolean;
+    typeVarsRecursive?: TypeVarType[];
+    node: ExpressionNode;
 }
 
 export class TypeAnnotation {
     static getType(node: ExpressionNode, currentScope: Scope, diagSink: TextRangeDiagnosticSink,
             classNamesImplyObjects = true, transformBuiltInTypes = true): Type {
-        let type: Type | undefined;
 
-        if (node instanceof NameNode) {
-            type = this._getTypeFromName(node, currentScope, diagSink, transformBuiltInTypes);
-        } else if (node instanceof EllipsisNode) {
-            type = AnyType.create();
-        } else if (node instanceof ConstantNode) {
-            if (node.token.type === TokenType.Keyword) {
-                if (node.token.keywordType === KeywordType.None) {
-                    type = NoneType.create();
-                } else if (node.token.keywordType === KeywordType.True ||
-                        node.token.keywordType === KeywordType.False ||
-                        node.token.keywordType === KeywordType.Debug) {
-                    type = this.getBuiltInType(currentScope, 'bool');
-                }
-            }
-        } else if (node instanceof MemberAccessExpressionNode) {
-            type = this._getTypeFromMemberAccessExpression(node, currentScope, diagSink);
-        } else if (node instanceof IndexExpressionNode) {
-            let typeResult = this._getTypeFromIndexExpression(node, currentScope, diagSink);
-            type = typeResult.type;
-            if (typeResult.isClassType) {
-                classNamesImplyObjects = false;
-            }
-        } else if (node instanceof TupleExpressionNode) {
-            let tupleType = new TupleType(this.getBuiltInType(currentScope, 'tuple') as ClassType);
-            node.expressions.forEach(expr => {
-                tupleType.addEntryType(TypeAnnotation.getType(expr,
-                    currentScope, diagSink, classNamesImplyObjects));
-            });
-            type = tupleType;
-        } else if (node instanceof StringNode) {
-            if (node.tokens[0].quoteTypeFlags & QuoteTypeFlags.Byte) {
-                type = this.getBuiltInType(currentScope, 'byte');
-            } else {
-                type = this.getBuiltInType(currentScope, 'str');
-            }
-        } else if (node instanceof NumberNode) {
-            if (node.token.isInteger) {
-                type = this.getBuiltInType(currentScope, 'int');
-            } else {
-                type = this.getBuiltInType(currentScope, 'float');
-            }
-        } else if (node instanceof CallExpressionNode) {
-            let typeResult = this._getCallExpression(node, currentScope, diagSink);
-            type = typeResult.type;
-            if (typeResult.isClassType) {
-                classNamesImplyObjects = false;
-            }
-        } else if (node instanceof ListNode) {
-            // TODO - need to implement
-            type = UnknownType.create();
-            // diagSink.addErrorWithTextRange(
-            //     `'Unsupported type expression: list`, node);
-        } else if (node instanceof DictionaryNode) {
-            // TODO - need to implement
-            type = UnknownType.create();
-            diagSink.addErrorWithTextRange(
-                `'Unsupported type expression: dictionary`, node);
-        } else if (node instanceof SetNode) {
-            // TODO - need to implement
-            type = UnknownType.create();
-            diagSink.addErrorWithTextRange(
-                `'Unsupported type expression: set`, node);
-        }
+        let typeResult = this._getType(node, currentScope, diagSink,
+            classNamesImplyObjects, transformBuiltInTypes);
 
-        if (classNamesImplyObjects) {
-            type = this._convertClassToObject(type);
-        }
-
-        if (type) {
-            return type;
-        }
-
-        diagSink.addErrorWithTextRange(
-            `Unknown type '${ ParseTreeUtils.printExpression(node) }'`, node);
-        return UnknownType.create();
+        return typeResult.type;
     }
 
     static getTypeVarType(node: CallExpressionNode, currentScope: Scope,
-            diagSink: TextRangeDiagnosticSink): TypeVarType | undefined {
+            diagSink: TextRangeDiagnosticSink): Type | undefined {
+
         let typeVarName = '';
         if (node.arguments.length === 0) {
             diagSink.addErrorWithTextRange('Expected name of type var', node);
@@ -232,7 +164,8 @@ export class TypeAnnotation {
             const entriesArg = node.arguments[1];
             if (entriesArg.argumentCategory !== ArgumentCategory.Simple ||
                     !(entriesArg.valueExpression instanceof ListNode)) {
-                diagSink.addErrorWithTextRange('Expected named tuple entry list as second parameter',
+                diagSink.addErrorWithTextRange(
+                    'Expected named tuple entry list as second parameter',
                     entriesArg.valueExpression);
             } else {
                 const entryList = entriesArg.valueExpression;
@@ -342,7 +275,8 @@ export class TypeAnnotation {
     }
 
     // Determines if the function node is a property accessor (getter, setter, deleter).
-    static getPropertyType(node: FunctionNode, type: FunctionType, currentScope: Scope): PropertyType | undefined {
+    static getPropertyType(node: FunctionNode, type: FunctionType,
+            currentScope: Scope): PropertyType | undefined {
         if (ParseTreeUtils.functionHasDecorator(node, 'property')) {
             return new PropertyType(type);
         }
@@ -401,16 +335,97 @@ export class TypeAnnotation {
         return [decoratedType, warnIfDuplicate];
     }
 
-    private static _convertClassToObject(type: Type | undefined): Type | undefined {
-        if (type && type instanceof ClassType) {
-            type = new ObjectType(type);
+    private static _getType(node: ExpressionNode, currentScope: Scope, diagSink: TextRangeDiagnosticSink,
+            classNamesImplyObjects = true, transformBuiltInTypes = true): TypeResult {
+        let typeResult: TypeResult | undefined;
+
+        if (node instanceof NameNode) {
+            typeResult = this._getTypeFromName(node, currentScope, diagSink,
+                transformBuiltInTypes);
+        } else if (node instanceof EllipsisNode) {
+            typeResult = {
+                type: AnyType.create(),
+                node
+            };
+        } else if (node instanceof MemberAccessExpressionNode) {
+            typeResult = this._getTypeFromMemberAccessExpression(node, currentScope, diagSink);
+        } else if (node instanceof IndexExpressionNode) {
+            typeResult = this._getTypeFromIndexExpression(node, currentScope, diagSink);
+            if (typeResult.isClassType) {
+                classNamesImplyObjects = false;
+            }
+        } else if (node instanceof TupleExpressionNode) {
+            let tupleType = new TupleType(this.getBuiltInType(currentScope, 'tuple') as ClassType);
+            node.expressions.forEach(expr => {
+                let entryTypeResult = this._getType(expr,
+                    currentScope, diagSink, classNamesImplyObjects);
+                tupleType.addEntryType(entryTypeResult.type || UnknownType.create());
+            });
+            typeResult = {
+                type: tupleType,
+                node
+            };
+        } else if (node instanceof ConstantNode) {
+            if (node.token.type === TokenType.Keyword) {
+                if (node.token.keywordType === KeywordType.None) {
+                    typeResult = { type: NoneType.create(), node };
+                } else if (node.token.keywordType === KeywordType.True ||
+                        node.token.keywordType === KeywordType.False ||
+                        node.token.keywordType === KeywordType.Debug) {
+                    typeResult = { type: this.getBuiltInType(currentScope, 'bool'), node };
+                }
+            }
+        } else if (node instanceof StringNode) {
+            if (node.tokens[0].quoteTypeFlags & QuoteTypeFlags.Byte) {
+                typeResult = { type: this.getBuiltInType(currentScope, 'byte'), node };
+            } else {
+                typeResult = { type: this.getBuiltInType(currentScope, 'str'), node };
+            }
+        } else if (node instanceof NumberNode) {
+            if (node.token.isInteger) {
+                typeResult = { type: this.getBuiltInType(currentScope, 'int'), node };
+            } else {
+                typeResult = { type: this.getBuiltInType(currentScope, 'float'), node };
+            }
+        } else if (node instanceof CallExpressionNode) {
+            typeResult = this._getCallExpression(node, currentScope, diagSink);
+            if (typeResult.isClassType) {
+                classNamesImplyObjects = false;
+            }
+        } else if (node instanceof ListNode) {
+            // TODO - need to implement
+            typeResult = { type: UnknownType.create(), node };
+            // diagSink.addErrorWithTextRange(
+            //     `'Unsupported type expression: list`, node);
+        } else if (node instanceof DictionaryNode) {
+            // TODO - need to implement
+            typeResult = { type: UnknownType.create(), node };
+            diagSink.addErrorWithTextRange(
+                `'Unsupported type expression: dictionary`, node);
+        } else if (node instanceof SetNode) {
+            // TODO - need to implement
+            typeResult = { type: UnknownType.create(), node };
+            diagSink.addErrorWithTextRange(
+                `'Unsupported type expression: set`, node);
         }
 
-        return type;
+        if (typeResult && classNamesImplyObjects) {
+            typeResult.type = this._convertClassToObject(typeResult.type);
+        }
+
+        if (typeResult) {
+            return typeResult;
+        }
+
+        diagSink.addErrorWithTextRange(
+            `Unknown type '${ ParseTreeUtils.printExpression(node) }'`, node);
+        return { type: UnknownType.create(), node };
     }
 
-    private static _getTypeFromName(node: NameNode, currentScope: Scope, diagSink: TextRangeDiagnosticSink,
-            transformBuiltInTypes = true): Type | undefined {
+    private static _getTypeFromName(node: NameNode, currentScope: Scope,
+            diagSink: TextRangeDiagnosticSink, transformBuiltInTypes = true):
+            TypeResult | undefined {
+
         let symbolInScope = currentScope.lookUpSymbolRecursive(node.nameToken.value);
         if (!symbolInScope) {
             return undefined;
@@ -422,7 +437,7 @@ export class TypeAnnotation {
             switch (className) {
                 case 'Callable': {
                     // A 'Callable' with no parameters is a generic function.
-                    type = this._getCallableType(undefined, currentScope, diagSink);
+                    type = this._createCallableType([], diagSink);
                     break;
                 }
 
@@ -435,7 +450,7 @@ export class TypeAnnotation {
                 case 'Set':
                 case 'Tuple':
                 case 'Type': {
-                    type = this.getBuiltInType(currentScope, className.toLowerCase());
+                    type = this._createSpecialType(className, [], currentScope, diagSink);
                     break;
                 }
 
@@ -458,20 +473,25 @@ export class TypeAnnotation {
             }
         }
 
-        return type;
+        if (type) {
+            return { type, node };
+        }
+
+        return undefined;
     }
 
     private static _getTypeFromMemberAccessExpression(node: MemberAccessExpressionNode,
-            currentScope: Scope, diagSink: TextRangeDiagnosticSink): Type | undefined {
-        let baseType = TypeAnnotation.getType(node.leftExpression, currentScope,
+            currentScope: Scope, diagSink: TextRangeDiagnosticSink): TypeResult | undefined {
+
+        let baseTypeResult = this._getType(node.leftExpression, currentScope,
             diagSink, true, false);
         let memberName = node.memberName.nameToken.value;
         let type: Type | undefined;
 
-        if (baseType.isAny()) {
-            type = baseType;
-        } else if (baseType instanceof ModuleType) {
-            let fieldInfo = baseType.getFields().get(memberName);
+        if (baseTypeResult.type.isAny()) {
+            type = baseTypeResult.type;
+        } else if (baseTypeResult.type instanceof ModuleType) {
+            let fieldInfo = baseTypeResult.type.getFields().get(memberName);
             if (fieldInfo) {
                 type = fieldInfo.currentType;
             } else {
@@ -479,81 +499,74 @@ export class TypeAnnotation {
                     `'${ memberName }' is not a known member of module`, node.memberName);
                 type = UnknownType.create();
             }
-        } else if (baseType instanceof ClassType) {
-            let fieldInfo = TypeUtils.lookUpClassMember(baseType, memberName);
+        } else if (baseTypeResult.type instanceof ClassType) {
+            let fieldInfo = TypeUtils.lookUpClassMember(baseTypeResult.type, memberName);
             if (fieldInfo) {
                 type = TypeUtils.getEffectiveTypeOfMember(fieldInfo);
             } else {
                 diagSink.addErrorWithTextRange(
-                    `'${ memberName }' is not a known member of '${ baseType.asString() }'`,
+                    `'${ memberName }' is not a known member of '${ baseTypeResult.type.asString() }'`,
                     node.memberName);
                 type = UnknownType.create();
             }
-        } else if (baseType instanceof ObjectType) {
-            let fieldInfo = TypeUtils.lookUpClassMember(baseType.getClassType(), memberName);
+        } else if (baseTypeResult.type instanceof ObjectType) {
+            let fieldInfo = TypeUtils.lookUpClassMember(baseTypeResult.type.getClassType(), memberName);
             if (fieldInfo) {
                 type = TypeUtils.getEffectiveTypeOfMember(fieldInfo);
             } else {
                 diagSink.addErrorWithTextRange(
-                    `'${ memberName }' is not a known member of '${ baseType.asString() }'`,
+                    `'${ memberName }' is not a known member of '${ baseTypeResult.type.asString() }'`,
                     node.memberName);
                 type = UnknownType.create();
             }
         }
 
-        return type;
-    }
-
-    // Unpacks the index expression for an Optional type annotation.
-    private static _getOptionalType(indexExpression: ExpressionNode, currentScope: Scope,
-            diagSink: TextRangeDiagnosticSink): Type {
-
-        let type = this.getType(indexExpression, currentScope, diagSink);
-        return TypeUtils.combineTypes(type, NoneType.create());
-    }
-
-    // Unpacks the index expression for a Type type annotation.
-    private static _getTypeType(indexExpression: ExpressionNode, currentScope: Scope,
-            diagSink: TextRangeDiagnosticSink): Type {
-
-        let type = this.getType(indexExpression, currentScope, diagSink);
-        if (type instanceof ObjectType) {
-            return type.getClassType();
-        } else if (type instanceof TypeVarType) {
-            // TODO - remove once we support type var processing
-        } else if (!type.isAny()) {
-            diagSink.addErrorWithTextRange('Expected type parameter after Type',
-                indexExpression);
+        if (type) {
+            return { type, node };
         }
 
-        return UnknownType.create();
+        return undefined;
+    }
+
+    private static _validateTypeArgs(typeArgs: TypeResult[], diagSink: TextRangeDiagnosticSink) {
+        // Make sure there are no redundant type args.
+        // TODO - need to implement
+
+        // Make sure type args are reachable according to scoping rules.
+        // TODO - need to implement
     }
 
     private static _getTypeFromIndexExpression(node: IndexExpressionNode,
             currentScope: Scope, diagSink: TextRangeDiagnosticSink): TypeResult {
+
         let isClassType = false;
         let type: Type | undefined;
-        let baseType = TypeAnnotation.getType(node.baseExpression, currentScope,
+        let baseTypeResult = this._getType(node.baseExpression, currentScope,
             diagSink, false, false);
 
-        if (baseType.isAny()) {
-            type = baseType;
-        } else if (baseType instanceof ClassType) {
-            if (baseType instanceof ClassType && baseType.isSpecialBuiltIn()) {
-                const className = baseType.getClassName();
+        let typeArgs = this._getTypeArgs(node.indexExpression, currentScope, diagSink);
+
+        this._validateTypeArgs(typeArgs, diagSink);
+
+        if (baseTypeResult.type instanceof ClassType) {
+            // Handle the special-case classes that are not defined
+            // in the type stubs.
+            if (baseTypeResult.type.isSpecialBuiltIn()) {
+                const className = baseTypeResult.type.getClassName();
+
                 switch (className) {
                     case 'Callable': {
-                        type = this._getCallableType(node.indexExpression, currentScope, diagSink);
+                        type = this._createCallableType(typeArgs, diagSink);
                         break;
                     }
 
                     case 'Optional': {
-                        type = this._getOptionalType(node.indexExpression, currentScope, diagSink);
+                        type = this._createOptional(node.baseExpression, typeArgs, diagSink);
                         break;
                     }
 
                     case 'Type': {
-                        type = this._getTypeType(node.indexExpression, currentScope, diagSink);
+                        type = this._createTypeType(node, typeArgs, diagSink);
                         isClassType = true;
                         break;
                     }
@@ -564,59 +577,83 @@ export class TypeAnnotation {
                     case 'List':
                     case 'FrozenSet':
                     case 'Set': {
-                        type = this._getOneParameterType(className, node.indexExpression,
-                            currentScope, diagSink);
+                        type = this._createSpecialType(className, typeArgs,
+                            currentScope, diagSink, 1);
                         break;
                     }
 
                     case 'ChainMap':
                     case 'Dict':
                     case 'DefaultDict': {
-                        type = this._getTwoParameterType(className, node.indexExpression,
-                            currentScope, diagSink);
+                        type = this._createSpecialType(className, typeArgs,
+                            currentScope, diagSink, 2);
                         break;
                     }
 
                     case 'Protocol':
                     case 'Tuple': {
-                        type = this._getArbitraryParameterType(className, node.indexExpression,
+                        type = this._createSpecialType(className, typeArgs,
                             currentScope, diagSink);
                         break;
                     }
 
                     case 'Union': {
-                        type = this._getUnionType(node.indexExpression, currentScope, diagSink);
-                        break;
-                    }
-
-                    default: {
-                        // TODO - need to handle more
-                        type = UnknownType.create();
-                        diagSink.addErrorWithTextRange(
-                            `'Unsupported type expression: indexed ${ baseType.asString() }`,
-                            node.baseExpression);
+                        type = this._createUnionType(typeArgs);
                         break;
                     }
                 }
             }
 
             if (!type) {
-                // TODO - need to implement
-                type = UnknownType.create();
-                // diagSink.addErrorWithTextRange(
-                //     `'Unsupported type expression: indexed ${ baseType.asString() }`,
-                //     node.baseExpression);
+                // TODO - need to implement generic support
             }
-        } else if (baseType instanceof FunctionType) {
-            // TODO - need to implement generic function support
-            type = this._getCallableType(undefined, currentScope, diagSink);
-        } else {
+        } else if (!baseTypeResult.type.isAny()) {
             diagSink.addErrorWithTextRange(
-                `'Unsupported type expression: indexed other (${ baseType.asString() })`,
+                `'Unsupported type expression: indexed other (${ baseTypeResult.type.asString() })`,
                 node.baseExpression);
         }
 
-        return { type, isClassType };
+        if (!type) {
+            type = UnknownType.create();
+        }
+
+        return { type, isClassType, node };
+    }
+
+    private static _getTypeArgs(node: ExpressionNode, currentScope: Scope,
+            diagSink: TextRangeDiagnosticSink): TypeResult[] {
+
+        let typeArgs: TypeResult[] = [];
+
+        if (node instanceof TupleExpressionNode) {
+            node.expressions.forEach(expr => {
+                typeArgs.push(this._getTypeArg(expr, currentScope, diagSink));
+            });
+        } else {
+            typeArgs.push(this._getTypeArg(node, currentScope, diagSink));
+        }
+
+        return typeArgs;
+    }
+
+    private static _getTypeArg(node: ExpressionNode, currentScope: Scope,
+            diagSink: TextRangeDiagnosticSink): TypeResult {
+
+        let typeResult: TypeResult;
+
+        if (node instanceof ListNode) {
+            typeResult = {
+                type: UnknownType.create(),
+                typeList: node.entries.map(entry => {
+                    return this._getType(entry, currentScope, diagSink);
+                }),
+                node
+            };
+        } else {
+            typeResult = this._getType(node, currentScope, diagSink);
+        }
+
+        return typeResult;
     }
 
     private static _getCallExpression(node: CallExpressionNode,
@@ -624,9 +661,9 @@ export class TypeAnnotation {
 
         let isClassType = false;
         let type: Type | undefined;
-        let baseType = TypeAnnotation.getType(node.leftExpression, currentScope, diagSink, false);
-        if (baseType instanceof ClassType && baseType.isBuiltIn()) {
-            const className = baseType.getClassName();
+        let baseTypeResult = this._getType(node.leftExpression, currentScope, diagSink, false);
+        if (baseTypeResult.type instanceof ClassType && baseTypeResult.type.isBuiltIn()) {
+            const className = baseTypeResult.type.getClassName();
 
             if (className === 'TypeVar') {
                 type = this.getTypeVarType(node, currentScope, diagSink);
@@ -637,150 +674,123 @@ export class TypeAnnotation {
                 type = UnknownType.create();
                 diagSink.addErrorWithTextRange(`'${ className }' is not callable`, node);
             }
-        } else if (baseType instanceof FunctionType) {
+        } else if (baseTypeResult.type instanceof FunctionType) {
             // The stdlib collections.pyi stub file defines namedtuple as a function
             // rather than a class, so we need to check for it here.
             if (node.leftExpression instanceof NameNode && node.leftExpression.nameToken.value === 'namedtuple') {
                 type = this.getNamedTupleType(node, false, currentScope, diagSink);
                 isClassType = true;
             } else {
-                type = baseType.getEffectiveReturnType();
+                type = baseTypeResult.type.getEffectiveReturnType();
             }
-        } else if (baseType.isAny()) {
+        } else if (baseTypeResult.type.isAny()) {
             type = UnknownType.create();
         }
 
         if (type === undefined) {
-            type = baseType;
+            type = baseTypeResult.type;
             diagSink.addErrorWithTextRange(
                 `'Unsupported type expression: call`, node);
         }
 
-        return { type, isClassType };
+        return { type, isClassType, node };
+    }
+
+    // Creates an Optional type annotation.
+    private static _createOptional(errorNode: ExpressionNode, typeArgs: TypeResult[],
+            diagSink: TextRangeDiagnosticSink): Type {
+
+        if (typeArgs.length !== 1) {
+            diagSink.addErrorWithTextRange(`Expected one type parameter after Optional`, errorNode);
+            return UnknownType.create();
+        }
+
+        return TypeUtils.combineTypes(typeArgs[0].type, NoneType.create());
+    }
+
+    // Creates a Type type annotation.
+    private static _createTypeType(errorNode: ExpressionNode, typeArgs: TypeResult[],
+            diagSink: TextRangeDiagnosticSink): Type {
+
+        if (typeArgs.length !== 1) {
+            diagSink.addErrorWithTextRange(
+                `Expected one type parameter after Type`, errorNode);
+            return UnknownType.create();
+        }
+
+        let type = typeArgs[0].type;
+        if (type instanceof ObjectType) {
+            return type.getClassType();
+        } else if (type instanceof TypeVarType) {
+            // TODO - need to find a way to encode "type of" typeVar
+            return type;
+        } else if (!type.isAny()) {
+            diagSink.addErrorWithTextRange(
+                'Expected type parameter after Type', errorNode);
+        }
+
+        return UnknownType.create();
     }
 
     // Unpacks the index expression for a Union type annotation.
-    private static _getUnionType(indexExpression: ExpressionNode, currentScope: Scope,
-            diagSink: TextRangeDiagnosticSink): UnionType {
-        let unionType = new UnionType();
+    private static _createUnionType(typeArgs: TypeResult[]): Type {
+        let types: Type[] = [];
 
-        if (indexExpression instanceof TupleExpressionNode) {
-            indexExpression.expressions.forEach(expr => {
-                let type = this.getType(expr, currentScope, diagSink);
-                if (type instanceof UnionType) {
-                    type.getTypes().forEach(t => {
-                        unionType.addType(t);
-                    });
-                } else {
-                    unionType.addType(type);
-                }
-            });
-        } else {
-            unionType.addType(this.getType(indexExpression, currentScope, diagSink));
+        for (let typeArg of typeArgs) {
+            if (typeArg.type) {
+                types.push(typeArg.type);
+            }
         }
 
-        return unionType;
+        return TypeUtils.combineTypesArray(types);
     }
 
-    // Unpacks the index expression for a Callable type annotation. It should
+    // Converts the type parameters for a Callable type. It should
     // have zero to two parameters. The first parameter, if present, should be
     // either an ellipsis or a list of parameter types. The second parameter, if
     // present, should specify the return type.
-    private static _getCallableType(node: ExpressionNode | undefined,
-            currentScope: Scope, diagSink: TextRangeDiagnosticSink): FunctionType {
+    private static _createCallableType(typeArgs: TypeResult[],
+            diagSink: TextRangeDiagnosticSink): FunctionType {
+
         let functionType = new FunctionType(FunctionTypeFlags.None);
         functionType.setDeclaredReturnType(AnyType.create());
         let paramList: Type[] | undefined;
 
-        if (node) {
-            if (node instanceof TupleExpressionNode) {
-                if (node.expressions.length === 0) {
-                    diagSink.addErrorWithTextRange(
-                        `Expected parameter type list or '...'`, node);
-                }
-
-                paramList = this._getCallableParameterTypeList(
-                    node.expressions[0], currentScope, diagSink);
-
-                if (node.expressions.length > 1) {
-                    functionType.setDeclaredReturnType(this.getType(
-                        node.expressions[1], currentScope, diagSink));
-                }
-
-                if (node.expressions.length > 2) {
-                    diagSink.addErrorWithTextRange(
-                        `Expected at most two parameters`, node.expressions[2]);
-                }
+        if (typeArgs.length > 0) {
+            if (typeArgs[0].typeList) {
+                typeArgs[0].typeList.forEach((entry, index) => {
+                    functionType.addParameter({
+                        category: ParameterCategory.Simple,
+                        name: `p${ index.toString() }`,
+                        type: entry.type
+                    });
+                });
+            } else if (typeArgs[0].type instanceof AnyType) {
+                TypeUtils.addDefaultFunctionParameters(functionType);
             } else {
-                paramList = this._getCallableParameterTypeList(
-                    node, currentScope, diagSink);
+                diagSink.addErrorWithTextRange(
+                    `Expected parameter type list or '...'`, typeArgs[0].node);
             }
         }
 
-        if (paramList !== undefined) {
-            paramList.forEach((paramType, index) => {
-                functionType.addParameter({
-                    category: ParameterCategory.Simple,
-                    name: `p${ index.toString() }`,
-                    type: paramType
-                });
-            });
-        } else {
-            TypeUtils.addDefaultFunctionParameters(functionType);
+        if (typeArgs.length > 1) {
+            functionType.setDeclaredReturnType(typeArgs[1].type);
+        }
+
+        if (typeArgs.length > 2) {
+            diagSink.addErrorWithTextRange(
+                `Expected only two type arguments to 'Callable'`, typeArgs[2].node);
         }
 
         return functionType;
     }
 
-    private static _getCallableParameterTypeList(node: ExpressionNode, currentScope: Scope,
-            diagSink: TextRangeDiagnosticSink): Type[] | undefined {
-        let typeList: Type[] = [];
+    private static _createSpecialType(className: string, typeArgs: TypeResult[],
+            currentScope: Scope, diagSink: TextRangeDiagnosticSink,
+            paramLimit?: number): Type {
 
-        if (node instanceof EllipsisNode) {
-            return undefined;
-        } else if (node instanceof ListNode) {
-            node.entries.forEach(entry => {
-                typeList.push(this.getType(entry, currentScope, diagSink));
-            });
-        } else {
-            diagSink.addErrorWithTextRange(
-                `Expected parameter type list or '...'`, node);
-        }
-
-        return typeList;
-    }
-
-    private static _getOneParameterType(className: string, indexExpression: ExpressionNode,
-            currentScope: Scope, diagSink: TextRangeDiagnosticSink): Type {
         // let typeParam = this.getType(indexExpression, currentScope, diagSink, false);
-
-        return this.getBuiltInType(currentScope, className.toLowerCase());
-    }
-
-    private static _getTwoParameterType(className: string, indexExpression: ExpressionNode,
-            currentScope: Scope, diagSink: TextRangeDiagnosticSink): Type {
-
-        if (indexExpression instanceof TupleExpressionNode && indexExpression.expressions.length === 2) {
-            // let keyType = this.getType(indexExpression.expressions[0], currentScope, diagSink, false);
-            // let valueType = this.getType(indexExpression.expressions[1], currentScope, diagSink, false);
-        } else {
-            diagSink.addErrorWithTextRange(`Expected two type parameters after ${ className }`,
-                indexExpression);
-        }
-
-        return this.getBuiltInType(currentScope, className.toLowerCase());
-    }
-
-    private static _getArbitraryParameterType(className: string, indexExpression: ExpressionNode,
-            currentScope: Scope, diagSink: TextRangeDiagnosticSink): Type {
-
-        if (indexExpression instanceof TupleExpressionNode) {
-            indexExpression.expressions.forEach(expr => {
-                // let typeParamType = this.getType(expr, currentScope, diagSink, false);
-            });
-        } else {
-            // let typeParamType = this.getType(indexExpression, currentScope, diagSink, false);
-        }
+        // TODO - need to implement
 
         return this.getBuiltInType(currentScope, className.toLowerCase());
     }
@@ -798,5 +808,13 @@ export class TypeAnnotation {
 
         diagSink.addErrorWithTextRange('Expected True or False', node);
         return false;
+    }
+
+    private static _convertClassToObject(type: Type): Type {
+        if (type instanceof ClassType) {
+            type = new ObjectType(type);
+        }
+
+        return type;
     }
 }

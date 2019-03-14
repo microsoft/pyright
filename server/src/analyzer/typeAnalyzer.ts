@@ -688,7 +688,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 } else {
                     const specialTypes = ['overload', 'TypeVar', '_promote', 'no_type_check',
                         'NoReturn', 'Union', 'Optional', 'List', 'Dict', 'DefaultDict',
-                        'Set', 'FrozenSet', 'Counter', 'Deque', 'ChainMap'];
+                        'Set', 'FrozenSet', 'Deque', 'ChainMap'];
                     if (specialTypes.find(t => t === assignedName)) {
                         // Synthesize a class.
                         specialType = new ClassType(assignedName,
@@ -1470,8 +1470,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 } else {
                     return symbol.currentType;
                 }
-
-                break;
             }
 
             if (scope.getType() !== ScopeType.Temporary) {
