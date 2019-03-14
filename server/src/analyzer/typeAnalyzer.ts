@@ -131,6 +131,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         });
 
+        // Update the type parameters for the class.
+        let typeParameters: TypeVarType[] = [];
+        classType.getBaseClasses().forEach(baseClass => {
+            TypeUtils.addTypeVarsToListIfUnique(typeParameters,
+                TypeUtils.getTypeVarArgumentsRecursive(baseClass.type));
+        });
+        if (classType.setTypeParameters(typeParameters)) {
+            this._setAnalysisChanged();
+        }
+
         this._enterScope(node, () => {
             this.walk(node.suite);
         });
@@ -1394,7 +1404,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
         } else {
             let skipFirstMethodParam = this._isCallOnObjectOrClass(node);
             if (callType instanceof FunctionType) {
-                exprType = callType.getEffectiveReturnType();
+                // The stdlib collections.pyi stub file defines namedtuple as a function
+                // rather than a class, so we need to check for it here.
+                if (node.leftExpression instanceof NameNode &&
+                        node.leftExpression.nameToken.value === 'namedtuple') {
+                    exprType = TypeAnnotation.getNamedTupleType(node, false,
+                        this._currentScope, this._fileInfo.diagnosticSink);
+                } else {
+                    exprType = callType.getEffectiveReturnType();
+                }
             } else if (callType instanceof OverloadedFunctionType) {
                 // Determine which of the overloads (if any) match.
                 let functionType = this._findOverloadedFunctionType(
@@ -1923,14 +1941,27 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
      // Tries to match the arguments of a call to the constructor for a class.
     private _validateConstructorArguments(node: CallExpressionNode, type: ClassType) {
-        const initMethodType = TypeUtils.lookUpClassMember(type, '__init__');
-        if (!initMethodType) {
-            if (node.arguments.length > 0) {
-                this._addError(
-                    `Expected 0 arguments to '${ type.getClassName() }' constructor`, node);
+        let validatedTypes = false;
+        const initMethodMember = TypeUtils.lookUpClassMember(type, '__init__', false);
+        if (initMethodMember && initMethodMember.symbol) {
+            const initMethodType = TypeUtils.getEffectiveTypeOfMember(initMethodMember);
+            this._validateCallArguments(node, initMethodType, true);
+            validatedTypes = true;
+        }
+
+        if (!validatedTypes) {
+            // If there's no init method, check for a constructor.
+            const constructorMember = TypeUtils.lookUpClassMember(type, '__new__', false);
+            if (constructorMember && constructorMember.symbol) {
+                const constructorMethodType = TypeUtils.getEffectiveTypeOfMember(constructorMember);
+                this._validateCallArguments(node, constructorMethodType, true);
+                validatedTypes = true;
             }
-        } else if (initMethodType instanceof FunctionType) {
-            this._validateFunctionArguments(node, initMethodType, true);
+        }
+
+        if (!validatedTypes && node.arguments.length > 0) {
+            this._addError(
+                `Expected 0 arguments to '${ type.getClassName() }' constructor`, node);
         }
     }
 
@@ -2120,8 +2151,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return type;
     }
 
-    private _enterTemporaryScope(callback: () => void, isConditional?: boolean,
-            isNotExecuted?: boolean) {
+    private _enterTemporaryScope(callback: () => void, isConditional ? : boolean,
+            isNotExecuted ? : boolean) {
         let prevScope = this._currentScope;
         let newScope = new Scope(ScopeType.Temporary, prevScope);
         if (isConditional) {

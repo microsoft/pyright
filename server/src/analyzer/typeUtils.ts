@@ -341,4 +341,46 @@ export class TypeUtils {
 
         return undefined;
     }
+
+    static addTypeVarToListIfUnique(list: TypeVarType[], type: TypeVarType) {
+        if (list.find(t => t === type) === undefined) {
+            list.push(type);
+        }
+    }
+
+    // Combines two lists of type var types, maintaining the combined order
+    // but removing any duplicates.
+    static addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[]) {
+        for (let t of list2) {
+            this.addTypeVarToListIfUnique(list1, t);
+        }
+    }
+
+    static getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
+        if (type instanceof TypeVarType) {
+            return [type];
+        } else if (type instanceof ClassType) {
+            let combinedList: TypeVarType[] = [];
+            let typeArgs = type.getTypeArguments();
+
+            if (typeArgs) {
+                typeArgs.forEach(typeArg => {
+                    if (typeArg instanceof Type) {
+                        this.addTypeVarsToListIfUnique(combinedList,
+                            this.getTypeVarArgumentsRecursive(typeArg));
+                    }
+                });
+            }
+
+            return combinedList;
+        } else if (type instanceof UnionType) {
+            let combinedList: TypeVarType[] = [];
+            for (let subtype of type.getTypes()) {
+                this.addTypeVarsToListIfUnique(combinedList,
+                    this.getTypeVarArgumentsRecursive(subtype));
+            }
+        }
+
+        return [];
+    }
 }

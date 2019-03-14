@@ -56,7 +56,7 @@ export enum TypeCategory {
     TypeVar
 }
 
-const AsStringMaxRecursionCount = 4;
+const AsStringMaxRecursionCount = 20;
 
 export abstract class Type {
     abstract category: TypeCategory;
@@ -81,7 +81,7 @@ export abstract class Type {
     }
 
     asString(): string {
-        return this.asStringInternal(AsStringMaxRecursionCount);
+        return this.asStringInternal(0);
     }
 
     abstract asStringInternal(recursionCount: number): string;
@@ -112,7 +112,7 @@ export class UnboundType extends Type {
         return true;
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
+    asStringInternal(recursionCount = 0): string {
         return 'Unbound';
     }
 }
@@ -130,7 +130,7 @@ export class UnknownType extends Type {
         return true;
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
+    asStringInternal(recursionCount = 0): string {
         return 'Unknown';
     }
 }
@@ -162,7 +162,7 @@ export class ModuleType extends Type {
         return this._isPartialModule;
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
+    asStringInternal(recursionCount = 0): string {
         return 'Module';
     }
 }
@@ -182,13 +182,6 @@ export enum ClassTypeFlags {
     // and 'Union'.
     SpecialBuiltIn = 0x04
 }
-
-// export class TypeReference extends Type {
-//     // A generic type instantiation will have one or more type
-//     // arguments and an associated target class type.
-//     private _typeArguments: Type[] = [];
-//     private _targetType?: ClassType;
-// }
 
 export interface BaseClass {
     isMetaclass: boolean;
@@ -295,6 +288,36 @@ export class ClassType extends Type {
         this._classDetails.instanceFields = nameMap;
     }
 
+    setTypeArguments(typeArgs: (Type | Type[])[]) {
+        this._typeArguments = typeArgs;
+    }
+
+    getTypeArguments() {
+        return this._typeArguments;
+    }
+
+    getTypeParameters() {
+        return this._classDetails.typeParameters;
+    }
+
+    setTypeParameters(params: TypeVarType[]): boolean {
+        let didParametersChange = false;
+
+        if (this._classDetails.typeParameters.length === params.length) {
+            for (let i = 0; i < params.length; i++) {
+                if (!params[i].isSame(this._classDetails.typeParameters[i])) {
+                    didParametersChange = true;
+                }
+            }
+        } else {
+            didParametersChange = true;
+        }
+
+        this._classDetails.typeParameters = params;
+
+        return didParametersChange;
+    }
+
     isSame(type2: Type): boolean {
         if (!super.isSame(type2)) {
             return false;
@@ -317,26 +340,35 @@ export class ClassType extends Type {
         return false;
     }
 
-    getObjectName(recursionCount = AsStringMaxRecursionCount): string {
+    getObjectName(recursionCount = 0): string {
         let objName = this._classDetails.name;
 
+        // If there is a type arguments array, it's a specialized class.
         if (this._typeArguments) {
-            objName += '[' + this._typeArguments.map(typeArg => {
-                if (typeArg instanceof Type) {
-                    return typeArg.asStringInternal(recursionCount);
-                } else {
-                    return '[' + typeArg.map(type => {
-                        return type.asStringInternal(recursionCount);
-                    }).join(', ') + ']';
-                }
+            if (this._typeArguments.length > 0) {
+                objName += '[' + this._typeArguments.map(typeArg => {
+                    if (typeArg instanceof Type) {
+                        return typeArg.asStringInternal(recursionCount + 1);
+                    } else {
+                        return '[' + typeArg.map(type => {
+                            return type.asStringInternal(recursionCount + 1);
+                        }).join(', ') + ']';
+                    }
+                }).join(', ') + ']';
+            }
+        } else if (this._classDetails.typeParameters.length > 0) {
+            objName += '[' + this._classDetails.typeParameters.map(typeArg => {
+                return typeArg.asStringInternal(recursionCount + 1);
             }).join(', ') + ']';
         }
 
         return objName;
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
-        return 'Type[' + this.getObjectName(recursionCount) + ']';
+    asStringInternal(recursionCount = 0): string {
+        // Return the same string that we'd use for an instance
+        // of the class.
+        return this.getObjectName(recursionCount + 1);
     }
 
     // Determines whether this is a subclass (derived class)
@@ -365,17 +397,6 @@ export class ClassType extends Type {
 
         return false;
     }
-
-    addTypeArgument(typeArg: Type | Type[]) {
-        if (!this._typeArguments) {
-            this._typeArguments = [];
-        }
-        this._typeArguments.push(typeArg);
-    }
-
-    getTypeArguments() {
-        return this._typeArguments;
-    }
 }
 
 export class ObjectType extends Type {
@@ -399,8 +420,8 @@ export class ObjectType extends Type {
             this._classType.isSame((type2 as ObjectType)._classType);
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
-        return this._classType.getObjectName();
+    asStringInternal(recursionCount = 0): string {
+        return this._classType.getObjectName(recursionCount + 1);
     }
 }
 
@@ -501,7 +522,7 @@ export class FunctionType extends Type {
         this._functionDetails.flags &= ~FunctionTypeFlags.HasCustomDecorators;
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
+    asStringInternal(recursionCount = 0): string {
         let paramTypeString = this._functionDetails.parameters.map(param => {
             let paramString = '';
             if (param.category === ParameterCategory.VarArgList) {
@@ -515,8 +536,8 @@ export class FunctionType extends Type {
             }
 
             if (param.category === ParameterCategory.Simple) {
-                const paramTypeString = recursionCount > 0 ?
-                    param.type.asStringInternal(recursionCount - 1) : '';
+                const paramTypeString = recursionCount < AsStringMaxRecursionCount ?
+                    param.type.asStringInternal(recursionCount + 1) : '';
                 paramString += ': ' + paramTypeString;
             }
             return paramString;
@@ -524,8 +545,8 @@ export class FunctionType extends Type {
 
         let returnTypeString = 'Any';
         const returnType = this.getEffectiveReturnType();
-        returnTypeString = recursionCount > 0 ?
-            returnType.asStringInternal(recursionCount - 1) : '';
+        returnTypeString = recursionCount < AsStringMaxRecursionCount ?
+            returnType.asStringInternal(recursionCount + 1) : '';
 
         return `(${ paramTypeString }) -> ${ returnTypeString }`;
     }
@@ -559,9 +580,9 @@ export class OverloadedFunctionType extends Type {
         }
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
+    asStringInternal(recursionCount = 0): string {
         const overloads = this._overloads.map(overload =>
-            overload.type.asStringInternal(recursionCount));
+            overload.type.asStringInternal(recursionCount + 1));
         return `Overload[${ overloads.join(', ') }]`;
     }
 }
@@ -598,10 +619,10 @@ export class PropertyType extends Type {
         return this._getter.getEffectiveReturnType();
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
+    asStringInternal(recursionCount = 0): string {
         const returnType = this._getter.getEffectiveReturnType();
-        let returnTypeString = recursionCount > 0 ?
-            returnType.asStringInternal(recursionCount - 1) : '';
+        let returnTypeString = recursionCount < AsStringMaxRecursionCount ?
+            returnType.asStringInternal(recursionCount + 1) : '';
         return returnTypeString;
     }
 }
@@ -615,7 +636,7 @@ export class NoneType extends Type {
         return this._instance;
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
+    asStringInternal(recursionCount = 0): string {
         return 'None';
     }
 }
@@ -715,15 +736,15 @@ export class UnionType extends Type {
         return this._types.find(t => t.isSame(type)) !== undefined;
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
+    asStringInternal(recursionCount = 0): string {
         if (this._types.find(t => t.category === TypeCategory.None) !== undefined) {
-            const optionalType = recursionCount > 0 ?
-                this.removeOptional().asStringInternal(recursionCount - 1) : '';
+            const optionalType = recursionCount < AsStringMaxRecursionCount ?
+                this.removeOptional().asStringInternal(recursionCount + 1) : '';
             return 'Optional[' + optionalType + ']';
         }
 
-        const unionTypeString = recursionCount > 0 ?
-            this._types.map(t => t.asStringInternal(recursionCount - 1)).join(', ') : '';
+        const unionTypeString = recursionCount < AsStringMaxRecursionCount ?
+            this._types.map(t => t.asStringInternal(recursionCount + 1)).join(', ') : '';
 
         return 'Union[' + unionTypeString + ']';
     }
@@ -766,9 +787,9 @@ export class TupleType extends Type {
             !type2Tuple._entryTypes[index].isSame(t)) === undefined;
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
-        let tupleTypeString = recursionCount > 0 ?
-            this._entryTypes.map(t => t.asStringInternal(recursionCount - 1)).join(', ') : '';
+    asStringInternal(recursionCount = 0): string {
+        let tupleTypeString = recursionCount < AsStringMaxRecursionCount ?
+            this._entryTypes.map(t => t.asStringInternal(recursionCount + 1)).join(', ') : '';
         return 'Tuple[' + tupleTypeString + ']';
     }
 }
@@ -785,6 +806,10 @@ export class TypeVarType extends Type {
     constructor(name: string) {
         super();
         this._name = name;
+    }
+
+    getName() {
+        return this._name;
     }
 
     getConstraints() {
@@ -833,13 +858,19 @@ export class TypeVarType extends Type {
         return true;
     }
 
-    asStringInternal(recursionCount = AsStringMaxRecursionCount): string {
-        let params: string[] = [this._name];
+    asStringInternal(recursionCount = 0): string {
+        // Print the name in a simplified form if it's embedded
+        // inside another type string.
         if (recursionCount > 0) {
-            for (let constraint of this._constraints) {
-                params.push(constraint.asStringInternal(recursionCount - 1));
+            return this._name;
+        } else {
+            let params: string[] = [this._name];
+            if (recursionCount < AsStringMaxRecursionCount) {
+                for (let constraint of this._constraints) {
+                    params.push(constraint.asStringInternal(recursionCount + 1));
+                }
             }
+            return 'TypeVar[' + params.join(', ') + ']';
         }
-        return 'TypeVar[' + params.join(', ') + ']';
     }
 }

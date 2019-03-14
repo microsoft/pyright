@@ -10,10 +10,10 @@
 
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import StringMap from '../common/stringMap';
-import { ArgumentCategory, CallExpressionNode, ConstantNode, DictionaryNode,
+import { ArgumentCategory, CallExpressionNode, ConstantNode,
     EllipsisNode, ExpressionNode, FunctionNode, IndexExpressionNode, ListNode,
     MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory,
-    SetNode, StringNode, TupleExpressionNode } from '../parser/parseNodes';
+    StringNode, TupleExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, QuoteTypeFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DefaultTypeSourceId } from './inferredType';
@@ -29,7 +29,6 @@ interface TypeResult {
     type: Type;
     typeList?: TypeResult[];
     isClassType?: boolean;
-    typeVarsRecursive?: TypeVarType[];
     node: ExpressionNode;
 }
 
@@ -336,6 +335,8 @@ export class TypeAnnotation {
         return [decoratedType, warnIfDuplicate];
     }
 
+    // Similar to the public getType method except that it returns a full
+    // TypeResult object with additional information.
     private static _getType(node: ExpressionNode, currentScope: Scope, diagSink: TextRangeDiagnosticSink,
             classNamesImplyObjects = true, transformBuiltInTypes = true): TypeResult {
         let typeResult: TypeResult | undefined;
@@ -393,21 +394,6 @@ export class TypeAnnotation {
             if (typeResult.isClassType) {
                 classNamesImplyObjects = false;
             }
-        } else if (node instanceof ListNode) {
-            // TODO - need to implement
-            typeResult = { type: UnknownType.create(), node };
-            // diagSink.addErrorWithTextRange(
-            //     `'Unsupported type expression: list`, node);
-        } else if (node instanceof DictionaryNode) {
-            // TODO - need to implement
-            typeResult = { type: UnknownType.create(), node };
-            diagSink.addErrorWithTextRange(
-                `'Unsupported type expression: dictionary`, node);
-        } else if (node instanceof SetNode) {
-            // TODO - need to implement
-            typeResult = { type: UnknownType.create(), node };
-            diagSink.addErrorWithTextRange(
-                `'Unsupported type expression: set`, node);
         }
 
         if (typeResult && classNamesImplyObjects) {
@@ -419,7 +405,7 @@ export class TypeAnnotation {
         }
 
         diagSink.addErrorWithTextRange(
-            `Unknown type '${ ParseTreeUtils.printExpression(node) }'`, node);
+            `Unknown type expression '${ ParseTreeUtils.printExpression(node) }'`, node);
         return { type: UnknownType.create(), node };
     }
 
@@ -604,7 +590,8 @@ export class TypeAnnotation {
             }
 
             if (!type) {
-                // TODO - need to implement generic support
+                type = this._createSpecializedClassType(baseTypeResult.type,
+                    typeArgs, diagSink);
             }
         } else if (!baseTypeResult.type.isAny()) {
             diagSink.addErrorWithTextRange(
@@ -620,9 +607,6 @@ export class TypeAnnotation {
     }
 
     private static _validateTypeArgs(typeArgs: TypeResult[], diagSink: TextRangeDiagnosticSink) {
-        // Make sure there are no redundant type args.
-        // TODO - need to implement
-
         // Make sure type args are reachable according to scoping rules.
         // TODO - need to implement
     }
@@ -684,7 +668,8 @@ export class TypeAnnotation {
         } else if (baseTypeResult.type instanceof FunctionType) {
             // The stdlib collections.pyi stub file defines namedtuple as a function
             // rather than a class, so we need to check for it here.
-            if (node.leftExpression instanceof NameNode && node.leftExpression.nameToken.value === 'namedtuple') {
+            if (node.leftExpression instanceof NameNode &&
+                    node.leftExpression.nameToken.value === 'namedtuple') {
                 type = this.getNamedTupleType(node, false, currentScope, diagSink);
                 isClassType = true;
             } else {
@@ -761,11 +746,22 @@ export class TypeAnnotation {
                 `'Generic' requires at least one type argument`, errorNode);
         }
 
-        // Make sure that all of the type args are typeVars.
+        // Make sure that all of the type args are typeVars and are unique.
+        let uniqueTypeVars: TypeVarType[] = [];
         typeArgs.forEach(typeArg => {
             if (!(typeArg.type instanceof TypeVarType)) {
                 diagSink.addErrorWithTextRange(
                     `Type argument for 'Generic' must be a type variable`, typeArg.node);
+            } else {
+                for (let typeVar of uniqueTypeVars) {
+                    if (typeVar === typeArg.type) {
+                        diagSink.addErrorWithTextRange(
+                            `Type argument for 'Generic' must be unique`, typeArg.node);
+                        break;
+                    }
+                }
+
+                uniqueTypeVars.push(typeArg.type);
             }
         });
 
@@ -811,11 +807,39 @@ export class TypeAnnotation {
         return functionType;
     }
 
+    private static _createSpecializedClassType(classType: ClassType,
+            typeArgs: TypeResult[], diagSink: TextRangeDiagnosticSink): Type {
+
+        let typeArgCount = typeArgs.length;
+
+        // Make sure the argument list count is correct.
+        let typeParameters = classType.getTypeParameters();
+        if (typeArgCount > typeParameters.length) {
+            if (typeParameters.length === 0) {
+                diagSink.addErrorWithTextRange(`No type arguments were expected`,
+                    typeArgs[typeParameters.length].node);
+            } else {
+                diagSink.addErrorWithTextRange(
+                    `Expected at most ${ typeParameters.length } type arguments`,
+                    typeArgs[typeParameters.length].node);
+            }
+            typeArgCount = typeParameters.length;
+        }
+
+        let specializedClass = classType.cloneForSpecialization();
+
+        // TODO - need to verify constraints of arguments
+        specializedClass.setTypeArguments(typeArgs.map(t => t.type));
+
+        return specializedClass;
+    }
+
     private static _createSpecialType(classType: ClassType, typeArgs: TypeResult[],
             diagSink: TextRangeDiagnosticSink, paramLimit?: number): Type {
 
         let typeArgCount = typeArgs.length;
-        // Make sure the parameter list count is correct.
+
+        // Make sure the argument list count is correct.
         if (paramLimit !== undefined && typeArgCount > paramLimit) {
             diagSink.addErrorWithTextRange(
                 `Expected at most ${ paramLimit } type arguments`, typeArgs[paramLimit].node);
@@ -823,9 +847,7 @@ export class TypeAnnotation {
         }
 
         let specializedType = classType.cloneForSpecialization();
-        for (let i = 0; i < typeArgCount; i++) {
-            specializedType.addTypeArgument(typeArgs[i].type);
-        }
+        specializedType.setTypeArguments(typeArgs.map(t => t.type));
 
         return specializedType;
     }
