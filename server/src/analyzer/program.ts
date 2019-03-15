@@ -292,10 +292,6 @@ export class Program {
                 while (true) {
                     fileToAnalyze.sourceFile.doTypeAnalysis(options, importMap);
 
-                    if (timeElapsedCallback()) {
-                        return true;
-                    }
-
                     if (!fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
                         break;
                     } else {
@@ -320,6 +316,10 @@ export class Program {
                             }
                         }
                     }
+                }
+
+                if (timeElapsedCallback()) {
+                    return true;
                 }
             }
         }
