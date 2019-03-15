@@ -1300,7 +1300,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             node.entries.forEach(expr => {
                 this._getTypeOfExpression(expr);
             });
-            exprType = TypeAnnotation.getBuiltInObject(this._currentScope, 'list');
+            // TODO - infer list type
+            exprType = TypeAnnotation.getBuiltInObject(
+                this._currentScope, 'list', []);
         } else if (node instanceof SliceExpressionNode) {
             // TODO - need to implement
             if (node.startValue) {
@@ -1312,7 +1314,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (node.stepValue) {
                 this._getTypeOfExpression(node.stepValue);
             }
-            exprType = TypeAnnotation.getBuiltInObject(this._currentScope, 'set');
+            // TODO - infer set type
+            exprType = TypeAnnotation.getBuiltInObject(
+                this._currentScope, 'set', []);
         } else if (node instanceof AwaitExpressionNode) {
             // TODO - need to implement
             exprType = this._getTypeOfExpression(node.expression);
@@ -1323,18 +1327,23 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let rightType = this._getTypeOfExpression(node.elseExpression);
             exprType = TypeUtils.combineTypes(leftType, rightType);
         } else if (node instanceof ListComprehensionNode) {
-            // TODO - need to implement
+            // TODO - infer list type
             this._getTypeOfExpression(node.baseExpression);
-            exprType = TypeAnnotation.getBuiltInObject(this._currentScope, 'list');
+            exprType = TypeAnnotation.getBuiltInObject(
+                this._currentScope, 'list', []);
         } else if (node instanceof DictionaryNode) {
-            exprType = TypeAnnotation.getBuiltInObject(this._currentScope, 'dict');
+            // TODO - infer dict type
+            exprType = TypeAnnotation.getBuiltInObject(
+                this._currentScope, 'dict', []);
         } else if (node instanceof LambdaNode) {
             exprType = AnalyzerNodeInfo.getExpressionType(node);
         } else if (node instanceof SetNode) {
             node.entries.forEach(expr => {
                 this._getTypeOfExpression(expr);
             });
-            exprType = TypeAnnotation.getBuiltInObject(this._currentScope, 'set');
+            // TODO - infer set type
+            exprType = TypeAnnotation.getBuiltInObject(
+                this._currentScope, 'set', []);
         } else if (node instanceof AssignmentNode) {
             this._getTypeOfExpression(node.rightExpression);
             exprType = this._getTypeOfExpression(node.leftExpression);

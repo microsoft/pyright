@@ -157,16 +157,19 @@ export class TypeAnnotation {
         initType.setDeclaredReturnType(NoneType.create());
         initType.addParameter(selfParameter);
 
+        let addGenericGetAttribute = false;
+
         if (node.arguments.length < 2) {
             diagSink.addErrorWithTextRange('Expected named tuple entry list as second parameter',
                 node.leftExpression);
+            addGenericGetAttribute = true;
         } else {
             const entriesArg = node.arguments[1];
             if (entriesArg.argumentCategory !== ArgumentCategory.Simple ||
                     !(entriesArg.valueExpression instanceof ListNode)) {
-                diagSink.addErrorWithTextRange(
-                    'Expected named tuple entry list as second parameter',
-                    entriesArg.valueExpression);
+                // A dynamic expression was used, so we can't evaluate
+                // the named tuple statically.
+                addGenericGetAttribute = true;
             } else {
                 const entryList = entriesArg.valueExpression;
                 let entryMap: { [name: string]: string } = {};
@@ -237,7 +240,8 @@ export class TypeAnnotation {
         classFields.set('__init__', new Symbol(initType, DefaultTypeSourceId));
 
         let keysItemType = new FunctionType(FunctionTypeFlags.None);
-        keysItemType.setDeclaredReturnType(this.getBuiltInObject(currentScope, 'list'));
+        keysItemType.setDeclaredReturnType(this.getBuiltInObject(currentScope, 'list',
+            [this.getBuiltInObject(currentScope, 'str')]));
         classFields.set('keys', new Symbol(keysItemType, DefaultTypeSourceId));
         classFields.set('items', new Symbol(keysItemType, DefaultTypeSourceId));
 
@@ -245,6 +249,18 @@ export class TypeAnnotation {
         lenType.setDeclaredReturnType(this.getBuiltInObject(currentScope, 'int'));
         lenType.addParameter(selfParameter);
         classFields.set('__len__', new Symbol(lenType, DefaultTypeSourceId));
+
+        if (addGenericGetAttribute) {
+            let getAttribType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+            getAttribType.setDeclaredReturnType(AnyType.create());
+            getAttribType.addParameter(selfParameter);
+            getAttribType.addParameter({
+                category: ParameterCategory.Simple,
+                name: 'name',
+                type: this.getBuiltInObject(currentScope, 'str')
+            });
+            classFields.set('__getattribute__', new Symbol(getAttribType, DefaultTypeSourceId));
+        }
 
         return classType;
     }
@@ -265,10 +281,17 @@ export class TypeAnnotation {
         return UnknownType.create();
     }
 
-    static getBuiltInObject(currentScope: Scope, className: string): Type {
+    static getBuiltInObject(currentScope: Scope, className: string,
+            typeArguments?: Type[]): Type {
+
         let nameType = this.getBuiltInType(currentScope, className);
         if (nameType instanceof ClassType) {
-            return new ObjectType(nameType);
+            let classType = nameType;
+            if (typeArguments) {
+                classType = classType.cloneForSpecialization();
+                classType.setTypeArguments(typeArguments);
+            }
+            return new ObjectType(classType);
         }
 
         return nameType;
@@ -590,8 +613,15 @@ export class TypeAnnotation {
             }
 
             if (!type) {
-                type = this._createSpecializedClassType(baseTypeResult.type,
-                    typeArgs, diagSink);
+                if (baseTypeResult.type === this.getBuiltInType(currentScope, 'type')) {
+                    // The built-in 'type' class isn't defined as a generic class. It needs
+                    // to be special-cased here.
+                    type = this._createTypeType(node, typeArgs, diagSink);
+                    isClassType = true;
+                } else {
+                    type = this._createSpecializedClassType(baseTypeResult.type,
+                        typeArgs, diagSink);
+                }
             }
         } else if (!baseTypeResult.type.isAny()) {
             diagSink.addErrorWithTextRange(
