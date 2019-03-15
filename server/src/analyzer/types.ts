@@ -230,6 +230,13 @@ export class ClassType extends Type {
         return newClassType;
     }
 
+    // Specifies whether the class type is generic (unspecialized)
+    // or specialized.
+    isGeneric() {
+        return this._classDetails.typeParameters.length > 0 &&
+            this._typeArguments === undefined;
+    }
+
     isSpecialBuiltIn() {
         return !!(this._classDetails.flags & ClassTypeFlags.SpecialBuiltIn);
     }
@@ -303,14 +310,14 @@ export class ClassType extends Type {
     setTypeParameters(params: TypeVarType[]): boolean {
         let didParametersChange = false;
 
-        if (this._classDetails.typeParameters.length === params.length) {
+        if (this._classDetails.typeParameters.length !== params.length) {
+            didParametersChange = true;
+        } else {
             for (let i = 0; i < params.length; i++) {
                 if (!params[i].isSame(this._classDetails.typeParameters[i])) {
                     didParametersChange = true;
                 }
             }
-        } else {
-            didParametersChange = true;
         }
 
         this._classDetails.typeParameters = params;
@@ -326,18 +333,58 @@ export class ClassType extends Type {
         let classType2 = type2 as ClassType;
 
         // If the class details are common, it's the same class.
-        if (this._classDetails === classType2._classDetails) {
-            return true;
-        }
-
         // In a few cases (e.g. with NamedTuple classes) we allocate a
         // new class type for every type analysis pass. To detect this
         // case, we will use the typeSourceId field.
-        if (this._classDetails.typeSourceId === classType2._classDetails.typeSourceId) {
+        if (this._classDetails.typeSourceId !== classType2._classDetails.typeSourceId) {
+            return false;
+        }
+
+        // If neither of the classes have type arguments, they're the same.
+        if (!this._typeArguments && !classType2._typeArguments) {
             return true;
         }
 
-        return false;
+        // If one of them is missing type arguments, they're not the same.
+        if (!this._typeArguments || !classType2._typeArguments) {
+            return false;
+        }
+
+        let typeArgCount = Math.max(this._typeArguments.length,
+            classType2._typeArguments.length);
+
+        // Make sure the type args match.
+        for (let i = 0; i < typeArgCount; i++) {
+            let typeArg1 = i < this._typeArguments.length ?
+                this._typeArguments[i] : AnyType.create();
+            let typeArg2 = i < classType2._typeArguments.length ?
+                classType2._typeArguments[i] : AnyType.create();
+
+            if ((typeArg1 instanceof Type) !== (typeArg2 instanceof Type)) {
+                return false;
+            }
+
+            if (typeArg1 instanceof Type) {
+                if (!typeArg1.isSame(typeArg2 as Type)) {
+                    return false;
+                }
+            } else {
+                let typeArgList1 = typeArg1;
+                let typeArgList2 = typeArg2 as Type[];
+
+                if (typeArgList1.length !== typeArgList2.length) {
+                    return false;
+                }
+
+                for (let j = 0; j < typeArgList1.length; j++) {
+                    if (!typeArgList1[j].isSame(typeArgList2[j])) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 
     getObjectName(recursionCount = 0): string {

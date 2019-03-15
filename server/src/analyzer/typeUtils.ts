@@ -357,11 +357,9 @@ export class TypeUtils {
     }
 
     static getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
-        if (type instanceof TypeVarType) {
-            return [type];
-        } else if (type instanceof ClassType) {
+        let getTypeVarsFromClass = (classType: ClassType) => {
             let combinedList: TypeVarType[] = [];
-            let typeArgs = type.getTypeArguments();
+            let typeArgs = classType.getTypeArguments();
 
             if (typeArgs) {
                 typeArgs.forEach(typeArg => {
@@ -373,6 +371,14 @@ export class TypeUtils {
             }
 
             return combinedList;
+        };
+
+        if (type instanceof TypeVarType) {
+            return [type];
+        } else if (type instanceof ClassType) {
+            return getTypeVarsFromClass(type);
+        } else if (type instanceof ObjectType) {
+            return getTypeVarsFromClass(type.getClassType());
         } else if (type instanceof UnionType) {
             let combinedList: TypeVarType[] = [];
             for (let subtype of type.getTypes()) {

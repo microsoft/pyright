@@ -358,6 +358,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitCall(node: CallExpressionNode): boolean {
         let callType = this._getTypeOfExpressionWithTypeConstraints(node.leftExpression);
 
+        if (callType instanceof ClassType && callType.isGeneric()) {
+            // TODO - need to infer types. For now, just assume "any" type.
+            let specializedType = callType.cloneForSpecialization();
+            specializedType.setTypeArguments([]);
+            callType = specializedType;
+        }
+
+        // TODO - need to handle union type
+
         if (!this._validateCallArguments(node, callType, this._isCallOnObjectOrClass(node))) {
             this._addError(
                 `'${ ParseTreeUtils.printExpression(node.leftExpression) }' has type ` +
@@ -1237,6 +1246,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return this._applyTypeConstraint(node, type);
     }
 
+    // Returns the type of the expression for the node and caches it
+    // for subsequent calls. Generic class and function types are not
+    // specialized unless explicit type arguments are provided. It
+    // is up to the caller to determine inferred type specializations.
     private _getTypeOfExpression(node: ExpressionNode): Type {
         // If there's an up-to-date cached version, return it.
         let cachedVersion = AnalyzerNodeInfo.getExpressionTypeVersion(node);
@@ -1293,9 +1306,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             });
             exprType = tupleType;
         } else if (node instanceof IndexExpressionNode) {
-            // TODO - need to implement
-            this._getTypeOfExpression(node.baseExpression);
-            this._getTypeOfExpression(node.indexExpression);
+            exprType = this._getTypeOfIndexExpression(node);
         } else if (node instanceof ListNode) {
             node.entries.forEach(expr => {
                 this._getTypeOfExpression(expr);
@@ -1362,6 +1373,26 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._updateExpressionTypeForNode(node, exprType);
 
         return exprType;
+    }
+
+    private _getTypeOfIndexExpression(node: IndexExpressionNode): Type | undefined {
+        let baseType = this._getTypeOfExpression(node.baseExpression);
+
+        // Determine if this is a generic class or function.
+        if (baseType instanceof ClassType) {
+            if (baseType.isGeneric() || baseType.isSpecialBuiltIn()) {
+                [baseType] = TypeAnnotation.specializeClassType(baseType, node.indexExpression,
+                    this._currentScope, this._fileInfo.diagnosticSink);
+            }
+
+            return baseType;
+        }
+
+        // Force the index expression to be evaluated.
+        this._getTypeOfExpression(node.indexExpression);
+
+        // TODO - need to implement
+        return undefined;
     }
 
     private _getTypeOfMemberAccessNode(node: MemberAccessExpressionNode): Type | undefined {

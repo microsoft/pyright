@@ -22,7 +22,7 @@ import { Scope, ScopeType } from './scope';
 import { Symbol } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
-    PropertyType, TupleType, Type, TypeVarType, UnionType, UnknownType } from './types';
+    PropertyType, TupleType, Type, TypeVarType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface TypeResult {
@@ -34,10 +34,9 @@ interface TypeResult {
 
 export class TypeAnnotation {
     static getType(node: ExpressionNode, currentScope: Scope, diagSink: TextRangeDiagnosticSink,
-            classNamesImplyObjects = true, transformBuiltInTypes = true): Type {
+            classNamesImplyObjects = true): Type {
 
-        let typeResult = this._getType(node, currentScope, diagSink,
-            classNamesImplyObjects, transformBuiltInTypes);
+        let typeResult = this._getType(node, currentScope, diagSink, classNamesImplyObjects);
 
         return typeResult.type;
     }
@@ -358,15 +357,108 @@ export class TypeAnnotation {
         return [decoratedType, warnIfDuplicate];
     }
 
+    // Specializes the specified (potentially generic) class type using
+    // the specified type arguments, reporting errors as appropriate.
+    // Returns the specialized type and a boolean indicating whether
+    // the type indiciates a class type (true) or an object type (false).
+    static specializeClassType(classType: ClassType, typeArgNode: ExpressionNode,
+            currentScope: Scope, diagSink: TextRangeDiagnosticSink): [Type, boolean] {
+
+        let typeArgs = this._getTypeArgs(typeArgNode, currentScope, diagSink);
+
+        // Handle the special-case classes that are not defined
+        // in the type stubs.
+        if (classType.isSpecialBuiltIn()) {
+            const className = classType.getClassName();
+
+            switch (className) {
+                case 'Callable': {
+                    return [
+                        this._createCallableType(classType, typeArgs, diagSink),
+                        false
+                    ];
+                }
+
+                case 'Optional': {
+                    return [
+                        this._createOptional(typeArgNode, typeArgs, diagSink),
+                        false
+                    ];
+                }
+
+                case 'Type': {
+                    return [
+                        this._createTypeType(typeArgNode, typeArgs, diagSink),
+                        true
+                    ];
+                }
+
+                case 'ClassVar':
+                case 'Deque':
+                case 'List':
+                case 'FrozenSet':
+                case 'Set': {
+                    return [
+                        this._createSpecialType(classType, typeArgs, diagSink, 1),
+                        false
+                    ];
+                }
+
+                case 'ChainMap':
+                case 'Dict':
+                case 'DefaultDict': {
+                    return [
+                        this._createSpecialType(classType, typeArgs, diagSink, 2),
+                        false
+                    ];
+                }
+
+                case 'Protocol':
+                case 'Tuple': {
+                    return [
+                        this._createSpecialType(classType, typeArgs, diagSink),
+                        false
+                    ];
+                }
+
+                case 'Union': {
+                    return [
+                        this._createUnionType(typeArgs),
+                        false
+                    ];
+                }
+
+                case 'Generic':
+                    return [
+                        this._createGenericType(typeArgNode, classType, typeArgs, diagSink),
+                        false
+                    ];
+            }
+        }
+
+        if (classType === this.getBuiltInType(currentScope, 'type')) {
+            // The built-in 'type' class isn't defined as a generic class.
+            // It needs to be special-cased here.
+            return [
+                this._createTypeType(typeArgNode, typeArgs, diagSink),
+                true
+            ];
+        }
+
+        return [
+            this._createSpecializedClassType(classType, typeArgs, diagSink),
+            false
+        ];
+    }
+
     // Similar to the public getType method except that it returns a full
     // TypeResult object with additional information.
     private static _getType(node: ExpressionNode, currentScope: Scope, diagSink: TextRangeDiagnosticSink,
-            classNamesImplyObjects = true, transformBuiltInTypes = true): TypeResult {
+            classNamesImplyObjects = true): TypeResult {
         let typeResult: TypeResult | undefined;
 
         if (node instanceof NameNode) {
-            typeResult = this._getTypeFromName(node, currentScope, diagSink,
-                transformBuiltInTypes);
+            typeResult = this._getTypeFromName(node, currentScope);
         } else if (node instanceof EllipsisNode) {
             typeResult = {
                 type: AnyType.create(),
@@ -432,57 +524,13 @@ export class TypeAnnotation {
         return { type: UnknownType.create(), node };
     }
 
-    private static _getTypeFromName(node: NameNode, currentScope: Scope,
-            diagSink: TextRangeDiagnosticSink, transformBuiltInTypes = true):
-            TypeResult | undefined {
-
+    private static _getTypeFromName(node: NameNode, currentScope: Scope): TypeResult | undefined {
         let symbolInScope = currentScope.lookUpSymbolRecursive(node.nameToken.value);
         if (!symbolInScope) {
             return undefined;
         }
 
         let type = symbolInScope.symbol.currentType;
-        if (type instanceof ClassType && type.isBuiltIn() && transformBuiltInTypes) {
-            const className = type.getClassName();
-            switch (className) {
-                case 'Callable': {
-                    // A 'Callable' with no parameters is a generic function.
-                    type = this._createCallableType(type, [], diagSink);
-                    break;
-                }
-
-                case 'ChainMap':
-                case 'DefaultDict':
-                case 'Deque':
-                case 'Dict':
-                case 'FrozenSet':
-                case 'List':
-                case 'Set':
-                case 'Tuple':
-                case 'Type': {
-                    type = this._createSpecialType(type, [], diagSink);
-                    break;
-                }
-
-                case 'Union': {
-                    diagSink.addErrorWithTextRange(
-                        `Expected type parameters after ${ className }`, node);
-                    break;
-                }
-
-                case 'ClassVar':
-                case 'Counter':
-                case 'Final':
-                case 'Generic':
-                case 'Literal':
-                case 'Optional': {
-                    diagSink.addErrorWithTextRange(
-                        `Expected one type parameter after ${ className }`, node);
-                    break;
-                }
-            }
-        }
-
         if (type) {
             return { type, node };
         }
@@ -494,7 +542,7 @@ export class TypeAnnotation {
             currentScope: Scope, diagSink: TextRangeDiagnosticSink): TypeResult | undefined {
 
         let baseTypeResult = this._getType(node.leftExpression, currentScope,
-            diagSink, true, false);
+            diagSink, true);
         let memberName = node.memberName.nameToken.value;
         let type: Type | undefined;
 
@@ -542,87 +590,18 @@ export class TypeAnnotation {
             currentScope: Scope, diagSink: TextRangeDiagnosticSink): TypeResult {
 
         let isClassType = false;
+
         let type: Type | undefined;
         let baseTypeResult = this._getType(node.baseExpression, currentScope,
-            diagSink, false, false);
+            diagSink, false);
 
         let typeArgs = this._getTypeArgs(node.indexExpression, currentScope, diagSink);
 
         this._validateTypeArgs(typeArgs, diagSink);
 
         if (baseTypeResult.type instanceof ClassType) {
-            // Handle the special-case classes that are not defined
-            // in the type stubs.
-            if (baseTypeResult.type.isSpecialBuiltIn()) {
-                const className = baseTypeResult.type.getClassName();
-
-                switch (className) {
-                    case 'Callable': {
-                        type = this._createCallableType(baseTypeResult.type,
-                            typeArgs, diagSink);
-                        break;
-                    }
-
-                    case 'Optional': {
-                        type = this._createOptional(node.baseExpression,
-                            typeArgs, diagSink);
-                        break;
-                    }
-
-                    case 'Type': {
-                        type = this._createTypeType(node, typeArgs, diagSink);
-                        isClassType = true;
-                        break;
-                    }
-
-                    case 'ClassVar':
-                    case 'Deque':
-                    case 'List':
-                    case 'FrozenSet':
-                    case 'Set': {
-                        type = this._createSpecialType(baseTypeResult.type, typeArgs,
-                            diagSink, 1);
-                        break;
-                    }
-
-                    case 'ChainMap':
-                    case 'Dict':
-                    case 'DefaultDict': {
-                        type = this._createSpecialType(baseTypeResult.type, typeArgs,
-                            diagSink, 2);
-                        break;
-                    }
-
-                    case 'Protocol':
-                    case 'Tuple': {
-                        type = this._createSpecialType(baseTypeResult.type, typeArgs,
-                            diagSink);
-                        break;
-                    }
-
-                    case 'Union': {
-                        type = this._createUnionType(typeArgs);
-                        break;
-                    }
-
-                    case 'Generic':
-                        type = this._createGenericType(node.baseExpression,
-                            baseTypeResult.type, typeArgs, diagSink);
-                        break;
-                }
-            }
-
-            if (!type) {
-                if (baseTypeResult.type === this.getBuiltInType(currentScope, 'type')) {
-                    // The built-in 'type' class isn't defined as a generic class. It needs
-                    // to be special-cased here.
-                    type = this._createTypeType(node, typeArgs, diagSink);
-                    isClassType = true;
-                } else {
-                    type = this._createSpecializedClassType(baseTypeResult.type,
-                        typeArgs, diagSink);
-                }
-            }
+            [type, isClassType] = this.specializeClassType(baseTypeResult.type,
+                node.indexExpression, currentScope, diagSink);
         } else if (!baseTypeResult.type.isAny()) {
             diagSink.addErrorWithTextRange(
                 `'Unsupported type expression: indexed other (${ baseTypeResult.type.asString() })`,
@@ -748,7 +727,7 @@ export class TypeAnnotation {
             return type;
         } else if (!type.isAny()) {
             diagSink.addErrorWithTextRange(
-                'Expected type parameter after Type', errorNode);
+                'Expected type argument after Type', errorNode);
         }
 
         return UnknownType.create();
