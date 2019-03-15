@@ -164,74 +164,96 @@ export class TypeAnnotation {
             addGenericGetAttribute = true;
         } else {
             const entriesArg = node.arguments[1];
-            if (entriesArg.argumentCategory !== ArgumentCategory.Simple ||
-                    !(entriesArg.valueExpression instanceof ListNode)) {
-                // A dynamic expression was used, so we can't evaluate
-                // the named tuple statically.
+            if (entriesArg.argumentCategory !== ArgumentCategory.Simple) {
                 addGenericGetAttribute = true;
             } else {
-                const entryList = entriesArg.valueExpression;
-                let entryMap: { [name: string]: string } = {};
+                if (!includesTypes && entriesArg.valueExpression instanceof StringNode) {
+                    let entries = entriesArg.valueExpression.getValue().split(' ');
+                    entries.forEach(entryName => {
+                        entryName = entryName.trim();
+                        if (entryName) {
+                            let entryType = UnknownType.create();
+                            tupleType.addEntryType(entryType);
+                            const paramInfo: FunctionParameter = {
+                                category: ParameterCategory.Simple,
+                                name: entryName,
+                                type: entryType
+                            };
 
-                entryList.entries.forEach((entry, index) => {
-                    let entryType: Type | undefined;
-                    let entryNameNode: ExpressionNode | undefined;
-                    let entryName = '';
+                            constructorType.addParameter(paramInfo);
+                            initType.addParameter(paramInfo);
 
-                    if (includesTypes) {
-                        // Handle the variant that includes name/type tuples.
-                        if (entry instanceof TupleExpressionNode && entry.expressions.length === 2) {
-                            entryNameNode = entry.expressions[0];
-                            entryType = this.getType(entry.expressions[1], currentScope,
-                                diagSink);
+                            instanceFields.set(entryName, new Symbol(entryType, DefaultTypeSourceId));
+                        }
+                    });
+                } else if (entriesArg.valueExpression instanceof ListNode) {
+                    const entryList = entriesArg.valueExpression;
+                    let entryMap: { [name: string]: string } = {};
+
+                    entryList.entries.forEach((entry, index) => {
+                        let entryType: Type | undefined;
+                        let entryNameNode: ExpressionNode | undefined;
+                        let entryName = '';
+
+                        if (includesTypes) {
+                            // Handle the variant that includes name/type tuples.
+                            if (entry instanceof TupleExpressionNode && entry.expressions.length === 2) {
+                                entryNameNode = entry.expressions[0];
+                                entryType = this.getType(entry.expressions[1], currentScope,
+                                    diagSink);
+                            } else {
+                                diagSink.addErrorWithTextRange(
+                                    'Expected two-entry tuple specifying entry name and type', entry);
+                            }
+                        } else {
+                            entryNameNode = entry;
+                            entryType = UnknownType.create();
+                        }
+
+                        if (entryNameNode instanceof StringNode) {
+                            entryName = entryNameNode.getValue();
+                            if (!entryName) {
+                                diagSink.addErrorWithTextRange(
+                                    'Names within a named tuple cannot be empty', entryNameNode);
+                            }
                         } else {
                             diagSink.addErrorWithTextRange(
-                                'Expected two-entry tuple specifying entry name and type', entry);
+                                'Expected string literal for entry name', entryNameNode || entry);
                         }
-                    } else {
-                        entryNameNode = entry;
-                        entryType = UnknownType.create();
-                    }
 
-                    if (entryNameNode instanceof StringNode) {
-                        entryName = entryNameNode.getValue();
                         if (!entryName) {
-                            diagSink.addErrorWithTextRange(
-                                'Names within a named tuple cannot be empty', entryNameNode);
+                            entryName = `_${ index.toString() }`;
                         }
-                    } else {
-                        diagSink.addErrorWithTextRange(
-                            'Expected string literal for entry name', entryNameNode || entry);
-                    }
 
-                    if (!entryName) {
-                        entryName = `_${ index.toString() }`;
-                    }
+                        if (entryMap[entryName]) {
+                            diagSink.addErrorWithTextRange(
+                                'Names within a named tuple must be unique', entryNameNode || entry);
+                        }
 
-                    if (entryMap[entryName]) {
-                        diagSink.addErrorWithTextRange(
-                            'Names within a named tuple must be unique', entryNameNode || entry);
-                    }
+                        // Record names in a map to detect duplicates.
+                        entryMap[entryName] = entryName;
 
-                    // Record names in a map to detect duplicates.
-                    entryMap[entryName] = entryName;
+                        if (!entryType) {
+                            entryType = UnknownType.create();
+                        }
 
-                    if (!entryType) {
-                        entryType = UnknownType.create();
-                    }
+                        tupleType.addEntryType(entryType);
+                        const paramInfo: FunctionParameter = {
+                            category: ParameterCategory.Simple,
+                            name: entryName,
+                            type: entryType
+                        };
 
-                    tupleType.addEntryType(entryType);
-                    const paramInfo: FunctionParameter = {
-                        category: ParameterCategory.Simple,
-                        name: entryName,
-                        type: entryType
-                    };
+                        constructorType.addParameter(paramInfo);
+                        initType.addParameter(paramInfo);
 
-                    constructorType.addParameter(paramInfo);
-                    initType.addParameter(paramInfo);
-
-                    instanceFields.set(entryName, new Symbol(entryType, DefaultTypeSourceId));
-                });
+                        instanceFields.set(entryName, new Symbol(entryType, DefaultTypeSourceId));
+                    });
+                } else {
+                    // A dynamic expression was used, so we can't evaluate
+                    // the named tuple statically.
+                    addGenericGetAttribute = true;
+                }
             }
         }
 
@@ -675,10 +697,9 @@ export class TypeAnnotation {
                 diagSink.addErrorWithTextRange(`'${ className }' is not callable`, node);
             }
         } else if (baseTypeResult.type instanceof FunctionType) {
-            // The stdlib collections.pyi stub file defines namedtuple as a function
-            // rather than a class, so we need to check for it here.
-            if (node.leftExpression instanceof NameNode &&
-                    node.leftExpression.nameToken.value === 'namedtuple') {
+            // The stdlib collections/__init__.pyi stub file defines namedtuple
+            // as a function rather than a class, so we need to check for it here.
+            if (baseTypeResult.type.getSpecialBuiltInName() === 'namedtuple') {
                 type = this.getNamedTupleType(node, false, currentScope, diagSink);
                 isClassType = true;
             } else {

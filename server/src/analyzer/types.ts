@@ -493,13 +493,15 @@ interface FunctionDetails {
     parameters: FunctionParameter[];
     declaredReturnType?: Type;
     inferredReturnType: InferredType;
-    typeParameters: TypeVarType[];
 }
 
 export class FunctionType extends Type {
     category = TypeCategory.Function;
 
     private _functionDetails: FunctionDetails;
+
+    // We need to handle certain built-in functions specially.
+    private _specialBuiltInName: string | undefined;
 
     // A generic function that has been completely or partially
     // specialized will have type arguments that correspond to
@@ -512,8 +514,7 @@ export class FunctionType extends Type {
         this._functionDetails = {
             flags,
             parameters: [],
-            inferredReturnType: new InferredType(),
-            typeParameters: []
+            inferredReturnType: new InferredType()
         };
     }
 
@@ -523,6 +524,14 @@ export class FunctionType extends Type {
 
     isClassMethod(): boolean {
         return (this._functionDetails.flags & FunctionTypeFlags.ClassMethod) !== 0;
+    }
+
+    getSpecialBuiltInName() {
+        return this._specialBuiltInName;
+    }
+
+    setSpecialBuiltInName(name: string) {
+        this._specialBuiltInName = name;
     }
 
     getParameters() {

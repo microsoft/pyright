@@ -163,6 +163,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
         assert(functionType instanceof FunctionType);
 
+        if (this._fileInfo.isCollectionsStubFile) {
+            // Stash away the name of the function since we need to handle
+            // 'namedtuple' specially.
+            functionType.setSpecialBuiltInName(node.name.nameToken.value);
+        }
+
         const functionParams = functionType.getParameters();
         node.parameters.forEach((param, index) => {
             let annotatedType: Type | undefined;
@@ -1446,8 +1452,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (callType instanceof FunctionType) {
                 // The stdlib collections.pyi stub file defines namedtuple as a function
                 // rather than a class, so we need to check for it here.
-                if (node.leftExpression instanceof NameNode &&
-                        node.leftExpression.nameToken.value === 'namedtuple') {
+                if (callType.getSpecialBuiltInName() === 'namedtuple') {
                     exprType = TypeAnnotation.getNamedTupleType(node, false,
                         this._currentScope, this._fileInfo.diagnosticSink);
                 } else {
