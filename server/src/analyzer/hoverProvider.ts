@@ -82,8 +82,7 @@ export class HoverProvider {
 
                 case SymbolCategory.Class: {
                     if (node instanceof NameNode) {
-                        return '```\n(class) ' + node.nameToken.value +
-                            this._getTypeText(node) + '\n```';
+                        return '```\n(class) ' + this._getTypeText(node) + '\n```';
                     }
                     break;
                 }
