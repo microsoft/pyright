@@ -432,8 +432,12 @@ export class ClassType extends Type {
 
         // Is one class type an alias of the other? This is used for some
         // built-in types (e.g. Tuple and tuple).
-        if (this._classDetails.aliasClass === type2 ||
-                type2._classDetails.aliasClass === this) {
+        if (this._classDetails.aliasClass &&
+                this._classDetails.aliasClass._classDetails === type2._classDetails) {
+            return true;
+        }
+        if (type2._classDetails.aliasClass &&
+                type2._classDetails.aliasClass._classDetails === this._classDetails) {
             return true;
         }
 

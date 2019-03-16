@@ -720,10 +720,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
                             DefaultTypeSourceId);
 
-                        let baseClass = TypeAnnotation.getBuiltInType(this._currentScope,
+                        let aliasClass = TypeAnnotation.getBuiltInType(this._currentScope,
                             assignedName.toLowerCase());
-                        if (baseClass instanceof ClassType) {
-                            specialClassType.addBaseClass(baseClass, false);
+                        if (aliasClass instanceof ClassType) {
+                            specialClassType.addBaseClass(aliasClass, false);
+                            specialClassType.setAliasClass(aliasClass);
                         }
 
                         specialType = specialClassType;
@@ -1367,6 +1368,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             exprType = this._getTypeOfExpression(node.leftExpression);
         } else if (node instanceof YieldExpressionNode) {
             exprType = this._getTypeOfExpression(node.expression);
+            // TODO - need to handle futures
+            exprType = UnknownType.create();
         } else {
             // TODO - need to finish
             this._addError(`Unsupported expression type'`, node);
@@ -1616,7 +1619,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (!TypeUtils.canAssignType(typeHint, type)) {
                 this._addError(
-                    `Expression of type '${ type.asString() }' cannot be assigned to type '${ typeHint.asString() }'`,
+                    `Expression of type '${ type.asString() }'` +
+                        ` cannot be assigned to type '${ typeHint.asString() }'`,
                     target.typeAnnotation.expression);
             }
 
@@ -1980,7 +1984,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let argType = this._getTypeOfExpressionWithTypeConstraints(argExpression);
         if (!TypeUtils.canAssignType(paramType, argType)) {
             this._addError(
-                `Argument of type '${ argType.asString() }' cannot be assigned to parameter of type '${ paramType.asString() }'`,
+                `Argument of type '${ argType.asString() }'` +
+                    ` cannot be assigned to parameter of type '${ paramType.asString() }'`,
                 argExpression);
         }
     }
