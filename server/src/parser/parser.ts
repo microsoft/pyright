@@ -910,22 +910,24 @@ export class Parser {
 
                 while (true) {
                     let importName = this._getTokenIfIdentifier();
-                    if (importName) {
-                        let importFromAsNode = new ImportFromAsNode(new NameNode(importName));
-
-                        if (this._consumeTokenIfKeyword(KeywordType.As)) {
-                            let aliasName = this._getTokenIfIdentifier();
-                            if (!aliasName) {
-                                this._addError('Expected alias symbol name', this._peekToken());
-                            } else {
-                                importFromAsNode.alias = new NameNode(aliasName);
-                                importFromAsNode.extend(aliasName);
-                            }
-                        }
-
-                        importFromNode.imports.push(importFromAsNode);
-                        importFromNode.extend(importFromAsNode);
+                    if (!importName) {
+                        break;
                     }
+
+                    let importFromAsNode = new ImportFromAsNode(new NameNode(importName));
+
+                    if (this._consumeTokenIfKeyword(KeywordType.As)) {
+                        let aliasName = this._getTokenIfIdentifier();
+                        if (!aliasName) {
+                            this._addError('Expected alias symbol name', this._peekToken());
+                        } else {
+                            importFromAsNode.alias = new NameNode(aliasName);
+                            importFromAsNode.extend(aliasName);
+                        }
+                    }
+
+                    importFromNode.imports.push(importFromAsNode);
+                    importFromNode.extend(importFromAsNode);
 
                     if (!this._consumeTokenIfType(TokenType.Comma)) {
                         break;
