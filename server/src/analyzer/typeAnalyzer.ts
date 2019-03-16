@@ -781,7 +781,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Set the member type for the hover provider.
         this._updateExpressionTypeForNode(node.memberName, this._getTypeOfExpression(node));
 
-        // Don't walk the member name.
         return false;
     }
 
@@ -1709,7 +1708,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _validateMemberAccess(baseType: Type, memberName: NameNode): boolean {
+    private _validateMemberAccess(baseType: Type, memberName: NameNode): void {
         // TODO - most of this logic is now redudnant with the expression evaluation
         // logic. The only part that remains is the calls to setDeclaration. Clean
         // this up at some point.
@@ -1722,75 +1721,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (classMemberInfo.symbol && classMemberInfo.symbol.declarations) {
                     AnalyzerNodeInfo.setDeclaration(memberName, classMemberInfo.symbol.declarations[0]);
                 }
-                return true;
-            } else {
-                // See if the class has a "__getattribute__" or "__getattr__" method.
-                // If so, aribrary members are supported.
-                let getAttribMember = TypeUtils.lookUpClassMember(
-                    baseType.getClassType(), '__getattribute__');
-                if (getAttribMember && getAttribMember.class) {
-                    const isObjectClass = getAttribMember.class.isBuiltIn() &&
-                        getAttribMember.class.getClassName() === 'object';
-                    // The built-in 'object' class, from which every class derives,
-                    // implements the default __getattribute__ method. We want to ignore
-                    // this one. If this method is overridden, we need to assume that
-                    // all members can be accessed.
-                    if (!isObjectClass) {
-                        return true;
-                    }
-                }
-
-                let getAttrMember = TypeUtils.lookUpClassMember(
-                    baseType.getClassType(), '__getattr__');
-                if (getAttrMember) {
-                    return true;
-                }
-
-                // If the class has decorators, there may be additional fields
-                // added that we don't know about.
-                // TODO - figure out a better approach here.
-                if (!baseType.getClassType().hasDecorators()) {
-                    this._addError(
-                        `'${ memberNameValue }' is not a known member of type '${ baseType.asString() }'`,
-                        memberName);
-                }
-                return false;
             }
         }
 
         if (baseType instanceof ModuleType) {
             let moduleMemberInfo = baseType.getFields().get(memberNameValue);
-            if (!moduleMemberInfo) {
-                this._addError(
-                    `'${ memberNameValue }' is not a known member of module`,
-                    memberName);
-                return false;
-            }
-
-            if (moduleMemberInfo.declarations) {
+            if (moduleMemberInfo && moduleMemberInfo.declarations) {
                 AnalyzerNodeInfo.setDeclaration(memberName, moduleMemberInfo.declarations[0]);
             }
-            return true;
         }
 
         if (baseType instanceof ClassType) {
             let classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue, false);
-            if (!classMemberInfo) {
-                // If the class has decorators, there may be additional fields
-                // added that we don't know about.
-                // TODO - figure out a better approach here.
-                if (!baseType.hasDecorators()) {
-                    this._addError(
-                        `'${ memberNameValue }' is not a known member of '${ baseType.asString() }'`,
-                        memberName);
-                }
-                return false;
-            }
-
-            if (classMemberInfo.symbol && classMemberInfo.symbol.declarations) {
+            if (classMemberInfo && classMemberInfo.symbol && classMemberInfo.symbol.declarations) {
                 AnalyzerNodeInfo.setDeclaration(memberName, classMemberInfo.symbol.declarations[0]);
             }
-            return true;
         }
 
         if (baseType instanceof UnionType) {
@@ -1799,44 +1744,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let simplifiedType = baseType.removeOptional();
             if (simplifiedType instanceof UnionType) {
                 for (let t of simplifiedType.getTypes()) {
-                    if (!this._validateMemberAccess(t, memberName)) {
-                        return false;
-                    }
+                    this._validateMemberAccess(t, memberName);
                 }
-                return true;
+            } else {
+                this._validateMemberAccess(simplifiedType, memberName);
             }
-
-            return this._validateMemberAccess(simplifiedType, memberName);
         }
-
-        if (baseType instanceof UnboundType) {
-            this._addError(
-                `'${ memberNameValue }' cannot be accessed from unbound variable`, memberName);
-            return false;
-        }
-
-        if (baseType instanceof PropertyType) {
-            // TODO - need to implement this check
-            return true;
-        }
-
-        if (baseType instanceof FunctionType) {
-            // TODO - need to implement this check
-            return true;
-        }
-
-        if (baseType instanceof TypeVarType) {
-            // TODO - need to handle this check
-            return true;
-        }
-
-        if (!baseType.isAny()) {
-            this._addError(
-                `'${ memberNameValue }' is not a known member of type ${ baseType.asString() }`, memberName);
-            return false;
-        }
-
-        return true;
     }
 
     private _useExpressionTypeConstraint(typeConstraints: TypeConstraintResults | undefined,

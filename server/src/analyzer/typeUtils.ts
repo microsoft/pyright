@@ -10,9 +10,9 @@ import * as assert from 'assert';
 
 import { ParameterCategory } from '../parser/parseNodes';
 import { Symbol } from './symbol';
-import { ClassType, FunctionType, ObjectType, OverloadedFunctionType,
-    TupleType, Type, TypeCategory, TypeVarType, UnboundType,
-    UnionType, UnknownType } from './types';
+import { ClassType, FunctionType, ObjectType,
+    OverloadedFunctionType, TupleType, Type, TypeCategory, TypeVarType,
+    UnboundType, UnionType, UnknownType } from './types';
 
 export interface ClassMember {
     symbol?: Symbol;

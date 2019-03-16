@@ -69,73 +69,6 @@ export class ExpressionEvaluator {
         return typeResult.type;
     }
 
-    // Specializes the specified (potentially generic) class type using
-    // the specified type arguments, reporting errors as appropriate.
-    // Returns the specialized type and a boolean indicating whether
-    // the type indiciates a class type (true) or an object type (false).
-    specializeClassType(classType: ClassType, typeArgNode: ExpressionNode,
-            flags: EvaluatorFlags): Type {
-        let typeArgs = this._getTypeArgs(typeArgNode);
-
-        // Handle the special-case classes that are not defined
-        // in the type stubs.
-        if (classType.isSpecialBuiltIn()) {
-            const className = classType.getClassName();
-
-            switch (className) {
-                case 'Callable': {
-                    return this._createCallableType(typeArgs);
-                }
-
-                case 'Optional': {
-                    return this._createOptional(typeArgNode, typeArgs);
-                }
-
-                case 'Type': {
-                    return this._createTypeType(typeArgNode, typeArgs);
-                }
-
-                case 'ClassVar':
-                case 'Deque':
-                case 'List':
-                case 'FrozenSet':
-                case 'Set': {
-                    return this._createSpecialType(classType, typeArgs, flags, 1);
-                }
-
-                case 'ChainMap':
-                case 'Dict':
-                case 'DefaultDict': {
-                    return this._createSpecialType(classType, typeArgs, flags, 2);
-                }
-
-                case 'Protocol':
-                case 'Tuple': {
-                    return this._createSpecialType(classType, typeArgs, flags);
-                }
-
-                case 'Union': {
-                    return this._createUnionType(typeArgs);
-                }
-
-                case 'Generic':
-                    if (flags & EvaluatorFlags.ConvertClassToObject) {
-                        this._addError(`Generic allowed only as base class`, typeArgNode);
-                    }
-                    return this._createGenericType(typeArgNode, classType, typeArgs);
-            }
-        }
-
-        if (classType === ScopeUtils.getBuiltInType(this._scope, 'type')) {
-            // The built-in 'type' class isn't defined as a generic class.
-            // It needs to be special-cased here.
-            return this._createTypeType(typeArgNode, typeArgs);
-        }
-
-        let specializedType = this._createSpecializedClassType(classType, typeArgs);
-        return this._convertClassToObject(specializedType, flags);
-    }
-
     // Determines if the function node is a property accessor (getter, setter, deleter).
     getPropertyType(node: FunctionNode, type: FunctionType): PropertyType | undefined {
         if (ParseTreeUtils.functionHasDecorator(node, 'property')) {
@@ -300,52 +233,40 @@ export class ExpressionEvaluator {
         return typeResult;
     }
 
-    private _getTypeFromName(node: NameNode, flags: EvaluatorFlags): TypeResult | undefined {
+    private _getTypeFromName(node: NameNode, flags: EvaluatorFlags): TypeResult {
         const name = node.nameToken.value;
         let type: Type | undefined;
 
         // Look for the scope that contains the value definition and
         // see if it has a declared type.
-        let scope: Scope | undefined = this._scope;
-        let beyondLocalScope = false;
-        while (scope) {
-            let symbol = scope.lookUpSymbol(name);
-            if (symbol) {
-                let declaration = symbol.declarations ? symbol.declarations[0] : undefined;
+        const symbolWithScope = this._scope.lookUpSymbolRecursive(name);
 
+        if (symbolWithScope) {
+            const symbol = symbolWithScope.symbol;
+
+            let declaration = symbol.declarations ? symbol.declarations[0] : undefined;
+
+            if (declaration && declaration.declaredType) {
                 // Was there a defined type hint?
-                if (declaration && declaration.declaredType) {
-                    type = declaration.declaredType;
-                    break;
-                }
-
+                type = declaration.declaredType;
+            } else if (declaration && declaration.category !== SymbolCategory.Variable) {
                 // If this is a non-variable type (e.g. a class, function, method), we
                 // can assume that it's not going to be modified outside the local scope.
-                if (declaration && declaration.category !== SymbolCategory.Variable) {
-                    type = symbol.currentType;
-                    break;
-                }
-
+                type = symbol.currentType;
+            } else if (symbolWithScope.isBeyondLocalScope) {
                 // If we haven't already gone beyond the local scope, we can
                 // trust the current type. If we've moved beyond the local
                 // scope to some other outer scope (e.g. the global scope), we
                 // cannot trust the current type.
-                if (beyondLocalScope) {
-                    type = symbol.inferredType.getType();
-                } else {
-                    type = symbol.currentType;
-                }
-                break;
+                type = symbol.inferredType.getType();
+            } else {
+                type = symbol.currentType;
             }
-
-            if (scope.getType() !== ScopeType.Temporary) {
-                beyondLocalScope = true;
-            }
-            scope = scope.getParent();
         }
 
         if (!type) {
-            return undefined;
+            this._addError(`'${ name }' is not a known symbol`, node);
+            type = UnknownType.create();
         }
 
         type = this._convertClassToObject(type, flags);
@@ -458,6 +379,11 @@ export class ExpressionEvaluator {
         } else if (baseType instanceof PropertyType) {
             // TODO - need to come up with new strategy for properties
             type = UnknownType.create();
+        } else if (baseType instanceof FunctionType) {
+            if (baseType.hasCustomDecorators()) {
+                // TODO - deal with custom decorators in a better way
+                type = UnknownType.create();
+            }
         }
 
         if (!type) {
@@ -480,21 +406,26 @@ export class ExpressionEvaluator {
 
         this._validateTypeArgs(typeArgs);
 
-        if (baseType instanceof ClassType) {
-            type = this.specializeClassType(baseType, node.indexExpression, flags);
+        if (baseType.isAny()) {
+            type = baseType;
+        } else if (baseType instanceof ClassType) {
+            type = this._createSpecializeClassType(baseType, node.indexExpression, flags);
         } else if (baseType instanceof UnionType) {
             // TODO - need to implement
+            type = UnknownType.create();
         } else if (baseType instanceof FunctionType) {
             // TODO - need to implement
-        } else if (!baseType.isAny()) {
-            if ((flags & EvaluatorFlags.ConvertClassToObject) !== 0) {
-                this._addError(
-                    `'Unsupported type expression: indexed (${ baseType.asString() })`,
-                    node.baseExpression);
-            }
+            type = UnknownType.create();
+        } else if (baseType instanceof ObjectType) {
+            // TODO - need to implement
+            type = UnknownType.create();
         }
 
         if (!type) {
+            this._addError(
+                `'Unsupported expression type: indexed (${ baseType.asString() })`,
+                node.baseExpression);
+
             type = UnknownType.create();
         }
 
@@ -1175,6 +1106,74 @@ export class ExpressionEvaluator {
         });
 
         return type;
+    }
+
+    // Specializes the specified (potentially generic) class type using
+    // the specified type arguments, reporting errors as appropriate.
+    // Returns the specialized type and a boolean indicating whether
+    // the type indiciates a class type (true) or an object type (false).
+    private _createSpecializeClassType(classType: ClassType,
+            typeArgNode: ExpressionNode, flags: EvaluatorFlags): Type {
+
+        let typeArgs = this._getTypeArgs(typeArgNode);
+
+        // Handle the special-case classes that are not defined
+        // in the type stubs.
+        if (classType.isSpecialBuiltIn()) {
+            const className = classType.getClassName();
+
+            switch (className) {
+                case 'Callable': {
+                    return this._createCallableType(typeArgs);
+                }
+
+                case 'Optional': {
+                    return this._createOptional(typeArgNode, typeArgs);
+                }
+
+                case 'Type': {
+                    return this._createTypeType(typeArgNode, typeArgs);
+                }
+
+                case 'ClassVar':
+                case 'Deque':
+                case 'List':
+                case 'FrozenSet':
+                case 'Set': {
+                    return this._createSpecialType(classType, typeArgs, flags, 1);
+                }
+
+                case 'ChainMap':
+                case 'Dict':
+                case 'DefaultDict': {
+                    return this._createSpecialType(classType, typeArgs, flags, 2);
+                }
+
+                case 'Protocol':
+                case 'Tuple': {
+                    return this._createSpecialType(classType, typeArgs, flags);
+                }
+
+                case 'Union': {
+                    return this._createUnionType(typeArgs);
+                }
+
+                case 'Generic':
+                    if (flags & EvaluatorFlags.ConvertClassToObject) {
+                        this._addError(`Generic allowed only as base class`, typeArgNode);
+                    }
+                    return this._createGenericType(typeArgNode, classType, typeArgs);
+            }
+        }
+
+        if (classType === ScopeUtils.getBuiltInType(this._scope, 'type')) {
+            // The built-in 'type' class isn't defined as a generic class.
+            // It needs to be special-cased here.
+            return this._createTypeType(typeArgNode, typeArgs);
+        }
+
+        let specializedType = this._createSpecializedClassType(classType, typeArgs);
+        return this._convertClassToObject(specializedType, flags);
     }
 
     private _convertClassToObject(type: Type, flags: EvaluatorFlags): Type {

@@ -132,7 +132,7 @@ export class Scope {
     }
 
     lookUpSymbolRecursive(name: string): SymbolWithScope | undefined {
-        return this._lookUpSymbolRecursiveInternal(name, false);
+        return this._lookUpSymbolRecursiveInternal(name, false, false);
     }
 
     // Adds a new (unbound) symbol to the scope.
@@ -351,8 +351,8 @@ export class Scope {
         this._typeConstraints.push(constraint);
     }
 
-    private _lookUpSymbolRecursiveInternal(name: string, isOutsideCallerModule: boolean):
-            SymbolWithScope | undefined {
+    private _lookUpSymbolRecursiveInternal(name: string, isOutsideCallerModule: boolean,
+            isBeyondLocalScope: boolean): SymbolWithScope | undefined {
         // If we're searching outside of the original caller's module (global) scope,
         // hide any names that are not meant to be visible to importers.
         if (isOutsideCallerModule && this._hiddenNameMap[name]) {
@@ -363,6 +363,8 @@ export class Scope {
         if (symbol) {
             return {
                 symbol,
+                isBeyondLocalScope,
+                isOutsideCallerModule,
                 scope: this
             };
         }
@@ -371,7 +373,8 @@ export class Scope {
             // If our recursion is about to take us outside the scope of the current
             // module (i.e. into a built-in scope), indicate as such with the second parameter.
             return this._parent._lookUpSymbolRecursiveInternal(name,
-                isOutsideCallerModule || this._scopeType === ScopeType.Global);
+                isOutsideCallerModule || this._scopeType === ScopeType.Global,
+                isBeyondLocalScope || this._scopeType !== ScopeType.Temporary);
         }
 
         return undefined;
@@ -380,5 +383,7 @@ export class Scope {
 
 export interface SymbolWithScope {
     symbol: Symbol;
+    isBeyondLocalScope: boolean;
+    isOutsideCallerModule: boolean;
     scope: Scope;
 }
