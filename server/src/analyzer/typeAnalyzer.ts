@@ -1347,7 +1347,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             exprType = TypeUtils.combineTypes(leftType, rightType);
         } else if (node instanceof ListComprehensionNode) {
             // TODO - infer list type
-            this._getTypeOfExpression(node.baseExpression);
+            // this._getTypeOfExpression(node.baseExpression);
             exprType = ScopeUtils.getBuiltInObject(
                 this._currentScope, 'list', []);
         } else if (node instanceof DictionaryNode) {

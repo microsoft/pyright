@@ -252,7 +252,7 @@ export class ExpressionEvaluator {
         } else if (node instanceof ListComprehensionNode) {
             // TODO - need to implement
             // TODO - infer list type
-            this._getTypeFromExpression(node.baseExpression, EvaluatorFlags.None);
+            // this._getTypeFromExpression(node.baseExpression, EvaluatorFlags.None);
             let type = ScopeUtils.getBuiltInObject(this._scope, 'list', []);
             typeResult = { type, node };
         } else if (node instanceof DictionaryNode) {
