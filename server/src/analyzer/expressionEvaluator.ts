@@ -230,10 +230,12 @@ export class ExpressionEvaluator {
         } else if (node instanceof UnaryExpressionNode) {
             // TODO - need to implement
             this._getTypeFromExpression(node.expression, flags);
+            typeResult = { type: UnknownType.create(), node };
         } else if (node instanceof BinaryExpressionNode) {
             // TODO - need to implement
             this._getTypeFromExpression(node.leftExpression, flags);
             this._getTypeFromExpression(node.rightExpression, flags);
+            typeResult = { type: UnknownType.create(), node };
         } else if (node instanceof ListNode) {
             typeResult = this._getListExpression(node, flags);
         } else if (node instanceof SliceExpressionNode) {
@@ -352,9 +354,15 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromMemberAccessExpression(node: MemberAccessExpressionNode,
-            flags: EvaluatorFlags): TypeResult | undefined {
+            flags: EvaluatorFlags): TypeResult {
 
         const baseTypeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
+        return this._getTypeFromMemberAccessExpressionWithBaseType(node, baseTypeResult, flags);
+    }
+
+    private _getTypeFromMemberAccessExpressionWithBaseType(node: MemberAccessExpressionNode,
+                baseTypeResult: TypeResult, flags: EvaluatorFlags): TypeResult {
+
         const baseType = baseTypeResult.type;
         const memberName = node.memberName.nameToken.value;
         const getTypeFromClass = (classType: ClassType, includeInstanceMembers: boolean) => {
@@ -397,10 +405,34 @@ export class ExpressionEvaluator {
                 this._addError(`'${ memberName }' is not a known member of module`, node.memberName);
                 type = UnknownType.create();
             }
+        } else if (baseType instanceof UnionType) {
+            let returnTypes: Type[] = [];
+            baseType.getTypes().forEach(typeEntry => {
+                if (typeEntry instanceof NoneType) {
+                    // TODO - ignore None for now.
+                } else {
+                    let typeResult = this._getTypeFromMemberAccessExpressionWithBaseType(node,
+                        { type: typeEntry, isClassOrObjectMember: baseTypeResult.isClassOrObjectMember, node },
+                        EvaluatorFlags.None);
+                    if (typeResult) {
+                        returnTypes.push(typeResult.type);
+                    }
+                }
+            });
+
+            if (returnTypes.length > 0) {
+                type = TypeUtils.combineTypesArray(returnTypes);
+            }
+        } else if (baseType instanceof PropertyType) {
+            // TODO - need to come up with new strategy for properties
+            type = UnknownType.create();
         }
 
         if (!type) {
-            return undefined;
+            this._addError(
+                `'${ memberName }' is not a known member of '${ baseType.asString() }'`,
+                node.memberName);
+            type = UnknownType.create();
         }
 
         type = this._convertClassToObject(type, flags);
@@ -474,7 +506,7 @@ export class ExpressionEvaluator {
         return typeResult;
     }
 
-    private _getTupleExpression(node: TupleExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
+    private _getTupleExpression(node: TupleExpressionNode, flags: EvaluatorFlags): TypeResult {
         let tupleType = new TupleType(ScopeUtils.getBuiltInType(this._scope, 'tuple') as ClassType);
 
         node.expressions.forEach(expr => {
@@ -488,9 +520,16 @@ export class ExpressionEvaluator {
         };
     }
 
-    private _getCallExpression(node: CallExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
-        let type: Type | undefined;
+    private _getCallExpression(node: CallExpressionNode, flags: EvaluatorFlags): TypeResult {
         const baseTypeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
+
+        return this._getCallExpressionWithBaseType(node, baseTypeResult, flags);
+    }
+
+    private _getCallExpressionWithBaseType(node: CallExpressionNode, baseTypeResult: TypeResult,
+            flags: EvaluatorFlags): TypeResult {
+
+        let type: Type | undefined;
         const callType = baseTypeResult.type;
 
         if (callType instanceof ClassType) {
@@ -535,7 +574,7 @@ export class ExpressionEvaluator {
             }
         } else if (callType instanceof OverloadedFunctionType) {
             // Determine which of the overloads (if any) match.
-            let skipFirstMethodParam = !!baseTypeResult.isClassOrObjectMember;
+            // let skipFirstMethodParam = !!baseTypeResult.isClassOrObjectMember;
 
             // TODO - need to figure out what to do here.
             // let functionType = this._findOverloadedFunctionType(
@@ -543,13 +582,16 @@ export class ExpressionEvaluator {
             // if (functionType) {
             //     type = functionType.getEffectiveReturnType();
             // }
+            type = UnknownType.create();
         } else if (callType instanceof UnionType) {
             let returnTypes: Type[] = [];
             callType.getTypes().forEach(typeEntry => {
                 if (typeEntry instanceof NoneType) {
                     // TODO - ignore None for now.
                 } else {
-                    let typeResult = this._getCallExpression(node, EvaluatorFlags.None);
+                    let typeResult = this._getCallExpressionWithBaseType(node,
+                        { type: typeEntry, isClassOrObjectMember: baseTypeResult.isClassOrObjectMember, node },
+                        EvaluatorFlags.None);
                     if (typeResult) {
                         returnTypes.push(typeResult.type);
                     }
@@ -565,7 +607,7 @@ export class ExpressionEvaluator {
 
         if (type === undefined) {
             this._addError(`'Unsupported type expression: call`, node);
-            return undefined;
+            type = UnknownType.create();
         }
 
         type = this._convertClassToObject(type, flags);

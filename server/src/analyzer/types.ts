@@ -523,7 +523,7 @@ export class FunctionType extends Type {
     // specialized will have type arguments that correspond to
     // some or all of the type parameters. Unspecified type
     // parameters are undefined.
-    private _typeArguments?: (Type | undefined)[];
+    // private _typeArguments?: (Type | undefined)[];
 
     constructor(flags: FunctionTypeFlags) {
         super();

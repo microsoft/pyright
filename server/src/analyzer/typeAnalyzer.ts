@@ -14,16 +14,15 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { ArgumentCategory, AssignmentNode, AwaitExpressionNode, BinaryExpressionNode, CallExpressionNode,
-    ClassNode, ConditionalExpressionNode, ConstantNode, DictionaryNode, EllipsisNode, ExceptNode,
+import { ArgumentCategory, AssignmentNode, BinaryExpressionNode, CallExpressionNode,
+    ClassNode, ConditionalExpressionNode, ConstantNode, ExceptNode,
     ExpressionNode, ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode,
-    IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode,
-    ListNode, MemberAccessExpressionNode, ModuleNode, NameNode, NumberNode, ParameterCategory,
-    ParseNode, RaiseNode, ReturnNode, SetNode, SliceExpressionNode,
-    StarExpressionNode, StringNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, WithNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
-import { KeywordType, OperatorType, QuoteTypeFlags } from '../parser/tokenizerTypes';
+    LambdaNode, ListComprehensionForNode, ListComprehensionNode,
+    MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
+    ParseNode, RaiseNode, ReturnNode, StarExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, WithNode, YieldExpressionNode,
+    YieldFromExpressionNode } from '../parser/parseNodes';
+import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -108,14 +107,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // We should have already resolved most of the base class
         // parameters in the semantic analyzer, but if these parameters
         // are variables, they may not have been resolved at that time.
-        this.walkMultiple(node.arguments);
         let classType = AnalyzerNodeInfo.getExpressionType(node) as ClassType;
         assert(classType instanceof ClassType);
 
-        let evaluator = this._getEvaluator();
-
         node.arguments.forEach((arg, index) => {
-            let argType = evaluator.getType(arg.valueExpression, EvaluatorFlags.None);
+            let argType = this._getTypeOfExpression(arg.valueExpression);
 
             // In some stub files, classes are conditionally defined (e.g. based
             // on platform type). We'll assume that the conditional logic is correct
@@ -132,6 +128,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._setAnalysisChanged();
             }
         });
+
+        this.walkMultiple(node.arguments);
 
         // Update the type parameters for the class.
         let typeParameters: TypeVarType[] = [];
@@ -171,14 +169,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             functionType.setSpecialBuiltInName(node.name.nameToken.value);
         }
 
-        let evaluator = this._getEvaluator();
-
         const functionParams = functionType.getParameters();
         node.parameters.forEach((param, index) => {
             let annotatedType: Type | undefined;
             if (param.typeAnnotation) {
-                annotatedType = evaluator.getType(param.typeAnnotation.expression,
-                    EvaluatorFlags.ConvertClassToObject);
+                annotatedType = this._getTypeOfAnnotation(param.typeAnnotation.expression);
 
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
@@ -194,7 +189,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                 if (param.defaultValue) {
                     // Verify that the default value matches the type annotation.
-                    let defaultValueType = this._getTypeOfExpressionWithTypeConstraints(param.defaultValue);
+                    let defaultValueType = this._getTypeOfExpression(param.defaultValue);
                     if (annotatedType && !TypeUtils.canAssignType(annotatedType, defaultValueType)) {
                         this._addError(
                             `Value of type '${ defaultValueType.asString() }' cannot` +
@@ -220,8 +215,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         if (node.returnTypeAnnotation) {
-            const returnType = evaluator.getType(node.returnTypeAnnotation.expression,
-                EvaluatorFlags.ConvertClassToObject);
+            const returnType = this._getTypeOfAnnotation(node.returnTypeAnnotation.expression);
             if (functionType.setDeclaredReturnType(returnType)) {
                 this._setAnalysisChanged();
             }
@@ -331,6 +325,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Handle overload decorators specially.
         let overloadedType: OverloadedFunctionType | undefined;
+        let evaluator = this._getEvaluator();
         [overloadedType] = evaluator.getOverloadedFunctionType(node, functionType);
         if (overloadedType) {
             decoratedType = overloadedType;
@@ -364,7 +359,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitCall(node: CallExpressionNode): boolean {
-        let callType = this._getTypeOfExpressionWithTypeConstraints(node.leftExpression);
+        let callType = this._getTypeOfExpression(node.leftExpression);
 
         if (callType instanceof ClassType && callType.isGeneric()) {
             // TODO - need to infer types. For now, just assume "any" type.
@@ -387,7 +382,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitFor(node: ForNode): boolean {
         this.walk(node.sequenceExpression);
 
-        let exprType = this._getTypeOfExpressionWithTypeConstraints(node.sequenceExpression);
+        let exprType = this._getTypeOfExpression(node.sequenceExpression);
         if (exprType.category === TypeCategory.Unbound) {
             exprType = UnknownType.create();
         } else {
@@ -418,7 +413,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this.walk(compr.sequenceExpression);
 
                     // TODO - need to figure out right type for target expression.
-                    // let exprType = this._getTypeOfExpressionWithTypeConstraints(compr.sequenceExpression);
+                    // let exprType = this._getTypeOfExpression(compr.sequenceExpression);
                     let exprType = UnknownType.create();
 
                     this._assignTypeToPossibleTuple(compr.targetExpression, exprType);
@@ -536,7 +531,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         node.withItems.forEach(item => {
             if (item.target) {
-                let exprType = this._getTypeOfExpressionWithTypeConstraints(item.expression);
+                let exprType = this._getTypeOfExpression(item.expression);
 
                 // If the type has an "__enter__" method, it can return
                 // a type other than its own type.
@@ -592,7 +587,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (node.returnExpression) {
-            returnType = this._getTypeOfExpressionWithTypeConstraints(node.returnExpression);
+            returnType = this._getTypeOfExpression(node.returnExpression);
             typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
         } else {
             // There is no return expression, so "None" is assumed.
@@ -614,7 +609,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitYield(node: YieldExpressionNode) {
-        let yieldType = this._getTypeOfExpressionWithTypeConstraints(node.expression);
+        let yieldType = this._getTypeOfExpression(node.expression);
         let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
         this._currentScope.getReturnType().addSource(yieldType, typeSourceId);
 
@@ -644,8 +639,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (node.typeExpression && node.name) {
             this._currentScope.addUnboundSymbol(node.name.nameToken.value);
-            let evaluator = this._getEvaluator();
-            let exceptionType = evaluator.getType(node.typeExpression, EvaluatorFlags.None);
+            let exceptionType = this._getTypeOfExpression(node.typeExpression);
 
             // If more than one type was specified for the exception,
             // handle that here.
@@ -748,7 +742,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let typeOfExpr = this._getTypeOfExpressionWithTypeConstraints(node.rightExpression);
+        let typeOfExpr = this._getTypeOfExpression(node.rightExpression);
 
         if (!(node.leftExpression instanceof NameNode) ||
                 !this._assignTypeForPossibleEnumeration(node.leftExpression, typeOfExpr)) {
@@ -781,7 +775,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitMemberAccess(node: MemberAccessExpressionNode) {
         this.walk(node.leftExpression);
 
-        let leftType = this._getTypeOfExpressionWithTypeConstraints(node.leftExpression);
+        let leftType = this._getTypeOfExpression(node.leftExpression);
         this._validateMemberAccess(leftType, node.memberName);
 
         // Set the member type for the hover provider.
@@ -1001,9 +995,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let evaluator = this._getEvaluator();
-        let typeHint = evaluator.getType(node.typeAnnotation.expression,
-            EvaluatorFlags.ConvertClassToObject);
+        let typeHint = this._getTypeOfAnnotation(node.typeAnnotation.expression);
         if (typeHint) {
             if (!(node.valueExpression instanceof NameNode) ||
                     !this._assignTypeForPossibleEnumeration(node.valueExpression, typeHint)) {
@@ -1025,7 +1017,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _isCallOnObjectOrClass(node: CallExpressionNode): boolean {
         let skipFirstMethodParam = false;
         if (node.leftExpression instanceof MemberAccessExpressionNode) {
-            let leftType = this._getTypeOfExpressionWithTypeConstraints(
+            let leftType = this._getTypeOfExpression(
                 node.leftExpression.leftExpression);
 
             // TODO - what should we do about UnionType here?
@@ -1251,319 +1243,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return undefined;
     }
 
-    private _getTypeOfExpressionWithTypeConstraints(node: ExpressionNode): Type {
-        let type = this._getTypeOfExpression(node);
-        return this._applyTypeConstraint(node, type);
+    private _getTypeOfAnnotation(node: ExpressionNode): Type {
+        let evaluator = this._getEvaluator();
+        return evaluator.getType(node, EvaluatorFlags.ConvertClassToObject);
     }
 
-    // Returns the type of the expression for the node and caches it
-    // for subsequent calls. Generic class and function types are not
-    // specialized unless explicit type arguments are provided. It
-    // is up to the caller to determine inferred type specializations.
     private _getTypeOfExpression(node: ExpressionNode): Type {
-        // If there's an up-to-date cached version, return it.
-        let cachedType = this._readTypeFromNodeCache(node);
-        if (cachedType) {
-            return cachedType;
-        }
-
-        let exprType: Type | undefined;
-
-        if (node instanceof NameNode) {
-            exprType = this._getTypeOfName(node.nameToken.value);
-        } else if (node instanceof StringNode) {
-            if (node.tokens[0].quoteTypeFlags & QuoteTypeFlags.Byte) {
-                exprType = ScopeUtils.getBuiltInObject(this._currentScope, 'byte');
-            } else {
-                exprType = ScopeUtils.getBuiltInObject(this._currentScope, 'str');
-            }
-        } else if (node instanceof NumberNode) {
-            if (node.token.isInteger) {
-                exprType = ScopeUtils.getBuiltInObject(this._currentScope, 'int');
-            } else {
-                exprType = ScopeUtils.getBuiltInObject(this._currentScope, 'float');
-            }
-        } else if (node instanceof ConstantNode) {
-            if (node.token.keywordType === KeywordType.True ||
-                    node.token.keywordType === KeywordType.False ||
-                    node.token.keywordType === KeywordType.Debug) {
-                exprType = ScopeUtils.getBuiltInObject(this._currentScope, 'bool');
-            } else {
-                assert(node.token.keywordType === KeywordType.None);
-                exprType = NoneType.create();
-            }
-        } else if (node instanceof EllipsisNode) {
-            exprType = AnyType.create();
-        } else if (node instanceof MemberAccessExpressionNode) {
-            exprType = this._getTypeOfMemberAccessNode(node);
-        } else if (node instanceof CallExpressionNode) {
-            let callType = this._getTypeOfExpression(node.leftExpression);
-            exprType = this._getTypeOfCallNode(node, callType);
-        } else if (node instanceof UnaryExpressionNode) {
-            // TODO - need to implement
-            this._getTypeOfExpression(node.expression);
-        } else if (node instanceof BinaryExpressionNode) {
-            // TODO - need to implement
-            this._getTypeOfExpression(node.leftExpression);
-            this._getTypeOfExpression(node.rightExpression);
-        } else if (node instanceof TupleExpressionNode) {
-            let tupleType = new TupleType(
-                ScopeUtils.getBuiltInType(this._currentScope, 'tuple') as ClassType);
-            node.expressions.forEach(expr => {
-                tupleType.addEntryType(this._getTypeOfExpression(expr));
-            });
-            exprType = tupleType;
-        } else if (node instanceof IndexExpressionNode) {
-            exprType = this._getTypeOfIndexExpression(node);
-        } else if (node instanceof ListNode) {
-            node.entries.forEach(expr => {
-                this._getTypeOfExpression(expr);
-            });
-            // TODO - infer list type
-            exprType = ScopeUtils.getBuiltInObject(
-                this._currentScope, 'list', []);
-        } else if (node instanceof SliceExpressionNode) {
-            // TODO - need to implement
-            if (node.startValue) {
-                this._getTypeOfExpression(node.startValue);
-            }
-            if (node.endValue) {
-                this._getTypeOfExpression(node.endValue);
-            }
-            if (node.stepValue) {
-                this._getTypeOfExpression(node.stepValue);
-            }
-            // TODO - infer set type
-            exprType = ScopeUtils.getBuiltInObject(
-                this._currentScope, 'set', []);
-        } else if (node instanceof AwaitExpressionNode) {
-            // TODO - need to implement
-            exprType = this._getTypeOfExpression(node.expression);
-        } else if (node instanceof ConditionalExpressionNode) {
-            this._getTypeOfExpression(node.ifExpression);
-
-            let leftType = this._getTypeOfExpression(node.leftExpression);
-            let rightType = this._getTypeOfExpression(node.elseExpression);
-            exprType = TypeUtils.combineTypes(leftType, rightType);
-        } else if (node instanceof ListComprehensionNode) {
-            // TODO - infer list type
-            // this._getTypeOfExpression(node.baseExpression);
-            exprType = ScopeUtils.getBuiltInObject(
-                this._currentScope, 'list', []);
-        } else if (node instanceof DictionaryNode) {
-            // TODO - infer dict type
-            exprType = ScopeUtils.getBuiltInObject(
-                this._currentScope, 'dict', []);
-        } else if (node instanceof LambdaNode) {
-            exprType = AnalyzerNodeInfo.getExpressionType(node);
-        } else if (node instanceof SetNode) {
-            node.entries.forEach(expr => {
-                this._getTypeOfExpression(expr);
-            });
-            // TODO - infer set type
-            exprType = ScopeUtils.getBuiltInObject(
-                this._currentScope, 'set', []);
-        } else if (node instanceof AssignmentNode) {
-            this._getTypeOfExpression(node.rightExpression);
-            exprType = this._getTypeOfExpression(node.leftExpression);
-        } else if (node instanceof YieldExpressionNode) {
-            exprType = this._getTypeOfExpression(node.expression);
-            // TODO - need to handle futures
-            exprType = UnknownType.create();
-        } else {
-            // TODO - need to finish
-            this._addError(`Unsupported expression type'`, node);
-        }
-
-        if (!exprType) {
-            exprType = UnknownType.create();
-        }
-
-        // Cache the type so we don't need to compute it again.
-        this._updateExpressionTypeForNode(node, exprType);
-
-        return exprType;
-    }
-
-    private _getTypeOfIndexExpression(node: IndexExpressionNode): Type | undefined {
-        let baseType = this._getTypeOfExpression(node.baseExpression);
-
-        // Determine if this is a generic class or function.
-        if (baseType instanceof ClassType) {
-            if (baseType.isGeneric() || baseType.isSpecialBuiltIn()) {
-                let evaluator = this._getEvaluator();
-                baseType = evaluator.specializeClassType(baseType, node.indexExpression,
-                    EvaluatorFlags.None);
-            }
-
-            return baseType;
-        }
-
-        // Force the index expression to be evaluated.
-        this._getTypeOfExpression(node.indexExpression);
-
-        // TODO - need to implement
-        return undefined;
-    }
-
-    private _getTypeOfMemberAccessNode(node: MemberAccessExpressionNode): Type | undefined {
-        let exprType: Type | undefined;
-        let leftType = this._getTypeOfExpression(node.leftExpression);
-        let memberName = node.memberName.nameToken.value;
-
-        if (!leftType.isAny()) {
-            if (leftType instanceof ObjectType) {
-                let classMemberType = TypeUtils.lookUpClassMember(
-                    leftType.getClassType(), memberName, true);
-                if (classMemberType) {
-                    exprType = TypeUtils.getEffectiveTypeOfMember(classMemberType);
-                    if (exprType instanceof PropertyType) {
-                        exprType = exprType.getEffectiveReturnType();
-                    }
-                }
-            } else if (leftType instanceof ClassType) {
-                let classMemberType = TypeUtils.lookUpClassMember(leftType, memberName);
-                if (classMemberType) {
-                    exprType = TypeUtils.getEffectiveTypeOfMember(classMemberType);
-                    if (exprType instanceof PropertyType) {
-                        exprType = exprType.getEffectiveReturnType();
-                    }
-                }
-            } else if (leftType instanceof ModuleType) {
-                const moduleFields = leftType.getFields();
-                let fieldInfo = moduleFields.get(memberName);
-                if (fieldInfo) {
-                    exprType = fieldInfo.currentType;
-                }
-            } else if (leftType instanceof PropertyType) {
-                // TODO - handle this case properly. This is hit
-                // when we encounter the pattern "@prop.setter" for
-                // defining setters.
-                exprType = new FunctionType(FunctionTypeFlags.None);
-            }
-        }
-
-        return exprType;
-    }
-
-    private _getTypeOfCallNode(node: CallExpressionNode, callType: Type): Type | undefined {
-        let exprType: Type | undefined;
-
-        if (callType.isAny()) {
-            exprType = UnknownType.create();
-        } else {
-            let skipFirstMethodParam = this._isCallOnObjectOrClass(node);
-            if (callType instanceof FunctionType) {
-                // The stdlib collections.pyi stub file defines namedtuple as a function
-                // rather than a class, so we need to check for it here.
-                if (callType.getSpecialBuiltInName() === 'namedtuple') {
-                    let evaluator = this._getEvaluator();
-                    exprType = evaluator.createNamedTupleType(node, false);
-                } else {
-                    exprType = callType.getEffectiveReturnType();
-                }
-            } else if (callType instanceof OverloadedFunctionType) {
-                // Determine which of the overloads (if any) match.
-                let functionType = this._findOverloadedFunctionType(
-                    callType, node, skipFirstMethodParam);
-                if (functionType) {
-                    exprType = functionType.getEffectiveReturnType();
-                }
-            } else if (callType instanceof ClassType) {
-                if (callType.isBuiltIn()) {
-                    const className = callType.getClassName();
-                    if (className === 'type') {
-                        // Handle the 'type' call specially.
-                        if (node.arguments.length >= 1) {
-                            let argType = this._getTypeOfExpression(
-                                node.arguments[0].valueExpression);
-                            if (argType instanceof ObjectType) {
-                                exprType = argType.getClassType();
-                            }
-                        }
-
-                        // If the parameter to type() is not statically known,
-                        // fall back to unknown.
-                        if (!exprType) {
-                            exprType = UnknownType.create();
-                        }
-                    } else if (className === 'TypeVar') {
-                        let evaluator = this._getEvaluator();
-                        exprType = evaluator.createTypeVarType(node);
-                    } else if (className === 'NamedTuple') {
-                        // Handle the NamedTuple case specially because it's a class factory.
-                        let evaluator = this._getEvaluator();
-                        exprType = evaluator.createNamedTupleType(node, true);
-                    }
-                }
-
-                if (!exprType) {
-                    exprType = new ObjectType(callType);
-                }
-            } else if (callType instanceof UnionType) {
-                let returnTypes: Type[] = [];
-                callType.getTypes().forEach(typeEntry => {
-                    if (typeEntry instanceof NoneType) {
-                        // TODO - ignore None for now.
-                    } else {
-                        let returnType = this._getTypeOfCallNode(node, typeEntry);
-                        if (returnType) {
-                            returnTypes.push(returnType);
-                        }
-                    }
-                });
-
-                if (returnTypes.length > 0) {
-                    exprType = TypeUtils.combineTypesArray(returnTypes);
-                }
-            } else {
-                // TODO - report error
-            }
-        }
-
-        return exprType;
-    }
-
-    private _getTypeOfName(name: string): Type | undefined {
-        let beyondLocalScope = false;
-
-        // Look for the scope that contains the value definition and
-        // see if it has a declared type.
-        let scope: Scope | undefined = this._currentScope;
-        while (scope) {
-            let symbol = scope.lookUpSymbol(name);
-            if (symbol) {
-                let declaration = symbol.declarations ? symbol.declarations[0] : undefined;
-
-                // Was there a defined type hint?
-                if (declaration && declaration.declaredType) {
-                    return declaration.declaredType;
-                }
-
-                // If this is a non-variable type (e.g. a class, function, method), we
-                // can assume that it's not going to be modified outside the local scope.
-                if (declaration && declaration.category !== SymbolCategory.Variable) {
-                    return symbol.currentType;
-                }
-
-                // If we haven't already gone beyond the local scope, we can
-                // trust the current type. If we've moved beyond the local
-                // scope to some other outer scope (e.g. the global scope), we
-                // cannot trust the current type.
-                if (beyondLocalScope) {
-                    return symbol.inferredType.getType();
-                } else {
-                    return symbol.currentType;
-                }
-            }
-
-            if (scope.getType() !== ScopeType.Temporary) {
-                beyondLocalScope = true;
-            }
-            scope = scope.getParent();
-        }
-
-        return undefined;
+        let evaluator = this._getEvaluator();
+        return evaluator.getType(node, EvaluatorFlags.None);
     }
 
     private _updateExpressionTypeForNode(node: ParseNode, exprType: Type) {
@@ -1614,9 +1301,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 });
             }
         } else if (target instanceof TypeAnnotationExpressionNode) {
-            let evaluator = this._getEvaluator();
-            let typeHint = evaluator.getType(target.typeAnnotation.expression,
-                EvaluatorFlags.ConvertClassToObject);
+            let typeHint = this._getTypeOfAnnotation(target.typeAnnotation.expression);
 
             if (!TypeUtils.canAssignType(typeHint, type)) {
                 this._addError(
@@ -1832,7 +1517,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // The expression type will be cached in the node so we don't re-evaluate
         // it below.
         node.arguments.forEach(arg => {
-            this._getTypeOfExpressionWithTypeConstraints(arg.valueExpression);
+            this._getTypeOfExpression(arg.valueExpression);
         });
 
         // If the function has decorators, we need to back off because the decorator
@@ -1982,7 +1667,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _validateArgType(paramType: Type, argExpression: ExpressionNode) {
-        let argType = this._getTypeOfExpressionWithTypeConstraints(argExpression);
+        let argType = this._getTypeOfExpression(argExpression);
         if (!TypeUtils.canAssignType(paramType, argType)) {
             this._addError(
                 `Argument of type '${ argType.asString() }'` +
@@ -2175,40 +1860,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _buildTypeConstraints(node: ExpressionNode) {
         return TypeConstraintBuilder.buildTypeConstraints(node,
-            (node: ExpressionNode) => this._getTypeOfExpressionWithTypeConstraints(node));
-    }
-
-    private _applyTypeConstraint(node: ExpressionNode, unconstrainedType: Type): Type {
-        // Apply constraints associated with the expression we're
-        // currently walking.
-        let constrainedType = unconstrainedType;
-        this._expressionTypeConstraints.forEach(constraint => {
-            constrainedType = constraint.applyToType(node, constrainedType);
-        });
-
-        // Apply constraints from the current scope and its outer scopes.
-        return this._applyScopeTypeConstraintRecursive(node, constrainedType);
-    }
-
-    private _applyScopeTypeConstraintRecursive(node: ExpressionNode, type: Type,
-            scope = this._currentScope): Type {
-        // If we've hit a permanent scope, don't recurse any further.
-        if (scope.getType() !== ScopeType.Temporary) {
-            return type;
-        }
-
-        // Recursively allow the parent scopes to apply their type constraints.
-        const parentScope = scope.getParent();
-        if (parentScope) {
-            type = this._applyScopeTypeConstraintRecursive(node, type, parentScope);
-        }
-
-        // Apply the constraints within the current scope.
-        scope.getTypeConstraints().forEach(constraint => {
-            type = constraint.applyToType(node, type);
-        });
-
-        return type;
+            (node: ExpressionNode) => this._getTypeOfExpression(node));
     }
 
     private _enterTemporaryScope(callback: () => void, isConditional ? : boolean,

@@ -15,8 +15,6 @@ import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { SymbolCategory } from './symbol';
-import { ClassType } from './types';
-import { TypeUtils } from './typeUtils';
 
 export class HoverProvider {
     static getHoverForPosition(parseResults: ParseResults,
