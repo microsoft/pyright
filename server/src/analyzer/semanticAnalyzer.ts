@@ -28,8 +28,10 @@ import { AssignmentNode, ClassNode, DelNode, ExceptNode, ExpressionNode, ForNode
     ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParameterCategory, ParameterNode,
     RaiseNode, ReturnNode, StarExpressionNode, TryNode,
     TupleExpressionNode, TypeAnnotationExpressionNode, WithNode } from '../parser/parseNodes';
+import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportType } from './importResult';
 import { DefaultTypeSourceId } from './inferredType';
@@ -37,7 +39,6 @@ import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory } from './symbol';
-import { TypeAnnotation } from './typeAnnotation';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, OverloadedFunctionType, Type, TypeCategory, UnboundType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
@@ -139,6 +140,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         let sawMetaclass = false;
+        let evaluator = new ExpressionEvaluator(this._currentScope, [], this._fileInfo.diagnosticSink);
         node.arguments.forEach(arg => {
             let argType: Type;
 
@@ -147,8 +149,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 // time because forward declarations are supported in stub files.
                 argType = UnknownType.create();
             } else {
-                argType = TypeAnnotation.getType(arg.valueExpression,
-                    this._currentScope, this._fileInfo.diagnosticSink, false);
+                argType = evaluator.getType(arg.valueExpression, EvaluatorFlags.None);
             }
 
             let isMetaclass = false;
@@ -175,7 +176,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         });
 
         if (node.arguments.length === 0) {
-            let objectType = TypeAnnotation.getBuiltInType(this._currentScope, 'object');
+            let objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
             // Make sure we don't have 'object' derive from itself. Infinite
             // recursion will result.
             if (objectType !== classType) {
@@ -242,8 +243,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         // Handle overload decorators specially.
         let overloadedType: OverloadedFunctionType | undefined;
-        [overloadedType, warnIfDuplicate] = TypeAnnotation.getOverloadedFunctionType(node,
-            functionType, this._currentScope);
+        let evaluator = new ExpressionEvaluator(this._currentScope, []);
+        [overloadedType, warnIfDuplicate] = evaluator.getOverloadedFunctionType(node, functionType);
         if (overloadedType) {
             functionType.clearHasCustomDecoratorsFlag();
             decoratedType = overloadedType;
@@ -251,7 +252,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             // Determine if the function is a property getter or setter.
             if (ParseTreeUtils.isFunctionInClass(node)) {
                 functionType.clearHasCustomDecoratorsFlag();
-                let propertyType = TypeAnnotation.getPropertyType(node, functionType, this._currentScope);
+                let propertyType = evaluator.getPropertyType(node, functionType);
                 if (propertyType) {
                     decoratedType = propertyType;
 
@@ -932,13 +933,13 @@ export class ModuleScopeAnalyzer extends SemanticAnalyzer {
 
     private _bindImplicitNames() {
         // List taken from https://docs.python.org/3/reference/import.html#__name__
-        this._bindNameToType('__name__', TypeAnnotation.getBuiltInObject(this._currentScope, 'str'));
+        this._bindNameToType('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         this._bindNameToType('__loader__', AnyType.create());
-        this._bindNameToType('__package__', TypeAnnotation.getBuiltInObject(this._currentScope, 'str'));
+        this._bindNameToType('__package__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         this._bindNameToType('__spec__', AnyType.create());
-        this._bindNameToType('__path__', TypeAnnotation.getBuiltInObject(this._currentScope, 'str'));
-        this._bindNameToType('__file__', TypeAnnotation.getBuiltInObject(this._currentScope, 'str'));
-        this._bindNameToType('__cached__', TypeAnnotation.getBuiltInObject(this._currentScope, 'str'));
+        this._bindNameToType('__path__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._bindNameToType('__file__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._bindNameToType('__cached__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
     }
 }
 
@@ -980,7 +981,7 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
         assert(classType instanceof ClassType);
         this._bindNameToType('__class__', classType!);
         this._bindNameToType('__dict__', AnyType.create());
-        this._bindNameToType('__name__', TypeAnnotation.getBuiltInObject(this._currentScope, 'str'));
+        this._bindNameToType('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
     }
 }
 
@@ -1022,12 +1023,12 @@ export class FunctionScopeAnalyzer extends SemanticAnalyzer {
 
     private _bindImplicitNames() {
         // List taken from https://docs.python.org/3/reference/datamodel.html
-        this._bindNameToType('__doc__', TypeAnnotation.getBuiltInObject(this._currentScope, 'str'));
-        this._bindNameToType('__name__', TypeAnnotation.getBuiltInObject(this._currentScope, 'str'));
+        this._bindNameToType('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._bindNameToType('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
-            this._bindNameToType('__qualname__', TypeAnnotation.getBuiltInObject(this._currentScope, 'str'));
+            this._bindNameToType('__qualname__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         }
-        this._bindNameToType('__module__', TypeAnnotation.getBuiltInObject(this._currentScope, 'str'));
+        this._bindNameToType('__module__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         this._bindNameToType('__defaults__', AnyType.create());
         this._bindNameToType('__code__', AnyType.create());
         this._bindNameToType('__globals__', AnyType.create());

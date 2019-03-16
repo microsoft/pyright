@@ -420,7 +420,7 @@ export class ClassType extends Type {
     asStringInternal(recursionCount = 0): string {
         // Return the same string that we'd use for an instance
         // of the class.
-        return this.getObjectName(recursionCount + 1);
+        return 'Type[' + this.getObjectName(recursionCount + 1) + ']';
     }
 
     // Determines whether this is a subclass (derived class)

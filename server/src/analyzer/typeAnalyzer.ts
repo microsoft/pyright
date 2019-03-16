@@ -24,8 +24,10 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode, BinaryExpression
     TypeAnnotationExpressionNode, UnaryExpressionNode, WithNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, QuoteTypeFlags } from '../parser/tokenizerTypes';
+import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportResult } from './importResult';
 import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
@@ -33,7 +35,6 @@ import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
-import { TypeAnnotation } from './typeAnnotation';
 import { TypeConstraint, TypeConstraintBuilder, TypeConstraintResults } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionType, FunctionTypeFlags, ModuleType,
     NoneType, ObjectType, OverloadedFunctionType, PropertyType, TupleType, Type, TypeCategory,
@@ -111,9 +112,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let classType = AnalyzerNodeInfo.getExpressionType(node) as ClassType;
         assert(classType instanceof ClassType);
 
+        let evaluator = this._getEvaluator();
+
         node.arguments.forEach((arg, index) => {
-            let argType = TypeAnnotation.getType(arg.valueExpression,
-                this._currentScope, this._getConditionalDiagnosticSink(), false);
+            let argType = evaluator.getType(arg.valueExpression, EvaluatorFlags.None);
 
             // In some stub files, classes are conditionally defined (e.g. based
             // on platform type). We'll assume that the conditional logic is correct
@@ -169,14 +171,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
             functionType.setSpecialBuiltInName(node.name.nameToken.value);
         }
 
+        let evaluator = this._getEvaluator();
+
         const functionParams = functionType.getParameters();
         node.parameters.forEach((param, index) => {
             let annotatedType: Type | undefined;
             if (param.typeAnnotation) {
                 this.walk(param.typeAnnotation.expression);
 
-                annotatedType = TypeAnnotation.getType(param.typeAnnotation.expression,
-                    this._currentScope, this._getConditionalDiagnosticSink());
+                annotatedType = evaluator.getType(param.typeAnnotation.expression,
+                    EvaluatorFlags.ConvertClassToObject);
 
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
@@ -218,8 +222,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (node.returnTypeAnnotation) {
             this.walk(node.returnTypeAnnotation.expression);
 
-            const returnType = TypeAnnotation.getType(node.returnTypeAnnotation.expression,
-                this._currentScope, this._getConditionalDiagnosticSink());
+            const returnType = evaluator.getType(node.returnTypeAnnotation.expression,
+                EvaluatorFlags.ConvertClassToObject);
             if (functionType.setDeclaredReturnType(returnType)) {
                 this._setAnalysisChanged();
             }
@@ -327,15 +331,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Handle overload decorators specially.
         let overloadedType: OverloadedFunctionType | undefined;
-        [overloadedType] = TypeAnnotation.getOverloadedFunctionType(node,
-            functionType, this._currentScope);
+        [overloadedType] = evaluator.getOverloadedFunctionType(node, functionType);
         if (overloadedType) {
             decoratedType = overloadedType;
         } else {
             // Determine if the function is a property getter or setter.
             if (ParseTreeUtils.isFunctionInClass(node)) {
-                let propertyType = TypeAnnotation.getPropertyType(
-                    node, functionType, this._currentScope);
+                let propertyType = evaluator.getPropertyType(node, functionType);
                 if (propertyType) {
                     decoratedType = propertyType;
                 }
@@ -642,8 +644,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (node.typeExpression && node.name) {
             this._currentScope.addUnboundSymbol(node.name.nameToken.value);
-            let exceptionType = TypeAnnotation.getType(node.typeExpression,
-                this._currentScope, this._getConditionalDiagnosticSink(), false);
+            let evaluator = this._getEvaluator();
+            let exceptionType = evaluator.getType(node.typeExpression, EvaluatorFlags.None);
 
             // If more than one type was specified for the exception,
             // handle that here.
@@ -720,7 +722,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
                             DefaultTypeSourceId);
 
-                        let aliasClass = TypeAnnotation.getBuiltInType(this._currentScope,
+                        let aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
                             assignedName.toLowerCase());
                         if (aliasClass instanceof ClassType) {
                             specialClassType.addBaseClass(aliasClass, false);
@@ -975,7 +977,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
                         AnalyzerNodeInfo.getTypeSourceId(node));
 
-                    let aliasClass = TypeAnnotation.getBuiltInType(this._currentScope,
+                    let aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
                         assignedName.toLowerCase());
                     if (aliasClass instanceof ClassType) {
                         specialClassType.addBaseClass(aliasClass, false);
@@ -1000,8 +1002,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let typeHint = TypeAnnotation.getType(node.typeAnnotation.expression,
-            this._currentScope, this._getConditionalDiagnosticSink());
+        let evaluator = this._getEvaluator();
+        let typeHint = evaluator.getType(node.typeAnnotation.expression,
+            EvaluatorFlags.ConvertClassToObject);
         if (typeHint) {
             if (!(node.valueExpression instanceof NameNode) ||
                     !this._assignTypeForPossibleEnumeration(node.valueExpression, typeHint)) {
@@ -1119,7 +1122,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const classType = exceptionType.getClassType();
             const validTypes = ['list', 'tuple', 'set'];
             const isValid = validTypes.find(t => {
-                const builtInType = TypeAnnotation.getBuiltInType(this._currentScope, t);
+                const builtInType = ScopeUtils.getBuiltInType(this._currentScope, t);
                 if (!builtInType || !(builtInType instanceof ClassType)) {
                     return false;
                 }
@@ -1273,21 +1276,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
             exprType = this._getTypeOfName(node.nameToken.value);
         } else if (node instanceof StringNode) {
             if (node.tokens[0].quoteTypeFlags & QuoteTypeFlags.Byte) {
-                exprType = TypeAnnotation.getBuiltInObject(this._currentScope, 'byte');
+                exprType = ScopeUtils.getBuiltInObject(this._currentScope, 'byte');
             } else {
-                exprType = TypeAnnotation.getBuiltInObject(this._currentScope, 'str');
+                exprType = ScopeUtils.getBuiltInObject(this._currentScope, 'str');
             }
         } else if (node instanceof NumberNode) {
             if (node.token.isInteger) {
-                exprType = TypeAnnotation.getBuiltInObject(this._currentScope, 'int');
+                exprType = ScopeUtils.getBuiltInObject(this._currentScope, 'int');
             } else {
-                exprType = TypeAnnotation.getBuiltInObject(this._currentScope, 'float');
+                exprType = ScopeUtils.getBuiltInObject(this._currentScope, 'float');
             }
         } else if (node instanceof ConstantNode) {
             if (node.token.keywordType === KeywordType.True ||
                     node.token.keywordType === KeywordType.False ||
                     node.token.keywordType === KeywordType.Debug) {
-                exprType = TypeAnnotation.getBuiltInObject(this._currentScope, 'bool');
+                exprType = ScopeUtils.getBuiltInObject(this._currentScope, 'bool');
             } else {
                 assert(node.token.keywordType === KeywordType.None);
                 exprType = NoneType.create();
@@ -1308,7 +1311,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._getTypeOfExpression(node.rightExpression);
         } else if (node instanceof TupleExpressionNode) {
             let tupleType = new TupleType(
-                TypeAnnotation.getBuiltInType(this._currentScope, 'tuple') as ClassType);
+                ScopeUtils.getBuiltInType(this._currentScope, 'tuple') as ClassType);
             node.expressions.forEach(expr => {
                 tupleType.addEntryType(this._getTypeOfExpression(expr));
             });
@@ -1320,7 +1323,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._getTypeOfExpression(expr);
             });
             // TODO - infer list type
-            exprType = TypeAnnotation.getBuiltInObject(
+            exprType = ScopeUtils.getBuiltInObject(
                 this._currentScope, 'list', []);
         } else if (node instanceof SliceExpressionNode) {
             // TODO - need to implement
@@ -1334,7 +1337,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._getTypeOfExpression(node.stepValue);
             }
             // TODO - infer set type
-            exprType = TypeAnnotation.getBuiltInObject(
+            exprType = ScopeUtils.getBuiltInObject(
                 this._currentScope, 'set', []);
         } else if (node instanceof AwaitExpressionNode) {
             // TODO - need to implement
@@ -1348,11 +1351,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         } else if (node instanceof ListComprehensionNode) {
             // TODO - infer list type
             this._getTypeOfExpression(node.baseExpression);
-            exprType = TypeAnnotation.getBuiltInObject(
+            exprType = ScopeUtils.getBuiltInObject(
                 this._currentScope, 'list', []);
         } else if (node instanceof DictionaryNode) {
             // TODO - infer dict type
-            exprType = TypeAnnotation.getBuiltInObject(
+            exprType = ScopeUtils.getBuiltInObject(
                 this._currentScope, 'dict', []);
         } else if (node instanceof LambdaNode) {
             exprType = AnalyzerNodeInfo.getExpressionType(node);
@@ -1361,7 +1364,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._getTypeOfExpression(expr);
             });
             // TODO - infer set type
-            exprType = TypeAnnotation.getBuiltInObject(
+            exprType = ScopeUtils.getBuiltInObject(
                 this._currentScope, 'set', []);
         } else if (node instanceof AssignmentNode) {
             this._getTypeOfExpression(node.rightExpression);
@@ -1391,8 +1394,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Determine if this is a generic class or function.
         if (baseType instanceof ClassType) {
             if (baseType.isGeneric() || baseType.isSpecialBuiltIn()) {
-                [baseType] = TypeAnnotation.specializeClassType(baseType, node.indexExpression,
-                    this._currentScope, this._fileInfo.diagnosticSink);
+                let evaluator = this._getEvaluator();
+                baseType = evaluator.specializeClassType(baseType, node.indexExpression,
+                    EvaluatorFlags.None);
             }
 
             return baseType;
@@ -1410,7 +1414,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let leftType = this._getTypeOfExpression(node.leftExpression);
         let memberName = node.memberName.nameToken.value;
 
-        if (memberName && !leftType.isAny()) {
+        if (!leftType.isAny()) {
             if (leftType instanceof ObjectType) {
                 let classMemberType = TypeUtils.lookUpClassMember(
                     leftType.getClassType(), node.memberName.nameToken.value, true);
@@ -1457,8 +1461,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // The stdlib collections.pyi stub file defines namedtuple as a function
                 // rather than a class, so we need to check for it here.
                 if (callType.getSpecialBuiltInName() === 'namedtuple') {
-                    exprType = TypeAnnotation.createNamedTupleType(node, false,
-                        this._currentScope, this._fileInfo.diagnosticSink);
+                    let evaluator = this._getEvaluator();
+                    exprType = evaluator.createNamedTupleType(node, false);
                 } else {
                     exprType = callType.getEffectiveReturnType();
                 }
@@ -1488,12 +1492,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             exprType = UnknownType.create();
                         }
                     } else if (className === 'TypeVar') {
-                        exprType = TypeAnnotation.getTypeVarType(node,
-                            this._currentScope, this._getConditionalDiagnosticSink());
+                        let evaluator = this._getEvaluator();
+                        exprType = evaluator.createTypeVarType(node);
                     } else if (className === 'NamedTuple') {
                         // Handle the NamedTuple case specially because it's a class factory.
-                        exprType = TypeAnnotation.createNamedTupleType(node, true,
-                            this._currentScope, this._getConditionalDiagnosticSink());
+                        let evaluator = this._getEvaluator();
+                        exprType = evaluator.createNamedTupleType(node, true);
                     }
                 }
 
@@ -1614,8 +1618,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 });
             }
         } else if (target instanceof TypeAnnotationExpressionNode) {
-            let typeHint = TypeAnnotation.getType(target.typeAnnotation.expression,
-                this._currentScope, this._getConditionalDiagnosticSink());
+            let evaluator = this._getEvaluator();
+            let typeHint = evaluator.getType(target.typeAnnotation.expression,
+                EvaluatorFlags.ConvertClassToObject);
 
             if (!TypeUtils.canAssignType(typeHint, type)) {
                 this._addError(
@@ -2177,15 +2182,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
             (node: ExpressionNode) => this._getTypeOfExpressionWithTypeConstraints(node));
     }
 
-    private _applyTypeConstraint(node: ExpressionNode, type: Type): Type {
+    private _applyTypeConstraint(node: ExpressionNode, unconstrainedType: Type): Type {
         // Apply constraints associated with the expression we're
         // currently walking.
+        let constrainedType = unconstrainedType;
         this._expressionTypeConstraints.forEach(constraint => {
-            type = constraint.applyToType(node, type);
+            constrainedType = constraint.applyToType(node, constrainedType);
         });
 
         // Apply constraints from the current scope and its outer scopes.
-        return this._applyScopeTypeConstraintRecursive(node, type);
+        return this._applyScopeTypeConstraintRecursive(node, constrainedType);
     }
 
     private _applyScopeTypeConstraintRecursive(node: ExpressionNode, type: Type,
@@ -2267,14 +2273,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _getConditionalDiagnosticSink(): TextRangeDiagnosticSink {
+    private _getEvaluator() {
+        let diagSink: TextRangeDiagnosticSink | undefined = this._fileInfo.diagnosticSink;
+
         // If the current scope isn't executed, create a dummy sink
         // for any errors that are reported.
         if (this._currentScope.isNotExecuted() && !this._isDiagnosticsSuppressed) {
-            return new TextRangeDiagnosticSink(this._fileInfo.lines);
+            diagSink = undefined;
         }
 
-        return this._fileInfo.diagnosticSink;
+        return new ExpressionEvaluator(this._currentScope,
+            this._expressionTypeConstraints, diagSink);
     }
 
     private _setAnalysisChanged() {
