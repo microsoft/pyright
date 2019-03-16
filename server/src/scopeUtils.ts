@@ -34,8 +34,7 @@ export class ScopeUtils {
         if (nameType instanceof ClassType) {
             let classType = nameType;
             if (typeArguments) {
-                classType = classType.cloneForSpecialization();
-                classType.setTypeArguments(typeArguments);
+                classType = classType.cloneForSpecialization(typeArguments);
             }
 
             return new ObjectType(classType);

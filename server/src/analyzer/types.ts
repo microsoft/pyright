@@ -7,7 +7,7 @@
 */
 
 import * as assert from 'assert';
-import { ParameterCategory, ParseNode } from '../parser/parseNodes';
+import { ParameterCategory } from '../parser/parseNodes';
 import { InferredType, TypeSourceId } from './inferredType';
 import { SymbolTable } from './symbol';
 
@@ -224,10 +224,11 @@ export class ClassType extends Type {
         };
     }
 
-    cloneForSpecialization(): ClassType {
+    cloneForSpecialization(typeArguments: (Type | Type[])[]): ClassType {
         let newClassType = new ClassType(this._classDetails.name,
             this._classDetails.flags, this._classDetails.typeSourceId);
         newClassType._classDetails = this._classDetails;
+        newClassType.setTypeArguments(typeArguments);
         return newClassType;
     }
 
@@ -493,7 +494,6 @@ export interface FunctionParameter {
     name?: string;
     hasDefault?: boolean;
     type: Type;
-    node?: ParseNode;
 }
 
 export enum FunctionTypeFlags {
@@ -509,15 +509,13 @@ interface FunctionDetails {
     parameters: FunctionParameter[];
     declaredReturnType?: Type;
     inferredReturnType: InferredType;
+    builtInName?: string;
 }
 
 export class FunctionType extends Type {
     category = TypeCategory.Function;
 
     private _functionDetails: FunctionDetails;
-
-    // We need to handle certain built-in functions specially.
-    private _specialBuiltInName: string | undefined;
 
     // A generic function that has been completely or partially
     // specialized will have type arguments that correspond to
@@ -542,12 +540,12 @@ export class FunctionType extends Type {
         return (this._functionDetails.flags & FunctionTypeFlags.ClassMethod) !== 0;
     }
 
-    getSpecialBuiltInName() {
-        return this._specialBuiltInName;
+    getBuiltInName() {
+        return this._functionDetails.builtInName;
     }
 
-    setSpecialBuiltInName(name: string) {
-        this._specialBuiltInName = name;
+    setBuiltInName(name: string) {
+        this._functionDetails.builtInName = name;
     }
 
     getParameters() {

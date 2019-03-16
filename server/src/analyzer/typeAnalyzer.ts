@@ -166,7 +166,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (this._fileInfo.isCollectionsStubFile) {
             // Stash away the name of the function since we need to handle
             // 'namedtuple' specially.
-            functionType.setSpecialBuiltInName(node.name.nameToken.value);
+            functionType.setBuiltInName(node.name.nameToken.value);
         }
 
         const functionParams = functionType.getParameters();
@@ -229,21 +229,23 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         let functionScope = this._enterScope(node, () => {
+            const parameters = functionType.getParameters();
+            assert(parameters.length === node.parameters.length);
+
             // Add the parameters to the scope and bind their types.
-            functionType.getParameters().forEach(param => {
+            parameters.forEach((param, index) => {
+                const paramNode = node.parameters[index];
                 if (param.name) {
                     if (param.category === ParameterCategory.Simple) {
                         let declaration: Declaration | undefined;
-                        if (param.node) {
-                            declaration = {
-                                category: SymbolCategory.Parameter,
-                                node: param.node,
-                                path: this._fileInfo.filePath,
-                                range: convertOffsetsToRange(param.node.start, param.node.end, this._fileInfo.lines)
-                            };
-                        }
-                        let typeSourceId = param.node ?
-                            AnalyzerNodeInfo.getTypeSourceId(param.node) :
+                        declaration = {
+                            category: SymbolCategory.Parameter,
+                            node: paramNode,
+                            path: this._fileInfo.filePath,
+                            range: convertOffsetsToRange(paramNode.start, paramNode.end, this._fileInfo.lines)
+                        };
+                        let typeSourceId = paramNode ?
+                            AnalyzerNodeInfo.getTypeSourceId(paramNode) :
                             DefaultTypeSourceId;
                         this._bindNameToType(param.name, param.type, typeSourceId, declaration);
                     }
@@ -273,14 +275,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 superType.addParameter({
                     category: ParameterCategory.VarArgList,
                     name: 'args',
-                    type: UnknownType.create(),
-                    node: classNode
+                    type: UnknownType.create()
                 });
                 superType.addParameter({
                     category: ParameterCategory.VarArgDictionary,
                     name: 'kwargs',
-                    type: UnknownType.create(),
-                    node: classNode
+                    type: UnknownType.create()
                 });
                 if (classType.getBaseClasses().length > 0) {
                     let baseClass = classType.getBaseClasses()[0];
@@ -363,8 +363,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (callType instanceof ClassType && callType.isGeneric()) {
             // TODO - need to infer types. For now, just assume "any" type.
-            let specializedType = callType.cloneForSpecialization();
-            specializedType.setTypeArguments([]);
+            let specializedType = callType.cloneForSpecialization([]);
             callType = specializedType;
         }
 
@@ -533,18 +532,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (item.target) {
                 let exprType = this._getTypeOfExpression(item.expression);
 
-                // If the type has an "__enter__" method, it can return
-                // a type other than its own type.
-                const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
-                let enterTypeMember = TypeUtils.lookUpObjectMember(exprType, enterMethodName);
-                if (enterTypeMember) {
-                    const memberType = TypeUtils.getEffectiveTypeOfMember(enterTypeMember);
-                    if (memberType instanceof FunctionType) {
+                if (exprType instanceof ObjectType) {
+                    // If the type has an "__enter__" method, it can return
+                    // a type other than its own type.
+                    const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
+                    let evaluator = this._getEvaluator();
+                    let memberType = evaluator.getTypeFromClassMemberAccess(
+                        enterMethodName, exprType.getClassType(), false);
+
+                    if (memberType && memberType instanceof FunctionType) {
                         exprType = memberType.getEffectiveReturnType();
                     }
                 }
 
                 this._assignTypeToPossibleTuple(item.target, exprType);
+                this.walk(item.target);
             }
         });
 
@@ -1053,12 +1055,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             } else if (callType instanceof ObjectType) {
                 isCallable = false;
-                const callMethod = TypeUtils.lookUpObjectMember(callType, '__call__');
-                if (callMethod) {
-                    const callMethodType = TypeUtils.getEffectiveTypeOfMember(callMethod);
-                    if (callMethodType instanceof FunctionType) {
-                        isCallable = this._validateCallArguments(node, callMethodType, true);
-                    }
+                let evaluator = this._getEvaluator();
+                let memberType = evaluator.getTypeFromClassMemberAccess(
+                    '__call__', callType.getClassType(), false);
+
+                if (memberType && memberType instanceof FunctionType) {
+                    isCallable = this._validateCallArguments(node, memberType, true);
                 }
             } else if (callType instanceof UnionType) {
                 for (let type of callType.getTypes()) {

@@ -231,8 +231,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 category: param.category,
                 name: param.name ? param.name.nameToken.value : undefined,
                 hasDefault: !!param.defaultValue,
-                type: UnknownType.create(),
-                node: param
+                type: UnknownType.create()
             };
 
             functionType.addParameter(typeParam);

@@ -36,6 +36,8 @@ interface TypeResult {
     node: ExpressionNode;
 }
 
+export class TypeVarMap extends StringMap<Type> {}
+
 export enum EvaluatorFlags {
     None = 0,
 
@@ -127,6 +129,71 @@ export class ExpressionEvaluator {
         }
 
         return [decoratedType, warnIfDuplicate];
+    }
+
+    getTypeFromClassMemberAccess(memberName: string, classType: ClassType,
+            includeInstanceMembers: boolean): Type | undefined {
+
+        // Build a map of type parameters and the type arguments associated with them.
+        let typeArgMap = new TypeVarMap();
+        let typeArgs = classType.getTypeArguments();
+
+        classType.getTypeParameters().forEach((typeParam, index) => {
+            const typeVarName = typeParam.getName();
+            let typeArgType: Type;
+
+            if (typeArgs) {
+                if (index >= typeArgs.length) {
+                    typeArgType = AnyType.create();
+                } else {
+                    typeArgType = typeArgs[index] as Type;
+                }
+            } else {
+                typeArgType = this._specializeTypeVarType(typeParam);
+            }
+
+            typeArgMap.set(typeVarName, typeArgType);
+        });
+
+        let memberInfo = TypeUtils.lookUpClassMember(classType, memberName, includeInstanceMembers);
+        if (memberInfo) {
+            let type = TypeUtils.getEffectiveTypeOfMember(memberInfo);
+            if (type instanceof PropertyType) {
+                type = type.getEffectiveReturnType();
+            }
+
+            return this._specializeType(type, typeArgMap);
+        }
+
+        // See if the class has a "__getattribute__" or "__getattr__" method.
+        // If so, aribrary members are supported.
+        let getAttribMember = TypeUtils.lookUpClassMember(classType, '__getattribute__');
+        if (getAttribMember && getAttribMember.class) {
+            const isObjectClass = getAttribMember.class.isBuiltIn() &&
+                getAttribMember.class.getClassName() === 'object';
+            // The built-in 'object' class, from which every class derives,
+            // implements the default __getattribute__ method. We want to ignore
+            // this one. If this method is overridden, we need to assume that
+            // all members can be accessed.
+            if (!isObjectClass) {
+                const getAttribType = TypeUtils.getEffectiveTypeOfMember(getAttribMember);
+                if (getAttribType instanceof FunctionType) {
+                    return this._specializeType(
+                        getAttribType.getEffectiveReturnType(), typeArgMap);
+                }
+            }
+        }
+
+        let getAttrMember = TypeUtils.lookUpClassMember(classType, '__getattr__');
+        if (getAttrMember) {
+            const getAttrType = TypeUtils.getEffectiveTypeOfMember(getAttrMember);
+            if (getAttrType instanceof FunctionType) {
+                return this._specializeType(
+                    getAttrType.getEffectiveReturnType(), typeArgMap);
+            }
+        }
+
+        return undefined;
     }
 
     private _getTypeFromExpression(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
@@ -286,55 +353,6 @@ export class ExpressionEvaluator {
 
         const baseType = baseTypeResult.type;
         const memberName = node.memberName.nameToken.value;
-        const getTypeFromClass = (classType: ClassType, includeInstanceMembers: boolean) => {
-            let type: Type | undefined;
-
-            let memberInfo = TypeUtils.lookUpClassMember(classType, memberName, includeInstanceMembers);
-            if (memberInfo) {
-                type = TypeUtils.getEffectiveTypeOfMember(memberInfo);
-                if (type instanceof PropertyType) {
-                    type = type.getEffectiveReturnType();
-                }
-
-                return type;
-            }
-
-            // See if the class has a "__getattribute__" or "__getattr__" method.
-            // If so, aribrary members are supported.
-            let getAttribMember = TypeUtils.lookUpClassMember(classType, '__getattribute__');
-            if (getAttribMember && getAttribMember.class) {
-                const isObjectClass = getAttribMember.class.isBuiltIn() &&
-                    getAttribMember.class.getClassName() === 'object';
-                // The built-in 'object' class, from which every class derives,
-                // implements the default __getattribute__ method. We want to ignore
-                // this one. If this method is overridden, we need to assume that
-                // all members can be accessed.
-                if (!isObjectClass) {
-                    const getAttribType = TypeUtils.getEffectiveTypeOfMember(getAttribMember);
-                    if (getAttribType instanceof FunctionType) {
-                        return getAttribType.getEffectiveReturnType();
-                    }
-                }
-            }
-
-            let getAttrMember = TypeUtils.lookUpClassMember(classType, '__getattr__');
-            if (getAttrMember) {
-                const getAttrType = TypeUtils.getEffectiveTypeOfMember(getAttrMember);
-                if (getAttrType instanceof FunctionType) {
-                    return getAttrType.getEffectiveReturnType();
-                }
-            }
-
-            // If the class has decorators, there may be additional fields
-            // added that we don't know about.
-            // TODO - figure out a better approach here.
-            if (!classType.hasDecorators()) {
-                this._addError(
-                    `'${ memberName }' is not a known member of type '${ baseType.asString() }'`,
-                    node.memberName);
-            }
-            return UnknownType.create();
-        };
 
         let type: Type | undefined;
         let isClassOrObjectMember = false;
@@ -345,10 +363,10 @@ export class ExpressionEvaluator {
             // Assume that the base type is a class or object.
             isClassOrObjectMember = true;
         } else if (baseType instanceof ClassType) {
-            type = getTypeFromClass(baseType, false);
+            type = this._getTypeFromClassMemberAccess(node.memberName, baseType, false);
             isClassOrObjectMember = true;
         } else if (baseType instanceof ObjectType) {
-            type = getTypeFromClass(baseType.getClassType(), true);
+            type = this._getTypeFromClassMemberAccess(node.memberName, baseType.getClassType(), true);
             isClassOrObjectMember = true;
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
@@ -396,6 +414,29 @@ export class ExpressionEvaluator {
         type = this._convertClassToObject(type, flags);
 
         return { type, node, isClassOrObjectMember };
+    }
+
+    private _getTypeFromClassMemberAccess(memberNameNode: NameNode,
+            classType: ClassType, includeInstanceMembers: boolean) {
+
+        const memberName = memberNameNode.nameToken.value;
+        let type = this.getTypeFromClassMemberAccess(memberName,
+            classType, includeInstanceMembers);
+
+        if (type) {
+            return type;
+        }
+
+        // If the class has decorators, there may be additional fields
+        // added that we don't know about.
+        // TODO - figure out a better approach here.
+        if (!classType.hasDecorators()) {
+            this._addError(
+                `'${ memberName }' is not a known member of type '${ classType.asString() }'`,
+                memberNameNode);
+        }
+
+        return UnknownType.create();
     }
 
     private _getTypeFromIndexExpression(node: IndexExpressionNode, flags: EvaluatorFlags): TypeResult {
@@ -529,7 +570,7 @@ export class ExpressionEvaluator {
         } else if (callType instanceof FunctionType) {
             // The stdlib collections/__init__.pyi stub file defines namedtuple
             // as a function rather than a class, so we need to check for it here.
-            if (callType.getSpecialBuiltInName() === 'namedtuple') {
+            if (callType.getBuiltInName() === 'namedtuple') {
                 type = this.createNamedTupleType(node, false);
                 flags &= ~EvaluatorFlags.ConvertClassToObject;
             } else {
@@ -884,10 +925,8 @@ export class ExpressionEvaluator {
         });
 
         let type = ScopeUtils.getBuiltInType(this._scope, 'list') as ClassType;
-        type = type.cloneForSpecialization();
-
         // TODO - infer list type from listTypes
-        type.setTypeArguments([]);
+        type = type.cloneForSpecialization([]);
 
         // List literals are always objects, not classes.
         let convertedType = this._convertClassToObject(type, EvaluatorFlags.ConvertClassToObject);
@@ -908,10 +947,8 @@ export class ExpressionEvaluator {
         }
 
         let type = ScopeUtils.getBuiltInType(this._scope, 'set') as ClassType;
-        type = type.cloneForSpecialization();
-
         // TODO - infer set type
-        type.setTypeArguments([]);
+        type = type.cloneForSpecialization([]);
 
         let convertedType = this._convertClassToObject(type, flags);
 
@@ -995,8 +1032,7 @@ export class ExpressionEvaluator {
             typeArgCount = paramLimit;
         }
 
-        let specializedType = classType.cloneForSpecialization();
-        specializedType.setTypeArguments(typeArgs.map(t => t.type));
+        let specializedType = classType.cloneForSpecialization(typeArgs.map(t => t.type));
 
         return this._convertClassToObject(specializedType, flags);
     }
@@ -1062,10 +1098,8 @@ export class ExpressionEvaluator {
             typeArgCount = typeParameters.length;
         }
 
-        let specializedClass = classType.cloneForSpecialization();
-
         // TODO - need to verify constraints of arguments
-        specializedClass.setTypeArguments(typeArgs.map(t => t.type));
+        let specializedClass = classType.cloneForSpecialization(typeArgs.map(t => t.type));
 
         return specializedClass;
     }
@@ -1174,6 +1208,108 @@ export class ExpressionEvaluator {
 
         let specializedType = this._createSpecializedClassType(classType, typeArgs);
         return this._convertClassToObject(specializedType, flags);
+    }
+
+    // Converts a type var type into the most specific type
+    // that fits the specified constraints.
+    private _specializeTypeVarType(type: TypeVarType): Type {
+        let subtypes: Type[] = [];
+        type.getConstraints().forEach(constraint => {
+            subtypes.push(constraint);
+        });
+
+        const boundType = type.getBoundType();
+        if (boundType) {
+            subtypes.push(boundType);
+        }
+
+        if (subtypes.length === 0) {
+            return AnyType.create();
+        }
+
+        return TypeUtils.combineTypesArray(subtypes);
+    }
+
+    // Specializes a (potentially generic) type by substituting
+    // type variables with specified types.
+    private _specializeType(type: Type, typeVarMap: TypeVarMap): Type {
+        if (type.isAny()) {
+            return type;
+        }
+
+        if (type instanceof NoneType) {
+            return type;
+        }
+
+        if (type instanceof TypeVarType) {
+            const replacementType = typeVarMap.get(type.getName());
+            if (replacementType) {
+                return replacementType;
+            }
+
+            return type;
+        }
+
+        if (type instanceof UnionType) {
+            let subtypes: Type[] = [];
+            type.getTypes().forEach(typeEntry => {
+                subtypes.push(this._specializeType(typeEntry, typeVarMap));
+            });
+
+            return TypeUtils.combineTypesArray(subtypes);
+        }
+
+        if (type instanceof ObjectType) {
+            const classType = this._specializeClassType(type.getClassType(), typeVarMap);
+            return new ObjectType(classType);
+        }
+
+        if (type instanceof ClassType) {
+            return this._specializeClassType(type, typeVarMap);
+        }
+
+        if (type instanceof TupleType) {
+            // TODO - need to implement
+            return type;
+        }
+
+        if (type instanceof FunctionType) {
+            // TODO - need to implement
+            return type;
+        }
+
+        // TODO - need to implement
+        return type;
+    }
+
+    private _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap): ClassType {
+        // Handle the common case where the class has no type parameters.
+        if (classType.getTypeParameters().length === 0) {
+            return classType;
+        }
+
+        const oldTypeArgs = classType.getTypeArguments();
+        let newTypeArgs: Type[] = [];
+
+        classType.getTypeParameters().forEach((typeParam, index) => {
+            let typeArgType: Type;
+
+            // If type args were previously provided, specialize them.
+            // Otherwise use the specialized type parameter.
+            if (oldTypeArgs) {
+                if (index >= oldTypeArgs.length) {
+                    typeArgType = AnyType.create();
+                } else {
+                    typeArgType = this._specializeType(oldTypeArgs[index] as Type, typeVarMap);
+                }
+            } else {
+                typeArgType = this._specializeTypeVarType(typeParam);
+            }
+
+            newTypeArgs.push(typeArgType);
+        });
+
+        return classType.cloneForSpecialization(newTypeArgs);
     }
 
     private _convertClassToObject(type: Type, flags: EvaluatorFlags): Type {
