@@ -207,6 +207,7 @@ export class TypeUtils {
         }
 
         if (srcType.isDerivedFrom(destType)) {
+            // TODO - need to validate type parameter matches
             return true;
         }
 
@@ -230,7 +231,9 @@ export class TypeUtils {
     // Looks up a member in a class using the multiple-inheritance rules
     // defined by Python. For more detials, see this note on method resolution
     // order: https://www.python.org/download/releases/2.3/mro/.
-    static lookUpClassMember(classType: Type, memberName: string, includeInstanceFields = true): ClassMember | undefined {
+    static lookUpClassMember(classType: Type, memberName: string,
+            includeInstanceFields = true): ClassMember | undefined {
+
         if (classType instanceof ClassType) {
             // TODO - for now, use naive depth-first search.
 

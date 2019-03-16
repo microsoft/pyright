@@ -22,7 +22,7 @@ import { Scope, ScopeType } from './scope';
 import { Symbol } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
-    PropertyType, TupleType, Type, TypeVarType, UnknownType } from './types';
+    PropertyType, TupleType, Type, TypeVarType, UnionType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface TypeResult {
@@ -116,7 +116,7 @@ export class TypeAnnotation {
 
     // Creates a new custom tuple factory class with named values.
     // Supports both typed and untyped variants.
-    static getNamedTupleType(node: CallExpressionNode, includesTypes: boolean,
+    static createNamedTupleType(node: CallExpressionNode, includesTypes: boolean,
             currentScope: Scope, diagSink: TextRangeDiagnosticSink): ClassType {
         let className = 'namedtuple';
         if (node.arguments.length === 0) {
@@ -134,6 +134,7 @@ export class TypeAnnotation {
 
         let classType = new ClassType(className, ClassTypeFlags.None,
             AnalyzerNodeInfo.getTypeSourceId(node));
+        classType.addBaseClass(this.getBuiltInType(currentScope, 'NamedTuple'), false);
         const classFields = classType.getClassFields();
         classFields.set('__class__', new Symbol(classType, DefaultTypeSourceId));
         const instanceFields = classType.getInstanceFields();
@@ -624,6 +625,10 @@ export class TypeAnnotation {
         if (baseTypeResult.type instanceof ClassType) {
             [type, isClassType] = this.specializeClassType(baseTypeResult.type,
                 node.indexExpression, currentScope, diagSink);
+        } else if (baseTypeResult.type instanceof UnionType) {
+            // TODO - need to implement
+        } else if (baseTypeResult.type instanceof FunctionType) {
+            // TODO - need to implement
         } else if (!baseTypeResult.type.isAny()) {
             diagSink.addErrorWithTextRange(
                 `'Unsupported type expression: indexed other (${ baseTypeResult.type.asString() })`,
@@ -690,7 +695,7 @@ export class TypeAnnotation {
             if (className === 'TypeVar') {
                 type = this.getTypeVarType(node, currentScope, diagSink);
             } else if (className === 'NamedTuple') {
-                type = this.getNamedTupleType(node, true, currentScope, diagSink);
+                type = this.createNamedTupleType(node, true, currentScope, diagSink);
                 isClassType = true;
             } else {
                 type = UnknownType.create();
@@ -700,7 +705,7 @@ export class TypeAnnotation {
             // The stdlib collections/__init__.pyi stub file defines namedtuple
             // as a function rather than a class, so we need to check for it here.
             if (baseTypeResult.type.getSpecialBuiltInName() === 'namedtuple') {
-                type = this.getNamedTupleType(node, false, currentScope, diagSink);
+                type = this.createNamedTupleType(node, false, currentScope, diagSink);
                 isClassType = true;
             } else {
                 type = baseTypeResult.type.getEffectiveReturnType();

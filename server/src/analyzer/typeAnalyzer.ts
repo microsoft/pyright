@@ -601,7 +601,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (declaredReturnType) {
             if (!TypeUtils.canAssignType(declaredReturnType, returnType)) {
                 this._addError(
-                    `Expression of type '${ returnType.asString() }' cannot not assigned ` +
+                    `Expression of type '${ returnType.asString() }' cannot be assigned ` +
                         `to return type '${ declaredReturnType.asString() }'`,
                     node.returnExpression ? node.returnExpression : node);
             }
@@ -974,10 +974,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
                         AnalyzerNodeInfo.getTypeSourceId(node));
 
-                    let baseClass = TypeAnnotation.getBuiltInType(this._currentScope,
+                    let aliasClass = TypeAnnotation.getBuiltInType(this._currentScope,
                         assignedName.toLowerCase());
-                    if (baseClass instanceof ClassType) {
-                        specialClassType.addBaseClass(baseClass, false);
+                    if (aliasClass instanceof ClassType) {
+                        specialClassType.addBaseClass(aliasClass, false);
+                        specialClassType.setAliasClass(aliasClass);
                     }
 
                     specialType = specialClassType;
@@ -1453,7 +1454,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // The stdlib collections.pyi stub file defines namedtuple as a function
                 // rather than a class, so we need to check for it here.
                 if (callType.getSpecialBuiltInName() === 'namedtuple') {
-                    exprType = TypeAnnotation.getNamedTupleType(node, false,
+                    exprType = TypeAnnotation.createNamedTupleType(node, false,
                         this._currentScope, this._fileInfo.diagnosticSink);
                 } else {
                     exprType = callType.getEffectiveReturnType();
@@ -1488,7 +1489,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             this._currentScope, this._getConditionalDiagnosticSink());
                     } else if (className === 'NamedTuple') {
                         // Handle the NamedTuple case specially because it's a class factory.
-                        exprType = TypeAnnotation.getNamedTupleType(node, true,
+                        exprType = TypeAnnotation.createNamedTupleType(node, true,
                             this._currentScope, this._getConditionalDiagnosticSink());
                     }
                 }

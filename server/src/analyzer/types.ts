@@ -193,6 +193,7 @@ interface ClassDetails {
     flags: ClassTypeFlags;
     typeSourceId: TypeSourceId;
     baseClasses: BaseClass[];
+    aliasClass?: ClassType;
     classFields: SymbolTable;
     instanceFields: SymbolTable;
     typeParameters: TypeVarType[];
@@ -267,6 +268,10 @@ export class ClassType extends Type {
 
     getBaseClasses(): BaseClass[] {
         return this._classDetails.baseClasses;
+    }
+
+    setAliasClass(type: ClassType) {
+        this._classDetails.aliasClass = type;
     }
 
     addBaseClass(type: Type, isMetaclass: boolean) {
@@ -421,7 +426,14 @@ export class ClassType extends Type {
     // Determines whether this is a subclass (derived class)
     // of the specified class.
     isDerivedFrom(type2: ClassType): boolean {
-        if (type2 === this) {
+        if (this._classDetails === type2._classDetails) {
+            return true;
+        }
+
+        // Is one class type an alias of the other? This is used for some
+        // built-in types (e.g. Tuple and tuple).
+        if (this._classDetails.aliasClass === type2 ||
+                type2._classDetails.aliasClass === this) {
             return true;
         }
 
