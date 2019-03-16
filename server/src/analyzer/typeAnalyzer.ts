@@ -177,8 +177,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         node.parameters.forEach((param, index) => {
             let annotatedType: Type | undefined;
             if (param.typeAnnotation) {
-                this.walk(param.typeAnnotation.expression);
-
                 annotatedType = evaluator.getType(param.typeAnnotation.expression,
                     EvaluatorFlags.ConvertClassToObject);
 
@@ -204,6 +202,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             param.defaultValue);
                     }
                 }
+
+                this.walk(param.typeAnnotation.expression);
             } else if (index === 0 && param.name) {
                 let classNode = this._getEnclosingClass(node);
                 if (classNode) {
@@ -220,13 +220,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         if (node.returnTypeAnnotation) {
-            this.walk(node.returnTypeAnnotation.expression);
-
             const returnType = evaluator.getType(node.returnTypeAnnotation.expression,
                 EvaluatorFlags.ConvertClassToObject);
             if (functionType.setDeclaredReturnType(returnType)) {
                 this._setAnalysisChanged();
             }
+
+            this.walk(node.returnTypeAnnotation.expression);
         } else if (this._fileInfo.isStubFile) {
             // If a return type annotation is missing in a stub file, assume
             // it's an "any" type. In normal source files, we can infer the
@@ -748,8 +748,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        this.walk(node.rightExpression);
-
         let typeOfExpr = this._getTypeOfExpressionWithTypeConstraints(node.rightExpression);
 
         if (!(node.leftExpression instanceof NameNode) ||
@@ -757,6 +755,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._assignTypeToPossibleTuple(node.leftExpression, typeOfExpr);
         }
 
+        this.walk(node.rightExpression);
         this.walk(node.leftExpression);
         return false;
     }
@@ -1263,11 +1262,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // is up to the caller to determine inferred type specializations.
     private _getTypeOfExpression(node: ExpressionNode): Type {
         // If there's an up-to-date cached version, return it.
-        let cachedVersion = AnalyzerNodeInfo.getExpressionTypeVersion(node);
-        if (cachedVersion === this._analysisVersion) {
-            let cachedType = AnalyzerNodeInfo.getExpressionType(node);
-            assert(cachedType !== undefined);
-            return cachedType!;
+        let cachedType = this._readTypeFromNodeCache(node);
+        if (cachedType) {
+            return cachedType;
         }
 
         let exprType: Type | undefined;
@@ -1417,7 +1414,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (!leftType.isAny()) {
             if (leftType instanceof ObjectType) {
                 let classMemberType = TypeUtils.lookUpClassMember(
-                    leftType.getClassType(), node.memberName.nameToken.value, true);
+                    leftType.getClassType(), memberName, true);
                 if (classMemberType) {
                     exprType = TypeUtils.getEffectiveTypeOfMember(classMemberType);
                     if (exprType instanceof PropertyType) {
@@ -1425,8 +1422,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
             } else if (leftType instanceof ClassType) {
-                let classMemberType = TypeUtils.lookUpClassMember(
-                    leftType, node.memberName.nameToken.value);
+                let classMemberType = TypeUtils.lookUpClassMember(leftType, memberName);
                 if (classMemberType) {
                     exprType = TypeUtils.getEffectiveTypeOfMember(classMemberType);
                     if (exprType instanceof PropertyType) {
@@ -2273,6 +2269,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
+    private _readTypeFromNodeCache(node: ExpressionNode): Type | undefined {
+        let cachedVersion = AnalyzerNodeInfo.getExpressionTypeVersion(node);
+        if (cachedVersion === this._analysisVersion) {
+            let cachedType = AnalyzerNodeInfo.getExpressionType(node);
+            assert(cachedType !== undefined);
+            return cachedType!;
+        }
+
+        return undefined;
+    }
+
     private _getEvaluator() {
         let diagSink: TextRangeDiagnosticSink | undefined = this._fileInfo.diagnosticSink;
 
@@ -2283,7 +2290,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return new ExpressionEvaluator(this._currentScope,
-            this._expressionTypeConstraints, diagSink);
+            this._expressionTypeConstraints, diagSink,
+            node => this._readTypeFromNodeCache(node),
+            (node, type) => {
+                this._updateExpressionTypeForNode(node, type);
+            });
     }
 
     private _setAnalysisChanged() {

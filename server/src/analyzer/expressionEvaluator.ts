@@ -10,16 +10,19 @@
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { ArgumentCategory, CallExpressionNode, ConstantNode, EllipsisNode,
-    ExpressionNode, FunctionNode, IndexExpressionNode, ListNode,
-    MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory, StringNode, TupleExpressionNode } from '../parser/parseNodes';
+import { ArgumentCategory, AssignmentNode, AwaitExpressionNode, BinaryExpressionNode,
+    CallExpressionNode, ConditionalExpressionNode, ConstantNode, DictionaryNode,
+    EllipsisNode, ExpressionNode, FunctionNode, IndexExpressionNode, LambdaNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
+    NumberNode, ParameterCategory, SetNode, SliceExpressionNode, StringNode,
+    TupleExpressionNode, UnaryExpressionNode, YieldExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, QuoteTypeFlags, TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
-import { Symbol } from './symbol';
+import { Symbol, SymbolCategory } from './symbol';
 import { TypeConstraint } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType, FunctionTypeFlags,
     ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType, TupleType, Type,
@@ -29,6 +32,7 @@ import { TypeUtils } from './typeUtils';
 interface TypeResult {
     type: Type;
     typeList?: TypeResult[];
+    isClassOrObjectMember?: boolean;
     node: ExpressionNode;
 }
 
@@ -40,16 +44,24 @@ export enum EvaluatorFlags {
     ConvertClassToObject = 1
 }
 
+export type ReadTypeFromNodeCacheCallback = (node: ExpressionNode) => Type | undefined;
+export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) => void;
+
 export class ExpressionEvaluator {
     private _scope: Scope;
     private _expressionTypeConstraints: TypeConstraint[];
     private _diagnosticSink?: TextRangeDiagnosticSink;
+    private _readTypeFromCache?: ReadTypeFromNodeCacheCallback;
+    private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
 
     constructor(scope: Scope, expressionTypeConstraints: TypeConstraint[],
-            diagnosticSink?: TextRangeDiagnosticSink) {
+            diagnosticSink?: TextRangeDiagnosticSink, readTypeCallback?: ReadTypeFromNodeCacheCallback,
+            writeTypeCallback?: WriteTypeToNodeCacheCallback) {
         this._scope = scope;
         this._expressionTypeConstraints = expressionTypeConstraints;
         this._diagnosticSink = diagnosticSink;
+        this._readTypeFromCache = readTypeCallback;
+        this._writeTypeToCache = writeTypeCallback;
     }
 
     getType(node: ExpressionNode, flags: EvaluatorFlags): Type {
@@ -185,6 +197,13 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromExpression(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
+        if (this._readTypeFromCache) {
+            let cachedType = this._readTypeFromCache(node);
+            if (cachedType) {
+                return { type: cachedType, node };
+            }
+        }
+
         let typeResult: TypeResult | undefined;
 
         if (node instanceof NameNode) {
@@ -208,23 +227,121 @@ export class ExpressionEvaluator {
                 node.token.isInteger ? 'int' : 'float', flags);
         } else if (node instanceof EllipsisNode) {
             typeResult = { type: AnyType.create(), node };
+        } else if (node instanceof UnaryExpressionNode) {
+            // TODO - need to implement
+            this._getTypeFromExpression(node.expression, flags);
+        } else if (node instanceof BinaryExpressionNode) {
+            // TODO - need to implement
+            this._getTypeFromExpression(node.leftExpression, flags);
+            this._getTypeFromExpression(node.rightExpression, flags);
+        } else if (node instanceof ListNode) {
+            typeResult = this._getListExpression(node, flags);
+        } else if (node instanceof SliceExpressionNode) {
+            typeResult = this._getSliceExpression(node, flags);
+        } else if (node instanceof AwaitExpressionNode) {
+            // TODO - need to implement
+            typeResult = this._getTypeFromExpression(node.expression, flags);
+        } else if (node instanceof ConditionalExpressionNode) {
+            // TODO - need to implement
+            this._getTypeFromExpression(node.ifExpression, EvaluatorFlags.None);
+
+            let leftType = this._getTypeFromExpression(node.leftExpression, flags);
+            let rightType = this._getTypeFromExpression(node.elseExpression, flags);
+            let type = TypeUtils.combineTypes(leftType.type, rightType.type);
+            typeResult = { type, node };
+        } else if (node instanceof ListComprehensionNode) {
+            // TODO - need to implement
+            // TODO - infer list type
+            this._getTypeFromExpression(node.baseExpression, EvaluatorFlags.None);
+            let type = ScopeUtils.getBuiltInObject(this._scope, 'list', []);
+            typeResult = { type, node };
+        } else if (node instanceof DictionaryNode) {
+            // TODO - need to implement
+            // TODO - infer dict type
+            let type = ScopeUtils.getBuiltInObject(this._scope, 'dict', []);
+            typeResult = { type, node };
+        } else if (node instanceof LambdaNode) {
+            // TODO - need to implement
+            let type = AnalyzerNodeInfo.getExpressionType(node) || UnknownType.create();
+            typeResult = { type, node };
+        } else if (node instanceof SetNode) {
+            node.entries.forEach(expr => {
+                this._getTypeFromExpression(expr, EvaluatorFlags.None);
+            });
+            // TODO - need to implement
+            // TODO - infer set type
+            let type = ScopeUtils.getBuiltInObject(this._scope, 'set', []);
+            typeResult = { type, node };
+        } else if (node instanceof AssignmentNode) {
+            // TODO - need to implement
+            this._getTypeFromExpression(node.rightExpression, EvaluatorFlags.None);
+            typeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
+        } else if (node instanceof YieldExpressionNode) {
+            // TODO - need to implement
+            this._getTypeFromExpression(node.expression, EvaluatorFlags.None);
+            // TODO - need to handle futures
+            let type = UnknownType.create();
+            typeResult = { type, node };
         }
 
         if (typeResult) {
-            return typeResult;
+            typeResult.type = this._applyTypeConstraint(node, typeResult.type);
+        } else {
+            this._addError(`Unknown type expression '${ ParseTreeUtils.printExpression(node) }'`, node);
+            typeResult = { type: UnknownType.create(), node };
         }
 
-        this._addError(`Unknown type expression '${ ParseTreeUtils.printExpression(node) }'`, node);
-        return { type: UnknownType.create(), node };
+        if (this._writeTypeToCache) {
+            this._writeTypeToCache(node, typeResult.type);
+        }
+
+        return typeResult;
     }
 
     private _getTypeFromName(node: NameNode, flags: EvaluatorFlags): TypeResult | undefined {
-        let symbolInScope = this._scope.lookUpSymbolRecursive(node.nameToken.value);
-        if (!symbolInScope) {
-            return undefined;
+        const name = node.nameToken.value;
+        let type: Type | undefined;
+
+        // Look for the scope that contains the value definition and
+        // see if it has a declared type.
+        let scope: Scope | undefined = this._scope;
+        let beyondLocalScope = false;
+        while (scope) {
+            let symbol = scope.lookUpSymbol(name);
+            if (symbol) {
+                let declaration = symbol.declarations ? symbol.declarations[0] : undefined;
+
+                // Was there a defined type hint?
+                if (declaration && declaration.declaredType) {
+                    type = declaration.declaredType;
+                    break;
+                }
+
+                // If this is a non-variable type (e.g. a class, function, method), we
+                // can assume that it's not going to be modified outside the local scope.
+                if (declaration && declaration.category !== SymbolCategory.Variable) {
+                    type = symbol.currentType;
+                    break;
+                }
+
+                // If we haven't already gone beyond the local scope, we can
+                // trust the current type. If we've moved beyond the local
+                // scope to some other outer scope (e.g. the global scope), we
+                // cannot trust the current type.
+                if (beyondLocalScope) {
+                    type = symbol.inferredType.getType();
+                } else {
+                    type = symbol.currentType;
+                }
+                break;
+            }
+
+            if (scope.getType() !== ScopeType.Temporary) {
+                beyondLocalScope = true;
+            }
+            scope = scope.getParent();
         }
 
-        let type = symbolInScope.symbol.currentType;
         if (!type) {
             return undefined;
         }
@@ -237,38 +354,47 @@ export class ExpressionEvaluator {
     private _getTypeFromMemberAccessExpression(node: MemberAccessExpressionNode,
             flags: EvaluatorFlags): TypeResult | undefined {
 
-        let baseTypeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
-        let memberName = node.memberName.nameToken.value;
-        let type: Type | undefined;
+        const baseTypeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
+        const baseType = baseTypeResult.type;
+        const memberName = node.memberName.nameToken.value;
+        const getTypeFromClass = (classType: ClassType, includeInstanceMembers: boolean) => {
+            let type: Type | undefined;
+            let memberInfo = TypeUtils.lookUpClassMember(classType, memberName, includeInstanceMembers);
+            if (memberInfo) {
+                type = TypeUtils.getEffectiveTypeOfMember(memberInfo);
+                if (type instanceof PropertyType) {
+                    type = type.getEffectiveReturnType();
+                }
+            } else {
+                this._addError(
+                    `'${ memberName }' is not a known member of '${ baseType.asString() }'`,
+                    node.memberName);
+                type = UnknownType.create();
+            }
 
-        if (baseTypeResult.type.isAny()) {
-            type = baseTypeResult.type;
-        } else if (baseTypeResult.type instanceof ModuleType) {
-            let fieldInfo = baseTypeResult.type.getFields().get(memberName);
-            if (fieldInfo) {
-                type = fieldInfo.currentType;
+            return type;
+        };
+
+        let type: Type | undefined;
+        let isClassOrObjectMember = false;
+
+        if (baseType.isAny()) {
+            type = baseType;
+
+            // Assume that the base type is a class or object.
+            isClassOrObjectMember = true;
+        } else if (baseType instanceof ClassType) {
+            type = getTypeFromClass(baseType, false);
+            isClassOrObjectMember = true;
+        } else if (baseType instanceof ObjectType) {
+            type = getTypeFromClass(baseType.getClassType(), true);
+            isClassOrObjectMember = true;
+        } else if (baseType instanceof ModuleType) {
+            let memberInfo = baseType.getFields().get(memberName);
+            if (memberInfo) {
+                type = memberInfo.currentType;
             } else {
                 this._addError(`'${ memberName }' is not a known member of module`, node.memberName);
-                type = UnknownType.create();
-            }
-        } else if (baseTypeResult.type instanceof ClassType) {
-            let fieldInfo = TypeUtils.lookUpClassMember(baseTypeResult.type, memberName);
-            if (fieldInfo) {
-                type = TypeUtils.getEffectiveTypeOfMember(fieldInfo);
-            } else {
-                this._addError(
-                    `'${ memberName }' is not a known member of '${ baseTypeResult.type.asString() }'`,
-                    node.memberName);
-                type = UnknownType.create();
-            }
-        } else if (baseTypeResult.type instanceof ObjectType) {
-            let fieldInfo = TypeUtils.lookUpClassMember(baseTypeResult.type.getClassType(), memberName);
-            if (fieldInfo) {
-                type = TypeUtils.getEffectiveTypeOfMember(fieldInfo);
-            } else {
-                this._addError(
-                    `'${ memberName }' is not a known member of '${ baseTypeResult.type.asString() }'`,
-                    node.memberName);
                 type = UnknownType.create();
             }
         }
@@ -279,26 +405,29 @@ export class ExpressionEvaluator {
 
         type = this._convertClassToObject(type, flags);
 
-        return { type, node };
+        return { type, node, isClassOrObjectMember };
     }
 
     private _getTypeFromIndexExpression(node: IndexExpressionNode, flags: EvaluatorFlags): TypeResult {
         let type: Type | undefined;
-        let baseTypeResult = this._getTypeFromExpression(node.baseExpression, EvaluatorFlags.None);
-        let typeArgs = this._getTypeArgs(node.indexExpression);
+        const baseTypeResult = this._getTypeFromExpression(node.baseExpression, EvaluatorFlags.None);
+        const baseType = baseTypeResult.type;
+        const typeArgs = this._getTypeArgs(node.indexExpression);
 
         this._validateTypeArgs(typeArgs);
 
-        if (baseTypeResult.type instanceof ClassType) {
-            type = this.specializeClassType(baseTypeResult.type, node.indexExpression, flags);
-        } else if (baseTypeResult.type instanceof UnionType) {
+        if (baseType instanceof ClassType) {
+            type = this.specializeClassType(baseType, node.indexExpression, flags);
+        } else if (baseType instanceof UnionType) {
             // TODO - need to implement
-        } else if (baseTypeResult.type instanceof FunctionType) {
+        } else if (baseType instanceof FunctionType) {
             // TODO - need to implement
-        } else if (!baseTypeResult.type.isAny()) {
-            this._addError(
-                `'Unsupported type expression: indexed (${ baseTypeResult.type.asString() })`,
-                node.baseExpression);
+        } else if (!baseType.isAny()) {
+            if ((flags & EvaluatorFlags.ConvertClassToObject) !== 0) {
+                this._addError(
+                    `'Unsupported type expression: indexed (${ baseType.asString() })`,
+                    node.baseExpression);
+            }
         }
 
         if (!type) {
@@ -314,7 +443,6 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeArgs(node: ExpressionNode): TypeResult[] {
-
         let typeArgs: TypeResult[] = [];
 
         if (node instanceof TupleExpressionNode) {
@@ -362,30 +490,76 @@ export class ExpressionEvaluator {
 
     private _getCallExpression(node: CallExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
         let type: Type | undefined;
-        let baseTypeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
+        const baseTypeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
+        const callType = baseTypeResult.type;
 
-        if (baseTypeResult.type instanceof ClassType && baseTypeResult.type.isBuiltIn()) {
-            const className = baseTypeResult.type.getClassName();
+        if (callType instanceof ClassType) {
+            if (callType.isBuiltIn()) {
+                const className = callType.getClassName();
 
-            if (className === 'TypeVar') {
-                type = this.createTypeVarType(node);
-            } else if (className === 'NamedTuple') {
-                type = this.createNamedTupleType(node, true);
-                flags &= ~EvaluatorFlags.ConvertClassToObject;
-            } else {
-                type = UnknownType.create();
-                this._addError(`'${ className }' is not callable`, node);
+                if (className === 'type') {
+                    // Handle the 'type' call specially.
+                    if (node.arguments.length >= 1) {
+                        let argType = this._getTypeFromExpression(
+                            node.arguments[0].valueExpression, EvaluatorFlags.None);
+                        if (argType instanceof ObjectType) {
+                            type = argType.getClassType();
+                        }
+                    }
+
+                    // If the parameter to type() is not statically known,
+                    // fall back to unknown.
+                    if (!type) {
+                        type = UnknownType.create();
+                    }
+                } else if (className === 'TypeVar') {
+                    type = this.createTypeVarType(node);
+                } else if (className === 'NamedTuple') {
+                    type = this.createNamedTupleType(node, true);
+                    flags &= ~EvaluatorFlags.ConvertClassToObject;
+                }
             }
-        } else if (baseTypeResult.type instanceof FunctionType) {
+
+            // Assume this is a call to the constructor.
+            if (!type) {
+                type = new ObjectType(callType);
+            }
+        } else if (callType instanceof FunctionType) {
             // The stdlib collections/__init__.pyi stub file defines namedtuple
             // as a function rather than a class, so we need to check for it here.
-            if (baseTypeResult.type.getSpecialBuiltInName() === 'namedtuple') {
+            if (callType.getSpecialBuiltInName() === 'namedtuple') {
                 type = this.createNamedTupleType(node, false);
                 flags &= ~EvaluatorFlags.ConvertClassToObject;
             } else {
-                type = baseTypeResult.type.getEffectiveReturnType();
+                type = callType.getEffectiveReturnType();
             }
-        } else if (baseTypeResult.type.isAny()) {
+        } else if (callType instanceof OverloadedFunctionType) {
+            // Determine which of the overloads (if any) match.
+            let skipFirstMethodParam = !!baseTypeResult.isClassOrObjectMember;
+
+            // TODO - need to figure out what to do here.
+            // let functionType = this._findOverloadedFunctionType(
+            //     callType, node, skipFirstMethodParam);
+            // if (functionType) {
+            //     type = functionType.getEffectiveReturnType();
+            // }
+        } else if (callType instanceof UnionType) {
+            let returnTypes: Type[] = [];
+            callType.getTypes().forEach(typeEntry => {
+                if (typeEntry instanceof NoneType) {
+                    // TODO - ignore None for now.
+                } else {
+                    let typeResult = this._getCallExpression(node, EvaluatorFlags.None);
+                    if (typeResult) {
+                        returnTypes.push(typeResult.type);
+                    }
+                }
+            });
+
+            if (returnTypes.length > 0) {
+                type = TypeUtils.combineTypesArray(returnTypes);
+            }
+        } else if (callType.isAny()) {
             type = UnknownType.create();
         }
 
@@ -694,6 +868,46 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
+    private _getListExpression(node: ListNode, flags: EvaluatorFlags): TypeResult | undefined {
+        let listTypes: TypeResult[] = [];
+        node.entries.forEach(expr => {
+            listTypes.push(this._getTypeFromExpression(expr, EvaluatorFlags.None));
+        });
+
+        let type = ScopeUtils.getBuiltInType(this._scope, 'list') as ClassType;
+        type = type.cloneForSpecialization();
+
+        // TODO - infer list type from listTypes
+        type.setTypeArguments([]);
+
+        let convertedType = this._convertClassToObject(type, flags);
+
+        return { type: convertedType, node };
+    }
+
+    private _getSliceExpression(node: SliceExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
+        // TODO - need to implement
+        if (node.startValue) {
+            this._getTypeFromExpression(node.startValue, EvaluatorFlags.None);
+        }
+        if (node.endValue) {
+            this._getTypeFromExpression(node.endValue, EvaluatorFlags.None);
+        }
+        if (node.stepValue) {
+            this._getTypeFromExpression(node.stepValue, EvaluatorFlags.None);
+        }
+
+        let type = ScopeUtils.getBuiltInType(this._scope, 'set') as ClassType;
+        type = type.cloneForSpecialization();
+
+        // TODO - infer set type
+        type.setTypeArguments([]);
+
+        let convertedType = this._convertClassToObject(type, flags);
+
+        return { type: convertedType, node };
+    }
+
     // Converts the type parameters for a Callable type. It should
     // have zero to two parameters. The first parameter, if present, should be
     // either an ellipsis or a list of parameter types. The second parameter, if
@@ -847,6 +1061,11 @@ export class ExpressionEvaluator {
     }
 
     private _applyTypeConstraint(node: ExpressionNode, unconstrainedType: Type): Type {
+        // Shortcut the process if the type is unknown.
+        if (unconstrainedType.isAny()) {
+            return unconstrainedType;
+        }
+
         // Apply constraints associated with the expression we're
         // currently walking.
         let constrainedType = unconstrainedType;
