@@ -213,18 +213,18 @@ export class ExpressionEvaluator {
         } else if (node instanceof IndexExpressionNode) {
             typeResult = this._getTypeFromIndexExpression(node, flags);
         } else if (node instanceof CallExpressionNode) {
-            typeResult = this._getCallExpression(node, flags);
+            typeResult = this._getTypeFromCallExpression(node, flags);
         } else if (node instanceof TupleExpressionNode) {
-            typeResult = this._getTupleExpression(node, flags);
+            typeResult = this._getTypeFromTupleExpression(node, flags);
         } else if (node instanceof ConstantNode) {
-            typeResult = this._getConstantExpression(node, flags);
+            typeResult = this._getTypeFromConstantExpression(node);
         } else if (node instanceof StringNode) {
             let isBytes = (node.tokens[0].quoteTypeFlags & QuoteTypeFlags.Byte) !== 0;
-            typeResult = this._getBuiltInTypeFromExpression(node,
-                isBytes ? 'byte' : 'str', flags);
+            typeResult = this._getBuiltInTypeFromLiteralExpression(node,
+                isBytes ? 'byte' : 'str');
         } else if (node instanceof NumberNode) {
-            typeResult = this._getBuiltInTypeFromExpression(node,
-                node.token.isInteger ? 'int' : 'float', flags);
+            typeResult = this._getBuiltInTypeFromLiteralExpression(node,
+                node.token.isInteger ? 'int' : 'float');
         } else if (node instanceof EllipsisNode) {
             typeResult = { type: AnyType.create(), node };
         } else if (node instanceof UnaryExpressionNode) {
@@ -237,9 +237,9 @@ export class ExpressionEvaluator {
             this._getTypeFromExpression(node.rightExpression, flags);
             typeResult = { type: UnknownType.create(), node };
         } else if (node instanceof ListNode) {
-            typeResult = this._getListExpression(node, flags);
+            typeResult = this._getTypeFromListExpression(node);
         } else if (node instanceof SliceExpressionNode) {
-            typeResult = this._getSliceExpression(node, flags);
+            typeResult = this._getTypeFromSliceExpression(node, flags);
         } else if (node instanceof AwaitExpressionNode) {
             // TODO - need to implement
             typeResult = this._getTypeFromExpression(node.expression, flags);
@@ -367,20 +367,52 @@ export class ExpressionEvaluator {
         const memberName = node.memberName.nameToken.value;
         const getTypeFromClass = (classType: ClassType, includeInstanceMembers: boolean) => {
             let type: Type | undefined;
+
             let memberInfo = TypeUtils.lookUpClassMember(classType, memberName, includeInstanceMembers);
             if (memberInfo) {
                 type = TypeUtils.getEffectiveTypeOfMember(memberInfo);
                 if (type instanceof PropertyType) {
                     type = type.getEffectiveReturnType();
                 }
-            } else {
-                this._addError(
-                    `'${ memberName }' is not a known member of '${ baseType.asString() }'`,
-                    node.memberName);
-                type = UnknownType.create();
+
+                return type;
             }
 
-            return type;
+            // See if the class has a "__getattribute__" or "__getattr__" method.
+            // If so, aribrary members are supported.
+            let getAttribMember = TypeUtils.lookUpClassMember(classType, '__getattribute__');
+            if (getAttribMember && getAttribMember.class) {
+                const isObjectClass = getAttribMember.class.isBuiltIn() &&
+                    getAttribMember.class.getClassName() === 'object';
+                // The built-in 'object' class, from which every class derives,
+                // implements the default __getattribute__ method. We want to ignore
+                // this one. If this method is overridden, we need to assume that
+                // all members can be accessed.
+                if (!isObjectClass) {
+                    const getAttribType = TypeUtils.getEffectiveTypeOfMember(getAttribMember);
+                    if (getAttribType instanceof FunctionType) {
+                        return getAttribType.getEffectiveReturnType();
+                    }
+                }
+            }
+
+            let getAttrMember = TypeUtils.lookUpClassMember(classType, '__getattr__');
+            if (getAttrMember) {
+                const getAttrType = TypeUtils.getEffectiveTypeOfMember(getAttrMember);
+                if (getAttrType instanceof FunctionType) {
+                    return getAttrType.getEffectiveReturnType();
+                }
+            }
+
+            // If the class has decorators, there may be additional fields
+            // added that we don't know about.
+            // TODO - figure out a better approach here.
+            if (!classType.hasDecorators()) {
+                this._addError(
+                    `'${ memberName }' is not a known member of type '${ baseType.asString() }'`,
+                    node.memberName);
+            }
+            return UnknownType.create();
         };
 
         let type: Type | undefined;
@@ -506,7 +538,7 @@ export class ExpressionEvaluator {
         return typeResult;
     }
 
-    private _getTupleExpression(node: TupleExpressionNode, flags: EvaluatorFlags): TypeResult {
+    private _getTypeFromTupleExpression(node: TupleExpressionNode, flags: EvaluatorFlags): TypeResult {
         let tupleType = new TupleType(ScopeUtils.getBuiltInType(this._scope, 'tuple') as ClassType);
 
         node.expressions.forEach(expr => {
@@ -520,13 +552,13 @@ export class ExpressionEvaluator {
         };
     }
 
-    private _getCallExpression(node: CallExpressionNode, flags: EvaluatorFlags): TypeResult {
+    private _getTypeFromCallExpression(node: CallExpressionNode, flags: EvaluatorFlags): TypeResult {
         const baseTypeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
 
-        return this._getCallExpressionWithBaseType(node, baseTypeResult, flags);
+        return this._getTypeFromCallExpressionWithBaseType(node, baseTypeResult, flags);
     }
 
-    private _getCallExpressionWithBaseType(node: CallExpressionNode, baseTypeResult: TypeResult,
+    private _getTypeFromCallExpressionWithBaseType(node: CallExpressionNode, baseTypeResult: TypeResult,
             flags: EvaluatorFlags): TypeResult {
 
         let type: Type | undefined;
@@ -583,13 +615,21 @@ export class ExpressionEvaluator {
             //     type = functionType.getEffectiveReturnType();
             // }
             type = UnknownType.create();
+        } else if (callType instanceof ObjectType) {
+            const callMember = TypeUtils.lookUpObjectMember(callType, '__call__');
+            if (callMember) {
+                const callMethodType = TypeUtils.getEffectiveTypeOfMember(callMember);
+                if (callMethodType instanceof FunctionType) {
+                    type = callMethodType.getEffectiveReturnType();
+                }
+            }
         } else if (callType instanceof UnionType) {
             let returnTypes: Type[] = [];
             callType.getTypes().forEach(typeEntry => {
                 if (typeEntry instanceof NoneType) {
                     // TODO - ignore None for now.
                 } else {
-                    let typeResult = this._getCallExpressionWithBaseType(node,
+                    let typeResult = this._getTypeFromCallExpressionWithBaseType(node,
                         { type: typeEntry, isClassOrObjectMember: baseTypeResult.isClassOrObjectMember, node },
                         EvaluatorFlags.None);
                     if (typeResult) {
@@ -874,7 +914,7 @@ export class ExpressionEvaluator {
         return classType;
     }
 
-    private _getConstantExpression(node: ConstantNode, flags: EvaluatorFlags): TypeResult | undefined {
+    private _getTypeFromConstantExpression(node: ConstantNode): TypeResult | undefined {
         let type: Type | undefined;
 
         if (node.token.type === TokenType.Keyword) {
@@ -883,7 +923,7 @@ export class ExpressionEvaluator {
             } else if (node.token.keywordType === KeywordType.True ||
                     node.token.keywordType === KeywordType.False ||
                     node.token.keywordType === KeywordType.Debug) {
-                type = ScopeUtils.getBuiltInType(this._scope, 'bool');
+                type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
             }
         }
 
@@ -891,26 +931,22 @@ export class ExpressionEvaluator {
             return undefined;
         }
 
-        type = this._convertClassToObject(type, flags);
-
         return { type, node };
     }
 
-    private _getBuiltInTypeFromExpression(node: ExpressionNode, typeName: string,
-            flags: EvaluatorFlags): TypeResult | undefined {
+    private _getBuiltInTypeFromLiteralExpression(node: ExpressionNode,
+            typeName: string): TypeResult | undefined {
 
-        let type = ScopeUtils.getBuiltInType(this._scope, typeName);
+        let type = ScopeUtils.getBuiltInObject(this._scope, typeName);
 
         if (!type) {
             return undefined;
         }
 
-        type = this._convertClassToObject(type, flags);
-
         return { type, node };
     }
 
-    private _getListExpression(node: ListNode, flags: EvaluatorFlags): TypeResult | undefined {
+    private _getTypeFromListExpression(node: ListNode): TypeResult | undefined {
         let listTypes: TypeResult[] = [];
         node.entries.forEach(expr => {
             listTypes.push(this._getTypeFromExpression(expr, EvaluatorFlags.None));
@@ -922,12 +958,13 @@ export class ExpressionEvaluator {
         // TODO - infer list type from listTypes
         type.setTypeArguments([]);
 
-        let convertedType = this._convertClassToObject(type, flags);
+        // List literals are always objects, not classes.
+        let convertedType = this._convertClassToObject(type, EvaluatorFlags.ConvertClassToObject);
 
         return { type: convertedType, node };
     }
 
-    private _getSliceExpression(node: SliceExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
+    private _getTypeFromSliceExpression(node: SliceExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
         // TODO - need to implement
         if (node.startValue) {
             this._getTypeFromExpression(node.startValue, EvaluatorFlags.None);

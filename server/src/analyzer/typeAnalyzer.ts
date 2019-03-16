@@ -773,10 +773,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitMemberAccess(node: MemberAccessExpressionNode) {
-        this.walk(node.leftExpression);
-
         let leftType = this._getTypeOfExpression(node.leftExpression);
         this._validateMemberAccess(leftType, node.memberName);
+
+        this.walk(node.leftExpression);
 
         // Set the member type for the hover provider.
         this._updateExpressionTypeForNode(node.memberName, this._getTypeOfExpression(node));
@@ -1710,6 +1710,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _validateMemberAccess(baseType: Type, memberName: NameNode): boolean {
+        // TODO - most of this logic is now redudnant with the expression evaluation
+        // logic. The only part that remains is the calls to setDeclaration. Clean
+        // this up at some point.
         const memberNameValue = memberName.nameToken.value;
 
         if (baseType instanceof ObjectType) {
