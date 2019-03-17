@@ -60,15 +60,18 @@ Pyright offers the following language service features:
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
 * Support for generics
+* Better validation of type variables used within generics
+* Support for type annotations within comments
+* Address the many TODO comments in the code
+* Better handling of function decorators (don't punt on type checking)
+* Better handling of class decorators (don't ignore)
+* Parameter type inference based on default value assignment
+* More complete documentation - especially for configuration options
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
 * Move error strings out of the main code files so they can be localized
-* More complete documentation - especially for configuration options
 * Add lots of tests
-* Address the many TODO comments in the code
-* Parameter type inference based on default value assignment
 * Special-casing @abstract methods so they don't need to return the specified type
 * Validate that @abstract classes are not instantiated
-* Support for Python 2.7 type annotations within comments
 * Validate that __init__ always has None as return type
 * Validate that overridden methods in subclass have same signature as base class methods
 * Verify that exception classes inherit from base Exception
