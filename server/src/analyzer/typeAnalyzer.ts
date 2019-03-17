@@ -527,8 +527,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // a type other than its own type.
                     const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
                     let evaluator = this._getEvaluator();
-                    let memberType = evaluator.getTypeFromClassMemberAccess(
-                        enterMethodName, exprType.getClassType(), false);
+                    let memberType = evaluator.getTypeFromClassMember(
+                        enterMethodName, exprType.getClassType());
 
                     if (memberType && memberType instanceof FunctionType) {
                         exprType = memberType.getEffectiveReturnType();

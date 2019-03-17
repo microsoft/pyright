@@ -83,6 +83,10 @@ export class ExpressionEvaluator {
         return typeResult.type;
     }
 
+    getTypeFromClassMember(memberName: string, classType: ClassType): Type | undefined {
+        return this._getTypeFromClassMemberString(memberName, classType, false);
+    }
+
     // Determines if the function node is a property accessor (getter, setter, deleter).
     getPropertyType(node: FunctionNode, type: FunctionType): PropertyType | undefined {
         if (ParseTreeUtils.functionHasDecorator(node, 'property')) {
@@ -141,71 +145,6 @@ export class ExpressionEvaluator {
         }
 
         return [decoratedType, warnIfDuplicate];
-    }
-
-    getTypeFromClassMemberAccess(memberName: string, classType: ClassType,
-            includeInstanceMembers: boolean): Type | undefined {
-
-        // Build a map of type parameters and the type arguments associated with them.
-        let typeArgMap = new TypeVarMap();
-        let typeArgs = classType.getTypeArguments();
-
-        classType.getTypeParameters().forEach((typeParam, index) => {
-            const typeVarName = typeParam.getName();
-            let typeArgType: Type;
-
-            if (typeArgs) {
-                if (index >= typeArgs.length) {
-                    typeArgType = AnyType.create();
-                } else {
-                    typeArgType = typeArgs[index] as Type;
-                }
-            } else {
-                typeArgType = this._specializeTypeVarType(typeParam);
-            }
-
-            typeArgMap.set(typeVarName, typeArgType);
-        });
-
-        let memberInfo = TypeUtils.lookUpClassMember(classType, memberName, includeInstanceMembers);
-        if (memberInfo) {
-            let type = TypeUtils.getEffectiveTypeOfMember(memberInfo);
-            if (type instanceof PropertyType) {
-                type = type.getEffectiveReturnType();
-            }
-
-            return this._specializeType(type, typeArgMap);
-        }
-
-        // See if the class has a "__getattribute__" or "__getattr__" method.
-        // If so, aribrary members are supported.
-        let getAttribMember = TypeUtils.lookUpClassMember(classType, '__getattribute__');
-        if (getAttribMember && getAttribMember.class) {
-            const isObjectClass = getAttribMember.class.isBuiltIn() &&
-                getAttribMember.class.getClassName() === 'object';
-            // The built-in 'object' class, from which every class derives,
-            // implements the default __getattribute__ method. We want to ignore
-            // this one. If this method is overridden, we need to assume that
-            // all members can be accessed.
-            if (!isObjectClass) {
-                const getAttribType = TypeUtils.getEffectiveTypeOfMember(getAttribMember);
-                if (getAttribType instanceof FunctionType) {
-                    return this._specializeType(
-                        getAttribType.getEffectiveReturnType(), typeArgMap);
-                }
-            }
-        }
-
-        let getAttrMember = TypeUtils.lookUpClassMember(classType, '__getattr__');
-        if (getAttrMember) {
-            const getAttrType = TypeUtils.getEffectiveTypeOfMember(getAttrMember);
-            if (getAttrType instanceof FunctionType) {
-                return this._specializeType(
-                    getAttrType.getEffectiveReturnType(), typeArgMap);
-            }
-        }
-
-        return undefined;
     }
 
     private _getTypeFromExpression(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
@@ -455,11 +394,13 @@ export class ExpressionEvaluator {
         return { type, node, isClassMember, isObjectMember };
     }
 
+    // A wrapper around _getTypeFromClassMemberString that reports
+    // errors if the member name is not found.
     private _getTypeFromClassMemberAccess(memberNameNode: NameNode,
             classType: ClassType, includeInstanceMembers: boolean) {
 
         const memberName = memberNameNode.nameToken.value;
-        let type = this.getTypeFromClassMemberAccess(memberName,
+        let type = this._getTypeFromClassMemberString(memberName,
             classType, includeInstanceMembers);
 
         if (type) {
@@ -476,6 +417,71 @@ export class ExpressionEvaluator {
         }
 
         return UnknownType.create();
+    }
+
+    private _getTypeFromClassMemberString(memberName: string, classType: ClassType,
+            includeInstanceMembers: boolean): Type | undefined {
+
+        // Build a map of type parameters and the type arguments associated with them.
+        let typeArgMap = new TypeVarMap();
+        let typeArgs = classType.getTypeArguments();
+
+        classType.getTypeParameters().forEach((typeParam, index) => {
+            const typeVarName = typeParam.getName();
+            let typeArgType: Type;
+
+            if (typeArgs) {
+                if (index >= typeArgs.length) {
+                    typeArgType = AnyType.create();
+                } else {
+                    typeArgType = typeArgs[index] as Type;
+                }
+            } else {
+                typeArgType = this._specializeTypeVarType(typeParam);
+            }
+
+            typeArgMap.set(typeVarName, typeArgType);
+        });
+
+        let memberInfo = TypeUtils.lookUpClassMember(classType, memberName, includeInstanceMembers);
+        if (memberInfo) {
+            let type = TypeUtils.getEffectiveTypeOfMember(memberInfo);
+            if (type instanceof PropertyType) {
+                type = type.getEffectiveReturnType();
+            }
+
+            return this._specializeType(type, typeArgMap);
+        }
+
+        // See if the class has a "__getattribute__" or "__getattr__" method.
+        // If so, aribrary members are supported.
+        let getAttribMember = TypeUtils.lookUpClassMember(classType, '__getattribute__');
+        if (getAttribMember && getAttribMember.class) {
+            const isObjectClass = getAttribMember.class.isBuiltIn() &&
+                getAttribMember.class.getClassName() === 'object';
+            // The built-in 'object' class, from which every class derives,
+            // implements the default __getattribute__ method. We want to ignore
+            // this one. If this method is overridden, we need to assume that
+            // all members can be accessed.
+            if (!isObjectClass) {
+                const getAttribType = TypeUtils.getEffectiveTypeOfMember(getAttribMember);
+                if (getAttribType instanceof FunctionType) {
+                    return this._specializeType(
+                        getAttribType.getEffectiveReturnType(), typeArgMap);
+                }
+            }
+        }
+
+        let getAttrMember = TypeUtils.lookUpClassMember(classType, '__getattr__');
+        if (getAttrMember) {
+            const getAttrType = TypeUtils.getEffectiveTypeOfMember(getAttrMember);
+            if (getAttrType instanceof FunctionType) {
+                return this._specializeType(
+                    getAttrType.getEffectiveReturnType(), typeArgMap);
+            }
+        }
+
+        return undefined;
     }
 
     private _getTypeFromIndexExpression(node: IndexExpressionNode, flags: EvaluatorFlags): TypeResult {
@@ -655,7 +661,7 @@ export class ExpressionEvaluator {
 
             type = UnknownType.create();
         } else if (callType instanceof ObjectType) {
-            let memberType = this.getTypeFromClassMemberAccess(
+            let memberType = this._getTypeFromClassMemberString(
                 '__call__', callType.getClassType(), false);
             if (memberType && memberType instanceof FunctionType) {
                 if (this._validateCallArguments(node, memberType, true)) {
@@ -723,7 +729,7 @@ export class ExpressionEvaluator {
         let isValid = false;
         let validatedTypes = false;
 
-        let initMethodType = this.getTypeFromClassMemberAccess('__init__', type, false);
+        let initMethodType = this._getTypeFromClassMemberString('__init__', type, false);
         if (initMethodType) {
             isValid = this._validateCallArguments(node, initMethodType, true);
             validatedTypes = true;
@@ -731,7 +737,7 @@ export class ExpressionEvaluator {
 
         if (!validatedTypes) {
             // If there's no init method, check for a constructor.
-            let constructorMethodType = this.getTypeFromClassMemberAccess('__new__', type, false);
+            let constructorMethodType = this._getTypeFromClassMemberString('__new__', type, false);
             if (constructorMethodType) {
                 isValid = this._validateCallArguments(node, constructorMethodType, true);
                 validatedTypes = true;
@@ -767,7 +773,7 @@ export class ExpressionEvaluator {
             }
         } else if (callType instanceof ObjectType) {
             isCallable = false;
-            let memberType = this.getTypeFromClassMemberAccess(
+            let memberType = this._getTypeFromClassMemberString(
                 '__call__', callType.getClassType(), false);
 
             if (memberType && memberType instanceof FunctionType) {
