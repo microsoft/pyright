@@ -87,16 +87,6 @@ export class TypeUtils {
             return true;
         }
 
-        if (srcType instanceof TypeVarType) {
-            // TODO - remove this once we properly resolve generic types
-            return true;
-        }
-
-        if (destType instanceof TypeVarType) {
-            // TODO - remove this once we properly resolve generic types
-            return true;
-        }
-
         if (destType instanceof ObjectType) {
             const destClassType = destType.getClassType();
 

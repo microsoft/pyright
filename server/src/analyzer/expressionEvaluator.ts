@@ -501,11 +501,14 @@ export class ExpressionEvaluator {
         } else if (baseType instanceof ObjectType) {
             // TODO - need to implement
             type = UnknownType.create();
+        } else if (baseType instanceof TupleType) {
+            // TODO - need to implement
+            type = UnknownType.create();
         }
 
         if (!type) {
             this._addError(
-                `'Unsupported expression type: indexed (${ baseType.asString() })`,
+                `'Unsupported expression type: indexed ${ baseType.asString() }`,
                 node.baseExpression);
 
             type = UnknownType.create();
@@ -1325,10 +1328,14 @@ export class ExpressionEvaluator {
             } else {
                 this._addError(`Expected parameter type list or '...'`, typeArgs[0].node);
             }
+        } else {
+            TypeUtils.addDefaultFunctionParameters(functionType);
         }
 
         if (typeArgs.length > 1) {
             functionType.setDeclaredReturnType(typeArgs[1].type);
+        } else {
+            functionType.setDeclaredReturnType(AnyType.create());
         }
 
         if (typeArgs.length > 2) {
@@ -1339,7 +1346,7 @@ export class ExpressionEvaluator {
     }
 
     // Creates an Optional type annotation.
-    private _createOptional(errorNode: ExpressionNode, typeArgs: TypeResult[]): Type {
+    private _createOptionalType(errorNode: ExpressionNode, typeArgs: TypeResult[]): Type {
         if (typeArgs.length !== 1) {
             this._addError(`Expected one type parameter after Optional`, errorNode);
             return UnknownType.create();
@@ -1347,6 +1354,15 @@ export class ExpressionEvaluator {
 
         return TypeUtils.combineTypes(typeArgs[0].type, NoneType.create());
     }
+
+    private _createClassVarType(typeArgs: TypeResult[], flags: EvaluatorFlags): Type {
+        if (typeArgs.length > 1) {
+            this._addError(`Expected only one type parameter after ClassVar`, typeArgs[1].node);
+        }
+
+        let type = (typeArgs.length === 0) ? AnyType.create() : typeArgs[0].type;
+        return this._convertClassToObject(type, flags);
+}
 
     // Creates a Type type annotation.
     private _createTypeType(errorNode: ExpressionNode, typeArgs: TypeResult[]): Type {
@@ -1508,14 +1524,19 @@ export class ExpressionEvaluator {
                 }
 
                 case 'Optional': {
-                    return this._createOptional(errorNode, typeArgs);
+                    return this._createOptionalType(errorNode, typeArgs);
                 }
 
                 case 'Type': {
                     return this._createTypeType(errorNode, typeArgs);
                 }
 
-                case 'ClassVar':
+                case 'ClassVar': {
+                    // TODO - need to handle class vars. For now, we treat them
+                    // like any other type.
+                    return this._createClassVarType(typeArgs, flags);
+                }
+
                 case 'Deque':
                 case 'List':
                 case 'FrozenSet':

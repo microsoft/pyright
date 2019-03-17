@@ -250,9 +250,9 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         } else {
             // Determine if the function is a property getter or setter.
             if (ParseTreeUtils.isFunctionInClass(node)) {
-                functionType.clearHasCustomDecoratorsFlag();
                 let propertyType = evaluator.getPropertyType(node, functionType);
                 if (propertyType) {
+                    functionType.clearHasCustomDecoratorsFlag();
                     decoratedType = propertyType;
 
                     // Allow setters or deleters to replace the getter.
