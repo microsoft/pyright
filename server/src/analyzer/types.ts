@@ -7,6 +7,7 @@
 */
 
 import * as assert from 'assert';
+
 import { ParameterCategory } from '../parser/parseNodes';
 import { InferredType, TypeSourceId } from './inferredType';
 import { SymbolTable } from './symbol';
@@ -176,7 +177,7 @@ export enum ClassTypeFlags {
     // Class is defined in the "builtins" or "typings" file.
     BuiltInClass = 0x02,
 
-    // CLass requires special-case handling because it
+    // Class requires special-case handling because it
     // exhibits non-standard behavior or is not defined
     // formally as a class. Examples include 'Optional'
     // and 'Union'.
@@ -512,16 +513,19 @@ interface FunctionDetails {
     builtInName?: string;
 }
 
+export interface SpecializedFunctionTypes {
+    parameterTypes: Type[];
+    returnType: Type;
+}
+
 export class FunctionType extends Type {
     category = TypeCategory.Function;
 
     private _functionDetails: FunctionDetails;
 
-    // A generic function that has been completely or partially
-    // specialized will have type arguments that correspond to
-    // some or all of the type parameters. Unspecified type
-    // parameters are undefined.
-    // private _typeArguments?: (Type | undefined)[];
+    // A function type can be specialized (i.e. generic type
+    // variables replaced by a concrete type).
+    private _specializedTypes?: SpecializedFunctionTypes;
 
     constructor(flags: FunctionTypeFlags) {
         super();
@@ -530,6 +534,16 @@ export class FunctionType extends Type {
             parameters: [],
             inferredReturnType: new InferredType()
         };
+    }
+
+    cloneForSpecialization(specializedTypes: SpecializedFunctionTypes): FunctionType {
+        let newFunction = new FunctionType(this._functionDetails.flags);
+        newFunction._functionDetails = this._functionDetails;
+
+        assert(specializedTypes.parameterTypes.length === this._functionDetails.parameters.length);
+        newFunction._specializedTypes = specializedTypes;
+
+        return newFunction;
     }
 
     isInstanceMethod(): boolean {
@@ -552,8 +566,24 @@ export class FunctionType extends Type {
         return this._functionDetails.parameters;
     }
 
-    setParameters(params: FunctionParameter[]) {
-        this._functionDetails.parameters = params;
+    getParameterCount() {
+        return this._functionDetails.parameters.length;
+    }
+
+    setParameterType(index: number, type: Type): boolean {
+        assert(index < this._functionDetails.parameters.length);
+        const typeChanged = !type.isSame(this._functionDetails.parameters[index].type);
+        this._functionDetails.parameters[index].type = type;
+        return typeChanged;
+    }
+
+    getEffectiveParameterType(index: number): Type {
+        assert(index < this._functionDetails.parameters.length);
+        if (this._specializedTypes) {
+            return this._specializedTypes.parameterTypes[index];
+        }
+
+        return this._functionDetails.parameters[index].type;
     }
 
     addParameter(param: FunctionParameter) {
@@ -577,6 +607,10 @@ export class FunctionType extends Type {
     }
 
     getEffectiveReturnType() {
+        if (this._specializedTypes) {
+            return this._specializedTypes.returnType;
+        }
+
         if (this._functionDetails.declaredReturnType) {
             return this._functionDetails.declaredReturnType;
         }
@@ -585,7 +619,7 @@ export class FunctionType extends Type {
     }
 
     hasCustomDecorators(): boolean {
-        return (this._functionDetails.flags & FunctionTypeFlags.HasCustomDecorators) !== undefined;
+        return (this._functionDetails.flags & FunctionTypeFlags.HasCustomDecorators) !== 0;
     }
 
     clearHasCustomDecoratorsFlag() {
@@ -593,7 +627,7 @@ export class FunctionType extends Type {
     }
 
     asStringInternal(recursionCount = 0): string {
-        let paramTypeString = this._functionDetails.parameters.map(param => {
+        let paramTypeString = this._functionDetails.parameters.map((param, index) => {
             let paramString = '';
             if (param.category === ParameterCategory.VarArgList) {
                 paramString += '*';
@@ -606,8 +640,9 @@ export class FunctionType extends Type {
             }
 
             if (param.category === ParameterCategory.Simple) {
+                const paramType = this.getEffectiveParameterType(index);
                 const paramTypeString = recursionCount < AsStringMaxRecursionCount ?
-                    param.type.asStringInternal(recursionCount + 1) : '';
+                    paramType.asStringInternal(recursionCount + 1) : '';
                 paramString += ': ' + paramTypeString;
             }
             return paramString;

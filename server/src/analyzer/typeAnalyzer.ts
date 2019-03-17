@@ -66,9 +66,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // from a previous pass.
     private _analysisVersion = 0;
 
-    // Temporarily suppress the output of diagnostics?
-    private _isDiagnosticsSuppressed = false;
-
     // List of type constraints that are currently in effect
     // when walking a multi-part AND expression (e.g. A and B
     // and C).
@@ -185,7 +182,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
 
-                functionParams[index].type = annotatedType;
+                if (functionType.setParameterType(index, annotatedType)) {
+                    this._setAnalysisChanged();
+                }
 
                 if (param.defaultValue) {
                     // Verify that the default value matches the type annotation.
@@ -205,9 +204,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     let inferredClassType = AnalyzerNodeInfo.getExpressionType(classNode) as ClassType;
                     if (inferredClassType) {
                         if (param.name.nameToken.value === 'self') {
-                            functionParams[index].type = new ObjectType(inferredClassType);
+                            if (functionType.setParameterType(index, new ObjectType(inferredClassType))) {
+                                this._setAnalysisChanged();
+                            }
                         } else if (param.name.nameToken.value === 'cls') {
-                            functionParams[index].type = inferredClassType;
+                            if (functionType.setParameterType(index, inferredClassType)) {
+                                this._setAnalysisChanged();
+                            }
                         }
                     }
                 }
@@ -359,22 +362,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitCall(node: CallExpressionNode): boolean {
-        let callType = this._getTypeOfExpression(node.leftExpression);
-
-        if (callType instanceof ClassType && callType.isGeneric()) {
-            // TODO - need to infer types. For now, just assume "any" type.
-            let specializedType = callType.cloneForSpecialization([]);
-            callType = specializedType;
-        }
-
-        // TODO - need to handle union type
-
-        if (!this._validateCallArguments(node, callType, this._isCallOnObjectOrClass(node))) {
-            this._addError(
-                `'${ ParseTreeUtils.printExpression(node.leftExpression) }' has type ` +
-                `'${ callType.asString() }' and is not callable`,
-                node.leftExpression);
-        }
+        // Calculate and cache the expression and report
+        // any validation errors.
+        this._getTypeOfExpression(node);
         return true;
     }
 
@@ -775,14 +765,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitMemberAccess(node: MemberAccessExpressionNode) {
-        let leftType = this._getTypeOfExpression(node.leftExpression);
-        this._validateMemberAccess(leftType, node.memberName);
+        this._getTypeOfExpression(node);
 
+        this._setDefinitionForMemberName(
+            this._getTypeOfExpression(node.leftExpression), node.memberName);
+
+        // Walk the leftExpression but not the memberName.
         this.walk(node.leftExpression);
-
-        // Set the member type for the hover provider.
-        this._updateExpressionTypeForNode(node.memberName, this._getTypeOfExpression(node));
-
         return false;
     }
 
@@ -1013,90 +1002,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    // Determine if this is a call through an object or class, in
-    // which case a "self" or "cls" argument needs to be synthesized.
-    private _isCallOnObjectOrClass(node: CallExpressionNode): boolean {
-        let skipFirstMethodParam = false;
-        if (node.leftExpression instanceof MemberAccessExpressionNode) {
-            let leftType = this._getTypeOfExpression(
-                node.leftExpression.leftExpression);
-
-            // TODO - what should we do about UnionType here?
-            if (leftType instanceof ObjectType || leftType instanceof ClassType) {
-                skipFirstMethodParam = true;
-            }
-        }
-
-        return skipFirstMethodParam;
-    }
-
-    private _validateCallArguments(node: CallExpressionNode, callType: Type,
-            skipFirstMethodParam: boolean): boolean {
-        let isCallable = true;
-
-        if (callType instanceof TypeVarType) {
-            // TODO - need to remove once we resolve type vars
-            return true;
-        }
-
-        if (!callType.isAny()) {
-            if (callType instanceof FunctionType) {
-                this._validateFunctionArguments(node, callType, skipFirstMethodParam);
-            } else if (callType instanceof OverloadedFunctionType) {
-                if (!this._findOverloadedFunctionType(callType, node, skipFirstMethodParam)) {
-                    const exprString = ParseTreeUtils.printExpression(node.leftExpression);
-                    this._addError(
-                        `No overloads for '${ exprString }' match parameters`,
-                        node.leftExpression);
-                }
-            } else if (callType instanceof ClassType) {
-                if (!callType.isSpecialBuiltIn()) {
-                    this._validateConstructorArguments(node, callType);
-                }
-            } else if (callType instanceof ObjectType) {
-                isCallable = false;
-                let evaluator = this._getEvaluator();
-                let memberType = evaluator.getTypeFromClassMemberAccess(
-                    '__call__', callType.getClassType(), false);
-
-                if (memberType && memberType instanceof FunctionType) {
-                    isCallable = this._validateCallArguments(node, memberType, true);
-                }
-            } else if (callType instanceof UnionType) {
-                for (let type of callType.getTypes()) {
-                    if (type instanceof NoneType) {
-                        // TODO - for now, assume that optional
-                        // types (unions with None) are valid. Tighten
-                        // this later.
-                    } else if (!this._validateCallArguments(node, type, skipFirstMethodParam)) {
-                        isCallable = false;
-                        break;
-                    }
-                }
-            } else {
-                isCallable = false;
-            }
-        }
-
-        return isCallable;
-    }
-
-    private _findOverloadedFunctionType(callType: OverloadedFunctionType,
-            node: CallExpressionNode, skipFirstMethodParam: boolean): FunctionType | undefined {
-        let validOverload: FunctionType | undefined;
-
-        // Temporarily suppress diagnostics.
-        this._suppressDiagnostics(() => {
-            for (let overload of callType.getOverloads()) {
-                if (this._validateCallArguments(node, overload.type, skipFirstMethodParam)) {
-                    validOverload = overload.type;
-                }
-            }
-        });
-
-        return validOverload;
-    }
-
     private _validateExceptionType(exceptionType: Type, errorNode: ParseNode) {
         if (exceptionType.isAny()) {
             return exceptionType;
@@ -1260,6 +1165,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (!oldType || !oldType.isSame(exprType)) {
             AnalyzerNodeInfo.setExpressionType(node, exprType);
+
             this._setAnalysisChanged();
         }
     }
@@ -1500,220 +1406,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return undefined;
     }
 
-    // Tries to assign the call arguments to the function parameter
-    // list and reports any mismatches in types or counts.
-    // If skipFirstMethodParam is true and the callee is a method,
-    // the logic assumes that it can skip the validation of the first
-    // parameter because it's a "self" or "cls" parameter.
-    // This logic is based on PEP 3102: https://www.python.org/dev/peps/pep-3102/
-    private _validateFunctionArguments(node: CallExpressionNode, type: FunctionType,
-            skipFirstMethodParam: boolean) {
-        let argIndex = 0;
-        const typeParams = type.getParameters();
-
-        // If it's a raw function (versus a method call), no need to skip the first parameter.
-        const skipFirstParam = skipFirstMethodParam && type.isInstanceMethod();
-
-        // Evaluate all of the argument values and generate errors if appropriate.
-        // The expression type will be cached in the node so we don't re-evaluate
-        // it below.
-        node.arguments.forEach(arg => {
-            this._getTypeOfExpression(arg.valueExpression);
-        });
-
-        // If the function has decorators, we need to back off because the decorator
-        // parameter lists may differ from those of the function.
-        // TODO - improve this
-        if (type.hasCustomDecorators()) {
-            return;
-        }
-
-        // The last parameter might be a var arg dictionary. If so, strip it off.
-        let hasVarArgDictParam = typeParams.find(
-                param => param.category === ParameterCategory.VarArgDictionary) !== undefined;
-        let reportedArgError = false;
-
-        // Build a map of parameters by name.
-        let paramMap = new StringMap<ParamAssignmentInfo>();
-        typeParams.forEach((param, index) => {
-            // Skip the first named param if appropriate.
-            if (param.name && (index > 0 || !skipFirstParam)) {
-                paramMap.set(param.name, {
-                    argsNeeded: param.category === ParameterCategory.Simple && !param.hasDefault ? 1 : 0,
-                    argsReceived: 0
-                });
-            }
-        });
-
-        // Is there a bare (nameless) "*" parameter? If so, it signifies the end
-        // of the positional parameter list.
-        let positionalParamCount = typeParams.findIndex(
-            param => param.category === ParameterCategory.VarArgList && !param.name);
-
-        // Is there a var-arg (named "*") parameter? If so, it is the last of
-        // the positional parameters.
-        if (positionalParamCount < 0) {
-            positionalParamCount = typeParams.findIndex(
-                param => param.category === ParameterCategory.VarArgList);
-            if (positionalParamCount >= 0) {
-                positionalParamCount++;
-            }
-        }
-
-        // Is there a keyword var-arg ("**") parameter? If so, it's not included
-        // in the list of positional parameters.
-        if (positionalParamCount < 0) {
-            positionalParamCount = typeParams.findIndex(
-                param => param.category === ParameterCategory.VarArgDictionary);
-        }
-
-        // If we didn't see any special cases, then all parameters are positional.
-        if (positionalParamCount < 0) {
-            positionalParamCount = typeParams.length;
-        }
-
-        // Determine how many positional args are being passed before
-        // we see a named arg.
-        let positionalArgCount = node.arguments.findIndex(
-            arg => arg.argumentCategory === ArgumentCategory.Dictionary || arg.name !== undefined);
-        if (positionalArgCount < 0) {
-            positionalArgCount = node.arguments.length;
-        }
-
-        // Map the positional args to parameters.
-        let paramIndex = skipFirstParam ? 1 : 0;
-        while (argIndex < positionalArgCount) {
-            if (paramIndex >= positionalParamCount) {
-                this._addError(
-                    `Expected ${ positionalParamCount } positional argument${ positionalParamCount === 1 ? '' : 's' }`,
-                    node.arguments[argIndex]);
-                reportedArgError = true;
-                break;
-            }
-
-            if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
-                // Consume the remaining positional args.
-                argIndex = positionalArgCount;
-            } else {
-                let paramType = typeParams[paramIndex].type;
-                this._validateArgType(paramType, node.arguments[argIndex].valueExpression);
-
-                // Note that the parameter has received an argument.
-                const paramName = typeParams[paramIndex].name;
-                if (paramName) {
-                    paramMap.get(paramName)!.argsReceived++;
-                }
-
-                argIndex++;
-            }
-
-            paramIndex++;
-        }
-
-        if (!reportedArgError) {
-            let foundDictionaryArg = false;
-            let foundListArg = node.arguments.find(arg => arg.argumentCategory === ArgumentCategory.List) !== undefined;
-
-            // Now consume any named parameters.
-            while (argIndex < node.arguments.length) {
-                if (node.arguments[argIndex].argumentCategory === ArgumentCategory.Dictionary) {
-                    foundDictionaryArg = true;
-                } else {
-                    // Protect against the case where a non-named argument appears after
-                    // a named argument. This will have already been reported as a parse
-                    // error, but we need to protect against it here.
-                    const paramName = node.arguments[argIndex].name;
-                    if (paramName) {
-                        const paramNameValue = paramName.nameToken.value;
-                        const paramEntry = paramMap.get(paramNameValue);
-                        if (paramEntry) {
-                            if (paramEntry.argsReceived > 0) {
-                                this._addError(
-                                    `Parameter '${ paramNameValue }' is already assigned`, paramName);
-                            } else {
-                                paramMap.get(paramName.nameToken.value)!.argsReceived++;
-
-                                let paramInfo = typeParams.find(param => param.name === paramNameValue);
-                                assert(paramInfo !== undefined);
-                                this._validateArgType(paramInfo!.type, node.arguments[argIndex].valueExpression);
-                                this._updateExpressionTypeForNode(paramName, paramInfo!.type);
-                            }
-                        } else if (!hasVarArgDictParam) {
-                            this._addError(
-                                `No parameter named '${ paramName.nameToken.value }'`, paramName);
-                        }
-                    }
-                }
-
-                argIndex++;
-            }
-
-            // Determine whether there are any parameters that require arguments
-            // but have not yet received them. If we received a dictionary argument
-            // (i.e. an arg starting with a "**") or a list argument (i.e. an arg
-            // starting with a "*"), we will assume that all parameters are matched.
-            if (!foundDictionaryArg && !foundListArg) {
-                let unassignedParams = paramMap.getKeys().filter(name => {
-                    const entry = paramMap.get(name)!;
-                    return entry.argsReceived < entry.argsNeeded;
-                });
-
-                if (unassignedParams.length > 0) {
-                    this._addError(
-                        `Argument missing for parameter${ unassignedParams.length === 1 ? '' : 's' } ` +
-                        unassignedParams.map(p => `${ p }`).join(', '), node);
-                }
-            }
-        }
-    }
-
-    private _validateArgType(paramType: Type, argExpression: ExpressionNode) {
-        let argType = this._getTypeOfExpression(argExpression);
-        if (!TypeUtils.canAssignType(paramType, argType)) {
-            this._addError(
-                `Argument of type '${ argType.asString() }'` +
-                    ` cannot be assigned to parameter of type '${ paramType.asString() }'`,
-                argExpression);
-        }
-    }
-
-     // Tries to match the arguments of a call to the constructor for a class.
-    private _validateConstructorArguments(node: CallExpressionNode, type: ClassType) {
-        let validatedTypes = false;
-        const initMethodMember = TypeUtils.lookUpClassMember(type, '__init__', false);
-        if (initMethodMember) {
-            if (initMethodMember.symbol) {
-                const initMethodType = TypeUtils.getEffectiveTypeOfMember(initMethodMember);
-                this._validateCallArguments(node, initMethodType, true);
-            } else {
-                // If we received a defined result with no symbol, that
-                // means one of the base classes was an "any" type, so
-                // we don't know if it has a valid intializer.
-            }
-
-            validatedTypes = true;
-        }
-
-        if (!validatedTypes) {
-            // If there's no init method, check for a constructor.
-            const constructorMember = TypeUtils.lookUpClassMember(type, '__new__', false);
-            if (constructorMember && constructorMember.symbol) {
-                const constructorMethodType = TypeUtils.getEffectiveTypeOfMember(constructorMember);
-                this._validateCallArguments(node, constructorMethodType, true);
-                validatedTypes = true;
-            }
-        }
-
-        if (!validatedTypes && node.arguments.length > 0) {
-            this._addError(
-                `Expected no arguments to '${ type.getClassName() }' constructor`, node);
-        }
-    }
-
-    private _validateMemberAccess(baseType: Type, memberName: NameNode): void {
-        // TODO - most of this logic is now redudnant with the expression evaluation
-        // logic. The only part that remains is the calls to setDeclaration. Clean
-        // this up at some point.
+    private _setDefinitionForMemberName(baseType: Type, memberName: NameNode): void {
         const memberNameValue = memberName.nameToken.value;
 
         if (baseType instanceof ObjectType) {
@@ -1741,15 +1434,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (baseType instanceof UnionType) {
-            // TODO - need to add extra logic to determine whether it's safe
-            // to simplfy the type at this point in the program.
-            let simplifiedType = baseType.removeOptional();
-            if (simplifiedType instanceof UnionType) {
-                for (let t of simplifiedType.getTypes()) {
-                    this._validateMemberAccess(t, memberName);
-                }
-            } else {
-                this._validateMemberAccess(simplifiedType, memberName);
+            for (let t of baseType.getTypes()) {
+                this._setDefinitionForMemberName(t, memberName);
             }
         }
     }
@@ -1822,19 +1508,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return newScope!;
     }
 
-    private _suppressDiagnostics(callback: () => void) {
-        // Temporarily suppress diagnostics.
-        let prevSuppressDiagnostics = this._isDiagnosticsSuppressed;
-        this._isDiagnosticsSuppressed = true;
-
-        callback();
-
-        this._isDiagnosticsSuppressed = prevSuppressDiagnostics;
-    }
-
     private _addError(message: string, textRange: TextRange) {
         // Don't emit error if the scope is guaranteed not to be executed.
-        if (!this._currentScope.isNotExecuted() && !this._isDiagnosticsSuppressed) {
+        if (!this._currentScope.isNotExecuted()) {
             this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
         }
     }
@@ -1855,7 +1531,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // If the current scope isn't executed, create a dummy sink
         // for any errors that are reported.
-        if (this._currentScope.isNotExecuted() && !this._isDiagnosticsSuppressed) {
+        if (this._currentScope.isNotExecuted()) {
             diagSink = undefined;
         }
 

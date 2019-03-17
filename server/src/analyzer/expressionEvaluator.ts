@@ -7,6 +7,8 @@
 * within particular contexts and reports type errors.
 */
 
+import * as assert from 'assert';
+
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
@@ -25,14 +27,15 @@ import { Scope, ScopeType } from './scope';
 import { Symbol, SymbolCategory } from './symbol';
 import { TypeConstraint } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType, FunctionTypeFlags,
-    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType, TupleType, Type,
-    TypeVarType, UnionType, UnknownType } from './types';
+    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType, SpecializedFunctionTypes, TupleType,
+    Type, TypeVarType, UnionType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface TypeResult {
     type: Type;
     typeList?: TypeResult[];
-    isClassOrObjectMember?: boolean;
+    isClassMember?: boolean;
+    isObjectMember?: boolean;
     node: ExpressionNode;
 }
 
@@ -43,7 +46,16 @@ export enum EvaluatorFlags {
 
     // Interpret a class type as a instance of that class. This
     // is the normal mode used for type annotations.
-    ConvertClassToObject = 1
+    ConvertClassToObject = 1,
+
+    // Should types like 'Callable' be converted to their internal
+    // representations even if they have no explicit specialization?
+    ConvertSpecialTypes = 2
+}
+
+interface ParamAssignmentInfo {
+    argsNeeded: number;
+    argsReceived: number;
 }
 
 export type ReadTypeFromNodeCacheCallback = (node: ExpressionNode) => Type | undefined;
@@ -67,7 +79,7 @@ export class ExpressionEvaluator {
     }
 
     getType(node: ExpressionNode, flags: EvaluatorFlags): Type {
-        let typeResult = this._getTypeFromExpression(node, flags);
+        let typeResult = this._getTypeFromExpression(node, flags | EvaluatorFlags.ConvertSpecialTypes);
         return typeResult.type;
     }
 
@@ -210,6 +222,11 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromName(node, flags);
         } else if (node instanceof MemberAccessExpressionNode) {
             typeResult = this._getTypeFromMemberAccessExpression(node, flags);
+
+            // Cache the type information in the member name node as well.
+            if (this._writeTypeToCache) {
+                this._writeTypeToCache(node.memberName, typeResult.type);
+            }
         } else if (node instanceof IndexExpressionNode) {
             typeResult = this._getTypeFromIndexExpression(node, flags);
         } else if (node instanceof CallExpressionNode) {
@@ -336,6 +353,14 @@ export class ExpressionEvaluator {
             type = UnknownType.create();
         }
 
+        // If we're not converting to an object, convert classes like
+        // "Callable" into their internal
+        if ((flags & EvaluatorFlags.ConvertSpecialTypes) !== 0) {
+            if (type instanceof ClassType && type.isSpecialBuiltIn()) {
+                type = this._createSpecializeClassType(type, [], node, flags);
+            }
+        }
+
         type = this._convertClassToObject(type, flags);
 
         return { type, node };
@@ -355,19 +380,21 @@ export class ExpressionEvaluator {
         const memberName = node.memberName.nameToken.value;
 
         let type: Type | undefined;
-        let isClassOrObjectMember = false;
+        let isClassMember = false;
+        let isObjectMember = false;
 
         if (baseType.isAny()) {
             type = baseType;
 
             // Assume that the base type is a class or object.
-            isClassOrObjectMember = true;
+            isClassMember = true;
+            isObjectMember = true;
         } else if (baseType instanceof ClassType) {
             type = this._getTypeFromClassMemberAccess(node.memberName, baseType, false);
-            isClassOrObjectMember = true;
+            isClassMember = true;
         } else if (baseType instanceof ObjectType) {
             type = this._getTypeFromClassMemberAccess(node.memberName, baseType.getClassType(), true);
-            isClassOrObjectMember = true;
+            isObjectMember = true;
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
             if (memberInfo) {
@@ -383,9 +410,21 @@ export class ExpressionEvaluator {
                     // TODO - ignore None for now.
                 } else {
                     let typeResult = this._getTypeFromMemberAccessExpressionWithBaseType(node,
-                        { type: typeEntry, isClassOrObjectMember: baseTypeResult.isClassOrObjectMember, node },
+                        {
+                            type: typeEntry,
+                            isClassMember: baseTypeResult.isClassMember,
+                            isObjectMember: baseTypeResult.isObjectMember,
+                            node
+                        },
                         EvaluatorFlags.None);
+
                     if (typeResult) {
+                        if (typeResult.isClassMember) {
+                            isClassMember = true;
+                        }
+                        if (typeResult.isObjectMember) {
+                            isObjectMember = true;
+                        }
                         returnTypes.push(typeResult.type);
                     }
                 }
@@ -413,7 +452,7 @@ export class ExpressionEvaluator {
 
         type = this._convertClassToObject(type, flags);
 
-        return { type, node, isClassOrObjectMember };
+        return { type, node, isClassMember, isObjectMember };
     }
 
     private _getTypeFromClassMemberAccess(memberNameNode: NameNode,
@@ -432,7 +471,7 @@ export class ExpressionEvaluator {
         // TODO - figure out a better approach here.
         if (!classType.hasDecorators()) {
             this._addError(
-                `'${ memberName }' is not a known member of type '${ classType.asString() }'`,
+                `'${ memberName }' is not a known member of type '${ classType.getObjectName() }'`,
                 memberNameNode);
         }
 
@@ -450,7 +489,9 @@ export class ExpressionEvaluator {
         if (baseType.isAny()) {
             type = baseType;
         } else if (baseType instanceof ClassType) {
-            type = this._createSpecializeClassType(baseType, node.indexExpression, flags);
+            let typeArgs = this._getTypeArgs(node.indexExpression);
+            type = this._createSpecializeClassType(baseType, typeArgs,
+                node.indexExpression, flags);
         } else if (baseType instanceof UnionType) {
             // TODO - need to implement
             type = UnknownType.create();
@@ -499,12 +540,14 @@ export class ExpressionEvaluator {
             typeResult = {
                 type: UnknownType.create(),
                 typeList: node.entries.map(entry => {
-                    return this._getTypeFromExpression(entry, EvaluatorFlags.ConvertClassToObject);
+                    return this._getTypeFromExpression(entry,
+                        EvaluatorFlags.ConvertClassToObject | EvaluatorFlags.ConvertSpecialTypes);
                 }),
                 node
             };
         } else {
-            typeResult = this._getTypeFromExpression(node, EvaluatorFlags.ConvertClassToObject);
+            typeResult = this._getTypeFromExpression(node,
+                EvaluatorFlags.ConvertClassToObject | EvaluatorFlags.ConvertSpecialTypes);
         }
 
         return typeResult;
@@ -524,17 +567,23 @@ export class ExpressionEvaluator {
         };
     }
 
-    private _getTypeFromCallExpression(node: CallExpressionNode, flags: EvaluatorFlags): TypeResult {
-        const baseTypeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
+    private _getTypeFromCallExpression(node: CallExpressionNode,
+            flags: EvaluatorFlags): TypeResult {
 
-        return this._getTypeFromCallExpressionWithBaseType(node, baseTypeResult, flags);
+        const baseTypeResult = this._getTypeFromExpression(
+            node.leftExpression, EvaluatorFlags.None);
+
+        return this._getTypeFromCallExpressionWithBaseType(
+            node, baseTypeResult, flags);
     }
 
-    private _getTypeFromCallExpressionWithBaseType(node: CallExpressionNode, baseTypeResult: TypeResult,
-            flags: EvaluatorFlags): TypeResult {
+    private _getTypeFromCallExpressionWithBaseType(node: CallExpressionNode,
+            baseTypeResult: TypeResult, flags: EvaluatorFlags): TypeResult {
 
         let type: Type | undefined;
         const callType = baseTypeResult.type;
+        const isClassMemberAccess = !!baseTypeResult.isClassMember;
+        const isObjectMemberAccess = !!baseTypeResult.isObjectMember;
 
         if (callType instanceof ClassType) {
             if (callType.isBuiltIn()) {
@@ -556,43 +605,58 @@ export class ExpressionEvaluator {
                         type = UnknownType.create();
                     }
                 } else if (className === 'TypeVar') {
-                    type = this.createTypeVarType(node);
+                    type = this._createTypeVarType(node);
                 } else if (className === 'NamedTuple') {
-                    type = this.createNamedTupleType(node, true);
+                    type = this._createNamedTupleType(node, true);
                     flags &= ~EvaluatorFlags.ConvertClassToObject;
                 }
             }
 
             // Assume this is a call to the constructor.
             if (!type) {
-                type = new ObjectType(callType);
+                if (this._validateConstructorArguments(node, callType)) {
+                    type = new ObjectType(callType);
+                }
             }
         } else if (callType instanceof FunctionType) {
             // The stdlib collections/__init__.pyi stub file defines namedtuple
             // as a function rather than a class, so we need to check for it here.
             if (callType.getBuiltInName() === 'namedtuple') {
-                type = this.createNamedTupleType(node, false);
+                type = this._createNamedTupleType(node, false);
                 flags &= ~EvaluatorFlags.ConvertClassToObject;
             } else {
-                type = callType.getEffectiveReturnType();
+                const isClassMethod = callType.isClassMethod();
+                const isInstanceMethod = callType.isInstanceMethod();
+                let skipFirstMethodParam = (isObjectMemberAccess && isInstanceMethod) ||
+                    ((isClassMemberAccess || isObjectMemberAccess) && isClassMethod);
+
+                if (this._validateCallArguments(node, callType, skipFirstMethodParam)) {
+                    type = callType.getEffectiveReturnType();
+                }
             }
         } else if (callType instanceof OverloadedFunctionType) {
-            // Determine which of the overloads (if any) match.
-            // let skipFirstMethodParam = !!baseTypeResult.isClassOrObjectMember;
+            let skipFirstMethodParam = isClassMemberAccess || isObjectMemberAccess;
 
-            // TODO - need to figure out what to do here.
-            // let functionType = this._findOverloadedFunctionType(
-            //     callType, node, skipFirstMethodParam);
-            // if (functionType) {
-            //     type = functionType.getEffectiveReturnType();
-            // }
+            // Determine which of the overloads (if any) match.
+            let functionType = this._findOverloadedFunctionType(
+                callType, node, skipFirstMethodParam);
+
+            if (functionType) {
+                type = functionType.getEffectiveReturnType();
+            } else {
+                const exprString = ParseTreeUtils.printExpression(node.leftExpression);
+                this._addError(
+                    `No overloads for '${ exprString }' match parameters`,
+                    node.leftExpression);
+            }
+
             type = UnknownType.create();
         } else if (callType instanceof ObjectType) {
-            const callMember = TypeUtils.lookUpObjectMember(callType, '__call__');
-            if (callMember) {
-                const callMethodType = TypeUtils.getEffectiveTypeOfMember(callMember);
-                if (callMethodType instanceof FunctionType) {
-                    type = callMethodType.getEffectiveReturnType();
+            let memberType = this.getTypeFromClassMemberAccess(
+                '__call__', callType.getClassType(), false);
+            if (memberType && memberType instanceof FunctionType) {
+                if (this._validateCallArguments(node, memberType, true)) {
+                    type = memberType.getEffectiveReturnType();
                 }
             }
         } else if (callType instanceof UnionType) {
@@ -602,7 +666,12 @@ export class ExpressionEvaluator {
                     // TODO - ignore None for now.
                 } else {
                     let typeResult = this._getTypeFromCallExpressionWithBaseType(node,
-                        { type: typeEntry, isClassOrObjectMember: baseTypeResult.isClassOrObjectMember, node },
+                        {
+                            type: typeEntry,
+                            isClassMember: baseTypeResult.isClassMember,
+                            isObjectMember: baseTypeResult.isObjectMember,
+                            node
+                        },
                         EvaluatorFlags.None);
                     if (typeResult) {
                         returnTypes.push(typeResult.type);
@@ -618,7 +687,10 @@ export class ExpressionEvaluator {
         }
 
         if (type === undefined) {
-            this._addError(`'Unsupported type expression: call`, node);
+            this._addError(
+                `'${ ParseTreeUtils.printExpression(node.leftExpression) }' has type ` +
+                `'${ callType.asString() }' and is not callable`,
+                node.leftExpression);
             type = UnknownType.create();
         }
 
@@ -627,7 +699,278 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    createTypeVarType(node: CallExpressionNode): Type | undefined {
+    private _findOverloadedFunctionType(callType: OverloadedFunctionType,
+            node: CallExpressionNode, skipFirstMethodParam: boolean): FunctionType | undefined {
+        let validOverload: FunctionType | undefined;
+
+        // Create a new evaluator that will not emit any diagnostics.
+        let altEvaluator = new ExpressionEvaluator(this._scope, this._expressionTypeConstraints);
+
+        for (let overload of callType.getOverloads()) {
+            if (altEvaluator._validateCallArguments(node, overload.type, skipFirstMethodParam)) {
+                validOverload = overload.type;
+            }
+        }
+
+        return validOverload;
+    }
+
+     // Tries to match the arguments of a call to the constructor for a class.
+    private _validateConstructorArguments(node: CallExpressionNode, type: ClassType): boolean {
+        let isValid = false;
+        let validatedTypes = false;
+
+        let initMethodType = this.getTypeFromClassMemberAccess('__init__', type, false);
+        if (initMethodType) {
+            isValid = this._validateCallArguments(node, initMethodType, true);
+            validatedTypes = true;
+        }
+
+        if (!validatedTypes) {
+            // If there's no init method, check for a constructor.
+            let constructorMethodType = this.getTypeFromClassMemberAccess('__new__', type, false);
+            if (constructorMethodType) {
+                isValid = this._validateCallArguments(node, constructorMethodType, true);
+                validatedTypes = true;
+            }
+        }
+
+        if (!validatedTypes && node.arguments.length > 0) {
+            this._addError(
+                `Expected no arguments to '${ type.getClassName() }' constructor`, node);
+        }
+
+        return isValid;
+    }
+
+    private _validateCallArguments(node: CallExpressionNode, callType: Type,
+            skipFirstMethodParam: boolean): boolean {
+        let isCallable = true;
+
+        if (callType.isAny()) {
+            // Nothing to do in this case.
+        } else if (callType instanceof FunctionType) {
+            this._validateFunctionArguments(node, callType, skipFirstMethodParam);
+        } else if (callType instanceof OverloadedFunctionType) {
+            if (!this._findOverloadedFunctionType(callType, node, skipFirstMethodParam)) {
+                const exprString = ParseTreeUtils.printExpression(node.leftExpression);
+                this._addError(
+                    `No overloads for '${ exprString }' match parameters`,
+                    node.leftExpression);
+            }
+        } else if (callType instanceof ClassType) {
+            if (!callType.isSpecialBuiltIn()) {
+                this._validateConstructorArguments(node, callType);
+            }
+        } else if (callType instanceof ObjectType) {
+            isCallable = false;
+            let memberType = this.getTypeFromClassMemberAccess(
+                '__call__', callType.getClassType(), false);
+
+            if (memberType && memberType instanceof FunctionType) {
+                isCallable = this._validateCallArguments(node, memberType, true);
+            }
+        } else if (callType instanceof UnionType) {
+            for (let type of callType.getTypes()) {
+                if (type instanceof NoneType) {
+                    // TODO - for now, assume that optional
+                    // types (unions with None) are valid. Tighten
+                    // this later.
+                } else if (!this._validateCallArguments(node, type, skipFirstMethodParam)) {
+                    isCallable = false;
+                    break;
+                }
+            }
+        } else {
+            isCallable = false;
+        }
+
+        return isCallable;
+    }
+
+    // Tries to assign the call arguments to the function parameter
+    // list and reports any mismatches in types or counts.
+    // If skipFirstMethodParam is true and the callee is a method,
+    // the logic assumes that it can skip the validation of the first
+    // parameter because it's a "self" or "cls" parameter.
+    // This logic is based on PEP 3102: https://www.python.org/dev/peps/pep-3102/
+    private _validateFunctionArguments(node: CallExpressionNode, type: FunctionType,
+            skipFirstMethodParam: boolean) {
+        let argIndex = 0;
+        const typeParams = type.getParameters();
+
+        // If it's a raw function (versus a method call), no need to skip the first parameter.
+        const skipFirstParam = skipFirstMethodParam &&
+            (type.isInstanceMethod() || type.isClassMethod());
+
+        // Evaluate all of the argument values and generate errors if appropriate.
+        // The expression type will be cached in the node so we don't re-evaluate
+        // it below.
+        node.arguments.forEach(arg => {
+            this.getType(arg.valueExpression, EvaluatorFlags.None);
+        });
+
+        // If the function has decorators, we need to back off because the decorator
+        // parameter lists may differ from those of the function.
+        // TODO - improve this
+        if (type.hasCustomDecorators()) {
+            return;
+        }
+
+        // The last parameter might be a var arg dictionary. If so, strip it off.
+        let hasVarArgDictParam = typeParams.find(
+                param => param.category === ParameterCategory.VarArgDictionary) !== undefined;
+        let reportedArgError = false;
+
+        // Build a map of parameters by name.
+        let paramMap = new StringMap<ParamAssignmentInfo>();
+        typeParams.forEach((param, index) => {
+            // Skip the first named param if appropriate.
+            if (param.name && (index > 0 || !skipFirstParam)) {
+                paramMap.set(param.name, {
+                    argsNeeded: param.category === ParameterCategory.Simple && !param.hasDefault ? 1 : 0,
+                    argsReceived: 0
+                });
+            }
+        });
+
+        // Is there a bare (nameless) "*" parameter? If so, it signifies the end
+        // of the positional parameter list.
+        let positionalParamCount = typeParams.findIndex(
+            param => param.category === ParameterCategory.VarArgList && !param.name);
+
+        // Is there a var-arg (named "*") parameter? If so, it is the last of
+        // the positional parameters.
+        if (positionalParamCount < 0) {
+            positionalParamCount = typeParams.findIndex(
+                param => param.category === ParameterCategory.VarArgList);
+            if (positionalParamCount >= 0) {
+                positionalParamCount++;
+            }
+        }
+
+        // Is there a keyword var-arg ("**") parameter? If so, it's not included
+        // in the list of positional parameters.
+        if (positionalParamCount < 0) {
+            positionalParamCount = typeParams.findIndex(
+                param => param.category === ParameterCategory.VarArgDictionary);
+        }
+
+        // If we didn't see any special cases, then all parameters are positional.
+        if (positionalParamCount < 0) {
+            positionalParamCount = typeParams.length;
+        }
+
+        // Determine how many positional args are being passed before
+        // we see a named arg.
+        let positionalArgCount = node.arguments.findIndex(
+            arg => arg.argumentCategory === ArgumentCategory.Dictionary || arg.name !== undefined);
+        if (positionalArgCount < 0) {
+            positionalArgCount = node.arguments.length;
+        }
+
+        // Map the positional args to parameters.
+        let paramIndex = skipFirstParam ? 1 : 0;
+        while (argIndex < positionalArgCount) {
+            if (paramIndex >= positionalParamCount) {
+                let adjustedCount = positionalParamCount;
+                if (skipFirstParam) {
+                    adjustedCount--;
+                }
+                this._addError(
+                    `Expected ${ adjustedCount } positional argument${ adjustedCount === 1 ? '' : 's' }`,
+                    node.arguments[argIndex]);
+                reportedArgError = true;
+                break;
+            }
+
+            if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
+                // Consume the remaining positional args.
+                argIndex = positionalArgCount;
+            } else {
+                let paramType = type.getEffectiveParameterType(paramIndex);
+                this._validateArgType(paramType, node.arguments[argIndex].valueExpression);
+
+                // Note that the parameter has received an argument.
+                const paramName = typeParams[paramIndex].name;
+                if (paramName) {
+                    paramMap.get(paramName)!.argsReceived++;
+                }
+
+                argIndex++;
+            }
+
+            paramIndex++;
+        }
+
+        if (!reportedArgError) {
+            let foundDictionaryArg = false;
+            let foundListArg = node.arguments.find(arg => arg.argumentCategory === ArgumentCategory.List) !== undefined;
+
+            // Now consume any named parameters.
+            while (argIndex < node.arguments.length) {
+                if (node.arguments[argIndex].argumentCategory === ArgumentCategory.Dictionary) {
+                    foundDictionaryArg = true;
+                } else {
+                    // Protect against the case where a non-named argument appears after
+                    // a named argument. This will have already been reported as a parse
+                    // error, but we need to protect against it here.
+                    const paramName = node.arguments[argIndex].name;
+                    if (paramName) {
+                        const paramNameValue = paramName.nameToken.value;
+                        const paramEntry = paramMap.get(paramNameValue);
+                        if (paramEntry) {
+                            if (paramEntry.argsReceived > 0) {
+                                this._addError(
+                                    `Parameter '${ paramNameValue }' is already assigned`, paramName);
+                            } else {
+                                paramMap.get(paramName.nameToken.value)!.argsReceived++;
+
+                                let paramInfoIndex = typeParams.findIndex(param => param.name === paramNameValue);
+                                assert(paramInfoIndex >= 0);
+                                const paramType = type.getEffectiveParameterType(paramInfoIndex);
+                                this._validateArgType(paramType, node.arguments[argIndex].valueExpression);
+                            }
+                        } else if (!hasVarArgDictParam) {
+                            this._addError(
+                                `No parameter named '${ paramName.nameToken.value }'`, paramName);
+                        }
+                    }
+                }
+
+                argIndex++;
+            }
+
+            // Determine whether there are any parameters that require arguments
+            // but have not yet received them. If we received a dictionary argument
+            // (i.e. an arg starting with a "**") or a list argument (i.e. an arg
+            // starting with a "*"), we will assume that all parameters are matched.
+            if (!foundDictionaryArg && !foundListArg) {
+                let unassignedParams = paramMap.getKeys().filter(name => {
+                    const entry = paramMap.get(name)!;
+                    return entry.argsReceived < entry.argsNeeded;
+                });
+
+                if (unassignedParams.length > 0) {
+                    this._addError(
+                        `Argument missing for parameter${ unassignedParams.length === 1 ? '' : 's' } ` +
+                        unassignedParams.map(p => `${ p }`).join(', '), node);
+                }
+            }
+        }
+    }
+
+    private _validateArgType(paramType: Type, argExpression: ExpressionNode) {
+        let argType = this.getType(argExpression, EvaluatorFlags.None);
+        if (!TypeUtils.canAssignType(paramType, argType)) {
+            this._addError(
+                `Argument of type '${ argType.asString() }'` +
+                    ` cannot be assigned to parameter of type '${ paramType.asString() }'`,
+                argExpression);
+        }
+    }
+
+    private _createTypeVarType(node: CallExpressionNode): Type | undefined {
         let typeVarName = '';
         if (node.arguments.length === 0) {
             this._addError('Expected name of type var', node);
@@ -713,7 +1056,7 @@ export class ExpressionEvaluator {
 
     // Creates a new custom tuple factory class with named values.
     // Supports both typed and untyped variants.
-    createNamedTupleType(node: CallExpressionNode, includesTypes: boolean): ClassType {
+    private _createNamedTupleType(node: CallExpressionNode, includesTypes: boolean): ClassType {
         let className = 'namedtuple';
         if (node.arguments.length === 0) {
             this._addError('Expected named tuple class name as firat parameter',
@@ -855,6 +1198,11 @@ export class ExpressionEvaluator {
                     addGenericGetAttribute = true;
                 }
             }
+        }
+
+        if (addGenericGetAttribute) {
+            TypeUtils.addDefaultFunctionParameters(constructorType);
+            TypeUtils.addDefaultFunctionParameters(initType);
         }
 
         classFields.set('__new__', new Symbol(constructorType, DefaultTypeSourceId));
@@ -1146,10 +1494,8 @@ export class ExpressionEvaluator {
     // the specified type arguments, reporting errors as appropriate.
     // Returns the specialized type and a boolean indicating whether
     // the type indiciates a class type (true) or an object type (false).
-    private _createSpecializeClassType(classType: ClassType,
-            typeArgNode: ExpressionNode, flags: EvaluatorFlags): Type {
-
-        let typeArgs = this._getTypeArgs(typeArgNode);
+    private _createSpecializeClassType(classType: ClassType, typeArgs: TypeResult[],
+            errorNode: ExpressionNode, flags: EvaluatorFlags): Type {
 
         // Handle the special-case classes that are not defined
         // in the type stubs.
@@ -1162,11 +1508,11 @@ export class ExpressionEvaluator {
                 }
 
                 case 'Optional': {
-                    return this._createOptional(typeArgNode, typeArgs);
+                    return this._createOptional(errorNode, typeArgs);
                 }
 
                 case 'Type': {
-                    return this._createTypeType(typeArgNode, typeArgs);
+                    return this._createTypeType(errorNode, typeArgs);
                 }
 
                 case 'ClassVar':
@@ -1194,16 +1540,16 @@ export class ExpressionEvaluator {
 
                 case 'Generic':
                     if (flags & EvaluatorFlags.ConvertClassToObject) {
-                        this._addError(`Generic allowed only as base class`, typeArgNode);
+                        this._addError(`Generic allowed only as base class`, errorNode);
                     }
-                    return this._createGenericType(typeArgNode, classType, typeArgs);
+                    return this._createGenericType(errorNode, classType, typeArgs);
             }
         }
 
         if (classType === ScopeUtils.getBuiltInType(this._scope, 'type')) {
             // The built-in 'type' class isn't defined as a generic class.
             // It needs to be special-cased here.
-            return this._createTypeType(typeArgNode, typeArgs);
+            return this._createTypeType(errorNode, typeArgs);
         }
 
         let specializedType = this._createSpecializedClassType(classType, typeArgs);
@@ -1232,7 +1578,12 @@ export class ExpressionEvaluator {
 
     // Specializes a (potentially generic) type by substituting
     // type variables with specified types.
-    private _specializeType(type: Type, typeVarMap: TypeVarMap): Type {
+    private _specializeType(type: Type, typeVarMap: TypeVarMap, recursionLevel = 0): Type {
+        // Prevent infinite recursion in case a type refers to itself.
+        if (recursionLevel > 100) {
+            return AnyType.create();
+        }
+
         if (type.isAny()) {
             return type;
         }
@@ -1253,19 +1604,25 @@ export class ExpressionEvaluator {
         if (type instanceof UnionType) {
             let subtypes: Type[] = [];
             type.getTypes().forEach(typeEntry => {
-                subtypes.push(this._specializeType(typeEntry, typeVarMap));
+                subtypes.push(this._specializeType(typeEntry, typeVarMap, recursionLevel + 1));
             });
 
             return TypeUtils.combineTypesArray(subtypes);
         }
 
         if (type instanceof ObjectType) {
-            const classType = this._specializeClassType(type.getClassType(), typeVarMap);
+            const classType = this._specializeClassType(type.getClassType(),
+                typeVarMap, recursionLevel + 1);
+            // Don't allocate a new ObjectType class if the class
+            // didn't need to be specialized.
+            if (classType === type.getClassType()) {
+                return type;
+            }
             return new ObjectType(classType);
         }
 
         if (type instanceof ClassType) {
-            return this._specializeClassType(type, typeVarMap);
+            return this._specializeClassType(type, typeVarMap, recursionLevel + 1);
         }
 
         if (type instanceof TupleType) {
@@ -1274,15 +1631,16 @@ export class ExpressionEvaluator {
         }
 
         if (type instanceof FunctionType) {
-            // TODO - need to implement
-            return type;
+            return this._specializeFunctionType(type, typeVarMap, recursionLevel + 1);
         }
 
         // TODO - need to implement
         return type;
     }
 
-    private _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap): ClassType {
+    private _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap,
+            recursionLevel: number): ClassType {
+
         // Handle the common case where the class has no type parameters.
         if (classType.getTypeParameters().length === 0) {
             return classType;
@@ -1290,6 +1648,7 @@ export class ExpressionEvaluator {
 
         const oldTypeArgs = classType.getTypeArguments();
         let newTypeArgs: Type[] = [];
+        let specializationNeeded = false;
 
         classType.getTypeParameters().forEach((typeParam, index) => {
             let typeArgType: Type;
@@ -1299,17 +1658,61 @@ export class ExpressionEvaluator {
             if (oldTypeArgs) {
                 if (index >= oldTypeArgs.length) {
                     typeArgType = AnyType.create();
+                    specializationNeeded = true;
                 } else {
-                    typeArgType = this._specializeType(oldTypeArgs[index] as Type, typeVarMap);
+                    typeArgType = this._specializeType(oldTypeArgs[index] as Type,
+                        typeVarMap, recursionLevel + 1);
+                    if (typeArgType !== oldTypeArgs[index] as Type) {
+                        specializationNeeded = true;
+                    }
                 }
             } else {
                 typeArgType = this._specializeTypeVarType(typeParam);
+                if (typeArgType !== typeParam) {
+                    specializationNeeded = true;
+                }
             }
 
             newTypeArgs.push(typeArgType);
         });
 
+        // If specialization wasn't needed, don't allocate a new class.
+        if (!specializationNeeded) {
+            return classType;
+        }
+
         return classType.cloneForSpecialization(newTypeArgs);
+    }
+
+    private _specializeFunctionType(functionType: FunctionType,
+            typeVarMap: TypeVarMap, recursionLevel: number): FunctionType {
+
+        const returnType = functionType.getEffectiveReturnType();
+        const specializedReturnType = this._specializeType(returnType,
+            typeVarMap, recursionLevel + 1);
+        let typesRequiredSpecialization = returnType !== specializedReturnType;
+
+        let specializedParameters: SpecializedFunctionTypes = {
+            parameterTypes: [],
+            returnType: specializedReturnType
+        };
+
+        for (let i = 0; i < functionType.getParameterCount(); i++) {
+            const paramType = functionType.getEffectiveParameterType(i);
+            const specializedType = this._specializeType(paramType,
+                typeVarMap, recursionLevel + 1);
+            specializedParameters.parameterTypes.push(specializedType);
+
+            if (paramType !== specializedType) {
+                typesRequiredSpecialization = true;
+            }
+        }
+
+        if (!typesRequiredSpecialization) {
+            return functionType;
+        }
+
+        return functionType.cloneForSpecialization(specializedParameters);
     }
 
     private _convertClassToObject(type: Type, flags: EvaluatorFlags): Type {
