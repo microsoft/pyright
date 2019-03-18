@@ -554,22 +554,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitConditional(node: ConditionalExpressionNode) {
-        this.walk(node.leftExpression);
-
         // Apply the type constraint when evaluating the if and else clauses.
-        let typeConstraints = this._buildTypeConstraints(node.leftExpression);
+        let typeConstraints = this._buildTypeConstraints(node.testExpression);
 
         // Start by evaluating the if statement.
         this._useExpressionTypeConstraint(typeConstraints, true, () => {
-            this.walk(node.ifExpression);
+            this._getTypeOfExpression(node.ifExpression);
         });
 
         // And now the else statement.
         this._useExpressionTypeConstraint(typeConstraints, false, () => {
-            this.walk(node.elseExpression);
+            this._getTypeOfExpression(node.elseExpression);
         });
 
-        return false;
+        return true;
     }
 
     visitReturn(node: ReturnNode): boolean {

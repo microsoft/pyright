@@ -201,11 +201,11 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromExpression(node.expression, flags);
         } else if (node instanceof ConditionalExpressionNode) {
             // TODO - need to implement
-            this._getTypeFromExpression(node.ifExpression, EvaluatorFlags.None);
+            this._getTypeFromExpression(node.testExpression, EvaluatorFlags.None);
 
-            let leftType = this._getTypeFromExpression(node.leftExpression, flags);
-            let rightType = this._getTypeFromExpression(node.elseExpression, flags);
-            let type = TypeUtils.combineTypes(leftType.type, rightType.type);
+            let ifType = this._getTypeFromExpression(node.ifExpression, flags);
+            let elseType = this._getTypeFromExpression(node.elseExpression, flags);
+            let type = TypeUtils.combineTypes(ifType.type, elseType.type);
             typeResult = { type, node };
         } else if (node instanceof ListComprehensionNode) {
             // TODO - need to implement
@@ -293,7 +293,7 @@ export class ExpressionEvaluator {
         }
 
         // If we're not converting to an object, convert classes like
-        // "Callable" into their internal
+        // "Callable" into their internal representation.
         if ((flags & EvaluatorFlags.ConvertSpecialTypes) !== 0) {
             if (type instanceof ClassType && type.isSpecialBuiltIn()) {
                 type = this._createSpecializeClassType(type, [], node, flags);

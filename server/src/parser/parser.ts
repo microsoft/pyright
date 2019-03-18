@@ -1335,18 +1335,18 @@ export class Parser {
             return this._parseLambdaExpression();
         }
 
-        let leftExpr = this._parseOrTest();
-        if (leftExpr instanceof ErrorExpressionNode) {
-            return leftExpr;
-        }
-
-        if (!this._consumeTokenIfKeyword(KeywordType.If)) {
-            return leftExpr;
-        }
-
         let ifExpr = this._parseOrTest();
         if (ifExpr instanceof ErrorExpressionNode) {
             return ifExpr;
+        }
+
+        if (!this._consumeTokenIfKeyword(KeywordType.If)) {
+            return ifExpr;
+        }
+
+        let testExpr = this._parseOrTest();
+        if (testExpr instanceof ErrorExpressionNode) {
+            return testExpr;
         }
 
         if (!this._consumeTokenIfKeyword(KeywordType.Else)) {
@@ -1358,7 +1358,7 @@ export class Parser {
             return elseExpr;
         }
 
-        return new ConditionalExpressionNode(leftExpr, ifExpr, elseExpr);
+        return new ConditionalExpressionNode(ifExpr, testExpr, elseExpr);
     }
 
     // or_test: and_test ('or' and_test)*

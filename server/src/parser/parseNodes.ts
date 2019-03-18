@@ -542,14 +542,14 @@ export class AwaitExpressionNode extends ExpressionNode {
 
 export class ConditionalExpressionNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Conditional;
-    leftExpression: ExpressionNode;
     ifExpression: ExpressionNode;
+    testExpression: ExpressionNode;
     elseExpression: ExpressionNode;
 
-    constructor(leftExpression: ExpressionNode, ifExpression: ExpressionNode, elseExpression: ExpressionNode) {
-        super(leftExpression);
-        this.leftExpression = leftExpression;
+    constructor(ifExpression: ExpressionNode, testExpression: ExpressionNode, elseExpression: ExpressionNode) {
+        super(ifExpression);
         this.ifExpression = ifExpression;
+        this.testExpression = testExpression;
         this.elseExpression = elseExpression;
         this.extend(elseExpression);
     }
@@ -559,7 +559,7 @@ export class ConditionalExpressionNode extends ExpressionNode {
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return [this.leftExpression, this.ifExpression, this.elseExpression];
+        return [this.ifExpression, this.testExpression, this.elseExpression];
     }
 }
 
