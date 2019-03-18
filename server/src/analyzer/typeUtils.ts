@@ -193,14 +193,6 @@ export class TypeUtils {
                 const classMemberInfo = TypeUtils.lookUpClassMember(srcType, name, false);
                 if (!classMemberInfo) {
                     missingNames.push(name);
-                } else {
-                    const srcMemberType = TypeUtils.getEffectiveTypeOfMember(classMemberInfo);
-                    if (symbol.declarations && symbol.declarations[0].declaredType) {
-                        let destMemberType = symbol.declarations[0].declaredType;
-                        if (!TypeUtils.canAssignType(srcMemberType, destMemberType)) {
-                            wrongTypes.push(name);
-                        }
-                    }
                 }
             });
 
@@ -291,12 +283,6 @@ export class TypeUtils {
     static getEffectiveTypeOfMember(member: ClassMember): Type {
         if (!member.symbol) {
             return UnknownType.create();
-        }
-
-        if (member.symbol.declarations) {
-            if (member.symbol.declarations[0].declaredType) {
-                return member.symbol.declarations[0].declaredType;
-            }
         }
 
         if (member.symbol.inferredType) {

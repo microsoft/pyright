@@ -33,9 +33,6 @@ export interface Declaration {
     // The node that contains the definition.
     node: ParseNode;
 
-    // Declared type (if specified) of the symbol.
-    declaredType?: Type;
-
     // The file and range within that file that
     // contains the declaration.
     path: string;
