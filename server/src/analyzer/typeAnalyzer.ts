@@ -426,6 +426,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let constExprValue = ExpressionUtils.evaluateConstantExpression(
             node.testExpression, this._fileInfo.executionEnvironment);
 
+        // Get and cache the expression type before walking it. This will apply
+        // any type constraints along the way.
+        this._getTypeOfExpression(node.testExpression);
         this.walk(node.testExpression);
 
         let typeConstraints = this._buildTypeConstraints(node.testExpression);

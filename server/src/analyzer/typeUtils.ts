@@ -236,7 +236,7 @@ export class TypeUtils {
     // defined by Python. For more detials, see this note on method resolution
     // order: https://www.python.org/download/releases/2.3/mro/.
     static lookUpClassMember(classType: Type, memberName: string,
-            includeInstanceFields = true): ClassMember | undefined {
+            includeInstanceFields = true, searchBaseClasses = true): ClassMember | undefined {
 
         if (classType instanceof ClassType) {
             // TODO - for now, use naive depth-first search.
@@ -269,10 +269,13 @@ export class TypeUtils {
                 };
             }
 
-            for (let baseClass of classType.getBaseClasses()) {
-                let methodType = this.lookUpClassMember(baseClass.type, memberName);
-                if (methodType) {
-                    return methodType;
+            if (searchBaseClasses) {
+                for (let baseClass of classType.getBaseClasses()) {
+                    let methodType = this.lookUpClassMember(baseClass.type,
+                        memberName, searchBaseClasses);
+                    if (methodType) {
+                        return methodType;
+                    }
                 }
             }
         } else if (classType.isAny()) {
