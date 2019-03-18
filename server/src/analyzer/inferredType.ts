@@ -42,6 +42,10 @@ export class InferredType {
         return DefaultTypeSourceId;
     }
 
+    getSourceCount() {
+        return this._sources.length;
+    }
+
     // Adds a new source (or replaces an existing source) for the
     // inferred type. Returns true if the combined type changed.
     addSource(type: Type, sourceId: TypeSourceId): boolean {

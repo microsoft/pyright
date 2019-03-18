@@ -322,18 +322,26 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let decoratedType: Type = functionType;
+        let outerFunctionType = functionType;
+        if (node.isAsync || functionScope.getYieldType().getSourceCount() > 0) {
+            // TODO - need to properly handle async and generators.
+            // For now, just set the return type to be unknown.
+            outerFunctionType = outerFunctionType.clone();
+            outerFunctionType.setDeclaredReturnType(UnknownType.create());
+        }
+
+        let decoratedType: Type = outerFunctionType;
 
         // Handle overload decorators specially.
         let overloadedType: OverloadedFunctionType | undefined;
         let evaluator = this._getEvaluator();
-        [overloadedType] = evaluator.getOverloadedFunctionType(node, functionType);
+        [overloadedType] = evaluator.getOverloadedFunctionType(node, outerFunctionType);
         if (overloadedType) {
             decoratedType = overloadedType;
         } else {
             // Determine if the function is a property getter or setter.
             if (ParseTreeUtils.isFunctionInClass(node)) {
-                let propertyType = evaluator.getPropertyType(node, functionType);
+                let propertyType = evaluator.getPropertyType(node, outerFunctionType);
                 if (propertyType) {
                     decoratedType = propertyType;
                 }
@@ -344,7 +352,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             category: isMethod ? SymbolCategory.Method : SymbolCategory.Function,
             node: node.name,
             path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
+            range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines),
+            declaredType: decoratedType
         };
         this._bindNameNodeToType(node.name, decoratedType, declaration);
         this._updateExpressionTypeForNode(node.name, functionType);

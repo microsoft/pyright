@@ -309,7 +309,10 @@ export class ExpressionEvaluator {
 
             let declaration = symbol.declarations ? symbol.declarations[0] : undefined;
 
-            if (declaration && declaration.category !== SymbolCategory.Variable) {
+            if (declaration && declaration.declaredType) {
+                // Was there a defined type hint?
+                type = declaration.declaredType;
+            } else if (declaration && declaration.category !== SymbolCategory.Variable) {
                 // If this is a non-variable type (e.g. a class, function, method), we
                 // can assume that it's not going to be modified outside the local scope.
                 type = symbol.currentType;

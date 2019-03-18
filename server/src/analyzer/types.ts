@@ -549,6 +549,17 @@ export class FunctionType extends Type {
         };
     }
 
+    // Creates a deep copy of the function type, including a fresh
+    // version of _functionDetails.
+    clone(): FunctionType {
+        let newFunction = new FunctionType(this._functionDetails.flags);
+        newFunction._functionDetails = Object.assign({}, this._functionDetails);
+        return newFunction;
+    }
+
+    // Creates a shallow copy of the function type with new
+    // specialized types. The clone shares the _functionDetails
+    // with the object being cloned.
     cloneForSpecialization(specializedTypes: SpecializedFunctionTypes): FunctionType {
         let newFunction = new FunctionType(this._functionDetails.flags);
         newFunction._functionDetails = this._functionDetails;
