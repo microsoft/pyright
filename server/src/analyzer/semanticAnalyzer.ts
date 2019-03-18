@@ -40,7 +40,8 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, OverloadedFunctionType, Type, TypeCategory, UnboundType, UnknownType } from './types';
+    FunctionTypeFlags, ModuleType, OverloadedFunctionType, Type, TypeCategory, UnboundType,
+    UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;

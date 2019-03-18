@@ -355,10 +355,17 @@ export class Scope {
     }
 
     addTypeConstraint(constraint: TypeConstraint) {
-        assert(this._scopeType === ScopeType.Temporary);
-        assert(this._isConditional);
-
         this._typeConstraints.push(constraint);
+    }
+
+    clearTypeConstraints() {
+        this._typeConstraints = [];
+    }
+
+    addTypeConstraints(constraints: TypeConstraint[]) {
+        constraints.forEach(constraint => {
+            this.addTypeConstraint(constraint);
+        });
     }
 
     private _lookUpSymbolRecursiveInternal(name: string, isOutsideCallerModule: boolean,

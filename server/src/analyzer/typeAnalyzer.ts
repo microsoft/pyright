@@ -472,30 +472,46 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
+        let ifContributions = ifScope && !ifScope.getAlwaysReturnsOrRaises() ? ifScope : undefined;
+        let elseContributions = elseScope && !elseScope.getAlwaysReturnsOrRaises() ? elseScope : undefined;
+
         // Figure out how to combine the scopes.
-        if (ifScope && !ifScope.getAlwaysReturnsOrRaises() && elseScope && !elseScope.getAlwaysReturnsOrRaises()) {
+        if (ifContributions && elseContributions) {
             // If both an "if" and an "else" scope exist, combine the names from both scopes.
-            ifScope.combineConditionalSymbolTable(elseScope);
-            this._mergeToCurrentScope(ifScope);
-        } else if (ifScope && !ifScope.getAlwaysReturnsOrRaises()) {
+            ifContributions.combineConditionalSymbolTable(elseContributions);
+            this._mergeToCurrentScope(ifContributions);
+        } else if (ifContributions) {
             // If there's only an "if" scope executed, mark all of its contents as conditional.
             if (!elseScope && !ifIsUnconditional) {
-                ifScope.markAllSymbolsConditional();
+                ifContributions.markAllSymbolsConditional();
             }
-            this._mergeToCurrentScope(ifScope);
-        } else if (elseScope && !elseScope.getAlwaysReturnsOrRaises()) {
+            this._mergeToCurrentScope(ifContributions);
+        } else if (elseContributions) {
             // If there's only an "else" scope executed, mark all of its contents as conditional.
             if (!ifScope && !elseIsUnconditional) {
-                elseScope.markAllSymbolsConditional();
+                elseContributions.markAllSymbolsConditional();
             }
-            this._mergeToCurrentScope(elseScope);
-        } else if (ifScope && ifScope.getAlwaysReturnsOrRaises() && elseScope && elseScope.getAlwaysReturnsOrRaises()) {
-            // If both an if and else clause are executed but they both return or raise an exception,
-            // mark the current scope as always returning or raising an exception.
+            this._mergeToCurrentScope(elseContributions);
+        } else if (ifScope && elseScope) {
+            // If both an if and else clause are executed but they both return or
+            // raise an exception, mark the current scope as always returning or
+            // raising an exception.
             if (ifScope.getAlwaysRaises() && elseScope.getAlwaysRaises()) {
                 this._currentScope.setAlwaysRaises();
             } else {
                 this._currentScope.setAlwaysReturns();
+            }
+        }
+
+        if (typeConstraints) {
+            // If the if statement always returns, the else type constraints
+            // are in effect after the if/else is complete.
+            if (ifScope && ifScope.getAlwaysReturnsOrRaises()) {
+                this._currentScope.addTypeConstraints(typeConstraints.elseConstraints);
+            }
+
+            if (elseScope && elseScope.getAlwaysReturnsOrRaises()) {
+                this._currentScope.addTypeConstraints(typeConstraints.ifConstraints);
             }
         }
 
@@ -1475,6 +1491,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             callback();
         });
         this._mergeToCurrentScope(tempScope);
+
+        // Clear out any type constraints that were collected
+        // during the processing of the scope.
+        this._currentScope.clearTypeConstraints();
 
         this._currentScope = prevScope;
 
