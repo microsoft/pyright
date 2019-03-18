@@ -1,6 +1,7 @@
 /*
 * service.ts
-* Copyright (c) Microsoft Corporation. All rights reserved.
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
 * Author: Eric Traut
 *
 * A persistent service that is able to analyze a collection of

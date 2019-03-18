@@ -1,6 +1,7 @@
 /*
 * symbol.ts
-* Copyright (c) Microsoft Corporation. All rights reserved.
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
 * Author: Eric Traut
 *
 * Represents an association between a name and the type

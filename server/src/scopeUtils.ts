@@ -1,6 +1,7 @@
 /*
 * scopeUtils.ts
-* Copyright (c) Microsoft Corporation. All rights reserved.
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
 * Author: Eric Traut
 *
 * Static utility methods related to scopes and their related

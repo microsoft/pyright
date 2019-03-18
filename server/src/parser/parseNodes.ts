@@ -1,6 +1,7 @@
 /*
 * parseNodes.ts
-* Copyright (c) Microsoft Corporation. All rights reserved.
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
 * Author: Eric Traut
 *
 * Definition of parse nodes that make up the Python asbtract

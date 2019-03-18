@@ -1,6 +1,7 @@
 /*
 * typeConstraint.ts
-* Copyright (c) Microsoft Corporation. All rights reserved.
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
 * Author: Eric Traut
 *
 * Classes that record an invariant within a conditional scope

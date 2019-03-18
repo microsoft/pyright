@@ -1,6 +1,7 @@
 /*
 * promiseUtils.ts
-* Copyright (c) Microsoft Corporation. All rights reserved.
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
 * Author: Eric Traut
 *
 * Utility types that make promises easier to use.

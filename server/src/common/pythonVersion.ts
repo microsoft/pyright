@@ -1,6 +1,7 @@
 /*
 * pythonLanguageVersion.ts
-* Copyright (c) Microsoft Corporation. All rights reserved.
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
 * Author: Eric Traut
 *
 * Types and functions that relate to the Python language version
