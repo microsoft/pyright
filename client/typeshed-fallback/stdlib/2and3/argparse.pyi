@@ -58,7 +58,7 @@ class _ActionsContainer:
                      nargs: Union[int, _Text] = ...,
                      const: Any = ...,
                      default: Any = ...,
-                     type: Union[Callable[[str], _T], FileType] = ...,
+                     type: Union[Callable[[str], _T], FileType, type] = ...,
                      choices: Iterable[_T] = ...,
                      required: bool = ...,
                      help: Optional[_Text] = ...,

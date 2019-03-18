@@ -63,8 +63,8 @@ class DictReader(Iterator[_DRMapping]):
     reader = ...  # type: _reader
     dialect = ...  # type: _Dialect
     line_num = ...  # type: int
-    fieldnames = ...  # type: Sequence[str]
-    def __init__(self, f: Iterable[str], fieldnames: Sequence[str] = ...,
+    fieldnames = ...  # type: Iterable[str]
+    def __init__(self, f: Iterable[str], fieldnames: Iterable[str] = ...,
                  restkey: Optional[str] = ..., restval: Optional[str] = ..., dialect: _Dialect = ...,
                  *args: Any, **kwds: Any) -> None: ...
     def __iter__(self) -> DictReader: ...
@@ -75,11 +75,11 @@ class DictReader(Iterator[_DRMapping]):
 
 
 class DictWriter(object):
-    fieldnames = ...  # type: Sequence[str]
+    fieldnames = ...  # type: Iterable[str]
     restval = ...  # type: Optional[Any]
     extrasaction = ...  # type: str
     writer = ...  # type: _writer
-    def __init__(self, f: Any, fieldnames: Sequence[str],
+    def __init__(self, f: Any, fieldnames: Iterable[str],
                  restval: Optional[Any] = ..., extrasaction: str = ..., dialect: _Dialect = ...,
                  *args: Any, **kwds: Any) -> None: ...
     def writeheader(self) -> None: ...
