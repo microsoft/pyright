@@ -780,19 +780,24 @@ export class ExpressionEvaluator {
     private _validateConstructorArguments(node: CallExpressionNode, type: ClassType): void {
         let validatedTypes = false;
 
-        let initMethodType = this._getTypeFromClassMemberString('__init__', type,
-            MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers);
-        if (initMethodType) {
-            this._validateCallArguments(node, initMethodType, true);
-            validatedTypes = true;
-        }
-
-        // If there's no init method, check for a constructor.
+        // See if there's a "__new__" defined within the class (but not its base classes).
         let constructorMethodType = this._getTypeFromClassMemberString('__new__', type,
             MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
                 MemberAccessFlags.SkipBaseClasses);
         if (constructorMethodType) {
             this._validateCallArguments(node, constructorMethodType, true);
+            validatedTypes = true;
+        }
+
+        // If we saw a "__new__", look for an "__init__" within the class as welll. If we didn't
+        // find a "__new__", look recursively for an "__init__" in base classes.
+        let memberAccessFlags = MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers;
+        if (validatedTypes) {
+            memberAccessFlags |= MemberAccessFlags.SkipBaseClasses;
+        }
+        let initMethodType = this._getTypeFromClassMemberString('__init__', type, memberAccessFlags);
+        if (initMethodType) {
+            this._validateCallArguments(node, initMethodType, true);
             validatedTypes = true;
         }
 
