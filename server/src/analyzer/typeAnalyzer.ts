@@ -199,16 +199,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                 this.walk(param.typeAnnotation.expression);
             } else if (index === 0 && param.name) {
-                let classNode = this._getEnclosingClass(node);
+                const classNode = this._getEnclosingClass(node);
                 if (classNode) {
-                    let inferredClassType = AnalyzerNodeInfo.getExpressionType(classNode) as ClassType;
+                    // If the first parameter is 'self' or 'cls', give the
+                    // parameter an inferred type even though it's not explicitly
+                    // provided.
+                    const inferredClassType = AnalyzerNodeInfo.getExpressionType(classNode) as ClassType;
                     if (inferredClassType) {
+                        const specializedClassType = TypeUtils.selfSpecializeClassType(inferredClassType);
+
                         if (param.name.nameToken.value === 'self') {
-                            if (functionType.setParameterType(index, new ObjectType(inferredClassType))) {
+                            if (functionType.setParameterType(index, new ObjectType(specializedClassType))) {
                                 this._setAnalysisChanged();
                             }
                         } else if (param.name.nameToken.value === 'cls') {
-                            if (functionType.setParameterType(index, inferredClassType)) {
+                            if (functionType.setParameterType(index, specializedClassType)) {
                                 this._setAnalysisChanged();
                             }
                         }
@@ -301,9 +306,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         if (!this._fileInfo.isStubFile) {
-            // Add all of the return types that were found within the function.
+            // Add all of the return and yield types that were found within the function.
             let inferredReturnType = functionType.getInferredReturnType();
             if (inferredReturnType.addSources(functionScope.getReturnType())) {
+                this._setAnalysisChanged();
+            }
+
+            let inferredYieldType = functionType.getInferredReturnType();
+            if (inferredYieldType.addSources(functionScope.getYieldType())) {
                 this._setAnalysisChanged();
             }
 
@@ -503,11 +513,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (ifScope) {
-            this._mergeReturnTypeToCurrentScope(ifScope);
+            this._mergeReturnAndYieldTypeToCurrentScope(ifScope);
         }
 
         if (elseScope) {
-            this._mergeReturnTypeToCurrentScope(elseScope);
+            this._mergeReturnAndYieldTypeToCurrentScope(elseScope);
         }
 
         return false;
@@ -603,16 +613,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitYield(node: YieldExpressionNode) {
         let yieldType = this._getTypeOfExpression(node.expression);
         let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
-        this._currentScope.getReturnType().addSource(yieldType, typeSourceId);
+        this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
+
+        this._validateYieldType(node.expression, yieldType);
 
         return true;
     }
 
     visitYieldFrom(node: YieldFromExpressionNode) {
         // TODO - determine the right type to use for the iteration.
+        let yieldType = UnknownType.create();
         let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
-        this._currentScope.getReturnType().addSource(
-            UnknownType.create(), typeSourceId);
+        this._currentScope.getYieldType().addSource(
+            yieldType, typeSourceId);
+
+        this._validateYieldType(node.expression, yieldType);
 
         return true;
     }
@@ -674,7 +689,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let exceptScope = this._enterTemporaryScope(() => {
                 this.walk(exceptNode);
             });
-            this._mergeReturnTypeToCurrentScope(exceptScope);
+            this._mergeReturnAndYieldTypeToCurrentScope(exceptScope);
         });
 
         if (node.elseSuite) {
@@ -1002,6 +1017,28 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
+    private _validateYieldType(node: ParseNode, yieldType: Type) {
+        let declaredYieldType: Type | undefined;
+        let enclosingFunctionNode = this._getEnclosingFunction(node);
+        if (enclosingFunctionNode) {
+            let functionType = AnalyzerNodeInfo.getExpressionType(
+                enclosingFunctionNode) as FunctionType;
+            if (functionType) {
+                assert(functionType instanceof FunctionType);
+                declaredYieldType = functionType.getDeclaredYieldType();
+            }
+        }
+
+        if (declaredYieldType) {
+            if (!TypeUtils.canAssignType(declaredYieldType, yieldType)) {
+                this._addError(
+                    `Expression of type '${ yieldType.asString() }' cannot be assigned ` +
+                        `to yield type '${ declaredYieldType.asString() }'`,
+                    node);
+            }
+        }
+    }
+
     private _validateExceptionType(exceptionType: Type, errorNode: ParseNode) {
         if (exceptionType.isAny()) {
             return exceptionType;
@@ -1105,11 +1142,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._setAnalysisChanged();
         }
 
-        this._mergeReturnTypeToCurrentScope(scopeToMerge);
+        this._mergeReturnAndYieldTypeToCurrentScope(scopeToMerge);
     }
 
-    private _mergeReturnTypeToCurrentScope(scopeToMerge: Scope) {
+    private _mergeReturnAndYieldTypeToCurrentScope(scopeToMerge: Scope) {
         if (this._currentScope.mergeReturnType(scopeToMerge)) {
+            if (this._currentScope.getType() !== ScopeType.Temporary) {
+                this._setAnalysisChanged();
+            }
+        }
+
+        if (this._currentScope.mergeYieldType(scopeToMerge)) {
             if (this._currentScope.getType() !== ScopeType.Temporary) {
                 this._setAnalysisChanged();
             }
@@ -1173,6 +1216,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _assignTypeToPossibleTuple(target: ExpressionNode, type: Type): void {
         if (target instanceof MemberAccessExpressionNode) {
             let targetNode = target.leftExpression;
+
+            // Handle member accesses (e.g. self.x or cls.y).
             if (targetNode instanceof NameNode) {
                 if (targetNode.nameToken.value === 'self') {
                     this._bindMemberVariableToType(target, type, true);

@@ -70,8 +70,9 @@ export class Scope {
     // flag when a raise statement is encountered.
     private _nestedTryDepth = 0;
 
-    // Inferred return type for the scope.
+    // Inferred return and yield types for the scope.
     private _returnType = new InferredType();
+    private _yieldType = new InferredType();
 
     // Active type constraints for this scope -- used for conditional
     // scopes where the condition constrains the types of certain
@@ -107,6 +108,10 @@ export class Scope {
 
     getReturnType(): InferredType {
         return this._returnType;
+    }
+
+    getYieldType(): InferredType {
+        return this._yieldType;
     }
 
     setConditional() {
@@ -301,10 +306,15 @@ export class Scope {
         });
 
         this._returnType.addSources(scope._returnType);
+        this._yieldType.addSources(scope._yieldType);
     }
 
     mergeReturnType(scopeToMerge: Scope): boolean {
         return this._returnType.addSources(scopeToMerge._returnType);
+    }
+
+    mergeYieldType(scopeToMerge: Scope): boolean {
+        return this._yieldType.addSources(scopeToMerge._yieldType);
     }
 
     setAlwaysReturns() {

@@ -61,6 +61,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 
 * Support for generics
 * Better validation of type variables used within generics
+* Add type inference for Generators
 * Support for type annotations within comments
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)

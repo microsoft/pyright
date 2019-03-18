@@ -276,6 +276,10 @@ export class ClassType extends Type {
         this._classDetails.aliasClass = type;
     }
 
+    getAliasClass() {
+        return this._classDetails.aliasClass;
+    }
+
     addBaseClass(type: Type, isMetaclass: boolean) {
         this._classDetails.baseClasses.push({ isMetaclass, type });
     }
@@ -311,6 +315,11 @@ export class ClassType extends Type {
     }
 
     getTypeParameters() {
+        // If this is a special class, use the alias class' type
+        // parameters instead.
+        if (this._classDetails.aliasClass) {
+            return this._classDetails.aliasClass._classDetails.typeParameters;
+        }
         return this._classDetails.typeParameters;
     }
 
@@ -509,7 +518,9 @@ interface FunctionDetails {
     flags: FunctionTypeFlags;
     parameters: FunctionParameter[];
     declaredReturnType?: Type;
+    declaredYieldType?: Type;
     inferredReturnType: InferredType;
+    inferredYieldType: InferredType;
     builtInName?: string;
 }
 
@@ -532,7 +543,8 @@ export class FunctionType extends Type {
         this._functionDetails = {
             flags,
             parameters: [],
-            inferredReturnType: new InferredType()
+            inferredReturnType: new InferredType(),
+            inferredYieldType: new InferredType()
         };
     }
 
@@ -594,6 +606,10 @@ export class FunctionType extends Type {
         return this._functionDetails.declaredReturnType;
     }
 
+    getDeclaredYieldType() {
+        return this._functionDetails.declaredYieldType;
+    }
+
     setDeclaredReturnType(type?: Type): boolean {
         const typeChanged = !this._functionDetails.declaredReturnType || !type ||
             !this._functionDetails.declaredReturnType.isSame(type);
@@ -616,6 +632,18 @@ export class FunctionType extends Type {
         }
 
         return this._functionDetails.inferredReturnType.getType();
+    }
+
+    getInferredYieldType() {
+        return this._functionDetails.inferredYieldType;
+    }
+
+    getEffectiveYieldType() {
+        if (this._functionDetails.declaredYieldType) {
+            return this._functionDetails.declaredYieldType;
+        }
+
+        return this._functionDetails.inferredYieldType.getType();
     }
 
     hasCustomDecorators(): boolean {

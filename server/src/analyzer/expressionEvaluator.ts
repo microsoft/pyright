@@ -380,6 +380,9 @@ export class ExpressionEvaluator {
                 // TODO - deal with custom decorators in a better way
                 type = UnknownType.create();
             }
+        } else if (baseType instanceof TypeVarType) {
+            // TODO - remove once we support specialization
+            type = UnknownType.create();
         }
 
         if (!type) {
@@ -412,7 +415,7 @@ export class ExpressionEvaluator {
         // TODO - figure out a better approach here.
         if (!classType.hasDecorators()) {
             this._addError(
-                `'${ memberName }' is not a known member of type '${ classType.getObjectName() }'`,
+                `'${ memberName }' is not a known member of '${ classType.getObjectName() }'`,
                 memberNameNode);
         }
 
@@ -426,7 +429,10 @@ export class ExpressionEvaluator {
         let typeArgMap = new TypeVarMap();
         let typeArgs = classType.getTypeArguments();
 
-        classType.getTypeParameters().forEach((typeParam, index) => {
+        // Get the type parameters for the class.
+        let typeParameters = classType.getTypeParameters();
+
+        typeParameters.forEach((typeParam, index) => {
             const typeVarName = typeParam.getName();
             let typeArgType: Type;
 

@@ -74,6 +74,11 @@ export class TypeUtils {
             return destType.getTypes().find(t => this.canAssignType(t, srcType)) !== undefined;
         }
 
+        // TODO - remove this once we support specialization
+        if (destType instanceof TypeVarType || srcType instanceof TypeVarType) {
+            return true;
+        }
+
         if (destType.isAny() || srcType.isAny()) {
             return true;
         }
@@ -390,5 +395,17 @@ export class TypeUtils {
         }
 
         return [];
+    }
+
+    // If the class is generic, the type is cloned, and its own
+    // type parameters are used as type arguments. This is useful
+    // for typing "self" or "cls" within a class's implementation.
+    static selfSpecializeClassType(type: ClassType): ClassType {
+        if (!type.isGeneric()) {
+            return type;
+        }
+
+        let typeArgs = type.getTypeParameters();
+        return type.cloneForSpecialization(typeArgs);
     }
 }
