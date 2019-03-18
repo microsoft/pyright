@@ -560,6 +560,9 @@ export class ExpressionEvaluator {
         } else if (baseType instanceof TupleType) {
             // TODO - need to implement
             type = UnknownType.create();
+        } else if (baseType instanceof TypeVarType) {
+            // TODO - delete once we add support for generics
+            type = UnknownType.create();
         }
 
         if (!type) {

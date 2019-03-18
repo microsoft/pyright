@@ -11,8 +11,9 @@ import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { CallExpressionNode, ClassNode, ExpressionNode,
-    FunctionNode, IndexExpressionNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParseNode } from '../parser/parseNodes';
+import { CallExpressionNode, ClassNode, ExpressionNode, FunctionNode,
+    IndexExpressionNode, MemberAccessExpressionNode, ModuleNode,
+    NameNode, ParseNode } from '../parser/parseNodes';
 
 export class ParseTreeUtils {
     // Returns the deepest node that contains the specified position.
@@ -70,6 +71,22 @@ export class ParseTreeUtils {
         while (curNode) {
             if (curNode instanceof ClassNode) {
                 return curNode;
+            }
+
+            curNode = curNode.parent;
+        }
+
+        return undefined;
+    }
+
+    static getEnclosingFunction(node: ParseNode): FunctionNode | undefined {
+        let curNode = node.parent;
+        while (curNode) {
+            if (curNode instanceof FunctionNode) {
+                return curNode;
+            }
+            if (curNode instanceof ClassNode) {
+                return undefined;
             }
 
             curNode = curNode.parent;

@@ -187,7 +187,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                 this.walk(param.typeAnnotation.expression);
             } else if (index === 0 && param.name) {
-                const classNode = this._getEnclosingClass(node);
+                const classNode = ParseTreeUtils.getEnclosingClass(node);
                 if (classNode) {
                     // If the first parameter is 'self' or 'cls', give the
                     // parameter an inferred type even though it's not explicitly
@@ -262,7 +262,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             });
 
             // If this function is part of a class, add an implied "super" method.
-            let classNode = this._getEnclosingClass(node);
+            let classNode = ParseTreeUtils.getEnclosingClass(node);
             if (classNode) {
                 let classType = AnalyzerNodeInfo.getExpressionType(classNode) as ClassType;
                 assert(classType !== undefined && classType instanceof ClassType);
@@ -566,7 +566,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let returnType: Type;
         let typeSourceId = DefaultTypeSourceId;
 
-        let enclosingFunctionNode = this._getEnclosingFunction(node);
+        let enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunctionNode) {
             let functionType = AnalyzerNodeInfo.getExpressionType(
                 enclosingFunctionNode) as FunctionType;
@@ -989,7 +989,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _validateYieldType(node: ParseNode, yieldType: Type) {
         let declaredYieldType: Type | undefined;
-        let enclosingFunctionNode = this._getEnclosingFunction(node);
+        let enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunctionNode) {
             let functionType = AnalyzerNodeInfo.getExpressionType(
                 enclosingFunctionNode) as FunctionType;
@@ -1046,7 +1046,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _bindMemberVariableToType(node: MemberAccessExpressionNode,
             typeOfExpr: Type, isInstanceMember: boolean) {
 
-        let classDef = this._getEnclosingClass(node);
+        let classDef = ParseTreeUtils.getEnclosingClass(node);
         if (!classDef) {
             return;
         }
@@ -1334,35 +1334,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _getEnclosingClass(node: ParseNode): ClassNode | undefined {
-        let curNode = node.parent;
-        while (curNode) {
-            if (curNode instanceof ClassNode) {
-                return curNode;
-            }
-
-            curNode = curNode.parent;
-        }
-
-        return undefined;
-    }
-
-    private _getEnclosingFunction(node: ParseNode): FunctionNode | undefined {
-        let curNode = node.parent;
-        while (curNode) {
-            if (curNode instanceof FunctionNode) {
-                return curNode;
-            }
-            if (curNode instanceof ClassNode) {
-                return undefined;
-            }
-
-            curNode = curNode.parent;
-        }
-
-        return undefined;
-    }
-
     private _assignTypeForPossibleEnumeration(node: NameNode, typeOfExpr?: Type): boolean {
         let enumClassInfo = this._getEnclosingEnumClassInfo(node);
         if (enumClassInfo) {
@@ -1386,7 +1357,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // If the node is within a class that derives from the metaclass
     // "EnumMeta", we need to treat assignments differently.
     private _getEnclosingEnumClassInfo(node: ParseNode): EnumClassInfo | undefined {
-        let enclosingClassNode = this._getEnclosingClass(node);
+        let enclosingClassNode = ParseTreeUtils.getEnclosingClass(node);
         if (enclosingClassNode) {
             const enumClass = AnalyzerNodeInfo.getExpressionType(enclosingClassNode) as ClassType;
             assert(enumClass instanceof ClassType);

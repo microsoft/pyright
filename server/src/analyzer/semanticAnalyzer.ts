@@ -23,12 +23,12 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AssignmentNode, ClassNode, DelNode, ExceptNode, ExpressionNode, ForNode, FunctionNode,
-    GlobalNode, IfNode, ImportAsNode, ImportFromAsNode, IndexExpressionNode,
-    LambdaNode, ListComprehensionForNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
-    ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParameterCategory, ParameterNode,
-    RaiseNode, ReturnNode, StarExpressionNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, WithNode } from '../parser/parseNodes';
+import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ExceptNode, ExpressionNode, ForNode,
+    FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromAsNode,
+    IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode, ListNode,
+    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParameterCategory,
+    ParameterNode, RaiseNode, ReturnNode, StarExpressionNode,
+    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode, WithNode } from '../parser/parseNodes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -523,6 +523,16 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         // Don't walk the member name.
         return false;
+    }
+
+    visitAwait(node: AwaitExpressionNode) {
+        // Make sure this is within an async lambda or function.
+        let enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+        if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
+            this._addError(`'await' allowed only within async function`, node);
+        }
+
+        return true;
     }
 
     visitName(node: NameNode): boolean {
