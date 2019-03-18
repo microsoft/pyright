@@ -227,6 +227,7 @@ export class ExpressionEvaluator {
         } else if (node instanceof AwaitExpressionNode) {
             // TODO - need to implement
             typeResult = this._getTypeFromExpression(node.expression, flags);
+            typeResult = { type: UnknownType.create(), node };
         } else if (node instanceof ConditionalExpressionNode) {
             // TODO - need to implement
             this._getTypeFromExpression(node.testExpression, EvaluatorFlags.None);
