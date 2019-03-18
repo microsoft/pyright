@@ -10,8 +10,9 @@
 */
 
 import { BinaryExpressionNode, CallExpressionNode, ConstantNode,
-    ExpressionNode, MemberAccessExpressionNode, NameNode, UnaryExpressionNode } from '../parser/parseNodes';
-import { KeywordType, OperatorType, TokenType } from '../parser/tokenizerTypes';
+    ExpressionNode, MemberAccessExpressionNode, NameNode,
+    UnaryExpressionNode } from '../parser/parseNodes';
+import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { ClassType, NoneType, ObjectType, TupleType, Type, UnionType } from './types';
 import { TypeUtils } from './typeUtils';
 

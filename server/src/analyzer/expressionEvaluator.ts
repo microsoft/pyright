@@ -18,17 +18,17 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode, BinaryExpression
     ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
     NumberNode, ParameterCategory, SetNode, SliceExpressionNode, StringNode,
     TupleExpressionNode, UnaryExpressionNode, YieldExpressionNode } from '../parser/parseNodes';
-import { KeywordToken, KeywordType, QuoteTypeFlags, TokenType } from '../parser/tokenizerTypes';
+import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags, TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
 import { Symbol, SymbolCategory } from './symbol';
-import { TypeConstraint } from './typeConstraint';
+import { TypeConstraint, TypeConstraintBuilder, TypeConstraintResults } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType, FunctionTypeFlags,
-    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType, SpecializedFunctionTypes, TupleType,
-    Type, TypeVarType, UnionType, UnknownType } from './types';
+    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType, SpecializedFunctionTypes,
+    TupleType, Type, TypeVarType, UnionType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface TypeResult {
@@ -63,16 +63,15 @@ export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) =>
 
 export class ExpressionEvaluator {
     private _scope: Scope;
-    private _expressionTypeConstraints: TypeConstraint[];
+    private _expressionTypeConstraints: TypeConstraint[] = [];
     private _diagnosticSink?: TextRangeDiagnosticSink;
     private _readTypeFromCache?: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
 
-    constructor(scope: Scope, expressionTypeConstraints: TypeConstraint[],
-            diagnosticSink?: TextRangeDiagnosticSink, readTypeCallback?: ReadTypeFromNodeCacheCallback,
+    constructor(scope: Scope, diagnosticSink?: TextRangeDiagnosticSink,
+            readTypeCallback?: ReadTypeFromNodeCacheCallback,
             writeTypeCallback?: WriteTypeToNodeCacheCallback) {
         this._scope = scope;
-        this._expressionTypeConstraints = expressionTypeConstraints;
         this._diagnosticSink = diagnosticSink;
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
@@ -188,9 +187,21 @@ export class ExpressionEvaluator {
             this._getTypeFromExpression(node.expression, flags);
             typeResult = { type: UnknownType.create(), node };
         } else if (node instanceof BinaryExpressionNode) {
-            // TODO - need to implement
             this._getTypeFromExpression(node.leftExpression, flags);
-            this._getTypeFromExpression(node.rightExpression, flags);
+
+            // Is this an AND operator? If so, we can assume that the
+            // rightExpression won't be evaluated at runtime unless the
+            // leftExpression evaluates to true.
+            let typeConstraints: TypeConstraintResults | undefined;
+            if (node.operator === OperatorType.And) {
+                typeConstraints = this._buildTypeConstraints(node.leftExpression);
+            }
+
+            this._useExpressionTypeConstraint(typeConstraints, true, () => {
+                this._getTypeFromExpression(node.rightExpression, flags);
+            });
+
+            // TODO - need to implement
             typeResult = { type: UnknownType.create(), node };
         } else if (node instanceof ListNode) {
             typeResult = this._getTypeFromListExpression(node);
@@ -203,9 +214,20 @@ export class ExpressionEvaluator {
             // TODO - need to implement
             this._getTypeFromExpression(node.testExpression, EvaluatorFlags.None);
 
-            let ifType = this._getTypeFromExpression(node.ifExpression, flags);
-            let elseType = this._getTypeFromExpression(node.elseExpression, flags);
-            let type = TypeUtils.combineTypes(ifType.type, elseType.type);
+            // Apply the type constraint when evaluating the if and else clauses.
+            let typeConstraints = this._buildTypeConstraints(node.testExpression);
+
+            let ifType: TypeResult | undefined;
+            this._useExpressionTypeConstraint(typeConstraints, true, () => {
+                ifType = this._getTypeFromExpression(node.ifExpression, flags);
+            });
+
+            let elseType: TypeResult | undefined;
+            this._useExpressionTypeConstraint(typeConstraints, false, () => {
+                elseType = this._getTypeFromExpression(node.elseExpression, flags);
+            });
+
+            let type = TypeUtils.combineTypes(ifType!.type, elseType!.type);
             typeResult = { type, node };
         } else if (node instanceof ListComprehensionNode) {
             // TODO - need to implement
@@ -718,14 +740,14 @@ export class ExpressionEvaluator {
             node: CallExpressionNode, skipFirstMethodParam: boolean): FunctionType | undefined {
         let validOverload: FunctionType | undefined;
 
-        // Create a new evaluator that will not emit any diagnostics.
-        let altEvaluator = new ExpressionEvaluator(this._scope, this._expressionTypeConstraints);
-
-        for (let overload of callType.getOverloads()) {
-            if (altEvaluator._validateCallArguments(node, overload.type, skipFirstMethodParam)) {
-                validOverload = overload.type;
+        // Temporarily disable diagnostic output.
+        this._silenceDiagnostics(() => {
+            for (let overload of callType.getOverloads()) {
+                if (this._validateCallArguments(node, overload.type, skipFirstMethodParam)) {
+                    validOverload = overload.type;
+                }
             }
-        }
+        });
 
         return validOverload;
     }
@@ -1756,6 +1778,42 @@ export class ExpressionEvaluator {
         }
 
         return type;
+    }
+
+    private _useExpressionTypeConstraint(typeConstraints: TypeConstraintResults | undefined,
+            useIfClause: boolean, callback: () => void) {
+
+        // Push the specified constraints onto the list.
+        let itemsToPop = 0;
+        if (typeConstraints) {
+            let constraintsToUse = useIfClause ?
+                typeConstraints.ifConstraints : typeConstraints.elseConstraints;
+            constraintsToUse.forEach(tc => {
+                this._expressionTypeConstraints.push(tc);
+                itemsToPop++;
+            });
+        }
+
+        callback();
+
+        // Clean up after ourself.
+        for (let i = 0; i < itemsToPop; i++) {
+            this._expressionTypeConstraints.pop();
+        }
+    }
+
+    private _buildTypeConstraints(node: ExpressionNode) {
+        return TypeConstraintBuilder.buildTypeConstraints(node,
+            (node: ExpressionNode) => this.getType(node, EvaluatorFlags.None));
+    }
+
+    private _silenceDiagnostics(callback: () => void) {
+        let oldDiagSink = this._diagnosticSink;
+        this._diagnosticSink = undefined;
+
+        callback();
+
+        this._diagnosticSink = oldDiagSink;
     }
 
     private _addError(message: string, range: TextRange) {

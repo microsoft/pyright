@@ -140,7 +140,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         let sawMetaclass = false;
-        let evaluator = new ExpressionEvaluator(this._currentScope, [], this._fileInfo.diagnosticSink);
+        let evaluator = new ExpressionEvaluator(this._currentScope, this._fileInfo.diagnosticSink);
         node.arguments.forEach(arg => {
             let argType: Type;
 
@@ -242,7 +242,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         // Handle overload decorators specially.
         let overloadedType: OverloadedFunctionType | undefined;
-        let evaluator = new ExpressionEvaluator(this._currentScope, []);
+        let evaluator = new ExpressionEvaluator(this._currentScope);
         [overloadedType, warnIfDuplicate] = evaluator.getOverloadedFunctionType(node, functionType);
         if (overloadedType) {
             functionType.clearHasCustomDecoratorsFlag();

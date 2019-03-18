@@ -12,17 +12,15 @@ import * as assert from 'assert';
 
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
-import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { ArgumentCategory, AssignmentNode, BinaryExpressionNode, CallExpressionNode,
-    ClassNode, ConditionalExpressionNode, ConstantNode, ExceptNode,
+import { AssignmentNode, CallExpressionNode, ClassNode, ConstantNode, ExceptNode,
     ExpressionNode, ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode,
     LambdaNode, ListComprehensionForNode, ListComprehensionNode,
     MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
     ParseNode, RaiseNode, ReturnNode, StarExpressionNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, WithNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
-import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
+import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -34,16 +32,11 @@ import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
-import { TypeConstraint, TypeConstraintBuilder, TypeConstraintResults } from './typeConstraint';
+import { TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionType, FunctionTypeFlags, ModuleType,
-    NoneType, ObjectType, OverloadedFunctionType, PropertyType, TupleType, Type, TypeCategory,
-    TypeVarType, UnboundType, UnionType, UnknownType } from './types';
+    NoneType, ObjectType, OverloadedFunctionType, TupleType, Type, TypeCategory,
+    TypeVarType, UnionType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
-
-interface ParamAssignmentInfo {
-    argsNeeded: number;
-    argsReceived: number;
-}
 
 interface EnumClassInfo {
     enumClass: ClassType;
@@ -65,11 +58,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // type information needs to be regenerated because it was
     // from a previous pass.
     private _analysisVersion = 0;
-
-    // List of type constraints that are currently in effect
-    // when walking a multi-part AND expression (e.g. A and B
-    // and C).
-    private _expressionTypeConstraints: TypeConstraint[] = [];
 
     constructor(node: ModuleNode, fileInfo: AnalyzerFileInfo, analysisVersion: number) {
         super();
@@ -553,23 +541,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    visitConditional(node: ConditionalExpressionNode) {
-        // Apply the type constraint when evaluating the if and else clauses.
-        let typeConstraints = this._buildTypeConstraints(node.testExpression);
-
-        // Start by evaluating the if statement.
-        this._useExpressionTypeConstraint(typeConstraints, true, () => {
-            this._getTypeOfExpression(node.ifExpression);
-        });
-
-        // And now the else statement.
-        this._useExpressionTypeConstraint(typeConstraints, false, () => {
-            this._getTypeOfExpression(node.elseExpression);
-        });
-
-        return true;
-    }
-
     visitReturn(node: ReturnNode): boolean {
         let declaredReturnType: Type | undefined;
         let returnType: Type;
@@ -784,24 +755,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Walk the leftExpression but not the memberName.
         this.walk(node.leftExpression);
-        return false;
-    }
-
-    visitBinaryOperation(node: BinaryExpressionNode) {
-        this.walk(node.leftExpression);
-
-        // Is this an AND operator? If so, we can assume that the
-        // rightExpression won't be evaluated at runtime unless the
-        // leftExpression evaluates to true.
-        let typeConstraints: TypeConstraintResults | undefined;
-        if (node.operator === OperatorType.And) {
-            typeConstraints = this._buildTypeConstraints(node.leftExpression);
-        }
-
-        this._useExpressionTypeConstraint(typeConstraints, true, () => {
-            this.walk(node.rightExpression);
-        });
-
         return false;
     }
 
@@ -1482,28 +1435,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _useExpressionTypeConstraint(typeConstraints: TypeConstraintResults | undefined,
-            useIfClause: boolean, callback: () => void) {
-
-        // Push the specified constraints onto the list.
-        let itemsToPop = 0;
-        if (typeConstraints) {
-            let constraintsToUse = useIfClause ?
-                typeConstraints.ifConstraints : typeConstraints.elseConstraints;
-            constraintsToUse.forEach(tc => {
-                this._expressionTypeConstraints.push(tc);
-                itemsToPop++;
-            });
-        }
-
-        callback();
-
-        // Clean up after ourself.
-        for (let i = 0; i < itemsToPop; i++) {
-            this._expressionTypeConstraints.pop();
-        }
-    }
-
     private _buildTypeConstraints(node: ExpressionNode) {
         return TypeConstraintBuilder.buildTypeConstraints(node,
             (node: ExpressionNode) => this._getTypeOfExpression(node));
@@ -1578,8 +1509,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return new ExpressionEvaluator(this._currentScope,
-            this._expressionTypeConstraints, diagSink,
-            node => this._readTypeFromNodeCache(node),
+            diagSink, node => this._readTypeFromNodeCache(node),
             (node, type) => {
                 this._updateExpressionTypeForNode(node, type);
             });
