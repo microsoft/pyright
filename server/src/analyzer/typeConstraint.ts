@@ -9,9 +9,9 @@
 * the value of "foo" is not None within that scope.
 */
 
-import { BinaryExpressionNode, CallExpressionNode, ExpressionNode,
-    MemberAccessExpressionNode, NameNode, UnaryExpressionNode } from '../parser/parseNodes';
-import { OperatorType } from '../parser/tokenizerTypes';
+import { BinaryExpressionNode, CallExpressionNode, ConstantNode,
+    ExpressionNode, MemberAccessExpressionNode, NameNode, UnaryExpressionNode } from '../parser/parseNodes';
+import { KeywordType, OperatorType, TokenType } from '../parser/tokenizerTypes';
 import { ClassType, NoneType, ObjectType, TupleType, Type, UnionType } from './types';
 import { TypeUtils } from './typeUtils';
 
@@ -112,6 +112,51 @@ export class TruthyTypeConstraint extends TypeConstraint {
     }
 }
 
+// Represents an "is" or "is not" None check.
+export class IsNoneTypeConstraint extends TypeConstraint {
+    private _expression: ExpressionNode;
+
+    constructor(node: ExpressionNode, isPositiveTest = true) {
+        super(isPositiveTest);
+        this._expression = node;
+    }
+
+    applyToType(node: ExpressionNode, type: Type): Type {
+        if (TypeConstraint.doesExpressionMatch(node, this._expression)) {
+            if (type instanceof UnionType) {
+                let remainingTypes = type.getTypes().filter(t => {
+                    if (t.isAny()) {
+                        // We need to assume that "Any" is always an instance and not an instance,
+                        // so it matches regardless of whether the test is positive or negative.
+                        return true;
+                    }
+
+                    // See if it's a match for None.
+                    return (t instanceof NoneType) === this.isPositiveTest();
+                });
+
+                if (remainingTypes.length === 0) {
+                    // TODO - we may want to return a "never" type in
+                    // this case to indicate that the condition will
+                    // always evalutate to false.
+                    return NoneType.create();
+                }
+
+                return TypeUtils.combineTypesArray(remainingTypes);
+            } else if (type instanceof NoneType) {
+                if (!this.isPositiveTest()) {
+                    // TODO - we may want to return a "never" type in
+                    // this case to indicate that the condition will
+                    // always evalutate to false.
+                    return NoneType.create();
+                }
+            }
+        }
+
+        return type;
+    }
+}
+
 // Represents an "instanceof" check, potentially constraining a
 // union type.
 export class InstanceOfTypeConstraint extends TypeConstraint {
@@ -206,7 +251,23 @@ export class TypeConstraintBuilder {
                 elseConstraints: []
             };
 
-            if (testExpression.operator === OperatorType.And) {
+            // Look for "X is None" or "X is not None". These are commonly-used
+            // patterns used in control flow.
+            if (testExpression.operator === OperatorType.Is ||
+                    testExpression.operator === OperatorType.IsNot) {
+                if (testExpression.rightExpression instanceof ConstantNode &&
+                        testExpression.rightExpression.token.keywordType === KeywordType.None) {
+
+                    const trueConstraint = new IsNoneTypeConstraint(testExpression.leftExpression, true);
+                    const falseConstraint = new IsNoneTypeConstraint(testExpression.leftExpression, false);
+                    const isPositive = testExpression.operator === OperatorType.Is;
+
+                    results.ifConstraints.push(isPositive ? trueConstraint : falseConstraint);
+                    results.elseConstraints.push(isPositive ? falseConstraint : trueConstraint);
+
+                    return results;
+                }
+            } else if (testExpression.operator === OperatorType.And) {
                 let leftConstraints = this.buildTypeConstraints(
                     testExpression.leftExpression, typeEvaluator);
                 let rightConstraints = this.buildTypeConstraints(

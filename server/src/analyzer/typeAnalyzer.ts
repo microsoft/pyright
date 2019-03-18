@@ -166,7 +166,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             functionType.setBuiltInName(node.name.nameToken.value);
         }
 
-        const functionParams = functionType.getParameters();
         node.parameters.forEach((param, index) => {
             let annotatedType: Type | undefined;
             if (param.typeAnnotation) {
