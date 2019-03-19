@@ -15,7 +15,6 @@
         "no-document-domain": true,
         "no-disable-auto-sanitization": true,
         "no-exec-script": true,
-        "no-function-constructor-with-string-args": true,
         "no-string-based-set-immediate": true,
         "no-string-based-set-interval": true,
         "no-string-based-set-timeout": true,

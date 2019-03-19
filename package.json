@@ -2,13 +2,14 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "VS Code language support for Python",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "scripts": {
         "postinstall": "cd server && npm install && cd ../client && npm install && cd ..",
         "build": "npm run build:client && npm run build:server",
         "build:client": "cd client && npm run build && cd ..",
         "build:server": "cd server && npm run build && cd ..",
-        "build:analyzer": "cd server && npm run build:analyzer && cd .."
+        "build:analyzer": "cd server && npm run build:analyzer && cd ..",
+        "package": "npm run build && cd client && npx vsce package && cd .."
     },
     "devDependencies": {
         "@types/mocha": "^5.2.5",
