@@ -141,7 +141,7 @@ export class TypeUtils {
                 if (callMember) {
                     const callType = TypeUtils.getEffectiveTypeOfMember(callMember);
                     if (callType instanceof FunctionType) {
-                        srcFunction = callType;
+                        srcFunction = TypeUtils.stripFirstParameter(callType);
                     }
                 }
             } else if (srcType instanceof ClassType) {
@@ -403,5 +403,10 @@ export class TypeUtils {
 
         let typeArgs = type.getTypeParameters();
         return type.cloneForSpecialization(typeArgs);
+    }
+
+    // Removes the first parameter of the function and returns a new function.
+    static stripFirstParameter(type: FunctionType): FunctionType {
+        return type.clone(true);
     }
 }

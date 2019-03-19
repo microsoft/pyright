@@ -28,15 +28,13 @@ import { Scope, ScopeType } from './scope';
 import { Symbol, SymbolCategory } from './symbol';
 import { TypeConstraint, TypeConstraintBuilder, TypeConstraintResults } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType, FunctionTypeFlags,
-    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType, SpecializedFunctionTypes,
-    TupleType, Type, TypeVarType, UnionType, UnknownType } from './types';
+    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType,
+    SpecializedFunctionTypes, TupleType, Type, TypeVarType, UnionType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface TypeResult {
     type: Type;
     typeList?: TypeResult[];
-    isClassMember?: boolean;
-    isObjectMember?: boolean;
     node: ExpressionNode;
 }
 
@@ -359,23 +357,17 @@ export class ExpressionEvaluator {
         const memberName = node.memberName.nameToken.value;
 
         let type: Type | undefined;
-        let isClassMember = false;
-        let isObjectMember = false;
 
         if (baseType.isAny()) {
             type = baseType;
-
-            // Assume that the base type is a class or object.
-            isClassMember = true;
-            isObjectMember = true;
         } else if (baseType instanceof ClassType) {
             type = this._getTypeFromClassMemberAccess(node.memberName,
                 baseType, MemberAccessFlags.SkipInstanceMembers);
-            isClassMember = true;
+            type = this._bindFunctionToClassOrObject(baseType, type);
         } else if (baseType instanceof ObjectType) {
             type = this._getTypeFromClassMemberAccess(node.memberName, baseType.getClassType(),
                 MemberAccessFlags.None);
-            isObjectMember = true;
+            type = this._bindFunctionToClassOrObject(baseType, type);
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
             if (memberInfo) {
@@ -393,19 +385,11 @@ export class ExpressionEvaluator {
                     let typeResult = this._getTypeFromMemberAccessExpressionWithBaseType(node,
                         {
                             type: typeEntry,
-                            isClassMember: baseTypeResult.isClassMember,
-                            isObjectMember: baseTypeResult.isObjectMember,
                             node
                         },
                         EvaluatorFlags.None);
 
                     if (typeResult) {
-                        if (typeResult.isClassMember) {
-                            isClassMember = true;
-                        }
-                        if (typeResult.isObjectMember) {
-                            isObjectMember = true;
-                        }
                         returnTypes.push(typeResult.type);
                     }
                 }
@@ -436,7 +420,38 @@ export class ExpressionEvaluator {
 
         type = this._convertClassToObject(type, flags);
 
-        return { type, node, isClassMember, isObjectMember };
+        return { type, node };
+    }
+
+    // If the memberType is an instance or class method, creates a new
+    // version of the function that has the "self" or "cls" parameter bound
+    // to it.
+    private _bindFunctionToClassOrObject(baseType: ClassType | ObjectType | undefined,
+            memberType: Type): Type {
+
+        if (memberType instanceof FunctionType) {
+            // If the caller specified no base type, always strip the
+            // first parameter. This is used in cases like constructors.
+            if (!baseType) {
+                return TypeUtils.stripFirstParameter(memberType);
+            } else if (memberType.isInstanceMethod()) {
+                if (baseType instanceof ObjectType) {
+                    return TypeUtils.stripFirstParameter(memberType);
+                }
+            } else if (memberType.isClassMethod()) {
+                return TypeUtils.stripFirstParameter(memberType);
+            }
+        } else if (memberType instanceof OverloadedFunctionType) {
+            let newOverloadType = new OverloadedFunctionType();
+            memberType.getOverloads().forEach(overload => {
+                newOverloadType.addOverload(overload.typeSourceId,
+                    this._bindFunctionToClassOrObject(baseType, overload.type) as FunctionType);
+            });
+
+            return newOverloadType;
+        }
+
+        return memberType;
     }
 
     // A wrapper around _getTypeFromClassMemberString that reports
@@ -645,8 +660,6 @@ export class ExpressionEvaluator {
 
         let type: Type | undefined;
         const callType = baseTypeResult.type;
-        const isClassMemberAccess = !!baseTypeResult.isClassMember;
-        const isObjectMemberAccess = !!baseTypeResult.isObjectMember;
 
         if (callType instanceof ClassType) {
             if (callType.isBuiltIn()) {
@@ -687,21 +700,13 @@ export class ExpressionEvaluator {
                 type = this._createNamedTupleType(node, false);
                 flags &= ~EvaluatorFlags.ConvertClassToObject;
             } else {
-                const isClassMethod = callType.isClassMethod();
-                const isInstanceMethod = callType.isInstanceMethod();
-                let skipFirstMethodParam = (isObjectMemberAccess && isInstanceMethod) ||
-                    ((isClassMemberAccess || isObjectMemberAccess) && isClassMethod);
-
-                if (this._validateCallArguments(node, callType, skipFirstMethodParam)) {
+                if (this._validateCallArguments(node, callType)) {
                     type = callType.getEffectiveReturnType();
                 }
             }
         } else if (callType instanceof OverloadedFunctionType) {
-            let skipFirstMethodParam = isClassMemberAccess || isObjectMemberAccess;
-
             // Determine which of the overloads (if any) match.
-            let functionType = this._findOverloadedFunctionType(
-                callType, node, skipFirstMethodParam);
+            let functionType = this._findOverloadedFunctionType(callType, node);
 
             if (functionType) {
                 type = functionType.getEffectiveReturnType();
@@ -717,9 +722,9 @@ export class ExpressionEvaluator {
             let memberType = this._getTypeFromClassMemberString(
                 '__call__', callType.getClassType(), MemberAccessFlags.SkipGetAttributeCheck);
             if (memberType && memberType instanceof FunctionType) {
-                if (this._validateCallArguments(node, memberType, true)) {
-                    type = memberType.getEffectiveReturnType();
-                }
+                const callMethodType = TypeUtils.stripFirstParameter(memberType);
+                this._validateCallArguments(node, callMethodType);
+                type = memberType.getEffectiveReturnType();
             }
         } else if (callType instanceof UnionType) {
             let returnTypes: Type[] = [];
@@ -730,8 +735,6 @@ export class ExpressionEvaluator {
                     let typeResult = this._getTypeFromCallExpressionWithBaseType(node,
                         {
                             type: typeEntry,
-                            isClassMember: baseTypeResult.isClassMember,
-                            isObjectMember: baseTypeResult.isObjectMember,
                             node
                         },
                         EvaluatorFlags.None);
@@ -765,13 +768,13 @@ export class ExpressionEvaluator {
     }
 
     private _findOverloadedFunctionType(callType: OverloadedFunctionType,
-            node: CallExpressionNode, skipFirstMethodParam: boolean): FunctionType | undefined {
+            node: CallExpressionNode): FunctionType | undefined {
         let validOverload: FunctionType | undefined;
 
         // Temporarily disable diagnostic output.
         this._silenceDiagnostics(() => {
             for (let overload of callType.getOverloads()) {
-                if (this._validateCallArguments(node, overload.type, skipFirstMethodParam)) {
+                if (this._validateCallArguments(node, overload.type)) {
                     validOverload = overload.type;
                 }
             }
@@ -789,7 +792,8 @@ export class ExpressionEvaluator {
             MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
                 MemberAccessFlags.SkipBaseClasses);
         if (constructorMethodType) {
-            this._validateCallArguments(node, constructorMethodType, true);
+            constructorMethodType = this._bindFunctionToClassOrObject(undefined, constructorMethodType);
+            this._validateCallArguments(node, constructorMethodType);
             validatedTypes = true;
         }
 
@@ -801,7 +805,8 @@ export class ExpressionEvaluator {
         }
         let initMethodType = this._getTypeFromClassMemberString('__init__', type, memberAccessFlags);
         if (initMethodType) {
-            this._validateCallArguments(node, initMethodType, true);
+            initMethodType = this._bindFunctionToClassOrObject(new ObjectType(type), initMethodType);
+            this._validateCallArguments(node, initMethodType);
             validatedTypes = true;
         }
 
@@ -811,16 +816,15 @@ export class ExpressionEvaluator {
         }
     }
 
-    private _validateCallArguments(node: CallExpressionNode, callType: Type,
-            skipFirstMethodParam: boolean): boolean {
+    private _validateCallArguments(node: CallExpressionNode, callType: Type): boolean {
         let isCallable = true;
 
         if (callType.isAny()) {
             // Nothing to do in this case.
         } else if (callType instanceof FunctionType) {
-            this._validateFunctionArguments(node, callType, skipFirstMethodParam);
+            this._validateFunctionArguments(node, callType);
         } else if (callType instanceof OverloadedFunctionType) {
-            if (!this._findOverloadedFunctionType(callType, node, skipFirstMethodParam)) {
+            if (!this._findOverloadedFunctionType(callType, node)) {
                 const exprString = ParseTreeUtils.printExpression(node.leftExpression);
                 this._addError(
                     `No overloads for '${ exprString }' match parameters`,
@@ -837,7 +841,8 @@ export class ExpressionEvaluator {
                     MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers);
 
             if (memberType && memberType instanceof FunctionType) {
-                isCallable = this._validateCallArguments(node, memberType, true);
+                const callMethodType = TypeUtils.stripFirstParameter(memberType);
+                isCallable = this._validateCallArguments(node, callMethodType);
             }
         } else if (callType instanceof UnionType) {
             for (let type of callType.getTypes()) {
@@ -845,7 +850,7 @@ export class ExpressionEvaluator {
                     // TODO - for now, assume that optional
                     // types (unions with None) are valid. Tighten
                     // this later.
-                } else if (!this._validateCallArguments(node, type, skipFirstMethodParam)) {
+                } else if (!this._validateCallArguments(node, type)) {
                     isCallable = false;
                     break;
                 }
@@ -859,18 +864,10 @@ export class ExpressionEvaluator {
 
     // Tries to assign the call arguments to the function parameter
     // list and reports any mismatches in types or counts.
-    // If skipFirstMethodParam is true and the callee is a method,
-    // the logic assumes that it can skip the validation of the first
-    // parameter because it's a "self" or "cls" parameter.
     // This logic is based on PEP 3102: https://www.python.org/dev/peps/pep-3102/
-    private _validateFunctionArguments(node: CallExpressionNode, type: FunctionType,
-            skipFirstMethodParam: boolean) {
+    private _validateFunctionArguments(node: CallExpressionNode, type: FunctionType) {
         let argIndex = 0;
         const typeParams = type.getParameters();
-
-        // If it's a raw function (versus a method call), no need to skip the first parameter.
-        const skipFirstParam = skipFirstMethodParam &&
-            (type.isInstanceMethod() || type.isClassMethod());
 
         // Evaluate all of the argument values and generate errors if appropriate.
         // The expression type will be cached in the node so we don't re-evaluate
@@ -893,9 +890,8 @@ export class ExpressionEvaluator {
 
         // Build a map of parameters by name.
         let paramMap = new StringMap<ParamAssignmentInfo>();
-        typeParams.forEach((param, index) => {
-            // Skip the first named param if appropriate.
-            if (param.name && (index > 0 || !skipFirstParam)) {
+        typeParams.forEach(param => {
+            if (param.name) {
                 paramMap.set(param.name, {
                     argsNeeded: param.category === ParameterCategory.Simple && !param.hasDefault ? 1 : 0,
                     argsReceived: 0
@@ -939,13 +935,10 @@ export class ExpressionEvaluator {
         }
 
         // Map the positional args to parameters.
-        let paramIndex = skipFirstParam ? 1 : 0;
+        let paramIndex = 0;
         while (argIndex < positionalArgCount) {
             if (paramIndex >= positionalParamCount) {
                 let adjustedCount = positionalParamCount;
-                if (skipFirstParam) {
-                    adjustedCount--;
-                }
                 this._addError(
                     `Expected ${ adjustedCount } positional argument${ adjustedCount === 1 ? '' : 's' }`,
                     node.arguments[argIndex]);
@@ -974,7 +967,8 @@ export class ExpressionEvaluator {
 
         if (!reportedArgError) {
             let foundDictionaryArg = false;
-            let foundListArg = node.arguments.find(arg => arg.argumentCategory === ArgumentCategory.List) !== undefined;
+            let foundListArg = node.arguments.find(
+                arg => arg.argumentCategory === ArgumentCategory.List) !== undefined;
 
             // Now consume any named parameters.
             while (argIndex < node.arguments.length) {
@@ -995,7 +989,8 @@ export class ExpressionEvaluator {
                             } else {
                                 paramMap.get(paramName.nameToken.value)!.argsReceived++;
 
-                                let paramInfoIndex = typeParams.findIndex(param => param.name === paramNameValue);
+                                let paramInfoIndex = typeParams.findIndex(
+                                    param => param.name === paramNameValue);
                                 assert(paramInfoIndex >= 0);
                                 const paramType = type.getEffectiveParameterType(paramInfoIndex);
                                 this._validateArgType(paramType, node.arguments[argIndex].valueExpression);

@@ -551,9 +551,34 @@ export class FunctionType extends Type {
 
     // Creates a deep copy of the function type, including a fresh
     // version of _functionDetails.
-    clone(): FunctionType {
+    clone(deleteFirstParam = false): FunctionType {
         let newFunction = new FunctionType(this._functionDetails.flags);
-        newFunction._functionDetails = Object.assign({}, this._functionDetails);
+        const startParam = deleteFirstParam ? 1 : 0;
+
+        newFunction._functionDetails = {
+            flags: this._functionDetails.flags,
+            parameters: this._functionDetails.parameters.slice(startParam),
+            declaredReturnType: this._functionDetails.declaredReturnType,
+            declaredYieldType: this._functionDetails.declaredYieldType,
+            inferredReturnType: this._functionDetails.inferredReturnType,
+            inferredYieldType: this._functionDetails.inferredYieldType,
+            builtInName: this._functionDetails.builtInName
+        };
+
+        // If we strip off the first parameter, this is no longer an
+        // instance method or class method.
+        if (deleteFirstParam) {
+            newFunction._functionDetails.flags &= ~(FunctionTypeFlags.InstanceMethod |
+                FunctionTypeFlags.ClassMethod);
+        }
+
+        if (this._specializedTypes) {
+            newFunction._specializedTypes = {
+                parameterTypes: this._specializedTypes.parameterTypes.slice(startParam),
+                returnType: this._specializedTypes.returnType
+            };
+        }
+
         return newFunction;
     }
 
