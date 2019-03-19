@@ -2,7 +2,7 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "VS Code language support for Python",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "licensce": "MIT",
     "author": {
         "name": "Microsoft Corporation"
