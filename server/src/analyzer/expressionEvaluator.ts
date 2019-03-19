@@ -436,10 +436,17 @@ export class ExpressionEvaluator {
                 return TypeUtils.stripFirstParameter(memberType);
             } else if (memberType.isInstanceMethod()) {
                 if (baseType instanceof ObjectType) {
-                    return TypeUtils.stripFirstParameter(memberType);
+                    return this._partiallySpecializeFunctionForBoundClassOrObject(
+                        baseType, memberType);
                 }
             } else if (memberType.isClassMethod()) {
-                return TypeUtils.stripFirstParameter(memberType);
+                if (baseType instanceof ClassType) {
+                    return this._partiallySpecializeFunctionForBoundClassOrObject(
+                        baseType, memberType);
+                } else {
+                    return this._partiallySpecializeFunctionForBoundClassOrObject(
+                        baseType.getClassType(), memberType);
+                }
             }
         } else if (memberType instanceof OverloadedFunctionType) {
             let newOverloadType = new OverloadedFunctionType();
@@ -453,6 +460,22 @@ export class ExpressionEvaluator {
 
         return memberType;
     }
+
+    private _partiallySpecializeFunctionForBoundClassOrObject(baseType: ClassType | ObjectType,
+            memberType: FunctionType): Type {
+
+        let specializedFunction = memberType;
+        if (memberType.getParameterCount() > 0) {
+            let firstParam = memberType.getParameters()[0];
+            if (firstParam.type instanceof TypeVarType) {
+                const typeVarMap = new TypeVarMap();
+                typeVarMap.set(firstParam.type.getName(), baseType);
+                specializedFunction = this._specializeType(memberType, typeVarMap) as FunctionType;
+            }
+        }
+
+        return TypeUtils.stripFirstParameter(specializedFunction);
+   }
 
     // A wrapper around _getTypeFromClassMemberString that reports
     // errors if the member name is not found.

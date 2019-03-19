@@ -221,8 +221,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             }
         }
 
-        // The "__new__" magic method is not an instance method.
+        // The "__new__" magic method is not an instance method. It acts
+        // as a class method instead.
         if (node.name.nameToken.value === '__new__') {
+            functionFlags |= ~FunctionTypeFlags.ClassMethod;
             functionFlags &= ~FunctionTypeFlags.InstanceMethod;
         }
 

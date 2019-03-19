@@ -186,23 +186,26 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 this.walk(param.typeAnnotation.expression);
-            } else if (index === 0 && param.name) {
+            } else if (index === 0 && (functionType.isInstanceMethod() || functionType.isClassMethod())) {
+                // Specify type of "self" or "cls" parameter for instance or class methods
+                // if the type is not explicitly provided.
                 const classNode = ParseTreeUtils.getEnclosingClass(node);
                 if (classNode) {
-                    // If the first parameter is 'self' or 'cls', give the
-                    // parameter an inferred type even though it's not explicitly
-                    // provided.
-                    const inferredClassType = AnalyzerNodeInfo.getExpressionType(classNode) as ClassType;
-                    if (inferredClassType) {
-                        const specializedClassType = TypeUtils.selfSpecializeClassType(inferredClassType);
+                    const paramType = functionType.getParameters()[index].type;
 
-                        if (param.name.nameToken.value === 'self') {
-                            if (functionType.setParameterType(index, new ObjectType(specializedClassType))) {
-                                this._setAnalysisChanged();
-                            }
-                        } else if (param.name.nameToken.value === 'cls') {
-                            if (functionType.setParameterType(index, specializedClassType)) {
-                                this._setAnalysisChanged();
+                    if (paramType instanceof UnknownType) {
+                        const inferredClassType = AnalyzerNodeInfo.getExpressionType(classNode) as ClassType;
+                        if (inferredClassType) {
+                            const specializedClassType = TypeUtils.selfSpecializeClassType(inferredClassType);
+
+                            if (functionType.isInstanceMethod()) {
+                                if (functionType.setParameterType(index, new ObjectType(specializedClassType))) {
+                                    this._setAnalysisChanged();
+                                }
+                            } else if (functionType.isClassMethod()) {
+                                if (functionType.setParameterType(index, specializedClassType)) {
+                                    this._setAnalysisChanged();
+                                }
                             }
                         }
                     }
