@@ -1477,7 +1477,11 @@ export class ExpressionEvaluator {
             }
         }
 
-        return TypeUtils.combineTypesArray(types);
+        if (types.length > 0) {
+            return TypeUtils.combineTypesArray(types);
+        }
+
+        return NoneType.create();
     }
 
     private _createGenericType(errorNode: ExpressionNode, classType: ClassType,
