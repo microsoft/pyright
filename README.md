@@ -61,7 +61,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 
 * Support for generics
 * Better validation of type variables used within generics
-* Add type inference for Generators
+* Type inference for Generators and async functions
 * Support for type annotations within comments
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)
@@ -74,6 +74,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Special-casing @abstract methods so they don't need to return the specified type
 * Validate that @abstract classes are not instantiated
 * Validate that __init__ always has None as return type
+* Validate parameters for other magic functions
 * Validate that overridden methods in subclass have same signature as base class methods
 * Verify that exception classes inherit from base Exception
 * Validate await / async consitency
