@@ -10,7 +10,7 @@ Pyright is typically 5x or more faster than mypy and other type checkers that ar
 Pyright is written in TypeScript and runs within node. It does not require a Python environment or imported third-party packages to be installed. This is especially useful when used with the VS Code editor, which uses node as its extension runtime.
 
 ### Configurability
-Pyright supports flexible [configuration]((/docs/configuration.md)) that provides granular control over settings. Different “execution environments” can be specified for different subsets of a source base. Each environment can specify different PYTHON_PATH settings, python language version, and platform target.
+Pyright supports flexible [configuration](/docs/configuration.md) that provides granular control over settings. Different “execution environments” can be specified for different subsets of a source base. Each environment can specify different PYTHON_PATH settings, python language version, and platform target.
 
 ### Type Checking Features
 Pyright supports:
