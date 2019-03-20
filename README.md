@@ -77,7 +77,6 @@ To install in VS Code, go to the extensions panel and choose "Install from VSIX.
 
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
-* Support for generics
 * More complete documentation - especially for configuration options
 * Better validation of type variables used within generics
 * Type inference for generators and async functions

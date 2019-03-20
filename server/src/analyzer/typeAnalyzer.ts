@@ -187,6 +187,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 param.defaultValue);
                         }
                     }
+
+                    this.walk(param.defaultValue);
                 }
 
                 this.walk(param.typeAnnotation.expression);

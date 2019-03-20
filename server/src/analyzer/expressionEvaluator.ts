@@ -1059,9 +1059,7 @@ export class ExpressionEvaluator {
         return TypeUtils.specializeType(type.getEffectiveReturnType(), typeVarMap);
     }
 
-    private _validateArgType(paramType: Type, argExpression: ExpressionNode,
-            typeVarMap: TypeVarMap) {
-
+    private _validateArgType(paramType: Type, argExpression: ExpressionNode, typeVarMap: TypeVarMap) {
         let argType = this.getType(argExpression, EvaluatorFlags.None);
         if (!TypeUtils.canAssignType(paramType, argType, typeVarMap)) {
             this._addError(
@@ -1181,7 +1179,7 @@ export class ExpressionEvaluator {
 
         let tupleType = new TupleType(ScopeUtils.getBuiltInType(this._scope, 'tuple') as ClassType);
         let constructorType = new FunctionType(FunctionTypeFlags.ClassMethod);
-        constructorType.setDeclaredReturnType(tupleType);
+        constructorType.setDeclaredReturnType(new ObjectType(classType));
         constructorType.addParameter({
             category: ParameterCategory.Simple,
             name: 'cls',

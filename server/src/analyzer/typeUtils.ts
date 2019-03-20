@@ -74,6 +74,10 @@ export class TypeUtils {
     static canAssignType(destType: Type, srcType: Type, typeVarMap?: TypeVarMap,
             recursionCount = 0): boolean {
 
+        if (destType.isAny() || srcType.isAny()) {
+            return true;
+        }
+
         if (recursionCount > MaxCanAssignTypeRecursion) {
             return true;
         }
@@ -111,10 +115,6 @@ export class TypeUtils {
 
             typeVarMap!.set(destType.getName(), srcType);
             return this._canAssignToTypeVar(destType, srcType);
-        }
-
-        if (destType.isAny() || srcType.isAny()) {
-            return true;
         }
 
         if (destType.category === TypeCategory.Unbound ||
@@ -181,7 +181,9 @@ export class TypeUtils {
             } else if (srcType instanceof ObjectType) {
                 const callMember = this.lookUpObjectMember(srcType, '__call__');
                 if (callMember) {
-                    const callType = TypeUtils.getEffectiveTypeOfMember(callMember);
+                    let srcClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(srcType.getClassType());
+                    let callType = TypeUtils.getEffectiveTypeOfMember(callMember);
+                    callType = this.specializeType(callType, srcClassTypeVarMap);
                     if (callType instanceof FunctionType) {
                         srcFunction = TypeUtils.stripFirstParameter(callType);
                     }
@@ -238,9 +240,10 @@ export class TypeUtils {
         const destParamCount = destType.getParameterCount();
         const minParmaCount = Math.min(srcParamCount, destParamCount);
 
-        if (srcParamCount !== destParamCount) {
-            canAssign = false;
-        }
+        // TODO - need to add more logic here
+        // if (srcParamCount !== destParamCount) {
+        //     canAssign = false;
+        // }
 
         // Match as many input parameters as we can.
         for (let paramIndex = 0; paramIndex < minParmaCount; paramIndex++) {
