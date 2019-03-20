@@ -9,6 +9,7 @@
 
 import * as assert from 'assert';
 
+import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { InferredType, TypeSourceId } from './inferredType';
 import { SymbolTable } from './symbol';
@@ -58,7 +59,9 @@ export enum TypeCategory {
     TypeVar
 }
 
-const AsStringMaxRecursionCount = 20;
+const MaxRecursionCount = 20;
+
+export class TypeVarMap extends StringMap<Type> {}
 
 export abstract class Type {
     abstract category: TypeCategory;
@@ -87,6 +90,10 @@ export abstract class Type {
     }
 
     abstract asStringInternal(recursionCount: number): string;
+
+    requiresSpecialization(recursionCount = 0): boolean {
+        return false;
+    }
 }
 
 export class UnboundType extends Type {
@@ -239,6 +246,32 @@ export class ClassType extends Type {
     isGeneric() {
         return this._classDetails.typeParameters.length > 0 &&
             this._typeArguments === undefined;
+    }
+
+    requiresSpecialization(recursionCount = 0) {
+        if (this._classDetails.typeParameters.length === 0) {
+            return false;
+        }
+
+        if (this._typeArguments) {
+            if (recursionCount > MaxRecursionCount) {
+                return false;
+            }
+
+            return this._typeArguments.find(
+                typeArg => {
+                    if (typeArg instanceof Type) {
+                        return typeArg.requiresSpecialization(
+                            recursionCount + 1) !== undefined;
+                    }
+
+                    return typeArg.find(t => t.requiresSpecialization(
+                        recursionCount + 1)) !== undefined;
+                }
+            ) !== undefined;
+        }
+
+        return true;
     }
 
     isSpecialBuiltIn() {
@@ -498,6 +531,10 @@ export class ObjectType extends Type {
     asStringInternal(recursionCount = 0): string {
         return this._classType.getObjectName(recursionCount + 1);
     }
+
+    requiresSpecialization(recursionCount = 0) {
+        return this._classType.requiresSpecialization(recursionCount + 1);
+    }
 }
 
 export interface FunctionParameter {
@@ -706,7 +743,7 @@ export class FunctionType extends Type {
 
             if (param.category === ParameterCategory.Simple) {
                 const paramType = this.getEffectiveParameterType(index);
-                const paramTypeString = recursionCount < AsStringMaxRecursionCount ?
+                const paramTypeString = recursionCount < MaxRecursionCount ?
                     paramType.asStringInternal(recursionCount + 1) : '';
                 paramString += ': ' + paramTypeString;
             }
@@ -715,10 +752,31 @@ export class FunctionType extends Type {
 
         let returnTypeString = 'Any';
         const returnType = this.getEffectiveReturnType();
-        returnTypeString = recursionCount < AsStringMaxRecursionCount ?
+        returnTypeString = recursionCount < MaxRecursionCount ?
             returnType.asStringInternal(recursionCount + 1) : '';
 
         return `(${ paramTypeString }) -> ${ returnTypeString }`;
+    }
+
+    requiresSpecialization(recursionCount = 0) {
+        if (this._functionDetails.parameters.find(
+                param => param.type.requiresSpecialization(recursionCount + 1))) {
+            return true;
+        }
+
+        if (this._functionDetails.declaredReturnType) {
+            if (this._functionDetails.declaredReturnType.requiresSpecialization(recursionCount + 1)) {
+                return true;
+            }
+        }
+
+        if (this._functionDetails.declaredYieldType) {
+            if (this._functionDetails.declaredYieldType.requiresSpecialization(recursionCount + 1)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -754,6 +812,11 @@ export class OverloadedFunctionType extends Type {
         const overloads = this._overloads.map(overload =>
             overload.type.asStringInternal(recursionCount + 1));
         return `Overload[${ overloads.join(', ') }]`;
+    }
+
+    requiresSpecialization(recursionCount = 0) {
+        return this._overloads.find(
+            overload => overload.type.requiresSpecialization(recursionCount + 1)) !== undefined;
     }
 }
 
@@ -791,9 +854,25 @@ export class PropertyType extends Type {
 
     asStringInternal(recursionCount = 0): string {
         const returnType = this._getter.getEffectiveReturnType();
-        let returnTypeString = recursionCount < AsStringMaxRecursionCount ?
+        let returnTypeString = recursionCount < MaxRecursionCount ?
             returnType.asStringInternal(recursionCount + 1) : '';
         return returnTypeString;
+    }
+
+    requiresSpecialization(recursionCount = 0) {
+        if (this._getter.requiresSpecialization(recursionCount + 1)) {
+            return true;
+        }
+
+        if (this._setter && this._setter.requiresSpecialization(recursionCount + 1)) {
+            return true;
+        }
+
+        if (this._deleter && this._deleter.requiresSpecialization(recursionCount + 1)) {
+            return true;
+        }
+
+        return false;
     }
 }
 
@@ -908,15 +987,20 @@ export class UnionType extends Type {
 
     asStringInternal(recursionCount = 0): string {
         if (this._types.find(t => t.category === TypeCategory.None) !== undefined) {
-            const optionalType = recursionCount < AsStringMaxRecursionCount ?
+            const optionalType = recursionCount < MaxRecursionCount ?
                 this.removeOptional().asStringInternal(recursionCount + 1) : '';
             return 'Optional[' + optionalType + ']';
         }
 
-        const unionTypeString = recursionCount < AsStringMaxRecursionCount ?
+        const unionTypeString = recursionCount < MaxRecursionCount ?
             this._types.map(t => t.asStringInternal(recursionCount + 1)).join(', ') : '';
 
         return 'Union[' + unionTypeString + ']';
+    }
+
+    requiresSpecialization(recursionCount = 0) {
+        return this._types.find(
+            type => type.requiresSpecialization(recursionCount + 1)) !== undefined;
     }
 }
 
@@ -958,9 +1042,14 @@ export class TupleType extends Type {
     }
 
     asStringInternal(recursionCount = 0): string {
-        let tupleTypeString = recursionCount < AsStringMaxRecursionCount ?
+        let tupleTypeString = recursionCount < MaxRecursionCount ?
             this._entryTypes.map(t => t.asStringInternal(recursionCount + 1)).join(', ') : '';
         return 'Tuple[' + tupleTypeString + ']';
+    }
+
+    requiresSpecialization(recursionCount = 0) {
+        return this._entryTypes.find(
+            type => type.requiresSpecialization(recursionCount + 1)) !== undefined;
     }
 }
 
@@ -1035,12 +1124,16 @@ export class TypeVarType extends Type {
             return this._name;
         } else {
             let params: string[] = [this._name];
-            if (recursionCount < AsStringMaxRecursionCount) {
+            if (recursionCount < MaxRecursionCount) {
                 for (let constraint of this._constraints) {
                     params.push(constraint.asStringInternal(recursionCount + 1));
                 }
             }
             return 'TypeVar[' + params.join(', ') + ']';
         }
+    }
+
+    requiresSpecialization(recursionCount = 0) {
+        return true;
     }
 }

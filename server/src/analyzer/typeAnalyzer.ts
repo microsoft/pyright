@@ -145,6 +145,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitFunction(node: FunctionNode): boolean {
         const isMethod = ParseTreeUtils.isFunctionInClass(node);
         this.walkMultiple(node.decorators);
+        let evaluator = this._getEvaluator();
 
         const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
         assert(functionType instanceof FunctionType);
@@ -177,11 +178,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (param.defaultValue) {
                     // Verify that the default value matches the type annotation.
                     let defaultValueType = this._getTypeOfExpression(param.defaultValue);
-                    if (annotatedType && !TypeUtils.canAssignType(annotatedType, defaultValueType)) {
-                        this._addError(
-                            `Value of type '${ defaultValueType.asString() }' cannot` +
-                            ` be assiged to parameter of type '${ annotatedType.asString() }'`,
-                            param.defaultValue);
+                    if (annotatedType) {
+                        const concreteAnnotatedType = TypeUtils.specializeType(annotatedType, undefined);
+                        if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType, undefined)) {
+                            this._addError(
+                                `Value of type '${ defaultValueType.asString() }' cannot` +
+                                ` be assiged to parameter of type '${ annotatedType.asString() }'`,
+                                param.defaultValue);
+                        }
                     }
                 }
 
@@ -337,7 +341,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Handle overload decorators specially.
         let overloadedType: OverloadedFunctionType | undefined;
-        let evaluator = this._getEvaluator();
         [overloadedType] = evaluator.getOverloadedFunctionType(node, outerFunctionType);
         if (overloadedType) {
             decoratedType = overloadedType;
