@@ -375,6 +375,13 @@ export class ClassType extends Type {
         return didParametersChange;
     }
 
+    isSameProtocol(type2: ClassType) {
+        assert(this.isProtocol());
+        assert(type2.isProtocol());
+
+        return this._classDetails === type2._classDetails;
+    }
+
     isSame(type2: Type): boolean {
         if (!super.isSame(type2)) {
             return false;

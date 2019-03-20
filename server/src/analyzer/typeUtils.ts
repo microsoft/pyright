@@ -75,7 +75,7 @@ export class TypeUtils {
             recursionCount = 0): boolean {
 
         if (recursionCount > MaxCanAssignTypeRecursion) {
-            return false;
+            return true;
         }
 
         if (srcType instanceof UnionType) {
@@ -278,12 +278,21 @@ export class TypeUtils {
     private static _canAssignClassType(destType: ClassType, srcType: ClassType,
             typeVarMap: TypeVarMap | undefined, recursionCount: number): boolean {
 
+        // Is it a structural type (i.e. a protocol)? If so, we need to
+        // perform a member-by-member check.
         if (destType.isProtocol()) {
             const destClassFields = destType.getClassFields();
+
+            // Some protocol definitions include recursive references to themselves.
+            // We need to protect against infinite recursion, so we'll check for that here.
+            if (srcType.isProtocol() && srcType.isSameProtocol(destType)) {
+                return true;
+            }
 
             let missingNames: string[] = [];
             let wrongTypes: string[] = [];
             let srcClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(srcType);
+            let destClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(destType);
 
             destClassFields.forEach((symbol, name) => {
                 const classMemberInfo = TypeUtils.lookUpClassMember(srcType, name, false);
@@ -292,8 +301,9 @@ export class TypeUtils {
                 } else {
                     if (symbol.declarations && symbol.declarations[0].declaredType) {
                         let destMemberType = symbol.declarations[0].declaredType;
+                        destMemberType = this.specializeType(destMemberType, destClassTypeVarMap);
                         let srcMemberType = TypeUtils.getEffectiveTypeOfMember(classMemberInfo);
-                        srcMemberType = this.specializeType(srcType, srcClassTypeVarMap);
+                        srcMemberType = this.specializeType(srcMemberType, srcClassTypeVarMap);
 
                         if (!TypeUtils.canAssignType(srcMemberType, destMemberType,
                                 typeVarMap, recursionCount + 1)) {

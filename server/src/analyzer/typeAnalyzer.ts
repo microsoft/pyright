@@ -199,7 +199,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     if (paramType instanceof UnknownType) {
                         const inferredClassType = AnalyzerNodeInfo.getExpressionType(classNode) as ClassType;
-                        if (inferredClassType) {
+
+                        // Don't specialize the "self" for protocol classes because type
+                        // comparisons will fail during structural typing analysis.
+                        if (inferredClassType && !inferredClassType.isProtocol()) {
                             const specializedClassType = TypeUtils.selfSpecializeClassType(inferredClassType);
 
                             if (functionType.isInstanceMethod()) {

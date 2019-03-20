@@ -822,6 +822,9 @@ export class ExpressionEvaluator {
             returnType = new ObjectType(type);
         }
 
+        // Make the type concrete if it wasn't already specialized.
+        returnType = TypeUtils.specializeType(returnType, undefined);
+
         return returnType;
     }
 
@@ -834,16 +837,9 @@ export class ExpressionEvaluator {
             returnType = this._validateFunctionArguments(node, callType);
         } else if (callType instanceof OverloadedFunctionType) {
             const overloadedFunctionType = this._findOverloadedFunctionType(callType, node);
-
             if (overloadedFunctionType) {
-                return overloadedFunctionType.getEffectiveReturnType();
+                returnType = overloadedFunctionType.getEffectiveReturnType();
             }
-
-            const exprString = ParseTreeUtils.printExpression(node.leftExpression);
-            this._addError(
-                `No overloads for '${ exprString }' match parameters`,
-                node.leftExpression);
-            return undefined;
         } else if (callType instanceof ClassType) {
             if (!callType.isSpecialBuiltIn()) {
                 returnType = this._validateConstructorArguments(node, callType);
@@ -882,6 +878,11 @@ export class ExpressionEvaluator {
             if (returnTypes.length > 0) {
                 returnType = TypeUtils.combineTypesArray(returnTypes);
             }
+        }
+
+        // Make the type concrete if it wasn't already specialized.
+        if (returnType) {
+            returnType = TypeUtils.specializeType(returnType, undefined);
         }
 
         return returnType;
