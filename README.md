@@ -10,7 +10,7 @@ Pyright is typically 5x or more faster than mypy and other type checkers that ar
 Pyright is written in TypeScript and runs within node. It does not require a Python environment or imported third-party packages to be installed. This is especially useful when used with the VS Code editor, which uses node as its extension runtime.
 
 ### Configurability
-Pyright supports flexible configuration that provides granular control over settings. Different “execution environments” can be specified for different subsets of a source base. Each environment can specify different PYTHON_PATH settings, python language version, and platform target.
+Pyright supports flexible [configuration]((/docs/configuration.md)) that provides granular control over settings. Different “execution environments” can be specified for different subsets of a source base. Each environment can specify different PYTHON_PATH settings, python language version, and platform target.
 
 ### Type Checking Features
 Pyright supports:
@@ -25,13 +25,18 @@ Pyright supports:
 Pyright includes a recent copy of the stdlib type stubs from [Typeshed](https://github.com/python/typeshed). It can be configured to use another (perhaps more recent or modified) copy of the Typeshed type stubs. Of course, it also works with custom type stub files that are part of your project.
 
 ### Command-line or Language Service
-Pyright includes both a command-line tool and a [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) plugin for VS Code.
+Pyright includes both a [command-line tool](/docs/command-line.md) and a [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) plugin for VS Code.
 
 ### Language Service Features
 Pyright offers the following language service features:
 
 * Hover tool tips that display type information
 * Links to symbol definitions
+
+
+## Documentation
+* [Command-line Options](/docs/command-line.md)
+* [Configuration](/docs/configuration.md)
 
 
 ## Limitations
@@ -78,7 +83,6 @@ To install in VS Code, go to the extensions panel and choose "Install from VSIX.
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
 * More complete documentation - especially for configuration options
-* Better validation of type variables used within generics
 * Type inference for generators and async functions
 * Support for type annotations within comments
 * Address the many TODO comments in the code
@@ -93,6 +97,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Flag assignments to read-only values (None, True, False, __debug__) as errors
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
 * Move error strings out of the main code files so they can be localized
+* Revamp support for properties - model with Descriptor protocol, detect missing setter
 
 
 ## Contributing
