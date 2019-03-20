@@ -15,7 +15,7 @@ Pyright supports flexible configuration that provides granular control over sett
 ### Type Checking Features
 Pyright supports:
 
-* [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints (currently missing support for generics)
+* [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
 * [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
 * Type inference for function return values, instance variables, class variables, and globals
@@ -78,25 +78,22 @@ To install in VS Code, go to the extensions panel and choose "Install from VSIX.
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
 * Support for generics
+* More complete documentation - especially for configuration options
 * Better validation of type variables used within generics
-* Type inference for Generators and async functions
+* Type inference for generators and async functions
 * Support for type annotations within comments
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)
-* Better handling of class decorators (don't ignore)
-* Parameter type inference based on default value assignment
-* More complete documentation - especially for configuration options
-* Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
-* Move error strings out of the main code files so they can be localized
 * Add lots of tests
 * Special-casing @abstract methods so they don't need to return the specified type
 * Validate that @abstract classes are not instantiated
-* Validate that __init__ always has None as return type
-* Validate parameters for other magic functions
+* Validate parameters for magic functions
 * Validate that overridden methods in subclass have same signature as base class methods
 * Verify that exception classes inherit from base Exception
 * Validate await / async consitency
 * Flag assignments to read-only values (None, True, False, __debug__) as errors
+* Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
+* Move error strings out of the main code files so they can be localized
 
 
 ## Contributing
