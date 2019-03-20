@@ -5,10 +5,15 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | Flag                               | Description                                          |
 | ---------------------------------- | ---------------------------------------------------- |
 | -h,--help                          | Show help message                                    |
-| -P,--python-path DIRECTORY         | Directory that contains the python environment       |
+| -P,--python-path DIRECTORY         | Directory that contains the python environment (1)   |
 | -p,--project FILE OR DIRECTORY     | Use the configuration file at this location          |
-| -t,--typeshed-path DIRECTORY       | Use typeshed type stubs at this location             |
-| -v,--venv-path DIRECTORY           | Directory that contains virtual environments         |
+| -t,--typeshed-path DIRECTORY       | Use typeshed type stubs at this location (2)         |
+| -v,--venv-path DIRECTORY           | Directory that contains virtual environments (3)     |
 | -w,--watch                         | Continue to run and watch for changes                |
+
+
+(1) This option is used to find imports if not using typeshed files or a configuration file with virtual environments.
+(2) Pyright has built-in typeshed type stubs for Python stdlib functionality. To use a different version of typeshed type stubs, specify the directory with this option.
+(3) This option is used in conjunction with configuration file, which can refer to different virtual environments by name. For more details, refer to the (configuration)[/docs/configuration.md] documentation.
 
 
