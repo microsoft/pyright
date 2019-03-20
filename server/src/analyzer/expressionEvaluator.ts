@@ -142,7 +142,6 @@ export class ExpressionEvaluator {
         let decoratedType: OverloadedFunctionType | undefined;
         let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
 
-        // TODO - make sure this overload decorator is the built-in one.
         if (ParseTreeUtils.functionHasDecorator(node, 'overload')) {
             let existingSymbol = this._scope.lookUpSymbol(node.name.nameToken.value);
             if (existingSymbol && existingSymbol.currentType instanceof OverloadedFunctionType) {
@@ -556,8 +555,6 @@ export class ExpressionEvaluator {
         const baseType = baseTypeResult.type;
         const typeArgs = this._getTypeArgs(node.indexExpression);
 
-        this._validateTypeArgs(typeArgs);
-
         if (baseType.isAny()) {
             type = baseType;
         } else if (baseType instanceof ClassType) {
@@ -590,11 +587,6 @@ export class ExpressionEvaluator {
         }
 
         return { type, node };
-    }
-
-    private _validateTypeArgs(typeArgs: TypeResult[]) {
-        // Make sure type args are reachable according to scoping rules.
-        // TODO - need to implement
     }
 
     private _getTypeArgs(node: ExpressionNode): TypeResult[] {

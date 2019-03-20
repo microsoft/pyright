@@ -96,6 +96,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let classType = AnalyzerNodeInfo.getExpressionType(node) as ClassType;
         assert(classType instanceof ClassType);
 
+        // Keep a list of unique type parameters that are used in the
+        // base class arguments.
+        let typeParameters: TypeVarType[] = [];
+
         node.arguments.forEach((arg, index) => {
             let argType = this._getTypeOfExpression(arg.valueExpression);
 
@@ -113,16 +117,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (classType.updateBaseClassType(index, argType)) {
                 this._setAnalysisChanged();
             }
+
+            // TODO - validate that we are not adding type parameters that
+            // are unique type vars but have conflicting names.
+            TypeUtils.addTypeVarsToListIfUnique(typeParameters,
+                TypeUtils.getTypeVarArgumentsRecursive(argType));
         });
 
         this.walkMultiple(node.arguments);
 
         // Update the type parameters for the class.
-        let typeParameters: TypeVarType[] = [];
-        classType.getBaseClasses().forEach(baseClass => {
-            TypeUtils.addTypeVarsToListIfUnique(typeParameters,
-                TypeUtils.getTypeVarArgumentsRecursive(baseClass.type));
-        });
         if (classType.setTypeParameters(typeParameters)) {
             this._setAnalysisChanged();
         }
