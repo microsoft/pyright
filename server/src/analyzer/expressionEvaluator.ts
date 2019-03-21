@@ -95,8 +95,18 @@ export class ExpressionEvaluator {
         return typeResult.type;
     }
 
-    getTypeFromClassMember(memberName: string, classType: ClassType): Type | undefined {
-        return this._getTypeFromClassMemberName(memberName, classType, MemberAccessFlags.None);
+    // Gets a member type from an object and if it's a function binds
+    // it to the object.
+    getTypeFromObjectMember(memberName: string, objectType: ObjectType): Type | undefined {
+        const memberType = this._getTypeFromClassMemberName(
+            memberName, objectType.getClassType(), MemberAccessFlags.None);
+
+        let resultType = memberType;
+        if (memberType instanceof FunctionType || memberType instanceof OverloadedFunctionType) {
+            resultType = this._bindFunctionToClassOrObject(objectType, memberType);
+        }
+
+        return resultType;
     }
 
     // Determines if the function node is a property accessor (getter, setter, deleter).
