@@ -78,22 +78,6 @@ export class TypeUtils {
             return true;
         }
 
-        if (recursionCount > MaxCanAssignTypeRecursion) {
-            return true;
-        }
-
-        if (srcType instanceof UnionType) {
-            // For union sources, all of the types need to be assignable to the dest.
-            return srcType.getTypes().find(
-                t => !this.canAssignType(destType, t, typeVarMap, recursionCount + 1)) === undefined;
-        }
-
-        if (destType instanceof UnionType) {
-            // For union destinations, we just need to match one of the types.
-            return destType.getTypes().find(
-                t => this.canAssignType(t, srcType, typeVarMap, recursionCount + 1)) !== undefined;
-        }
-
         if (srcType instanceof TypeVarType) {
             // This should happen only if we have a bug and forgot to specialize
             // the source type or the code being analyzed contains a bug where
@@ -115,6 +99,22 @@ export class TypeUtils {
 
             typeVarMap!.set(destType.getName(), srcType);
             return this._canAssignToTypeVar(destType, srcType);
+        }
+
+        if (recursionCount > MaxCanAssignTypeRecursion) {
+            return true;
+        }
+
+        if (srcType instanceof UnionType) {
+            // For union sources, all of the types need to be assignable to the dest.
+            return srcType.getTypes().find(
+                t => !this.canAssignType(destType, t, typeVarMap, recursionCount + 1)) === undefined;
+        }
+
+        if (destType instanceof UnionType) {
+            // For union destinations, we just need to match one of the types.
+            return destType.getTypes().find(
+                t => this.canAssignType(t, srcType, typeVarMap, recursionCount + 1)) !== undefined;
         }
 
         if (destType.category === TypeCategory.Unbound ||
