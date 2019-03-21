@@ -403,9 +403,6 @@ export class ExpressionEvaluator {
                 // TODO - deal with custom decorators in a better way
                 type = UnknownType.create();
             }
-        } else if (baseType instanceof TypeVarType) {
-            // TODO - remove once we support specialization
-            type = UnknownType.create();
         }
 
         if (!type) {
@@ -573,9 +570,6 @@ export class ExpressionEvaluator {
         } else if (baseType instanceof TupleType) {
             // TODO - need to implement
             type = UnknownType.create();
-        } else if (baseType instanceof TypeVarType) {
-            // TODO - delete once we add support for generics
-            type = UnknownType.create();
         }
 
         if (!type) {
@@ -737,9 +731,6 @@ export class ExpressionEvaluator {
                 type = TypeUtils.combineTypesArray(returnTypes);
             }
         } else if (callType.isAny()) {
-            type = UnknownType.create();
-        } else if (callType instanceof TypeVarType) {
-            // TODO - remove once we support generics
             type = UnknownType.create();
         }
 
