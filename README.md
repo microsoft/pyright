@@ -37,6 +37,7 @@ Pyright offers the following language service features:
 ## Documentation
 * [Command-line Options](/docs/command-line.md)
 * [Configuration](/docs/configuration.md)
+* [Getting Started](/docs/getting-started.md)
 
 
 ## Limitations
@@ -82,7 +83,6 @@ To install in VS Code, go to the extensions panel and choose "Install from VSIX.
 
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
-* More complete documentation - especially for configuration options
 * Type inference for generators and async functions
 * Support for type annotations within comments
 * Address the many TODO comments in the code

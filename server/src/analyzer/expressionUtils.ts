@@ -39,7 +39,8 @@ export class ExpressionUtils {
                 // Handle the special case of "sys.platform != 'X'"
                 let comparisonPlatform = node.rightExpression.getValue();
                 if (execEnv.pythonPlatform !== undefined) {
-                    return this._evaluateStringBinaryOperation(node.operator, execEnv.pythonPlatform, comparisonPlatform);
+                    return this._evaluateStringBinaryOperation(node.operator,
+                        execEnv.pythonPlatform, comparisonPlatform);
                 }
             }
         }
