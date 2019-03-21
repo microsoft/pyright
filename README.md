@@ -56,15 +56,15 @@ A: The Microsoft Python Language Server is a [language server protocol (LSP)](ht
 To build the project:
 1. Install [nodejs](https://nodejs.org/en/)
 2. Open terminal window in main directory of cloned source
-3. Execute "npm install" to download dependencies
-4. Execute "npm run build"
+3. Execute `npm install` to download dependencies
+4. Execute `npm run build`
 
 To build the VS Code extension package:
 Same as above, plus
-1. Execute "npm run package"
+1. Execute `npm run package`
 
 The resulting package (pyright-X.Y.Z.vsix) can be found in the client directory.
-To install in VS Code, go to the extensions panel and choose "Install from VSIX..." from the menu, then select the package.
+To install in VS Code, go to the extensions panel and choose “Install from VSIX...” from the menu, then select the package.
 
 
 ## Code Structure
