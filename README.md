@@ -15,11 +15,11 @@ Pyright supports flexible [configuration](/docs/configuration.md) that provides 
 ### Type Checking Features
 Pyright supports:
 
-* [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints
+* [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
 * [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
 * Type inference for function return values, instance variables, class variables, and globals
-* Smart conditional type exclusions
+* Smart type constraints that understand conditional code flow constructs like if/else statements
 
 ### Built-in Type Stubs
 Pyright includes a recent copy of the stdlib type stubs from [Typeshed](https://github.com/python/typeshed). It can be configured to use another (perhaps more recent or modified) copy of the Typeshed type stubs. Of course, it also works with custom type stub files that are part of your project.
@@ -32,6 +32,7 @@ Pyright offers the following language service features:
 
 * Hover tool tips that display type information
 * Links to symbol definitions
+* Smart priority queuing for “live” feedback during editing
 
 
 ## Documentation
@@ -88,6 +89,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)
 * Add lots of tests
+* Add support for type completion in VS Code extension
 * Special-casing @abstract methods so they don't need to return the specified type
 * Validate that @abstract classes are not instantiated
 * Validate parameters for magic functions
