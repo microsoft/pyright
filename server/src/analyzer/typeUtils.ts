@@ -74,18 +74,8 @@ export class TypeUtils {
     static canAssignType(destType: Type, srcType: Type, typeVarMap?: TypeVarMap,
             recursionCount = 0): boolean {
 
-        if (destType.isAny() || srcType.isAny()) {
-            return true;
-        }
-
-        if (srcType instanceof TypeVarType) {
-            // This should happen only if we have a bug and forgot to specialize
-            // the source type or the code being analyzed contains a bug where
-            // a return type uses a type var that is not referenced elswhere
-            // in a function.
-            return false;
-        }
-
+        // Before performing any other checks, see if the dest type is a
+        // TypeVar that we are attempting to match.
         if (destType instanceof TypeVarType) {
             // If the dest type includes type variables, it is not yet
             // specialized, so the caller should have provided a typeVarMap.
@@ -99,6 +89,18 @@ export class TypeUtils {
 
             typeVarMap!.set(destType.getName(), srcType);
             return this._canAssignToTypeVar(destType, srcType);
+        }
+
+        if (srcType instanceof TypeVarType) {
+            // This should happen only if we have a bug and forgot to specialize
+            // the source type or the code being analyzed contains a bug where
+            // a return type uses a type var that is not referenced elswhere
+            // in a function.
+            return false;
+        }
+
+        if (destType.isAny() || srcType.isAny()) {
+            return true;
         }
 
         if (recursionCount > MaxCanAssignTypeRecursion) {
