@@ -7,7 +7,7 @@
     "author": {
         "name": "Microsoft Corporation"
     },
-    "publisher": "Microsoft",
+    "publisher": "ms-pyright",
     "repository": {
         "type": "git",
         "url": "https://github.com/Microsoft/pyright"
