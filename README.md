@@ -53,7 +53,7 @@ A: The Python VS Code plugin is the official Python support extension for VS Cod
 
 Q: What is the difference between pyright and the [Microsoft Python Language Server](https://github.com/Microsoft/python-language-server)?
 
-A: The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python VS Code plugin. It also provides type checking capabilities. Pyright provides overlapping functionality but includes some unique features such as more configurabilty, command-line execution, and better performance.
+A: The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python VS Code plugin, and it is officially supported by a team of Microsoft engineers. It also provides type checking capabilities. Pyright provides overlapping functionality but includes some unique features such as more configurabilty, command-line execution, and better performance.
 
 
 ## Installation
@@ -91,8 +91,9 @@ To install in VS Code, go to the extensions panel and choose “Install from VSI
 
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
+* Add enforcement of covariance and contravariance
 * Type inference for generators and async functions
-* Support for type annotations within comments
+* Support for old-style type annotations within comments
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)
 * Add lots of tests
@@ -104,9 +105,9 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Verify that exception classes inherit from base Exception
 * Validate await / async consitency
 * Flag assignments to read-only values (None, True, False, __debug__) as errors
+* Revamp support for properties - model with Descriptor protocol, detect missing setter
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
 * Move error strings out of the main code files so they can be localized
-* Revamp support for properties - model with Descriptor protocol, detect missing setter
 
 
 ## Contributing
