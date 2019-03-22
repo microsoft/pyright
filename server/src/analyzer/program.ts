@@ -282,8 +282,9 @@ export class Program {
                 let importMap: ImportMap = {};
                 for (let importedFileInfo of fileToAnalyze.imports) {
                     let parseResults = importedFileInfo.sourceFile.getParseResults();
-                    assert(parseResults !== undefined);
-                    importMap[importedFileInfo.sourceFile.getFilePath()] = parseResults!;
+                    if (parseResults) {
+                        importMap[importedFileInfo.sourceFile.getFilePath()] = parseResults;
+                    }
                 }
 
                 // Do a type analysis pass and determine if any internal changes occurred
