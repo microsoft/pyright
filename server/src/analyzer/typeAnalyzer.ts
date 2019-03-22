@@ -818,21 +818,25 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         const moduleFields = moduleType!.getFields();
                         let importedModule = this._fileInfo.importMap[implicitImport.path];
 
-                        let declaration: Declaration = {
-                            category: SymbolCategory.Module,
-                            node: importedModule.parseTree,
-                            path: implicitImport.path,
-                            range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 }}
-                        };
+                        if (importedModule) {
+                            let declaration: Declaration = {
+                                category: SymbolCategory.Module,
+                                node: importedModule.parseTree,
+                                path: implicitImport.path,
+                                range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 }}
+                            };
 
-                        let newSymbol = new Symbol(implicitModuleType, DefaultTypeSourceId);
-                        newSymbol.declarations = [declaration];
-                        moduleFields.set(implicitImport.name, newSymbol);
+                            let newSymbol = new Symbol(implicitModuleType, DefaultTypeSourceId);
+                            newSymbol.declarations = [declaration];
+                            moduleFields.set(implicitImport.name, newSymbol);
+                        }
                     }
                 });
 
                 let moduleDeclaration: Declaration | undefined;
-                if (this._fileInfo.importMap[resolvedPath]) {
+                if (this._fileInfo.importMap[resolvedPath] &&
+                        this._fileInfo.importMap[resolvedPath].parseTree) {
+
                     moduleDeclaration = AnalyzerNodeInfo.getDeclaration(
                         this._fileInfo.importMap[resolvedPath].parseTree);
                 }
@@ -887,7 +891,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     let implicitImport = importInfo!.implicitImports.find(impImport => impImport.name === name);
                     if (implicitImport) {
                         let moduleType = this._getModuleTypeForImportPath(importInfo, implicitImport.path);
-                        if (moduleType) {
+                        if (moduleType &&
+                                this._fileInfo.importMap[implicitImport.path] &&
+                                this._fileInfo.importMap[implicitImport.path].parseTree) {
+
                             symbolType = moduleType;
                             declaration = AnalyzerNodeInfo.getDeclaration(
                                 this._fileInfo.importMap[implicitImport.path].parseTree);

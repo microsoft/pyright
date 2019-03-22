@@ -79,15 +79,16 @@ export class TypeUtils {
         if (destType instanceof TypeVarType) {
             // If the dest type includes type variables, it is not yet
             // specialized, so the caller should have provided a typeVarMap.
-            assert(typeVarMap);
+            if (typeVarMap) {
+                const existingTypeVarMapping = typeVarMap.get(destType.getName());
+                if (existingTypeVarMapping) {
+                    return this.canAssignType(existingTypeVarMapping, srcType,
+                        typeVarMap, recursionCount + 1);
+                }
 
-            const existingTypeVarMapping = typeVarMap!.get(destType.getName());
-            if (existingTypeVarMapping) {
-                return this.canAssignType(existingTypeVarMapping, srcType,
-                    typeVarMap, recursionCount + 1);
+                typeVarMap.set(destType.getName(), srcType);
             }
 
-            typeVarMap!.set(destType.getName(), srcType);
             return this._canAssignToTypeVar(destType, srcType);
         }
 
