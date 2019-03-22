@@ -39,6 +39,7 @@ Pyright offers the following language service features:
 * [Command-line Options](/docs/command-line.md)
 * [Configuration](/docs/configuration.md)
 * [Getting Started](/docs/getting-started.md)
+* [Pyright Internals](/docs/internals.md)
 
 
 ## Limitations
