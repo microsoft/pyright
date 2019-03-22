@@ -1,7 +1,7 @@
 {
     "name": "pyright",
     "displayName": "Pyright",
-    "description": "VS Code language support for Python",
+    "description": "VS Code language support and type checking for Python",
     "version": "1.0.0",
     "licensce": "MIT",
     "author": {
@@ -24,6 +24,7 @@
     "activationEvents": [
         "onLanguage:python"
     ],
+    "icon": "images/pyright-icon.png",
     "main": "./out/src/extension",
     "contributes": {
         "languages": [
