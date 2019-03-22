@@ -96,7 +96,7 @@ export class TruthyTypeConstraint extends TypeConstraint {
                 }
             } else {
                 if (type instanceof UnionType) {
-                    let remainingTypes = type.getTypes().filter(t => !(t instanceof NoneType));
+                    let remainingTypes = type.getTypes().filter(t => TypeUtils.canBeFalsy(t));
                     if (remainingTypes.length === 0) {
                         // TODO - we may want to return a "never" type in
                         // this case to indicate that the condition will

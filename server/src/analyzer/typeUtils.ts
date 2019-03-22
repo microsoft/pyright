@@ -231,6 +231,29 @@ export class TypeUtils {
         return false;
     }
 
+    // None is always falsy. All other types are generally truthy
+    // unless they are objects that support the __nonzero__ or __len__
+    // methods.
+    static canBeFalsy(type: Type): boolean {
+        if (type instanceof NoneType) {
+            return true;
+        }
+
+        if (type instanceof ObjectType) {
+            const lenMethod = this.lookUpObjectMember(type, '__len__');
+            if (lenMethod) {
+                return true;
+            }
+
+            const nonZeroMethod = this.lookUpObjectMember(type, '__nonzero__');
+            if (nonZeroMethod) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static _canAssignFunction(destType: FunctionType, srcType: FunctionType,
             typeVarMap: TypeVarMap | undefined, recursionCount: number): boolean {
 
@@ -707,6 +730,11 @@ export class TypeUtils {
         }
     }
 
+    // Walks the type recursively (in a depth-first manner), finds all
+    // type variables that are referenced, and returns an ordered list
+    // of unique type variables. For example, if the type is
+    // Union[List[Dict[_T1, _T2]], _T1, _T3], the result would be
+    // [_T1, _T2, _T3].
     static getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
         let getTypeVarsFromClass = (classType: ClassType) => {
             let combinedList: TypeVarType[] = [];
@@ -758,6 +786,10 @@ export class TypeUtils {
         return type.clone(true);
     }
 
+    // Builds a mapping between type parameters and their specialized
+    // types. For example, if the generic type is Dict[_T1, _T2] and the
+    // specialized type is Dict[str, int], it returns a map that associates
+    // _T1 with str and _T2 with int.
     static buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeVarMap {
         let typeArgMap = new TypeVarMap();
 
