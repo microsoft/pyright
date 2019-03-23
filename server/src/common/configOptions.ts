@@ -233,7 +233,10 @@ export class ConfigOptions {
 
     private _convertDiagnosticLevel(value: any, fieldName: string,
             defaultValue: DiagnosticLevel): DiagnosticLevel {
-        if (typeof value === 'boolean') {
+
+        if (value === undefined) {
+            return defaultValue;
+        } else if (typeof value === 'boolean') {
             return value ? 'error' : 'none';
         } else if (typeof value === 'string') {
             if (value === 'error' || value === 'warn' || value === 'none') {
