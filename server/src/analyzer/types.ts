@@ -974,6 +974,17 @@ export class UnionType extends Type {
         return newUnion;
     }
 
+    // Eliminates any "Unknown" elements from the union.
+    removeUnknown(): Type {
+        let simplifiedTypes = this._types.filter(t => t.category !== TypeCategory.Unknown);
+        if (simplifiedTypes.length === 1) {
+            return simplifiedTypes[0];
+        }
+        let newUnion = new UnionType();
+        newUnion.addTypes(simplifiedTypes);
+        return newUnion;
+    }
+
     isSame(type2: Type): boolean {
         if (!(type2 instanceof UnionType)) {
             return false;

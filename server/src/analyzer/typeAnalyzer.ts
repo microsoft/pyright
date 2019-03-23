@@ -44,6 +44,19 @@ interface EnumClassInfo {
     valueType: Type;
 }
 
+// At some point, we'll cut off the analysis passes and assume
+// we're making no forward progress. This should happen only
+// on the case of bugs in the analyzer.
+const MaxAnalysisPassCount = 100;
+
+// There are rare circumstances where we can get into a "beating
+// pattern" where one variable is assigned to another in one pass
+// and the second assigned to the first in the second pass and
+// they both contain an "unknown" in their union. In this case,
+// we will never converge. Look for this particular case after
+// several analysis passes.
+const CheckForBeatingUnknownPassCount = 16;
+
 export class TypeAnalyzer extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
@@ -83,6 +96,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
         AnalyzerNodeInfo.setDeclaration(this._moduleNode, declaration);
 
         this.walk(this._moduleNode);
+
+        // If we've already analyzed the file the max number of times,
+        // just give up and admit defeat. This should happen only in
+        // the case of analyzer bugs.
+        if (this._analysisVersion >= MaxAnalysisPassCount) {
+            this._fileInfo.console.log(
+                `Hit max analysis pass count for ${ this._fileInfo.filePath }`);
+            return true;
+        }
 
         return this._didAnalysisChange;
     }
@@ -1202,14 +1224,30 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return evaluator.getType(node, EvaluatorFlags.None);
     }
 
-    private _updateExpressionTypeForNode(node: ParseNode, exprType: Type) {
+    private _updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
         let oldType = AnalyzerNodeInfo.getExpressionType(node);
         AnalyzerNodeInfo.setExpressionTypeVersion(node, this._analysisVersion);
 
         if (!oldType || !oldType.isSame(exprType)) {
-            AnalyzerNodeInfo.setExpressionType(node, exprType);
+            let replaceType = true;
 
-            this._setAnalysisChanged();
+            // In rare cases, we can run into a situation where an "unknown"
+            // is passed back and forth between two variables, preventing
+            // us from ever converging. Detect this rare condition here.
+            if (this._analysisVersion > CheckForBeatingUnknownPassCount) {
+                if (oldType && exprType instanceof UnionType) {
+                    let simplifiedExprType = exprType.removeUnknown();
+                    if (oldType.isSame(simplifiedExprType)) {
+                        replaceType = false;
+                    }
+                }
+            }
+
+            if (replaceType) {
+                AnalyzerNodeInfo.setExpressionType(node, exprType);
+
+                this._setAnalysisChanged();
+            }
         }
     }
 
