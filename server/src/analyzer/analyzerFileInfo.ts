@@ -8,6 +8,7 @@
 */
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ConsoleInterface } from '../common/console';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -28,4 +29,5 @@ export interface AnalyzerFileInfo {
     isStubFile: boolean;
     isTypingStubFile: boolean;
     isCollectionsStubFile: boolean;
+    console: ConsoleInterface;
 }

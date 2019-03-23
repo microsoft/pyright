@@ -446,7 +446,8 @@ export class SourceFile {
             filePath: this._filePath,
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
-            isCollectionsStubFile: this._isCollectionsStubFile
+            isCollectionsStubFile: this._isCollectionsStubFile,
+            console: this._console
         };
         return fileInfo;
     }
