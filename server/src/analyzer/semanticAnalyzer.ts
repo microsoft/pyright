@@ -1000,6 +1000,7 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
         assert(classType instanceof ClassType);
         this._bindNameToType('__class__', classType!);
         this._bindNameToType('__dict__', AnyType.create());
+        this._bindNameToType('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         this._bindNameToType('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
     }
 }
