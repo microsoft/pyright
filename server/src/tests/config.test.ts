@@ -105,15 +105,11 @@ test('FindExecEnv1', () => {
     configOptions.executionEnvironments.push(execEnv1);
     let execEnv2 = new ExecutionEnvironment('src');
     configOptions.executionEnvironments.push(execEnv2);
-    let execEnv3 = new ExecutionEnvironment();
-    configOptions.executionEnvironments.push(execEnv3);
 
     let file1 = combinePaths(process.cwd(), 'src/foo/bar.py');
     assert.equal(configOptions.findExecEnvironment(file1), execEnv1);
     let file2 = combinePaths(process.cwd(), 'src/foo2/bar.py');
     assert.equal(configOptions.findExecEnvironment(file2), execEnv2);
-    let file3 = combinePaths(process.cwd(), 'src2/foo2/bar.py');
-    assert.equal(configOptions.findExecEnvironment(file3), execEnv3);
 
     // If none of the execution environments matched, we should get
     // a default environment with the root equal to that of the config.

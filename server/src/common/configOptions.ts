@@ -14,7 +14,7 @@ import { LatestStablePythonVersion, PythonVersion, versionFromString } from './p
 
 export class ExecutionEnvironment {
     // Default to "." which indicates every file in the project.
-    constructor(root = '.', defaultPythonVersion?: PythonVersion, defaultPythonPlatform?: string) {
+    constructor(root: string, defaultPythonVersion?: PythonVersion, defaultPythonPlatform?: string) {
         this.root = root;
         this.pythonVersion = defaultPythonVersion || LatestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
@@ -107,7 +107,7 @@ export class ConfigOptions {
         });
 
         if (!execEnv) {
-            execEnv = new ExecutionEnvironment(normalizePath(getDirectoryPath(filePath)),
+            execEnv = new ExecutionEnvironment(this.projectRoot,
                 this.defaultPythonVersion, this.defaultPythonPlatform);
         }
 
@@ -251,8 +251,8 @@ export class ConfigOptions {
     private _initExecutionEnvironmentFromJson(envObj: any, index: number,
             console: ConsoleInterface): ExecutionEnvironment | undefined {
         try {
-            let newExecEnv = new ExecutionEnvironment('.', this.defaultPythonVersion,
-                this.defaultPythonPlatform);
+            let newExecEnv = new ExecutionEnvironment(this.projectRoot,
+                this.defaultPythonVersion, this.defaultPythonPlatform);
 
             // Validate the root.
             if (envObj.root && typeof envObj.root === 'string') {
