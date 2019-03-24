@@ -1356,12 +1356,18 @@ export class ExpressionEvaluator {
             listTypes.push(this._getTypeFromExpression(expr, EvaluatorFlags.None));
         });
 
-        let type = ScopeUtils.getBuiltInType(this._scope, 'list') as ClassType;
-        // TODO - infer list type from listTypes
-        type = type.cloneForSpecialization([]);
+        let type = ScopeUtils.getBuiltInType(this._scope, 'list');
 
-        // List literals are always objects, not classes.
-        let convertedType = this._convertClassToObject(type, EvaluatorFlags.ConvertClassToObject);
+        let convertedType: Type;
+        if (type instanceof ClassType) {
+            // TODO - infer list type from listTypes
+            type = type.cloneForSpecialization([]);
+
+            // List literals are always objects, not classes.
+            convertedType = this._convertClassToObject(type, EvaluatorFlags.ConvertClassToObject);
+        } else {
+            convertedType = UnknownType.create();
+        }
 
         return { type: convertedType, node };
     }
@@ -1379,10 +1385,15 @@ export class ExpressionEvaluator {
         }
 
         let type = ScopeUtils.getBuiltInType(this._scope, 'set') as ClassType;
-        // TODO - infer set type
-        type = type.cloneForSpecialization([]);
+        let convertedType: Type;
+        if (type instanceof ClassType) {
+            // TODO - infer set type
+            type = type.cloneForSpecialization([]);
 
-        let convertedType = this._convertClassToObject(type, flags);
+            convertedType = this._convertClassToObject(type, flags);
+        } else {
+            convertedType = UnknownType.create();
+        }
 
         return { type: convertedType, node };
     }
