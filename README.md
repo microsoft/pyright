@@ -64,7 +64,7 @@ You can install the latest-published version of the Pyright VS Code extension di
 To build the project:
 1. Install [nodejs](https://nodejs.org/en/)
 2. Open terminal window in main directory of cloned source
-3. Execute `npm install` to download dependencies
+3. Execute `npm run install:all` to install dependencies
 4. Execute `npm run build`
 
 To build the VS Code extension package:

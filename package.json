@@ -2,7 +2,7 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "Type checker for the Python language",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
@@ -13,13 +13,13 @@
         "url": "https://github.com/Microsoft/pyright"
     },
     "scripts": {
-        "postinstall": "cd server && npm install && cd ../client && npm install && cd ..",
+        "install:all": "npm install && cd server && npm install && cd ../client && npm install && cd ..",
         "build": "npm run build:client && npm run build:server",
         "build:client": "cd client && npm run build && cd ..",
         "build:server": "cd server && npm run build && cd ..",
         "build:analyzer": "cd server && npm run build:analyzer && cd ..",
         "build:pyright": "cd server && npm run build:pyright && cd ..",
-        "package": "npm run build && cd client && npx vsce package && cd .."
+        "package": "npm run install:all && npm run build && cd client && npx vsce package && cd .."
     },
     "devDependencies": {
         "@types/mocha": "^5.2.5",
