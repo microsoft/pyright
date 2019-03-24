@@ -153,6 +153,14 @@ export class TypeUtils {
                     if (destClassName === 'type') {
                         return true;
                     }
+
+                    if (destClassName === 'Type') {
+                        const destTypeArgs = destClassType.getTypeArguments();
+                        if (destTypeArgs && destTypeArgs.length >= 1 && destTypeArgs[0] instanceof Type) {
+                            return this.canAssignType(destTypeArgs[0] as Type,
+                                new ObjectType(srcType), typeVarMap, recursionCount + 1);
+                        }
+                    }
                 }
             }
 

@@ -408,11 +408,10 @@ export class ExpressionEvaluator {
         } else if (baseType instanceof PropertyType) {
             // TODO - need to come up with new strategy for properties
             type = UnknownType.create();
-        } else if (baseType instanceof FunctionType) {
-            if (baseType.hasCustomDecorators()) {
-                // TODO - deal with custom decorators in a better way
-                type = UnknownType.create();
-            }
+        } else if (baseType instanceof FunctionType || baseType instanceof OverloadedFunctionType) {
+            // TODO - not yet sure what to do about members of functions,
+            // which have associated dictionaries.
+            type = UnknownType.create();
         }
 
         if (!type) {
@@ -784,7 +783,7 @@ export class ExpressionEvaluator {
                 MemberAccessFlags.SkipBaseClasses);
         if (constructorMethodType) {
             constructorMethodType = this._bindFunctionToClassOrObject(
-                undefined, constructorMethodType);
+                type, constructorMethodType);
             returnType = this._validateCallArguments(node, constructorMethodType);
             if (returnType instanceof UnknownType) {
                 returnType = new ObjectType(type);
@@ -895,13 +894,6 @@ export class ExpressionEvaluator {
         node.arguments.forEach(arg => {
             this.getType(arg.valueExpression, EvaluatorFlags.None);
         });
-
-        // If the function has decorators, we need to back off because the decorator
-        // parameter lists may differ from those of the function.
-        // TODO - improve this
-        if (type.hasCustomDecorators()) {
-            return UnknownType.create();
-        }
 
         // The last parameter might be a var arg dictionary. If so, strip it off.
         let hasVarArgDictParam = typeParams.find(
@@ -1453,26 +1445,6 @@ export class ExpressionEvaluator {
         return this._convertClassToObject(type, flags);
 }
 
-    // Creates a Type type annotation.
-    private _createTypeType(errorNode: ExpressionNode, typeArgs: TypeResult[]): Type {
-        if (typeArgs.length !== 1) {
-            this._addError(`Expected one type parameter after Type`, errorNode);
-            return UnknownType.create();
-        }
-
-        let type = typeArgs[0].type;
-        if (type instanceof ObjectType) {
-            return type.getClassType();
-        } else if (type instanceof TypeVarType) {
-            // TODO - need to find a way to encode "type of" typeVar
-            return type;
-        } else if (!type.isAny()) {
-            this._addError('Expected type argument after Type', errorNode);
-        }
-
-        return UnknownType.create();
-    }
-
     private _createSpecialType(classType: ClassType, typeArgs: TypeResult[],
             flags: EvaluatorFlags, paramLimit?: number): Type {
 
@@ -1621,7 +1593,7 @@ export class ExpressionEvaluator {
                 }
 
                 case 'Type': {
-                    return this._createTypeType(errorNode, typeArgs);
+                    return this._createSpecialType(classType, typeArgs, flags, 1);
                 }
 
                 case 'ClassVar': {
@@ -1658,12 +1630,6 @@ export class ExpressionEvaluator {
                     }
                     return this._createGenericType(errorNode, classType, typeArgs);
             }
-        }
-
-        if (classType === ScopeUtils.getBuiltInType(this._scope, 'type')) {
-            // The built-in 'type' class isn't defined as a generic class.
-            // It needs to be special-cased here.
-            return this._createTypeType(errorNode, typeArgs);
         }
 
         let specializedType = this._createSpecializedClassType(classType, typeArgs);

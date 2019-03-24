@@ -206,26 +206,28 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
     visitFunction(node: FunctionNode): boolean {
         const isMethod = ParseTreeUtils.isFunctionInClass(node);
+        let hasCustomDecorators = false;
 
         let functionFlags = FunctionTypeFlags.None;
         if (node.decorators.length > 0) {
-            functionFlags |= FunctionTypeFlags.HasCustomDecorators;
+            hasCustomDecorators = true;
         }
+
         if (isMethod) {
             if (ParseTreeUtils.functionHasDecorator(node, 'staticmethod')) {
-                functionFlags &= ~FunctionTypeFlags.HasCustomDecorators;
+                hasCustomDecorators = false;
             } else if (ParseTreeUtils.functionHasDecorator(node, 'classmethod')) {
                 functionFlags |= FunctionTypeFlags.ClassMethod;
-                functionFlags &= ~FunctionTypeFlags.HasCustomDecorators;
+                hasCustomDecorators = false;
             } else {
                 functionFlags |= FunctionTypeFlags.InstanceMethod;
             }
         }
 
-        // The "__new__" magic method is not an instance method. It acts
-        // as a class method instead.
+        // The "__new__" magic method is not an instance method.
+        // It acts as a class method instead.
         if (node.name.nameToken.value === '__new__') {
-            functionFlags |= ~FunctionTypeFlags.ClassMethod;
+            functionFlags |= FunctionTypeFlags.ClassMethod;
             functionFlags &= ~FunctionTypeFlags.InstanceMethod;
         }
 
@@ -255,15 +257,15 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let evaluator = new ExpressionEvaluator(this._currentScope);
         [overloadedType, warnIfDuplicate] = evaluator.getOverloadedFunctionType(node, functionType);
         if (overloadedType) {
-            functionType.clearHasCustomDecoratorsFlag();
             decoratedType = overloadedType;
+            hasCustomDecorators = false;
         } else {
             // Determine if the function is a property getter or setter.
             if (ParseTreeUtils.isFunctionInClass(node)) {
                 let propertyType = evaluator.getPropertyType(node, functionType);
                 if (propertyType) {
-                    functionType.clearHasCustomDecoratorsFlag();
                     decoratedType = propertyType;
+                    hasCustomDecorators = false;
 
                     // Allow setters or deleters to replace the getter.
                     warnIfDuplicate = false;
@@ -271,6 +273,12 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                     this._validateMethod(node);
                 }
             }
+        }
+
+        if (hasCustomDecorators) {
+            // TODO - handle decorators in a better way. For now, we
+            // don't assume anything about the decorated type.
+            decoratedType = UnknownType.create();
         }
 
         let declaration: Declaration = {
@@ -739,6 +747,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             if (targetNode instanceof NameNode) {
                 const nameValue = targetNode.nameToken.value;
 
+                // TODO - we shouldn't rely on these names, which are just conventions.
                 if (nameValue === 'self') {
                     this._bindMemberVariable(node.memberName, true);
                 } else if (nameValue === 'cls' || nameValue === 'metacls') {

@@ -555,8 +555,7 @@ export enum FunctionTypeFlags {
     None = 0,
     InstanceMethod = 1,
     ClassMethod = 2,
-    StaticMethod = 4,
-    HasCustomDecorators = 8
+    StaticMethod = 4
 }
 
 interface FunctionDetails {
@@ -725,14 +724,6 @@ export class FunctionType extends Type {
         }
 
         return this._functionDetails.inferredYieldType.getType();
-    }
-
-    hasCustomDecorators(): boolean {
-        return (this._functionDetails.flags & FunctionTypeFlags.HasCustomDecorators) !== 0;
-    }
-
-    clearHasCustomDecoratorsFlag() {
-        this._functionDetails.flags &= ~FunctionTypeFlags.HasCustomDecorators;
     }
 
     asStringInternal(recursionCount = 0): string {

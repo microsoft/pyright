@@ -172,6 +172,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const isMethod = ParseTreeUtils.isFunctionInClass(node);
         this.walkMultiple(node.decorators);
         let evaluator = this._getEvaluator();
+        let hasCustomDecorators = false;
 
         const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
         assert(functionType instanceof FunctionType);
@@ -180,6 +181,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Stash away the name of the function since we need to handle
             // 'namedtuple' specially.
             functionType.setBuiltInName(node.name.nameToken.value);
+        }
+
+        if (node.decorators.length > 0) {
+            hasCustomDecorators = true;
+        }
+
+        if (isMethod) {
+            if (ParseTreeUtils.functionHasDecorator(node, 'staticmethod')) {
+                hasCustomDecorators = false;
+            } else if (ParseTreeUtils.functionHasDecorator(node, 'classmethod')) {
+                hasCustomDecorators = false;
+            }
         }
 
         node.parameters.forEach((param, index) => {
@@ -375,14 +388,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
         [overloadedType] = evaluator.getOverloadedFunctionType(node, outerFunctionType);
         if (overloadedType) {
             decoratedType = overloadedType;
+            hasCustomDecorators = false;
         } else {
             // Determine if the function is a property getter or setter.
             if (ParseTreeUtils.isFunctionInClass(node)) {
                 let propertyType = evaluator.getPropertyType(node, outerFunctionType);
                 if (propertyType) {
                     decoratedType = propertyType;
+                    hasCustomDecorators = false;
                 }
             }
+        }
+
+        if (hasCustomDecorators) {
+            // TODO - handle decorators in a better way. For now, we
+            // don't assume anything about the decorated type.
+            decoratedType = UnknownType.create();
         }
 
         let declaration: Declaration = {
@@ -1257,6 +1278,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             // Handle member accesses (e.g. self.x or cls.y).
             if (targetNode instanceof NameNode) {
+                // TODO - we shouldn't rely on these names, which are just conventions.
                 if (targetNode.nameToken.value === 'self') {
                     this._bindMemberVariableToType(target, type, true);
                 } else if (targetNode.nameToken.value === 'cls') {
