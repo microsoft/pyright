@@ -149,7 +149,8 @@ function _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
         let severity = diag.category === DiagnosticCategory.Error ?
             DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
 
-        return Diagnostic.create(_convertRange(diag.range), diag.message, severity);
+        return Diagnostic.create(_convertRange(diag.range), diag.message, severity,
+            undefined, 'pyright');
     });
 }
 
