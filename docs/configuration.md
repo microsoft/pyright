@@ -1,6 +1,6 @@
 # Pyright Configuration
 
-Pyright offers flexible configuration options specified in a JSON-formatted text configuration. By default, the file is called "pyrightconfig.json" and is located within the root directory of your project. Relative paths specified within the config file are relative to the config file’s location.
+Pyright offers flexible configuration options specified in a JSON-formatted text configuration. By default, the file is called "pyrightconfig.json" and is located within the root directory of your project. Relative paths specified within the config file are relative to the config file’s location. Paths with shell variables (including `~`) are not supported.
 
 ## Master Pyright Config Options
 
@@ -34,13 +34,13 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 
 ## Execution Environment Options
-Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with a different PYTHON_PATH or a different version of the python interpreter than the rest of the source base.
+Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with a different PYTHONPATH or a different version of the python interpreter than the rest of the source base.
 
 The following settings can be specified for each execution environment.
 
 **root** [string, required]: Root path for the code that will execute within this execution environment.
 
-**extraPaths** [array of strings, optional]: Additional search paths (in addition to the root path) that will be used when searching for packages. At runtime, these will be specified in the PYTHON_PATH environment variable.
+**extraPaths** [array of strings, optional]: Additional search paths (in addition to the root path) that will be used when searching for packages. At runtime, these will be specified in the PYTHONPATH environment variable.
 
 **venv** [string, optional]: The virtual environment to use for this execution environment. If not specified, the global `venv` setting is used instead.
 
