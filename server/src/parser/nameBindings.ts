@@ -8,7 +8,7 @@
 * function or lambda). Note that only the the names are tracked here, not
 * the values to which they are bound at runtime. By default, names declared
 * within a scope (via a parameter, assignment, class, or function) have local
-* binding. This default can be overriden through the use of a "global"
+* binding. This default can be overridden through the use of a "global"
 * or "nonlocal" statement, as long as that statement comes before an implied
 * local binding within the block. It is an error condition for a name to have
 * inconsistent bindings, and this module is used to detect that condition.

@@ -61,7 +61,7 @@ export class AnalyzerNodeInfo {
 
     //---------------------------------------------------------------
 
-    // Cleans out all fields that are added by the anlyzer phases
+    // Cleans out all fields that are added by the analyzer phases
     // (after the post-parse walker).
     static cleanNodeAnalysisInfo(node: ParseNode) {
         const analyzerNode = node as AnalyzerNodeInfo;

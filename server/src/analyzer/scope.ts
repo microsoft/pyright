@@ -5,7 +5,7 @@
 * Author: Eric Traut
 *
 * Represents a symbolic scope and its defined symbols. Unlike
-* a "Namesspace", a scope object tracks dynamic (runtime)
+* a "Namespace", a scope object tracks dynamic (runtime)
 * bindings between names types. The analyzer stores these types
 * in the scope as it walks through the program, effective doing
 * what the Python interpreter will do.

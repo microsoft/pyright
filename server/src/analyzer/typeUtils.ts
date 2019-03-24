@@ -95,7 +95,7 @@ export class TypeUtils {
         if (srcType instanceof TypeVarType) {
             // This should happen only if we have a bug and forgot to specialize
             // the source type or the code being analyzed contains a bug where
-            // a return type uses a type var that is not referenced elswhere
+            // a return type uses a type var that is not referenced elsewhere
             // in a function.
             return false;
         }
@@ -606,7 +606,7 @@ export class TypeUtils {
     }
 
     // Looks up a member in a class using the multiple-inheritance rules
-    // defined by Python. For more detials, see this note on method resolution
+    // defined by Python. For more details, see this note on method resolution
     // order: https://www.python.org/download/releases/2.3/mro/.
     static lookUpClassMember(classType: Type, memberName: string,
             includeInstanceFields = true, searchBaseClasses = true): ClassMember | undefined {

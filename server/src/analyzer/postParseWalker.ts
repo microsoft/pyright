@@ -4,7 +4,7 @@
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* A parse tree walker that's used immediatley after generating
+* A parse tree walker that's used immediately after generating
 * the parse tree, effectively as an extension of the parser.
 * It does the following:
 *   Adds parent links to all parse tree nodes

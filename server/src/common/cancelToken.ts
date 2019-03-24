@@ -5,7 +5,7 @@
 * Author: Eric Traut
 *
 * A simple class that allows a caller to cancel an async operation.
-* The async operation needs to cooperatively check for cancelation.
+* The async operation needs to cooperatively check for cancellation.
 */
 
 export class CancelError extends Error {

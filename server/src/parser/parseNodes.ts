@@ -4,7 +4,7 @@
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* Definition of parse nodes that make up the Python asbtract
+* Definition of parse nodes that make up the Python abstract
 * syntax tree (AST).
 */
 

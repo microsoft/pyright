@@ -91,7 +91,7 @@ export class TruthyTypeConstraint extends TypeConstraint {
                 } else if (type instanceof NoneType) {
                     // TODO - we may want to return a "never" type in
                     // this case to indicate that the condition will
-                    // always evalutate to false.
+                    // always evaluate to false.
                     return NoneType.create();
                 }
             } else {
@@ -100,7 +100,7 @@ export class TruthyTypeConstraint extends TypeConstraint {
                     if (remainingTypes.length === 0) {
                         // TODO - we may want to return a "never" type in
                         // this case to indicate that the condition will
-                        // always evalutate to false.
+                        // always evaluate to false.
                         return NoneType.create();
                     } else {
                         return TypeUtils.combineTypesArray(remainingTypes);
@@ -140,7 +140,7 @@ export class IsNoneTypeConstraint extends TypeConstraint {
                 if (remainingTypes.length === 0) {
                     // TODO - we may want to return a "never" type in
                     // this case to indicate that the condition will
-                    // always evalutate to false.
+                    // always evaluate to false.
                     return NoneType.create();
                 }
 
@@ -149,7 +149,7 @@ export class IsNoneTypeConstraint extends TypeConstraint {
                 if (!this.isPositiveTest()) {
                     // TODO - we may want to return a "never" type in
                     // this case to indicate that the condition will
-                    // always evalutate to false.
+                    // always evaluate to false.
                     return NoneType.create();
                 }
             }
@@ -206,7 +206,7 @@ export class InstanceOfTypeConstraint extends TypeConstraint {
                 if (remainingTypes.length === 0) {
                     // TODO - we may want to return a "never" type in
                     // this case to indicate that the condition will
-                    // always evalutate to false.
+                    // always evaluate to false.
                     return NoneType.create();
                 }
 
@@ -223,7 +223,7 @@ export class InstanceOfTypeConstraint extends TypeConstraint {
                 } else {
                     // TODO - we may want to return a "never" type in
                     // this case to indicate that the condition will
-                    // always evalutate to false.
+                    // always evaluate to false.
                     return NoneType.create();
                 }
             }
