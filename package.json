@@ -2,7 +2,7 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "VS Code language support and type checking for Python",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scripts": {
         "postinstall": "cd server && npm install && cd ../client && npm install && cd ..",
         "build": "npm run build:client && npm run build:server",
