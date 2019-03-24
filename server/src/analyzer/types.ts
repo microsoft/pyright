@@ -18,7 +18,7 @@ export enum TypeCategory {
     // Name is not bound to a value of any type.
     Unbound,
 
-    // Type exists but is not currenlty known by the
+    // Type exists but is not currently known by the
     // type analyzer (e.g. there is no available typings file).
     // Unknown types are treated the same as "Any" at analysis time.
     Unknown,
@@ -32,7 +32,7 @@ export enum TypeCategory {
     // Immutable sequence of typed values.
     Tuple,
 
-    // Callable type with typed intput parameters and return parameter.
+    // Callable type with typed input parameters and return parameter.
     Function,
 
     // Functions defined with @overload decorator in stub files that
@@ -995,7 +995,7 @@ export class UnionType extends Type {
         }
 
         // The types do not have a particular order, so we need to
-        // do the comparison in an order-indepdendent manner.
+        // do the comparison in an order-independent manner.
         return this._types.find(t => !type2.containsType(t)) === undefined;
     }
 

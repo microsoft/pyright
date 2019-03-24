@@ -83,7 +83,7 @@ export class SourceFile {
     private readonly _isCollectionsStubFile: boolean;
 
     // Latest analysis job that has completed at least one phase
-    // of anlaysis.
+    // of analysis.
     private _analysisJob: AnalysisJob = {
         fileContentsVersion: -1,
         nextPhaseToRun: AnalysisPhase.SemanticAnalysis,
@@ -365,7 +365,7 @@ export class SourceFile {
                 this._diagnosticVersion++;
             });
 
-            // Prepare for the next stage of the anlaysis.
+            // Prepare for the next stage of the analysis.
             this._analysisJob.typeAnalysisPassNumber = 1;
             this._analysisJob.isTypeAnalysisPassNeeded = true;
             this._analysisJob.isTypeAnalysisFinalized = false;

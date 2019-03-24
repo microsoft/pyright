@@ -67,7 +67,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // call analyze() until this returns false.
     private _didAnalysisChange: boolean;
 
-    // Analysis verison is incremented each time an analyzer pass
+    // Analysis version is incremented each time an analyzer pass
     // is performed. It allows the code to determine when cached
     // type information needs to be regenerated because it was
     // from a previous pass.

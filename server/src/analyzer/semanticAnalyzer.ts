@@ -567,7 +567,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 }
 
                 // Don't report unbound error in stub files, which support out-of-order
-                // delcarations of classes.
+                // declarations of classes.
                 if (isReallyUnbound && !this._fileInfo.isStubFile) {
                     this._addError(`'${ node.nameToken.value }' is not bound`, node.nameToken);
                 }

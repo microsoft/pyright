@@ -15,7 +15,7 @@ export class CommandLineOptions {
         this.executionRoot = executionRoot;
     }
 
-    // A list of file specs to include in the anlaysis. Can contain
+    // A list of file specs to include in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories
     // are included.
     fileSpecs: string[] = [];

@@ -18,7 +18,7 @@ Pyright offers flexible configuration options specified in a JSON-formatted text
 
 **venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use. Individual execution environments may override this setting.
 
-**pythonVersion** [string, optional]: Specifies the verison of Python that will be used to execute the source code. The version should be specified as a string in the format "M.m" where M is the major version and m is the minor (e.g. `"3.0"` or `"3.6"`). If a version is provided, pyright will generate errors if the source code makes use of language features that are not supported in that version. It will also tailor its use of type stub files, which conditionalize type definitions based on the version.
+**pythonVersion** [string, optional]: Specifies the version of Python that will be used to execute the source code. The version should be specified as a string in the format "M.m" where M is the major version and m is the minor (e.g. `"3.0"` or `"3.6"`). If a version is provided, pyright will generate errors if the source code makes use of language features that are not supported in that version. It will also tailor its use of type stub files, which conditionalize type definitions based on the version.
 
 **pythonPlatform** [string, optional]: Specifies the target platform that will be used to execute the source code. Should be one of `"Windows"`, `"Darwin"` or `"Linux"`. If specified, pyright will tailor its use of type stub files, which conditionalize type definitions based on the platform.
 
@@ -34,7 +34,7 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 
 ## Execution Environment Options
-Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with a different PYTHON_PATH or a different version of the python interpeter than the rest of the source base.
+Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with a different PYTHON_PATH or a different version of the python interpreter than the rest of the source base.
 
 The following settings can be specified for each execution environment.
 

@@ -525,7 +525,7 @@ export class ExpressionEvaluator {
 
         if (!(flags & MemberAccessFlags.SkipGetAttributeCheck)) {
             // See if the class has a "__getattribute__" or "__getattr__" method.
-            // If so, aribrary members are supported.
+            // If so, arbitrary members are supported.
             let getAttribMember = TypeUtils.lookUpClassMember(classType, '__getattribute__', false);
             if (getAttribMember && getAttribMember.class) {
                 const isObjectClass = getAttribMember.class.isBuiltIn() &&
@@ -1151,12 +1151,12 @@ export class ExpressionEvaluator {
     private _createNamedTupleType(node: CallExpressionNode, includesTypes: boolean): ClassType {
         let className = 'namedtuple';
         if (node.arguments.length === 0) {
-            this._addError('Expected named tuple class name as firat parameter',
+            this._addError('Expected named tuple class name as first parameter',
                 node.leftExpression);
         } else {
             const nameArg = node.arguments[0];
             if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
-                this._addError('Expected named tuple class name as firat parameter',
+                this._addError('Expected named tuple class name as first parameter',
                     node.arguments[0].valueExpression);
             } else if (nameArg.valueExpression instanceof StringNode) {
                 className = nameArg.valueExpression.getValue();
@@ -1602,7 +1602,7 @@ export class ExpressionEvaluator {
     // Specializes the specified (potentially generic) class type using
     // the specified type arguments, reporting errors as appropriate.
     // Returns the specialized type and a boolean indicating whether
-    // the type indiciates a class type (true) or an object type (false).
+    // the type indicates a class type (true) or an object type (false).
     private _createSpecializeClassType(classType: ClassType, typeArgs: TypeResult[],
             errorNode: ExpressionNode, flags: EvaluatorFlags): Type {
 
