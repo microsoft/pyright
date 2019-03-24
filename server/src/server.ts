@@ -187,10 +187,10 @@ _connection.onDidChangeTextDocument(params => {
 });
 
 _connection.onDidCloseTextDocument(params => {
-    _connection.console.log(`${params.textDocument.uri} closed.`);
+    let filePath = _convertUriToPath(params.textDocument.uri);
+    _connection.console.log(`${filePath} closed.`);
 
-    _analyzerService.setFileClosed(
-        _convertUriToPath(params.textDocument.uri));
+    _analyzerService.setFileClosed(filePath);
 });
 
 function _convertUriToPath(uri: string): string {
