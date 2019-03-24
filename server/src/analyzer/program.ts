@@ -98,8 +98,7 @@ export class Program {
             imports: [],
             importedBy: []
         };
-        this._sourceFileMap[filePath] = sourceFileInfo;
-        this._sourceFileList.push(sourceFileInfo);
+        this._addToSourceFileListAndMap(sourceFileInfo);
         return sourceFile;
     }
 
@@ -116,8 +115,7 @@ export class Program {
                 imports: [],
                 importedBy: []
             };
-            this._sourceFileMap[filePath] = sourceFileInfo;
-            this._sourceFileList.push(sourceFileInfo);
+            this._addToSourceFileListAndMap(sourceFileInfo);
         } else {
             sourceFileInfo.isOpenByClient = true;
         }
@@ -472,7 +470,7 @@ export class Program {
                     // removed when we get to it.
                     if (!this._isFileNeeded(importedFile)) {
                         let indexToRemove = this._sourceFileList.findIndex(fi => fi === importedFile);
-                        if (indexToRemove < i) {
+                        if (indexToRemove >= 0 && indexToRemove < i) {
                             fileDiagnostics.push({
                                 filePath: importedFile.sourceFile.getFilePath(),
                                 diagnostics: []
@@ -593,8 +591,7 @@ export class Program {
                         importedBy: []
                     };
 
-                    this._sourceFileList.push(importedFileInfo);
-                    this._sourceFileMap[importPath] = importedFileInfo;
+                    this._addToSourceFileListAndMap(importedFileInfo);
                     filesAdded.push(importedFileInfo);
                 }
 
@@ -619,5 +616,15 @@ export class Program {
         }
 
         return filesAdded;
+    }
+
+    private _addToSourceFileListAndMap(fileInfo: SourceFileInfo) {
+        const filePath = fileInfo.sourceFile.getFilePath();
+
+        // We should never add a file with the same path twice.
+        assert(this._sourceFileMap[filePath] === undefined);
+
+        this._sourceFileList.push(fileInfo);
+        this._sourceFileMap[filePath] = fileInfo;
     }
 }
