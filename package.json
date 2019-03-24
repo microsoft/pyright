@@ -2,7 +2,7 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "Type checker for the Python language",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
@@ -26,5 +26,8 @@
         "@types/node": "^11.10.5",
         "typescript": "^3.2.2"
     },
-    "main": "index.js"
+    "main": "index.js",
+    "bin": {
+        "pyright": "index.js"
+    }
 }

@@ -80,6 +80,11 @@ function processArgs() {
     let watch = !!args.watch;
     options.watch = watch;
 
+    if ((options.fileSpecs === undefined || options.fileSpecs.length === 0) && !args.project) {
+        printUsage();
+        return;
+    }
+
     let service = new AnalyzerService();
 
     service.setCompletionCallback(results => {
@@ -110,7 +115,7 @@ function processArgs() {
 
 function printUsage() {
     console.log(
-        'Usage: ' + toolName + ' [options] file...\n' +
+        'Usage: ' + toolName + ' [options] files...\n' +
         '  Options:\n' +
         '  -h,--help                        Show this help message\n' +
         '  -P,--python-path DIRECTORY       Directory that contains the python environment\n' +
