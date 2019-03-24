@@ -20,6 +20,20 @@
       ]
     },
     {
+      "name": "Pyright Tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceRoot}/server/node_modules/jest/bin/jest.js",
+      "protocol": "inspector",
+      "cwd": "${workspaceRoot}/server",
+      "args": [
+        "--config",
+        "${workspaceRoot}/server/jest.config.js",
+        "-runInBand"
+      ],
+      "internalConsoleOptions": "openOnSessionStart"
+    },
+    {
       "name": "Pyright Language Client",
       "type": "extensionHost",
       "request": "launch",
