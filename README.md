@@ -99,7 +99,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Add lots of tests
 * Add support for type completion in VS Code extension
 * Special-casing @abstract methods so they don't need to return the specified type
-* Validate that @abstract classes are not instantiated
+* Validate that all @abstractmethod are overridden
 * Validate parameters for magic functions
 * Validate that overridden methods in subclass have same signature as base class methods
 * Verify that exception classes inherit from base Exception
