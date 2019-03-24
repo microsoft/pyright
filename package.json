@@ -1,19 +1,30 @@
 {
     "name": "pyright",
     "displayName": "Pyright",
-    "description": "VS Code language support and type checking for Python",
+    "description": "Type checker for the Python language",
     "version": "1.0.1",
+    "license": "MIT",
+    "author": {
+        "name": "Microsoft Corporation"
+    },
+    "publisher": "Microsoft Corporation",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Microsoft/pyright"
+    },
     "scripts": {
         "postinstall": "cd server && npm install && cd ../client && npm install && cd ..",
         "build": "npm run build:client && npm run build:server",
         "build:client": "cd client && npm run build && cd ..",
         "build:server": "cd server && npm run build && cd ..",
         "build:analyzer": "cd server && npm run build:analyzer && cd ..",
+        "build:pyright": "cd server && npm run build:pyright && cd ..",
         "package": "npm run build && cd client && npx vsce package && cd .."
     },
     "devDependencies": {
         "@types/mocha": "^5.2.5",
         "@types/node": "^11.10.5",
         "typescript": "^3.2.2"
-    }
+    },
+    "main": "index.js"
 }

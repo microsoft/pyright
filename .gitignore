@@ -5,6 +5,7 @@ node_modules
 .npm
 
 # Output files
+dist
 server/out/
 client/out/
 client/server/

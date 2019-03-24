@@ -1,17 +1,18 @@
 {
     "name": "pyright",
     "displayName": "pyright",
-    "description": "Linter and type checker for the Python language",
+    "description": "Type checker for the Python language",
     "version": "1.0.1",
     "license": "MIT",
     "scripts": {
         "start": "npm run start:analyzer && npm run start:server",
         "start:analyzer": "npm i && npm run build:analyzer",
         "start:server": "npm i && npm run build:server",
-        "build": "npm run build:server && npm run build:analyzer",
+        "build": "npm run build:server && npm run build:analyzer && npm run build:pyright",
         "build:analyzer": "npm run tslint && tsc",
-        "build:server": "npm run installServer && webpack",
+        "build:server": "npm run installServer && webpack --config webpack.config-server.js",
         "installServer": "node ./customInstallServerIntoExtension.js ../client ./package.json ./tsconfig.json ./package-lock.json",
+        "build:pyright": "node ./copyTypeshedFallback.js && npm run tslint && webpack --config webpack.config-pyright.js",
         "watch": "tsc --watch",
         "tslint": "tslint --project tsconfig.json --fix",
         "test": "jest"
@@ -24,8 +25,10 @@
     },
     "devDependencies": {
         "@types/command-line-args": "^5.0.0",
+        "@types/fs-extra": "^5.0.5",
         "@types/jest": "^24.0.9",
         "@types/node": "^11.10.5",
+        "fs-extra": "^7.0.1",
         "jest": "^24.1.0",
         "ts-jest": "^24.0.0",
         "tslint": "^5.13.1",

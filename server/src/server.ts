@@ -26,7 +26,7 @@ interface Settings {
 }
 
 // Stash the base directory into a global variable.
-(global as any).__basedir = __dirname;
+(global as any).__rootDirectory = __dirname;
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));

@@ -3,7 +3,7 @@
     "displayName": "Pyright",
     "description": "VS Code language support and type checking for Python",
     "version": "1.0.1",
-    "licensce": "MIT",
+    "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
     },

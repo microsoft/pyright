@@ -23,9 +23,6 @@ import { combinePaths, normalizePath } from './common/pathUtils';
 
 const toolName = 'pyright';
 
-// Stash the base directory into a global variable.
-(global as any).__basedir = __dirname;
-
 enum ExitStatus {
     Success = 0,
     DiagnosticsPresent_OutputsSkipped = 1,

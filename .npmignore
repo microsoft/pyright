@@ -1,0 +1,9 @@
+/.vscode
+/client
+/docs
+/node_modules
+/server
+.gitignore
+*.md
+settings.json
+

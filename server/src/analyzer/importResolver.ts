@@ -143,7 +143,7 @@ export class ImportResolver {
         } else {
             // Assume that the 'typeshed-fallback' directory is up one level
             // from this javascript file.
-            const moduleDirectory = (global as any).__basedir;
+            const moduleDirectory = (global as any).__rootDirectory;
             if (moduleDirectory) {
                 typeshedPath = combinePaths(getDirectoryPath(moduleDirectory), 'typeshed-fallback');
             }
