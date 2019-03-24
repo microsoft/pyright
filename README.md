@@ -59,6 +59,15 @@ A: The Microsoft Python Language Server is a [language server protocol (LSP)](ht
 ## Installation
 You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
 
+The latest verison of the command-line tool can be installed with npm:
+`npm i pyright`
+
+To install it globally:
+`npm i -g pyright`
+
+To run the command-line tool:
+`npx pyright <options>`
+
 
 ## Build Instructions
 To build the project:
