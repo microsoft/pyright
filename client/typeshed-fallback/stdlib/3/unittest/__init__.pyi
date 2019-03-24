@@ -8,6 +8,7 @@ from typing import (
 import logging
 import sys
 from types import ModuleType, TracebackType
+from datetime import datetime, timedelta
 
 
 _T = TypeVar('_T')
@@ -110,8 +111,12 @@ class TestCase:
         self, logger: Optional[logging.Logger] = ...,
         level: Union[int, str, None] = ...
     ) -> _AssertLogsContext: ...
+    @overload
     def assertAlmostEqual(self, first: float, second: float, places: int = ...,
                           msg: Any = ..., delta: float = ...) -> None: ...
+    @overload
+    def assertAlmostEqual(self, first: datetime, second: datetime, places: int = ...,
+                          msg: Any = ..., delta: timedelta = ...) -> None: ...
     @overload
     def assertNotAlmostEqual(self, first: float, second: float, *,
                              msg: Any = ...) -> None: ...
