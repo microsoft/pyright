@@ -58,7 +58,7 @@ export class ParseTreeWalker {
                 return this.visitAssignment(node as AssignmentNode);
 
             case ParseNodeType.AugmentedAssignment:
-                return this.visitAgumentedAssignment(node as AugmentedAssignemtnExpressionNode);
+                return this.visitAugmentedAssignment(node as AugmentedAssignemtnExpressionNode);
 
             case ParseNodeType.Await:
                 return this.visitAwait(node as AwaitExpressionNode);
@@ -97,7 +97,7 @@ export class ParseTreeWalker {
                 return this.visitDictionaryKeyEntry(node as DictionaryKeyEntryNode);
 
             case ParseNodeType.DictionaryExpandEntry:
-                return this.visitDictionarExpandEntry(node as DictionaryExpandEntryNode);
+                return this.visitDictionaryExpandEntry(node as DictionaryExpandEntryNode);
 
             case ParseNodeType.If:
                 return this.visitIf(node as IfNode);
@@ -245,7 +245,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitAgumentedAssignment(node: AugmentedAssignemtnExpressionNode) {
+    visitAugmentedAssignment(node: AugmentedAssignemtnExpressionNode) {
         return true;
     }
 
@@ -297,7 +297,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitDictionarExpandEntry(node: DictionaryExpandEntryNode) {
+    visitDictionaryExpandEntry(node: DictionaryExpandEntryNode) {
         return true;
     }
 

@@ -103,7 +103,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Validate parameters for magic functions
 * Validate that overridden methods in subclass have same signature as base class methods
 * Verify that exception classes inherit from base Exception
-* Validate await / async consitency
+* Validate await / async consistency
 * Flag assignments to read-only values (None, True, False, __debug__) as errors
 * Revamp support for properties - model with Descriptor protocol, detect missing setter
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
