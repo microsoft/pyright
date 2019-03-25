@@ -38,7 +38,7 @@
       "type": "extensionHost",
       "request": "launch",
       "runtimeExecutable": "${workspaceRoot}/client/out/src/extension.js",
-      "preLaunchTask": "npm: build",
+      "preLaunchTask": "npm: build:clientServer",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}/client"
       ],
