@@ -32,7 +32,7 @@ Pyright offers the following language service features:
 
 * Hover tool tips that display type information
 * Links to symbol definitions
-* Smart priority queuing for “live” feedback during editing
+* Smart priority queuing for interactive feedback during editing
 
 
 ## Documentation
@@ -102,6 +102,9 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 
 * Add enforcement of covariance and contravariance
 * Type inference for generators and async functions
+* Add support for inference of subclass type vars based on method parameter types declared in subclass
+* Validate consistency of subclass type vars across all declared methods
+* Report errors for non-quoted forward references of types
 * Support for old-style type annotations within comments
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)
