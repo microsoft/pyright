@@ -5,10 +5,10 @@
       "name": "Pyright CLI",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceRoot}/server/src/pyright.ts",
+      "program": "${workspaceRoot}/index.js",
       "protocol": "inspector",
       "cwd": "${workspaceRoot}",
-      "preLaunchTask": "npm: build:analyzer",
+      "preLaunchTask": "npm: build:pyright",
       "args": [
         "-p",
         "${workspaceRoot}/../brain",
