@@ -72,7 +72,7 @@ export class TypeUtils {
     // in the dest type is not in the type map already, it is assigned a type
     // and added to the map.
     static canAssignType(destType: Type, srcType: Type, typeVarMap?: TypeVarMap,
-            recursionCount = 0): boolean {
+            allowSubclasses = true, recursionCount = 0): boolean {
 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
@@ -83,7 +83,7 @@ export class TypeUtils {
                 const existingTypeVarMapping = typeVarMap.get(destType.getName());
                 if (existingTypeVarMapping) {
                     return this.canAssignType(existingTypeVarMapping, srcType,
-                        typeVarMap, recursionCount + 1);
+                        typeVarMap, allowSubclasses, recursionCount + 1);
                 }
 
                 typeVarMap.set(destType.getName(), srcType);
@@ -111,13 +111,15 @@ export class TypeUtils {
         if (srcType instanceof UnionType) {
             // For union sources, all of the types need to be assignable to the dest.
             return srcType.getTypes().find(
-                t => !this.canAssignType(destType, t, typeVarMap, recursionCount + 1)) === undefined;
+                t => !this.canAssignType(destType, t, typeVarMap,
+                    allowSubclasses, recursionCount + 1)) === undefined;
         }
 
         if (destType instanceof UnionType) {
             // For union destinations, we just need to match one of the types.
             return destType.getTypes().find(
-                t => this.canAssignType(t, srcType, typeVarMap, recursionCount + 1)) !== undefined;
+                t => this.canAssignType(t, srcType, typeVarMap,
+                    allowSubclasses, recursionCount + 1)) !== undefined;
         }
 
         if (destType.category === TypeCategory.Unbound ||
@@ -139,8 +141,8 @@ export class TypeUtils {
             }
 
             if (srcType instanceof ObjectType) {
-                return this._canAssignClassType(destClassType, srcType.getClassType(),
-                    typeVarMap, recursionCount + 1);
+                return this._canAssignClass(destClassType, srcType.getClassType(),
+                    typeVarMap, allowSubclasses, recursionCount + 1);
             }
         }
 
@@ -157,16 +159,17 @@ export class TypeUtils {
                     if (destClassName === 'Type') {
                         const destTypeArgs = destClassType.getTypeArguments();
                         if (destTypeArgs && destTypeArgs.length >= 1 && destTypeArgs[0] instanceof Type) {
-                            return this.canAssignType(destTypeArgs[0] as Type,
-                                new ObjectType(srcType), typeVarMap, recursionCount + 1);
+                            return this.canAssignType(destTypeArgs[0],
+                                new ObjectType(srcType), typeVarMap,
+                                    allowSubclasses, recursionCount + 1);
                         }
                     }
                 }
             }
 
             if (destType instanceof ClassType) {
-                return this._canAssignClassType(destType, srcType,
-                    typeVarMap, recursionCount + 1);
+                return this._canAssignClass(destType, srcType,
+                    typeVarMap, allowSubclasses, recursionCount + 1);
             }
         }
 
@@ -181,7 +184,7 @@ export class TypeUtils {
                 const overloadIndex = overloads.findIndex(overload => {
                     const typeVarMapClone = typeVarMap ? TypeUtils.cloneTypeVarMap(typeVarMap) : undefined;
                     return this.canAssignType(destType, overload.type,
-                        typeVarMapClone, recursionCount + 1);
+                        typeVarMapClone, true, recursionCount + 1);
                 });
                 if (overloadIndex < 0) {
                     return false;
@@ -220,7 +223,7 @@ export class TypeUtils {
 
             if (srcEntries.find((srcEntry, index) =>
                     !this.canAssignType(destEntries[index], srcEntry,
-                        typeVarMap, recursionCount + 1))) {
+                        typeVarMap, true, recursionCount + 1))) {
                 return false;
             }
 
@@ -296,7 +299,8 @@ export class TypeUtils {
 
             const srcParamType = srcType.getEffectiveParameterType(paramIndex);
             const destParamType = destType.getEffectiveParameterType(paramIndex);
-            if (!this.canAssignType(destParamType, srcParamType, typeVarMap, recursionCount + 1)) {
+            if (!this.canAssignType(destParamType, srcParamType, typeVarMap,
+                    true, recursionCount + 1)) {
                 canAssign = false;
             }
         }
@@ -305,15 +309,17 @@ export class TypeUtils {
         const srcReturnType = srcType.getEffectiveReturnType();
         const destReturnType = destType.getEffectiveReturnType();
 
-        if (!this.canAssignType(destReturnType, srcReturnType, typeVarMap, recursionCount + 1)) {
+        if (!this.canAssignType(destReturnType, srcReturnType, typeVarMap,
+                true, recursionCount + 1)) {
             canAssign = false;
         }
 
         return canAssign;
     }
 
-    private static _canAssignClassType(destType: ClassType, srcType: ClassType,
-            typeVarMap: TypeVarMap | undefined, recursionCount: number): boolean {
+    private static _canAssignClass(destType: ClassType, srcType: ClassType,
+            typeVarMap: TypeVarMap | undefined, allowSubclasses: boolean,
+            recursionCount: number): boolean {
 
         // Is it a structural type (i.e. a protocol)? If so, we need to
         // perform a member-by-member check.
@@ -322,7 +328,7 @@ export class TypeUtils {
 
             // Some protocol definitions include recursive references to themselves.
             // We need to protect against infinite recursion, so we'll check for that here.
-            if (srcType.isProtocol() && srcType.isSameProtocol(destType)) {
+            if (srcType.isProtocol() && srcType.isSameGenericClass(destType)) {
                 return true;
             }
 
@@ -343,7 +349,7 @@ export class TypeUtils {
                         srcMemberType = this.specializeType(srcMemberType, srcClassTypeVarMap);
 
                         if (!TypeUtils.canAssignType(srcMemberType, destMemberType,
-                                typeVarMap, recursionCount + 1)) {
+                                typeVarMap, true, recursionCount + 1)) {
                             wrongTypes.push(name);
                         }
                     }
@@ -357,9 +363,15 @@ export class TypeUtils {
             return true;
         }
 
-        if (srcType.isDerivedFrom(destType)) {
-            // TODO - need to validate type parameter matches
-            return true;
+        if (!allowSubclasses && !srcType.isSameGenericClass(destType)) {
+            return false;
+        }
+
+        let inheritanceChain: Type[] = [];
+        if (srcType.isDerivedFrom(destType, inheritanceChain)) {
+            assert(inheritanceChain.length > 0);
+
+            return this._canAssignClassWithTypeArgs(srcType, inheritanceChain, recursionCount);
         }
 
         if (srcType.isBuiltIn()) {
@@ -379,6 +391,105 @@ export class TypeUtils {
         return false;
     }
 
+    // Determines whether the specified type can be assigned to the
+    // specified inheritance chain, taking into account its type arguments.
+    private static _canAssignClassWithTypeArgs(srcType: ClassType, inheritanceChain: Type[],
+            recursionCount: number): boolean {
+
+        let curSrcType = srcType;
+
+        for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
+            const ancestorType = inheritanceChain[ancestorIndex];
+
+            if (ancestorType.isAny()) {
+                return true;
+            }
+
+            if (ancestorType instanceof ClassType) {
+                // If this isn't the first time through the loop, specialize
+                // for the next ancestor in the chain.
+                if (ancestorIndex < inheritanceChain.length - 1) {
+                    curSrcType = this._specializeForBaseClass(curSrcType, ancestorType, recursionCount);
+                }
+
+                // If there are no type parameters on this class, we're done.
+                const ancestorTypeParams = ancestorType.getTypeParameters();
+                if (ancestorTypeParams.length === 0) {
+                    continue;
+                }
+
+                assert(curSrcType.isSameGenericClass(ancestorType));
+
+                if (ancestorType.isSpecialBuiltIn()) {
+                    // TODO - need to add support for special built-in
+                    // types that support arbitrary numbers of type parameters
+                    // like Tuple. For now, punt and indicate that the type
+                    // is assignable.
+                    return true;
+                }
+
+                const ancestorTypeArgs = ancestorType.getTypeArguments()!;
+                // If the dest type isn't specialized, there are no type
+                // args to validate.
+                if (!ancestorTypeArgs) {
+                    return true;
+                }
+
+                // Validate that the type arguments match.
+                const srcTypeArgs = curSrcType.getTypeArguments();
+                if (srcTypeArgs) {
+                    assert(srcTypeArgs.length === ancestorTypeArgs.length);
+
+                    for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
+                        const srcTypeArg = srcTypeArgs[srcArgIndex];
+                        const typeParam = ancestorTypeParams[srcArgIndex];
+                        const ancestorTypeArg = ancestorTypeArgs[srcArgIndex];
+
+                        if (typeParam.isCovariant()) {
+                            if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
+                                    undefined, true, recursionCount + 1)) {
+                                return false;
+                            }
+                        } else if (typeParam.isContravariant()) {
+                            if (!this.canAssignType(srcTypeArg, ancestorTypeArg,
+                                    undefined, true, recursionCount + 1)) {
+                                return false;
+                            }
+                        } else {
+                            if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
+                                    undefined, false, recursionCount + 1)) {
+                                return false;
+                            }
+                        }
+                    }
+                } else {
+                    // TODO - handle other types like Unions
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    // Determines the specialized base class type that srcType derives from.
+    private static _specializeForBaseClass(srcType: ClassType, baseClass: ClassType,
+            recursionCount: number): ClassType {
+
+        const typeParams = baseClass.getTypeParameters();
+
+        // If there are no type parameters for the specified base class,
+        // no specialization is required.
+        if (typeParams.length === 0) {
+            return baseClass;
+        }
+
+        const typeVarMap = this.buildTypeVarMapFromSpecializedClass(srcType);
+        const specializedType = this.specializeType(baseClass, typeVarMap, recursionCount + 1);
+        assert(specializedType instanceof ClassType);
+        return specializedType as ClassType;
+    }
+
     // Validates that the specified source type matches the constraints
     // of the type variable.
     private static _canAssignToTypeVar(destType: TypeVarType, srcType: Type): boolean {
@@ -389,30 +500,12 @@ export class TypeUtils {
         // If there's a bound type, make sure it matches.
         const boundType = destType.getBoundType();
         if (boundType) {
-            if (destType.isCovariant()) {
-                if (srcType.isAny()) {
-                    return true;
-                } else if (srcType instanceof ClassType && boundType instanceof ClassType) {
-                    return srcType.isDerivedFrom(boundType);
-                } else {
-                    return false;
-                }
-            } else if (destType.isContravariant()) {
-                if (srcType.isAny()) {
-                    return true;
-                } else if (srcType instanceof ClassType && boundType instanceof ClassType) {
-                    return boundType.isDerivedFrom(srcType);
-                } else {
-                    return false;
-                }
+            if (srcType.isAny()) {
+                return true;
+            } else if (srcType instanceof ClassType && boundType instanceof ClassType) {
+                return srcType.isDerivedFrom(boundType);
             } else {
-                if (srcType.isAny()) {
-                    return true;
-                } else if (srcType instanceof ClassType && boundType instanceof ClassType) {
-                    return srcType.isSame(boundType);
-                } else {
-                    return false;
-                }
+                return false;
             }
         }
 
@@ -537,12 +630,12 @@ export class TypeUtils {
             // Otherwise use the specialized type parameter.
             if (oldTypeArgs) {
                 if (index >= oldTypeArgs.length) {
-                    typeArgType = AnyType.create();
+                    typeArgType = UnknownType.create();
                     specializationNeeded = true;
                 } else {
-                    typeArgType = this.specializeType(oldTypeArgs[index] as Type,
+                    typeArgType = this.specializeType(oldTypeArgs[index],
                         typeVarMap, recursionLevel + 1);
-                    if (typeArgType !== oldTypeArgs[index] as Type) {
+                    if (typeArgType !== oldTypeArgs[index]) {
                         specializationNeeded = true;
                     }
                 }
@@ -814,7 +907,7 @@ export class TypeUtils {
                 if (index >= typeArgs.length) {
                     typeArgType = AnyType.create();
                 } else {
-                    typeArgType = typeArgs[index] as Type;
+                    typeArgType = typeArgs[index];
                 }
             } else {
                 typeArgType = this.specializeTypeVarType(typeParam);

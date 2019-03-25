@@ -136,6 +136,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._addError(`Argument to class must be a base class`, arg);
             }
 
+            // TODO - validate that we're not deriving from the same base
+            // class twice.
             if (classType.updateBaseClassType(index, argType)) {
                 this._setAnalysisChanged();
             }

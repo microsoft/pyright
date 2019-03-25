@@ -256,12 +256,12 @@ export class ExpressionEvaluator {
             // TODO - need to implement
             // TODO - infer list type
             // this._getTypeFromExpression(node.baseExpression, EvaluatorFlags.None);
-            let type = ScopeUtils.getBuiltInObject(this._scope, 'list', []);
+            let type = ScopeUtils.getBuiltInObject(this._scope, 'list', [UnknownType.create()]);
             typeResult = { type, node };
         } else if (node instanceof DictionaryNode) {
             // TODO - need to implement
             // TODO - infer dict type
-            let type = ScopeUtils.getBuiltInObject(this._scope, 'dict', []);
+            let type = ScopeUtils.getBuiltInObject(this._scope, 'dict', [UnknownType.create(), UnknownType.create()]);
             typeResult = { type, node };
         } else if (node instanceof LambdaNode) {
             // TODO - need to implement
@@ -273,7 +273,7 @@ export class ExpressionEvaluator {
             });
             // TODO - need to implement
             // TODO - infer set type
-            let type = ScopeUtils.getBuiltInObject(this._scope, 'set', []);
+            let type = ScopeUtils.getBuiltInObject(this._scope, 'set', [UnknownType.create()]);
             typeResult = { type, node };
         } else if (node instanceof AssignmentNode) {
             // TODO - need to implement
@@ -1085,8 +1085,14 @@ export class ExpressionEvaluator {
                 }
 
                 if (paramName === 'bound') {
-                    typeVar.setBoundType(this.getType(
-                        node.arguments[i].valueExpression, EvaluatorFlags.ConvertClassToObject));
+                    if (typeVar.getConstraints().length > 0) {
+                        this._addError(
+                            `A TypeVar cannot be bounded and constrained`,
+                            node.arguments[i]);
+                    } else {
+                        typeVar.setBoundType(this.getType(
+                            node.arguments[i].valueExpression, EvaluatorFlags.ConvertClassToObject));
+                    }
                 } else if (paramName === 'covariant') {
                     if (this._getBooleanValue(node.arguments[i].valueExpression)) {
                         if (typeVar.isContravariant()) {
@@ -1115,8 +1121,14 @@ export class ExpressionEvaluator {
 
                 paramNameMap.set(paramName, paramName);
             } else {
-                typeVar.addConstraint(this.getType(
-                    node.arguments[i].valueExpression, EvaluatorFlags.ConvertClassToObject));
+                if (typeVar.getBoundType()) {
+                    this._addError(
+                        `A TypeVar cannot be bounded and constrained`,
+                        node.arguments[i]);
+                } else {
+                    typeVar.addConstraint(this.getType(
+                        node.arguments[i].valueExpression, EvaluatorFlags.ConvertClassToObject));
+                }
             }
         }
 
@@ -1361,7 +1373,7 @@ export class ExpressionEvaluator {
         let convertedType: Type;
         if (type instanceof ClassType) {
             // TODO - infer list type from listTypes
-            type = type.cloneForSpecialization([]);
+            type = type.cloneForSpecialization([UnknownType.create()]);
 
             // List literals are always objects, not classes.
             convertedType = this._convertClassToObject(type, EvaluatorFlags.ConvertClassToObject);
@@ -1388,7 +1400,7 @@ export class ExpressionEvaluator {
         let convertedType: Type;
         if (type instanceof ClassType) {
             // TODO - infer set type
-            type = type.cloneForSpecialization([]);
+            type = type.cloneForSpecialization([UnknownType.create()]);
 
             convertedType = this._convertClassToObject(type, flags);
         } else {
@@ -1538,8 +1550,14 @@ export class ExpressionEvaluator {
             typeArgCount = typeParameters.length;
         }
 
+        // Fill in any missing type arguments with unknown.
+        let typeArgTypes = typeArgs.map(t => t.type);
+        while (typeArgTypes.length < classType.getTypeParameters().length) {
+            typeArgTypes.push(UnknownType.create());
+        }
+
         // TODO - need to verify constraints of arguments
-        let specializedClass = classType.cloneForSpecialization(typeArgs.map(t => t.type));
+        let specializedClass = classType.cloneForSpecialization(typeArgTypes);
 
         return specializedClass;
     }

@@ -217,7 +217,7 @@ export class ClassType extends Type {
     // specialized will have type arguments that correspond to
     // some or all of the type parameters. Unspecified type
     // parameters are undefined.
-    private _typeArguments?: (Type | Type[])[];
+    private _typeArguments?: Type[];
 
     constructor(name: string, flags: ClassTypeFlags, typeSourceId: TypeSourceId) {
         super();
@@ -233,7 +233,7 @@ export class ClassType extends Type {
         };
     }
 
-    cloneForSpecialization(typeArguments: (Type | Type[])[]): ClassType {
+    cloneForSpecialization(typeArguments: Type[]): ClassType {
         let newClassType = new ClassType(this._classDetails.name,
             this._classDetails.flags, this._classDetails.typeSourceId);
         newClassType._classDetails = this._classDetails;
@@ -260,13 +260,8 @@ export class ClassType extends Type {
 
             return this._typeArguments.find(
                 typeArg => {
-                    if (typeArg instanceof Type) {
-                        return typeArg.requiresSpecialization(
-                            recursionCount + 1) !== undefined;
-                    }
-
-                    return typeArg.find(t => t.requiresSpecialization(
-                        recursionCount + 1)) !== undefined;
+                    return typeArg.requiresSpecialization(
+                        recursionCount + 1) !== undefined;
                 }
             ) !== undefined;
         }
@@ -340,7 +335,14 @@ export class ClassType extends Type {
         this._classDetails.instanceFields = nameMap;
     }
 
-    setTypeArguments(typeArgs: (Type | Type[])[]) {
+    setTypeArguments(typeArgs: Type[]) {
+        // Special built-in types can have a variable number of type parameters, so
+        // ignore those. For all others, verify that we have enough type arguments
+        // to match all of the type parameters. It's possible in early phases of
+        // analysis for there to be more type args than parameters because the paraemters
+        // have not yet been filled in for forward-declared classes.
+        assert(this.isSpecialBuiltIn() || typeArgs.length >= this.getTypeParameters().length);
+
         this._typeArguments = typeArgs;
     }
 
@@ -375,11 +377,11 @@ export class ClassType extends Type {
         return didParametersChange;
     }
 
-    isSameProtocol(type2: ClassType) {
-        assert(this.isProtocol());
-        assert(type2.isProtocol());
-
-        return this._classDetails === type2._classDetails;
+    // Same as isSame except that it doesn't compare type arguments.
+    isSameGenericClass(type2: ClassType) {
+        return this._classDetails === type2._classDetails ||
+            this.isAliasOf(type2) ||
+            type2.isAliasOf(this);
     }
 
     isSame(type2: Type): boolean {
@@ -421,23 +423,8 @@ export class ClassType extends Type {
                 return false;
             }
 
-            if (typeArg1 instanceof Type) {
-                if (!typeArg1.isSame(typeArg2 as Type)) {
-                    return false;
-                }
-            } else {
-                let typeArgList1 = typeArg1;
-                let typeArgList2 = typeArg2 as Type[];
-
-                if (typeArgList1.length !== typeArgList2.length) {
-                    return false;
-                }
-
-                for (let j = 0; j < typeArgList1.length; j++) {
-                    if (!typeArgList1[j].isSame(typeArgList2[j])) {
-                        return false;
-                    }
-                }
+            if (!typeArg1.isSame(typeArg2)) {
+                return false;
             }
         }
 
@@ -451,13 +438,7 @@ export class ClassType extends Type {
         if (this._typeArguments) {
             if (this._typeArguments.length > 0) {
                 objName += '[' + this._typeArguments.map(typeArg => {
-                    if (typeArg instanceof Type) {
-                        return typeArg.asStringInternal(recursionCount + 1);
-                    } else {
-                        return '[' + typeArg.map(type => {
-                            return type.asStringInternal(recursionCount + 1);
-                        }).join(', ') + ']';
-                    }
+                    return typeArg.asStringInternal(recursionCount + 1);
                 }).join(', ') + ']';
             }
         } else if (this._classDetails.typeParameters.length > 0) {
@@ -475,37 +456,47 @@ export class ClassType extends Type {
         return 'Type[' + this.getObjectName(recursionCount + 1) + ']';
     }
 
-    // Determines whether this is a subclass (derived class)
-    // of the specified class.
-    isDerivedFrom(type2: ClassType): boolean {
-        if (this._classDetails === type2._classDetails) {
-            return true;
-        }
+    isAliasOf(type2: ClassType): boolean {
+        return type2._classDetails.aliasClass !== undefined &&
+            type2._classDetails.aliasClass._classDetails === this._classDetails;
+    }
 
-        // Is one class type an alias of the other? This is used for some
-        // built-in types (e.g. Tuple and tuple).
-        if (this._classDetails.aliasClass &&
-                this._classDetails.aliasClass._classDetails === type2._classDetails) {
-            return true;
-        }
-        if (type2._classDetails.aliasClass &&
-                type2._classDetails.aliasClass._classDetails === this._classDetails) {
+    // Determines whether this is a subclass (derived class)
+    // of the specified class. If the caller passes an empty
+    // array to inheritanceChain, it will be filled in by
+    // the call to include the chain inherited classes starting
+    // with type2 and ending with this type.
+    isDerivedFrom(type2: ClassType, inheritanceChain?: Type[]): boolean {
+        // Is it the exact same class?
+        if (this.isSameGenericClass(type2)) {
+            if (inheritanceChain) {
+                inheritanceChain.push(type2);
+            }
             return true;
         }
 
         // Handle built-in types like 'dict' and 'list', which are all
         // subclasses of object even though they are not explicitly declared
         // that way.
-        if (this.isBuiltIn() && type2._classDetails.name === 'object' && type2.isBuiltIn()) {
+        if (this.isBuiltIn() && type2.isBuiltIn() && type2._classDetails.name === 'object') {
+            if (inheritanceChain) {
+                inheritanceChain.push(type2);
+            }
             return true;
         }
 
         for (let baseClass of this.getBaseClasses()) {
             if (baseClass.type instanceof ClassType) {
-                if (baseClass.type.isDerivedFrom(type2)) {
+                if (baseClass.type.isDerivedFrom(type2, inheritanceChain)) {
+                    if (inheritanceChain) {
+                        inheritanceChain.push(this);
+                    }
                     return true;
                 }
             } else if (baseClass.type.isAny()) {
+                if (inheritanceChain) {
+                    inheritanceChain.push(this);
+                }
                 return true;
             }
         }
