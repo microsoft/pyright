@@ -103,7 +103,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (this._analysisVersion >= MaxAnalysisPassCount) {
             this._fileInfo.console.log(
                 `Hit max analysis pass count for ${ this._fileInfo.filePath }`);
-            return true;
+            return false;
         }
 
         return this._didAnalysisChange;
@@ -353,7 +353,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._setAnalysisChanged();
             }
 
-            let inferredYieldType = functionType.getInferredReturnType();
+            let inferredYieldType = functionType.getInferredYieldType();
             if (inferredYieldType.addSources(functionScope.getYieldType())) {
                 this._setAnalysisChanged();
             }
@@ -367,9 +367,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // If the declared type isn't compatible with 'None', flag an error.
                 const declaredReturnType = functionType.getDeclaredReturnType();
                 if (declaredReturnType && node.returnTypeAnnotation) {
-                    if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create())) {
-                        this._addError(`Function with declared type of ${ declaredReturnType.asString() }` +
-                            ` must return value`, node.returnTypeAnnotation.rawExpression);
+                    // TODO - for now, ignore this check for generators.
+                    if (functionType.getInferredYieldType().getSourceCount() === 0) {
+                        if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create())) {
+                            this._addError(`Function with declared type of ${ declaredReturnType.asString() }` +
+                                ` must return value`, node.returnTypeAnnotation.rawExpression);
+                        }
                     }
                 }
             }
@@ -640,7 +643,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 enclosingFunctionNode) as FunctionType;
             if (functionType) {
                 assert(functionType instanceof FunctionType);
-                declaredReturnType = functionType.getDeclaredReturnType();
+                // TODO - for now, ignore this check for generators.
+                if (functionType.getInferredYieldType().getSourceCount() === 0) {
+                    declaredReturnType = functionType.getDeclaredReturnType();
+                }
             }
         }
 
@@ -653,6 +659,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         this._currentScope.getReturnType().addSource(returnType, typeSourceId);
+
         if (declaredReturnType) {
             if (!TypeUtils.canAssignType(declaredReturnType, returnType)) {
                 this._addError(
@@ -680,8 +687,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // TODO - determine the right type to use for the iteration.
         let yieldType = UnknownType.create();
         let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
-        this._currentScope.getYieldType().addSource(
-            yieldType, typeSourceId);
+        this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
         this._validateYieldType(node.expression, yieldType);
 

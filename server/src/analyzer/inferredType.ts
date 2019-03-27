@@ -49,6 +49,8 @@ export class InferredType {
     // Adds a new source (or replaces an existing source) for the
     // inferred type. Returns true if the combined type changed.
     addSource(type: Type, sourceId: TypeSourceId): boolean {
+        let inferredTypeChanged = false;
+
         // Is this source already known?
         const sourceIndex = this._sources.findIndex(src => src.sourceId === sourceId);
         if (sourceIndex >= 0) {
@@ -59,6 +61,7 @@ export class InferredType {
             this._sources[sourceIndex] = { sourceId, type };
         } else {
             this._sources.push({ sourceId, type });
+            inferredTypeChanged = true;
         }
 
         // Recompute the combined type.
@@ -73,10 +76,10 @@ export class InferredType {
 
         if (!newCombinedType!.isSame(this._combinedType)) {
             this._combinedType = newCombinedType!;
-            return true;
+            inferredTypeChanged = true;
         }
 
-        return false;
+        return inferredTypeChanged;
     }
 
     addSources(inferredType: InferredType): boolean {
