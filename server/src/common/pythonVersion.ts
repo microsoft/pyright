@@ -58,11 +58,12 @@ export function versionFromString(verString: string): PythonVersion | undefined 
         return undefined;
     }
 
-    return value;
-}
+    // Pyright currently supports only 3.x.
+    if (!is3x(value)) {
+        return undefined;
+    }
 
-export function is2x(version: PythonVersion): boolean {
-    return (version >> 8) === 2;
+    return value;
 }
 
 export function is3x(version: PythonVersion): boolean {
