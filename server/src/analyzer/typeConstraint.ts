@@ -174,7 +174,7 @@ export class InstanceOfTypeConstraint extends TypeConstraint {
     applyToType(node: ExpressionNode, type: Type): Type {
         let doInstanceCheck = (objType: ObjectType) => {
             const matchingInstance = this._classTypeList.find(
-                t => TypeUtils.isInstanceOf(objType, t));
+                t => t.isDerivedFrom(objType.getClassType()));
             if (this.isPositiveTest()) {
                 // For a positive test, see if the type is an instance of at
                 // least one of the class types.

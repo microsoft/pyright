@@ -62,10 +62,6 @@ export class TypeUtils {
         return resultingType;
     }
 
-    static isInstanceOf(objectType: ObjectType, classType: ClassType): boolean {
-        return objectType.getClassType().isDerivedFrom(classType);
-    }
-
     // Determines if the source type can be assigned to the dest type.
     // If typeVarMap is provided, type variables within the destType are
     // matched against existing type variables in the map. If a type variable
