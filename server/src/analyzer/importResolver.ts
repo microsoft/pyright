@@ -129,6 +129,13 @@ export class ImportResolver {
         };
     }
 
+    private _getTypeShedFallbackPath() {
+        // Assume that the 'typeshed-fallback' directory is up one level
+        // from this javascript file.
+        const moduleDirectory = (global as any).__rootDirectory;
+        return combinePaths(getDirectoryPath(moduleDirectory), 'typeshed-fallback');
+    }
+
     private _findTypeshedPath(moduleName: ImportedModuleName, importName: string,
             isStdLib: boolean): ImportResult | undefined {
 
@@ -138,15 +145,19 @@ export class ImportResolver {
         // default virtual environment, then in the typeshed-fallback directory.
         if (this._configOptions.typeshedPath) {
             typeshedPath = this._configOptions.typeshedPath;
+            if (!fs.existsSync(typeshedPath) || !isDirectory(typeshedPath)) {
+                typeshedPath = '';
+            }
         } else if (this._cachedSitePackagePath) {
             typeshedPath = combinePaths(this._cachedSitePackagePath, 'typeshed');
-        } else {
-            // Assume that the 'typeshed-fallback' directory is up one level
-            // from this javascript file.
-            const moduleDirectory = (global as any).__rootDirectory;
-            if (moduleDirectory) {
-                typeshedPath = combinePaths(getDirectoryPath(moduleDirectory), 'typeshed-fallback');
+            if (!fs.existsSync(typeshedPath) || !isDirectory(typeshedPath)) {
+                typeshedPath = '';
             }
+        }
+
+        // Should we apply the fallback?
+        if (!typeshedPath) {
+            typeshedPath = this._getTypeShedFallbackPath();
         }
 
         typeshedPath = combinePaths(typeshedPath, isStdLib ? 'stdlib' : 'third_party');
