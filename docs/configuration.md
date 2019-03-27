@@ -30,7 +30,9 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportTypeshedErrors** [boolean or string, optional]: Generate or suppress diagnostics for typeshed type stub files. In general, these type stub files should be “clean” and generate no errors. The default value for this setting is 'none'.
 
-**reportMissingImports** [boolean or string, optional]: Generate or suppress diagnostics for imports that have no corresponding type stub file (either a typeshed file or a custom type stub). The default value for this setting is 'none', although pyright can do a much better job of static type checking if type stub files are provided for all imports.
+**reportMissingImports** [boolean or string, optional]: Generate or suppress diagnostics for imports that have no corresponding imported python file or type stub file. The default value for this setting is 'none', although pyright can do a much better job of static type checking if type stub files are provided for all imports.
+
+**reportMissingStubFiles** [boolean or string, optiona]: Generate or suppress diagnostics for imports that have no corresponding type stub file (either a typeshed file or a custom type stub). The type checker requires type stubs to do its best job at analysis. The default value for this setting is 'none', although pyright can do a much better job of static type checking if type stub files are provided for all imports.
 
 
 ## Execution Environment Options
@@ -49,6 +51,14 @@ The following settings can be specified for each execution environment.
 **pythonPlatform** [string, optional]: Specifies the target platform that will be used for this execution environment. If not specified, the global `pythonPlatform` setting is used instead.
 
 
+# VS Code Extension Settings
+Pyright will import the following settings set through VS Code. These override the values provided in the configuration file.
+
+**python.pythonPath**: Same as the **pythonPath** setting described above.
+**python.venvPath**: Same as the **venvPath** setting described above.
+**python.analysis.typeshedPaths**: An array of typeshed paths to search. Pyright supports only one such path. If provided in the VS Code setting, the first entry overrides the **typeshedPath** configuration file entry described above.
+
+
 ## Sample Config File
 The following is an example of a pyright config file:
 ```json
@@ -65,6 +75,7 @@ The following is an example of a pyright config file:
 
   "reportTypeshedErrors": false,
   "reportMissingImports": true,
+  "reportMissingStubFiles": false,
 
   "pythonVersion": "3.6",
   "pythonPlatform": "Linux",

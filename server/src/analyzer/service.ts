@@ -164,6 +164,7 @@ export class AnalyzerService {
             this._updateConfigFileWatcher(configFilePath);
         }
 
+        // Apply the command-line options. These override the config file.
         if (commandLineOptions.venvPath) {
             configOptions.venvPath = commandLineOptions.venvPath;
         }

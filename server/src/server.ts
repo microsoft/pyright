@@ -19,6 +19,9 @@ import { combinePaths, normalizePath } from './common/pathUtils';
 interface PythonSettings {
     venvPath?: string;
     pythonPath?: string;
+    analysis?: {
+        typeshedPaths: string[];
+    };
 }
 
 interface Settings {
@@ -139,6 +142,15 @@ function updateOptionsAndRestartService(settings?: Settings) {
             commandLineOptions.pythonPath = combinePaths(_rootPath,
                 normalizePath(settings.python.pythonPath));
         }
+        if (settings.python.analysis &&
+                settings.python.analysis.typeshedPaths &&
+                settings.python.analysis.typeshedPaths.length > 0) {
+
+            // Pyright supports only one typeshed path currently, whereas the
+            // official VS Code Python extension supports multiple typeshed paths.
+            // We'll use the first one specified and ignore the rest.
+            commandLineOptions.typeshedPath = settings.python.analysis.typeshedPaths[0];
+        }
     }
 
     _analyzerService.setOptions(commandLineOptions);
@@ -206,44 +218,6 @@ function _convertUriToPath(uri: string): string {
 function _convertPathToUri(path: string): string {
     return 'file://' + path;
 }
-
-/*
-_connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
-    return new ResponseError<string>(1, 'Unsupported command');
-});
-
-// This handler provides the initial list of the completion items.
-_connection.onCompletion((_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-    // The pass parameter contains the position of the text document in
-    // which code complete got requested. For the example we ignore this
-    // info and always provide the same completion items.
-    return [
-        {
-            label: 'TypeScript',
-            kind: CompletionItemKind.Text,
-            data: 1
-        },
-        {
-            label: 'JavaScript',
-            kind: CompletionItemKind.Text,
-            data: 2
-        }
-    ]
-});
-
-// This handler resolve additional information for the item selected in
-// the completion list.
-_connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
-    if (item.data === 1) {
-        item.detail = 'TypeScript details',
-            item.documentation = 'TypeScript documentation'
-    } else if (item.data === 2) {
-        item.detail = 'JavaScript details',
-            item.documentation = 'JavaScript documentation'
-    }
-    return item;
-});
-*/
 
 // Listen on the connection
 _connection.listen();

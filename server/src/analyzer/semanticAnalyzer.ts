@@ -113,7 +113,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                     `Import '${ importResult.importName }' could not be resolved`, node);
             } else if (importResult.importType === ImportType.ThirdParty) {
                 if (!importResult.isStubFile) {
-                    this._addDiagnostic(this._fileInfo.configOptions.reportMissingImports,
+                    this._addDiagnostic(this._fileInfo.configOptions.reportMissingStubFiles,
                         `Stub file not found for '${ importResult.importName }'`, node);
                 }
             }
