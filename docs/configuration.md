@@ -62,6 +62,7 @@ The following is an example of a pyright config file:
       "src/typestubs"
   ],
   "typingsPath": "src/typestubs",
+  "venvPath": "/home/foo/.venvs",
 
   "reportTypeshedErrors": false,
   "reportMissingImports": true,
@@ -83,7 +84,8 @@ The following is an example of a pyright config file:
       "pythonVersion": "3.0",
       "extraPaths": [
         "src/backend"
-      ]
+      ],
+      "venv": "venv_bar"
     },
     {
       "root": "src/tests",
