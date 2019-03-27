@@ -73,7 +73,7 @@ export class ConfigOptions {
     reportMissingImports: DiagnosticLevel = 'error';
 
     // Report missing type stub files?
-    reportMissingStubFiles: DiagnosticLevel = 'none';
+    reportMissingTypeStubs: DiagnosticLevel = 'none';
 
     // Parameters that specify the execution environment for
     // the files being analyzed.
@@ -161,9 +161,9 @@ export class ConfigOptions {
         this.reportMissingImports = this._convertDiagnosticLevel(
             configObj.reportMissingImports, 'reportMissingImports', 'none');
 
-        // Read the "reportMissingStubFiles" entry.
-        this.reportMissingStubFiles = this._convertDiagnosticLevel(
-            configObj.reportMissingStubFiles, 'reportMissingStubFiles', 'none');
+        // Read the "reportMissingTypeStubs" entry.
+        this.reportMissingTypeStubs = this._convertDiagnosticLevel(
+            configObj.reportMissingTypeStubs, 'reportMissingTypeStubs', 'none');
 
         // Read the default "venv".
         this.defaultVenv = undefined;
