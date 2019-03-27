@@ -44,6 +44,11 @@ interface EnumClassInfo {
     valueType: Type;
 }
 
+interface AliasMapEntry {
+    alias: string;
+    module: 'builtins' | 'collections';
+}
+
 // At some point, we'll cut off the analysis passes and assume
 // we're making no forward progress. This should happen only
 // on the case of bugs in the analyzer.
@@ -780,16 +785,44 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         'NoReturn', 'Union', 'Optional', 'List', 'Dict', 'DefaultDict',
                         'Set', 'FrozenSet', 'Deque', 'ChainMap'];
                     if (specialTypes.find(t => t === assignedName)) {
+                        const aliasMap: { [name: string]: AliasMapEntry } = {
+                            'List': { alias: 'list', module: 'builtins' },
+                            'Dict': { alias: 'dict', module: 'builtins' },
+                            'DefaultDict': { alias: 'defaultdict', module: 'collections' },
+                            'Set': { alias: 'set', module: 'builtins' },
+                            'FrozenSet': { alias: 'frozenset', module: 'builtins' },
+                            'Deque': { alias: 'deque', module: 'collections' },
+                            'ChainMap': { alias: 'ChainMap', module: 'collections' }
+                        };
+
                         // Synthesize a class.
                         let specialClassType = new ClassType(assignedName,
                             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
                             DefaultTypeSourceId);
 
-                        let aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
-                            assignedName.toLowerCase());
-                        if (aliasClass instanceof ClassType) {
-                            specialClassType.addBaseClass(aliasClass, false);
-                            specialClassType.setAliasClass(aliasClass);
+                        // See if we need to locate an alias class to bind it to.
+                        const aliasMapEntry = aliasMap[assignedName];
+                        if (aliasMapEntry) {
+                            let aliasClass: Type | undefined;
+                            const aliasName = aliasMapEntry.alias;
+
+                            if (aliasMapEntry.module === 'builtins') {
+                                aliasClass = ScopeUtils.getBuiltInType(this._currentScope, aliasName);
+                            } else if (aliasMapEntry.module === 'collections') {
+                                // The typing.pyi file imports collections.
+                                let collectionsScope = this._findCollectionsImportScope();
+                                if (collectionsScope) {
+                                    const symbolInfo = collectionsScope.lookUpSymbol(aliasName);
+                                    if (symbolInfo) {
+                                        aliasClass = symbolInfo.currentType;
+                                    }
+                                }
+                            }
+
+                            if (aliasClass instanceof ClassType) {
+                                specialClassType.addBaseClass(aliasClass, false);
+                                specialClassType.setAliasClass(aliasClass);
+                            }
                         }
 
                         specialType = specialClassType;
@@ -821,6 +854,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this.walk(node.rightExpression);
         this.walk(node.leftExpression);
         return false;
+    }
+
+    private _findCollectionsImportScope() {
+        let collectionResults = Object.keys(this._fileInfo.importMap).find(path => {
+            return path.endsWith('collections/__init__.pyi');
+        });
+
+        if (collectionResults) {
+            const moduleNode = this._fileInfo.importMap[collectionResults].parseTree;
+            return AnalyzerNodeInfo.getScope(moduleNode);
+        }
+
+        return undefined;
     }
 
     visitName(node: NameNode) {

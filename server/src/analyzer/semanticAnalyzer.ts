@@ -126,7 +126,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         this.walkMultiple(node.decorators);
 
         let classFlags = ClassTypeFlags.None;
-        if (this._currentScope.getType() === ScopeType.BuiltIn || this._fileInfo.isTypingStubFile) {
+        if (this._currentScope.getType() === ScopeType.BuiltIn ||
+                this._fileInfo.isTypingStubFile ||
+                this._fileInfo.isCollectionsStubFile) {
+
             classFlags |= ClassTypeFlags.BuiltInClass;
         }
         if (node.decorators.length > 0) {
