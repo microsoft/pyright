@@ -39,6 +39,7 @@ Pyright offers the following language service features:
 * [Command-line Options](/docs/command-line.md)
 * [Configuration](/docs/configuration.md)
 * [Getting Started](/docs/getting-started.md)
+* [Building & Debugging](/docs/build-debug.md)
 * [Pyright Internals](/docs/internals.md)
 
 
@@ -67,21 +68,6 @@ To install it globally:
 
 To run the command-line tool:
 `npx pyright <options>`
-
-
-## Build Instructions
-To build the project:
-1. Install [nodejs](https://nodejs.org/en/)
-2. Open terminal window in main directory of cloned source
-3. Execute `npm run install:all` to install dependencies
-4. Execute `npm run build`
-
-To build the VS Code extension package:
-Same as above, plus
-1. Execute `npm run package`
-
-The resulting package (pyright-X.Y.Z.vsix) can be found in the client directory.
-To install in VS Code, go to the extensions panel and choose “Install from VSIX...” from the menu, then select the package.
 
 
 ## Code Structure
