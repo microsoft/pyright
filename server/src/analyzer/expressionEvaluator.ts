@@ -26,7 +26,8 @@ import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
 import { Symbol, SymbolCategory } from './symbol';
-import { TypeConstraint, TypeConstraintBuilder, TypeConstraintResults } from './typeConstraint';
+import { ConditionalTypeConstraintResults, TypeConstraint,
+    TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType, FunctionTypeFlags,
     ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType,
     TupleType, Type, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
@@ -214,7 +215,7 @@ export class ExpressionEvaluator {
             // Is this an AND operator? If so, we can assume that the
             // rightExpression won't be evaluated at runtime unless the
             // leftExpression evaluates to true.
-            let typeConstraints: TypeConstraintResults | undefined;
+            let typeConstraints: ConditionalTypeConstraintResults | undefined;
             if (node.operator === OperatorType.And) {
                 typeConstraints = this._buildTypeConstraints(node.leftExpression);
             }
@@ -1677,7 +1678,8 @@ export class ExpressionEvaluator {
         return type;
     }
 
-    private _useExpressionTypeConstraint(typeConstraints: TypeConstraintResults | undefined,
+    private _useExpressionTypeConstraint(typeConstraints:
+            ConditionalTypeConstraintResults | undefined,
             useIfClause: boolean, callback: () => void) {
 
         // Push the specified constraints onto the list.
@@ -1700,7 +1702,7 @@ export class ExpressionEvaluator {
     }
 
     private _buildTypeConstraints(node: ExpressionNode) {
-        return TypeConstraintBuilder.buildTypeConstraints(node,
+        return TypeConstraintBuilder.buildTypeConstraintsForConditional(node,
             (node: ExpressionNode) => this.getType(node, EvaluatorFlags.None));
     }
 

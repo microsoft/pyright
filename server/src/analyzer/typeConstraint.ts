@@ -4,18 +4,28 @@
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* Classes that record an invariant within a conditional scope
-* that affect types. For example, the expression "foo" implies
-* implies that foo is not None, so "if foo:" implies that the
-* the value of "foo" is not None within that scope.
+* Classes that record a type constraint (sometimes referred to
+* as a path constraint). Type constraints can be used to record
+* an invariant within a conditional scope that affect types. For
+* example, the expression "foo" implies implies that foo is not
+* None, so "if foo:" implies that the the value of "foo" is not
+* None within that scope.
 */
 
-import { BinaryExpressionNode, CallExpressionNode, ConstantNode,
-    ExpressionNode, MemberAccessExpressionNode, NameNode,
+import { AssignmentNode, BinaryExpressionNode, CallExpressionNode,
+    ConstantNode, ExpressionNode, MemberAccessExpressionNode,
+    NameNode,
+    ParseNode,
+    TypeAnnotationExpressionNode,
     UnaryExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { ClassType, NoneType, ObjectType, TupleType, Type, UnionType } from './types';
 import { TypeUtils } from './typeUtils';
+
+export interface ConditionalTypeConstraintResults {
+    ifConstraints: TypeConstraint[];
+    elseConstraints: TypeConstraint[];
+}
 
 export abstract class TypeConstraint {
     private _isPositiveTest: boolean;
@@ -256,21 +266,39 @@ export class IsInstanceTypeConstraint extends TypeConstraint {
     }
 }
 
-export interface TypeConstraintResults {
-    ifConstraints: TypeConstraint[];
-    elseConstraints: TypeConstraint[];
+// Represents an assignment within a scope to a value of a particular
+// type. This overrides the general inferred type for that expression.
+// This is especially useful for globla and instance/class variables
+// whose inferred types are unions of all assigned types.
+export class AssignmentTypeConstraint extends TypeConstraint {
+    private _expression: ExpressionNode;
+    private _type: Type;
+
+    constructor(node: ExpressionNode, type: Type) {
+        super(true);
+        this._expression = node;
+        this._type = type;
+    }
+
+    applyToType(node: ExpressionNode, type: Type): Type {
+        if (TypeConstraint.doesExpressionMatch(node, this._expression)) {
+            return this._type;
+        }
+
+        return type;
+    }
 }
 
 export class TypeConstraintBuilder {
     // Given a test expression (one that's used in an if statement to test a
     // conditional), return all of the type constraints that apply both
     // within the "if" clause and the "else" clause.
-    static buildTypeConstraints(testExpression: ExpressionNode,
+    static buildTypeConstraintsForConditional(testExpression: ExpressionNode,
             typeEvaluator: (node: ExpressionNode) => Type):
-                TypeConstraintResults | undefined {
+                ConditionalTypeConstraintResults | undefined {
 
         if (testExpression instanceof BinaryExpressionNode) {
-            let results: TypeConstraintResults = {
+            let results: ConditionalTypeConstraintResults = {
                 ifConstraints: [],
                 elseConstraints: []
             };
@@ -292,9 +320,9 @@ export class TypeConstraintBuilder {
                     return results;
                 }
             } else if (testExpression.operator === OperatorType.And) {
-                let leftConstraints = this.buildTypeConstraints(
+                let leftConstraints = this.buildTypeConstraintsForConditional(
                     testExpression.leftExpression, typeEvaluator);
-                let rightConstraints = this.buildTypeConstraints(
+                let rightConstraints = this.buildTypeConstraintsForConditional(
                     testExpression.rightExpression, typeEvaluator);
 
                 // For an AND operator, all of the "if" constraints must be true,
@@ -312,9 +340,9 @@ export class TypeConstraintBuilder {
                 }
                 return results;
             } else if (testExpression.operator === OperatorType.Or) {
-                let leftConstraints = this.buildTypeConstraints(
+                let leftConstraints = this.buildTypeConstraintsForConditional(
                     testExpression.leftExpression, typeEvaluator);
-                let rightConstraints = this.buildTypeConstraints(
+                let rightConstraints = this.buildTypeConstraintsForConditional(
                     testExpression.rightExpression, typeEvaluator);
 
                 // For an OR operator, all of the negated "else" constraints must be true,
@@ -340,7 +368,7 @@ export class TypeConstraintBuilder {
             }
         } else if (testExpression instanceof UnaryExpressionNode) {
             if (testExpression.operator === OperatorType.Not) {
-                let constraints = this.buildTypeConstraints(
+                let constraints = this.buildTypeConstraintsForConditional(
                     testExpression.expression, typeEvaluator);
 
                 if (constraints) {
@@ -400,5 +428,16 @@ export class TypeConstraintBuilder {
         }
 
         return undefined;
+    }
+
+    // Builds a type constraint that applies the specified type to an expression.
+    static buildTypeConstraintsForAssignment(targetNode: ExpressionNode,
+            assignmentType: Type): AssignmentTypeConstraint | undefined {
+
+        if (targetNode instanceof TypeAnnotationExpressionNode) {
+            return new AssignmentTypeConstraint(targetNode.valueExpression, assignmentType);
+        }
+
+        return new AssignmentTypeConstraint(targetNode, assignmentType);
     }
 }

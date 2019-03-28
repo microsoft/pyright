@@ -509,7 +509,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._getTypeOfExpression(node.testExpression);
         this.walk(node.testExpression);
 
-        let typeConstraints = this._buildTypeConstraints(node.testExpression);
+        let typeConstraints = this._buildConditionalTypeConstraints(
+            node.testExpression);
 
         // Push a temporary scope so we can track
         // which variables have been assigned to conditionally.
@@ -1170,6 +1171,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return exceptionType;
     }
 
+    private _addAssignmentTypeConstraint(node: ExpressionNode, assignmentType: Type) {
+        const typeConstraint = TypeConstraintBuilder.buildTypeConstraintsForAssignment(
+            node, assignmentType);
+        if (typeConstraint) {
+            this._currentScope.addTypeConstraint(typeConstraint);
+        }
+    }
+
     private _bindMemberVariableToType(node: MemberAccessExpressionNode,
             typeOfExpr: Type, isInstanceMember: boolean) {
 
@@ -1177,6 +1186,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (!classDef) {
             return;
         }
+
+        this._addAssignmentTypeConstraint(node, typeOfExpr);
 
         let classType = AnalyzerNodeInfo.getExpressionType(classDef);
         if (classType && classType instanceof ClassType) {
@@ -1398,6 +1409,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
             };
             this._bindNameNodeToType(target, type, declaration);
+        } else {
+            this._addAssignmentTypeConstraint(target, type);
         }
     }
 
@@ -1570,8 +1583,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _buildTypeConstraints(node: ExpressionNode) {
-        return TypeConstraintBuilder.buildTypeConstraints(node,
+    private _buildConditionalTypeConstraints(node: ExpressionNode) {
+        return TypeConstraintBuilder.buildTypeConstraintsForConditional(node,
             (node: ExpressionNode) => this._getTypeOfExpression(node));
     }
 
