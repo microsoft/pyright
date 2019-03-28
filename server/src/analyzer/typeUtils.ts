@@ -73,8 +73,6 @@ export class TypeUtils {
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
         if (destType instanceof TypeVarType) {
-            // If the dest type includes type variables, it is not yet
-            // specialized, so the caller should have provided a typeVarMap.
             if (typeVarMap) {
                 const existingTypeVarMapping = typeVarMap.get(destType.getName());
                 if (existingTypeVarMapping) {

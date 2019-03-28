@@ -756,12 +756,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
         node.exceptClauses.forEach(exceptNode => {
             let exceptScope = this._enterTemporaryScope(() => {
                 this.walk(exceptNode);
-            });
+            }, true);
+            exceptScope.markAllSymbolsConditional();
+            this._mergeToCurrentScope(exceptScope);
             this._mergeReturnAndYieldTypeToCurrentScope(exceptScope);
         });
 
         if (node.elseSuite) {
-            this.walk(node.elseSuite);
+            let elseScope = this._enterTemporaryScope(() => {
+                this.walk(node.elseSuite!);
+            }, true);
+            elseScope.markAllSymbolsConditional();
+            this._mergeToCurrentScope(elseScope);
+            this._mergeReturnAndYieldTypeToCurrentScope(elseScope);
         }
 
         if (node.finallySuite) {
