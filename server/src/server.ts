@@ -57,7 +57,10 @@ _connection.onInitialize((params): InitializeResult => {
 
     // Don't allow the analysis engine to go too long without
     // reporting results. This will keep it responsive.
-    _analyzerService.setMaxAnalysisDuration(50);
+    _analyzerService.setMaxAnalysisDuration({
+        openFilesTimeInMs: 50,
+        noOpenFilesTimeInMs: 4000
+    });
 
     _analyzerService.setCompletionCallback(results => {
         results.diagnostics.forEach(fileDiag => {

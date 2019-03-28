@@ -18,9 +18,11 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { combinePaths, ensureTrailingDirectorySeparator, forEachAncestorDirectory,
     getDirectoryPath, getFileSystemEntries, isFile, normalizePath } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
-import { Program } from './program';
+import { MaxAnalysisTime, Program } from './program';
 
 const _defaultConfigFileName = 'pyrightconfig.json';
+
+export { MaxAnalysisTime } from './program';
 
 export interface AnalysisResults {
     diagnostics: FileDiagnostics[];
@@ -40,7 +42,7 @@ export class AnalyzerService {
     private _configFileWatcher: fs.FSWatcher | undefined;
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
     private _watchForChanges = false;
-    private _maxAnalysisTimeInMs: number | undefined;
+    private _maxAnalysisTime?: MaxAnalysisTime;
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
 
@@ -55,8 +57,8 @@ export class AnalyzerService {
         this._onCompletionCallback = callback;
     }
 
-    setMaxAnalysisDuration(maxTimeInMs?: number) {
-        this._maxAnalysisTimeInMs = maxTimeInMs;
+    setMaxAnalysisDuration(maxAnalysisTime?: MaxAnalysisTime) {
+        this._maxAnalysisTime = maxAnalysisTime;
     }
 
     setOptions(commandLineOptions: CommandLineOptions): void {
@@ -427,7 +429,7 @@ export class AnalyzerService {
 
         try {
             let duration = new Duration();
-            moreToAnalyze = this._program.analyze(this._configOptions, this._maxAnalysisTimeInMs);
+            moreToAnalyze = this._program.analyze(this._configOptions, this._maxAnalysisTime);
 
             let results: AnalysisResults = {
                 diagnostics: this._program.getDiagnostics(this._configOptions),

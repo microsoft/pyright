@@ -32,6 +32,19 @@ export interface SourceFileInfo {
     importedBy: SourceFileInfo[];
 }
 
+export interface MaxAnalysisTime {
+    // Maximum number of ms to analyze when there are open files
+    // that require analysis. This number is usually kept relatively
+    // small to guarantee responsiveness during typing.
+    openFilesTimeInMs: number;
+
+    // Maximum number of ms to analyze when all open files and their
+    // dependencies have been analyzed. This number can be higher
+    // to reduce overall analysis time but needs to be short enough
+    // to remain responsive if an open file is modified.
+    noOpenFilesTimeInMs: number;
+}
+
 // Container for all of the files that are being analyzed. Files
 // can fall into one or more of the following categories:
 //  Tracked - specified by the config options
@@ -166,47 +179,54 @@ export class Program {
     // is interrupted when the time expires. The return value indicates
     // whether the method needs to be called again to complete the
     // analysis.
-    analyze(options: ConfigOptions, maxTime?: number): boolean {
+    analyze(options: ConfigOptions, maxTime?: MaxAnalysisTime): boolean {
         let elapsedTime = new Duration();
-
-        let isTimeElapsed = () => {
-            return maxTime !== undefined && maxTime !== 0 &&
-                elapsedTime.getDurationInMilliseconds() > maxTime;
-        };
 
         let openFiles = this._sourceFileList.filter(sf => sf.isOpenByClient);
 
-        // Start by parsing the open files.
-        for (let sourceFileInfo of openFiles) {
-            this._parseFile(sourceFileInfo, options);
+        if (openFiles.length > 0) {
+            let isTimeElapsedOpenFiles = () => {
+                return maxTime !== undefined &&
+                    elapsedTime.getDurationInMilliseconds() > maxTime.openFilesTimeInMs;
+            };
 
-            if (isTimeElapsed()) {
-                return true;
+            // Start by parsing the open files.
+            for (let sourceFileInfo of openFiles) {
+                this._parseFile(sourceFileInfo, options);
+
+                if (isTimeElapsedOpenFiles()) {
+                    return true;
+                }
             }
-        }
 
-        // Now do semantic analysis of the open files.
-        for (let sourceFileInfo of openFiles) {
-            this._doSemanticAnalysis(sourceFileInfo, options);
+            // Now do semantic analysis of the open files.
+            for (let sourceFileInfo of openFiles) {
+                this._doSemanticAnalysis(sourceFileInfo, options);
 
-            if (isTimeElapsed()) {
-                return true;
+                if (isTimeElapsedOpenFiles()) {
+                    return true;
+                }
             }
-        }
 
-        // Now do type analysis of the open files.
-        for (let sourceFileInfo of openFiles) {
-            if (this._doFullAnalysis(sourceFileInfo, options, isTimeElapsed)) {
-                return true;
+            // Now do type analysis of the open files.
+            for (let sourceFileInfo of openFiles) {
+                if (this._doFullAnalysis(sourceFileInfo, options, isTimeElapsedOpenFiles)) {
+                    return true;
+                }
             }
         }
 
         // Do type analysis of remaining files.
         let allFiles = this._sourceFileList;
 
+        let isTimeElapsedNoOpenFiles = () => {
+            return maxTime !== undefined &&
+                elapsedTime.getDurationInMilliseconds() > maxTime.noOpenFilesTimeInMs;
+        };
+
         // Now do type parsing and analysis of the remaining.
         for (let sourceFileInfo of allFiles) {
-            if (this._doFullAnalysis(sourceFileInfo, options, isTimeElapsed)) {
+            if (this._doFullAnalysis(sourceFileInfo, options, isTimeElapsedNoOpenFiles)) {
                 return true;
             }
         }
