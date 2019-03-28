@@ -172,63 +172,63 @@ export class IsInstanceTypeConstraint extends TypeConstraint {
     }
 
     applyToType(node: ExpressionNode, type: Type): Type {
-        // Filters the varType by the parameters of the isinstance
-        // and returns the list of types the varType could be after
-        // applying the filter.
-        const filterType = (varType: ClassType): ObjectType[] => {
-            let filteredTypes: ClassType[] = [];
+        if (TypeConstraint.doesExpressionMatch(node, this._expression)) {
+            // Filters the varType by the parameters of the isinstance
+            // and returns the list of types the varType could be after
+            // applying the filter.
+            const filterType = (varType: ClassType): ObjectType[] => {
+                let filteredTypes: ClassType[] = [];
 
-            let foundSuperclass = false;
-            for (let filterType of this._classTypeList) {
-                const filterIsSuperclass = varType.isDerivedFrom(filterType);
-                const filterIsSubclass = filterType.isDerivedFrom(varType);
+                let foundSuperclass = false;
+                for (let filterType of this._classTypeList) {
+                    const filterIsSuperclass = varType.isDerivedFrom(filterType);
+                    const filterIsSubclass = filterType.isDerivedFrom(varType);
 
-                if (filterIsSuperclass) {
-                    foundSuperclass = true;
-                }
-
-                if (this.isPositiveTest()) {
                     if (filterIsSuperclass) {
-                        // If the variable type is a subclass of the isinstance
-                        // filter, we haven't learned anything new about the
-                        // variable type.
-                        filteredTypes.push(varType);
-                    } else if (filterIsSubclass) {
-                        // If the variable type is a superclass of the isinstance
-                        // filter, we can narrow the type to the subclass.
-                        filteredTypes.push(filterType);
+                        foundSuperclass = true;
+                    }
+
+                    if (this.isPositiveTest()) {
+                        if (filterIsSuperclass) {
+                            // If the variable type is a subclass of the isinstance
+                            // filter, we haven't learned anything new about the
+                            // variable type.
+                            filteredTypes.push(varType);
+                        } else if (filterIsSubclass) {
+                            // If the variable type is a superclass of the isinstance
+                            // filter, we can narrow the type to the subclass.
+                            filteredTypes.push(filterType);
+                        }
                     }
                 }
-            }
 
-            // In the negative case, if one or more of the filters
-            // always match the type (i.e. they are an exact match or
-            // a superclass of the type), then there's nothing left after
-            // the filter is applied. If we didn't find any superclass
-            // match, then the original variable type survives the filter.
-            if (!this.isPositiveTest() && !foundSuperclass) {
-                filteredTypes.push(varType);
-            }
+                // In the negative case, if one or more of the filters
+                // always match the type (i.e. they are an exact match or
+                // a superclass of the type), then there's nothing left after
+                // the filter is applied. If we didn't find any superclass
+                // match, then the original variable type survives the filter.
+                if (!this.isPositiveTest() && !foundSuperclass) {
+                    filteredTypes.push(varType);
+                }
 
-            return filteredTypes.map(t => new ObjectType(t));
-        };
+                return filteredTypes.map(t => new ObjectType(t));
+            };
 
-        const finalizeFilteredTypeList = (types: Type[]): Type => {
-            if (types.length === 0) {
-                // TODO - we may want to return a "never" type in
-                // this case to indicate that the condition will
-                // always evaluate to false.
-                return NoneType.create();
-            }
+            const finalizeFilteredTypeList = (types: Type[]): Type => {
+                if (types.length === 0) {
+                    // TODO - we may want to return a "never" type in
+                    // this case to indicate that the condition will
+                    // always evaluate to false.
+                    return NoneType.create();
+                }
 
-            return TypeUtils.combineTypesArray(types);
-        };
+                return TypeUtils.combineTypesArray(types);
+            };
 
-        if (type instanceof ObjectType) {
-            let filteredType = filterType(type.getClassType());
-            return finalizeFilteredTypeList(filteredType);
-        } else if (TypeConstraint.doesExpressionMatch(node, this._expression)) {
-            if (type instanceof UnionType) {
+            if (type instanceof ObjectType) {
+                let filteredType = filterType(type.getClassType());
+                return finalizeFilteredTypeList(filteredType);
+            } else if (type instanceof UnionType) {
                 let remainingTypes: Type[] = [];
 
                 type.getTypes().forEach(t => {
