@@ -368,18 +368,10 @@ export class TypeUtils {
             return this._canAssignClassWithTypeArgs(srcType, inheritanceChain, recursionCount);
         }
 
-        if (srcType.isBuiltIn()) {
-            if (srcType.getClassName() === 'int') {
-                if (this.lookUpClassMember(destType, '__int__')) {
-                    return true;
-                }
-            }
-
-            if (srcType.getClassName() === 'float') {
-                if (this.lookUpClassMember(destType, '__float__')) {
-                    return true;
-                }
-            }
+        // Special-case int-to-float conversion.
+        if (srcType.isBuiltIn() && srcType.getClassName() === 'int' &&
+                destType.isBuiltIn() && destType.getClassName() === 'float') {
+            return true;
         }
 
         return false;
