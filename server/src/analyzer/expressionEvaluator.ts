@@ -1541,6 +1541,13 @@ export class ExpressionEvaluator {
 
         // Make sure the argument list count is correct.
         let typeParameters = classType.getTypeParameters();
+
+        // If there are no type parameters or args, the class is already specialized.
+        // No need to do any more work.
+        if (typeParameters.length === 0 && typeArgs.length === 0) {
+            return classType;
+        }
+
         if (typeArgCount > typeParameters.length) {
             if (typeParameters.length === 0) {
                 this._addError(`Expected no type arguments`,
