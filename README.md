@@ -63,7 +63,7 @@ Pyright is a work in progress. Type-checking capabilities are not fully implemen
 ## Installation
 You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
 
-The latest verison of the command-line tool can be installed with npm:
+The latest version of the command-line tool can be installed with npm:
 `npm i pyright`
 
 To install it globally:
