@@ -59,7 +59,7 @@ _connection.onInitialize((params): InitializeResult => {
     // reporting results. This will keep it responsive.
     _analyzerService.setMaxAnalysisDuration({
         openFilesTimeInMs: 50,
-        noOpenFilesTimeInMs: 4000
+        noOpenFilesTimeInMs: 1000
     });
 
     _analyzerService.setCompletionCallback(results => {
