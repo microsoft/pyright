@@ -237,6 +237,14 @@ export class TypeUtils {
         return false;
     }
 
+    static canBeTruthy(type: Type): boolean {
+        if (type instanceof NoneType) {
+            return false;
+        }
+
+        return true;
+    }
+
     // None is always falsy. All other types are generally truthy
     // unless they are objects that support the __nonzero__ or __len__
     // methods.

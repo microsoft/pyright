@@ -12,22 +12,27 @@
 * None within that scope.
 */
 
-import { AssignmentNode, BinaryExpressionNode, CallExpressionNode,
-    ConstantNode, ExpressionNode, MemberAccessExpressionNode,
-    NameNode,
-    ParseNode,
-    TypeAnnotationExpressionNode,
+import { BinaryExpressionNode, CallExpressionNode, ConstantNode, ExpressionNode,
+    MemberAccessExpressionNode, NameNode, TypeAnnotationExpressionNode,
     UnaryExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { ClassType, NoneType, ObjectType, TupleType, Type, UnionType } from './types';
 import { TypeUtils } from './typeUtils';
 
 export interface ConditionalTypeConstraintResults {
+    // Type constraints that apply in cases where the condition potentially
+    // evaluates to true (if) or false (else). Note that these are not
+    // necessarily symmetric. For example, if the type is declared
+    // as an "Union[int, None]", in the "if" case it is contrained to be
+    // an int, but in the "else" case it is still a "Union[int, None]"
+    // because an integer value of zero will evaluate to falsy.
     ifConstraints: TypeConstraint[];
     elseConstraints: TypeConstraint[];
 }
 
 export abstract class TypeConstraint {
+    // Should constraint assume "truthiness" (positive test) or
+    // "falsiness" (negative test)?
     private _isPositiveTest: boolean;
 
     constructor(isPositiveTest: boolean) {
@@ -95,27 +100,26 @@ export class TruthyTypeConstraint extends TypeConstraint {
                 return type;
             }
 
-            if (this.isPositiveTest()) {
-                if (type instanceof UnionType) {
-                    return type.removeOptional();
-                } else if (type instanceof NoneType) {
-                    // TODO - we may want to return a "never" type in
-                    // this case to indicate that the condition will
-                    // always evaluate to false.
-                    return NoneType.create();
-                }
+            let types: Type[];
+            if (type instanceof UnionType) {
+                types = type.getTypes();
             } else {
-                if (type instanceof UnionType) {
-                    let remainingTypes = type.getTypes().filter(t => TypeUtils.canBeFalsy(t));
-                    if (remainingTypes.length === 0) {
-                        // TODO - we may want to return a "never" type in
-                        // this case to indicate that the condition will
-                        // always evaluate to false.
-                        return NoneType.create();
-                    } else {
-                        return TypeUtils.combineTypesArray(remainingTypes);
-                    }
-                }
+                types = [type];
+            }
+
+            if (this.isPositiveTest()) {
+                types = types.filter(t => TypeUtils.canBeTruthy(t));
+            } else {
+                types = types.filter(t => TypeUtils.canBeFalsy(t));
+            }
+
+            if (types.length === 0) {
+                // TODO - we may want to return a "never" type in
+                // this case to indicate that the condition will
+                // always evaluate to false.
+                return NoneType.create();
+            } else {
+                return TypeUtils.combineTypesArray(types);
             }
         }
 
@@ -345,20 +349,14 @@ export class TypeConstraintBuilder {
                 let rightConstraints = this.buildTypeConstraintsForConditional(
                     testExpression.rightExpression, typeEvaluator);
 
-                // For an OR operator, all of the negated "else" constraints must be true,
+                // For an OR operator, all of the "else" constraints must be false,
                 // but we can't make any assumptions about the "if" constraints
                 // because we can't determine which evaluation caused the
                 // OR to become true.
                 if (leftConstraints) {
-                    results.elseConstraints.forEach(c => {
-                        c.negate();
-                    });
-                    results.elseConstraints = results.elseConstraints;
+                    results.elseConstraints = leftConstraints.elseConstraints;
                 }
                 if (rightConstraints) {
-                    rightConstraints.elseConstraints.forEach(c => {
-                        c.negate();
-                    });
                     results.elseConstraints = results.elseConstraints.concat(rightConstraints.elseConstraints);
                 }
                 if (results.elseConstraints.length === 0) {
