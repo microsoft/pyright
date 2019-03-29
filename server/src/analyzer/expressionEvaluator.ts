@@ -335,9 +335,7 @@ export class ExpressionEvaluator {
         }
 
         if (!type) {
-            // This error condition would have already been reported by the
-            // semantic analyzer, so don't report it again.
-            // this._addError(`'${ name }' is not defined`, node);
+            this._addError(`'${ name }' is not defined`, node);
             type = UnknownType.create();
         }
 

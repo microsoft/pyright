@@ -335,7 +335,7 @@ export class ClassType extends Type {
         // Special built-in types can have a variable number of type parameters, so
         // ignore those. For all others, verify that we have enough type arguments
         // to match all of the type parameters. It's possible in early phases of
-        // analysis for there to be more type args than parameters because the paraemters
+        // analysis for there to be more type args than parameters because the parameters
         // have not yet been filled in for forward-declared classes.
         assert(this.isSpecialBuiltIn() || typeArgs.length >= this.getTypeParameters().length);
 
