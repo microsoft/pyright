@@ -46,9 +46,10 @@ export enum EvaluatorFlags {
     // is the normal mode used for type annotations.
     ConvertClassToObject = 1,
 
-    // Should types like 'Callable' be converted to their internal
-    // representations even if they have no explicit specialization?
-    ConvertSpecialTypes = 2
+    // Normally a generic named type is specialized with "Any"
+    // types. This flag indicates that specialization shouldn't take
+    // place.
+    DoNotSpecialize = 2
 }
 
 export enum MemberAccessFlags {
@@ -92,7 +93,7 @@ export class ExpressionEvaluator {
     }
 
     getType(node: ExpressionNode, flags: EvaluatorFlags): Type {
-        let typeResult = this._getTypeFromExpression(node, flags | EvaluatorFlags.ConvertSpecialTypes);
+        let typeResult = this._getTypeFromExpression(node, flags);
         return typeResult.type;
     }
 
@@ -340,10 +341,9 @@ export class ExpressionEvaluator {
             type = UnknownType.create();
         }
 
-        // If we're not converting to an object, convert classes like
-        // "Callable" into their internal representation.
-        if ((flags & EvaluatorFlags.ConvertSpecialTypes) !== 0) {
-            if (type instanceof ClassType && type.isSpecialBuiltIn()) {
+        // Should we specialize the class?
+        if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
+            if (type instanceof ClassType) {
                 type = this._createSpecializeClassType(type, [], node, flags);
             }
         }
@@ -558,11 +558,13 @@ export class ExpressionEvaluator {
         return undefined;
     }
 
-    private _getTypeFromIndexExpression(node: IndexExpressionNode, flags: EvaluatorFlags): TypeResult {
+    private _getTypeFromIndexExpression(node: IndexExpressionNode,
+            flags: EvaluatorFlags): TypeResult {
+
         let type: Type | undefined;
-        const baseTypeResult = this._getTypeFromExpression(node.baseExpression, EvaluatorFlags.None);
+        const baseTypeResult = this._getTypeFromExpression(node.baseExpression,
+            EvaluatorFlags.DoNotSpecialize);
         const baseType = baseTypeResult.type;
-        const typeArgs = this._getTypeArgs(node.indexExpression);
 
         if (baseType.isAny()) {
             type = baseType;
@@ -617,13 +619,13 @@ export class ExpressionEvaluator {
                 type: UnknownType.create(),
                 typeList: node.entries.map(entry => {
                     return this._getTypeFromExpression(entry,
-                        EvaluatorFlags.ConvertClassToObject | EvaluatorFlags.ConvertSpecialTypes);
+                        EvaluatorFlags.ConvertClassToObject);
                 }),
                 node
             };
         } else {
             typeResult = this._getTypeFromExpression(node,
-                EvaluatorFlags.ConvertClassToObject | EvaluatorFlags.ConvertSpecialTypes);
+                EvaluatorFlags.ConvertClassToObject);
         }
 
         return typeResult;
