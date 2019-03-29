@@ -46,6 +46,9 @@ Pyright offers the following language service features:
 ## Limitations
 Pyright currently provides support for Python 3.0 and newer. There is currently no plan to support older versions.
 
+Pyright is a work in progress. Type-checking capabilities are not fully implemented. For a list of incomplete functionality, refer to the TODO list below.
+
+
 ## FAQ
 **Q:** What is the difference between pyright and the [Microsoft Python VS Code plugin](https://github.com/Microsoft/vscode-python)?
 
@@ -86,7 +89,7 @@ To run the command-line tool:
 
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
-* Add enforcement of covariance and contravariance
+* Add enforcement of TypeVar constraints
 * Type inference for generators and async functions
 * Add support for inference of subclass type vars based on method parameter types declared in subclass
 * Validate consistency of subclass type vars across all declared methods
