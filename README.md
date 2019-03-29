@@ -4,7 +4,7 @@
 
 Pyright was created to address gaps in existing Python type checkers like [mypy](http://mypy-lang.org).
 ### Speed
-Pyright is typically 5x or more faster than mypy and other type checkers that are written in Python. It is meant for large Python source bases. It can run in a “watch” mode and performs fast incremental updates when files are modified.
+Pyright is typically 5x, or more, faster than mypy and other type checkers that are written in Python. It is meant for large Python source bases. It can run in a “watch” mode and performs fast incremental updates when files are modified.
 
 ### No Dependency on Python Environment
 Pyright is written in TypeScript and runs within node. It does not require a Python environment or imported third-party packages to be installed. This is especially useful when used with the VS Code editor, which uses node as its extension runtime.
