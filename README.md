@@ -3,7 +3,7 @@
 # Static type checker for Python
 
 ### Speed
-Pyright is significantly faster than type checkers written in Python. It is meant for large Python source bases. It can run in a “watch” mode and performs fast incremental updates when files are modified.
+Pyright is a fast type checker meant for large Python source bases. It can run in a “watch” mode and performs fast incremental updates when files are modified.
 
 ### No Dependency on Python Environment
 Pyright does not require a Python environment or imported third-party packages to be installed.
