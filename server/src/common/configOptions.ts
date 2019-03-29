@@ -165,6 +165,26 @@ export class ConfigOptions {
         this.reportMissingTypeStubs = this._convertDiagnosticLevel(
             configObj.reportMissingTypeStubs, 'reportMissingTypeStubs', 'none');
 
+        // Read the "pythonPath".
+        this.pythonPath = undefined;
+        if (configObj.pythonPath !== undefined) {
+            if (typeof configObj.pythonPath !== 'string') {
+                console.log(`Config "pythonPath" field must contain a string.`);
+            } else {
+                this.pythonPath = normalizePath(combinePaths(this.projectRoot, configObj.pythonPath));
+            }
+        }
+
+        // Read the "venvPath".
+        this.venvPath = undefined;
+        if (configObj.venvPath !== undefined) {
+            if (typeof configObj.venvPath !== 'string') {
+                console.log(`Config "venvPath" field must contain a string.`);
+            } else {
+                this.venvPath = normalizePath(combinePaths(this.projectRoot, configObj.venvPath));
+            }
+        }
+
         // Read the default "venv".
         this.defaultVenv = undefined;
         if (configObj.venv !== undefined) {
