@@ -97,9 +97,30 @@ test('TypeConstraint1', () => {
     assert.equal(analysisResults[0].errors.length, 6);
 });
 
+test('TypeConstraint2', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint2.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 4);
+});
+
 test('CircularBaseClass', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['circularBaseClass.py']);
 
     assert.equal(analysisResults.length, 1);
     assert.equal(analysisResults[0].errors.length, 5);
+});
+
+test('ReturnTypes1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['returnTypes1.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 2);
+});
+
+test('Specialization1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialization1.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 2);
 });

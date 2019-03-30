@@ -164,4 +164,20 @@ export class TestUtils {
             }
         });
     }
+
+    static printDiagnostics(fileResults: FileAnalysisResult) {
+        if (fileResults.errors.length > 0) {
+            console.error(`Errors in ${ fileResults.filePath }:`);
+            for (const diag of fileResults.errors) {
+                console.error(`  ${ diag.message }`);
+            }
+        }
+
+        if (fileResults.warnings.length > 0) {
+            console.error(`Warnings in ${ fileResults.filePath }:`);
+            for (const diag of fileResults.warnings) {
+                console.error(`  ${ diag.message }`);
+            }
+        }
+    }
 }
