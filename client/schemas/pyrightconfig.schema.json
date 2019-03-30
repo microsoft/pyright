@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Pyright Configuration Schema",
+  "definitions": {
+    "diagnostic": {
+      "anyOf": [
+        { "type": "boolean" },
+        { "type": "string", "enum": [ "none", "warning", "error" ] }
+      ]
+    }
+  },
+  "properties": {
+    "include": {
+      "$id": "#/properties/include",
+      "type": "array",
+      "title": "Files and directories included in type analysis",
+      "items": {
+        "$id": "#/properties/include/items",
+        "type": "string",
+        "title": "File or directory to include in type analysis",
+        "pattern": "^(.*)$"
+      }
+    },
+    "exclude": {
+      "$id": "#/properties/exclude",
+      "type": "array",
+      "title": "Files and directories excluded from type analysis",
+      "items": {
+        "$id": "#/properties/exclude/items",
+        "type": "string",
+        "title": "File or directory to excluded from type analysis",
+        "pattern": "^(.*)$"
+      }
+    },
+    "typeshedPath": {
+      "$id": "#/properties/typingsPath",
+      "type": "string",
+      "title": "Path to directory containing typeshed type stub files",
+      "default": "",
+      "pattern": "^(.*)$"
+    },
+    "typingsPath": {
+      "$id": "#/properties/typingsPath",
+      "type": "string",
+      "title": "Path to directory containing custom type stub files",
+      "default": "",
+      "examples": [
+        "src/typestubs"
+      ],
+      "pattern": "^(.*)$"
+    },
+    "reportTypeshedErrors": {
+      "$id": "#/properties/reportTypeshedErrors",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Enables reporting of errors found within typeshed stub files",
+      "default": false
+    },
+    "reportMissingImports": {
+      "$id": "#/properties/reportMissingImports",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Enables reporting of imports that cannot be resolved",
+      "default": true
+    },
+    "reportMissingTypeStubs": {
+      "$id": "#/properties/reportMissingTypeStubs",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Enables reporting of imports that cannot be resolved to type stub files",
+      "default": false
+    },
+    "pythonVersion": {
+      "$id": "#/properties/pythonVersion",
+      "type": "string",
+      "title": "Python version to assume during type analysis",
+      "default": "",
+      "examples": [
+        "3.7"
+      ],
+      "pattern": "^3\\.[0-9]+$"
+    },
+    "pythonPlatform": {
+      "$id": "#/properties/pythonPlatform",
+      "type": "string",
+      "title": "Python platform to assume during type analysis",
+      "default": "",
+      "examples": [
+        "Linux"
+      ],
+      "pattern": "^(Linux|Windows|Darwin)$"
+    },
+    "pythonPath": {
+      "$id": "#/properties/pythonPath",
+      "type": "string",
+      "title": "Path to directory containing a python environment",
+      "default": "",
+      "pattern": "^(.*)$"
+    },
+    "venvPath": {
+      "$id": "#/properties/venvPath",
+      "type": "string",
+      "title": "Path to directory containing a folder of virtual environments",
+      "default": "",
+      "pattern": "^(.*)$"
+    },
+    "venv": {
+      "$id": "#/properties/venv",
+      "type": "string",
+      "title": "Name of virtual environment subdirectory within venvPath",
+      "default": "",
+      "examples": [
+        "python37"
+      ],
+      "pattern": "^(.*)$"
+    },
+    "executionEnvironments": {
+      "$id": "#/properties/executionEnvironments",
+      "type": "array",
+      "title": "Analysis settings to use for specified subdirectories of code",
+      "items": {
+        "$id": "#/properties/executionEnvironments/items",
+        "type": "object",
+        "title": "Analysis settings to use for specified subdirectories of code",
+        "required": [
+          "root"
+        ],
+        "properties": {
+          "root": {
+            "$id": "#/properties/executionEnvironments/items/properties/root",
+            "type": "string",
+            "title": "Path to code subdirectory to which these settings apply",
+            "default": "",
+            "pattern": "^(.*)$"
+          },
+          "extraPaths": {
+            "$id": "#/properties/executionEnvironments/items/properties/extraPaths",
+            "type": "array",
+            "title": "Additional import search resolution paths",
+            "items": {
+              "$id": "#/properties/executionEnvironments/items/properties/extraPaths/items",
+              "type": "string",
+              "title": "Additional import search resolution path",
+              "default": "",
+              "pattern": "^(.*)$"
+            }
+          },
+          "pythonVersion": {
+            "$id": "#/properties/pythonVersion",
+            "type": "string",
+            "title": "Python version to assume during type analysis",
+            "default": "",
+            "examples": [
+              "3.7"
+            ],
+            "pattern": "^3\\.[0-9]+$"
+          },
+          "pythonPlatform": {
+            "$id": "#/properties/pythonPlatform",
+            "type": "string",
+            "title": "Python platform to assume during type analysis",
+            "default": "",
+            "examples": [
+              "Linux"
+            ],
+            "pattern": "^(Linux|Windows|Darwin)$"
+          },
+          "venv": {
+            "$id": "#/properties/venv",
+            "type": "string",
+            "title": "Name of virtual environment subdirectory within venvPath",
+            "default": "",
+            "examples": [
+              "python37"
+            ],
+            "pattern": "^(.*)$"
+          }
+        }
+      }
+    }
+  }
+}

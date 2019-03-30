@@ -65,7 +65,11 @@
                     "scope": "resource"
                 }
             }
-        }
+        },
+        "jsonValidation": [{
+            "fileMatch": "pyrightconfig.json",
+            "url": "./schemas/pyrightconfig.schema.json"
+        }]
     },
     "scripts": {
         "vscode:prepublish": "npm run build",
