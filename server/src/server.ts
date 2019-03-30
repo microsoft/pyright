@@ -83,7 +83,7 @@ _connection.onInitialize((params): InitializeResult => {
 
                 const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
                 _connection.sendNotification('pyright/reportProgress',
-                    `${ results.filesRequiringAnalysis } ${ fileOrFiles } remaining`);
+                    `${ results.filesRequiringAnalysis } ${ fileOrFiles } to analyze`);
             } else {
                 if (_isDisplayingProgress) {
                     _isDisplayingProgress = false;
