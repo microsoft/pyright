@@ -46,6 +46,9 @@ let _analyzerService: AnalyzerService = new AnalyzerService(_connection.console)
 // Root path of the workspace.
 let _rootPath = '/';
 
+// Tracks whether we're currently displaying progress.
+let _isDisplayingProgress = false;
+
 // Make the text document manager listen on the connection
 // for open, change and close text document events.
 _documents.listen(_connection);
@@ -71,6 +74,22 @@ _connection.onInitialize((params): InitializeResult => {
                 uri: _convertPathToUri(fileDiag.filePath),
                 diagnostics
             });
+
+            if (results.filesRequiringAnalysis > 0) {
+                if (!_isDisplayingProgress) {
+                    _isDisplayingProgress = true;
+                    _connection.sendNotification('pyright/beginProgress');
+                }
+
+                const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
+                _connection.sendNotification('pyright/reportProgress',
+                    `${ results.filesRequiringAnalysis } ${ fileOrFiles } remaining`);
+            } else {
+                if (_isDisplayingProgress) {
+                    _isDisplayingProgress = false;
+                    _connection.sendNotification('pyright/endProgress');
+                }
+            }
         });
     });
 

@@ -88,6 +88,20 @@ export class Program {
         return this._sourceFileList.length;
     }
 
+    getFilesToAnalyzeCount() {
+        let sourceFileCount = 0;
+
+        this._sourceFileList.forEach(fileInfo => {
+            if (fileInfo.sourceFile.isParseRequired() ||
+                    fileInfo.sourceFile.isSemanticAnalysisRequired() ||
+                    fileInfo.sourceFile.isTypeAnalysisRequired()) {
+                sourceFileCount++;
+            }
+        });
+
+        return sourceFileCount;
+    }
+
     addTrackedFiles(filePaths: string[]) {
         filePaths.forEach(filePath => {
             this.addTrackedFile(filePath);

@@ -27,6 +27,7 @@ export { MaxAnalysisTime } from './program';
 export interface AnalysisResults {
     diagnostics: FileDiagnostics[];
     filesInProgram: number;
+    filesRequiringAnalysis: number;
     fatalErrorOccurred: boolean;
     elapsedTime: number;
 }
@@ -434,6 +435,7 @@ export class AnalyzerService {
             let results: AnalysisResults = {
                 diagnostics: this._program.getDiagnostics(this._configOptions),
                 filesInProgram: this._program.getFileCount(),
+                filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
                 fatalErrorOccurred: false,
                 elapsedTime: duration.getDurationInSeconds()
             };
@@ -455,6 +457,7 @@ export class AnalyzerService {
                 this._onCompletionCallback({
                     diagnostics: [],
                     filesInProgram: 0,
+                    filesRequiringAnalysis: 0,
                     fatalErrorOccurred: true,
                     elapsedTime: 0
                 });
@@ -469,7 +472,8 @@ export class AnalyzerService {
             if (this._onCompletionCallback) {
                 this._onCompletionCallback({
                     diagnostics: fileDiags,
-                    filesInProgram: 0,
+                    filesInProgram: this._program.getFileCount(),
+                    filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
                     fatalErrorOccurred: false,
                     elapsedTime: 0
                 });

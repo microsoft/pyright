@@ -1,14 +1,18 @@
 /*
 * extension.ts
 *
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
+*
 * Provides client for Pyright Python language server. This portion runs
 * in the context of the VS Code process and talks to the server, which
 * runs in another process.
 */
 
 import * as path from 'path';
-import { ExtensionContext, workspace } from 'vscode';
+import { ExtensionContext } from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
+import { ProgressReporting } from './progress';
 
 export function activate(context: ExtensionContext) {
 	let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
@@ -23,16 +27,14 @@ export function activate(context: ExtensionContext) {
 	
 	// Options to control the language client
 	let clientOptions: LanguageClientOptions = {
-		// Register the server for plain text documents
+		// Register the server for python source files.
 		documentSelector: [{
 			scheme: 'file',
 			language: 'python'
 		}],
 		synchronize: {
-			// Synchronize the setting section 'languageServerExample' to the server
-			configurationSection: 'python',
-			// Notify the server about file changes to '.clientrc files contain in the workspace
-			fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
+			// Synchronize the setting section to the server.
+			configurationSection: 'python'
 		}
 	}
 	
@@ -43,4 +45,8 @@ export function activate(context: ExtensionContext) {
 	// Push the disposable to the context's subscriptions so that the 
 	// client can be deactivated on extension deactivation.
 	context.subscriptions.push(disposable);
+
+	// Allocate a progress reporting object.
+	const progressReporting = new ProgressReporting(languageClient);
+	context.subscriptions.push(progressReporting);
 }
