@@ -429,9 +429,12 @@ export class ExpressionEvaluator {
 
     // If the memberType is an instance or class method, creates a new
     // version of the function that has the "self" or "cls" parameter bound
-    // to it.
+    // to it. If treatAsClassMember is true, the function is treated like a
+    // class member even if it's not marked as such. That's needed to
+    // special-case the __new__ magic method when it's invoked as a
+    // constructor (as opposed to by name).
     private _bindFunctionToClassOrObject(baseType: ClassType | ObjectType | undefined,
-            memberType: Type): Type {
+            memberType: Type, treatAsClassMember = false): Type {
 
         if (memberType instanceof FunctionType) {
             // If the caller specified no base type, always strip the
@@ -443,7 +446,7 @@ export class ExpressionEvaluator {
                     return this._partiallySpecializeFunctionForBoundClassOrObject(
                         baseType, memberType);
                 }
-            } else if (memberType.isClassMethod()) {
+            } else if (memberType.isClassMethod() || treatAsClassMember) {
                 if (baseType instanceof ClassType) {
                     return this._partiallySpecializeFunctionForBoundClassOrObject(
                         baseType, memberType);
@@ -456,7 +459,8 @@ export class ExpressionEvaluator {
             let newOverloadType = new OverloadedFunctionType();
             memberType.getOverloads().forEach(overload => {
                 newOverloadType.addOverload(overload.typeSourceId,
-                    this._bindFunctionToClassOrObject(baseType, overload.type) as FunctionType);
+                    this._bindFunctionToClassOrObject(baseType, overload.type,
+                        treatAsClassMember) as FunctionType);
             });
 
             return newOverloadType;
@@ -786,7 +790,7 @@ export class ExpressionEvaluator {
                 MemberAccessFlags.SkipBaseClasses);
         if (constructorMethodType) {
             constructorMethodType = this._bindFunctionToClassOrObject(
-                type, constructorMethodType);
+                type, constructorMethodType, true);
             returnType = this._validateCallArguments(node, constructorMethodType);
             if (returnType instanceof UnknownType) {
                 returnType = new ObjectType(type);
