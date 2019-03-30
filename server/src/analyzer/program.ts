@@ -196,7 +196,9 @@ export class Program {
     analyze(options: ConfigOptions, maxTime?: MaxAnalysisTime): boolean {
         let elapsedTime = new Duration();
 
-        let openFiles = this._sourceFileList.filter(sf => sf.isOpenByClient);
+        let openFiles = this._sourceFileList.filter(
+            sf => sf.isOpenByClient && !sf.sourceFile.isAnalysisFinalized()
+        );
 
         if (openFiles.length > 0) {
             let isTimeElapsedOpenFiles = () => {
@@ -227,6 +229,13 @@ export class Program {
                 if (this._doFullAnalysis(sourceFileInfo, options, isTimeElapsedOpenFiles)) {
                     return true;
                 }
+            }
+
+            // If the caller specified a maxTime, return at this point
+            // since we've finalized all open files. We want to get
+            // the results to the user as quickly as possible.
+            if (maxTime !== undefined) {
+                return true;
             }
         }
 
