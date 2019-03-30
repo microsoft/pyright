@@ -83,17 +83,17 @@ To run the command-line tool:
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
 * Type inference for generators and async functions
-* Add support for inference of subclass type vars based on method parameter types declared in subclass
-* Add more tests for type checker
-* Validate consistency of subclass type vars across all declared methods
 * Report errors for non-quoted forward references of types
 * Support for old-style type annotations within comments
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)
+* Add more tests for type checker
 * Validate that all abstract methods are overridden
 * Validate parameters for magic functions
 * Validate that overridden methods in subclass have same signature as base class methods
 * Verify that exception classes inherit from base Exception
+* Add support for inference of subclass type vars based on method parameter types declared in subclass
+* Validate consistency of subclass type vars across all declared methods
 * Validate await / async consistency
 * Flag assignments to read-only values (None, True, False, __debug__) as errors
 * Revamp support for properties - model with Descriptor protocol, detect missing setter
