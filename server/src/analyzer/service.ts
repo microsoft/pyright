@@ -278,40 +278,30 @@ export class AnalyzerService {
             for (const file of files) {
                 const filePath = combinePaths(absolutePath, file);
 
-                if (!this._isInExcludePath(filePath, excludePaths) && includeFileRegex.test(filePath)) {
+                if (!this._isInExcludePath(filePath, exclude) && includeFileRegex.test(filePath)) {
                     results.push(filePath);
                 }
             }
 
             for (const directory of directories) {
                 const dirPath = combinePaths(absolutePath, directory);
-                if (!this._isInExcludePath(absolutePath, excludePaths)) {
+                if (!this._isInExcludePath(absolutePath, exclude)) {
                     visitDirectory(dirPath);
                 }
             }
         };
 
-        // Build a normalized list of exclusion paths.
-        let excludePaths = exclude.map(excludeSpec => {
-            let absolutePath = normalizePath(combinePaths(basePath, excludeSpec));
-            if (!absolutePath.endsWith('.py')) {
-                absolutePath = ensureTrailingDirectorySeparator(absolutePath);
-            }
-            return absolutePath;
-        });
-
         include.forEach(includeSpec => {
-            let absolutePath = normalizePath(combinePaths(basePath, includeSpec));
             let foundFileSpec = false;
 
-            if (!this._isInExcludePath(absolutePath, excludePaths) && fs.existsSync(absolutePath)) {
+            if (!this._isInExcludePath(includeSpec, exclude) && fs.existsSync(includeSpec)) {
                 try {
-                    let stat = fs.statSync(absolutePath);
+                    let stat = fs.statSync(includeSpec);
                     if (stat.isFile()) {
-                        results.push(absolutePath);
+                        results.push(includeSpec);
                         foundFileSpec = true;
                     } else if (stat.isDirectory()) {
-                        visitDirectory(absolutePath);
+                        visitDirectory(includeSpec);
                         foundFileSpec = true;
                     }
                 } catch {

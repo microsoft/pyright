@@ -66,6 +66,10 @@ export class ConfigOptions {
     // within those directories are included.
     exclude: string[] = [];
 
+    // A list of file sepcs whose errors and warnings should be ignored even
+    // if they are included in the transitive closure of included files.
+    ignore: string[] = [];
+
     // Report diagnostics in typeshed files?
     reportTypeshedErrors: DiagnosticLevel = 'none';
 
@@ -130,7 +134,7 @@ export class ConfigOptions {
                     if (typeof fileSpec !== 'string') {
                         console.log(`Index ${ index } of "include" array should be a string.`);
                     } else {
-                        this.include.push(fileSpec);
+                        this.include.push(this._normalizeFileSpec(fileSpec));
                     }
                 });
             }
@@ -147,7 +151,24 @@ export class ConfigOptions {
                     if (typeof fileSpec !== 'string') {
                         console.log(`Index ${ index } of "exclude" array should be a string.`);
                     } else {
-                        this.exclude.push(fileSpec);
+                        this.exclude.push(this._normalizeFileSpec(fileSpec));
+                    }
+                });
+            }
+        }
+
+        // Read the "ignore" entry.
+        this.ignore = [];
+        if (configObj.ignore !== undefined) {
+            if (!Array.isArray(configObj.ignore)) {
+                console.log(`Config "ignore" entry must contain an array.`);
+            } else {
+                let filesList = configObj.ignore as string[];
+                filesList.forEach((fileSpec, index) => {
+                    if (typeof fileSpec !== 'string') {
+                        console.log(`Index ${ index } of "ignore" array should be a string.`);
+                    } else {
+                        this.ignore.push(this._normalizeFileSpec(fileSpec));
                     }
                 });
             }
@@ -256,6 +277,14 @@ export class ConfigOptions {
                 });
             }
         }
+    }
+
+    private _normalizeFileSpec(fileSpec: string): string {
+        let absolutePath = normalizePath(combinePaths(this.projectRoot, fileSpec));
+        if (!absolutePath.endsWith('.py') && !absolutePath.endsWith('.pyi')) {
+            absolutePath = ensureTrailingDirectorySeparator(absolutePath);
+        }
+        return absolutePath;
     }
 
     private _convertDiagnosticLevel(value: any, fieldName: string,

@@ -153,7 +153,9 @@ export class SourceFile {
     // Returns a list of cached diagnostics from the latest analysis job.
     // If the prevVersion is specified, the method returns undefined if
     // the diagnostics haven't changed.
-    getDiagnostics(options: ConfigOptions, prevDiagnosticVersion?: number): Diagnostic[] | undefined {
+    getDiagnostics(options: ConfigOptions, prevDiagnosticVersion?: number):
+            Diagnostic[] | undefined {
+
         if (this._diagnosticVersion === prevDiagnosticVersion) {
             return undefined;
         }
@@ -178,6 +180,11 @@ export class SourceFile {
                     return diag;
                 });
             }
+        }
+
+        // If the file is in the ignore list, clear the diagnostic list.
+        if (options.ignore.find(ignorePath => this._filePath.startsWith(ignorePath))) {
+            diagList = [];
         }
 
         return diagList;

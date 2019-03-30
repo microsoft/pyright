@@ -29,7 +29,18 @@
       "items": {
         "$id": "#/properties/exclude/items",
         "type": "string",
-        "title": "File or directory to excluded from type analysis",
+        "title": "File or directory to exclude from type analysis",
+        "pattern": "^(.*)$"
+      }
+    },
+    "ignore": {
+      "$id": "#/properties/ignore",
+      "type": "array",
+      "title": "Files and directories whose diagnostics are suppressed",
+      "items": {
+        "$id": "#/properties/ignore/items",
+        "type": "string",
+        "title": "File or directory where diagnostics should be suppressed",
         "pattern": "^(.*)$"
       }
     },
@@ -54,19 +65,19 @@
       "$id": "#/properties/reportTypeshedErrors",
       "$ref": "#/definitions/diagnostic",
       "title": "Enables reporting of errors found within typeshed stub files",
-      "default": false
+      "default": "none"
     },
     "reportMissingImports": {
       "$id": "#/properties/reportMissingImports",
       "$ref": "#/definitions/diagnostic",
       "title": "Enables reporting of imports that cannot be resolved",
-      "default": true
+      "default": "error"
     },
     "reportMissingTypeStubs": {
       "$id": "#/properties/reportMissingTypeStubs",
       "$ref": "#/definitions/diagnostic",
       "title": "Enables reporting of imports that cannot be resolved to type stub files",
-      "default": false
+      "default": "none"
     },
     "pythonVersion": {
       "$id": "#/properties/pythonVersion",
