@@ -1,12 +1,10 @@
 /*
-* builtins1.test.ts
+* typeAnalyzer.test.ts
 * Copyright (c) Microsoft Corporation.
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* Unit tests for pyright test analyzer. Validates
-* that the builtin module is populated with the
-* appropriate symbols.
+* Unit tests for pyright type analyzer.
 */
 
 import * as assert from 'assert';
@@ -90,4 +88,12 @@ test('Builtins1', () => {
             }
         }
     }
+});
+
+let foo = false;
+test('TypeConstraint1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint1.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 6);
 });

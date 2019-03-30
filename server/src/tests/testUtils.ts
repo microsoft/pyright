@@ -17,7 +17,7 @@ import { Program } from '../analyzer/program';
 import { ModuleScopeAnalyzer } from '../analyzer/semanticAnalyzer';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { StandardConsole } from '../common/console';
-import { Diagnostic } from '../common/diagnostic';
+import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { TestWalker } from './testWalker';
@@ -143,11 +143,12 @@ export class TestUtils {
         const sourceFiles = filePaths.map(filePath => program.getSourceFile(filePath));
         return sourceFiles.map((sourceFile, index) => {
             if (sourceFile) {
+                const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
                 const analysisResult: FileAnalysisResult = {
                     filePath: sourceFile.getFilePath(),
                     parseResults: sourceFile.getParseResults(),
-                    errors: [],
-                    warnings: []
+                    errors: diagnostics.filter(diag => diag.category === DiagnosticCategory.Error),
+                    warnings: diagnostics.filter(diag => diag.category === DiagnosticCategory.Warning)
                 };
                 return analysisResult;
             } else {
