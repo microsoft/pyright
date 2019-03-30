@@ -1,6 +1,6 @@
 # This sample tests specification of generic types.
 
-from typing import Generic, TypeVar
+from typing import Generic, List, TypeVar
 
 class A(object):
     pass
@@ -8,7 +8,10 @@ class A(object):
 class B(A):
     pass
 
-_T1 = TypeVar('_T1', A)
+class C(A):
+    pass
+
+_T1 = TypeVar('_T1', A, B)
 
 class Moo(Generic[_T1]):
     pass
@@ -34,3 +37,13 @@ y.m1(b)
 y.m2(a)
 
 y.m2(b)
+
+# This should generate an error:
+# Type argument 'C' cannot be assigned to type variable '_T1'
+def m3(c: Moo[C]):
+    pass
+
+# This should generate an error:
+# Type argument 'List[C]' cannot be assigned to type variable '_T1'
+def m4(c: Moo[List[C]]):
+    pass

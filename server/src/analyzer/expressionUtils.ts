@@ -16,14 +16,17 @@ import { OperatorType } from '../parser/tokenizerTypes';
 export class ExpressionUtils {
     // Returns undefined if the expression cannot be evaluated
     // statically or a value if it can.
-    static evaluateConstantExpression(node: ExpressionNode, execEnv: ExecutionEnvironment): any | undefined {
+    static evaluateConstantExpression(node: ExpressionNode,
+            execEnv: ExecutionEnvironment): any | undefined {
+
         if (node instanceof BinaryExpressionNode) {
             if (this._isSysVersionInfoExpression(node.leftExpression) &&
                     node.rightExpression instanceof TupleExpressionNode) {
 
                 // Handle the special case of "sys.version_info >= (3, x)"
                 let comparisonVersion = this._convertTupleToVersion(node.rightExpression);
-                return this._evaluateNumericBinaryOperation(node.operator, execEnv.pythonVersion, comparisonVersion);
+                return this._evaluateNumericBinaryOperation(node.operator,
+                    execEnv.pythonVersion, comparisonVersion);
 
             } else if (node.leftExpression instanceof IndexExpressionNode &&
                     this._isSysVersionInfoExpression(node.leftExpression.baseExpression) &&
@@ -32,8 +35,8 @@ export class ExpressionUtils {
                     node.rightExpression instanceof NumberNode) {
 
                 // Handle the special case of "sys.version_info[0] >= X"
-                return this._evaluateNumericBinaryOperation(node.operator, execEnv.pythonVersion / 256,
-                    node.rightExpression.token.value);
+                return this._evaluateNumericBinaryOperation(node.operator,
+                    execEnv.pythonVersion / 256, node.rightExpression.token.value);
             } else if (this._isSysPlatformInfoExpression(node.leftExpression) &&
                     node.rightExpression instanceof StringNode) {
                 // Handle the special case of "sys.platform != 'X'"

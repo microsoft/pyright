@@ -82,10 +82,9 @@ To run the command-line tool:
 
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
-* Add tests for type checker
-* Add enforcement of TypeVar constraints
 * Type inference for generators and async functions
 * Add support for inference of subclass type vars based on method parameter types declared in subclass
+* Add more tests for type checker
 * Validate consistency of subclass type vars across all declared methods
 * Report errors for non-quoted forward references of types
 * Support for old-style type annotations within comments

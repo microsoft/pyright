@@ -83,7 +83,7 @@ export class TypeUtils {
                 typeVarMap.set(destType.getName(), srcType);
             }
 
-            return this._canAssignToTypeVar(destType, srcType);
+            return this.canAssignToTypeVar(destType, srcType);
         }
 
         if (srcType instanceof TypeVarType) {
@@ -261,6 +261,48 @@ export class TypeUtils {
 
             const nonZeroMethod = this.lookUpObjectMember(type, '__nonzero__');
             if (nonZeroMethod) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Validates that the specified source type matches the constraints
+    // of the type variable.
+    static canAssignToTypeVar(destType: TypeVarType, srcType: Type): boolean {
+        if (srcType.isAny()) {
+            return true;
+        }
+
+        // If there's a bound type, make sure it matches.
+        const boundType = destType.getBoundType();
+        if (boundType) {
+            if (srcType.isAny()) {
+                return true;
+            } else if (srcType instanceof ClassType && boundType instanceof ClassType) {
+                return srcType.isDerivedFrom(boundType);
+            } else {
+                return false;
+            }
+        }
+
+        // If there are no constraints, we're done.
+        let constraints = destType.getConstraints();
+        if (constraints.length === 0) {
+            return true;
+        }
+
+        for (const constraint of constraints) {
+            if (constraint.isAny()) {
+                return true;
+            }
+
+            if (srcType instanceof UnionType) {
+                return srcType.getTypes().find(t => constraint.isSame(t)) !== undefined;
+            }
+
+            if (constraint.isSame(srcType)) {
                 return true;
             }
         }
@@ -490,48 +532,6 @@ export class TypeUtils {
         const specializedType = this.specializeType(baseClass, typeVarMap, recursionCount + 1);
         assert(specializedType instanceof ClassType);
         return specializedType as ClassType;
-    }
-
-    // Validates that the specified source type matches the constraints
-    // of the type variable.
-    private static _canAssignToTypeVar(destType: TypeVarType, srcType: Type): boolean {
-        if (srcType.isAny()) {
-            return true;
-        }
-
-        // If there's a bound type, make sure it matches.
-        const boundType = destType.getBoundType();
-        if (boundType) {
-            if (srcType.isAny()) {
-                return true;
-            } else if (srcType instanceof ClassType && boundType instanceof ClassType) {
-                return srcType.isDerivedFrom(boundType);
-            } else {
-                return false;
-            }
-        }
-
-        // If there are no constraints, we're done.
-        let constraints = destType.getConstraints();
-        if (constraints.length === 0) {
-            return true;
-        }
-
-        for (const constraint of constraints) {
-            if (constraint.isAny()) {
-                return true;
-            }
-
-            if (srcType instanceof UnionType) {
-                return srcType.getTypes().find(t => constraint.isSame(t)) !== undefined;
-            }
-
-            if (constraint.isSame(srcType)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     // Specializes a (potentially generic) type by substituting

@@ -1584,7 +1584,16 @@ export class ExpressionEvaluator {
             typeArgTypes.push(AnyType.create());
         }
 
-        // TODO - need to verify constraints of arguments
+        typeArgTypes.forEach((typeArgType, index) => {
+            if (index < typeArgCount) {
+                if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType)) {
+                    this._addError(`Type argument '${ typeArgType.asString() }' ` +
+                        `cannot be assigned to type varaible '${ typeParameters[index].getName() }'`,
+                        typeArgs[index].node);
+                }
+            }
+        });
+
         let specializedClass = classType.cloneForSpecialization(typeArgTypes);
 
         return specializedClass;
