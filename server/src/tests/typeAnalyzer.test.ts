@@ -90,10 +90,16 @@ test('Builtins1', () => {
     }
 });
 
-let foo = false;
 test('TypeConstraint1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint1.py']);
 
     assert.equal(analysisResults.length, 1);
     assert.equal(analysisResults[0].errors.length, 6);
+});
+
+test('CircularBaseClass', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['circularBaseClass.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 5);
 });
