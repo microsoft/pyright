@@ -76,16 +76,37 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // that are in the stub file but are not officially part of
         // the built-in list of symbols in Python.
         if (scopeType === ScopeType.BuiltIn) {
-            const namesToHide = ['sys', 'TypeVar', 'Iterator', 'Iterable', 'NoReturn', 'overload', 'Container',
-                'Sequence', 'MutableSequence', 'Mapping', 'MutableMapping', 'Tuple', 'List', 'Any', 'Dict', 'Callable', 'Generic',
-                'Set', 'AbstractSet', 'FrozenSet', 'MutableSet', 'Sized', 'Reversible', 'SupportsInt', 'SupportsFloat', 'SupportsAbs',
-                'SupportsComplex', 'SupportsRound', 'IO', 'BinaryIO', 'Union',
-                'ItemsView', 'KeysView', 'ValuesView', 'ByteString', 'Optional', 'AnyStr', 'Type', 'Text',
-                '_T', '_T_co', '_KT', '_VT', '_S', '_T1', '_T2', '_T3', '_T4', '_T5', '_TT'
-            ];
-            namesToHide.forEach(name => {
-                this._currentScope.hideName(name);
-            });
+            const builtinsToExport = [
+                'ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException',
+                'BlockingIOError', 'BrokenPipeError', 'BufferError', 'BytesWarning',
+                'ChildProcessError', 'ConnectionAbortedError', 'ConnectionError',
+                'ConnectionRefusedError', 'ConnectionResetError', 'DeprecationWarning',
+                'EOFError', 'Ellipsis', 'EnvironmentError', 'Exception',
+                'FileExistsError', 'FileNotFoundError', 'FloatingPointError',
+                'FutureWarning', 'GeneratorExit', 'IOError', 'ImportError',
+                'ImportWarning', 'IndentationError', 'IndexError', 'InterruptedError',
+                'IsADirectoryError', 'KeyError', 'KeyboardInterrupt', 'LookupError',
+                'MemoryError', 'NameError', 'NotADirectoryError', 'NotImplemented',
+                'NotImplementedError', 'OSError', 'OverflowError', 'PendingDeprecationWarning',
+                'PermissionError', 'ProcessLookupError', 'RecursionError', 'ReferenceError',
+                'ResourceWarning', 'RuntimeError', 'RuntimeWarning', 'StopAsyncIteration',
+                'StopIteration', 'SyntaxError', 'SyntaxWarning', 'SystemError', 'SystemExit',
+                'TabError', 'TimeoutError', 'TypeError', 'UnboundLocalError',
+                'UnicodeDecodeError', 'UnicodeEncodeError', 'UnicodeError', 'UnicodeTranslateError',
+                'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning', 'ZeroDivisionError',
+                '__import__', '__loader__', '__name__',
+                '__package__', '__spec__', 'abs', 'all', 'any', 'ascii', 'bin', 'bool',
+                'bytearray', 'bytes', 'callable', 'chr', 'classmethod', 'compile', 'complex',
+                'copyright', 'credits', 'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval',
+                'exec', 'exit', 'filter', 'float', 'format', 'frozenset', 'getattr', 'globals',
+                'hasattr', 'hash', 'help', 'hex', 'id', 'input', 'int', 'isinstance',
+                'issubclass', 'iter', 'len', 'license', 'list', 'locals', 'map', 'max',
+                'memoryview', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'print',
+                'property', 'quit', 'range', 'repr', 'reversed', 'round', 'set', 'setattr',
+                'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple', 'type',
+                'vars', 'zip'];
+
+            this._currentScope.setExportFilter(builtinsToExport);
         }
 
         AnalyzerNodeInfo.setScope(this._scopedNode, this._currentScope);

@@ -82,6 +82,7 @@ To run the command-line tool:
 
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
+* Add tests for type checker
 * Add enforcement of TypeVar constraints
 * Type inference for generators and async functions
 * Add support for inference of subclass type vars based on method parameter types declared in subclass
@@ -90,7 +91,6 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Support for old-style type annotations within comments
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)
-* Add lots of tests
 * Validate that all abstract methods are overridden
 * Validate parameters for magic functions
 * Validate that overridden methods in subclass have same signature as base class methods

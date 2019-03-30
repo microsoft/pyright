@@ -45,6 +45,14 @@ export class DiagnosticSink {
     addDiagnostics(diagsToAdd: Diagnostic[]) {
         this.diagnostics.push(...diagsToAdd);
     }
+
+    getErrors() {
+        return this.diagnostics.filter(diag => diag.category === DiagnosticCategory.Error);
+    }
+
+    getWarnings() {
+        return this.diagnostics.filter(diag => diag.category === DiagnosticCategory.Warning);
+    }
 }
 
 // Specialized version of DiagnosticSink that works with TextRange objects

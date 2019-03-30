@@ -46,8 +46,8 @@ export class Scope {
     // Associations between names, type, and declarations.
     private _symbolTable: SymbolTable = new SymbolTable();
 
-    // Names in the _hideNameMap will be hidden from child scopes.
-    private _hiddenNameMap: { [name: string]: string } = {};
+    // Names not in _exportFilterMap will be hidden from child scopes.
+    private _exportFilterMap: { [name: string]: string } | undefined;
 
     // Indicates whether the scope is conditionally executed
     // (i.e. is not guaranteed to be executed).
@@ -87,8 +87,11 @@ export class Scope {
         this._isNotExecuted = false;
     }
 
-    hideName(name: string) {
-        this._hiddenNameMap[name] = name;
+    setExportFilter(namesToExport: string[]) {
+        this._exportFilterMap = {};
+        for (const name of namesToExport) {
+            this._exportFilterMap[name] = name;
+        }
     }
 
     getSymbolTable(): SymbolTable {
@@ -395,7 +398,7 @@ export class Scope {
             isBeyondLocalScope: boolean): SymbolWithScope | undefined {
         // If we're searching outside of the original caller's module (global) scope,
         // hide any names that are not meant to be visible to importers.
-        if (isOutsideCallerModule && this._hiddenNameMap[name]) {
+        if (isOutsideCallerModule && this._exportFilterMap && !this._exportFilterMap[name]) {
             return undefined;
         }
 

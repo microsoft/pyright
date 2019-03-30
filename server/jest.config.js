@@ -5,14 +5,14 @@
 */
 
 module.exports = {
-  'roots': [
-    '<rootDir>/src'
+  roots: [
+    '<rootDir>/src/tests'
   ],
-  'transform': {
+  transform: {
     '^.+\\.tsx?$': 'ts-jest'
   },
-  'testRegex': '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
-  'moduleFileExtensions': [
+  testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
+  moduleFileExtensions: [
     'ts',
     'tsx',
     'js',

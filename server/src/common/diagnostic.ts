@@ -9,8 +9,7 @@
 
 export enum DiagnosticCategory {
     Error,
-    Warning,
-    Informational
+    Warning
 }
 
 export interface DiagnosticTextPosition {

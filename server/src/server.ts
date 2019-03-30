@@ -14,7 +14,7 @@ import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory, DiagnosticTextPosition,
     DiagnosticTextRange } from './common/diagnostic';
-import { combinePaths, normalizePath } from './common/pathUtils';
+import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
 
 interface PythonSettings {
     venvPath?: string;
@@ -29,7 +29,7 @@ interface Settings {
 }
 
 // Stash the base directory into a global variable.
-(global as any).__rootDirectory = __dirname;
+(global as any).__rootDirectory = getDirectoryPath(__dirname);
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));

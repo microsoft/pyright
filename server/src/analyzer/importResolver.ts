@@ -11,8 +11,9 @@
 import * as fs from 'fs';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { combinePaths, getDirectoryPath, getFileSystemEntries, isDirectory,
-    isFile, stripFileExtension, stripTrailingDirectorySeparator } from '../common/pathUtils';
+import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
+    getFileSystemEntries, isDirectory, isFile, stripFileExtension,
+    stripTrailingDirectorySeparator } from '../common/pathUtils';
 import { is3x, versionToString } from '../common/pythonVersion';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 
@@ -133,8 +134,11 @@ export class ImportResolver {
         // Assume that the 'typeshed-fallback' directory is up one level
         // from this javascript file.
         const moduleDirectory = (global as any).__rootDirectory;
+
         if (moduleDirectory) {
-            return combinePaths(getDirectoryPath(moduleDirectory), 'typeshed-fallback');
+            return combinePaths(getDirectoryPath(
+                ensureTrailingDirectorySeparator(moduleDirectory)),
+                'typeshed-fallback');
         }
 
         return undefined;
