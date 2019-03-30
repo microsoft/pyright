@@ -15,9 +15,12 @@ import { ConsoleInterface, StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { getFileName } from '../common/pathUtils';
+import { TextRange } from '../common/textRange';
+import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { ModuleNameNode, ModuleNode } from '../parser/parseNodes';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
+import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DefinitionProvider } from './definitionProvider';
@@ -300,16 +303,11 @@ export class SourceFile {
             });
 
             // Save information in the analysis job.
-            this._analysisJob.fileContentsVersion = this._fileContentsVersion;
-            this._analysisJob.nextPhaseToRun = AnalysisPhase.SemanticAnalysis;
-            this._analysisJob.parseTreeNeedsCleaning = false;
             this._analysisJob.parseResults = parseResults;
             [this._analysisJob.imports, this._analysisJob.builtinsImport] =
                 this._resolveImports(parseResults.parseTree,
                     walker.getImportedModules(), configOptions, execEnvironment);
-
             this._analysisJob.parseDiagnostics = diagSink.diagnostics;
-            this._diagnosticVersion++;
         } catch (e) {
             let message: string;
             if (e instanceof Error) {
@@ -320,7 +318,24 @@ export class SourceFile {
 
             this._console.log(
                 `An internal error occurred while parsing ${ this.getFilePath() }: ` + message);
+
+            this._analysisJob.parseResults = {
+                parseTree: new ModuleNode(new TextRange(0, 0)),
+                tokens: new TextRangeCollection<Token>([]),
+                lines: new TextRangeCollection<TextRange>([])
+            };
+            this._analysisJob.imports = undefined;
+            this._analysisJob.builtinsImport = undefined;
+
+            const diagSink = new DiagnosticSink();
+            diagSink.addError(`An internal error occurred while parsing file`);
+            this._analysisJob.parseDiagnostics = diagSink.diagnostics;
         }
+
+        this._analysisJob.fileContentsVersion = this._fileContentsVersion;
+        this._analysisJob.nextPhaseToRun = AnalysisPhase.SemanticAnalysis;
+        this._analysisJob.parseTreeNeedsCleaning = false;
+        this._diagnosticVersion++;
 
         return true;
     }
@@ -366,16 +381,9 @@ export class SourceFile {
                 this._analysisJob.parseResults!.parseTree, fileInfo);
             timingStats.semanticAnalyzerTime.timeOperation(() => {
                 scopeAnalyzer.analyze();
-                this._analysisJob.semanticAnalysisDiagnostics = fileInfo.diagnosticSink.diagnostics;
-                this._analysisJob.nextPhaseToRun = AnalysisPhase.TypeAnalysis;
-                this._diagnosticVersion++;
             });
 
-            // Prepare for the next stage of the analysis.
-            this._analysisJob.typeAnalysisPassNumber = 1;
-            this._analysisJob.isTypeAnalysisPassNeeded = true;
-            this._analysisJob.isTypeAnalysisFinalized = false;
-            this._analysisJob.nextPhaseToRun = AnalysisPhase.TypeAnalysis;
+            this._analysisJob.semanticAnalysisDiagnostics = fileInfo.diagnosticSink.diagnostics;
         } catch (e) {
             let message: string;
             if (e instanceof Error) {
@@ -386,7 +394,19 @@ export class SourceFile {
 
             this._console.log(
                 `An internal error occurred while analyzing ${ this.getFilePath() }: ` + message);
+
+            const diagSink = new DiagnosticSink();
+            diagSink.addError(`An internal error occurred while performing semantic analysis`);
+            this._analysisJob.semanticAnalysisDiagnostics = diagSink.diagnostics;
         }
+
+        // Prepare for the next stage of the analysis.
+        this._analysisJob.nextPhaseToRun = AnalysisPhase.TypeAnalysis;
+        this._diagnosticVersion++;
+        this._analysisJob.typeAnalysisPassNumber = 1;
+        this._analysisJob.isTypeAnalysisPassNeeded = true;
+        this._analysisJob.isTypeAnalysisFinalized = false;
+        this._analysisJob.nextPhaseToRun = AnalysisPhase.TypeAnalysis;
     }
 
     doTypeAnalysis(configOptions: ConfigOptions, importMap: ImportMap) {
@@ -419,6 +439,12 @@ export class SourceFile {
 
             this._console.log(
                 `An internal error occurred while analyzing ${ this.getFilePath() }: ` + message);
+            const diagSink = new DiagnosticSink();
+            diagSink.addError(`An internal error occurred while performing type analysis`);
+
+            // Mark the file as complete so we don't get into an infinite loop.
+            this._analysisJob.isTypeAnalysisPassNeeded = false;
+            this._analysisJob.typeAnalysisLastPassDiagnostics = diagSink.diagnostics;
         }
     }
 
