@@ -301,7 +301,15 @@ export class TypeUtils {
 
             const srcParamType = srcType.getEffectiveParameterType(paramIndex);
             const destParamType = destType.getEffectiveParameterType(paramIndex);
-            if (!this.canAssignType(destParamType, srcParamType, typeVarMap,
+
+            // Call canAssignType once to perform any typeVarMap population.
+            this.canAssignType(destParamType, srcParamType, typeVarMap,
+                    true, recursionCount + 1);
+
+            // Call canAssignType a second time with src and dest swapped
+            // because the matching needs to be done in this order for
+            // input parameters.
+            if (!this.canAssignType(srcParamType, destParamType, typeVarMap,
                     true, recursionCount + 1)) {
                 canAssign = false;
             }
