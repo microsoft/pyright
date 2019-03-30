@@ -39,7 +39,7 @@ export class AnalyzerService {
     private _configOptions: ConfigOptions;
     private _executionRootPath: string;
     private _console: ConsoleInterface;
-    private _sourceFileWatcher: fs.FSWatcher[] | undefined;
+    private _sourceFileWatcher: (fs.FSWatcher | undefined)[] | undefined;
     private _configFileWatcher: fs.FSWatcher | undefined;
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
     private _watchForChanges = false;
@@ -330,7 +330,9 @@ export class AnalyzerService {
     private _updateSourceFileWatchers() {
         if (this._sourceFileWatcher) {
             this._sourceFileWatcher.forEach(watcher => {
-                watcher.close();
+                if (watcher) {
+                    watcher.close();
+                }
             });
             this._sourceFileWatcher = undefined;
         }
@@ -345,18 +347,22 @@ export class AnalyzerService {
             });
 
             this._sourceFileWatcher = fileList.map(fileSpec => {
-                return fs.watch(fileSpec, { recursive: true }, (event, fileName) => {
-                    if (event === 'change') {
-                        let filePath = fileSpec;
-                        if (!isFile(filePath)) {
-                            filePath = combinePaths(fileSpec, fileName);
+                try {
+                    return fs.watch(fileSpec, { recursive: true }, (event, fileName) => {
+                        if (event === 'change') {
+                            let filePath = fileSpec;
+                            if (!isFile(filePath)) {
+                                filePath = combinePaths(fileSpec, fileName);
+                            }
+                            this._program.markFilesDirty([filePath]);
+                            this._scheduleReanalysis(false);
+                        } else if (event === 'rename') {
+                            this._scheduleReanalysis(true);
                         }
-                        this._program.markFilesDirty([filePath]);
-                        this._scheduleReanalysis(false);
-                    } else if (event === 'rename') {
-                        this._scheduleReanalysis(true);
-                    }
-                });
+                    });
+                } catch {
+                    return undefined;
+                }
             });
         }
     }
