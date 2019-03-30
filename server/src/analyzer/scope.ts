@@ -259,6 +259,15 @@ export class Scope {
             }
         }
 
+        // Add any tombstone type constraints from the merged scope.
+        // The other type constraints aren't needed and can be ignored.
+        scopeToMerge.getTypeConstraints().forEach(constraint => {
+            const tombstone = constraint.convertToTombstone();
+            if (tombstone) {
+                this.addTypeConstraint(tombstone, false);
+            }
+        });
+
         return modifiedType;
     }
 
@@ -303,6 +312,15 @@ export class Scope {
         this._symbolTable.forEach((symbol, name) => {
             if (!scope._symbolTable.get(name)) {
                 symbol.isConditional = true;
+            }
+        });
+
+        // Combine any tombstone type constraints from the two scopes.
+        // The other type constraints aren't needed and can be ignored.
+        scope.getTypeConstraints().forEach(constraint => {
+            const tombstone = constraint.convertToTombstone();
+            if (tombstone) {
+                this.addTypeConstraint(tombstone, false);
             }
         });
 
@@ -355,8 +373,12 @@ export class Scope {
         return this._typeConstraints;
     }
 
-    addTypeConstraint(constraint: TypeConstraint) {
-        this._typeConstraints.push(constraint);
+    addTypeConstraint(constraint: TypeConstraint, backOfList = true) {
+        if (backOfList) {
+            this._typeConstraints.push(constraint);
+        } else {
+            this._typeConstraints.unshift(constraint);
+        }
     }
 
     clearTypeConstraints() {

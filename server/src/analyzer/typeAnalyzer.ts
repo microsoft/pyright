@@ -1179,7 +1179,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _addAssignmentTypeConstraint(node: ExpressionNode, assignmentType: Type) {
-        const typeConstraint = TypeConstraintBuilder.buildTypeConstraintsForAssignment(
+        const typeConstraint = TypeConstraintBuilder.buildTypeConstraintForAssignment(
             node, assignmentType);
         if (typeConstraint) {
             this._currentScope.addTypeConstraint(typeConstraint);
@@ -1416,6 +1416,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
             };
             this._bindNameNodeToType(target, type, declaration);
+            this._addAssignmentTypeConstraint(target, type);
         } else {
             this._addAssignmentTypeConstraint(target, type);
         }

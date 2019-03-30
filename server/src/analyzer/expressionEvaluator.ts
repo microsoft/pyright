@@ -1602,10 +1602,15 @@ export class ExpressionEvaluator {
             type = this._applyScopeTypeConstraintRecursive(node, type, parentScope);
         }
 
-        // Apply the constraints within the current scope.
-        scope.getTypeConstraints().forEach(constraint => {
+        // Apply the constraints within the current scope. Stop if one of
+        // them indicates that further constraints shouldn't be applied.
+        for (let constraint of scope.getTypeConstraints()) {
             type = constraint.applyToType(node, type);
-        });
+
+            if (constraint.blockSubsequentContraints(node)) {
+                break;
+            }
+        }
 
         return type;
     }

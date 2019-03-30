@@ -43,8 +43,16 @@ export abstract class TypeConstraint {
         return this._isPositiveTest;
     }
 
-    negate() {
-        this._isPositiveTest = !this._isPositiveTest;
+    // Should this type constraint prevent any other type constraints
+    // from applying their transforms to any additional constraints?
+    // This is needed to invalidate constraint logic when an expression
+    // is reassigned a new value (and hence a new type).
+    blockSubsequentContraints(node: ExpressionNode) {
+        return false;
+    }
+
+    convertToTombstone(): TombstoneTypeConstraint | undefined {
+        return undefined;
     }
 
     // Determines whether the expression is one that the type constraint
@@ -270,6 +278,29 @@ export class IsInstanceTypeConstraint extends TypeConstraint {
     }
 }
 
+// Provides a way to indicate that all subsequent type constraints
+// associated with this expression should not take effect.
+export class TombstoneTypeConstraint extends TypeConstraint {
+    private _expression: ExpressionNode;
+
+    constructor(node: ExpressionNode) {
+        super(true);
+        this._expression = node;
+    }
+
+    blockSubsequentContraints(node: ExpressionNode) {
+        return TypeConstraint.doesExpressionMatch(node, this._expression);
+    }
+
+    applyToType(node: ExpressionNode, type: Type): Type {
+        return type;
+    }
+
+    convertToTombstone(): TombstoneTypeConstraint | undefined {
+        return this;
+    }
+}
+
 // Represents an assignment within a scope to a value of a particular
 // type. This overrides the general inferred type for that expression.
 // This is especially useful for globla and instance/class variables
@@ -290,6 +321,10 @@ export class AssignmentTypeConstraint extends TypeConstraint {
         }
 
         return type;
+    }
+
+    convertToTombstone(): TombstoneTypeConstraint | undefined {
+        return new TombstoneTypeConstraint(this._expression);
     }
 }
 
@@ -429,7 +464,7 @@ export class TypeConstraintBuilder {
     }
 
     // Builds a type constraint that applies the specified type to an expression.
-    static buildTypeConstraintsForAssignment(targetNode: ExpressionNode,
+    static buildTypeConstraintForAssignment(targetNode: ExpressionNode,
             assignmentType: Type): AssignmentTypeConstraint | undefined {
 
         if (targetNode instanceof TypeAnnotationExpressionNode) {
