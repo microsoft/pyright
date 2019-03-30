@@ -122,7 +122,7 @@ export class ExpressionEvaluator {
                 decorator.callName.leftExpression instanceof NameNode &&
                 (decorator.callName.memberName.nameToken.value === 'setter' ||
                     decorator.callName.memberName.nameToken.value === 'deleter') &&
-                decorator.arguments.length === 0;
+                decorator.arguments === undefined;
         });
 
         if (setterOrDeleterDecorator) {

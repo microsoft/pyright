@@ -184,9 +184,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
         assert(functionType instanceof FunctionType);
 
-        if (this._fileInfo.isCollectionsStubFile) {
+        if (this._fileInfo.isCollectionsStubFile || this._fileInfo.isAbcStubFile) {
             // Stash away the name of the function since we need to handle
-            // 'namedtuple' specially.
+            // 'namedtuple' and 'abstractmethod' specially.
             functionType.setBuiltInName(node.name.nameToken.value);
         }
 
@@ -198,6 +198,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (ParseTreeUtils.functionHasDecorator(node, 'staticmethod')) {
                 hasCustomDecorators = false;
             } else if (ParseTreeUtils.functionHasDecorator(node, 'classmethod')) {
+                hasCustomDecorators = false;
+            } else if (this._functionHasAbstracMethodDecorator(node)) {
+                functionType.setIsAbstractMethod();
                 hasCustomDecorators = false;
             }
         }
@@ -374,9 +377,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (declaredReturnType && node.returnTypeAnnotation) {
                     // TODO - for now, ignore this check for generators.
                     if (functionType.getInferredYieldType().getSourceCount() === 0) {
-                        if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create())) {
-                            this._addError(`Function with declared type of ${ declaredReturnType.asString() }` +
-                                ` must return value`, node.returnTypeAnnotation.rawExpression);
+
+                        // Skip this check for abstract methods.
+                        if (!functionType.isAbstractMethod()) {
+                            if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create())) {
+                                this._addError(`Function with declared type of ${ declaredReturnType.asString() }` +
+                                    ` must return value`, node.returnTypeAnnotation.rawExpression);
+                            }
                         }
                     }
                 }
@@ -647,11 +654,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (enclosingFunctionNode) {
             let functionType = AnalyzerNodeInfo.getExpressionType(
                 enclosingFunctionNode) as FunctionType;
+
             if (functionType) {
                 assert(functionType instanceof FunctionType);
+
                 // TODO - for now, ignore this check for generators.
                 if (functionType.getInferredYieldType().getSourceCount() === 0) {
                     declaredReturnType = functionType.getDeclaredReturnType();
+                }
+
+                // Ignore this check for abstract methods, which often
+                // don't actually return any value.
+                if (functionType.isAbstractMethod()) {
+                    declaredReturnType = undefined;
                 }
             }
         }
@@ -861,6 +876,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this.walk(node.rightExpression);
         this.walk(node.leftExpression);
+        return false;
+    }
+
+    private _functionHasAbstracMethodDecorator(node: FunctionNode): boolean {
+        for (let decorator of node.decorators) {
+            if (decorator.arguments === undefined) {
+                const callType = this._getTypeOfExpression(decorator.callName);
+
+                if (callType instanceof FunctionType &&
+                        callType.getBuiltInName() === 'abstractmethod') {
+
+                    return true;
+                }
+            }
+        }
+
         return false;
     }
 

@@ -82,6 +82,10 @@ export class SourceFile {
     // special-case handling.
     private readonly _isCollectionsStubFile: boolean;
 
+    // True if the file is the "abc.pyi" file, which needs
+    // special-case handling.
+    private readonly _isAbcStubFile: boolean;
+
     // Latest analysis job that has completed at least one phase
     // of analysis.
     private _analysisJob: AnalysisJob = {
@@ -131,6 +135,8 @@ export class SourceFile {
             fileName === 'typing.pyi' || fileName === 'typing_extensions.pyi');
         this._isCollectionsStubFile = this._isStubFile &&
             this._filePath.endsWith('/collections/__init__.pyi');
+        this._isAbcStubFile = this._isStubFile &&
+            fileName === 'abc.pyi';
     }
 
     getFilePath(): string {
@@ -447,6 +453,7 @@ export class SourceFile {
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
             isCollectionsStubFile: this._isCollectionsStubFile,
+            isAbcStubFile: this._isAbcStubFile,
             console: this._console
         };
         return fileInfo;

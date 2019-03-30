@@ -116,7 +116,7 @@ export class ParseTreeUtils {
         let targetDecorator = node.decorators.find(decorator => {
             return decorator.callName instanceof NameNode &&
                 decorator.callName.nameToken.value === decoratorName &&
-                decorator.arguments.length === 0;
+                decorator.arguments === undefined;
         });
 
         return targetDecorator !== undefined;

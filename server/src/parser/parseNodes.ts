@@ -368,7 +368,7 @@ export class WithItemNode extends ParseNode {
 export class DecoratorNode extends ParseNode {
     readonly nodeType = ParseNodeType.Decorator;
     callName: ExpressionNode;
-    arguments: ArgumentNode[] = [];
+    arguments: ArgumentNode[] | undefined;
 
     constructor(atToken: Token, callName: ExpressionNode) {
         super(atToken);

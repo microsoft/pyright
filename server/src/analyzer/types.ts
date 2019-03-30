@@ -542,7 +542,8 @@ export enum FunctionTypeFlags {
     None = 0,
     InstanceMethod = 1,
     ClassMethod = 2,
-    StaticMethod = 4
+    StaticMethod = 4,
+    AbstractMethod = 8
 }
 
 interface FunctionDetails {
@@ -631,6 +632,14 @@ export class FunctionType extends Type {
 
     isClassMethod(): boolean {
         return (this._functionDetails.flags & FunctionTypeFlags.ClassMethod) !== 0;
+    }
+
+    isAbstractMethod(): boolean {
+        return (this._functionDetails.flags & FunctionTypeFlags.AbstractMethod) !== 0;
+    }
+
+    setIsAbstractMethod() {
+        this._functionDetails.flags |= FunctionTypeFlags.AbstractMethod;
     }
 
     getBuiltInName() {
