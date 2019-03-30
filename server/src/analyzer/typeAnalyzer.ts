@@ -139,10 +139,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (!argType.isAny() && argType.category !== TypeCategory.Class) {
                 this._addError(`Argument to class must be a base class`, arg);
+                argType = UnknownType.create();
             }
 
-            // TODO - validate that we're not deriving from the same base
-            // class twice.
+            if (argType instanceof ClassType) {
+                // Validate that the class isn't deriving from itself, creating a
+                // circular dependency.
+                if (TypeUtils.derivesFromClassRecursive(argType, classType)) {
+                    this._addError(`Class cannot derive from itself`, arg);
+                    argType = UnknownType.create();
+                }
+            }
+
             if (classType.updateBaseClassType(index, argType)) {
                 this._setAnalysisChanged();
             }

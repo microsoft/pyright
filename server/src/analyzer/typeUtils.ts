@@ -948,4 +948,20 @@ export class TypeUtils {
         });
         return newTypeVarMap;
     }
+
+    static derivesFromClassRecursive(classType: ClassType, baseClassToFind: ClassType) {
+        if (classType.isSameGenericClass(baseClassToFind)) {
+            return true;
+        }
+
+        for (let baseClass of classType.getBaseClasses()) {
+            if (baseClass instanceof ClassType) {
+                if (this.derivesFromClassRecursive(baseClass, baseClassToFind)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }
