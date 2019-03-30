@@ -275,13 +275,19 @@ export class TypeUtils {
             return true;
         }
 
-        // If there's a bound type, make sure it matches.
+        let effectiveSrcType = srcType;
+
+        // If the source type is a type var itself, conver it to a concrete
+        // type to see if it is compatible with the dest type.
+        if (srcType instanceof TypeVarType) {
+            effectiveSrcType = this._getConcreteTypeFromTypeVar(srcType, 1);
+        }
+
+        // If there's a bound type, make sure the source is derived from it.
         const boundType = destType.getBoundType();
         if (boundType) {
-            if (srcType.isAny()) {
-                return true;
-            } else if (srcType instanceof ClassType && boundType instanceof ClassType) {
-                return srcType.isDerivedFrom(boundType);
+            if (effectiveSrcType instanceof ObjectType && boundType instanceof ObjectType) {
+                return effectiveSrcType.getClassType().isDerivedFrom(boundType.getClassType());
             } else {
                 return false;
             }
@@ -298,11 +304,11 @@ export class TypeUtils {
                 return true;
             }
 
-            if (srcType instanceof UnionType) {
-                return srcType.getTypes().find(t => constraint.isSame(t)) !== undefined;
+            if (effectiveSrcType instanceof UnionType) {
+                return effectiveSrcType.getTypes().find(t => constraint.isSame(t)) !== undefined;
             }
 
-            if (constraint.isSame(srcType)) {
+            if (constraint.isSame(effectiveSrcType)) {
                 return true;
             }
         }
