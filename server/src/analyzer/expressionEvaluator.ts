@@ -422,6 +422,13 @@ export class ExpressionEvaluator {
             type = UnknownType.create();
         }
 
+        // Should we specialize the class?
+        if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
+            if (type instanceof ClassType) {
+                type = this._createSpecializeClassType(type, [], node, flags);
+            }
+        }
+
         type = this._convertClassToObject(type, flags);
 
         return { type, node };
@@ -756,6 +763,13 @@ export class ExpressionEvaluator {
                 `'${ callType.asString() }' and is not callable`,
                 node.leftExpression);
             type = UnknownType.create();
+        }
+
+        // Should we specialize the class?
+        if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
+            if (type instanceof ClassType) {
+                type = this._createSpecializeClassType(type, [], node, flags);
+            }
         }
 
         type = this._convertClassToObject(type, flags);
@@ -1564,10 +1578,10 @@ export class ExpressionEvaluator {
             typeArgCount = typeParameters.length;
         }
 
-        // Fill in any missing type arguments with unknown.
+        // Fill in any missing type arguments with Any.
         let typeArgTypes = typeArgs.map(t => t.type);
         while (typeArgTypes.length < classType.getTypeParameters().length) {
-            typeArgTypes.push(UnknownType.create());
+            typeArgTypes.push(AnyType.create());
         }
 
         // TODO - need to verify constraints of arguments

@@ -91,7 +91,6 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)
 * Add lots of tests
-* Add support for type completion in VS Code extension
 * Validate that all abstract methods are overridden
 * Validate parameters for magic functions
 * Validate that overridden methods in subclass have same signature as base class methods
