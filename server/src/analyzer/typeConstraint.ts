@@ -16,7 +16,7 @@ import { BinaryExpressionNode, CallExpressionNode, ConstantNode, ExpressionNode,
     MemberAccessExpressionNode, NameNode, TypeAnnotationExpressionNode,
     UnaryExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { ClassType, NoneType, ObjectType, TupleType, Type, UnionType } from './types';
+import { ClassType, NeverType, NoneType, ObjectType, TupleType, Type, UnionType } from './types';
 import { TypeUtils } from './typeUtils';
 
 export interface ConditionalTypeConstraintResults {
@@ -122,10 +122,10 @@ export class TruthyTypeConstraint extends TypeConstraint {
             }
 
             if (types.length === 0) {
-                // TODO - we may want to return a "never" type in
-                // this case to indicate that the condition will
+                // Use a "Never" type (which is a special form
+                // of None) to indicate that the condition will
                 // always evaluate to false.
-                return NoneType.create();
+                return NeverType.create();
             } else {
                 return TypeUtils.combineTypesArray(types);
             }
@@ -160,19 +160,19 @@ export class IsNoneTypeConstraint extends TypeConstraint {
                 });
 
                 if (remainingTypes.length === 0) {
-                    // TODO - we may want to return a "never" type in
-                    // this case to indicate that the condition will
+                    // Use a "Never" type (which is a special form
+                    // of None) to indicate that the condition will
                     // always evaluate to false.
-                    return NoneType.create();
+                    return NeverType.create();
                 }
 
                 return TypeUtils.combineTypesArray(remainingTypes);
             } else if (type instanceof NoneType) {
                 if (!this.isPositiveTest()) {
-                    // TODO - we may want to return a "never" type in
-                    // this case to indicate that the condition will
+                    // Use a "Never" type (which is a special form
+                    // of None) to indicate that the condition will
                     // always evaluate to false.
-                    return NoneType.create();
+                    return NeverType.create();
                 }
             }
         }
@@ -238,10 +238,10 @@ export class IsInstanceTypeConstraint extends TypeConstraint {
 
             const finalizeFilteredTypeList = (types: Type[]): Type => {
                 if (types.length === 0) {
-                    // TODO - we may want to return a "never" type in
-                    // this case to indicate that the condition will
+                    // Use a "Never" type (which is a special form
+                    // of None) to indicate that the condition will
                     // always evaluate to false.
-                    return NoneType.create();
+                    return NeverType.create();
                 }
 
                 return TypeUtils.combineTypesArray(types);

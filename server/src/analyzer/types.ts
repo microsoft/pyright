@@ -29,6 +29,11 @@ export enum TypeCategory {
     // Special "None" type defined in Python.
     None,
 
+    // Used in type constraints to indicate that all possible
+    // union types have been filtered, and execution should never
+    // get to this point.
+    Never,
+
     // Immutable sequence of typed values.
     Tuple,
 
@@ -873,14 +878,28 @@ export class PropertyType extends Type {
 export class NoneType extends Type {
     category = TypeCategory.None;
 
-    private static _instance = new NoneType();
+    private static _noneInstance = new NoneType();
     static create() {
         // Use a single instance to reduce memory allocation.
-        return this._instance;
+        return this._noneInstance;
     }
 
     asStringInternal(recursionCount = 0): string {
         return 'None';
+    }
+}
+
+export class NeverType extends NoneType {
+    category = TypeCategory.Never;
+
+    private static _neverInstance = new NeverType();
+    static create() {
+        // Use a single instance to reduce memory allocation.
+        return this._neverInstance;
+    }
+
+    asStringInternal(recursionCount = 0): string {
+        return 'Never';
     }
 }
 
