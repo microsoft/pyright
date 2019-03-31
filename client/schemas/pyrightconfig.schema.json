@@ -99,13 +99,6 @@
       ],
       "pattern": "^(Linux|Windows|Darwin)$"
     },
-    "pythonPath": {
-      "$id": "#/properties/pythonPath",
-      "type": "string",
-      "title": "Path to directory containing a python environment",
-      "default": "",
-      "pattern": "^(.*)$"
-    },
     "venvPath": {
       "$id": "#/properties/venvPath",
       "type": "string",

@@ -11,11 +11,11 @@
 import * as fs from 'fs';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
-    getFileSystemEntries, isDirectory, isFile, stripFileExtension,
-    stripTrailingDirectorySeparator } from '../common/pathUtils';
+import { combinePaths, getDirectoryPath, getFileSystemEntries, isDirectory, isFile,
+    stripFileExtension, stripTrailingDirectorySeparator } from '../common/pathUtils';
 import { is3x, versionToString } from '../common/pythonVersion';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
+import { PythonPathUtils } from './pythonPathUtils';
 
 export interface ImportedModuleName {
     leadingDots: number;
@@ -26,7 +26,7 @@ export class ImportResolver {
     private _sourceFilePath: string;
     private _configOptions: ConfigOptions;
     private _executionEnvironment: ExecutionEnvironment;
-    private _cachedSitePackagePath: string | undefined;
+    private _cachedPythonSearchPaths: string[] | undefined;
 
     constructor(sourceFilePath: string, configOptions: ConfigOptions, execEnv: ExecutionEnvironment) {
         this._sourceFilePath = sourceFilePath;
@@ -40,8 +40,9 @@ export class ImportResolver {
         let importName = this._formatImportName(moduleName);
 
         // Find the site packages for the configured virtual environment.
-        if (this._cachedSitePackagePath === undefined) {
-            this._cachedSitePackagePath = this._findSitePackagePath();
+        if (this._cachedPythonSearchPaths === undefined) {
+            this._cachedPythonSearchPaths = PythonPathUtils.findPythonSearchPaths(
+                this._configOptions, this._executionEnvironment);
         }
 
         // Is it a built-in path?
@@ -101,14 +102,16 @@ export class ImportResolver {
             }
 
             // Look for the import in the list of third-party packages.
-            if (this._cachedSitePackagePath) {
-                // Allow partial resolution because some third-party packages
-                // use tricks to populate their package namespaces.
-                let thirdPartyImport = this._resolveAbsoluteImport(
-                    this._cachedSitePackagePath, moduleName, importName, true);
-                if (thirdPartyImport) {
-                    thirdPartyImport.importType = ImportType.ThirdParty;
-                    return thirdPartyImport;
+            if (this._cachedPythonSearchPaths) {
+                for (let searchPath of this._cachedPythonSearchPaths) {
+                    // Allow partial resolution because some third-party packages
+                    // use tricks to populate their package namespaces.
+                    let thirdPartyImport = this._resolveAbsoluteImport(
+                        searchPath, moduleName, importName, true);
+                    if (thirdPartyImport) {
+                        thirdPartyImport.importType = ImportType.ThirdParty;
+                        return thirdPartyImport;
+                    }
                 }
             }
 
@@ -130,45 +133,34 @@ export class ImportResolver {
         };
     }
 
-    private _getTypeShedFallbackPath() {
-        // Assume that the 'typeshed-fallback' directory is up one level
-        // from this javascript file.
-        const moduleDirectory = (global as any).__rootDirectory;
-
-        if (moduleDirectory) {
-            return combinePaths(getDirectoryPath(
-                ensureTrailingDirectorySeparator(moduleDirectory)),
-                'typeshed-fallback');
-        }
-
-        return undefined;
-    }
-
     private _findTypeshedPath(moduleName: ImportedModuleName, importName: string,
             isStdLib: boolean): ImportResult | undefined {
 
         let typeshedPath = '';
 
         // Did the user specify a typeshed path? If not, we'll look in the
-        // default virtual environment, then in the typeshed-fallback directory.
+        // python search paths, then in the typeshed-fallback directory.
         if (this._configOptions.typeshedPath) {
-            typeshedPath = this._configOptions.typeshedPath;
-            if (!fs.existsSync(typeshedPath) || !isDirectory(typeshedPath)) {
-                typeshedPath = '';
+            const possibleTypeshedPath = this._configOptions.typeshedPath;
+            if (fs.existsSync(possibleTypeshedPath) && isDirectory(possibleTypeshedPath)) {
+                typeshedPath = possibleTypeshedPath;
             }
-        } else if (this._cachedSitePackagePath) {
-            typeshedPath = combinePaths(this._cachedSitePackagePath, 'typeshed');
-            if (!fs.existsSync(typeshedPath) || !isDirectory(typeshedPath)) {
-                typeshedPath = '';
+        } else if (this._cachedPythonSearchPaths) {
+            for (let searchPath of this._cachedPythonSearchPaths) {
+                const possibleTypeshedPath = combinePaths(searchPath, 'typeshed');
+                if (fs.existsSync(possibleTypeshedPath) && isDirectory(possibleTypeshedPath)) {
+                    typeshedPath = possibleTypeshedPath;
+                    break;
+                }
             }
         }
 
-        // Should we apply the fallback?
+        // If typeshed directory wasn't found in other locations, use the fallback.
         if (!typeshedPath) {
-            typeshedPath = this._getTypeShedFallbackPath() || '';
+            typeshedPath = PythonPathUtils.getTypeShedFallbackPath() || '';
         }
 
-        typeshedPath = combinePaths(typeshedPath, isStdLib ? 'stdlib' : 'third_party');
+        typeshedPath = PythonPathUtils.getTypeshedSubdirectory(typeshedPath, isStdLib);
 
         if (!fs.existsSync(typeshedPath) || !isDirectory(typeshedPath)) {
             return undefined;
@@ -345,46 +337,6 @@ export class ImportResolver {
         }
 
         return Object.keys(implicitImportMap).map(key => implicitImportMap[key]);
-    }
-
-    private _findSitePackagePath(): string | undefined {
-        let pythonPath: string | undefined;
-        if (this._executionEnvironment.venv) {
-            if (this._configOptions.venvPath) {
-                pythonPath = combinePaths(this._configOptions.venvPath, this._executionEnvironment.venv);
-            }
-        } else if (this._configOptions.defaultVenv) {
-            if (this._configOptions.venvPath) {
-                pythonPath = combinePaths(this._configOptions.venvPath, this._configOptions.defaultVenv);
-            }
-        } else {
-            pythonPath = this._configOptions.pythonPath;
-        }
-
-        if (!pythonPath) {
-            return undefined;
-        }
-
-        let libPath = combinePaths(pythonPath, 'lib');
-        let sitePackagesPath = combinePaths(libPath, 'site-packages');
-        if (fs.existsSync(sitePackagesPath)) {
-            return sitePackagesPath;
-        }
-
-        // We didn't find a site-packages directory directly in the lib
-        // directory. Scan for a "python*" directory instead.
-        let entries = getFileSystemEntries(libPath);
-        for (let i = 0; i < entries.directories.length; i++) {
-            let dirName = entries.directories[i];
-            if (dirName.startsWith('python')) {
-                let dirPath = combinePaths(libPath, dirName, 'site-packages');
-                if (fs.existsSync(dirPath)) {
-                    return dirPath;
-                }
-            }
-        }
-
-        return undefined;
     }
 
     private _formatImportName(moduleName: ImportedModuleName) {

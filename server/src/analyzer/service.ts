@@ -15,10 +15,11 @@ import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
-import { combinePaths, ensureTrailingDirectorySeparator, forEachAncestorDirectory,
-    getDirectoryPath, getFileSystemEntries, isDirectory, isFile, normalizePath } from '../common/pathUtils';
+import { combinePaths, forEachAncestorDirectory, getDirectoryPath, getFileSystemEntries,
+    isDirectory, isFile, normalizePath } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { MaxAnalysisTime, Program } from './program';
+import { PythonPathUtils } from './pythonPathUtils';
 
 const _defaultConfigFileName = 'pyrightconfig.json';
 
@@ -167,27 +168,37 @@ export class AnalyzerService {
             this._updateConfigFileWatcher(configFilePath);
         }
 
-        // Apply the command-line options. These override the config file.
-        if (commandLineOptions.venvPath) {
-            configOptions.venvPath = commandLineOptions.venvPath;
-        }
+        const reportDuplicateSetting = (settingName: string) => {
+            const settingSource = commandLineOptions.fromVsCodeSettings ?
+                'the VS Code settings' : 'a command-line option';
+            this._console.log(
+                `The ${ settingName } has been specified in both the config file and ` +
+                `${ settingSource }. The value in the config file (${ configOptions.venvPath }) ` +
+                `will take precedence`);
+        };
 
-        if (commandLineOptions.pythonPath) {
-            configOptions.pythonPath = commandLineOptions.pythonPath;
+        // Apply the command-line options if the corresponding
+        // item wasn't already set in the config file. Report any
+        // duplicates.
+        if (commandLineOptions.venvPath) {
+            if (!configOptions.venvPath) {
+                configOptions.venvPath = commandLineOptions.venvPath;
+            } else {
+                reportDuplicateSetting('venvPath');
+            }
         }
 
         if (commandLineOptions.typeshedPath) {
-            configOptions.typeshedPath = commandLineOptions.typeshedPath;
+            if (!configOptions.typeshedPath) {
+                configOptions.typeshedPath = commandLineOptions.typeshedPath;
+            } else {
+                reportDuplicateSetting('typeshedPath');
+            }
         }
 
         // Do some sanity checks on the specified settings and report missing
         // or inconsistent information.
-        if (configOptions.pythonPath) {
-            if (!fs.existsSync(configOptions.pythonPath) || !isDirectory(configOptions.pythonPath)) {
-                this._console.log(
-                    `pythonPath ${ configOptions.pythonPath } is not a valid directory.`);
-            }
-        } else if (configOptions.venvPath) {
+        if (configOptions.venvPath) {
             if (!fs.existsSync(configOptions.venvPath) || !isDirectory(configOptions.venvPath)) {
                 this._console.log(
                     `venvPath ${ configOptions.venvPath } is not a valid directory.`);
@@ -202,11 +213,24 @@ export class AnalyzerService {
                     this._console.log(
                         `venv ${ configOptions.defaultVenv } subdirectory not found ` +
                         `in venv path ${ configOptions.venvPath }.`);
+                } else if (PythonPathUtils.findPythonSearchPaths(configOptions) === undefined) {
+                    this._console.log(
+                        `site-packages directory cannot be located for venvPath ` +
+                        `${ configOptions.venvPath } and venv ${ configOptions.defaultVenv }.`);
                 }
             }
         } else {
             this._console.log(
-                `No pythonPath or venvPath specified.`);
+                `No venvPath specified. Falling back on PYTHONPATH:`);
+            const pythonPaths = PythonPathUtils.getPythonPathEnvironmentVariable();
+            if (pythonPaths.length === 0) {
+                this._console.log(
+                    `  No valid paths found in PYTHONPATH environment variable.`);
+            } else {
+                pythonPaths.forEach(path => {
+                    this._console.log(`  ${ path }`);
+                });
+            }
         }
 
         // Is there a reference to a venv? If so, there needs to be a valid venvPath.

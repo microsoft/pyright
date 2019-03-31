@@ -14,6 +14,7 @@ import { convertPositionToOffset } from '../common/positionUtils';
 import { ModuleNameNode, NameNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { ImportType } from './importResult';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { SymbolCategory } from './symbol';
 
@@ -52,7 +53,12 @@ export class HoverProvider {
             }
 
             if (importInfo.resolvedPaths[pathOffset]) {
-                return '```\n(module) "' + importInfo.resolvedPaths[pathOffset] + '"\n```';
+                let typeStubWarning = '';
+                if (importInfo.importType === ImportType.ThirdParty && !importInfo.isStubFile) {
+                    typeStubWarning = '\nNo type stub found for this module. Imported symbol types are unknown.';
+                }
+
+                return '```\n(module) "' + importInfo.resolvedPaths[pathOffset] + '"```' + typeStubWarning;
             }
 
             return undefined;

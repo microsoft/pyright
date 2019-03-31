@@ -11,8 +11,9 @@
 
 // Some options can be specified by command line.
 export class CommandLineOptions {
-    constructor(executionRoot: string) {
+    constructor(executionRoot: string, fromVsCodeSettings: boolean) {
         this.executionRoot = executionRoot;
+        this.fromVsCodeSettings = fromVsCodeSettings;
     }
 
     // A list of file specs to include in the analysis. Can contain
@@ -30,12 +31,14 @@ export class CommandLineOptions {
     // Virtual environments directory.
     venvPath?: string;
 
-    // Path of python environment.
-    pythonPath?: string;
-
     // Path of typeshed stubs.
     typeshedPath?: string;
 
     // Absolute execution root (current working directory).
     executionRoot: string;
+
+    // Indicates that the settings came from VS Code rather than
+    // from the command-line. Useful for providing clearer error
+    // messages.
+    fromVsCodeSettings: boolean;
 }

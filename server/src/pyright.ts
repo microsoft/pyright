@@ -60,7 +60,7 @@ function processArgs() {
         return;
     }
 
-    let options = new PyrightCommandLineOptions(process.cwd());
+    let options = new PyrightCommandLineOptions(process.cwd(), false);
     options.fileSpecs = args.files;
 
     if (args.project) {
@@ -69,9 +69,6 @@ function processArgs() {
 
     if (args['venv-path']) {
         options.venvPath = combinePaths(process.cwd(), normalizePath(args['venv-path']));
-    }
-    if (args['python-path']) {
-        options.pythonPath = combinePaths(process.cwd(), normalizePath(args['python-path']));
     }
     if (args['typeshed-path']) {
         options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshed-path']));

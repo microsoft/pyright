@@ -14,9 +14,7 @@ Pyright offers flexible configuration options specified in a JSON-formatted text
 
 **typingsPath** [path, optional]: Path to a directory that contains custom type stubs. Each package's type stub file(s) are expected to be in its own subdirectory.
 
-**pythonPath** [path, optional]: Path to the Python execution environment. This is used to resolve third-party modules when there is no `venvPath` specified in the config file.
-
-**venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. Each execution environment (see below for details) can refer to a different virtual environment. This optional overrides the `pythonPath` option described above.
+**venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. Each execution environment (see below for details) can refer to a different virtual environment. When used in conjunction with a **venv** setting (see below), pyright will search for imports in the virtual environment’s site-packages directory rather than the paths specified in PYTHONPATH.
 
 **venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use. Individual execution environments may override this setting.
 
@@ -38,7 +36,7 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 
 ## Execution Environment Options
-Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with a different PYTHONPATH or a different version of the python interpreter than the rest of the source base.
+Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with different import search paths or a different version of the python interpreter than the rest of the source base.
 
 The following settings can be specified for each execution environment.
 
@@ -56,7 +54,6 @@ The following settings can be specified for each execution environment.
 # VS Code Extension Settings
 Pyright will import the following settings set through VS Code. These override the values provided in the configuration file.
 
-**python.pythonPath**: Same as the **pythonPath** setting described above.
 **python.venvPath**: Same as the **venvPath** setting described above.
 **python.analysis.typeshedPaths**: An array of typeshed paths to search. Pyright supports only one such path. If provided in the VS Code setting, the first entry overrides the **typeshedPath** configuration file entry described above.
 

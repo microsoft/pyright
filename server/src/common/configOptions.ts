@@ -83,10 +83,6 @@ export class ConfigOptions {
     // the files being analyzed.
     executionEnvironments: ExecutionEnvironment[] = [];
 
-    // Path to python interpreter environment -- used to resolve third-party
-    // modules when there is no "venv" option in the config file.
-    pythonPath?: string;
-
     // Path to a directory containing one or more virtual environment
     // directories. This is used in conjunction with the "venv" name in
     // the config file to identify the python environment used for resolving
@@ -185,16 +181,6 @@ export class ConfigOptions {
         // Read the "reportMissingTypeStubs" entry.
         this.reportMissingTypeStubs = this._convertDiagnosticLevel(
             configObj.reportMissingTypeStubs, 'reportMissingTypeStubs', 'none');
-
-        // Read the "pythonPath".
-        this.pythonPath = undefined;
-        if (configObj.pythonPath !== undefined) {
-            if (typeof configObj.pythonPath !== 'string') {
-                console.log(`Config "pythonPath" field must contain a string.`);
-            } else {
-                this.pythonPath = normalizePath(combinePaths(this.projectRoot, configObj.pythonPath));
-            }
-        }
 
         // Read the "venvPath".
         this.venvPath = undefined;
