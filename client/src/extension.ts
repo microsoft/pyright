@@ -39,7 +39,7 @@ export function activate(context: ExtensionContext) {
 	}
 	
 	// Create the language client and start the client.
-	let languageClient = new LanguageClient('python', 'Python', serverOptions, clientOptions);
+	let languageClient = new LanguageClient('python', 'Pyright', serverOptions, clientOptions);
 	let disposable = languageClient.start();
 	
 	// Push the disposable to the context's subscriptions so that the 
