@@ -27,7 +27,7 @@ import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
-import { ImportResult } from './importResult';
+import { ImportResult, ImportType } from './importResult';
 import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -1315,6 +1315,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _getModuleTypeForImportPath(importResult: ImportResult | undefined,
             path: string): ModuleType | undefined {
+
+        // If the import resolved to a third-party module that has no type stub,
+        // we will return an unknown type.
+        if (importResult && importResult.importType === ImportType.ThirdParty && !importResult.isStubFile) {
+            return undefined;
+        }
+
         if (this._fileInfo.importMap[path]) {
             let moduleNode = this._fileInfo.importMap[path].parseTree;
             if (moduleNode) {
