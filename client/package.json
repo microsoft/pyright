@@ -52,12 +52,6 @@
                     "description": "Paths to look for typeshed modules.",
                     "scope": "resource"
                 },
-                "python.pythonPath": {
-                    "type": "string",
-                    "default": "python",
-                    "description": "Path to Python, you can use a custom version of Python.",
-                    "scope": "resource"
-                },
                 "python.venvPath": {
                     "type": "string",
                     "default": "",

@@ -9,7 +9,7 @@ Pyright is a fast type checker meant for large Python source bases. It can run i
 Pyright does not require a Python environment or imported third-party packages to be installed.
 
 ### Configurability
-Pyright supports flexible [configuration](/docs/configuration.md) that provides granular control over settings. Different “execution environments” can be specified for different subsets of a source base. Each environment can specify different PYTHONPATH settings, python language version, and platform target.
+Pyright supports flexible [configuration](/docs/configuration.md) that provides granular control over settings. Different “execution environments” can be specified for different subsets of a source base. Each environment can specify different module search paths, python language version, and platform target.
 
 ### Type Checking Features
 Pyright supports:
@@ -31,6 +31,7 @@ Pyright includes both a [command-line tool](/docs/command-line.md) and a [Langua
 ## Documentation
 * [Command-line Options](/docs/command-line.md)
 * [Configuration](/docs/configuration.md)
+* [Import Resolution](/docs/import-resolution.md)
 * [Getting Started](/docs/getting-started.md)
 * [Building & Debugging](/docs/build-debug.md)
 * [Pyright Internals](/docs/internals.md)
