@@ -9,7 +9,7 @@
         "start:analyzer": "npm i && npm run build:analyzer",
         "start:server": "npm i && npm run build:server",
         "build": "npm run build:server && npm run build:analyzer && npm run build:pyright",
-        "build:analyzer": "npm run tslint && tsc",
+        "build:analyzer": "tsc",
         "build:server": "npm run installServer && webpack --config webpack.config-server.js",
         "installServer": "node ./customInstallServerIntoExtension.js ../client ./package.json ./tsconfig.json ./package-lock.json",
         "build:pyright": "node ./copyTypeshedFallback.js && npm run tslint && webpack --config webpack.config-pyright.js",
