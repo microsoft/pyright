@@ -2,7 +2,7 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "VS Code language support and type checking for Python",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
@@ -66,10 +66,12 @@
                 }
             }
         },
-        "jsonValidation": [{
-            "fileMatch": "pyrightconfig.json",
-            "url": "./schemas/pyrightconfig.schema.json"
-        }]
+        "jsonValidation": [
+            {
+                "fileMatch": "pyrightconfig.json",
+                "url": "./schemas/pyrightconfig.schema.json"
+            }
+        ]
     },
     "scripts": {
         "vscode:prepublish": "npm run build",
