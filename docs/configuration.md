@@ -66,13 +66,19 @@ The following is an example of a pyright config file:
 ```json
 {
   "include": [
-      "src"
+    "src"
   ],
+  
   "exclude": [
-      "src/experimental",
-      "src/web/node_modules",
-      "src/typestubs"
+    "src/experimental",
+    "src/web/node_modules",
+    "src/typestubs"
   ],
+
+  "ignore": [
+    "src/oldstuff"
+  ],
+
   "typingsPath": "src/typestubs",
   "venvPath": "/home/foo/.venvs",
 
