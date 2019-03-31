@@ -16,7 +16,7 @@ import { ConsoleInterface, StandardConsole } from '../common/console';
 import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { combinePaths, ensureTrailingDirectorySeparator, forEachAncestorDirectory,
-    getDirectoryPath, getFileSystemEntries, isFile, normalizePath } from '../common/pathUtils';
+    getDirectoryPath, getFileSystemEntries, isDirectory, isFile, normalizePath } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { MaxAnalysisTime, Program } from './program';
 
@@ -178,6 +178,57 @@ export class AnalyzerService {
 
         if (commandLineOptions.typeshedPath) {
             configOptions.typeshedPath = commandLineOptions.typeshedPath;
+        }
+
+        // Do some sanity checks on the specified settings and report missing
+        // or inconsistent information.
+        if (configOptions.pythonPath) {
+            if (!fs.existsSync(configOptions.pythonPath) || !isDirectory(configOptions.pythonPath)) {
+                this._console.log(
+                    `pythonPath ${ configOptions.pythonPath } is not a valid directory.`);
+            }
+        } else if (configOptions.venvPath) {
+            if (!fs.existsSync(configOptions.venvPath) || !isDirectory(configOptions.venvPath)) {
+                this._console.log(
+                    `venvPath ${ configOptions.venvPath } is not a valid directory.`);
+            }
+
+            if (!configOptions.defaultVenv) {
+                this._console.log(
+                    `venvPath must be used in conjunction with venv setting, which was omitted.`);
+            } else {
+                const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.defaultVenv);
+                if (!fs.existsSync(fullVenvPath) || !isDirectory(fullVenvPath)) {
+                    this._console.log(
+                        `venv ${ configOptions.defaultVenv } subdirectory not found ` +
+                        `in venv path ${ configOptions.venvPath }.`);
+                }
+            }
+        } else {
+            this._console.log(
+                `No pythonPath or venvPath specified.`);
+        }
+
+        // Is there a reference to a venv? If so, there needs to be a valid venvPath.
+        if (configOptions.defaultVenv || configOptions.executionEnvironments.find(e => !!e.venv)) {
+            if (!configOptions.venvPath) {
+                this._console.log(
+                    `venvPath not specified, so venv settings will be ignored.`);
+            }
+        }
+
+        if (configOptions.typeshedPath) {
+            if (!fs.existsSync(configOptions.typeshedPath) || !isDirectory(configOptions.typeshedPath)) {
+                this._console.log(
+                    `typeshedPath ${ configOptions.typeshedPath } is not a valid directory.`);
+            }
+        }
+
+        if (configOptions.typingsPath) {
+            if (!fs.existsSync(configOptions.typingsPath) || !isDirectory(configOptions.typingsPath)) {
+                this._console.log(
+                    `typingsPath ${ configOptions.typingsPath } is not a valid directory.`);
+            }
         }
 
         return configOptions;
@@ -438,10 +489,6 @@ export class AnalyzerService {
 
             let fileCount = results.diagnostics.length;
             if (fileCount > 0) {
-                this._console.log(
-                    `Analyzed ${ fileCount } file${ fileCount === 1 ? '' : 's' } ` +
-                    `in ${ results.elapsedTime }sec`);
-
                 if (this._onCompletionCallback) {
                     this._onCompletionCallback(results);
                 }
