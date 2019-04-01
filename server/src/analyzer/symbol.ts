@@ -20,6 +20,7 @@ export enum SymbolCategory {
     Import,
     Parameter,
     Function,
+    Lambda,
     Method,
     Class,
     Module

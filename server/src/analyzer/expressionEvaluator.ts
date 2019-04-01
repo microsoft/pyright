@@ -14,13 +14,15 @@ import { ConfigOptions, DiagnosticLevel } from '../common/configOptions';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { ArgumentCategory, AssignmentNode, AwaitExpressionNode, BinaryExpressionNode,
-    CallExpressionNode, ConstantNode, DictionaryNode, EllipsisNode,
-    ExpressionNode, FunctionNode, IndexExpressionNode, LambdaNode, ListComprehensionNode,
-    ListNode, MemberAccessExpressionNode, NameNode, NumberNode,
-    ParameterCategory, SetNode, SliceExpressionNode, StringNode, TernaryExpressionNode,
-    TupleExpressionNode, UnaryExpressionNode, YieldExpressionNode } from '../parser/parseNodes';
-import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags, TokenType } from '../parser/tokenizerTypes';
+import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
+    BinaryExpressionNode, CallExpressionNode, ConstantNode, DictionaryNode,
+    EllipsisNode, ExpressionNode, FunctionNode, IndexExpressionNode, LambdaNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
+    NumberNode, ParameterCategory, SetNode, SliceExpressionNode, StringNode,
+    TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode,
+    YieldExpressionNode } from '../parser/parseNodes';
+import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
+    TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DefaultTypeSourceId } from './inferredType';
@@ -29,9 +31,10 @@ import { Scope, ScopeType } from './scope';
 import { Symbol, SymbolCategory } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
-import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType, FunctionTypeFlags,
-    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType,
-    TupleType, Type, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
+import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
+    FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
+    PropertyType, TupleType, Type, TypeVarMap, TypeVarType, UnionType,
+    UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface TypeResult {
@@ -175,6 +178,7 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromExpression(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
+        // Is this type already cached?
         if (this._readTypeFromCache) {
             let cachedType = this._readTypeFromCache(node);
             if (cachedType) {
@@ -188,11 +192,6 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromName(node, flags);
         } else if (node instanceof MemberAccessExpressionNode) {
             typeResult = this._getTypeFromMemberAccessExpression(node, flags);
-
-            // Cache the type information in the member name node as well.
-            if (this._writeTypeToCache) {
-                this._writeTypeToCache(node.memberName, typeResult.type);
-            }
         } else if (node instanceof IndexExpressionNode) {
             typeResult = this._getTypeFromIndexExpression(node, flags);
         } else if (node instanceof CallExpressionNode) {
@@ -233,12 +232,11 @@ export class ExpressionEvaluator {
         } else if (node instanceof DictionaryNode) {
             // TODO - need to implement
             // TODO - infer dict type
-            let type = ScopeUtils.getBuiltInObject(this._scope, 'dict', [UnknownType.create(), UnknownType.create()]);
+            let type = ScopeUtils.getBuiltInObject(this._scope, 'dict',
+                [UnknownType.create(), UnknownType.create()]);
             typeResult = { type, node };
         } else if (node instanceof LambdaNode) {
-            // TODO - need to implement
-            let type = AnalyzerNodeInfo.getExpressionType(node) || UnknownType.create();
-            typeResult = { type, node };
+            typeResult = this._getTypeFromLambdaExpression(node);
         } else if (node instanceof SetNode) {
             node.entries.forEach(expr => {
                 this._getTypeFromExpression(expr, EvaluatorFlags.None);
@@ -262,7 +260,8 @@ export class ExpressionEvaluator {
         if (typeResult) {
             typeResult.type = this._applyTypeConstraint(node, typeResult.type);
         } else {
-            this._addError(`Unknown type expression '${ ParseTreeUtils.printExpression(node) }'`, node);
+            // We shouldn't get here. If we do, report an error.
+            this._addError(`Unhandled expression type '${ ParseTreeUtils.printExpression(node) }'`, node);
             typeResult = { type: UnknownType.create(), node };
         }
 
@@ -325,7 +324,14 @@ export class ExpressionEvaluator {
             flags: EvaluatorFlags): TypeResult {
 
         const baseTypeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
-        return this._getTypeFromMemberAccessExpressionWithBaseType(node, baseTypeResult, flags);
+        const memberType = this._getTypeFromMemberAccessExpressionWithBaseType(node, baseTypeResult, flags);
+
+        if (this._writeTypeToCache) {
+            // Cache the type information in the member name node as well.
+            this._writeTypeToCache(node.memberName, memberType.type);
+        }
+
+        return memberType;
     }
 
     private _getTypeFromMemberAccessExpressionWithBaseType(node: MemberAccessExpressionNode,
@@ -1352,7 +1358,7 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromUnaryExpression(node: UnaryExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
+    private _getTypeFromUnaryExpression(node: UnaryExpressionNode, flags: EvaluatorFlags): TypeResult {
         let exprType = this._getTypeFromExpression(node.expression, flags).type;
 
         let type: Type;
@@ -1399,7 +1405,7 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromBinaryExpression(node: BinaryExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
+    private _getTypeFromBinaryExpression(node: BinaryExpressionNode, flags: EvaluatorFlags): TypeResult {
         let leftType = this._getTypeFromExpression(node.leftExpression, flags).type;
         let rightType = this._getTypeFromExpression(node.rightExpression, flags).type;
 
@@ -1556,7 +1562,7 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromListExpression(node: ListNode): TypeResult | undefined {
+    private _getTypeFromListExpression(node: ListNode): TypeResult {
         let listTypes: TypeResult[] = [];
         node.entries.forEach(expr => {
             listTypes.push(this._getTypeFromExpression(expr, EvaluatorFlags.None));
@@ -1578,7 +1584,7 @@ export class ExpressionEvaluator {
         return { type: convertedType, node };
     }
 
-    private _getTypeFromTernaryExpression(node: TernaryExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
+    private _getTypeFromTernaryExpression(node: TernaryExpressionNode, flags: EvaluatorFlags): TypeResult {
         this._getTypeFromExpression(node.testExpression, EvaluatorFlags.None);
 
         // Apply the type constraint when evaluating the if and else clauses.
@@ -1598,7 +1604,18 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromSliceExpression(node: SliceExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
+    private _getTypeFromLambdaExpression(node: LambdaNode): TypeResult {
+        // The lambda node is updated by typeAnalyzer. If the type wasn't
+        // already cached, we'll return an unknown type.
+        let type = AnalyzerNodeInfo.getExpressionType(node);
+        if (!type) {
+            type = UnknownType.create();
+        }
+
+        return { type, node };
+    }
+
+    private _getTypeFromSliceExpression(node: SliceExpressionNode, flags: EvaluatorFlags): TypeResult {
         // TODO - need to implement
         if (node.startValue) {
             this._getTypeFromExpression(node.startValue, EvaluatorFlags.None);

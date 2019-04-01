@@ -11,7 +11,7 @@
 
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
-import { ModuleNameNode, NameNode, ParseNode } from '../parser/parseNodes';
+import { LambdaNode, ModuleNameNode, NameNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportType } from './importResult';
@@ -72,7 +72,7 @@ export class HoverProvider {
                 case SymbolCategory.Import: {
                     if (node instanceof NameNode) {
                         return '```\n(variable) ' + node.nameToken.value +
-                            this._getTypeText(node) + '\n```';
+                            this._getTypeText(node) + '```';
                     }
                     break;
                 }
@@ -80,14 +80,14 @@ export class HoverProvider {
                 case SymbolCategory.Parameter: {
                     if (node instanceof NameNode) {
                         return '```\n(parameter) ' + node.nameToken.value +
-                            this._getTypeText(node) + '\n```';
+                            this._getTypeText(node) + '```';
                     }
                     break;
                 }
 
                 case SymbolCategory.Class: {
                     if (node instanceof NameNode) {
-                        return '```\n(class) ' + this._getTypeText(node) + '\n```';
+                        return '```\n(class) ' + this._getTypeText(node) + '```';
                     }
                     break;
                 }
@@ -100,17 +100,24 @@ export class HoverProvider {
                     break;
                 }
 
+                case SymbolCategory.Lambda: {
+                    if (node instanceof LambdaNode) {
+                        return '```\n(lambda) ' + this._getTypeText(node) + '```';
+                    }
+                    break;
+                }
+
                 case SymbolCategory.Method: {
                     if (node instanceof NameNode) {
                         return '```\n(method) ' + node.nameToken.value +
-                            this._getTypeText(node) + '\n```';
+                            this._getTypeText(node) + '```';
                     }
                     break;
                 }
 
                 case SymbolCategory.Module: {
                     if (node instanceof NameNode) {
-                        return '```\n(module) ' + node.nameToken.value + '\n```';
+                        return '```\n(module) ' + node.nameToken.value + '```';
                     }
                     break;
                 }

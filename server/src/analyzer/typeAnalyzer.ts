@@ -35,9 +35,9 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { TypeConstraintBuilder } from './typeConstraint';
-import { AnyType, ClassType, ClassTypeFlags, FunctionType, FunctionTypeFlags, ModuleType,
-    NoneType, ObjectType, OverloadedFunctionType, TupleType, Type, TypeCategory,
-    TypeVarType, UnionType, UnknownType } from './types';
+import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType, FunctionTypeFlags,
+    ModuleType, NoneType, ObjectType, OverloadedFunctionType, TupleType, Type,
+    TypeCategory, TypeVarType, UnionType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface EnumClassInfo {
@@ -447,9 +447,62 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitLambda(node: LambdaNode): boolean {
+        const functionType = new FunctionType(FunctionTypeFlags.None);
+
         this._enterScope(node, () => {
-            this.walkChildren(node);
+            node.parameters.forEach(param => {
+                if (param.name) {
+                    // Cache the type for the hover provider.
+                    this._getTypeOfExpression(param.name);
+
+                    // Set the declaration on the node for the definition language service.
+                    const symbol = this._currentScope.lookUpSymbol(param.name.nameToken.value);
+                    if (symbol && symbol.declarations) {
+                        AnalyzerNodeInfo.setDeclaration(param.name, symbol.declarations[0]);
+                    }
+
+                    if (param.category === ParameterCategory.Simple) {
+                        let declaration: Declaration | undefined;
+                        declaration = {
+                            category: SymbolCategory.Parameter,
+                            node: param,
+                            path: this._fileInfo.filePath,
+                            range: convertOffsetsToRange(param.start, param.end, this._fileInfo.lines)
+                        };
+                        const paramType = UnknownType.create();
+                        this._bindNameNodeToType(param.name, paramType, declaration);
+                    }
+                }
+
+                const functionParam: FunctionParameter = {
+                    category: param.category,
+                    name: param.name ? param.name.nameToken.value : undefined,
+                    hasDefault: !!param.defaultValue,
+                    type: UnknownType.create()
+                };
+                functionType.addParameter(functionParam);
+            });
+
+            // Infer the return type.
+            const returnType = this._getTypeOfExpression(node.expression);
+            functionType.getInferredReturnType().addSource(
+                returnType, AnalyzerNodeInfo.getTypeSourceId(node.expression));
+
+            this.walkChildren(node.expression);
         });
+
+        // Cache the function type.
+        this._updateExpressionTypeForNode(node, functionType);
+
+        // Add a declaration for the hover provider.
+        let declaration: Declaration = {
+            category: SymbolCategory.Lambda,
+            node,
+            path: this._fileInfo.filePath,
+            range: convertOffsetsToRange(node.start, node.end, this._fileInfo.lines)
+        };
+        AnalyzerNodeInfo.setDeclaration(node, declaration);
+
         return false;
     }
 
@@ -894,42 +947,42 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let rightType = this._getTypeOfExpression(node.rightExpression);
 
         // TODO - need to verify types
-        return false;
+        return true;
     }
 
     visitIndex(node: IndexExpressionNode): boolean {
         this._getTypeOfExpression(node);
-        return false;
+        return true;
     }
 
     visitBinaryOperation(node: BinaryExpressionNode): boolean {
         this._getTypeOfExpression(node);
-        return false;
+        return true;
     }
 
     visitSlice(node: SliceExpressionNode): boolean {
         this._getTypeOfExpression(node);
-        return false;
+        return true;
     }
 
     visitStar(node: StarExpressionNode): boolean {
         this._getTypeOfExpression(node);
-        return false;
+        return true;
     }
 
     visitTuple(node: TupleExpressionNode): boolean {
         this._getTypeOfExpression(node);
-        return false;
+        return true;
     }
 
     visitUnaryOperation(node: UnaryExpressionNode): boolean {
         this._getTypeOfExpression(node);
-        return false;
+        return true;
     }
 
     visitTernary(node: TernaryExpressionNode): boolean {
         this._getTypeOfExpression(node);
-        return false;
+        return true;
     }
 
     visitName(node: NameNode) {
