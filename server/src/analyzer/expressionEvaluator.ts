@@ -207,9 +207,7 @@ export class ExpressionEvaluator {
         } else if (node instanceof EllipsisNode) {
             typeResult = { type: AnyType.create(), node };
         } else if (node instanceof UnaryExpressionNode) {
-            // TODO - need to implement
-            this._getTypeFromExpression(node.expression, flags);
-            typeResult = { type: UnknownType.create(), node };
+            typeResult = this._getTypeFromUnaryExpression(node, flags);
         } else if (node instanceof BinaryExpressionNode) {
             typeResult = this._getTypeFromBinaryExpression(node, flags);
         } else if (node instanceof ListNode) {
@@ -237,7 +235,7 @@ export class ExpressionEvaluator {
                 elseType = this._getTypeFromExpression(node.elseExpression, flags);
             });
 
-            let type = TypeUtils.combineTypes(ifType!.type, elseType!.type);
+            let type = TypeUtils.combineTypes([ifType!.type, elseType!.type]);
             typeResult = { type, node };
         } else if (node instanceof ListComprehensionNode) {
             // TODO - need to implement
@@ -389,7 +387,7 @@ export class ExpressionEvaluator {
             });
 
             if (returnTypes.length > 0) {
-                type = TypeUtils.combineTypesArray(returnTypes);
+                type = TypeUtils.combineTypes(returnTypes);
             }
         } else if (baseType instanceof PropertyType) {
             // TODO - need to come up with new strategy for properties
@@ -736,7 +734,7 @@ export class ExpressionEvaluator {
             });
 
             if (returnTypes.length > 0) {
-                type = TypeUtils.combineTypesArray(returnTypes);
+                type = TypeUtils.combineTypes(returnTypes);
             }
         } else if (callType.isAny()) {
             type = UnknownType.create();
@@ -874,7 +872,7 @@ export class ExpressionEvaluator {
             }
 
             if (returnTypes.length > 0) {
-                returnType = TypeUtils.combineTypesArray(returnTypes);
+                returnType = TypeUtils.combineTypes(returnTypes);
             }
         }
 
@@ -1180,41 +1178,110 @@ export class ExpressionEvaluator {
         classFields.set('__class__', new Symbol(classType, DefaultTypeSourceId));
         const instanceFields = classType.getInstanceFields();
 
-        let tupleType = new TupleType(ScopeUtils.getBuiltInType(this._scope, 'tuple') as ClassType);
-        let constructorType = new FunctionType(FunctionTypeFlags.ClassMethod);
-        constructorType.setDeclaredReturnType(new ObjectType(classType));
-        constructorType.addParameter({
-            category: ParameterCategory.Simple,
-            name: 'cls',
-            type: classType
-        });
+        let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'tuple');
+        if (builtInTupleType instanceof ClassType) {
+            let tupleType = new TupleType(builtInTupleType);
+            let constructorType = new FunctionType(FunctionTypeFlags.ClassMethod);
+            constructorType.setDeclaredReturnType(new ObjectType(classType));
+            constructorType.addParameter({
+                category: ParameterCategory.Simple,
+                name: 'cls',
+                type: classType
+            });
 
-        let initType = new FunctionType(FunctionTypeFlags.InstanceMethod);
-        const selfParameter: FunctionParameter = {
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: new ObjectType(classType)
-        };
-        initType.setDeclaredReturnType(NoneType.create());
-        initType.addParameter(selfParameter);
+            let initType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+            const selfParameter: FunctionParameter = {
+                category: ParameterCategory.Simple,
+                name: 'self',
+                type: new ObjectType(classType)
+            };
+            initType.setDeclaredReturnType(NoneType.create());
+            initType.addParameter(selfParameter);
 
-        let addGenericGetAttribute = false;
+            let addGenericGetAttribute = false;
 
-        if (node.arguments.length < 2) {
-            this._addError('Expected named tuple entry list as second parameter',
-                node.leftExpression);
-            addGenericGetAttribute = true;
-        } else {
-            const entriesArg = node.arguments[1];
-            if (entriesArg.argumentCategory !== ArgumentCategory.Simple) {
+            if (node.arguments.length < 2) {
+                this._addError('Expected named tuple entry list as second parameter',
+                    node.leftExpression);
                 addGenericGetAttribute = true;
             } else {
-                if (!includesTypes && entriesArg.valueExpression instanceof StringNode) {
-                    let entries = entriesArg.valueExpression.getValue().split(' ');
-                    entries.forEach(entryName => {
-                        entryName = entryName.trim();
-                        if (entryName) {
-                            let entryType = UnknownType.create();
+                const entriesArg = node.arguments[1];
+                if (entriesArg.argumentCategory !== ArgumentCategory.Simple) {
+                    addGenericGetAttribute = true;
+                } else {
+                    if (!includesTypes && entriesArg.valueExpression instanceof StringNode) {
+                        let entries = entriesArg.valueExpression.getValue().split(' ');
+                        entries.forEach(entryName => {
+                            entryName = entryName.trim();
+                            if (entryName) {
+                                let entryType = UnknownType.create();
+                                tupleType.addEntryType(entryType);
+                                const paramInfo: FunctionParameter = {
+                                    category: ParameterCategory.Simple,
+                                    name: entryName,
+                                    type: entryType
+                                };
+
+                                constructorType.addParameter(paramInfo);
+                                initType.addParameter(paramInfo);
+
+                                instanceFields.set(entryName, new Symbol(entryType, DefaultTypeSourceId));
+                            }
+                        });
+                    } else if (entriesArg.valueExpression instanceof ListNode) {
+                        const entryList = entriesArg.valueExpression;
+                        let entryMap: { [name: string]: string } = {};
+
+                        entryList.entries.forEach((entry, index) => {
+                            let entryType: Type | undefined;
+                            let entryNameNode: ExpressionNode | undefined;
+                            let entryName = '';
+
+                            if (includesTypes) {
+                                // Handle the variant that includes name/type tuples.
+                                if (entry instanceof TupleExpressionNode && entry.expressions.length === 2) {
+                                    entryNameNode = entry.expressions[0];
+                                    let entryTypeInfo = this._getTypeFromExpression(entry.expressions[1],
+                                        EvaluatorFlags.ConvertClassToObject);
+                                    if (entryTypeInfo) {
+                                        entryType = entryTypeInfo.type;
+                                    }
+                                } else {
+                                    this._addError(
+                                        'Expected two-entry tuple specifying entry name and type', entry);
+                                }
+                            } else {
+                                entryNameNode = entry;
+                                entryType = UnknownType.create();
+                            }
+
+                            if (entryNameNode instanceof StringNode) {
+                                entryName = entryNameNode.getValue();
+                                if (!entryName) {
+                                    this._addError(
+                                        'Names within a named tuple cannot be empty', entryNameNode);
+                                }
+                            } else {
+                                this._addError(
+                                    'Expected string literal for entry name', entryNameNode || entry);
+                            }
+
+                            if (!entryName) {
+                                entryName = `_${ index.toString() }`;
+                            }
+
+                            if (entryMap[entryName]) {
+                                this._addError(
+                                    'Names within a named tuple must be unique', entryNameNode || entry);
+                            }
+
+                            // Record names in a map to detect duplicates.
+                            entryMap[entryName] = entryName;
+
+                            if (!entryType) {
+                                entryType = UnknownType.create();
+                            }
+
                             tupleType.addEntryType(entryType);
                             const paramInfo: FunctionParameter = {
                                 category: ParameterCategory.Simple,
@@ -1226,111 +1293,45 @@ export class ExpressionEvaluator {
                             initType.addParameter(paramInfo);
 
                             instanceFields.set(entryName, new Symbol(entryType, DefaultTypeSourceId));
-                        }
-                    });
-                } else if (entriesArg.valueExpression instanceof ListNode) {
-                    const entryList = entriesArg.valueExpression;
-                    let entryMap: { [name: string]: string } = {};
-
-                    entryList.entries.forEach((entry, index) => {
-                        let entryType: Type | undefined;
-                        let entryNameNode: ExpressionNode | undefined;
-                        let entryName = '';
-
-                        if (includesTypes) {
-                            // Handle the variant that includes name/type tuples.
-                            if (entry instanceof TupleExpressionNode && entry.expressions.length === 2) {
-                                entryNameNode = entry.expressions[0];
-                                let entryTypeInfo = this._getTypeFromExpression(entry.expressions[1],
-                                    EvaluatorFlags.ConvertClassToObject);
-                                if (entryTypeInfo) {
-                                    entryType = entryTypeInfo.type;
-                                }
-                            } else {
-                                this._addError(
-                                    'Expected two-entry tuple specifying entry name and type', entry);
-                            }
-                        } else {
-                            entryNameNode = entry;
-                            entryType = UnknownType.create();
-                        }
-
-                        if (entryNameNode instanceof StringNode) {
-                            entryName = entryNameNode.getValue();
-                            if (!entryName) {
-                                this._addError(
-                                    'Names within a named tuple cannot be empty', entryNameNode);
-                            }
-                        } else {
-                            this._addError(
-                                'Expected string literal for entry name', entryNameNode || entry);
-                        }
-
-                        if (!entryName) {
-                            entryName = `_${ index.toString() }`;
-                        }
-
-                        if (entryMap[entryName]) {
-                            this._addError(
-                                'Names within a named tuple must be unique', entryNameNode || entry);
-                        }
-
-                        // Record names in a map to detect duplicates.
-                        entryMap[entryName] = entryName;
-
-                        if (!entryType) {
-                            entryType = UnknownType.create();
-                        }
-
-                        tupleType.addEntryType(entryType);
-                        const paramInfo: FunctionParameter = {
-                            category: ParameterCategory.Simple,
-                            name: entryName,
-                            type: entryType
-                        };
-
-                        constructorType.addParameter(paramInfo);
-                        initType.addParameter(paramInfo);
-
-                        instanceFields.set(entryName, new Symbol(entryType, DefaultTypeSourceId));
-                    });
-                } else {
-                    // A dynamic expression was used, so we can't evaluate
-                    // the named tuple statically.
-                    addGenericGetAttribute = true;
+                        });
+                    } else {
+                        // A dynamic expression was used, so we can't evaluate
+                        // the named tuple statically.
+                        addGenericGetAttribute = true;
+                    }
                 }
             }
-        }
 
-        if (addGenericGetAttribute) {
-            TypeUtils.addDefaultFunctionParameters(constructorType);
-            TypeUtils.addDefaultFunctionParameters(initType);
-        }
+            if (addGenericGetAttribute) {
+                TypeUtils.addDefaultFunctionParameters(constructorType);
+                TypeUtils.addDefaultFunctionParameters(initType);
+            }
 
-        classFields.set('__new__', new Symbol(constructorType, DefaultTypeSourceId));
-        classFields.set('__init__', new Symbol(initType, DefaultTypeSourceId));
+            classFields.set('__new__', new Symbol(constructorType, DefaultTypeSourceId));
+            classFields.set('__init__', new Symbol(initType, DefaultTypeSourceId));
 
-        let keysItemType = new FunctionType(FunctionTypeFlags.None);
-        keysItemType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'list',
-            [ScopeUtils.getBuiltInObject(this._scope, 'str')]));
-        classFields.set('keys', new Symbol(keysItemType, DefaultTypeSourceId));
-        classFields.set('items', new Symbol(keysItemType, DefaultTypeSourceId));
+            let keysItemType = new FunctionType(FunctionTypeFlags.None);
+            keysItemType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'list',
+                [ScopeUtils.getBuiltInObject(this._scope, 'str')]));
+            classFields.set('keys', new Symbol(keysItemType, DefaultTypeSourceId));
+            classFields.set('items', new Symbol(keysItemType, DefaultTypeSourceId));
 
-        let lenType = new FunctionType(FunctionTypeFlags.InstanceMethod);
-        lenType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'int'));
-        lenType.addParameter(selfParameter);
-        classFields.set('__len__', new Symbol(lenType, DefaultTypeSourceId));
+            let lenType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+            lenType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'int'));
+            lenType.addParameter(selfParameter);
+            classFields.set('__len__', new Symbol(lenType, DefaultTypeSourceId));
 
-        if (addGenericGetAttribute) {
-            let getAttribType = new FunctionType(FunctionTypeFlags.InstanceMethod);
-            getAttribType.setDeclaredReturnType(AnyType.create());
-            getAttribType.addParameter(selfParameter);
-            getAttribType.addParameter({
-                category: ParameterCategory.Simple,
-                name: 'name',
-                type: ScopeUtils.getBuiltInObject(this._scope, 'str')
-            });
-            classFields.set('__getattribute__', new Symbol(getAttribType, DefaultTypeSourceId));
+            if (addGenericGetAttribute) {
+                let getAttribType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+                getAttribType.setDeclaredReturnType(AnyType.create());
+                getAttribType.addParameter(selfParameter);
+                getAttribType.addParameter({
+                    category: ParameterCategory.Simple,
+                    name: 'name',
+                    type: ScopeUtils.getBuiltInObject(this._scope, 'str')
+                });
+                classFields.set('__getattribute__', new Symbol(getAttribType, DefaultTypeSourceId));
+            }
         }
 
         return classType;
@@ -1356,9 +1357,56 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
+    private _getTypeFromUnaryExpression(node: UnaryExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
+        let exprType = this._getTypeFromExpression(node.expression, flags).type;
+
+        let type: Type;
+        if (exprType.isAny()) {
+            type = exprType;
+        } else if (exprType instanceof ObjectType) {
+            if (node.operator === OperatorType.Not) {
+                // The "not" operator always returns a boolean.
+                type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
+            } else if (node.operator === OperatorType.BitwiseInvert) {
+                const intObjType = ScopeUtils.getBuiltInObject(this._scope, 'int');
+
+                if (intObjType.isSame(exprType)) {
+                    type = intObjType;
+                } else {
+                    // TODO - need to handle generic case.
+                    type = UnknownType.create();
+                }
+            } else if (node.operator === OperatorType.Add || node.operator === OperatorType.Subtract) {
+                const intType = ScopeUtils.getBuiltInObject(this._scope, 'int');
+                const floatType = ScopeUtils.getBuiltInObject(this._scope, 'float');
+                const complexType = ScopeUtils.getBuiltInObject(this._scope, 'complex');
+
+                if (intType.isSame(exprType)) {
+                    type = intType;
+                } else if (floatType.isSame(exprType)) {
+                    type = floatType;
+                } else if (complexType.isSame(exprType)) {
+                    type = complexType;
+                } else {
+                    // TODO - need to handle generic case.
+                    type = UnknownType.create();
+                }
+            } else {
+                // We should never get here.
+                this._addError('Unexpected unary operator', node);
+                type = UnknownType.create();
+            }
+        } else {
+            // TODO - need to handle additional types.
+            type = UnknownType.create();
+        }
+
+        return { type, node };
+    }
+
     private _getTypeFromBinaryExpression(node: BinaryExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
-        let leftType = this._getTypeFromExpression(node.leftExpression, flags);
-        let rightType = this._getTypeFromExpression(node.rightExpression, flags);
+        let leftType = this._getTypeFromExpression(node.leftExpression, flags).type;
+        let rightType = this._getTypeFromExpression(node.rightExpression, flags).type;
 
         // Is this an AND operator? If so, we can assume that the
         // rightExpression won't be evaluated at runtime unless the
@@ -1411,9 +1459,9 @@ export class ExpressionEvaluator {
         let type: Type;
 
         if (arithmeticOperatorMap[node.operator]) {
-            if (leftType.type.isAny() || rightType.type.isAny()) {
+            if (leftType.isAny() || rightType.isAny()) {
                 type = UnknownType.create();
-            } else if (leftType.type instanceof ObjectType && rightType.type instanceof ObjectType) {
+            } else if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
                 const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
                 const getTypeMatch = (classType: ClassType): boolean[] => {
                     let foundMatch = false;
@@ -1424,8 +1472,8 @@ export class ExpressionEvaluator {
                         return foundMatch;
                     });
                 };
-                const leftClassMatches = getTypeMatch(leftType.type.getClassType());
-                const rightClassMatches = getTypeMatch(rightType.type.getClassType());
+                const leftClassMatches = getTypeMatch(leftType.getClassType());
+                const rightClassMatches = getTypeMatch(rightType.getClassType());
 
                 if (leftClassMatches[0] && rightClassMatches[0]) {
                     // If they're both int types, the result is an int.
@@ -1449,15 +1497,17 @@ export class ExpressionEvaluator {
                 type = UnknownType.create();
             }
         } else if (bitwiseOperatorMap[node.operator]) {
-            if (leftType.type.isAny() || rightType.type.isAny()) {
+            if (leftType.isAny() || rightType.isAny()) {
                 type = UnknownType.create();
-            } else if (leftType.type instanceof ObjectType && rightType.type instanceof ObjectType) {
-                const intType = ScopeUtils.getBuiltInType(this._scope, 'int') as ClassType;
-                const leftIsInt = intType && leftType.type.getClassType().isSameGenericClass(intType);
-                const rightIsInt = intType && rightType.type.getClassType().isSameGenericClass(intType);
+            } else if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
+                const intType = ScopeUtils.getBuiltInType(this._scope, 'int');
+                const leftIsInt = intType instanceof ClassType &&
+                    leftType.getClassType().isSameGenericClass(intType);
+                const rightIsInt = intType instanceof ClassType &&
+                    rightType.getClassType().isSameGenericClass(intType);
 
                 if (leftIsInt && rightIsInt) {
-                    type = new ObjectType(intType);
+                    type = new ObjectType(intType as ClassType);
                 } else {
                     // In all other cases, we need to look at the magic methods
                     // on the two types.
@@ -1469,21 +1519,19 @@ export class ExpressionEvaluator {
                 type = UnknownType.create();
             }
         } else if (comparisonOperatorMap[node.operator]) {
-            const boolType = ScopeUtils.getBuiltInType(this._scope, 'bool') as ClassType;
-            type = boolType ? new ObjectType(boolType) : UnknownType.create();
+            type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
         } else if (booleanOperatorMap[node.operator]) {
             if (node.operator === OperatorType.And) {
                 // If the operator is an AND or OR, we need to combine the two types.
-                type = TypeUtils.combineTypesArray([
-                    TypeUtils.removeTruthinessFromType(leftType.type), rightType.type]);
+                type = TypeUtils.combineTypes([
+                    TypeUtils.removeTruthinessFromType(leftType), rightType]);
             } else if (node.operator === OperatorType.Or) {
-                type = TypeUtils.combineTypesArray([
-                    TypeUtils.removeFalsinessFromType(leftType.type), rightType.type]);
+                type = TypeUtils.combineTypes([
+                    TypeUtils.removeFalsinessFromType(leftType), rightType]);
             } else {
                 // The other boolean operators always return a bool value.
                 // TODO - validate inputs for "is", "is not", "in" and "not in" operators.
-                const boolType = ScopeUtils.getBuiltInType(this._scope, 'bool') as ClassType;
-                type = boolType ? new ObjectType(boolType) : UnknownType.create();
+                type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
             }
         } else {
             // We should never get here.
@@ -1496,7 +1544,8 @@ export class ExpressionEvaluator {
 
     private _getBuiltInClassTypes(names: string[]): (ClassType | undefined)[] {
         return names.map(name => {
-            return ScopeUtils.getBuiltInType(this._scope, name) as ClassType;
+            let classType = ScopeUtils.getBuiltInType(this._scope, name);
+            return classType instanceof ClassType ? classType : undefined;
         });
     }
 
@@ -1606,7 +1655,7 @@ export class ExpressionEvaluator {
             return UnknownType.create();
         }
 
-        return TypeUtils.combineTypes(typeArgs[0].type, NoneType.create());
+        return TypeUtils.combineTypes([typeArgs[0].type, NoneType.create()]);
     }
 
     private _createClassVarType(typeArgs: TypeResult[], flags: EvaluatorFlags): Type {
@@ -1646,7 +1695,7 @@ export class ExpressionEvaluator {
         }
 
         if (types.length > 0) {
-            return TypeUtils.combineTypesArray(types);
+            return TypeUtils.combineTypes(types);
         }
 
         return NoneType.create();

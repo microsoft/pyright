@@ -966,6 +966,7 @@ export class UnionType extends Type {
 
     addType(type1: Type) {
         assert(type1.category !== TypeCategory.Union);
+        assert(type1.category !== TypeCategory.Never);
 
         this._types.push(type1);
     }
@@ -974,6 +975,7 @@ export class UnionType extends Type {
         // Add any types that are unique to the union.
         for (let newType of types) {
             assert(newType.category !== TypeCategory.Union);
+            assert(newType.category !== TypeCategory.Never);
             if (!this._types.find(t => t.isSame(newType))) {
                 this._types.push(newType);
             }

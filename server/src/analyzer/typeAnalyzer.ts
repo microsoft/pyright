@@ -224,7 +224,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // TODO - tighten this up, perhaps using a config flag
                 if (param.defaultValue instanceof ConstantNode) {
                     if (param.defaultValue.token.keywordType === KeywordType.None) {
-                        annotatedType = TypeUtils.combineTypes(annotatedType, NoneType.create());
+                        annotatedType = TypeUtils.combineTypes(
+                            [annotatedType, NoneType.create()]);
                     }
                 }
 
@@ -1271,7 +1272,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // name, but there's also now an instance variable introduced. Combine the
                     // type of the class variable with that of the new instance variable.
                     if (memberInfo.symbol && !memberInfo.isInstanceMember && isInstanceMember) {
-                        typeOfExpr = TypeUtils.combineTypes(typeOfExpr, TypeUtils.getEffectiveTypeOfMember(memberInfo));
+                        typeOfExpr = TypeUtils.combineTypes(
+                            [typeOfExpr, TypeUtils.getEffectiveTypeOfMember(memberInfo)]);
                     }
                     addNewMemberToLocalClass = true;
                 }

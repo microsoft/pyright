@@ -70,7 +70,7 @@ export class InferredType {
             if (!newCombinedType) {
                 newCombinedType = source.type;
             } else {
-                newCombinedType = TypeUtils.combineTypes(newCombinedType, source.type);
+                newCombinedType = TypeUtils.combineTypes([newCombinedType, source.type]);
             }
         }
 

@@ -121,14 +121,7 @@ export class TruthyTypeConstraint extends TypeConstraint {
                 types = types.filter(t => TypeUtils.canBeFalsy(t));
             }
 
-            if (types.length === 0) {
-                // Use a "Never" type (which is a special form
-                // of None) to indicate that the condition will
-                // always evaluate to false.
-                return NeverType.create();
-            } else {
-                return TypeUtils.combineTypesArray(types);
-            }
+            return TypeUtils.combineTypes(types);
         }
 
         // Return the original type.
@@ -159,14 +152,7 @@ export class IsNoneTypeConstraint extends TypeConstraint {
                     return (t instanceof NoneType) === this.isPositiveTest();
                 });
 
-                if (remainingTypes.length === 0) {
-                    // Use a "Never" type (which is a special form
-                    // of None) to indicate that the condition will
-                    // always evaluate to false.
-                    return NeverType.create();
-                }
-
-                return TypeUtils.combineTypesArray(remainingTypes);
+                return TypeUtils.combineTypes(remainingTypes);
             } else if (type instanceof NoneType) {
                 if (!this.isPositiveTest()) {
                     // Use a "Never" type (which is a special form
@@ -237,14 +223,7 @@ export class IsInstanceTypeConstraint extends TypeConstraint {
             };
 
             const finalizeFilteredTypeList = (types: Type[]): Type => {
-                if (types.length === 0) {
-                    // Use a "Never" type (which is a special form
-                    // of None) to indicate that the condition will
-                    // always evaluate to false.
-                    return NeverType.create();
-                }
-
-                return TypeUtils.combineTypesArray(types);
+                return TypeUtils.combineTypes(types);
             };
 
             if (type instanceof ObjectType) {

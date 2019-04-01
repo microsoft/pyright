@@ -217,14 +217,14 @@ export class Scope {
                     // is properly merged later.
                     const targetSymbol = targetScope._symbolTable.get(name);
                     if (targetSymbol) {
-                        newType = TypeUtils.combineTypes(newType, targetSymbol.currentType);
+                        newType = TypeUtils.combineTypes([newType, targetSymbol.currentType]);
                     } else {
                         markTypeConditional = true;
                     }
                 } else {
                     let existingBinding = targetScope.lookUpSymbolRecursive(name);
                     if (existingBinding) {
-                        newType = TypeUtils.combineTypes(newType, existingBinding.symbol.currentType);
+                        newType = TypeUtils.combineTypes([newType, existingBinding.symbol.currentType]);
                     }
                 }
             }
@@ -286,7 +286,7 @@ export class Scope {
 
             if (targetSymbol) {
                 this.setSymbolCurrentType(name,
-                    TypeUtils.combineTypes(targetSymbol.currentType, sourceSymbol.currentType),
+                    TypeUtils.combineTypes([targetSymbol.currentType, sourceSymbol.currentType]),
                     sourceSymbol.inferredType.getPrimarySourceId());
 
                 if (sourceSymbol.declarations) {

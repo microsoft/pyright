@@ -138,3 +138,10 @@ test('Expressions2', () => {
     assert.equal(analysisResults.length, 1);
     assert.equal(analysisResults[0].errors.length, 1);
 });
+
+test('Expressions3', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions3.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 1);
+});

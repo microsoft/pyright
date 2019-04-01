@@ -24,38 +24,21 @@ export interface ClassMember {
 }
 
 export class TypeUtils {
-    // Combines two types into a single type. If the types are
+    // Combines multiple types into a single type. If the types are
     // the same, only one is returned. If they differ, they
-    // are combined into a UnionType.
-    static combineTypes(type1: Type, type2: Type): Type {
-        if (type1.isSame(type2)) {
-            return type1;
+    // are combined into a UnionType. NeverTypes are filtered out.
+    // If no types remain in the end, a NeverType is returned.
+    static combineTypes(types: Type[]): Type {
+        // Filter out any "Never" types.
+        types = types.filter(type => type.category !== TypeCategory.Never);
+        if (types.length === 0) {
+            return NeverType.create();
         }
-
-        let unionType = new UnionType();
-
-        if (type1 instanceof UnionType) {
-            unionType.addTypes(type1.getTypes());
-        } else {
-            unionType.addTypes([type1]);
-        }
-
-        if (type2 instanceof UnionType) {
-            unionType.addTypes(type2.getTypes());
-        } else {
-            unionType.addTypes([type2]);
-        }
-
-        return unionType;
-    }
-
-    static combineTypesArray(types: Type[]): Type {
-        assert(types.length > 0);
 
         let resultingType = types[0];
         types.forEach((t, index) => {
             if (index > 0) {
-                resultingType = this.combineTypes(resultingType, t);
+                resultingType = this._combineTwoTypes(resultingType, t);
             }
         });
 
@@ -596,7 +579,7 @@ export class TypeUtils {
                     recursionLevel + 1));
             });
 
-            return TypeUtils.combineTypesArray(subtypes);
+            return TypeUtils.combineTypes(subtypes);
         }
 
         if (type instanceof ObjectType) {
@@ -690,7 +673,7 @@ export class TypeUtils {
             this.specializeType(constraint, undefined, recursionLevel + 1)
         );
 
-        return TypeUtils.combineTypesArray(concreteTypes);
+        return TypeUtils.combineTypes(concreteTypes);
     }
 
     private static _specializeFunctionType(functionType: FunctionType,
@@ -954,7 +937,7 @@ export class TypeUtils {
             return AnyType.create();
         }
 
-        return TypeUtils.combineTypesArray(subtypes);
+        return TypeUtils.combineTypes(subtypes);
     }
 
     static cloneTypeVarMap(typeVarMap: TypeVarMap): TypeVarMap {
@@ -1018,7 +1001,7 @@ export class TypeUtils {
             return NeverType.create();
         }
 
-        return this.combineTypesArray(remainingTypes);
+        return this.combineTypes(remainingTypes);
     }
 
     // Filters a type such that that it is guaranteed not to
@@ -1059,6 +1042,28 @@ export class TypeUtils {
             return NeverType.create();
         }
 
-        return this.combineTypesArray(remainingTypes);
+        return this.combineTypes(remainingTypes);
+    }
+
+    private static _combineTwoTypes(type1: Type, type2: Type): Type {
+        if (type1.isSame(type2)) {
+            return type1;
+        }
+
+        let unionType = new UnionType();
+
+        if (type1 instanceof UnionType) {
+            unionType.addTypes(type1.getTypes());
+        } else {
+            unionType.addTypes([type1]);
+        }
+
+        if (type2 instanceof UnionType) {
+            unionType.addTypes(type2.getTypes());
+        } else {
+            unionType.addTypes([type2]);
+        }
+
+        return unionType;
     }
 }
