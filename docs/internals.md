@@ -34,7 +34,7 @@ Pyright attempts to infer the types of global (module-level) variables, class va
 Pyright supports type constraints (sometimes called “path constraints”) to track assumptions that apply within certain paths of code flow. For example, consider the following code:
 ```python
 
-def (a: Optional[Union[str, List[str]]:
+def (a: Optional[Union[str, List[str]]) -> None:
     if isinstance(a, str):
         log(a)
     elif a:
