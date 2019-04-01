@@ -91,6 +91,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Add more tests for type checker
 * Validate that all abstract methods are overridden
 * Validate parameters for magic functions
+* Synthesize TypeVar param and return types for lambdas where possible
 * Validate that overridden methods in subclass have same signature as base class methods
 * Verify that exception classes inherit from base Exception
 * Add support for inference of subclass type vars based on method parameter types declared in subclass

@@ -340,25 +340,16 @@ export class TypeUtils {
 
         const srcParamCount = srcType.getParameterCount();
         const destParamCount = destType.getParameterCount();
-        const minParmaCount = Math.min(srcParamCount, destParamCount);
-
-        // TODO - need to add more logic here
-        // if (srcParamCount !== destParamCount) {
-        //     canAssign = false;
-        // }
+        const minParamCount = Math.min(srcParamCount, destParamCount);
 
         // Match as many input parameters as we can.
-        for (let paramIndex = 0; paramIndex < minParmaCount; paramIndex++) {
+        for (let paramIndex = 0; paramIndex < minParamCount; paramIndex++) {
             const srcParam = srcType.getParameters()[paramIndex];
             const destParam = destType.getParameters()[paramIndex];
 
-            if (srcParam.category !== ParameterCategory.Simple) {
-                // TODO - properly handle var-args
-                break;
-            }
-
-            if (destParam.category !== ParameterCategory.Simple) {
-                // TODO - properly handle var-args
+            // If the dest or source involve var-args, no need to continue matching.
+            if (srcParam.category !== ParameterCategory.Simple ||
+                    destParam.category !== ParameterCategory.Simple) {
                 break;
             }
 
@@ -369,11 +360,34 @@ export class TypeUtils {
             this.canAssignType(destParamType, srcParamType, typeVarMap,
                     true, recursionCount + 1);
 
-            // Call canAssignType a second time with src and dest swapped
-            // because the matching needs to be done in this order for
-            // input parameters.
-            if (!this.canAssignType(srcParamType, destParamType, typeVarMap,
+            // Make sure we can assign the specialized dest type to the
+            // source type.
+            const specializedDestParamType = this.specializeType(
+                destParamType, typeVarMap, recursionCount + 1);
+            if (!this.canAssignType(srcParamType, specializedDestParamType, undefined,
                     true, recursionCount + 1)) {
+                canAssign = false;
+            }
+        }
+
+        const srcHasVarArgs = srcType.getParameters().find(
+            param => param.category !== ParameterCategory.Simple) !== undefined;
+        const destHasVarArgs = destType.getParameters().find(
+            param => param.category !== ParameterCategory.Simple) !== undefined;
+
+        // We we didn't find a var-arg parameter, the number of dest params
+        // must be enough to provide all of the non-default source params
+        // with values. Plus, the number of source params must be enough to
+        // accept all of the dest argments.
+        if (!srcHasVarArgs && !destHasVarArgs) {
+            let nonDefaultSrcParamCount = srcType.getParameters().filter(
+                param => !param.hasDefault).length;
+
+            if (destParamCount < nonDefaultSrcParamCount) {
+                canAssign = false;
+            }
+
+            if (destParamCount > srcParamCount) {
                 canAssign = false;
             }
         }

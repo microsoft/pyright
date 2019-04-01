@@ -147,6 +147,20 @@ test('Expressions3', () => {
     assert.equal(analysisResults[0].errors.length, 1);
 });
 
+test('Lambda1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda1.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 5);
+});
+
+test('Function1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['function1.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 5);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions('.');
 
