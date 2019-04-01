@@ -9,6 +9,7 @@
 
 import * as assert from 'assert';
 
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { ParameterCategory } from '../parser/parseNodes';
 import { Symbol } from './symbol';
 import { AnyType, ClassType, FunctionType,
@@ -72,8 +73,8 @@ export class TypeUtils {
     // matched against existing type variables in the map. If a type variable
     // in the dest type is not in the type map already, it is assigned a type
     // and added to the map.
-    static canAssignType(destType: Type, srcType: Type, typeVarMap?: TypeVarMap,
-            allowSubclasses = true, recursionCount = 0): boolean {
+    static canAssignType(destType: Type, srcType: Type, diag: DiagnosticAddendum,
+            typeVarMap?: TypeVarMap, allowSubclasses = true, recursionCount = 0): boolean {
 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
@@ -81,14 +82,14 @@ export class TypeUtils {
             if (typeVarMap) {
                 const existingTypeVarMapping = typeVarMap.get(destType.getName());
                 if (existingTypeVarMapping) {
-                    return this.canAssignType(existingTypeVarMapping, srcType,
+                    return this.canAssignType(existingTypeVarMapping, srcType, diag.createAddendum(),
                         typeVarMap, allowSubclasses, recursionCount + 1);
                 }
 
                 typeVarMap.set(destType.getName(), srcType);
             }
 
-            return this.canAssignToTypeVar(destType, srcType);
+            return this.canAssignToTypeVar(destType, srcType, diag);
         }
 
         if (srcType instanceof TypeVarType) {
@@ -96,6 +97,8 @@ export class TypeUtils {
             // the source type or the code being analyzed contains a bug where
             // a return type uses a type var that is not referenced elsewhere
             // in a function.
+            diag.addMessage(`Type '${ srcType.asString() }' cannot be assigned to ` +
+                `type '${ destType.asString() }'.`);
             return false;
         }
 
@@ -109,20 +112,30 @@ export class TypeUtils {
 
         if (srcType instanceof UnionType) {
             // For union sources, all of the types need to be assignable to the dest.
-            return srcType.getTypes().find(
-                t => !this.canAssignType(destType, t, typeVarMap,
-                    allowSubclasses, recursionCount + 1)) === undefined;
+            const incompatibleType = srcType.getTypes().find(
+                t => !this.canAssignType(destType, t, diag.createAddendum(), typeVarMap,
+                    allowSubclasses, recursionCount + 1));
+
+            if (incompatibleType) {
+                diag.addMessage(`Type '${ incompatibleType.asString() }' cannot be assigned to ` +
+                    `type '${ destType.asString() }'.`);
+                return false;
+            }
+
+            return true;
         }
 
         if (destType instanceof UnionType) {
             // For union destinations, we just need to match one of the types.
-            return destType.getTypes().find(
-                t => this.canAssignType(t, srcType, typeVarMap,
-                    allowSubclasses, recursionCount + 1)) !== undefined;
+            const compatibleType = destType.getTypes().find(
+                t => this.canAssignType(t, srcType, diag.createAddendum(), typeVarMap,
+                    allowSubclasses, recursionCount + 1));
+            return (compatibleType !== undefined);
         }
 
         if (destType.category === TypeCategory.Unbound ||
                 srcType.category === TypeCategory.Unbound) {
+            diag.addMessage(`Type is unbound.`);
             return false;
         }
 
@@ -141,7 +154,7 @@ export class TypeUtils {
 
             if (srcType instanceof ObjectType) {
                 return this._canAssignClass(destClassType, srcType.getClassType(),
-                    typeVarMap, allowSubclasses, recursionCount + 1);
+                    diag.createAddendum(), typeVarMap, allowSubclasses, recursionCount + 1);
             }
         }
 
@@ -159,7 +172,7 @@ export class TypeUtils {
                         const destTypeArgs = destClassType.getTypeArguments();
                         if (destTypeArgs && destTypeArgs.length >= 1 && destTypeArgs[0] instanceof Type) {
                             return this.canAssignType(destTypeArgs[0],
-                                new ObjectType(srcType), typeVarMap,
+                                new ObjectType(srcType), diag.createAddendum(), typeVarMap,
                                     allowSubclasses, recursionCount + 1);
                         }
                     }
@@ -167,7 +180,7 @@ export class TypeUtils {
             }
 
             if (destType instanceof ClassType) {
-                return this._canAssignClass(destType, srcType,
+                return this._canAssignClass(destType, srcType, diag.createAddendum(),
                     typeVarMap, allowSubclasses, recursionCount + 1);
             }
         }
@@ -182,10 +195,11 @@ export class TypeUtils {
                 const overloads = srcType.getOverloads();
                 const overloadIndex = overloads.findIndex(overload => {
                     const typeVarMapClone = typeVarMap ? TypeUtils.cloneTypeVarMap(typeVarMap) : undefined;
-                    return this.canAssignType(destType, overload.type,
+                    return this.canAssignType(destType, overload.type, diag.createAddendum(),
                         typeVarMapClone, true, recursionCount + 1);
                 });
                 if (overloadIndex < 0) {
+                    diag.addMessage(`No overloaded function matches type '${ destType.asString() }'.`);
                     return false;
                 }
                 srcFunction = overloads[overloadIndex].type;
@@ -203,11 +217,12 @@ export class TypeUtils {
                 }
             } else if (srcType instanceof ClassType) {
                 // TODO - need to create function corresponding to constructor for class.
+                diag.addMessage(`Constructor is not compatible with type '${ destType.asString() }'.`);
                 return false;
             }
 
             if (srcFunction) {
-                return this._canAssignFunction(destType, srcFunction,
+                return this._canAssignFunction(destType, srcFunction, diag.createAddendum(),
                     typeVarMap, recursionCount + 1);
             }
         }
@@ -217,12 +232,16 @@ export class TypeUtils {
             const srcEntries = srcType.getEntryTypes();
 
             if (destEntries.length !== srcEntries.length) {
+                diag.addMessage(`Tuple entry count mismatch. Expected ${ destEntries.length } ` +
+                    `but got ${ srcEntries.length }.`);
                 return false;
             }
 
-            if (srcEntries.find((srcEntry, index) =>
-                    !this.canAssignType(destEntries[index], srcEntry,
-                        typeVarMap, true, recursionCount + 1))) {
+            const mismatchEntryIndex = srcEntries.findIndex((srcEntry, index) =>
+                    !this.canAssignType(destEntries[index], srcEntry, diag.createAddendum(),
+                        typeVarMap, true, recursionCount + 1));
+            if (mismatchEntryIndex >= 0) {
+                diag.addMessage(`Type mismatch for tuple entry ${ mismatchEntryIndex + 1 }.`);
                 return false;
             }
 
@@ -285,7 +304,7 @@ export class TypeUtils {
 
     // Validates that the specified source type matches the constraints
     // of the type variable.
-    static canAssignToTypeVar(destType: TypeVarType, srcType: Type): boolean {
+    static canAssignToTypeVar(destType: TypeVarType, srcType: Type, diag: DiagnosticAddendum): boolean {
         if (srcType.isAny()) {
             return true;
         }
@@ -301,11 +320,16 @@ export class TypeUtils {
         // If there's a bound type, make sure the source is derived from it.
         const boundType = destType.getBoundType();
         if (boundType) {
+            let isCompatibleWithBoundType = false;
             if (effectiveSrcType instanceof ObjectType && boundType instanceof ObjectType) {
-                return effectiveSrcType.getClassType().isDerivedFrom(boundType.getClassType());
-            } else {
-                return false;
+                isCompatibleWithBoundType = effectiveSrcType.getClassType().isDerivedFrom(boundType.getClassType());
             }
+
+            if (!isCompatibleWithBoundType) {
+                diag.addMessage(`Type '${ effectiveSrcType.asString() }' is not compatible with ` +
+                    `bound type '${ boundType.asString() }' for TypeVar '${ destType.getName() }'`);
+            }
+            return false;
         }
 
         // If there are no constraints, we're done.
@@ -314,25 +338,28 @@ export class TypeUtils {
             return true;
         }
 
+        // Try to find a match among the constraints.
         for (const constraint of constraints) {
             if (constraint.isAny()) {
                 return true;
-            }
-
-            if (effectiveSrcType instanceof UnionType) {
-                return effectiveSrcType.getTypes().find(t => constraint.isSame(t)) !== undefined;
-            }
-
-            if (constraint.isSame(effectiveSrcType)) {
+            } else if (effectiveSrcType instanceof UnionType) {
+                if (effectiveSrcType.getTypes().find(t => constraint.isSame(t))) {
+                    return true;
+                }
+            } else if (constraint.isSame(effectiveSrcType)) {
                 return true;
             }
         }
+
+        diag.addMessage(`Type '${ effectiveSrcType.asString() }' is not compatible with ` +
+            `constraints imposed by TypeVar '${ destType.getName() }'`);
 
         return false;
     }
 
     private static _canAssignFunction(destType: FunctionType, srcType: FunctionType,
-            typeVarMap: TypeVarMap | undefined, recursionCount: number): boolean {
+            diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined,
+            recursionCount: number): boolean {
 
         let canAssign = true;
 
@@ -357,15 +384,18 @@ export class TypeUtils {
             const destParamType = destType.getEffectiveParameterType(paramIndex);
 
             // Call canAssignType once to perform any typeVarMap population.
-            this.canAssignType(destParamType, srcParamType, typeVarMap,
+            this.canAssignType(destParamType, srcParamType, diag.createAddendum(), typeVarMap,
                     true, recursionCount + 1);
 
             // Make sure we can assign the specialized dest type to the
             // source type.
             const specializedDestParamType = this.specializeType(
                 destParamType, typeVarMap, recursionCount + 1);
-            if (!this.canAssignType(srcParamType, specializedDestParamType, undefined,
-                    true, recursionCount + 1)) {
+            if (!this.canAssignType(srcParamType, specializedDestParamType, diag.createAddendum(),
+                    undefined, true, recursionCount + 1)) {
+                diag.addMessage(`Parameter ${ paramIndex + 1 } of type ` +
+                    `'${ specializedDestParamType }' cannot be assigned to type` +
+                    `'${ srcParamType }'.`);
                 canAssign = false;
             }
         }
@@ -384,10 +414,14 @@ export class TypeUtils {
                 param => !param.hasDefault).length;
 
             if (destParamCount < nonDefaultSrcParamCount) {
+                diag.addMessage(`Function accepts too few parameters. Expected ` +
+                    `${ nonDefaultSrcParamCount } but got ${ destParamCount }.`);
                 canAssign = false;
             }
 
             if (destParamCount > srcParamCount) {
+                diag.addMessage(`Function accepts too many parameters. Expected ` +
+                    `${ srcParamCount } but got ${ destParamCount }.`);
                 canAssign = false;
             }
         }
@@ -396,8 +430,10 @@ export class TypeUtils {
         const srcReturnType = srcType.getEffectiveReturnType();
         const destReturnType = destType.getEffectiveReturnType();
 
-        if (!this.canAssignType(destReturnType, srcReturnType, typeVarMap,
-                true, recursionCount + 1)) {
+        if (!this.canAssignType(destReturnType, srcReturnType, diag.createAddendum(),
+                typeVarMap, true, recursionCount + 1)) {
+            diag.addMessage(`Function return type '${ srcReturnType.asString() }' ` +
+                `is not compatible with type '${ destReturnType.asString() }'.`);
             canAssign = false;
         }
 
@@ -405,8 +441,8 @@ export class TypeUtils {
     }
 
     private static _canAssignClass(destType: ClassType, srcType: ClassType,
-            typeVarMap: TypeVarMap | undefined, allowSubclasses: boolean,
-            recursionCount: number): boolean {
+            diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined,
+            allowSubclasses: boolean, recursionCount: number): boolean {
 
         // Is it a structural type (i.e. a protocol)? If so, we need to
         // perform a member-by-member check.
@@ -427,6 +463,7 @@ export class TypeUtils {
             destClassFields.forEach((symbol, name) => {
                 const classMemberInfo = TypeUtils.lookUpClassMember(srcType, name, false);
                 if (!classMemberInfo) {
+                    diag.addMessage(`'${ name }' is not present`);
                     missingNames.push(name);
                 } else {
                     if (symbol.declarations && symbol.declarations[0].declaredType) {
@@ -436,7 +473,8 @@ export class TypeUtils {
                         srcMemberType = this.specializeType(srcMemberType, srcClassTypeVarMap);
 
                         if (!TypeUtils.canAssignType(srcMemberType, destMemberType,
-                                typeVarMap, true, recursionCount + 1)) {
+                                diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
+                            diag.addMessage(`'${ name }' is an incompatible type`);
                             wrongTypes.push(name);
                         }
                     }
@@ -458,7 +496,8 @@ export class TypeUtils {
         if (srcType.isDerivedFrom(destType, inheritanceChain)) {
             assert(inheritanceChain.length > 0);
 
-            return this._canAssignClassWithTypeArgs(srcType, inheritanceChain, recursionCount);
+            return this._canAssignClassWithTypeArgs(srcType, inheritanceChain,
+                diag.createAddendum(), recursionCount);
         }
 
         // Special-case int-to-float conversion.
@@ -473,7 +512,7 @@ export class TypeUtils {
     // Determines whether the specified type can be assigned to the
     // specified inheritance chain, taking into account its type arguments.
     private static _canAssignClassWithTypeArgs(srcType: ClassType, inheritanceChain: Type[],
-            recursionCount: number): boolean {
+            diag: DiagnosticAddendum, recursionCount: number): boolean {
 
         let curSrcType = srcType;
 
@@ -526,17 +565,17 @@ export class TypeUtils {
 
                         if (typeParam.isCovariant()) {
                             if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
-                                    undefined, true, recursionCount + 1)) {
+                                    diag.createAddendum(), undefined, true, recursionCount + 1)) {
                                 return false;
                             }
                         } else if (typeParam.isContravariant()) {
                             if (!this.canAssignType(srcTypeArg, ancestorTypeArg,
-                                    undefined, true, recursionCount + 1)) {
+                                    diag.createAddendum(), undefined, true, recursionCount + 1)) {
                                 return false;
                             }
                         } else {
                             if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
-                                    undefined, false, recursionCount + 1)) {
+                                    diag.createAddendum(), undefined, false, recursionCount + 1)) {
                                 return false;
                             }
                         }

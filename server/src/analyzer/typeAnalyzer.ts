@@ -11,6 +11,7 @@
 
 import * as assert from 'assert';
 
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -239,10 +240,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     let defaultValueType = this._getTypeOfExpression(param.defaultValue);
                     if (annotatedType) {
                         const concreteAnnotatedType = TypeUtils.specializeType(annotatedType, undefined);
-                        if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType, undefined)) {
+                        const diagAddendum = new DiagnosticAddendum();
+
+                        if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum, undefined)) {
                             this._addError(
                                 `Value of type '${ defaultValueType.asString() }' cannot` +
-                                ` be assiged to parameter of type '${ annotatedType.asString() }'`,
+                                    ` be assiged to parameter of type '${ annotatedType.asString() }'` +
+                                    diagAddendum.getString(),
                                 param.defaultValue);
                         }
                     }
@@ -390,9 +394,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                         // Skip this check for abstract methods.
                         if (!functionType.isAbstractMethod()) {
-                            if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create())) {
+                            const diagAddendum = new DiagnosticAddendum();
+                            if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
                                 this._addError(`Function with declared type of ${ declaredReturnType.asString() }` +
-                                    ` must return value`, node.returnTypeAnnotation.rawExpression);
+                                        ` must return value` + diagAddendum.getString(),
+                                    node.returnTypeAnnotation.rawExpression);
                             }
                         }
                     }
@@ -745,10 +751,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._currentScope.getReturnType().addSource(returnType, typeSourceId);
 
         if (declaredReturnType) {
-            if (!TypeUtils.canAssignType(declaredReturnType, returnType)) {
+            const diagAddendum = new DiagnosticAddendum();
+            if (!TypeUtils.canAssignType(declaredReturnType, returnType, diagAddendum)) {
                 this._addError(
                     `Expression of type '${ returnType.asString() }' cannot be assigned ` +
-                        `to return type '${ declaredReturnType.asString() }'`,
+                        `to return type '${ declaredReturnType.asString() }'` + diagAddendum.getString(),
                     node.returnExpression ? node.returnExpression : node);
             }
         }
@@ -1272,10 +1279,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (declaredYieldType) {
-            if (!TypeUtils.canAssignType(declaredYieldType, yieldType)) {
+            const diagAddendum = new DiagnosticAddendum();
+            if (!TypeUtils.canAssignType(declaredYieldType, yieldType, diagAddendum)) {
                 this._addError(
                     `Expression of type '${ yieldType.asString() }' cannot be assigned ` +
-                        `to yield type '${ declaredYieldType.asString() }'`,
+                        `to yield type '${ declaredYieldType.asString() }'` + diagAddendum.getString(),
                     node);
             }
         }
@@ -1532,10 +1540,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         } else if (target instanceof TypeAnnotationExpressionNode) {
             let typeHint = this._getTypeOfAnnotation(target.typeAnnotation.expression);
 
-            if (!TypeUtils.canAssignType(typeHint, type)) {
+            const diagAddendum = new DiagnosticAddendum();
+            if (!TypeUtils.canAssignType(typeHint, type, diagAddendum)) {
                 this._addError(
                     `Expression of type '${ type.asString() }'` +
-                        ` cannot be assigned to type '${ typeHint.asString() }'`,
+                        ` cannot be assigned to type '${ typeHint.asString() }'` +
+                        diagAddendum.getString(),
                     target.typeAnnotation.expression);
             }
 
@@ -1647,10 +1657,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _assignTypeForPossibleEnumeration(node: NameNode, typeOfExpr?: Type): boolean {
         let enumClassInfo = this._getEnclosingEnumClassInfo(node);
         if (enumClassInfo) {
-            if (typeOfExpr && !TypeUtils.canAssignType(enumClassInfo.valueType, typeOfExpr)) {
+            const diagAddendum = new DiagnosticAddendum();
+            if (typeOfExpr && !TypeUtils.canAssignType(enumClassInfo.valueType, typeOfExpr, diagAddendum)) {
                 this._addError(
                     `Expression of type '${ typeOfExpr.asString() }' cannot be assigned ` +
-                        `to type '${ enumClassInfo.valueType.asString() }'`,
+                        `to type '${ enumClassInfo.valueType.asString() }'` + diagAddendum.getString(),
                     node);
             } else {
                 // The type of each enumerated item is an instance of the enum class.

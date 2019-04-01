@@ -11,6 +11,7 @@
 import * as assert from 'assert';
 
 import { ConfigOptions, DiagnosticLevel } from '../common/configOptions';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
@@ -462,7 +463,9 @@ export class ExpressionEvaluator {
 
         if (memberType.getParameterCount() > 0) {
             let firstParam = memberType.getParameters()[0];
-            TypeUtils.canAssignType(firstParam.type, baseType, typeVarMap);
+
+            // Fill out the typeVarMap.
+            TypeUtils.canAssignType(firstParam.type, baseType, new DiagnosticAddendum(), typeVarMap);
         }
 
         const specializedFunction = TypeUtils.specializeType(
@@ -1051,10 +1054,12 @@ export class ExpressionEvaluator {
 
     private _validateArgType(paramType: Type, argExpression: ExpressionNode, typeVarMap: TypeVarMap) {
         let argType = this.getType(argExpression, EvaluatorFlags.None);
-        if (!TypeUtils.canAssignType(paramType, argType, typeVarMap)) {
+        const diag = new DiagnosticAddendum();
+        if (!TypeUtils.canAssignType(paramType, argType, diag.createAddendum(), typeVarMap)) {
             this._addError(
                 `Argument of type '${ argType.asString() }'` +
-                    ` cannot be assigned to parameter of type '${ paramType.asString() }'`,
+                    ` cannot be assigned to parameter of type '${ paramType.asString() }'` +
+                    diag.getString(),
                 argExpression);
         }
     }
@@ -1796,9 +1801,11 @@ export class ExpressionEvaluator {
 
         typeArgTypes.forEach((typeArgType, index) => {
             if (index < typeArgCount) {
-                if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType)) {
+                const diag = new DiagnosticAddendum();
+                if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
                     this._addError(`Type argument '${ typeArgType.asString() }' ` +
-                        `cannot be assigned to type varaible '${ typeParameters[index].getName() }'`,
+                            `cannot be assigned to type varaible '${ typeParameters[index].getName() }'` +
+                            diag.getString(),
                         typeArgs[index].node);
                 }
             }
