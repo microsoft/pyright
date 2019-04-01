@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 
-import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignemtnExpressionNode,
+import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
     ConditionalExpressionNode, ConstantNode, ContinueNode, DecoratorNode, DelNode,
     DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode,
@@ -58,7 +58,7 @@ export class ParseTreeWalker {
                 return this.visitAssignment(node as AssignmentNode);
 
             case ParseNodeType.AugmentedAssignment:
-                return this.visitAugmentedAssignment(node as AugmentedAssignemtnExpressionNode);
+                return this.visitAugmentedAssignment(node as AugmentedAssignmentExpressionNode);
 
             case ParseNodeType.Await:
                 return this.visitAwait(node as AwaitExpressionNode);
@@ -245,7 +245,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitAugmentedAssignment(node: AugmentedAssignemtnExpressionNode) {
+    visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode) {
         return true;
     }
 

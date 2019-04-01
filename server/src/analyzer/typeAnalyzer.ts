@@ -14,12 +14,13 @@ import * as assert from 'assert';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { AssignmentNode, CallExpressionNode, ClassNode, ConstantNode, ExceptNode,
-    ExpressionNode, ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode,
-    LambdaNode, ListComprehensionForNode, ListComprehensionNode,
-    MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
-    ParseNode, RaiseNode, ReturnNode, StarExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, WithNode, YieldExpressionNode,
+import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
+    CallExpressionNode, ClassNode, ConstantNode, ExceptNode, ExpressionNode, ForNode,
+    FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode,
+    LambdaNode, ListComprehensionForNode, ListComprehensionNode, MemberAccessExpressionNode,
+    ModuleNode, NameNode, ParameterCategory, ParseNode, RaiseNode, ReturnNode,
+    SliceExpressionNode, StarExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, WithNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -888,33 +889,42 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    private _functionHasAbstracMethodDecorator(node: FunctionNode): boolean {
-        for (let decorator of node.decorators) {
-            if (decorator.arguments === undefined) {
-                const callType = this._getTypeOfExpression(decorator.callName);
+    visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode): boolean {
+        let leftType = this._getTypeOfExpression(node.leftExpression);
+        let rightType = this._getTypeOfExpression(node.rightExpression);
 
-                if (callType instanceof FunctionType &&
-                        callType.getBuiltInName() === 'abstractmethod') {
-
-                    return true;
-                }
-            }
-        }
-
+        // TODO - need to verify types
         return false;
     }
 
-    private _findCollectionsImportScope() {
-        let collectionResults = Object.keys(this._fileInfo.importMap).find(path => {
-            return path.endsWith('collections/__init__.pyi');
-        });
+    visitIndex(node: IndexExpressionNode): boolean {
+        this._getTypeOfExpression(node);
+        return false;
+    }
 
-        if (collectionResults) {
-            const moduleNode = this._fileInfo.importMap[collectionResults].parseTree;
-            return AnalyzerNodeInfo.getScope(moduleNode);
-        }
+    visitBinaryOperation(node: BinaryExpressionNode): boolean {
+        this._getTypeOfExpression(node);
+        return false;
+    }
 
-        return undefined;
+    visitSlice(node: SliceExpressionNode): boolean {
+        this._getTypeOfExpression(node);
+        return false;
+    }
+
+    visitStar(node: StarExpressionNode): boolean {
+        this._getTypeOfExpression(node);
+        return false;
+    }
+
+    visitTuple(node: TupleExpressionNode): boolean {
+        this._getTypeOfExpression(node);
+        return false;
+    }
+
+    visitUnaryOperation(node: UnaryExpressionNode): boolean {
+        this._getTypeOfExpression(node);
+        return false;
     }
 
     visitName(node: NameNode) {
@@ -1160,6 +1170,35 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this.walk(node.typeAnnotation.expression);
 
         return false;
+    }
+
+    private _functionHasAbstracMethodDecorator(node: FunctionNode): boolean {
+        for (let decorator of node.decorators) {
+            if (decorator.arguments === undefined) {
+                const callType = this._getTypeOfExpression(decorator.callName);
+
+                if (callType instanceof FunctionType &&
+                        callType.getBuiltInName() === 'abstractmethod') {
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private _findCollectionsImportScope() {
+        let collectionResults = Object.keys(this._fileInfo.importMap).find(path => {
+            return path.endsWith('collections/__init__.pyi');
+        });
+
+        if (collectionResults) {
+            const moduleNode = this._fileInfo.importMap[collectionResults].parseTree;
+            return AnalyzerNodeInfo.getScope(moduleNode);
+        }
+
+        return undefined;
     }
 
     private _validateYieldType(node: ParseNode, yieldType: Type) {

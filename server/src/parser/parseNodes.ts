@@ -499,7 +499,7 @@ export class TypeAnnotationExpressionNode extends ExpressionNode {
     }
 }
 
-export class AugmentedAssignemtnExpressionNode extends ExpressionNode {
+export class AugmentedAssignmentExpressionNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.AugmentedAssignment;
     leftExpression: ExpressionNode;
     operator: OperatorType;
