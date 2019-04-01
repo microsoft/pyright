@@ -68,11 +68,11 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
     [OperatorType.BitwiseInvert]: OperatorFlags.Unary,
     [OperatorType.BitwiseOr]: OperatorFlags.Binary,
     [OperatorType.BitwiseOrEqual]: OperatorFlags.Assignment,
+    [OperatorType.BitwiseXor]: OperatorFlags.Binary,
+    [OperatorType.BitwiseXorEqual]: OperatorFlags.Assignment,
     [OperatorType.Divide]: OperatorFlags.Binary,
     [OperatorType.DivideEqual]: OperatorFlags.Assignment,
     [OperatorType.Equals]: OperatorFlags.Binary | OperatorFlags.Comparison,
-    [OperatorType.ExclusiveOr]: OperatorFlags.Binary,
-    [OperatorType.ExclusiveOrEqual]: OperatorFlags.Assignment,
     [OperatorType.FloorDivide]: OperatorFlags.Binary,
     [OperatorType.FloorDivideEqual]: OperatorFlags.Assignment,
     [OperatorType.GreaterThan]: OperatorFlags.Binary | OperatorFlags.Comparison,
@@ -571,7 +571,7 @@ export class Tokenizer {
 
             case Char.Caret:
                 length = nextChar === Char.Equal ? 2 : 1;
-                operatorType = length === 2 ? OperatorType.ExclusiveOrEqual : OperatorType.ExclusiveOr;
+                operatorType = length === 2 ? OperatorType.BitwiseXorEqual : OperatorType.BitwiseXor;
                 break;
 
             case Char.Equal:

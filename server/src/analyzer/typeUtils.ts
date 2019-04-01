@@ -12,8 +12,8 @@ import * as assert from 'assert';
 import { ParameterCategory } from '../parser/parseNodes';
 import { Symbol } from './symbol';
 import { AnyType, ClassType, FunctionType,
-    NoneType, ObjectType, OverloadedFunctionType, SpecializedFunctionTypes, TupleType,
-    Type, TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
+    NeverType, NoneType, ObjectType, OverloadedFunctionType, SpecializedFunctionTypes,
+    TupleType, Type, TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
 
 const MaxCanAssignTypeRecursion = 20;
 
@@ -240,6 +240,8 @@ export class TypeUtils {
     static canBeTruthy(type: Type): boolean {
         if (type instanceof NoneType) {
             return false;
+        } else if (type instanceof NeverType) {
+            return false;
         }
 
         return true;
@@ -251,6 +253,14 @@ export class TypeUtils {
     static canBeFalsy(type: Type): boolean {
         if (type instanceof NoneType) {
             return true;
+        }
+
+        if (type instanceof NeverType) {
+            return false;
+        }
+
+        if (type instanceof FunctionType || type instanceof OverloadedFunctionType) {
+            return false;
         }
 
         if (type instanceof ObjectType) {
@@ -969,5 +979,86 @@ export class TypeUtils {
         }
 
         return false;
+    }
+
+    // Filters a type such that that it is guaranteed not to
+    // be falsy. For example, if a type is a union of None
+    // and an "int", this method would strip off the "None"
+    // and return only the "int".
+    static removeFalsinessFromType(type: Type): Type {
+        let remainingTypes: Type[] = [];
+
+        if (type instanceof UnionType) {
+            type.getTypes().forEach(typeEntry => {
+                let filteredType = this.removeFalsinessFromType(typeEntry);
+                if (!(filteredType instanceof NeverType)) {
+                    remainingTypes.push(filteredType);
+                }
+            });
+        } else if (type instanceof ObjectType) {
+            const truthyOrFalsy = type.getTruthyOrFalsy();
+            if (truthyOrFalsy !== undefined) {
+                // If the object is already definitely truthy,
+                // it's fine to include.
+                if (truthyOrFalsy) {
+                    remainingTypes.push(type);
+                }
+            } else {
+                // If the object is potentially falsy, mark it
+                // as definitely truthy here.
+                if (this.canBeFalsy(type)) {
+                    remainingTypes.push(type.cloneAsTruthy());
+                }
+            }
+        } else if (this.canBeTruthy(type)) {
+            remainingTypes.push(type);
+        }
+
+        if (remainingTypes.length === 0) {
+            return NeverType.create();
+        }
+
+        return this.combineTypesArray(remainingTypes);
+    }
+
+    // Filters a type such that that it is guaranteed not to
+    // be truthy. For example, if a type is a union of None
+    // and a custom class "Foo" that has no __len__ or __nonzero__
+    // method, this method would strip off the "Foo"
+    // and return only the "None".
+    static removeTruthinessFromType(type: Type): Type {
+        let remainingTypes: Type[] = [];
+
+        if (type instanceof UnionType) {
+            type.getTypes().forEach(typeEntry => {
+                let filteredType = this.removeTruthinessFromType(typeEntry);
+                if (!(filteredType instanceof NeverType)) {
+                    remainingTypes.push(filteredType);
+                }
+            });
+        } else if (type instanceof ObjectType) {
+            const truthyOrFalsy = type.getTruthyOrFalsy();
+            if (truthyOrFalsy !== undefined) {
+                // If the object is already definitely falsy,
+                // it's fine to include.
+                if (!truthyOrFalsy) {
+                    remainingTypes.push(type);
+                }
+            } else {
+                // If the object is potentially truthy, mark it
+                // as definitely falsy here.
+                if (this.canBeTruthy(type)) {
+                    remainingTypes.push(type.cloneAsFalsy());
+                }
+            }
+        } else if (this.canBeFalsy(type)) {
+            remainingTypes.push(type);
+        }
+
+        if (remainingTypes.length === 0) {
+            return NeverType.create();
+        }
+
+        return this.combineTypesArray(remainingTypes);
     }
 }

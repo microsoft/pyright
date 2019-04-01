@@ -511,6 +511,12 @@ export class ObjectType extends Type {
 
     private _classType: ClassType;
 
+    // Some objects (e.g. "bool") can be truthy or falsy.
+    // During analysis, we may determine that a type is explicitly
+    // truthy or explicitly falsy. If unknown, this field is
+    // undefined. If known, it is set.
+    private _truthyOrFalsy?: boolean;
+
     constructor(classType: ClassType) {
         super();
 
@@ -518,8 +524,24 @@ export class ObjectType extends Type {
         this._classType = classType;
     }
 
+    cloneAsTruthy(): ObjectType {
+        let newType = new ObjectType(this._classType);
+        newType._truthyOrFalsy = true;
+        return newType;
+    }
+
+    cloneAsFalsy(): ObjectType {
+        let newType = new ObjectType(this._classType);
+        newType._truthyOrFalsy = false;
+        return newType;
+    }
+
     getClassType() {
         return this._classType;
+    }
+
+    getTruthyOrFalsy(): boolean | undefined {
+        return this._truthyOrFalsy;
     }
 
     isSame(type2: Type): boolean {

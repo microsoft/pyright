@@ -124,3 +124,17 @@ test('Specialization1', () => {
     assert.equal(analysisResults.length, 1);
     assert.equal(analysisResults[0].errors.length, 4);
 });
+
+test('Expressions1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions1.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 2);
+});
+
+test('Expressions2', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions2.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 1);
+});

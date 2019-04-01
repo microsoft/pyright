@@ -1444,7 +1444,7 @@ export class Parser {
 
     // expr: xor_expr ('|' xor_expr)*
     private _parseBitwiseOrExpression(): ExpressionNode {
-        let leftExpr = this._parseExclusiveOrExpression();
+        let leftExpr = this._parseBitwiseXorExpression();
         if (leftExpr instanceof ErrorExpressionNode) {
             return leftExpr;
         }
@@ -1458,15 +1458,15 @@ export class Parser {
     }
 
     // xor_expr: and_expr ('^' and_expr)*
-    private _parseExclusiveOrExpression(): ExpressionNode {
+    private _parseBitwiseXorExpression(): ExpressionNode {
         let leftExpr = this._parseBitwiseAndExpression();
         if (leftExpr instanceof ErrorExpressionNode) {
             return leftExpr;
         }
 
-        if (this._consumeTokenIfOperator(OperatorType.ExclusiveOr)) {
-            let rightExpr = this._parseExclusiveOrExpression();
-            return new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.ExclusiveOr);
+        if (this._consumeTokenIfOperator(OperatorType.BitwiseXor)) {
+            let rightExpr = this._parseBitwiseXorExpression();
+            return new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.BitwiseXor);
         }
 
         return leftExpr;
@@ -2228,7 +2228,7 @@ export class Parser {
                     case OperatorType.ModEqual:
                     case OperatorType.BitwiseAndEqual:
                     case OperatorType.BitwiseOrEqual:
-                    case OperatorType.ExclusiveOrEqual:
+                    case OperatorType.BitwiseXorEqual:
                     case OperatorType.LeftShiftEqual:
                     case OperatorType.RightShiftEqual:
                     case OperatorType.PowerEqual:

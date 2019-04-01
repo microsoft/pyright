@@ -211,22 +211,7 @@ export class ExpressionEvaluator {
             this._getTypeFromExpression(node.expression, flags);
             typeResult = { type: UnknownType.create(), node };
         } else if (node instanceof BinaryExpressionNode) {
-            this._getTypeFromExpression(node.leftExpression, flags);
-
-            // Is this an AND operator? If so, we can assume that the
-            // rightExpression won't be evaluated at runtime unless the
-            // leftExpression evaluates to true.
-            let typeConstraints: ConditionalTypeConstraintResults | undefined;
-            if (node.operator === OperatorType.And) {
-                typeConstraints = this._buildTypeConstraints(node.leftExpression);
-            }
-
-            this._useExpressionTypeConstraint(typeConstraints, true, () => {
-                this._getTypeFromExpression(node.rightExpression, flags);
-            });
-
-            // TODO - need to implement
-            typeResult = { type: UnknownType.create(), node };
+            typeResult = this._getTypeFromBinaryExpression(node, flags);
         } else if (node instanceof ListNode) {
             typeResult = this._getTypeFromListExpression(node);
         } else if (node instanceof SliceExpressionNode) {
@@ -1369,6 +1354,150 @@ export class ExpressionEvaluator {
         }
 
         return { type, node };
+    }
+
+    private _getTypeFromBinaryExpression(node: BinaryExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
+        let leftType = this._getTypeFromExpression(node.leftExpression, flags);
+        let rightType = this._getTypeFromExpression(node.rightExpression, flags);
+
+        // Is this an AND operator? If so, we can assume that the
+        // rightExpression won't be evaluated at runtime unless the
+        // leftExpression evaluates to true.
+        let typeConstraints: ConditionalTypeConstraintResults | undefined;
+        if (node.operator === OperatorType.And) {
+            typeConstraints = this._buildTypeConstraints(node.leftExpression);
+        }
+
+        this._useExpressionTypeConstraint(typeConstraints, true, () => {
+            this._getTypeFromExpression(node.rightExpression, flags);
+        });
+
+        const arithmeticOperatorMap: { [operator: number]: [string, string] } = {
+            [OperatorType.Add]: ['__add__', '__radd__'],
+            [OperatorType.Subtract]: ['__sub__', '__rsub__'],
+            [OperatorType.Multiply]: ['__mul__', '__rmul__'],
+            [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__'],
+            [OperatorType.Divide]: ['__truediv__', '__rtruediv__'],
+            [OperatorType.Mod]: ['__mod__', '__rmod__'],
+            [OperatorType.Power]: ['__power__', '__rpower__']
+        };
+
+        const bitwiseOperatorMap: { [operator: number]: [string, string] } = {
+            [OperatorType.BitwiseAnd]: ['__and__', '__rand__'],
+            [OperatorType.BitwiseOr]: ['__or__', '__ror__'],
+            [OperatorType.BitwiseXor]: ['__xor__', '__rxor__'],
+            [OperatorType.LeftShift]: ['__lshift__', '__rlshift__'],
+            [OperatorType.RightShift]: ['__rshift__', '__rrshift__']
+        };
+
+        const comparisonOperatorMap: { [operator: number]: string } = {
+            [OperatorType.Equals]: '__eq__',
+            [OperatorType.NotEquals]: '__ne__',
+            [OperatorType.LessThan]: '__lt__',
+            [OperatorType.LessThanOrEqual]: '__le__',
+            [OperatorType.GreaterThan]: '__gt__',
+            [OperatorType.GreaterThanOrEqual]: '__ge__'
+        };
+
+        const booleanOperatorMap: { [operator: number]: boolean } = {
+            [OperatorType.And]: true,
+            [OperatorType.Or]: true,
+            [OperatorType.Is]: true,
+            [OperatorType.IsNot]: true,
+            [OperatorType.In]: true,
+            [OperatorType.NotIn]: true
+        };
+
+        let type: Type;
+
+        if (arithmeticOperatorMap[node.operator]) {
+            if (leftType.type.isAny() || rightType.type.isAny()) {
+                type = UnknownType.create();
+            } else if (leftType.type instanceof ObjectType && rightType.type instanceof ObjectType) {
+                const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
+                const getTypeMatch = (classType: ClassType): boolean[] => {
+                    let foundMatch = false;
+                    return builtInClassTypes.map(builtInType => {
+                        if (builtInType && builtInType.isSameGenericClass(classType)) {
+                            foundMatch = true;
+                        }
+                        return foundMatch;
+                    });
+                };
+                const leftClassMatches = getTypeMatch(leftType.type.getClassType());
+                const rightClassMatches = getTypeMatch(rightType.type.getClassType());
+
+                if (leftClassMatches[0] && rightClassMatches[0]) {
+                    // If they're both int types, the result is an int.
+                    type = new ObjectType(builtInClassTypes[0]!);
+                } else if (leftClassMatches[1] && rightClassMatches[1]) {
+                    // If they're both floats or one is a float and one is an int,
+                    // the result is a float.
+                    type = new ObjectType(builtInClassTypes[1]!);
+                } else if (leftClassMatches[2] && rightClassMatches[2]) {
+                    // If one is complex and the other is complex, float or int,
+                    // the result is complex.
+                    type = new ObjectType(builtInClassTypes[2]!);
+                } else {
+                    // In all other cases, we need to look at the magic methods
+                    // on the two types.
+                    // TODO - handle the general case
+                    type = UnknownType.create();
+                }
+            } else {
+                // TODO - need to handle other types
+                type = UnknownType.create();
+            }
+        } else if (bitwiseOperatorMap[node.operator]) {
+            if (leftType.type.isAny() || rightType.type.isAny()) {
+                type = UnknownType.create();
+            } else if (leftType.type instanceof ObjectType && rightType.type instanceof ObjectType) {
+                const intType = ScopeUtils.getBuiltInType(this._scope, 'int') as ClassType;
+                const leftIsInt = intType && leftType.type.getClassType().isSameGenericClass(intType);
+                const rightIsInt = intType && rightType.type.getClassType().isSameGenericClass(intType);
+
+                if (leftIsInt && rightIsInt) {
+                    type = new ObjectType(intType);
+                } else {
+                    // In all other cases, we need to look at the magic methods
+                    // on the two types.
+                    // TODO - handle the general case
+                    type = UnknownType.create();
+                }
+            } else {
+                // TODO - need to handle other types
+                type = UnknownType.create();
+            }
+        } else if (comparisonOperatorMap[node.operator]) {
+            const boolType = ScopeUtils.getBuiltInType(this._scope, 'bool') as ClassType;
+            type = boolType ? new ObjectType(boolType) : UnknownType.create();
+        } else if (booleanOperatorMap[node.operator]) {
+            if (node.operator === OperatorType.And) {
+                // If the operator is an AND or OR, we need to combine the two types.
+                type = TypeUtils.combineTypesArray([
+                    TypeUtils.removeTruthinessFromType(leftType.type), rightType.type]);
+            } else if (node.operator === OperatorType.Or) {
+                type = TypeUtils.combineTypesArray([
+                    TypeUtils.removeFalsinessFromType(leftType.type), rightType.type]);
+            } else {
+                // The other boolean operators always return a bool value.
+                // TODO - validate inputs for "is", "is not", "in" and "not in" operators.
+                const boolType = ScopeUtils.getBuiltInType(this._scope, 'bool') as ClassType;
+                type = boolType ? new ObjectType(boolType) : UnknownType.create();
+            }
+        } else {
+            // We should never get here.
+            this._addError('Unexpected binary operator', node);
+            type = UnknownType.create();
+        }
+
+        return { type, node };
+    }
+
+    private _getBuiltInClassTypes(names: string[]): (ClassType | undefined)[] {
+        return names.map(name => {
+            return ScopeUtils.getBuiltInType(this._scope, name) as ClassType;
+        });
     }
 
     private _getBuiltInTypeFromLiteralExpression(node: ExpressionNode,

@@ -722,8 +722,8 @@ test('Operators', () => {
         OperatorType.BitwiseAndEqual,
         OperatorType.BitwiseOr,
         OperatorType.BitwiseOrEqual,
-        OperatorType.ExclusiveOr,
-        OperatorType.ExclusiveOrEqual];
+        OperatorType.BitwiseXor,
+        OperatorType.BitwiseXorEqual];
     assert.equal(results.tokens.count - _implicitTokenCount, lengths.length);
     assert.equal(results.tokens.count - _implicitTokenCount, operatorTypes.length);
     for (let i = 0; i < lengths.length; i += 1) {
