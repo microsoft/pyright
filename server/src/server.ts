@@ -199,7 +199,6 @@ function _convertPosition(position?: DiagnosticTextPosition): Position {
 
 _connection.onDidOpenTextDocument(params => {
     let filePath = _convertUriToPath(params.textDocument.uri);
-    _connection.console.log(`${ filePath } opened.`);
     _analyzerService.setFileOpened(
         filePath,
         params.textDocument.version,
@@ -208,8 +207,6 @@ _connection.onDidOpenTextDocument(params => {
 
 _connection.onDidChangeTextDocument(params => {
     let filePath = _convertUriToPath(params.textDocument.uri);
-    _connection.console.log(
-        `${ filePath } changed (version ${ params.textDocument.version }).`);
     _analyzerService.updateOpenFileContents(
         filePath,
         params.textDocument.version,
@@ -218,8 +215,6 @@ _connection.onDidChangeTextDocument(params => {
 
 _connection.onDidCloseTextDocument(params => {
     let filePath = _convertUriToPath(params.textDocument.uri);
-    _connection.console.log(`${filePath} closed.`);
-
     _analyzerService.setFileClosed(filePath);
 });
 
