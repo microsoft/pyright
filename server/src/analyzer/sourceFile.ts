@@ -170,7 +170,7 @@ export class SourceFile {
         if (this._isTypeshedStubFile) {
             if (options.reportTypeshedErrors === 'none') {
                 return undefined;
-            } else if (options.reportTypeshedErrors === 'warn') {
+            } else if (options.reportTypeshedErrors === 'warning') {
                 // Convert all the errors to warnings.
                 diagList = diagList.map(diag => {
                     if (diag.category === DiagnosticCategory.Error) {

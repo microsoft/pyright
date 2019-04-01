@@ -26,13 +26,19 @@ Pyright offers flexible configuration options specified in a JSON-formatted text
 
 
 ## Type Check Diagnostics Settings
-The following settings control pyright's diagnostic output (warnings or errors). Unless otherwise specified, each diagnostic setting can specify a boolean value (`false` indicating that no error is generated and `true` indicating that an error is generated). Alternatively, a string value of `"none"`, `"warn"`, or `"error"` can be used to specify the diagnostic level.
+The following settings control pyright's diagnostic output (warnings or errors). Unless otherwise specified, each diagnostic setting can specify a boolean value (`false` indicating that no error is generated and `true` indicating that an error is generated). Alternatively, a string value of `"none"`, `"warning"`, or `"error"` can be used to specify the diagnostic level.
 
 **reportTypeshedErrors** [boolean or string, optional]: Generate or suppress diagnostics for typeshed type stub files. In general, these type stub files should be “clean” and generate no errors. The default value for this setting is 'none'.
 
 **reportMissingImports** [boolean or string, optional]: Generate or suppress diagnostics for imports that have no corresponding imported python file or type stub file. The default value for this setting is 'none', although pyright can do a much better job of static type checking if type stub files are provided for all imports.
 
 **reportMissingTypeStubs** [boolean or string, optiona]: Generate or suppress diagnostics for imports that have no corresponding type stub file (either a typeshed file or a custom type stub). The type checker requires type stubs to do its best job at analysis. The default value for this setting is 'none', although pyright can do a much better job of static type checking if type stub files are provided for all imports.
+
+**reportOptionalSubscript** [boolean or string, optiona]: Generate or suppress diagnostics for an attempt to subscript (index) a variable with an Optional type. The default value for this setting is 'none'.
+
+**reportOptionalMemberAccess** [boolean or string, optiona]: Generate or suppress diagnostics for an attempt to access a member of a variable with an Optional type. The default value for this setting is 'none'.
+
+**reportOptionalCall** [boolean or string, optiona]: Generate or suppress diagnostics for an attempt to call a variable with an Optional type. The default value for this setting is 'none'.
 
 
 ## Execution Environment Options

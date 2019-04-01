@@ -10,6 +10,7 @@
 
 import * as assert from 'assert';
 
+import { ConfigOptions, DiagnosticLevel } from '../common/configOptions';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
@@ -78,15 +79,18 @@ export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) =>
 
 export class ExpressionEvaluator {
     private _scope: Scope;
+    private _configOptions: ConfigOptions;
     private _expressionTypeConstraints: TypeConstraint[] = [];
     private _diagnosticSink?: TextRangeDiagnosticSink;
     private _readTypeFromCache?: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
 
-    constructor(scope: Scope, diagnosticSink?: TextRangeDiagnosticSink,
+    constructor(scope: Scope, configOptions: ConfigOptions,
+            diagnosticSink?: TextRangeDiagnosticSink,
             readTypeCallback?: ReadTypeFromNodeCacheCallback,
             writeTypeCallback?: WriteTypeToNodeCacheCallback) {
         this._scope = scope;
+        this._configOptions = configOptions;
         this._diagnosticSink = diagnosticSink;
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
@@ -371,7 +375,9 @@ export class ExpressionEvaluator {
             let returnTypes: Type[] = [];
             baseType.getTypes().forEach(typeEntry => {
                 if (typeEntry instanceof NoneType) {
-                    // TODO - ignore None for now.
+                    this._addDiagnostic(
+                        this._configOptions.reportOptionalMemberAccess,
+                        `'${ memberName }' is not a known member of 'None'`, node.memberName);
                 } else {
                     let typeResult = this._getTypeFromMemberAccessExpressionWithBaseType(node,
                         {
@@ -553,38 +559,40 @@ export class ExpressionEvaluator {
     private _getTypeFromIndexExpression(node: IndexExpressionNode,
             flags: EvaluatorFlags): TypeResult {
 
-        let type: Type | undefined;
         const baseTypeResult = this._getTypeFromExpression(node.baseExpression,
             EvaluatorFlags.DoNotSpecialize);
-        const baseType = baseTypeResult.type;
 
-        if (baseType.isAny()) {
-            type = baseType;
-        } else if (baseType instanceof ClassType) {
-            let typeArgs = this._getTypeArgs(node.indexExpression);
-            type = this._createSpecializeClassType(baseType, typeArgs,
-                node.indexExpression, flags);
-        } else if (baseType instanceof UnionType) {
-            // TODO - need to implement
-            type = UnknownType.create();
-        } else if (baseType instanceof FunctionType) {
-            // TODO - need to implement
-            type = UnknownType.create();
-        } else if (baseType instanceof ObjectType) {
-            // TODO - need to implement
-            type = UnknownType.create();
-        } else if (baseType instanceof TupleType) {
-            // TODO - need to implement
-            type = UnknownType.create();
-        }
+        const type = TypeUtils.doForSubtypes(baseTypeResult.type, subtype => {
+            if (subtype.isAny()) {
+                return subtype;
+            } else if (subtype instanceof ClassType) {
+                let typeArgs = this._getTypeArgs(node.indexExpression);
+                return this._createSpecializeClassType(subtype, typeArgs,
+                    node.indexExpression, flags);
+            } else if (subtype instanceof FunctionType) {
+                // TODO - need to implement
+                return UnknownType.create();
+            } else if (subtype instanceof ObjectType) {
+                // TODO - need to implement
+                return UnknownType.create();
+            } else if (subtype instanceof TupleType) {
+                // TODO - need to implement
+                return UnknownType.create();
+            } else if (subtype instanceof NoneType) {
+                this._addDiagnostic(
+                    this._configOptions.reportOptionalSubscript,
+                    `Optional of type 'None' cannot be subscripted`,
+                    node.baseExpression);
 
-        if (!type) {
-            this._addError(
-                `'Unsupported expression type: indexed ${ baseType.asString() }`,
-                node.baseExpression);
+                return UnknownType.create();
+            } else {
+                this._addError(
+                    `Object of type '${ subtype.asString() }' cannot be subscripted`,
+                    node.baseExpression);
 
-            type = UnknownType.create();
-        }
+                return UnknownType.create();
+            }
+        });
 
         return { type, node };
     }
@@ -719,7 +727,10 @@ export class ExpressionEvaluator {
             let returnTypes: Type[] = [];
             callType.getTypes().forEach(typeEntry => {
                 if (typeEntry instanceof NoneType) {
-                    // TODO - ignore None for now.
+                    this._addDiagnostic(
+                        this._configOptions.reportOptionalCall,
+                        `Object of type 'None' cannot be called`,
+                        node.leftExpression);
                 } else {
                     let typeResult = this._getTypeFromCallExpressionWithBaseType(node,
                         {
@@ -860,9 +871,10 @@ export class ExpressionEvaluator {
 
             for (let type of callType.getTypes()) {
                 if (type instanceof NoneType) {
-                    // TODO - for now, assume that optional
-                    // types (unions with None) are valid. Tighten
-                    // this later.
+                    this._addDiagnostic(
+                        this._configOptions.reportOptionalCall,
+                        `Object of type 'None' cannot be called`,
+                        node.leftExpression);
                 } else {
                     let entryReturnType = this._validateCallArguments(node, type);
                     if (entryReturnType) {
@@ -1932,9 +1944,23 @@ export class ExpressionEvaluator {
         this._diagnosticSink = oldDiagSink;
     }
 
+    private _addWarning(message: string, range: TextRange) {
+        if (this._diagnosticSink) {
+            this._diagnosticSink.addWarningWithTextRange(message, range);
+        }
+    }
+
     private _addError(message: string, range: TextRange) {
         if (this._diagnosticSink) {
             this._diagnosticSink.addErrorWithTextRange(message, range);
+        }
+    }
+
+    private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
+        if (diagLevel === 'error') {
+            this._addError(message, textRange);
+        } else if (diagLevel === 'warning') {
+            this._addWarning(message, textRange);
         }
     }
 }

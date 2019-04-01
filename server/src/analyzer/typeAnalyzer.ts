@@ -1717,6 +1717,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return new ExpressionEvaluator(this._currentScope,
+            this._fileInfo.configOptions,
             diagSink, node => this._readTypeFromNodeCache(node),
             (node, type) => {
                 this._updateExpressionTypeForNode(node, type);

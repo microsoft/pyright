@@ -37,7 +37,7 @@ export class ExecutionEnvironment {
     venv?: string;
 }
 
-export type DiagnosticLevel = 'none' | 'warn' | 'error';
+export type DiagnosticLevel = 'none' | 'warning' | 'error';
 
 // Internal configuration options. These are derived from a combination
 // of the command line and from a JSON-based config file.
@@ -70,6 +70,9 @@ export class ConfigOptions {
     // if they are included in the transitive closure of included files.
     ignore: string[] = [];
 
+    //---------------------------------------------------------------
+    // Diagnostics Settings
+
     // Report diagnostics in typeshed files?
     reportTypeshedErrors: DiagnosticLevel = 'none';
 
@@ -78,6 +81,18 @@ export class ConfigOptions {
 
     // Report missing type stub files?
     reportMissingTypeStubs: DiagnosticLevel = 'none';
+
+    // Report attempts to subscript (index) an Optional type?
+    reportOptionalSubscript: DiagnosticLevel = 'none';
+
+    // Report attempts to access members on a Optional type?
+    reportOptionalMemberAccess: DiagnosticLevel = 'none';
+
+    // Report attempts to call a Optional type?
+    reportOptionalCall: DiagnosticLevel = 'none';
+
+    //---------------------------------------------------------------
+    // Parsing and Import Resolution Settings
 
     // Parameters that specify the execution environment for
     // the files being analyzed.
@@ -176,11 +191,23 @@ export class ConfigOptions {
 
         // Read the "reportMissingImports" entry.
         this.reportMissingImports = this._convertDiagnosticLevel(
-            configObj.reportMissingImports, 'reportMissingImports', 'none');
+            configObj.reportMissingImports, 'reportMissingImports', 'error');
 
         // Read the "reportMissingTypeStubs" entry.
         this.reportMissingTypeStubs = this._convertDiagnosticLevel(
             configObj.reportMissingTypeStubs, 'reportMissingTypeStubs', 'none');
+
+        // Read the "reportOptionalSubscript" entry.
+        this.reportOptionalSubscript = this._convertDiagnosticLevel(
+            configObj.reportOptionalSubscript, 'reportOptionalSubscript', 'none');
+
+        // Read the "reportOptionalMemberAccess" entry.
+        this.reportOptionalMemberAccess = this._convertDiagnosticLevel(
+            configObj.reportOptionalMemberAccess, 'reportOptionalMemberAccess', 'none');
+
+        // Read the "reportOptionalCall" entry.
+        this.reportOptionalCall = this._convertDiagnosticLevel(
+            configObj.reportOptionalCall, 'reportOptionalCall', 'none');
 
         // Read the "venvPath".
         this.venvPath = undefined;
@@ -281,12 +308,12 @@ export class ConfigOptions {
         } else if (typeof value === 'boolean') {
             return value ? 'error' : 'none';
         } else if (typeof value === 'string') {
-            if (value === 'error' || value === 'warn' || value === 'none') {
+            if (value === 'error' || value === 'warning' || value === 'none') {
                 return value;
             }
         }
 
-        console.log(`Config "${ fieldName }" entry must be true, false, "error", "warn" or "none".`);
+        console.log(`Config "${ fieldName }" entry must be true, false, "error", "warning" or "none".`);
         return defaultValue;
     }
 

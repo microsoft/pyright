@@ -168,7 +168,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         let sawMetaclass = false;
-        let evaluator = new ExpressionEvaluator(this._currentScope, this._fileInfo.diagnosticSink);
+        let evaluator = new ExpressionEvaluator(this._currentScope,
+            this._fileInfo.configOptions, this._fileInfo.diagnosticSink);
         node.arguments.forEach(arg => {
             let argType: Type;
 
@@ -279,7 +280,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         // Handle overload decorators specially.
         let overloadedType: OverloadedFunctionType | undefined;
-        let evaluator = new ExpressionEvaluator(this._currentScope);
+        let evaluator = new ExpressionEvaluator(this._currentScope, this._fileInfo.configOptions);
         [overloadedType, warnIfDuplicate] = evaluator.getOverloadedFunctionType(node, functionType);
         if (overloadedType) {
             decoratedType = overloadedType;
@@ -936,7 +937,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
         if (diagLevel === 'error') {
             this._addError(message, textRange);
-        } else if (diagLevel === 'warn') {
+        } else if (diagLevel === 'warning') {
             this._addWarning(message, textRange);
         }
     }

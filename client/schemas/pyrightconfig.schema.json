@@ -64,19 +64,37 @@
     "reportTypeshedErrors": {
       "$id": "#/properties/reportTypeshedErrors",
       "$ref": "#/definitions/diagnostic",
-      "title": "Enables reporting of errors found within typeshed stub files",
+      "title": "Controls reporting of errors found within typeshed stub files",
       "default": "none"
     },
     "reportMissingImports": {
       "$id": "#/properties/reportMissingImports",
       "$ref": "#/definitions/diagnostic",
-      "title": "Enables reporting of imports that cannot be resolved",
+      "title": "Controls reporting of imports that cannot be resolved",
       "default": "error"
     },
     "reportMissingTypeStubs": {
       "$id": "#/properties/reportMissingTypeStubs",
       "$ref": "#/definitions/diagnostic",
-      "title": "Enables reporting of imports that cannot be resolved to type stub files",
+      "title": "Controls reporting of imports that cannot be resolved to type stub files",
+      "default": "none"
+    },
+    "reportOptionalSubscript": {
+      "$id": "#/properties/reportOptionalSubscript",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to subscript (index) a variable with Optional type",
+      "default": "none"
+    },
+    "reportOptionalMemberAccess": {
+      "$id": "#/properties/reportOptionalMemberAccess",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to access a member of a variable with Optional type",
+      "default": "none"
+    },
+    "reportOptionalCall": {
+      "$id": "#/properties/reportOptionalCall",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to call a variable with Optional type",
       "default": "none"
     },
     "pythonVersion": {

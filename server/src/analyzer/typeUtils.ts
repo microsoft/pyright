@@ -24,6 +24,28 @@ export interface ClassMember {
 }
 
 export class TypeUtils {
+    // Calls a callback for each subtype and combines the results into
+    // a final type.
+    static doForSubtypes(type: Type, callback: (type: Type) => (Type | undefined)): Type {
+        let newTypes: Type[] = [];
+
+        if (type instanceof UnionType) {
+            type.getTypes().forEach(typeEntry => {
+                const transformedType = callback(typeEntry);
+                if (transformedType) {
+                    newTypes.push(transformedType);
+                }
+            });
+        } else {
+            const transformedType = callback(type);
+            if (transformedType) {
+                newTypes.push(transformedType);
+            }
+        }
+
+        return this.combineTypes(newTypes);
+    }
+
     // Combines multiple types into a single type. If the types are
     // the same, only one is returned. If they differ, they
     // are combined into a UnionType. NeverTypes are filtered out.
@@ -969,39 +991,28 @@ export class TypeUtils {
     // and an "int", this method would strip off the "None"
     // and return only the "int".
     static removeFalsinessFromType(type: Type): Type {
-        let remainingTypes: Type[] = [];
-
-        if (type instanceof UnionType) {
-            type.getTypes().forEach(typeEntry => {
-                let filteredType = this.removeFalsinessFromType(typeEntry);
-                if (!(filteredType instanceof NeverType)) {
-                    remainingTypes.push(filteredType);
+        return this.doForSubtypes(type, subtype => {
+            if (subtype instanceof ObjectType) {
+                const truthyOrFalsy = subtype.getTruthyOrFalsy();
+                if (truthyOrFalsy !== undefined) {
+                    // If the object is already definitely truthy,
+                    // it's fine to include.
+                    if (truthyOrFalsy) {
+                        return subtype;
+                    }
+                } else {
+                    // If the object is potentially falsy, mark it
+                    // as definitely truthy here.
+                    if (this.canBeFalsy(subtype)) {
+                        return subtype.cloneAsTruthy();
+                    }
                 }
-            });
-        } else if (type instanceof ObjectType) {
-            const truthyOrFalsy = type.getTruthyOrFalsy();
-            if (truthyOrFalsy !== undefined) {
-                // If the object is already definitely truthy,
-                // it's fine to include.
-                if (truthyOrFalsy) {
-                    remainingTypes.push(type);
-                }
-            } else {
-                // If the object is potentially falsy, mark it
-                // as definitely truthy here.
-                if (this.canBeFalsy(type)) {
-                    remainingTypes.push(type.cloneAsTruthy());
-                }
+            } else if (this.canBeTruthy(subtype)) {
+                return subtype;
             }
-        } else if (this.canBeTruthy(type)) {
-            remainingTypes.push(type);
-        }
 
-        if (remainingTypes.length === 0) {
-            return NeverType.create();
-        }
-
-        return this.combineTypes(remainingTypes);
+            return undefined;
+        });
     }
 
     // Filters a type such that that it is guaranteed not to
@@ -1010,39 +1021,28 @@ export class TypeUtils {
     // method, this method would strip off the "Foo"
     // and return only the "None".
     static removeTruthinessFromType(type: Type): Type {
-        let remainingTypes: Type[] = [];
-
-        if (type instanceof UnionType) {
-            type.getTypes().forEach(typeEntry => {
-                let filteredType = this.removeTruthinessFromType(typeEntry);
-                if (!(filteredType instanceof NeverType)) {
-                    remainingTypes.push(filteredType);
+        return this.doForSubtypes(type, subtype => {
+            if (subtype instanceof ObjectType) {
+                const truthyOrFalsy = subtype.getTruthyOrFalsy();
+                if (truthyOrFalsy !== undefined) {
+                    // If the object is already definitely falsy,
+                    // it's fine to include.
+                    if (!truthyOrFalsy) {
+                        return subtype;
+                    }
+                } else {
+                    // If the object is potentially truthy, mark it
+                    // as definitely falsy here.
+                    if (this.canBeTruthy(subtype)) {
+                        return subtype.cloneAsFalsy();
+                    }
                 }
-            });
-        } else if (type instanceof ObjectType) {
-            const truthyOrFalsy = type.getTruthyOrFalsy();
-            if (truthyOrFalsy !== undefined) {
-                // If the object is already definitely falsy,
-                // it's fine to include.
-                if (!truthyOrFalsy) {
-                    remainingTypes.push(type);
-                }
-            } else {
-                // If the object is potentially truthy, mark it
-                // as definitely falsy here.
-                if (this.canBeTruthy(type)) {
-                    remainingTypes.push(type.cloneAsFalsy());
-                }
+            } else if (this.canBeFalsy(subtype)) {
+                return subtype;
             }
-        } else if (this.canBeFalsy(type)) {
-            remainingTypes.push(type);
-        }
 
-        if (remainingTypes.length === 0) {
-            return NeverType.create();
-        }
-
-        return this.combineTypes(remainingTypes);
+            return undefined;
+        });
     }
 
     private static _combineTwoTypes(type1: Type, type2: Type): Type {
