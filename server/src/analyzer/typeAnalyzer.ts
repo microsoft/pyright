@@ -19,9 +19,9 @@ import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode
     FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode,
     LambdaNode, ListComprehensionForNode, ListComprehensionNode, MemberAccessExpressionNode,
     ModuleNode, NameNode, ParameterCategory, ParseNode, RaiseNode, ReturnNode,
-    SliceExpressionNode, StarExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, WithNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+    SliceExpressionNode, StarExpressionNode, TernaryExpressionNode, TryNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, WithNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -923,6 +923,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitUnaryOperation(node: UnaryExpressionNode): boolean {
+        this._getTypeOfExpression(node);
+        return false;
+    }
+
+    visitTernary(node: TernaryExpressionNode): boolean {
         this._getTypeOfExpression(node);
         return false;
     }

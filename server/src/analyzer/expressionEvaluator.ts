@@ -15,10 +15,10 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AwaitExpressionNode, BinaryExpressionNode,
-    CallExpressionNode, ConditionalExpressionNode, ConstantNode, DictionaryNode,
-    EllipsisNode, ExpressionNode, FunctionNode, IndexExpressionNode, LambdaNode,
-    ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
-    NumberNode, ParameterCategory, SetNode, SliceExpressionNode, StringNode,
+    CallExpressionNode, ConstantNode, DictionaryNode, EllipsisNode,
+    ExpressionNode, FunctionNode, IndexExpressionNode, LambdaNode, ListComprehensionNode,
+    ListNode, MemberAccessExpressionNode, NameNode, NumberNode,
+    ParameterCategory, SetNode, SliceExpressionNode, StringNode, TernaryExpressionNode,
     TupleExpressionNode, UnaryExpressionNode, YieldExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags, TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -222,25 +222,8 @@ export class ExpressionEvaluator {
             // TODO - need to implement
             typeResult = this._getTypeFromExpression(node.expression, flags);
             typeResult = { type: UnknownType.create(), node };
-        } else if (node instanceof ConditionalExpressionNode) {
-            // TODO - need to implement
-            this._getTypeFromExpression(node.testExpression, EvaluatorFlags.None);
-
-            // Apply the type constraint when evaluating the if and else clauses.
-            let typeConstraints = this._buildTypeConstraints(node.testExpression);
-
-            let ifType: TypeResult | undefined;
-            this._useExpressionTypeConstraint(typeConstraints, true, () => {
-                ifType = this._getTypeFromExpression(node.ifExpression, flags);
-            });
-
-            let elseType: TypeResult | undefined;
-            this._useExpressionTypeConstraint(typeConstraints, false, () => {
-                elseType = this._getTypeFromExpression(node.elseExpression, flags);
-            });
-
-            let type = TypeUtils.combineTypes([ifType!.type, elseType!.type]);
-            typeResult = { type, node };
+        } else if (node instanceof TernaryExpressionNode) {
+            typeResult = this._getTypeFromTernaryExpression(node, flags);
         } else if (node instanceof ListComprehensionNode) {
             // TODO - need to implement
             // TODO - infer list type
@@ -1593,6 +1576,26 @@ export class ExpressionEvaluator {
         }
 
         return { type: convertedType, node };
+    }
+
+    private _getTypeFromTernaryExpression(node: TernaryExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {
+        this._getTypeFromExpression(node.testExpression, EvaluatorFlags.None);
+
+        // Apply the type constraint when evaluating the if and else clauses.
+        let typeConstraints = this._buildTypeConstraints(node.testExpression);
+
+        let ifType: TypeResult | undefined;
+        this._useExpressionTypeConstraint(typeConstraints, true, () => {
+            ifType = this._getTypeFromExpression(node.ifExpression, flags);
+        });
+
+        let elseType: TypeResult | undefined;
+        this._useExpressionTypeConstraint(typeConstraints, false, () => {
+            elseType = this._getTypeFromExpression(node.elseExpression, flags);
+        });
+
+        let type = TypeUtils.combineTypes([ifType!.type, elseType!.type]);
+        return { type, node };
     }
 
     private _getTypeFromSliceExpression(node: SliceExpressionNode, flags: EvaluatorFlags): TypeResult | undefined {

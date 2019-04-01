@@ -28,7 +28,6 @@ export enum ParseNodeType {
     Break,
     Call,
     Class,
-    Conditional,
     Constant,
     Continue,
     Decorator,
@@ -68,6 +67,7 @@ export enum ParseNodeType {
     StatementList,
     String,
     Suite,
+    Ternary,
     Tuple,
     Try,
     TypeAnnotation,
@@ -541,8 +541,8 @@ export class AwaitExpressionNode extends ExpressionNode {
     }
 }
 
-export class ConditionalExpressionNode extends ExpressionNode {
-    readonly nodeType = ParseNodeType.Conditional;
+export class TernaryExpressionNode extends ExpressionNode {
+    readonly nodeType = ParseNodeType.Ternary;
     ifExpression: ExpressionNode;
     testExpression: ExpressionNode;
     elseExpression: ExpressionNode;

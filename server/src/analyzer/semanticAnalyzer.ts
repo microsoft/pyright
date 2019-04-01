@@ -23,12 +23,13 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ExceptNode, ExpressionNode, ForNode,
-    FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromAsNode,
-    IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode, ListNode,
-    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParameterCategory,
-    ParameterNode, RaiseNode, ReturnNode, StarExpressionNode,
-    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode, WithNode } from '../parser/parseNodes';
+import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ExceptNode,
+    ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
+    ImportFromAsNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode,
+    ModuleNode, NameNode, NonlocalNode, ParameterCategory, ParameterNode,
+    RaiseNode, ReturnNode, StarExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, WithNode } from '../parser/parseNodes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -41,8 +42,8 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, OverloadedFunctionType, Type, TypeCategory, UnboundType,
-    UnknownType } from './types';
+    FunctionTypeFlags, ModuleType, OverloadedFunctionType, Type, TypeCategory,
+    UnboundType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;

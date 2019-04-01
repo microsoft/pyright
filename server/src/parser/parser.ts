@@ -25,17 +25,17 @@ import { timingStats } from '../common/timing';
 import { ArgumentCategory, ArgumentNode, AssertNode,
     AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode,
     BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
-    ConditionalExpressionNode, ConstantNode, ContinueNode, DecoratorNode,
-    DelNode, DictionaryEntryNode, DictionaryExpandEntryNode,
-    DictionaryKeyEntryNode, DictionaryNode, EllipsisNode, ErrorExpressionNode,
-    ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
-    ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode,
-    IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
-    ListComprehensionIterNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
-    ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode, ParameterCategory,
-    ParameterNode, ParseNode, PassNode, RaiseNode, ReturnNode, SetNode,
-    SliceExpressionNode, StarExpressionNode, StatementListNode, StatementNode,
-    StringNode, SuiteNode, TryNode, TupleExpressionNode, TypeAnnotationExpression,
+    ConstantNode, ContinueNode, DecoratorNode, DelNode,
+    DictionaryEntryNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode,
+    DictionaryNode, EllipsisNode, ErrorExpressionNode, ExceptNode,
+    ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
+    ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode,
+    LambdaNode, ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionIterNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode,
+    ModuleNode, NameNode, NonlocalNode, NumberNode, ParameterCategory, ParameterNode,
+    ParseNode, PassNode, RaiseNode, ReturnNode, SetNode, SliceExpressionNode,
+    StarExpressionNode, StatementListNode, StatementNode, StringNode,
+    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpression,
     TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode, WithItemNode,
     WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
@@ -1360,7 +1360,7 @@ export class Parser {
             return elseExpr;
         }
 
-        return new ConditionalExpressionNode(ifExpr, testExpr, elseExpr);
+        return new TernaryExpressionNode(ifExpr, testExpr, elseExpr);
     }
 
     // or_test: and_test ('or' and_test)*

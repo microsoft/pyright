@@ -11,15 +11,15 @@ import * as assert from 'assert';
 
 import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
-    ConditionalExpressionNode, ConstantNode, ContinueNode, DecoratorNode, DelNode,
-    DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode,
-    ExceptNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
-    ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode, LambdaNode,
-    ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode, ListNode,
-    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode,
-    ParameterNode, ParseNode, ParseNodeType, PassNode, RaiseNode, ReturnNode,
-    SetNode, SliceExpressionNode, StarExpressionNode, StatementListNode, StringNode,
-    SuiteNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    ConstantNode, ContinueNode, DecoratorNode, DelNode, DictionaryExpandEntryNode,
+    DictionaryKeyEntryNode, DictionaryNode, EllipsisNode, ExceptNode,
+    ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromAsNode,
+    ImportFromNode, ImportNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
+    ListComprehensionIfNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
+    ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode, ParameterNode,
+    ParseNode, ParseNodeType, PassNode, RaiseNode, ReturnNode, SetNode,
+    SliceExpressionNode, StarExpressionNode, StatementListNode, StringNode, SuiteNode,
+    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
     UnaryExpressionNode, WhileNode, WithItemNode, WithNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 
@@ -75,8 +75,8 @@ export class ParseTreeWalker {
             case ParseNodeType.Class:
                 return this.visitClass(node as ClassNode);
 
-            case ParseNodeType.Conditional:
-                return this.visitConditional(node as ConditionalExpressionNode);
+            case ParseNodeType.Ternary:
+                return this.visitTernary(node as TernaryExpressionNode);
 
             case ParseNodeType.Constant:
                 return this.visitConstant(node as ConstantNode);
@@ -269,7 +269,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitConditional(node: ConditionalExpressionNode) {
+    visitTernary(node: TernaryExpressionNode) {
         return true;
     }
 
