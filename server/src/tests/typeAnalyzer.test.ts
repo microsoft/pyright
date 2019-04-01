@@ -11,6 +11,7 @@ import * as assert from 'assert';
 
 import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
 import { ScopeType } from '../analyzer/scope';
+import { ConfigOptions } from '../common/configOptions';
 import StringMap from '../common/stringMap';
 import { TestUtils } from './testUtils';
 
@@ -144,4 +145,32 @@ test('Expressions3', () => {
 
     assert.equal(analysisResults.length, 1);
     assert.equal(analysisResults[0].errors.length, 1);
+});
+
+test('Optional1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, optional diagnostics are ignored.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 0);
+    assert.equal(analysisResults[0].warnings.length, 0);
+
+    // Turn on warnings.
+    configOptions.reportOptionalSubscript = 'warning';
+    configOptions.reportOptionalMemberAccess = 'warning';
+    configOptions.reportOptionalCall = 'warning';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 0);
+    assert.equal(analysisResults[0].warnings.length, 3);
+
+    // Turn on errors.
+    configOptions.reportOptionalSubscript = 'error';
+    configOptions.reportOptionalMemberAccess = 'error';
+    configOptions.reportOptionalCall = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 3);
+    assert.equal(analysisResults[0].warnings.length, 0);
 });
