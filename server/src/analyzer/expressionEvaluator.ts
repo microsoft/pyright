@@ -1803,8 +1803,8 @@ export class ExpressionEvaluator {
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
                 if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
-                    this._addError(`Type argument '${ typeArgType.asString() }' ` +
-                            `cannot be assigned to type varaible '${ typeParameters[index].getName() }'` +
+                    this._addError(`Type '${ typeArgType.asString() }' ` +
+                            `cannot be assigned to type variable '${ typeParameters[index].getName() }'` +
                             diag.getString(),
                         typeArgs[index].node);
                 }

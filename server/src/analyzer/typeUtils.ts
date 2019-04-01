@@ -311,7 +311,7 @@ export class TypeUtils {
 
         let effectiveSrcType = srcType;
 
-        // If the source type is a type var itself, conver it to a concrete
+        // If the source type is a type var itself, convert it to a concrete
         // type to see if it is compatible with the dest type.
         if (srcType instanceof TypeVarType) {
             effectiveSrcType = this._getConcreteTypeFromTypeVar(srcType, 1);
@@ -328,8 +328,8 @@ export class TypeUtils {
             if (!isCompatibleWithBoundType) {
                 diag.addMessage(`Type '${ effectiveSrcType.asString() }' is not compatible with ` +
                     `bound type '${ boundType.asString() }' for TypeVar '${ destType.getName() }'`);
+                return false;
             }
-            return false;
         }
 
         // If there are no constraints, we're done.
@@ -472,7 +472,7 @@ export class TypeUtils {
                         let srcMemberType = TypeUtils.getEffectiveTypeOfMember(classMemberInfo);
                         srcMemberType = this.specializeType(srcMemberType, srcClassTypeVarMap);
 
-                        if (!TypeUtils.canAssignType(srcMemberType, destMemberType,
+                        if (!TypeUtils.canAssignType(destMemberType, srcMemberType,
                                 diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
                             diag.addMessage(`'${ name }' is an incompatible type`);
                             wrongTypes.push(name);
