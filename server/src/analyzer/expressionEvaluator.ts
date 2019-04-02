@@ -1353,6 +1353,16 @@ export class ExpressionEvaluator {
                     node.token.keywordType === KeywordType.False ||
                     node.token.keywordType === KeywordType.Debug) {
                 type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
+
+                // For True and False, we can create truthy and falsy
+                // versions of 'bool'.
+                if (type instanceof ObjectType) {
+                    if (node.token.keywordType === KeywordType.True) {
+                        type = type.cloneAsTruthy();
+                    } else if (node.token.keywordType === KeywordType.False) {
+                        type = type.cloneAsFalsy();
+                    }
+                }
             }
         }
 
