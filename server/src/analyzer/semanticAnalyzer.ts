@@ -582,7 +582,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let valueWithScope = this._currentScope.lookUpSymbolRecursive(node.nameToken.value);
 
         if (!valueWithScope) {
-            this._addError(`'${ node.nameToken.value }' is not defined`, node.nameToken);
+            // This will be reported by the type analyzer. Avoid double reporting it.
+            // this._addError(`'${ node.nameToken.value }' is not defined`, node.nameToken);
         } else {
             if (valueWithScope.symbol.currentType.isUnbound()) {
                 // It's possible that the name is unbound in the current scope
