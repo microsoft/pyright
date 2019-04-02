@@ -1707,16 +1707,24 @@ export class ExpressionEvaluator {
     private _createSpecialType(classType: ClassType, typeArgs: TypeResult[],
             flags: EvaluatorFlags, paramLimit?: number): Type {
 
-        let typeArgCount = typeArgs.length;
+        let typeArgTypes = typeArgs.map(t => t.type);
+        const typeArgCount = typeArgTypes.length;
 
         // Make sure the argument list count is correct.
-        if (paramLimit !== undefined && typeArgCount > paramLimit) {
-            this._addError(
-                `Expected at most ${ paramLimit } type arguments`, typeArgs[paramLimit].node);
-            typeArgCount = paramLimit;
+        if (paramLimit !== undefined) {
+            if (typeArgCount > paramLimit) {
+                this._addError(
+                    `Expected at most ${ paramLimit } type arguments`, typeArgs[paramLimit].node);
+                typeArgTypes = typeArgTypes.slice(0, paramLimit);
+            } else if (typeArgCount < paramLimit) {
+                // Fill up the remainder of the slots with unknown types.
+                while (typeArgTypes.length < paramLimit) {
+                    typeArgTypes.push(UnknownType.create());
+                }
+            }
         }
 
-        let specializedType = classType.cloneForSpecialization(typeArgs.map(t => t.type));
+        let specializedType = classType.cloneForSpecialization(typeArgTypes);
 
         return this._convertClassToObject(specializedType, flags);
     }
