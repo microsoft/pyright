@@ -1,5 +1,17 @@
 # Pyright Internals
 
+## Code Structure
+
+* client/src/extension.ts: Language Server Protocol (LSP) client entry point for VS Code extension.
+* client/typeshed-fallback/: Recent copy of Typeshed type stub files for Python stdlib
+* server/src/pyright.ts: Main entry point for command-line tool
+* server/src/server.ts: Main entry point for LSP server
+* server/src/analyzer: Modules that perform analysis passes over Python parse tree
+* server/src/common: Modules  that are common to the parser and analyzer
+* server/src/parser: Modules that perform tokenization and parsing of Python source
+* server/src/tests: Tests for the parser and analyzer
+
+
 ## Core Concepts
 
 Pyright implements a [service](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/service.ts), a persistent in-memory singleton object that controls the order of analysis and provides an interface for the language server.

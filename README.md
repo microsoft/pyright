@@ -29,10 +29,10 @@ Pyright includes both a [command-line tool](/docs/command-line.md) and a [Langua
 
 
 ## Documentation
+* [Getting Started](/docs/getting-started.md)
 * [Command-line Options](/docs/command-line.md)
 * [Configuration](/docs/configuration.md)
 * [Import Resolution](/docs/import-resolution.md)
-* [Getting Started](/docs/getting-started.md)
 * [Building & Debugging](/docs/build-debug.md)
 * [Pyright Internals](/docs/internals.md)
 
@@ -67,18 +67,6 @@ To run the command-line tool:
 `npx pyright <options>`
 
 
-## Code Structure
-
-* client/src/extension.ts: Language Server Protocol (LSP) client entry point for VS Code extension.
-* client/typeshed-fallback/: Recent copy of Typeshed type stub files for Python stdlib
-* server/src/pyright.ts: Main entry point for command-line tool
-* server/src/server.ts: Main entry point for LSP server
-* server/src/analyzer: Modules that perform analysis passes over Python parse tree
-* server/src/common: Modules  that are common to the parser and analyzer
-* server/src/parser: Modules that perform tokenization and parsing of Python source
-* server/src/tests: Tests for the parser and analyzer
-
-
 ## TODO
 
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
@@ -98,7 +86,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Add support for inference of subclass type vars based on method parameter types declared in subclass
 * Validate consistency of subclass type vars across all declared methods
 * Validate await / async consistency
-* Flag assignments to read-only values (None, True, False, __debug__) as errors
+* Flag assignments to read-only values (`None`, `True`, `False`, `__debug__`) as errors
 * Revamp support for properties - model with Descriptor protocol, detect missing setter
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
 * Move error strings out of the main code files so they can be localized
