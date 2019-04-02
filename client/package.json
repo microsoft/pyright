@@ -22,7 +22,8 @@
         "Programming Languages"
     ],
     "activationEvents": [
-        "onLanguage:python"
+        "onLanguage:python",
+        "workspaceContains:**/pyrightconfig.json"
     ],
     "icon": "images/pyright-icon.png",
     "main": "./out/src/extension",

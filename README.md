@@ -74,22 +74,22 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Type analysis support for generators
 * Type analysis support for coroutines
 * Type analysis support for async functions and lambdas
+* Validate await / async consistency
 * Support for old-style type annotations within comments
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)
 * Add more tests for type checker
 * Validate that all abstract methods are overridden
+* Provide switch that treats instance variables and methods that begin with underscore as private
 * Validate parameters for magic functions
 * Synthesize TypeVar param and return types for lambdas where possible
 * Validate that overridden methods in subclass have same signature as base class methods
 * Verify that exception classes inherit from base Exception
 * Add support for inference of subclass type vars based on method parameter types declared in subclass
 * Validate consistency of subclass type vars across all declared methods
-* Validate await / async consistency
 * Flag assignments to read-only values (`None`, `True`, `False`, `__debug__`) as errors
 * Revamp support for properties - model with Descriptor protocol, detect missing setter
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
-* Move error strings out of the main code files so they can be localized
 
 
 ## Contributing
