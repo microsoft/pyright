@@ -581,9 +581,10 @@ export class Program {
         let imports = sourceFileInfo.sourceFile.getImports();
 
         // Create a map of unique imports, since imports can appear more than once.
-        let newImportPathMap: { [name: string]: boolean } = {};
+        let newImportPathMap: { [name: string]: boolean } =  {};
         imports.forEach(importResult => {
             if (importResult.importFound && importResult.resolvedPaths.length > 0) {
+                // Don't explore any third-party files unless they're type stub files.
                 if (importResult.importType === ImportType.Local || importResult.isStubFile) {
                     // Namespace packages have no __init__.py file, so the resolved
                     // path points to a directory.
