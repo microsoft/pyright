@@ -161,6 +161,13 @@ test('Function1', () => {
     assert.equal(analysisResults[0].errors.length, 5);
 });
 
+test('Annotations1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 2);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions('.');
 

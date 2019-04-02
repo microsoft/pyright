@@ -220,13 +220,17 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
         };
-        this._bindNameNodeToType(node.name, classType, true, declaration);
 
         AnalyzerNodeInfo.setExpressionType(node, classType);
         AnalyzerNodeInfo.setExpressionType(node.name, classType);
 
         let analyzer = new ClassScopeAnalyzer(node, this._currentScope, classType, this._fileInfo);
         this._queueSubScopeAnalyzer(analyzer);
+
+        // Don't bind the name of the class until after we've done the
+        // first pass of its scope analysis. This guarantees that we'll flag
+        // any references to the as-yet-undecleared class as an error.
+        this._bindNameNodeToType(node.name, classType, true, declaration);
 
         return false;
     }
@@ -274,6 +278,14 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             };
 
             functionType.addParameter(typeParam);
+
+            // If this is not a stub file, make sure the raw type annotation
+            // doesn't reference a type that hasn't yet been declared.
+            if (!this._fileInfo.isStubFile) {
+                if (param.typeAnnotation) {
+                    this.walk(param.typeAnnotation.rawExpression);
+                }
+            }
         });
 
         let decoratedType: Type = functionType;
@@ -299,6 +311,14 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 } else {
                     this._validateMethod(node);
                 }
+            }
+        }
+
+        // If this is not a stub file, make sure the raw type annotation
+        // doesn't reference a type that hasn't yet been declared.
+        if (!this._fileInfo.isStubFile) {
+            if (node.returnTypeAnnotation) {
+                this.walk(node.returnTypeAnnotation.rawExpression);
             }
         }
 
@@ -682,8 +702,13 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // the type hint phase.
         this._addNamedTarget(node.valueExpression);
 
-        // Don't walk the type annotation node in this pass.
         this.walk(node.valueExpression);
+
+        // If this is not a stub file, make sure the raw type annotation
+        // doesn't reference a type that hasn't yet been declared.
+        if (!this._fileInfo.isStubFile) {
+            this.walk(node.typeAnnotation.rawExpression);
+        }
 
         return false;
     }
