@@ -83,7 +83,9 @@ To run the command-line tool:
 
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
-* Type inference for generators and async functions
+* Type analysis support for generators
+* Type analysis support for coroutines
+* Type analysis support for async functions and lambdas
 * Support for old-style type annotations within comments
 * Address the many TODO comments in the code
 * Better handling of function decorators (don't punt on type checking)
