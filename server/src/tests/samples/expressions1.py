@@ -45,4 +45,12 @@ def returnsComplex1() -> complex:
     return a + b % (b / a - c // a)
 
 
+a = 3
+b = 4
+
+# This should generate an error because matrix multiply
+# isn't supported for int.
+c = (a @ b)
+
+
 
