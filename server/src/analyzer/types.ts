@@ -657,8 +657,24 @@ export class FunctionType extends Type {
         return (this._functionDetails.flags & FunctionTypeFlags.InstanceMethod) !== 0;
     }
 
+    setIsInstanceMethod() {
+        this._functionDetails.flags |= FunctionTypeFlags.InstanceMethod;
+    }
+
+    isStaticMethod(): boolean {
+        return (this._functionDetails.flags & FunctionTypeFlags.StaticMethod) !== 0;
+    }
+
+    setIsStaticMethod() {
+        this._functionDetails.flags |= FunctionTypeFlags.StaticMethod;
+    }
+
     isClassMethod(): boolean {
         return (this._functionDetails.flags & FunctionTypeFlags.ClassMethod) !== 0;
+    }
+
+    setIsClassMethod() {
+        this._functionDetails.flags |= FunctionTypeFlags.ClassMethod;
     }
 
     isAbstractMethod(): boolean {

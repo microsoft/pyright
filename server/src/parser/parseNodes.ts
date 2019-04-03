@@ -367,17 +367,17 @@ export class WithItemNode extends ParseNode {
 
 export class DecoratorNode extends ParseNode {
     readonly nodeType = ParseNodeType.Decorator;
-    callName: ExpressionNode;
+    leftExpression: ExpressionNode;
     arguments: ArgumentNode[] | undefined;
 
-    constructor(atToken: Token, callName: ExpressionNode) {
+    constructor(atToken: Token, leftExpression: ExpressionNode) {
         super(atToken);
-        this.callName = callName;
-        this.extend(callName);
+        this.leftExpression = leftExpression;
+        this.extend(leftExpression);
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return [this.callName, this.arguments];
+        return [this.leftExpression, this.arguments];
     }
 }
 

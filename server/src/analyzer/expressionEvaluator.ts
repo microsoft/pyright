@@ -119,65 +119,6 @@ export class ExpressionEvaluator {
         return resultType;
     }
 
-    // Determines if the function node is a property accessor (getter, setter, deleter).
-    getPropertyType(node: FunctionNode, type: FunctionType): PropertyType | undefined {
-        if (ParseTreeUtils.functionHasDecorator(node, 'property')) {
-            return new PropertyType(type);
-        }
-
-        const setterOrDeleterDecorator = node.decorators.find(decorator => {
-            return decorator.callName instanceof MemberAccessExpressionNode &&
-                decorator.callName.leftExpression instanceof NameNode &&
-                (decorator.callName.memberName.nameToken.value === 'setter' ||
-                    decorator.callName.memberName.nameToken.value === 'deleter') &&
-                decorator.arguments === undefined;
-        });
-
-        if (setterOrDeleterDecorator) {
-            let memberAccessNode = setterOrDeleterDecorator.callName as MemberAccessExpressionNode;
-            const propertyName = (memberAccessNode.leftExpression as NameNode).nameToken.value;
-            const isSetter = memberAccessNode.memberName.nameToken.value === 'setter';
-
-            let curValue = this._scope.lookUpSymbol(propertyName);
-
-            if (curValue && curValue.currentType instanceof PropertyType) {
-                // TODO - check for duplicates.
-                // TODO - check for type consistency.
-                if (isSetter) {
-                    curValue.currentType.setSetter(type);
-                } else {
-                    curValue.currentType.setDeleter(type);
-                }
-                return curValue.currentType;
-            }
-        }
-
-        return undefined;
-    }
-
-    getOverloadedFunctionType(node: FunctionNode, type: FunctionType):
-            [OverloadedFunctionType | undefined, boolean] {
-
-        let warnIfDuplicate = true;
-        let decoratedType: OverloadedFunctionType | undefined;
-        let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
-
-        if (ParseTreeUtils.functionHasDecorator(node, 'overload')) {
-            let existingSymbol = this._scope.lookUpSymbol(node.name.nameToken.value);
-            if (existingSymbol && existingSymbol.currentType instanceof OverloadedFunctionType) {
-                existingSymbol.currentType.addOverload(typeSourceId, type);
-                decoratedType = existingSymbol.currentType;
-                warnIfDuplicate = false;
-            } else {
-                let newOverloadType = new OverloadedFunctionType();
-                newOverloadType.addOverload(typeSourceId, type);
-                decoratedType = newOverloadType;
-            }
-        }
-
-        return [decoratedType, warnIfDuplicate];
-    }
-
     private _getTypeFromExpression(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
         // Is this type already cached?
         if (this._readTypeFromCache) {
@@ -1044,7 +985,7 @@ export class ExpressionEvaluator {
                 if (unassignedParams.length > 0) {
                     this._addError(
                         `Argument missing for parameter${ unassignedParams.length === 1 ? '' : 's' } ` +
-                        unassignedParams.map(p => `${ p }`).join(', '), node);
+                        unassignedParams.map(p => `'${ p }'`).join(', '), node);
                 }
             }
         }

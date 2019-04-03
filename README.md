@@ -9,7 +9,7 @@ Pyright is a fast type checker meant for large Python source bases. It can run i
 Pyright does not require a Python environment or imported third-party packages to be installed.
 
 ### Configurability
-Pyright supports flexible [configuration](/docs/configuration.md) that provides granular control over settings. Different “execution environments” can be specified for different subsets of a source base. Each environment can specify different module search paths, python language version, and platform target.
+Pyright supports [configuration files](/docs/configuration.md) that provide granular control over settings. Different “execution environments” can be associated subdirectories within a source base. Each environment can specify different module search paths, python language versions, and platform targets.
 
 ### Type Checking Features
 Pyright supports:
@@ -23,7 +23,7 @@ Pyright supports:
 ### Built-in Type Stubs
 Pyright includes a recent copy of the stdlib type stubs from [Typeshed](https://github.com/python/typeshed). It can be configured to use another (perhaps more recent or modified) copy of the Typeshed type stubs. Of course, it also works with custom type stub files that are part of your project.
 
-### Command-line or Language Service
+### Command-line Tool or VS Code Extension
 Pyright includes both a [command-line tool](/docs/command-line.md) and a [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) plugin for VS Code.
 
 

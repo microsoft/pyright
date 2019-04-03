@@ -16,13 +16,13 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
-    CallExpressionNode, ClassNode, ConstantNode, ExceptNode, ExpressionNode, ForNode,
-    FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode,
-    LambdaNode, ListComprehensionForNode, ListComprehensionNode, MemberAccessExpressionNode,
-    ModuleNode, NameNode, ParameterCategory, ParseNode, RaiseNode, ReturnNode,
-    SliceExpressionNode, StarExpressionNode, SuiteNode, TernaryExpressionNode,
-    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
-    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, ExceptNode, ExpressionNode,
+    ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode,
+    IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode,
+    MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParseNode, RaiseNode,
+    ReturnNode, SliceExpressionNode, StarExpressionNode, SuiteNode,
+    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnaryExpressionNode, WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -37,8 +37,8 @@ import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType, FunctionTypeFlags,
-    ModuleType, NoneType, ObjectType, OverloadedFunctionType, TupleType, Type,
-    TypeCategory, TypeVarType, UnionType, UnknownType } from './types';
+    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType, TupleType,
+    Type, TypeCategory, TypeVarType, UnionType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface EnumClassInfo {
@@ -188,8 +188,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitFunction(node: FunctionNode): boolean {
         const isMethod = ParseTreeUtils.isFunctionInClass(node);
         this.walkMultiple(node.decorators);
-        let evaluator = this._getEvaluator();
-        let hasCustomDecorators = false;
 
         const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
         assert(functionType instanceof FunctionType);
@@ -200,21 +198,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             functionType.setBuiltInName(node.name.nameToken.value);
         }
 
-        if (node.decorators.length > 0) {
-            hasCustomDecorators = true;
-        }
-
-        if (isMethod) {
-            if (ParseTreeUtils.functionHasDecorator(node, 'staticmethod')) {
-                hasCustomDecorators = false;
-            } else if (ParseTreeUtils.functionHasDecorator(node, 'classmethod')) {
-                hasCustomDecorators = false;
-            } else if (this._functionHasAbstracMethodDecorator(node)) {
-                functionType.setIsAbstractMethod();
-                hasCustomDecorators = false;
-            }
-        }
-
         node.parameters.forEach((param, index) => {
             let annotatedType: Type | undefined;
             if (param.typeAnnotation) {
@@ -223,7 +206,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
                 // of the specified type and 'None').
-                // TODO - tighten this up, perhaps using a config flag
+                // TODO - tighten this up, perhaps using a config setting
                 if (param.defaultValue instanceof ConstantNode) {
                     if (param.defaultValue.token.keywordType === KeywordType.None) {
                         annotatedType = TypeUtils.combineTypes(
@@ -406,37 +389,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let outerFunctionType = functionType;
         if (node.isAsync || functionScope.getYieldType().getSourceCount() > 0) {
-            // TODO - need to properly handle async and generators.
+            // TODO - need to properly handle coroutines and generators.
             // For now, just set the return type to be unknown.
-            outerFunctionType = outerFunctionType.clone();
-            outerFunctionType.setDeclaredReturnType(UnknownType.create());
+            functionType.setDeclaredReturnType(UnknownType.create());
         }
 
-        let decoratedType: Type = outerFunctionType;
+        // Apply all of the decorators in reverse order.
+        let decoratedType: Type = functionType;
+        for (let i = node.decorators.length - 1; i >= 0; i--) {
+            const decorator = node.decorators[i];
 
-        // Handle overload decorators specially.
-        let overloadedType: OverloadedFunctionType | undefined;
-        [overloadedType] = evaluator.getOverloadedFunctionType(node, outerFunctionType);
-        if (overloadedType) {
-            decoratedType = overloadedType;
-            hasCustomDecorators = false;
-        } else {
-            // Determine if the function is a property getter or setter.
-            if (ParseTreeUtils.isFunctionInClass(node)) {
-                let propertyType = evaluator.getPropertyType(node, outerFunctionType);
-                if (propertyType) {
-                    decoratedType = propertyType;
-                    hasCustomDecorators = false;
-                }
-            }
-        }
-
-        if (hasCustomDecorators) {
-            // TODO - handle decorators in a better way. For now, we
-            // don't assume anything about the decorated type.
-            decoratedType = UnknownType.create();
+            decoratedType = this._applyDecorator(decoratedType, functionType, decorator, node);
         }
 
         let declaration: Declaration = {
@@ -448,6 +412,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         };
         this._bindNameNodeToType(node.name, decoratedType, declaration);
         this._updateExpressionTypeForNode(node.name, functionType);
+
+        if (isMethod) {
+            if (!functionType.isClassMethod() && !functionType.isStaticMethod()) {
+                functionType.setIsInstanceMethod();
+            }
+            this._validateMethod(node, functionType);
+        }
 
         return false;
     }
@@ -1132,6 +1103,168 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
+    // Transforms the input function type into an output type based on the
+    // decorator function described by the decoratorNode.
+    private _applyDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
+            decoratorNode: DecoratorNode, node: FunctionNode): Type {
+
+        // If the input type is unknown, the output type is unknown as well.
+        if (inputFunctionType.isAny()) {
+            return inputFunctionType;
+        }
+
+        const leftExpressionType = this._getTypeOfExpression(decoratorNode.leftExpression);
+        let outputType: Type | undefined;
+
+        // Is it a function call?
+        if (decoratorNode.arguments) {
+            if (leftExpressionType instanceof FunctionType) {
+                if (leftExpressionType.getBuiltInName() === 'abstractmethod') {
+                    originalFunctionType.setIsAbstractMethod();
+                    outputType = inputFunctionType;
+                } else {
+                    // TODO - need to finish
+                    outputType = UnknownType.create();
+
+                }
+            } else if (leftExpressionType instanceof OverloadedFunctionType) {
+                // TODO - need to finish
+                outputType = UnknownType.create();
+
+            }
+        } else {
+            outputType = TypeUtils.doForSubtypes(inputFunctionType, subtype => {
+                if (leftExpressionType.isAny()) {
+                    return leftExpressionType;
+                }
+
+                if (leftExpressionType instanceof ClassType) {
+                    if (leftExpressionType.isBuiltIn()) {
+                        if (leftExpressionType.getClassName() === 'staticmethod') {
+                            originalFunctionType.setIsStaticMethod();
+                            return subtype;
+                        }
+
+                        if (leftExpressionType.getClassName() === 'classmethod') {
+                            originalFunctionType.setIsClassMethod();
+                            return subtype;
+                        }
+
+                        if (leftExpressionType.getClassName() === 'overload') {
+                            let existingSymbol = this._currentScope.lookUpSymbol(node.name.nameToken.value);
+                            let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
+                            if (subtype instanceof FunctionType) {
+                                if (existingSymbol && existingSymbol.currentType instanceof OverloadedFunctionType) {
+                                    existingSymbol.currentType.addOverload(typeSourceId, subtype);
+                                    return existingSymbol.currentType;
+                                } else {
+                                    let newOverloadType = new OverloadedFunctionType();
+                                    newOverloadType.addOverload(typeSourceId, subtype);
+                                    return newOverloadType;
+                                }
+                            }
+                        }
+
+                        if (leftExpressionType.getClassName() === 'property') {
+                            if (subtype instanceof FunctionType) {
+                                return new PropertyType(subtype);
+                            }
+                        }
+                    }
+                }
+
+                // TODO - need to log error
+                return UnknownType.create();
+            });
+        }
+
+        if (!outputType) {
+            outputType = UnknownType.create();
+            // TODO - need to log a warning here
+        }
+
+        return outputType;
+    }
+
+    // Performs checks on a function that is located within a class
+    // and has been determined not to be a property accessor.
+    private _validateMethod(node: FunctionNode, functionType: FunctionType) {
+        if (node.name && node.name.nameToken.value === '__new__') {
+            // __new__ overrides should have a "cls" parameter.
+            if (node.parameters.length === 0 || !node.parameters[0].name ||
+                    node.parameters[0].name.nameToken.value !== 'cls') {
+                this._addError(
+                    `The __new__ override should take a 'cls' parameter`,
+                    node.parameters.length > 0 ? node.parameters[0] : node.name);
+            }
+        } else if (node.name && node.name.nameToken.value === '__init_subclass__') {
+            // __init_subclass__ overrides should have a "cls" parameter.
+            if (node.parameters.length === 0 || !node.parameters[0].name ||
+                    node.parameters[0].name.nameToken.value !== 'cls') {
+                this._addError(
+                    `The __init_subclass__ override should take a 'cls' parameter`,
+                    node.parameters.length > 0 ? node.parameters[0] : node.name);
+            }
+        } else if (functionType.isStaticMethod()) {
+            // Static methods should not have "self" or "cls" parameters.
+            if (node.parameters.length > 0 && node.parameters[0].name) {
+                let paramName = node.parameters[0].name.nameToken.value;
+                if (paramName === 'self' || paramName === 'cls') {
+                    this._addError(
+                        `Static methods should not take a 'self' or 'cls' parameter`,
+                        node.parameters[0].name);
+                }
+            }
+        } else if (functionType.isClassMethod()) {
+            let paramName = '';
+            if (node.parameters.length > 0 && node.parameters[0].name) {
+                paramName = node.parameters[0].name.nameToken.value;
+            }
+            // Class methods should have a "cls" parameter. We'll exempt parameter
+                // names that start with an underscore since those are used in a few
+                // cases in the stdlib pyi files.
+            if (paramName !== 'cls') {
+                if (!this._fileInfo.isStubFile || (!paramName.startsWith('_') && paramName !== 'metacls')) {
+                    this._addError(
+                        `Class methods should take a 'cls' parameter`,
+                        node.parameters.length > 0 ? node.parameters[0] : node.name);
+                }
+            }
+        } else {
+            // The presence of a decorator can change the behavior, so we need
+            // to back off from this check if a decorator is present.
+            if (node.decorators.length === 0) {
+                let paramName = '';
+                let firstParamIsSimple = true;
+                if (node.parameters.length > 0) {
+                    if (node.parameters[0].name) {
+                        paramName = node.parameters[0].name.nameToken.value;
+                    }
+
+                    if (node.parameters[0].category !== ParameterCategory.Simple) {
+                        firstParamIsSimple = false;
+                    }
+                }
+
+                // Instance methods should have a "self" parameter. We'll exempt parameter
+                // names that start with an underscore since those are used in a few
+                // cases in the stdlib pyi files.
+                if (firstParamIsSimple && paramName !== 'self' && !paramName.startsWith('_')) {
+                    // Special-case the ABCMeta.register method in abc.pyi.
+                    const isRegisterMethod = this._fileInfo.isStubFile &&
+                        paramName === 'cls' &&
+                        node.name.nameToken.value === 'register';
+
+                    if (!isRegisterMethod) {
+                        this._addError(
+                            `Instance methods should take a 'self' parameter`,
+                            node.parameters.length > 0 ? node.parameters[0] : node.name);
+                    }
+                }
+            }
+        }
+    }
+
     private _handleIfWhileCommon(testExpression: ExpressionNode, ifWhileSuite: SuiteNode,
             elseSuite: SuiteNode | IfNode | undefined, isWhile: boolean) {
 
@@ -1252,22 +1385,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (elseScope) {
             this._mergeReturnAndYieldTypeToCurrentScope(elseScope);
         }
-    }
-
-    private _functionHasAbstracMethodDecorator(node: FunctionNode): boolean {
-        for (let decorator of node.decorators) {
-            if (decorator.arguments === undefined) {
-                const callType = this._getTypeOfExpression(decorator.callName);
-
-                if (callType instanceof FunctionType &&
-                        callType.getBuiltInName() === 'abstractmethod') {
-
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private _findCollectionsImportScope() {

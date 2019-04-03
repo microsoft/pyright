@@ -237,26 +237,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
     visitFunction(node: FunctionNode): boolean {
         const isMethod = ParseTreeUtils.isFunctionInClass(node);
-        let hasCustomDecorators = false;
-
-        let functionFlags = FunctionTypeFlags.None;
-        if (node.decorators.length > 0) {
-            hasCustomDecorators = true;
-        }
-
-        if (isMethod) {
-            if (ParseTreeUtils.functionHasDecorator(node, 'staticmethod')) {
-                hasCustomDecorators = false;
-            } else if (ParseTreeUtils.functionHasDecorator(node, 'classmethod')) {
-                functionFlags |= FunctionTypeFlags.ClassMethod;
-                hasCustomDecorators = false;
-            } else {
-                functionFlags |= FunctionTypeFlags.InstanceMethod;
-            }
-        }
 
         // The "__new__" magic method is not an instance method.
         // It acts as a static method instead.
+        let functionFlags = FunctionTypeFlags.None;
         if (node.name.nameToken.value === '__new__') {
             functionFlags |= FunctionTypeFlags.StaticMethod;
             functionFlags &= ~FunctionTypeFlags.InstanceMethod;
@@ -288,32 +272,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             }
         });
 
-        let decoratedType: Type = functionType;
-        let warnIfDuplicate = true;
-
-        // Handle overload decorators specially.
-        let overloadedType: OverloadedFunctionType | undefined;
-        let evaluator = new ExpressionEvaluator(this._currentScope, this._fileInfo.configOptions);
-        [overloadedType, warnIfDuplicate] = evaluator.getOverloadedFunctionType(node, functionType);
-        if (overloadedType) {
-            decoratedType = overloadedType;
-            hasCustomDecorators = false;
-        } else {
-            // Determine if the function is a property getter or setter.
-            if (ParseTreeUtils.isFunctionInClass(node)) {
-                let propertyType = evaluator.getPropertyType(node, functionType);
-                if (propertyType) {
-                    decoratedType = propertyType;
-                    hasCustomDecorators = false;
-
-                    // Allow setters or deleters to replace the getter.
-                    warnIfDuplicate = false;
-                } else {
-                    this._validateMethod(node);
-                }
-            }
-        }
-
         // If this is not a stub file, make sure the raw type annotation
         // doesn't reference a type that hasn't yet been declared.
         if (!this._fileInfo.isStubFile) {
@@ -322,19 +280,13 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (hasCustomDecorators) {
-            // TODO - handle decorators in a better way. For now, we
-            // don't assume anything about the decorated type.
-            decoratedType = UnknownType.create();
-        }
-
         let declaration: Declaration = {
             category: isMethod ? SymbolCategory.Method : SymbolCategory.Function,
             node: node.name,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
         };
-        this._bindNameNodeToType(node.name, decoratedType, warnIfDuplicate, declaration);
+        this._bindNameNodeToType(node.name, UnknownType.create(), false, declaration);
 
         AnalyzerNodeInfo.setExpressionType(node, functionType);
         AnalyzerNodeInfo.setExpressionType(node.name, functionType);
@@ -891,85 +843,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         return false;
-    }
-
-    // Performs checks on a function that is located within a class
-    // and has been determined not to be a property accessor.
-    private _validateMethod(node: FunctionNode) {
-        if (node.name && node.name.nameToken.value === '__new__') {
-            // __new__ overrides should have a "cls" parameter.
-            if (node.parameters.length === 0 || !node.parameters[0].name ||
-                    node.parameters[0].name.nameToken.value !== 'cls') {
-                this._addError(
-                    `The __new__ override should take a 'cls' parameter`,
-                    node.parameters.length > 0 ? node.parameters[0] : node.name);
-            }
-        } else if (node.name && node.name.nameToken.value === '__init_subclass__') {
-            // __init_subclass__ overrides should have a "cls" parameter.
-            if (node.parameters.length === 0 || !node.parameters[0].name ||
-                    node.parameters[0].name.nameToken.value !== 'cls') {
-                this._addError(
-                    `The __init_subclass__ override should take a 'cls' parameter`,
-                    node.parameters.length > 0 ? node.parameters[0] : node.name);
-            }
-        } else if (ParseTreeUtils.functionHasDecorator(node, 'staticmethod')) {
-            // Static methods should not have "self" or "cls" parameters.
-            if (node.parameters.length > 0 && node.parameters[0].name) {
-                let paramName = node.parameters[0].name.nameToken.value;
-                if (paramName === 'self' || paramName === 'cls') {
-                    this._addError(
-                        `Static methods should not take a 'self' or 'cls' parameter`,
-                        node.parameters[0].name);
-                }
-            }
-        } else if (ParseTreeUtils.functionHasDecorator(node, 'classmethod')) {
-            let paramName = '';
-            if (node.parameters.length > 0 && node.parameters[0].name) {
-                paramName = node.parameters[0].name.nameToken.value;
-            }
-            // Class methods should have a "cls" parameter. We'll exempt parameter
-                // names that start with an underscore since those are used in a few
-                // cases in the stdlib pyi files.
-            if (paramName !== 'cls') {
-                if (!this._fileInfo.isStubFile || (!paramName.startsWith('_') && paramName !== 'metacls')) {
-                    this._addError(
-                        `Class methods should take a 'cls' parameter`,
-                        node.parameters.length > 0 ? node.parameters[0] : node.name);
-                }
-            }
-        } else {
-            // The presence of a decorator can change the behavior, so we need
-            // to back off from this check if a decorator is present.
-            if (node.decorators.length === 0) {
-                let paramName = '';
-                let firstParamIsSimple = true;
-                if (node.parameters.length > 0) {
-                    if (node.parameters[0].name) {
-                        paramName = node.parameters[0].name.nameToken.value;
-                    }
-
-                    if (node.parameters[0].category !== ParameterCategory.Simple) {
-                        firstParamIsSimple = false;
-                    }
-                }
-
-                // Instance methods should have a "self" parameter. We'll exempt parameter
-                // names that start with an underscore since those are used in a few
-                // cases in the stdlib pyi files.
-                if (firstParamIsSimple && paramName !== 'self' && !paramName.startsWith('_')) {
-                    // Special-case the ABCMeta.register method in abc.pyi.
-                    const isRegisterMethod = this._fileInfo.isStubFile &&
-                        paramName === 'cls' &&
-                        node.name.nameToken.value === 'register';
-
-                    if (!isRegisterMethod) {
-                        this._addError(
-                            `Instance methods should take a 'self' parameter`,
-                            node.parameters.length > 0 ? node.parameters[0] : node.name);
-                    }
-                }
-            }
-        }
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {

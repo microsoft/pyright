@@ -111,14 +111,4 @@ export class ParseTreeUtils {
 
         return false;
     }
-
-    static functionHasDecorator(node: FunctionNode, decoratorName: string): boolean {
-        let targetDecorator = node.decorators.find(decorator => {
-            return decorator.callName instanceof NameNode &&
-                decorator.callName.nameToken.value === decoratorName &&
-                decorator.arguments === undefined;
-        });
-
-        return targetDecorator !== undefined;
-    }
 }
