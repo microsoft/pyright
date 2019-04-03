@@ -647,7 +647,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this._currentScope.getReturnType().addSource(returnType, typeSourceId);
 
-        if (declaredReturnType) {
+        if (declaredReturnType && !this._currentScope.getAlwaysReturnsOrRaises()) {
             const diagAddendum = new DiagnosticAddendum();
             if (!TypeUtils.canAssignType(declaredReturnType, returnType, diagAddendum)) {
                 this._addError(

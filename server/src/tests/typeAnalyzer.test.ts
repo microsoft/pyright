@@ -168,6 +168,13 @@ test('Annotations1', () => {
     assert.equal(analysisResults[0].errors.length, 2);
 });
 
+test('Execution1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['execution1.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 2);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions('.');
 
