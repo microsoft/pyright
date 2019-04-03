@@ -9,9 +9,10 @@
 */
 
 import { ExecutionEnvironment } from '../common/configOptions';
-import { BinaryExpressionNode, ExpressionNode, IndexExpressionNode, MemberAccessExpressionNode,
-    NameNode, NumberNode, StringNode, TupleExpressionNode } from '../parser/parseNodes';
-import { OperatorType } from '../parser/tokenizerTypes';
+import { BinaryExpressionNode, ConstantNode, ExpressionNode, IndexExpressionNode,
+    MemberAccessExpressionNode, NameNode, NumberNode, StringNode,
+    TupleExpressionNode } from '../parser/parseNodes';
+import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
 export class ExpressionUtils {
     // Returns undefined if the expression cannot be evaluated
@@ -45,6 +46,14 @@ export class ExpressionUtils {
                     return this._evaluateStringBinaryOperation(node.operator,
                         execEnv.pythonPlatform, comparisonPlatform);
                 }
+            }
+        } else if (node instanceof ConstantNode) {
+            if (node.token.keywordType === KeywordType.True) {
+                return true;
+            } else if (node.token.keywordType === KeywordType.False ||
+                    node.token.keywordType === KeywordType.None) {
+
+                return false;
             }
         }
 

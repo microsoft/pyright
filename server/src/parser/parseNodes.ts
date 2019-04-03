@@ -155,12 +155,12 @@ export class IfNode extends ParseNode {
 
 export class WhileNode extends ParseNode {
     readonly nodeType = ParseNodeType.While;
-    whileExpression?: ExpressionNode;
-    whileSuite?: SuiteNode;
+    testExpression: ExpressionNode;
+    whileSuite: SuiteNode;
     elseSuite?: SuiteNode;
 
     getChildren(): RecursiveParseNodeArray {
-        return [this.whileExpression, this.whileSuite, this.elseSuite];
+        return [this.testExpression, this.whileSuite, this.elseSuite];
     }
 }
 

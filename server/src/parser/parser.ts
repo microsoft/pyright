@@ -423,7 +423,7 @@ export class Parser {
 
         let whileNode = new WhileNode(whileToken);
 
-        whileNode.whileExpression = this._parseTestExpression();
+        whileNode.testExpression = this._parseTestExpression();
         whileNode.whileSuite = this._parseLoopSuite();
 
         if (this._consumeTokenIfKeyword(KeywordType.Else)) {

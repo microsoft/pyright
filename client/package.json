@@ -1,7 +1,7 @@
 {
     "name": "pyright",
     "displayName": "Pyright",
-    "description": "VS Code language support and type checking for Python",
+    "description": "VS Code static type checking for Python",
     "version": "1.0.8",
     "license": "MIT",
     "author": {

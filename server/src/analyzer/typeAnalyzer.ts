@@ -20,9 +20,9 @@ import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode
     FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode,
     LambdaNode, ListComprehensionForNode, ListComprehensionNode, MemberAccessExpressionNode,
     ModuleNode, NameNode, ParameterCategory, ParseNode, RaiseNode, ReturnNode,
-    SliceExpressionNode, StarExpressionNode, TernaryExpressionNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, WithNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    SliceExpressionNode, StarExpressionNode, SuiteNode, TernaryExpressionNode,
+    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
+    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -570,117 +570,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitIf(node: IfNode): boolean {
-        let ifScope: Scope | undefined;
-        let elseScope: Scope | undefined;
-        let ifIsUnconditional = false;
-        let elseIsUnconditional = false;
+        this._handleIfWhileCommon(node.testExpression, node.ifSuite,
+            node.elseSuite, false);
+        return false;
+    }
 
-        // Determine if the if condition is always true or always false. If so,
-        // we can treat either the if or the else clause as unconditional.
-        let constExprValue = ExpressionUtils.evaluateConstantExpression(
-            node.testExpression, this._fileInfo.executionEnvironment);
-
-        // Get and cache the expression type before walking it. This will apply
-        // any type constraints along the way.
-        this._getTypeOfExpression(node.testExpression);
-        this.walk(node.testExpression);
-
-        let typeConstraints = this._buildConditionalTypeConstraints(
-            node.testExpression);
-
-        // Push a temporary scope so we can track
-        // which variables have been assigned to conditionally.
-        ifScope = this._enterTemporaryScope(() => {
-            // Add any applicable type constraints.
-            if (typeConstraints) {
-                typeConstraints.ifConstraints.forEach(constraint => {
-                    this._currentScope.addTypeConstraint(constraint);
-                });
-            }
-
-            this.walk(node.ifSuite);
-        }, true, constExprValue === false);
-
-        // Now handle the else statement if it's present. If there
-        // are chained "else if" statements, they'll be handled
-        // recursively here.
-        if (node.elseSuite) {
-            elseScope = this._enterTemporaryScope(() => {
-                // Add any applicable type constraints.
-                if (typeConstraints) {
-                    typeConstraints.elseConstraints.forEach(constraint => {
-                        this._currentScope.addTypeConstraint(constraint);
-                    });
-                }
-
-                this.walk(node.elseSuite!);
-            }, true, constExprValue === true);
-        }
-
-        // Evaluate the expression so the expression type is cached.
-        this._getTypeOfExpression(node.testExpression);
-
-        if (constExprValue !== undefined) {
-            if (constExprValue) {
-                ifIsUnconditional = true;
-                elseScope = undefined;
-            } else {
-                elseIsUnconditional = true;
-                ifScope = undefined;
-            }
-        }
-
-        let ifContributions = ifScope && !ifScope.getAlwaysReturnsOrRaises() ? ifScope : undefined;
-        let elseContributions = elseScope && !elseScope.getAlwaysReturnsOrRaises() ? elseScope : undefined;
-
-        // Figure out how to combine the scopes.
-        if (ifContributions && elseContributions) {
-            // If both an "if" and an "else" scope exist, combine the names from both scopes.
-            ifContributions.combineConditionalSymbolTable(elseContributions);
-            this._mergeToCurrentScope(ifContributions);
-        } else if (ifContributions) {
-            // If there's only an "if" scope executed, mark all of its contents as conditional.
-            if (!elseScope && !ifIsUnconditional) {
-                ifContributions.markAllSymbolsConditional();
-            }
-            this._mergeToCurrentScope(ifContributions);
-        } else if (elseContributions) {
-            // If there's only an "else" scope executed, mark all of its contents as conditional.
-            if (!ifScope && !elseIsUnconditional) {
-                elseContributions.markAllSymbolsConditional();
-            }
-            this._mergeToCurrentScope(elseContributions);
-        } else if (ifScope && elseScope) {
-            // If both an if and else clause are executed but they both return or
-            // raise an exception, mark the current scope as always returning or
-            // raising an exception.
-            if (ifScope.getAlwaysRaises() && elseScope.getAlwaysRaises()) {
-                this._currentScope.setAlwaysRaises();
-            } else {
-                this._currentScope.setAlwaysReturns();
-            }
-        }
-
-        if (typeConstraints) {
-            // If the if statement always returns, the else type constraints
-            // are in effect after the if/else is complete.
-            if (ifScope && ifScope.getAlwaysReturnsOrRaises()) {
-                this._currentScope.addTypeConstraints(typeConstraints.elseConstraints);
-            }
-
-            if (elseScope && elseScope.getAlwaysReturnsOrRaises()) {
-                this._currentScope.addTypeConstraints(typeConstraints.ifConstraints);
-            }
-        }
-
-        if (ifScope) {
-            this._mergeReturnAndYieldTypeToCurrentScope(ifScope);
-        }
-
-        if (elseScope) {
-            this._mergeReturnAndYieldTypeToCurrentScope(elseScope);
-        }
-
+    visitWhile(node: WhileNode): boolean {
+        this._handleIfWhileCommon(node.testExpression, node.whileSuite,
+            node.elseSuite, true);
         return false;
     }
 
@@ -844,7 +741,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }, true);
             exceptScope.markAllSymbolsConditional();
             this._mergeToCurrentScope(exceptScope);
-            this._mergeReturnAndYieldTypeToCurrentScope(exceptScope);
         });
 
         if (node.elseSuite) {
@@ -853,7 +749,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }, true);
             elseScope.markAllSymbolsConditional();
             this._mergeToCurrentScope(elseScope);
-            this._mergeReturnAndYieldTypeToCurrentScope(elseScope);
         }
 
         if (node.finallySuite) {
@@ -1237,6 +1132,128 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
+    private _handleIfWhileCommon(testExpression: ExpressionNode, ifWhileSuite: SuiteNode,
+            elseSuite: SuiteNode | IfNode | undefined, isWhile: boolean) {
+
+        let ifScope: Scope | undefined;
+        let elseScope: Scope | undefined;
+        let ifIsUnconditional = false;
+        let elseIsUnconditional = false;
+
+        // Determine if the if condition is always true or always false. If so,
+        // we can treat either the if or the else clause as unconditional.
+        let constExprValue = ExpressionUtils.evaluateConstantExpression(
+            testExpression, this._fileInfo.executionEnvironment);
+
+        // Get and cache the expression type before walking it. This will apply
+        // any type constraints along the way.
+        this._getTypeOfExpression(testExpression);
+        this.walk(testExpression);
+
+        let typeConstraints = this._buildConditionalTypeConstraints(
+            testExpression);
+
+        // Push a temporary scope so we can track
+        // which variables have been assigned to conditionally.
+        ifScope = this._enterTemporaryScope(() => {
+            // Add any applicable type constraints.
+            if (typeConstraints) {
+                typeConstraints.ifConstraints.forEach(constraint => {
+                    this._currentScope.addTypeConstraint(constraint);
+                });
+            }
+
+            this.walk(ifWhileSuite);
+        }, true, constExprValue === false);
+
+        // Now handle the else statement if it's present. If there
+        // are chained "else if" statements, they'll be handled
+        // recursively here.
+        if (elseSuite) {
+            elseScope = this._enterTemporaryScope(() => {
+                // Add any applicable type constraints.
+                if (typeConstraints) {
+                    typeConstraints.elseConstraints.forEach(constraint => {
+                        this._currentScope.addTypeConstraint(constraint);
+                    });
+                }
+
+                this.walk(elseSuite);
+            }, true, constExprValue === true);
+        }
+
+        // Evaluate the expression so the expression type is cached.
+        this._getTypeOfExpression(testExpression);
+
+        if (constExprValue !== undefined) {
+            if (constExprValue) {
+                ifIsUnconditional = true;
+                elseScope = undefined;
+            } else {
+                elseIsUnconditional = true;
+                ifScope = undefined;
+            }
+        }
+
+        let ifContributions = ifScope && !ifScope.getAlwaysReturnsOrRaises() ? ifScope : undefined;
+        let elseContributions = elseScope && !elseScope.getAlwaysReturnsOrRaises() ? elseScope : undefined;
+
+        // Figure out how to combine the scopes.
+        if (ifContributions && elseContributions) {
+            // If both an "if" and an "else" scope exist, combine the names from both scopes.
+            ifContributions.combineConditionalSymbolTable(elseContributions);
+            this._mergeToCurrentScope(ifContributions);
+        } else if (ifContributions) {
+            // If there's only an "if" scope executed, mark all of its contents as conditional.
+            if (!elseScope && !ifIsUnconditional) {
+                ifContributions.markAllSymbolsConditional();
+            }
+            this._mergeToCurrentScope(ifContributions);
+        } else if (elseContributions) {
+            // If there's only an "else" scope executed, mark all of its contents as conditional.
+            if (!ifScope && !elseIsUnconditional) {
+                elseContributions.markAllSymbolsConditional();
+            }
+            this._mergeToCurrentScope(elseContributions);
+        } else if (ifScope && elseScope) {
+            // If both an if and else clause are executed but they both return or
+            // raise an exception, mark the current scope as always returning or
+            // raising an exception.
+            if (ifScope.getAlwaysRaises() && elseScope.getAlwaysRaises()) {
+                this._currentScope.setAlwaysRaises();
+            } else {
+                this._currentScope.setAlwaysReturns();
+            }
+        }
+
+        if (ifScope && isWhile && ifIsUnconditional) {
+            // If this is an infinite loop, mark it as always raising
+            // So we don't assume that we'll fall through and possibly
+            // return None at the end of the function.
+            this._currentScope.setAlwaysRaises();
+        }
+
+        if (typeConstraints) {
+            // If the if statement always returns, the else type constraints
+            // are in effect after the if/else is complete.
+            if (ifScope && ifScope.getAlwaysReturnsOrRaises()) {
+                this._currentScope.addTypeConstraints(typeConstraints.elseConstraints);
+            }
+
+            if (elseScope && elseScope.getAlwaysReturnsOrRaises()) {
+                this._currentScope.addTypeConstraints(typeConstraints.ifConstraints);
+            }
+        }
+
+        if (ifScope) {
+            this._mergeReturnAndYieldTypeToCurrentScope(ifScope);
+        }
+
+        if (elseScope) {
+            this._mergeReturnAndYieldTypeToCurrentScope(elseScope);
+        }
+    }
+
     private _functionHasAbstracMethodDecorator(node: FunctionNode): boolean {
         for (let decorator of node.decorators) {
             if (decorator.arguments === undefined) {
@@ -1416,6 +1433,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (this._currentScope.mergeYieldType(scopeToMerge)) {
             if (this._currentScope.getType() !== ScopeType.Temporary) {
                 this._setAnalysisChanged();
+            }
+        }
+
+        if (!scopeToMerge.isConditional) {
+            if (scopeToMerge.getAlwaysRaises()) {
+                this._currentScope.setAlwaysRaises();
+            }
+
+            if (scopeToMerge.getAlwaysReturns()) {
+                this._currentScope.setAlwaysReturns();
             }
         }
     }
