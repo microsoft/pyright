@@ -17,7 +17,7 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     BinaryExpressionNode, CallExpressionNode, ConstantNode, DictionaryNode,
-    EllipsisNode, ExpressionNode, FunctionNode, IndexExpressionNode, LambdaNode,
+    EllipsisNode, ExpressionNode, IndexExpressionNode, LambdaNode,
     ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
     NumberNode, ParameterCategory, SetNode, SliceExpressionNode, StringNode,
     TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode,
@@ -1811,10 +1811,22 @@ export class ExpressionEvaluator {
             return type;
         }
 
-        // Recursively allow the parent scopes to apply their type constraints.
-        const parentScope = scope.getParent();
-        if (parentScope) {
-            type = this._applyScopeTypeConstraintRecursive(node, type, parentScope);
+        // Determine if any of the local constraints is blocking constraints
+        // from parent scopes from being applied.
+        let blockParentConstraints = false;
+        for (let constraint of scope.getTypeConstraints()) {
+            if (constraint.blockSubsequentContraints(node)) {
+                blockParentConstraints = true;
+                break;
+            }
+        }
+
+        if (!blockParentConstraints) {
+            // Recursively allow the parent scopes to apply their type constraints.
+            const parentScope = scope.getParent();
+            if (parentScope) {
+                type = this._applyScopeTypeConstraintRecursive(node, type, parentScope);
+            }
         }
 
         // Apply the constraints within the current scope. Stop if one of
