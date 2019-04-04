@@ -294,6 +294,10 @@ export class ExpressionEvaluator {
             type = this._validateTypeFromClassMemberAccess(
                 node.memberName, baseType.getClassType(), MemberAccessFlags.None);
             type = this._bindFunctionToClassOrObject(baseType, type);
+        } else if (baseType instanceof TupleType) {
+            type = this._validateTypeFromClassMemberAccess(
+                node.memberName, baseType.getBaseClass(), MemberAccessFlags.None);
+            type = this._bindFunctionToClassOrObject(new ObjectType(baseType.getBaseClass()), type);
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
             if (memberInfo) {
@@ -418,6 +422,14 @@ export class ExpressionEvaluator {
     // errors if the member name is not found.
     private _validateTypeFromClassMemberAccess(memberNameNode: NameNode,
             classType: ClassType, flags: MemberAccessFlags) {
+
+        // If this is a special type (like "List") that has an alias
+        // class (like "list"), switch to the alias, which defines
+        // the members.
+        const aliasClass = classType.getAliasClass();
+        if (aliasClass) {
+            classType = aliasClass;
+        }
 
         const memberName = memberNameNode.nameToken.value;
         let type = this._getTypeFromClassMemberName(memberName, classType, flags);

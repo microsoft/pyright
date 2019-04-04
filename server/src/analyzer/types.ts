@@ -310,6 +310,10 @@ export class ClassType extends Type {
         this._classDetails.aliasClass = type;
     }
 
+    getAliasClass() {
+        return this._classDetails.aliasClass;
+    }
+
     addBaseClass(type: Type, isMetaclass: boolean) {
         this._classDetails.baseClasses.push({ isMetaclass, type });
     }

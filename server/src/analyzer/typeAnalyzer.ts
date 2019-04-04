@@ -1868,23 +1868,25 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     AnalyzerNodeInfo.setDeclaration(memberName, classMemberInfo.symbol.declarations[0]);
                 }
             }
-        }
-
-        if (baseType instanceof ModuleType) {
+        } else if (baseType instanceof TupleType) {
+            let classMemberInfo = TypeUtils.lookUpClassMember(
+                baseType.getBaseClass(), memberNameValue);
+            if (classMemberInfo) {
+                if (classMemberInfo.symbol && classMemberInfo.symbol.declarations) {
+                    AnalyzerNodeInfo.setDeclaration(memberName, classMemberInfo.symbol.declarations[0]);
+                }
+            }
+        } else if (baseType instanceof ModuleType) {
             let moduleMemberInfo = baseType.getFields().get(memberNameValue);
             if (moduleMemberInfo && moduleMemberInfo.declarations) {
                 AnalyzerNodeInfo.setDeclaration(memberName, moduleMemberInfo.declarations[0]);
             }
-        }
-
-        if (baseType instanceof ClassType) {
+        } else if (baseType instanceof ClassType) {
             let classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue, false);
             if (classMemberInfo && classMemberInfo.symbol && classMemberInfo.symbol.declarations) {
                 AnalyzerNodeInfo.setDeclaration(memberName, classMemberInfo.symbol.declarations[0]);
             }
-        }
-
-        if (baseType instanceof UnionType) {
+        } else if (baseType instanceof UnionType) {
             for (let t of baseType.getTypes()) {
                 this._setDefinitionForMemberName(t, memberName);
             }
