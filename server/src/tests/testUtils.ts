@@ -107,7 +107,9 @@ export class TestUtils {
         return fileInfo;
     }
 
-    static semanticallyAnalyzeSampleFile(fileName: string, configOptions: ConfigOptions): FileAnalysisResult {
+    static semanticallyAnalyzeSampleFile(fileName: string,
+            configOptions = new ConfigOptions('.')): FileAnalysisResult {
+
         const diagSink = new DiagnosticSink();
         const filePath = this.resolveSampleFilePath(fileName);
         const execEnvironment = configOptions.findExecEnvironment(filePath);

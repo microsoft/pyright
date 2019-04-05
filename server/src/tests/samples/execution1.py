@@ -41,7 +41,7 @@ def func3() -> str:
         # because we should never get here.
         return 21
     
-    raise
+    raise BaseException()
 
     # This should not be flagged as an error
     # because we should never get here.

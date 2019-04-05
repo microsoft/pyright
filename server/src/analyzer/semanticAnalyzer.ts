@@ -27,9 +27,9 @@ import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ExceptNode,
     ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
     ImportFromAsNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
     ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode,
-    ModuleNode, NameNode, NonlocalNode, ParameterCategory, ParameterNode,
-    RaiseNode, ReturnNode, StarExpressionNode, SuiteNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, WhileNode, WithNode } from '../parser/parseNodes';
+    ModuleNode, NameNode, NonlocalNode, ParameterNode, RaiseNode, ReturnNode,
+    StarExpressionNode, SuiteNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, WhileNode, WithNode } from '../parser/parseNodes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -42,7 +42,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, OverloadedFunctionType, Type, TypeCategory,
+    FunctionTypeFlags, ModuleType, Type, TypeCategory,
     UnboundType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
@@ -59,6 +59,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     // "temporary scope", used for analyzing conditional code blocks. Their
     // contents are eventually merged in to the base scope.
     protected _currentScope: Scope;
+
+    // Number of nested except statements at current point of analysis.
+    // Used to determine if a naked "raise" statement is allowed.
+    private _nestedExceptDepth = 0;
 
     constructor(node: ScopedNode, parentScope: Scope | undefined, fileInfo: AnalyzerFileInfo) {
         super();
@@ -400,6 +404,13 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         if (this._currentScope.getNestedTryDepth() === 0) {
             this._currentScope.setAlwaysRaises();
         }
+
+        if (!node.typeExpression && this._nestedExceptDepth === 0) {
+            this._addError(
+                `Raise requires parameter(s) when used outside of except clause `,
+                node);
+        }
+
         return true;
     }
 
@@ -433,11 +444,13 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // Wrap the except clauses in a conditional scope
         // so we can throw away any names that are bound
         // in this scope.
+        this._nestedExceptDepth++;
         node.exceptClauses.forEach(exceptNode => {
             this._enterTemporaryScope(() => {
                 this.walk(exceptNode);
             });
         });
+        this._nestedExceptDepth--;
 
         if (node.elseSuite) {
             this.walk(node.elseSuite);
