@@ -34,7 +34,6 @@ function processArgs() {
         { name: 'files', type: String, multiple: true, defaultOption: true },
         { name: 'help', alias: 'h', type: Boolean },
         { name: 'project', alias: 'p', type: String },
-        { name: 'python-path', alias: 'P', type: String },
         { name: 'typeshed-path', alias: 't', type: String },
         { name: 'venv-path', alias: 'v', type: String },
         { name: 'watch', alias: 'w', type: Boolean }
@@ -115,7 +114,6 @@ function printUsage() {
         'Usage: ' + toolName + ' [options] files...\n' +
         '  Options:\n' +
         '  -h,--help                        Show this help message\n' +
-        '  -P,--python-path DIRECTORY       Directory that contains the python environment\n' +
         '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +
         '  -t,--typeshed-path DIRECTORY     Use typeshed type stubs at this location\n' +
         '  -v,--venv-path DIRECTORY         Directory that contains virtual environments\n' +
