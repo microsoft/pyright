@@ -231,17 +231,29 @@ export class TypeUtils {
             const destEntries = destType.getEntryTypes();
             const srcEntries = srcType.getEntryTypes();
 
-            if (destEntries.length !== srcEntries.length) {
+            if (srcEntries.length < destEntries.length  ||
+                    (srcEntries.length > destEntries.length && !destType.getAllowMoreEntries())) {
+
                 diag.addMessage(`Tuple entry count mismatch. Expected ${ destEntries.length } ` +
                     `but got ${ srcEntries.length }.`);
                 return false;
             }
 
-            const mismatchEntryIndex = srcEntries.findIndex((srcEntry, index) =>
-                    !this.canAssignType(destEntries[index], srcEntry, diag.createAddendum(),
-                        typeVarMap, true, recursionCount + 1));
+            const mismatchEntryIndex = srcEntries.findIndex((srcEntry, index) => {
+                // If there aren't enough dest entries, it's presumably because
+                // "allowMoreEntries" is true -- i.e. it's a "Tuple[Any, ...]".
+                if (index >= destEntries.length) {
+                    return false;
+                }
+
+                return !this.canAssignType(destEntries[index], srcEntry, diag.createAddendum(),
+                        typeVarMap, true, recursionCount + 1);
+            });
+
             if (mismatchEntryIndex >= 0) {
-                diag.addMessage(`Type mismatch for tuple entry ${ mismatchEntryIndex + 1 }.`);
+                diag.addMessage(`Entry ${ mismatchEntryIndex + 1 }: ` +
+                    `Type '${ srcEntries[mismatchEntryIndex].asString() }' ` +
+                    `cannot be assigned to type '${ destEntries[mismatchEntryIndex].asString() }'.`);
                 return false;
             }
 
@@ -497,7 +509,7 @@ export class TypeUtils {
             assert(inheritanceChain.length > 0);
 
             return this._canAssignClassWithTypeArgs(srcType, inheritanceChain,
-                diag.createAddendum(), recursionCount);
+                diag.createAddendum(), recursionCount + 1);
         }
 
         // Special-case int-to-float conversion.
@@ -527,7 +539,8 @@ export class TypeUtils {
                 // If this isn't the first time through the loop, specialize
                 // for the next ancestor in the chain.
                 if (ancestorIndex < inheritanceChain.length - 1) {
-                    curSrcType = this._specializeForBaseClass(curSrcType, ancestorType, recursionCount);
+                    curSrcType = this._specializeForBaseClass(curSrcType,
+                        ancestorType, recursionCount + 1);
                 }
 
                 // If there are no type parameters on this class, we're done.
@@ -556,7 +569,7 @@ export class TypeUtils {
                 // Validate that the type arguments match.
                 const srcTypeArgs = curSrcType.getTypeArguments();
                 if (srcTypeArgs) {
-                    assert(srcTypeArgs.length === ancestorTypeArgs.length);
+                    assert(srcType.isSpecialBuiltIn() || srcTypeArgs.length === ancestorTypeArgs.length);
 
                     for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
                         const srcTypeArg = srcTypeArgs[srcArgIndex];
@@ -674,8 +687,10 @@ export class TypeUtils {
         }
 
         if (type instanceof TupleType) {
-            // TODO - need to implement
-            return type;
+            const entryTypes = type.getEntryTypes().map(
+                typeEntry => this.specializeType(typeEntry, typeVarMap, recursionLevel + 1));
+
+            return type.cloneForSpecialization(entryTypes);
         }
 
         if (type instanceof FunctionType) {

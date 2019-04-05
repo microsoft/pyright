@@ -202,3 +202,10 @@ test('Optional1', () => {
     assert.equal(analysisResults[0].errors.length, 3);
     assert.equal(analysisResults[0].warnings.length, 0);
 });
+
+test('Tuples1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples1.py']);
+
+    assert.equal(analysisResults.length, 1);
+    assert.equal(analysisResults[0].errors.length, 4);
+});

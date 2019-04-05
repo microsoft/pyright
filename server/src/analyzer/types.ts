@@ -947,19 +947,30 @@ export class NeverType extends NoneType {
 
 export class AnyType extends Type {
     category = TypeCategory.Any;
+    private _isEllipsis: boolean;
 
-    private static _instance = new AnyType();
-    static create() {
+    private static _anyInstance = new AnyType(false);
+    private static _ellipsisInstance = new AnyType(true);
+    static create(isEllipsis = false) {
         // Use a single instance to reduce memory allocation.
-        return this._instance;
+        return isEllipsis ? this._ellipsisInstance : this._anyInstance;
+    }
+
+    private constructor(isEllipsis: boolean) {
+        super();
+        this._isEllipsis = isEllipsis;
     }
 
     isAny(): boolean {
         return true;
     }
 
+    isEllipsis(): boolean {
+        return this._isEllipsis;
+    }
+
     asStringInternal(): string {
-        return 'Any';
+        return this._isEllipsis ? '...' : 'Any';
     }
 }
 
@@ -1076,7 +1087,13 @@ export class TupleType extends Type {
     category = TypeCategory.Tuple;
 
     private _tupleBaseClass: ClassType;
+
+    // Specified types for entries of the tuple.
     private _entryTypes: Type[] = [];
+
+    // If true, allow more entries beyond the specified
+    // list of types.
+    private _allowMoreEntries = false;
 
     constructor(baseClass: ClassType) {
         super();
@@ -1095,6 +1112,14 @@ export class TupleType extends Type {
         this._entryTypes.push(type);
     }
 
+    setAllowMoreEntries() {
+        this._allowMoreEntries = true;
+    }
+
+    getAllowMoreEntries() {
+        return this._allowMoreEntries;
+    }
+
     isSame(type2: Type): boolean {
         if (!super.isSame(type2)) {
             return false;
@@ -1110,14 +1135,28 @@ export class TupleType extends Type {
     }
 
     asStringInternal(recursionCount = 0): string {
-        let tupleTypeString = recursionCount < MaxRecursionCount ?
-            this._entryTypes.map(t => t.asStringInternal(recursionCount + 1)).join(', ') : '';
-        return 'Tuple[' + tupleTypeString + ']';
+        let tupleTypes = recursionCount < MaxRecursionCount ?
+            this._entryTypes.map(t => t.asStringInternal(recursionCount + 1)) : [];
+
+        if (this._allowMoreEntries) {
+            tupleTypes.push('...');
+        }
+
+        return 'Tuple[' + tupleTypes.join(', ') + ']';
     }
 
     requiresSpecialization(recursionCount = 0) {
         return this._entryTypes.find(
             type => type.requiresSpecialization(recursionCount + 1)) !== undefined;
+    }
+
+    cloneForSpecialization(entryTypes: Type[]): TupleType {
+        assert(entryTypes.length === this._entryTypes.length);
+
+        let newTupleType = new TupleType(this._tupleBaseClass);
+        newTupleType._allowMoreEntries = this._allowMoreEntries;
+        newTupleType._entryTypes = entryTypes;
+        return newTupleType;
     }
 }
 
@@ -1191,7 +1230,7 @@ export class TypeVarType extends Type {
         if (recursionCount > 0) {
             return this._name;
         } else {
-            let params: string[] = [this._name];
+            let params: string[] = [`'${ this._name }'`];
             if (recursionCount < MaxRecursionCount) {
                 for (let constraint of this._constraints) {
                     params.push(constraint.asStringInternal(recursionCount + 1));

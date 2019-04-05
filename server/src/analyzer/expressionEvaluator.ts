@@ -150,7 +150,7 @@ export class ExpressionEvaluator {
             typeResult = this._getBuiltInTypeFromLiteralExpression(node,
                 node.token.isInteger ? 'int' : 'float');
         } else if (node instanceof EllipsisNode) {
-            typeResult = { type: AnyType.create(), node };
+            typeResult = { type: AnyType.create(true), node };
         } else if (node instanceof UnaryExpressionNode) {
             typeResult = this._getTypeFromUnaryExpression(node, flags);
         } else if (node instanceof BinaryExpressionNode) {
@@ -253,7 +253,7 @@ export class ExpressionEvaluator {
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (type instanceof ClassType) {
-                type = this._createSpecializeClassType(type, [], node, flags);
+                type = this._createSpecializeClassType(type, undefined, node, flags);
             }
         }
 
@@ -349,7 +349,7 @@ export class ExpressionEvaluator {
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (type instanceof ClassType) {
-                type = this._createSpecializeClassType(type, [], node, flags);
+                type = this._createSpecializeClassType(type, undefined, node, flags);
             }
         }
 
@@ -707,7 +707,7 @@ export class ExpressionEvaluator {
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (type instanceof ClassType) {
-                type = this._createSpecializeClassType(type, [], node, flags);
+                type = this._createSpecializeClassType(type, undefined, node, flags);
             }
         }
 
@@ -1625,11 +1625,11 @@ export class ExpressionEvaluator {
     // have zero to two parameters. The first parameter, if present, should be
     // either an ellipsis or a list of parameter types. The second parameter, if
     // present, should specify the return type.
-    private _createCallableType(typeArgs: TypeResult[]): FunctionType {
+    private _createCallableType(typeArgs?: TypeResult[]): FunctionType {
         let functionType = new FunctionType(FunctionTypeFlags.None);
         functionType.setDeclaredReturnType(AnyType.create());
 
-        if (typeArgs.length > 0) {
+        if (typeArgs && typeArgs.length > 0) {
             if (typeArgs[0].typeList) {
                 typeArgs[0].typeList.forEach((entry, index) => {
                     functionType.addParameter({
@@ -1647,22 +1647,51 @@ export class ExpressionEvaluator {
             TypeUtils.addDefaultFunctionParameters(functionType);
         }
 
-        if (typeArgs.length > 1) {
+        if (typeArgs && typeArgs.length > 1) {
             functionType.setDeclaredReturnType(typeArgs[1].type);
         } else {
             functionType.setDeclaredReturnType(AnyType.create());
         }
 
-        if (typeArgs.length > 2) {
+        if (typeArgs && typeArgs.length > 2) {
             this._addError(`Expected only two type arguments to 'Callable'`, typeArgs[2].node);
         }
 
         return functionType;
     }
 
+    // Converts the type parameters for a Tuple type. It should have zero
+    // or more parameters, and the last one can be an ellipsis.
+    private _createTupleType(typeArgs?: TypeResult[]): TupleType {
+        let typeArgTypes = typeArgs ? typeArgs.map(t => t.type) : [];
+
+        if (!typeArgs) {
+            // PEP 484 indicates that "Tuple" is equivalent
+            // to "Tuple[Any, ...]".
+            typeArgTypes.push(AnyType.create(false));
+            typeArgTypes.push(AnyType.create(true));
+        }
+
+        let tupleType = new TupleType(ScopeUtils.getBuiltInType(this._scope, 'tuple') as ClassType);
+
+        if (typeArgTypes.length > 0) {
+            const lastType = typeArgTypes[typeArgTypes.length - 1];
+            if (lastType instanceof AnyType && lastType.isEllipsis()) {
+                tupleType.setAllowMoreEntries();
+                typeArgTypes.pop();
+            }
+        }
+
+        for (let typeArgType of typeArgTypes) {
+            tupleType.addEntryType(typeArgType);
+        }
+
+        return tupleType;
+    }
+
     // Creates an Optional type annotation.
-    private _createOptionalType(errorNode: ExpressionNode, typeArgs: TypeResult[]): Type {
-        if (typeArgs.length !== 1) {
+    private _createOptionalType(errorNode: ExpressionNode, typeArgs?: TypeResult[]): Type {
+        if (!typeArgs || typeArgs.length !== 1) {
             this._addError(`Expected one type parameter after Optional`, errorNode);
             return UnknownType.create();
         }
@@ -1670,24 +1699,24 @@ export class ExpressionEvaluator {
         return TypeUtils.combineTypes([typeArgs[0].type, NoneType.create()]);
     }
 
-    private _createClassVarType(typeArgs: TypeResult[], flags: EvaluatorFlags): Type {
-        if (typeArgs.length > 1) {
+    private _createClassVarType(typeArgs: TypeResult[] | undefined, flags: EvaluatorFlags): Type {
+        if (typeArgs && typeArgs.length > 1) {
             this._addError(`Expected only one type parameter after ClassVar`, typeArgs[1].node);
         }
 
-        let type = (typeArgs.length === 0) ? AnyType.create() : typeArgs[0].type;
+        let type = (!typeArgs || typeArgs.length === 0) ? AnyType.create() : typeArgs[0].type;
         return this._convertClassToObject(type, flags);
 }
 
-    private _createSpecialType(classType: ClassType, typeArgs: TypeResult[],
+    private _createSpecialType(classType: ClassType, typeArgs: TypeResult[] | undefined,
             flags: EvaluatorFlags, paramLimit?: number): Type {
 
-        let typeArgTypes = typeArgs.map(t => t.type);
+        let typeArgTypes = typeArgs ? typeArgs.map(t => t.type) : [];
         const typeArgCount = typeArgTypes.length;
 
         // Make sure the argument list count is correct.
         if (paramLimit !== undefined) {
-            if (typeArgCount > paramLimit) {
+            if (typeArgs && typeArgCount > paramLimit) {
                 this._addError(
                     `Expected at most ${ paramLimit } type arguments`, typeArgs[paramLimit].node);
                 typeArgTypes = typeArgTypes.slice(0, paramLimit);
@@ -1705,12 +1734,14 @@ export class ExpressionEvaluator {
     }
 
     // Unpacks the index expression for a Union type annotation.
-    private _createUnionType(typeArgs: TypeResult[]): Type {
+    private _createUnionType(typeArgs?: TypeResult[]): Type {
         let types: Type[] = [];
 
-        for (let typeArg of typeArgs) {
-            if (typeArg.type) {
-                types.push(typeArg.type);
+        if (typeArgs) {
+            for (let typeArg of typeArgs) {
+                if (typeArg.type) {
+                    types.push(typeArg.type);
+                }
             }
         }
 
@@ -1722,49 +1753,51 @@ export class ExpressionEvaluator {
     }
 
     private _createGenericType(errorNode: ExpressionNode, classType: ClassType,
-            typeArgs: TypeResult[]): Type {
+            typeArgs?: TypeResult[]): Type {
 
         // Make sure there's at least one type arg.
-        if (typeArgs.length === 0) {
+        if (!typeArgs || typeArgs.length === 0) {
             this._addError(
                 `'Generic' requires at least one type argument`, errorNode);
         }
 
         // Make sure that all of the type args are typeVars and are unique.
         let uniqueTypeVars: TypeVarType[] = [];
-        typeArgs.forEach(typeArg => {
-            if (!(typeArg.type instanceof TypeVarType)) {
-                this._addError(
-                    `Type argument for 'Generic' must be a type variable`, typeArg.node);
-            } else {
-                for (let typeVar of uniqueTypeVars) {
-                    if (typeVar === typeArg.type) {
-                        this._addError(
-                            `Type argument for 'Generic' must be unique`, typeArg.node);
-                        break;
+        if (typeArgs) {
+            typeArgs.forEach(typeArg => {
+                if (!(typeArg.type instanceof TypeVarType)) {
+                    this._addError(
+                        `Type argument for 'Generic' must be a type variable`, typeArg.node);
+                } else {
+                    for (let typeVar of uniqueTypeVars) {
+                        if (typeVar === typeArg.type) {
+                            this._addError(
+                                `Type argument for 'Generic' must be unique`, typeArg.node);
+                            break;
+                        }
                     }
-                }
 
-                uniqueTypeVars.push(typeArg.type);
-            }
-        });
+                    uniqueTypeVars.push(typeArg.type);
+                }
+            });
+        }
 
         return this._createSpecialType(classType, typeArgs, EvaluatorFlags.None);
     }
 
-    private _createSpecializedClassType(classType: ClassType, typeArgs: TypeResult[]): Type {
-        let typeArgCount = typeArgs.length;
+    private _createSpecializedClassType(classType: ClassType, typeArgs?: TypeResult[]): Type {
+        let typeArgCount = typeArgs ? typeArgs.length : 0;
 
         // Make sure the argument list count is correct.
         let typeParameters = classType.getTypeParameters();
 
         // If there are no type parameters or args, the class is already specialized.
         // No need to do any more work.
-        if (typeParameters.length === 0 && typeArgs.length === 0) {
+        if (typeParameters.length === 0 && typeArgCount === 0) {
             return classType;
         }
 
-        if (typeArgCount > typeParameters.length) {
+        if (typeArgs && typeArgCount > typeParameters.length) {
             if (typeParameters.length === 0) {
                 this._addError(`Expected no type arguments`,
                     typeArgs[typeParameters.length].node);
@@ -1777,7 +1810,7 @@ export class ExpressionEvaluator {
         }
 
         // Fill in any missing type arguments with Any.
-        let typeArgTypes = typeArgs.map(t => t.type);
+        let typeArgTypes = typeArgs ? typeArgs.map(t => t.type) : [];
         while (typeArgTypes.length < classType.getTypeParameters().length) {
             typeArgTypes.push(AnyType.create());
         }
@@ -1789,7 +1822,7 @@ export class ExpressionEvaluator {
                     this._addError(`Type '${ typeArgType.asString() }' ` +
                             `cannot be assigned to type variable '${ typeParameters[index].getName() }'` +
                             diag.getString(),
-                        typeArgs[index].node);
+                        typeArgs![index].node);
                 }
             }
         });
@@ -1858,7 +1891,7 @@ export class ExpressionEvaluator {
     // the specified type arguments, reporting errors as appropriate.
     // Returns the specialized type and a boolean indicating whether
     // the type indicates a class type (true) or an object type (false).
-    private _createSpecializeClassType(classType: ClassType, typeArgs: TypeResult[],
+    private _createSpecializeClassType(classType: ClassType, typeArgs: TypeResult[] | undefined,
             errorNode: ExpressionNode, flags: EvaluatorFlags): Type {
 
         // Handle the special-case classes that are not defined
@@ -1898,9 +1931,12 @@ export class ExpressionEvaluator {
                     return this._createSpecialType(classType, typeArgs, flags, 2);
                 }
 
-                case 'Protocol':
-                case 'Tuple': {
+                case 'Protocol': {
                     return this._createSpecialType(classType, typeArgs, flags);
+                }
+
+                case 'Tuple': {
+                    return this._createTupleType(typeArgs);
                 }
 
                 case 'Union': {
