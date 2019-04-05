@@ -3,7 +3,7 @@
 Pyright can be run as either a VS Code extension or as a node-based command-line tool. The command-line version allows for the following options:
 
 | Flag                               | Description                                           |
-| ---------------------------------- | ----------------------------------------------------  |
+| :--------------------------------- | :---------------------------------------------------  |
 | -h, --help                          | Show help message                                    |
 | -p, --project FILE OR DIRECTORY     | Use the configuration file at this location          |
 | --timing                            | Print detailed timing stats                          |
@@ -22,7 +22,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 # Pyright Exit Codes
 
 | Exit Code   | Meaning                                                           |
-| ----------- | ----------------------------------------------------------------  |
+| :---------- | :---------------------------------------------------------------  |
 | 0           | No errors or warnings reported                                    |
 | 1           | One or more errors or warnings reported                           |
 | 2           | Fatal error occurred with no errors or warnings reported          |
