@@ -11,6 +11,7 @@
 
 import * as assert from 'assert';
 
+import { DiagnosticLevel } from '../common/configOptions';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
@@ -404,10 +405,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         // Apply all of the decorators in reverse order.
+        let foundUnknown = false;
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
             decoratedType = this._applyDecorator(decoratedType, functionType, decorator, node);
+            if (decoratedType instanceof UnknownType) {
+                // Report this error only on the first unknown type.
+                if (!foundUnknown) {
+                    this._addDiagnostic(
+                        this._fileInfo.configOptions.reportUntypedFunctionDecorator,
+                        `Untyped function declarator obscures type of function`,
+                        node.decorators[i]);
+
+                    foundUnknown = true;
+                }
+            }
         }
 
         let declaration: Declaration = {
@@ -1130,18 +1143,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Is it a function call?
         if (decoratorNode.arguments) {
             if (leftExpressionType instanceof FunctionType) {
-                if (leftExpressionType.getBuiltInName() === 'abstractmethod') {
-                    originalFunctionType.setIsAbstractMethod();
-                    outputType = inputFunctionType;
-                } else {
-                    // TODO - need to finish
-                    outputType = UnknownType.create();
-
-                }
+                // TODO - need to finish
+                outputType = UnknownType.create();
             } else if (leftExpressionType instanceof OverloadedFunctionType) {
                 // TODO - need to finish
                 outputType = UnknownType.create();
-
             }
         } else {
             outputType = TypeUtils.doForSubtypes(inputFunctionType, subtype => {
@@ -1149,7 +1155,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     return leftExpressionType;
                 }
 
-                if (leftExpressionType instanceof ClassType) {
+                if (leftExpressionType instanceof FunctionType) {
+                    if (leftExpressionType.getBuiltInName() === 'abstractmethod') {
+                        originalFunctionType.setIsAbstractMethod();
+                        return inputFunctionType;
+                    }
+
+                    // TODO - need to finish
+                } else if (leftExpressionType instanceof ClassType) {
                     if (leftExpressionType.isBuiltIn()) {
                         if (leftExpressionType.getClassName() === 'staticmethod') {
                             originalFunctionType.setIsStaticMethod();
@@ -1954,10 +1967,24 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return newScope!;
     }
 
+    private _addWarning(message: string, range: TextRange) {
+        if (!this._currentScope.isNotExecuted()) {
+            this._fileInfo.diagnosticSink.addWarningWithTextRange(message, range);
+        }
+    }
+
     private _addError(message: string, textRange: TextRange) {
         // Don't emit error if the scope is guaranteed not to be executed.
         if (!this._currentScope.isNotExecuted()) {
             this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
+        }
+    }
+
+    private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
+        if (diagLevel === 'error') {
+            this._addError(message, textRange);
+        } else if (diagLevel === 'warning') {
+            this._addWarning(message, textRange);
         }
     }
 
