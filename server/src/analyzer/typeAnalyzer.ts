@@ -1175,14 +1175,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
 
-                // TODO - need to log error
+                this._fileInfo.console.error("Cannot combine subtypes for output type because left-expression is a class but with an unkown type");
                 return UnknownType.create();
             });
         }
 
         if (!outputType) {
             outputType = UnknownType.create();
-            // TODO - need to log a warning here
+            this._fileInfo.console.warn("Fail to detect output type");
         }
 
         return outputType;
