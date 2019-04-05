@@ -391,14 +391,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
+        let decoratedType: Type = functionType;
+
+        // TODO - properly handle generator and coroutine types.
         if (node.isAsync || functionScope.getYieldType().getSourceCount() > 0) {
-            // TODO - need to properly handle coroutines and generators.
-            // For now, just set the return type to be unknown.
-            functionType.setDeclaredReturnType(UnknownType.create());
+            decoratedType = UnknownType.create();
         }
 
         // Apply all of the decorators in reverse order.
-        let decoratedType: Type = functionType;
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
@@ -413,7 +413,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             declaredType: decoratedType
         };
         this._bindNameNodeToType(node.name, decoratedType, declaration);
-        this._updateExpressionTypeForNode(node.name, functionType);
 
         if (isMethod) {
             if (!functionType.isClassMethod() && !functionType.isStaticMethod()) {
@@ -421,6 +420,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
             this._validateMethod(node, functionType);
         }
+
+        this._updateExpressionTypeForNode(node.name, functionType);
 
         return false;
     }
@@ -570,8 +571,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     let evaluator = this._getEvaluator();
                     let memberType = evaluator.getTypeFromObjectMember(enterMethodName, exprType);
 
-                    if (memberType && memberType instanceof FunctionType) {
-                        exprType = memberType.getEffectiveReturnType();
+                    if (memberType) {
+                        if (memberType instanceof FunctionType) {
+                            exprType = memberType.getEffectiveReturnType();
+                        } else if (memberType.isAny()) {
+                            exprType = memberType;
+                        }
                     }
                 }
 
@@ -1109,11 +1114,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // decorator function described by the decoratorNode.
     private _applyDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
             decoratorNode: DecoratorNode, node: FunctionNode): Type {
-
-        // If the input type is unknown, the output type is unknown as well.
-        if (inputFunctionType.isAny()) {
-            return inputFunctionType;
-        }
 
         const leftExpressionType = this._getTypeOfExpression(decoratorNode.leftExpression);
         let outputType: Type | undefined;
