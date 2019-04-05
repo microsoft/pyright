@@ -12,6 +12,7 @@
       "args": [
         "-p",
         "${workspaceRoot}/../brain",
+        "--timing",
         "-w"
       ],
       "internalConsoleOptions": "openOnSessionStart",

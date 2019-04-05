@@ -25,8 +25,8 @@ const toolName = 'pyright';
 
 enum ExitStatus {
     Success = 0,
-    DiagnosticsPresent_OutputsSkipped = 1,
-    DiagnosticsPresent_OutputsGenerated = 2
+    DiagnosticsReported = 1,
+    FatalError = 2
 }
 
 function processArgs() {
@@ -34,9 +34,10 @@ function processArgs() {
         { name: 'files', type: String, multiple: true, defaultOption: true },
         { name: 'help', alias: 'h', type: Boolean },
         { name: 'project', alias: 'p', type: String },
+        { name: 'timing' },
         { name: 'typeshed-path', alias: 't', type: String },
         { name: 'venv-path', alias: 'v', type: String },
-        { name: 'watch', alias: 'w', type: Boolean }
+        { name: 'watch', alias: 'w' }
     ];
 
     let args: CommandLineOptions;
@@ -73,7 +74,7 @@ function processArgs() {
         options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshed-path']));
     }
 
-    let watch = !!args.watch;
+    let watch = args.watch !== undefined;
     options.watch = watch;
 
     if ((options.fileSpecs === undefined || options.fileSpecs.length === 0) && !args.project) {
@@ -85,17 +86,22 @@ function processArgs() {
 
     service.setCompletionCallback(results => {
         if (results.fatalErrorOccurred) {
-            process.exit(ExitStatus.DiagnosticsPresent_OutputsSkipped);
+            process.exit(ExitStatus.FatalError);
         }
 
         if (results.diagnostics.length > 0) {
             reportDiagnostics(results.diagnostics);
         }
 
-        timingStats.print(console);
+        if (args.timing !== undefined) {
+            timingStats.print(console);
+        }
 
-        if (!watch) {
-            process.exit(ExitStatus.DiagnosticsPresent_OutputsGenerated);
+        if (watch === undefined) {
+            process.exit(
+                results.diagnostics.length > 0 ?
+                ExitStatus.DiagnosticsReported :
+                ExitStatus.Success);
         }
     });
 
@@ -115,6 +121,7 @@ function printUsage() {
         '  Options:\n' +
         '  -h,--help                        Show this help message\n' +
         '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +
+        '  --timing                         Print detailed timing stats\n' +
         '  -t,--typeshed-path DIRECTORY     Use typeshed type stubs at this location\n' +
         '  -v,--venv-path DIRECTORY         Directory that contains virtual environments\n' +
         '  -w,--watch                       Continue to run and watch for changes\n'

@@ -6,6 +6,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | ---------------------------------- | ----------------------------------------------------  |
 | -h, --help                          | Show help message                                    |
 | -p, --project FILE OR DIRECTORY     | Use the configuration file at this location          |
+| --timing                            | Print detailed timing stats                          |
 | -t, --typeshed-path DIRECTORY       | Use typeshed type stubs at this location (1)         |
 | -v, --venv-path DIRECTORY           | Directory that contains virtual environments (2)     |
 | -w, --watch                         | Continue to run and watch for changes (3)            |
@@ -17,3 +18,9 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 
 (3) When running in watch mode, pyright will reanalyze only those files that have been modified. These “deltas” are typically much faster than the initial analysis, which needs to analyze all files in the source tree.
 
+
+# Pyright Exit Codes
+
+0: No errors or warnings reported
+1: One or more errors or warnings reported
+2: Fatal error occurred with no errors or warnings reported
