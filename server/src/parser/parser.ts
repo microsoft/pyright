@@ -101,7 +101,7 @@ export class Parser {
                     }
 
                     let statement = this._parseStatement();
-                    if (!statement) {
+                    if (statement === undefined) {
                         // Perform basic error recovery to get to the next line.
                         this._consumeTokensUntilType(TokenType.NewLine);
                     } else {
@@ -275,7 +275,7 @@ export class Parser {
                 }
 
                 let statement = this._parseStatement();
-                if (!statement) {
+                if (statement === undefined) {
                     // Perform basic error recovery to get to the next line.
                     this._consumeTokensUntilType(TokenType.NewLine);
                 } else {
@@ -343,14 +343,14 @@ export class Parser {
     private _tryParseListComprehension<T extends ParseNode>(target: T): ListComprehensionNode<T> | undefined {
         let compFor = this._tryParseCompForStatement();
 
-        if (!compFor) {
+        if (compFor === undefined) {
             return undefined;
         }
 
         let compList: ListComprehensionIterNode[] = [compFor];
         while (true) {
             let compIter = this._tryParseCompForStatement() || this._tryParseCompIfStatement();
-            if (!compIter) {
+            if (compIter === undefined) {
                 break;
             }
             compList.push(compIter);
@@ -459,13 +459,13 @@ export class Parser {
 
                 if (this._consumeTokenIfKeyword(KeywordType.As)) {
                     symbolName = this._getTokenIfIdentifier();
-                    if (!symbolName) {
+                    if (symbolName === undefined) {
                         this._addError('Expected symbol name after "as"', this._peekToken());
                     }
                 }
             }
 
-            if (!typeExpr) {
+            if (typeExpr === undefined) {
                 if (sawCatchAllExcept) {
                     this._addError('Only one catch-all except clause is allowed', exceptToken);
                 }
@@ -509,7 +509,7 @@ export class Parser {
         let defToken = this._getKeywordToken(KeywordType.Def);
 
         let nameToken = this._getTokenIfIdentifier();
-        if (!nameToken) {
+        if (nameToken === undefined) {
             this._addError('Expected function name after "def"', defToken);
             nameToken = new IdentifierToken(0, 0, '');
         }
@@ -653,7 +653,7 @@ export class Parser {
         }
 
         let paramName = this._getTokenIfIdentifier();
-        if (!paramName) {
+        if (paramName === undefined) {
             if (starCount === 1) {
                 let paramNode = new ParameterNode(firstToken, ParameterCategory.VarArgList);
                 return paramNode;
@@ -769,14 +769,14 @@ export class Parser {
         let callNameExpr: ExpressionNode | undefined;
         while (true) {
             let namePart = this._getTokenIfIdentifier();
-            if (!namePart) {
+            if (namePart === undefined) {
                 this._addError('Expected decorator name', this._peekToken());
                 break;
             }
 
             let namePartNode = new NameNode(namePart);
 
-            if (!callNameExpr) {
+            if (callNameExpr === undefined) {
                 callNameExpr = namePartNode;
             } else {
                 callNameExpr = new MemberAccessExpressionNode(callNameExpr, namePartNode);
@@ -787,7 +787,7 @@ export class Parser {
             }
         }
 
-        if (!callNameExpr) {
+        if (callNameExpr === undefined) {
             callNameExpr = new ErrorExpressionNode(this._peekToken());
         }
 
@@ -817,7 +817,7 @@ export class Parser {
         let classToken = this._getKeywordToken(KeywordType.Class);
 
         let nameToken = this._getTokenIfIdentifier();
-        if (!nameToken) {
+        if (nameToken === undefined) {
             this._addError('Expected class name', this._peekToken());
             nameToken = new IdentifierToken(0, 0, '');
         }
@@ -912,7 +912,7 @@ export class Parser {
 
                 while (true) {
                     let importName = this._getTokenIfIdentifier();
-                    if (!importName) {
+                    if (importName === undefined) {
                         break;
                     }
 
@@ -920,7 +920,7 @@ export class Parser {
 
                     if (this._consumeTokenIfKeyword(KeywordType.As)) {
                         let aliasName = this._getTokenIfIdentifier();
-                        if (!aliasName) {
+                        if (aliasName === undefined) {
                             this._addError('Expected alias symbol name', this._peekToken());
                         } else {
                             importFromAsNode.alias = new NameNode(aliasName);
@@ -1007,7 +1007,7 @@ export class Parser {
 
         while (true) {
             let identifier = this._getTokenIfIdentifier([KeywordType.Import]);
-            if (!identifier) {
+            if (identifier === undefined) {
                 if (!allowJustDots || moduleNameNode.leadingDots === 0) {
                     this._addError('Expected module name', this._peekToken());
                 }
@@ -1048,7 +1048,7 @@ export class Parser {
 
         while (true) {
             let name = this._getTokenIfIdentifier();
-            if (!name) {
+            if (name === undefined) {
                 this._addError('Expected identifier', this._peekToken());
                 break;
             }
@@ -1624,7 +1624,7 @@ export class Parser {
             } else if (this._consumeTokenIfType(TokenType.Dot)) {
                 // Is it a member access?
                 let memberName = this._getTokenIfIdentifier();
-                if (!memberName) {
+                if (memberName === undefined) {
                     return this._handleExpressionParseError('Expected member name after "."');
                 }
                 atomExpression = new MemberAccessExpressionNode(
@@ -2123,7 +2123,7 @@ export class Parser {
             return this._parseChainAssignments(leftExpr);
         }
 
-        if (!annotationExpr && Tokenizer.isOperatorAssignment(this._peekOperatorType())) {
+        if (annotationExpr === undefined && Tokenizer.isOperatorAssignment(this._peekOperatorType())) {
             let operatorToken = this._getNextToken() as OperatorToken;
 
             // Is the left side of the assignment assignable?
@@ -2149,7 +2149,7 @@ export class Parser {
 
         let rightExpr: ExpressionNode | undefined;
         rightExpr = this._tryParseYieldExpression();
-        if (!rightExpr) {
+        if (rightExpr === undefined) {
             rightExpr = this._parseTestListAsExpression('Expected expression to the right of "="');
         }
 

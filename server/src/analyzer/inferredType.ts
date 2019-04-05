@@ -67,7 +67,7 @@ export class InferredType {
         // Recompute the combined type.
         let newCombinedType: Type | undefined;
         for (let source of this._sources) {
-            if (!newCombinedType) {
+            if (newCombinedType === undefined) {
                 newCombinedType = source.type;
             } else {
                 newCombinedType = TypeUtils.combineTypes([newCombinedType, source.type]);

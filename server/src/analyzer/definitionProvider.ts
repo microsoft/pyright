@@ -39,7 +39,7 @@ export class DefinitionProvider {
             // If this is an imported module name, try to map the position
             // to the resolved import path.
             let importInfo = AnalyzerNodeInfo.getImportInfo(node);
-            if (!importInfo) {
+            if (importInfo === undefined) {
                 return undefined;
             }
 

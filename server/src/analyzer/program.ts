@@ -464,7 +464,7 @@ export class Program {
     getDefinitionForPosition(filePath: string, position: DiagnosticTextPosition):
             DocumentTextRange | undefined {
         let sourceFile = this.getSourceFile(filePath);
-        if (!sourceFile) {
+        if (sourceFile === undefined) {
             return undefined;
         }
 
@@ -474,7 +474,7 @@ export class Program {
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
             string | undefined {
         let sourceFile = this.getSourceFile(filePath);
-        if (!sourceFile) {
+        if (sourceFile === undefined) {
             return undefined;
         }
 

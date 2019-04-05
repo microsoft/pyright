@@ -1011,7 +1011,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         }
                     }
 
-                    if (!symbolType) {
+                    if (symbolType === undefined) {
                         symbolType = UnknownType.create();
                     }
 
@@ -1180,7 +1180,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             });
         }
 
-        if (!outputType) {
+        if (outputType === undefined) {
             outputType = UnknownType.create();
             // TODO - need to log a warning here
         }
@@ -1471,7 +1471,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             typeOfExpr: Type, isInstanceMember: boolean) {
 
         let classDef = ParseTreeUtils.getEnclosingClass(node);
-        if (!classDef) {
+        if (classDef === undefined) {
             return;
         }
 
@@ -1620,7 +1620,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let oldType = AnalyzerNodeInfo.getExpressionType(node);
         AnalyzerNodeInfo.setExpressionTypeVersion(node, this._analysisVersion);
 
-        if (!oldType || !oldType.isSame(exprType)) {
+        if (oldType === undefined || !oldType.isSame(exprType)) {
             let replaceType = true;
 
             // In rare cases, we can run into a situation where an "unknown"

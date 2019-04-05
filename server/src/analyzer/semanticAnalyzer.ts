@@ -798,7 +798,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 let memberName = memberNameNode.nameToken.value;
                 let memberInfo = TypeUtils.lookUpClassMember(classType, memberName);
 
-                if (!memberInfo) {
+                if (memberInfo === undefined) {
                     const memberFields = isInstance ?
                         classType.getInstanceFields() : classType.getClassFields();
                     memberFields.set(memberName,

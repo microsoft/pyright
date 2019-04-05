@@ -245,7 +245,7 @@ export class ExpressionEvaluator {
             }
         }
 
-        if (!type) {
+        if (type === undefined) {
             this._addError(`'${ name }' is not defined`, node);
             type = UnknownType.create();
         }
@@ -339,7 +339,7 @@ export class ExpressionEvaluator {
             type = UnknownType.create();
         }
 
-        if (!type) {
+        if (type === undefined) {
             this._addError(
                 `'${ memberName }' is not a known member of '${ baseType.asString() }'`,
                 node.memberName);
@@ -370,7 +370,7 @@ export class ExpressionEvaluator {
         if (memberType instanceof FunctionType) {
             // If the caller specified no base type, always strip the
             // first parameter. This is used in cases like constructors.
-            if (!baseType) {
+            if (baseType === undefined) {
                 return TypeUtils.stripFirstParameter(memberType);
             } else if (memberType.isInstanceMethod()) {
                 if (baseType instanceof ObjectType) {
@@ -622,7 +622,7 @@ export class ExpressionEvaluator {
 
                     // If the parameter to type() is not statically known,
                     // fall back to unknown.
-                    if (!type) {
+                    if (type === undefined) {
                         type = UnknownType.create();
                     }
                 } else if (className === 'TypeVar') {
@@ -634,7 +634,7 @@ export class ExpressionEvaluator {
             }
 
             // Assume this is a call to the constructor.
-            if (!type) {
+            if (type === undefined) {
                 type = this._validateConstructorArguments(node, callType);
             }
         } else if (callType instanceof FunctionType) {
@@ -770,7 +770,7 @@ export class ExpressionEvaluator {
                 `Expected no arguments to '${ type.getClassName() }' constructor`, node);
         }
 
-        if (!returnType) {
+        if (returnType === undefined) {
             returnType = new ObjectType(type);
         }
 
@@ -1237,7 +1237,7 @@ export class ExpressionEvaluator {
                             // Record names in a map to detect duplicates.
                             entryMap[entryName] = entryName;
 
-                            if (!entryType) {
+                            if (entryType === undefined) {
                                 entryType = UnknownType.create();
                             }
 
@@ -1319,7 +1319,7 @@ export class ExpressionEvaluator {
             }
         }
 
-        if (!type) {
+        if (type === undefined) {
             return undefined;
         }
 
@@ -1588,7 +1588,7 @@ export class ExpressionEvaluator {
         // The lambda node is updated by typeAnalyzer. If the type wasn't
         // already cached, we'll return an unknown type.
         let type = AnalyzerNodeInfo.getExpressionType(node);
-        if (!type) {
+        if (type === undefined) {
             type = UnknownType.create();
         }
 

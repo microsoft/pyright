@@ -126,7 +126,7 @@ _connection.onDefinition(params => {
     };
 
     let location = _analyzerService.getDefinitionForPosition(filePath, position);
-    if (!location) {
+    if (location === undefined) {
         return undefined;
     }
     return Location.create(_convertPathToUri(location.path), _convertRange(location.range));
@@ -184,14 +184,14 @@ function _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
 }
 
 function _convertRange(range?: DiagnosticTextRange): Range {
-    if (!range) {
+    if (range === undefined) {
         return Range.create(_convertPosition(), _convertPosition());
     }
     return Range.create(_convertPosition(range.start), _convertPosition(range.end));
 }
 
 function _convertPosition(position?: DiagnosticTextPosition): Position {
-    if (!position) {
+    if (position === undefined) {
         return Position.create(0, 0);
     }
     return Position.create(position.line, position.column);

@@ -195,7 +195,7 @@ export class Scope {
                 targetScope = this;
             } else {
                 let scopeWithName = this.lookUpSymbolRecursive(name);
-                if (!scopeWithName) {
+                if (scopeWithName === undefined) {
                     continue;
                 }
 

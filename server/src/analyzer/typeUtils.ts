@@ -474,7 +474,7 @@ export class TypeUtils {
 
             destClassFields.forEach((symbol, name) => {
                 const classMemberInfo = TypeUtils.lookUpClassMember(srcType, name, false);
-                if (!classMemberInfo) {
+                if (classMemberInfo === undefined) {
                     diag.addMessage(`'${ name }' is not present`);
                     missingNames.push(name);
                 } else {
@@ -648,7 +648,7 @@ export class TypeUtils {
         }
 
         if (type instanceof TypeVarType) {
-            if (!typeVarMap) {
+            if typeVarMap === undefined) {
                 return this._getConcreteTypeFromTypeVar(type, recursionLevel);
             }
 
