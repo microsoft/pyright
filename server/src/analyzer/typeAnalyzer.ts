@@ -303,7 +303,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         let typeSourceId = paramNode ?
                             AnalyzerNodeInfo.getTypeSourceId(paramNode) :
                             DefaultTypeSourceId;
-                        this._bindNameToType(param.name, param.type, typeSourceId, declaration);
+
+                        // If the type contains type variables, specialize them now
+                        // so we conver them to a concrete type (or unknown if there
+                        // are is no bound or contraints).
+                        const specializedParamType = TypeUtils.specializeType(param.type, undefined);
+                        this._bindNameToType(param.name, specializedParamType, typeSourceId, declaration);
                     }
                 }
             });
@@ -627,10 +632,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (declaredReturnType && !this._currentScope.getAlwaysReturnsOrRaises()) {
             const diagAddendum = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(declaredReturnType, returnType, diagAddendum)) {
+
+            // Specialize the return type in case it contains references to type variables.
+            // These will be replaced with the corresponding constraint or bound types.
+            const specializedDeclaredType = TypeUtils.specializeType(declaredReturnType, undefined);
+            if (!TypeUtils.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
                 this._addError(
                     `Expression of type '${ returnType.asString() }' cannot be assigned ` +
-                        `to return type '${ declaredReturnType.asString() }'` + diagAddendum.getString(),
+                        `to return type '${ specializedDeclaredType.asString() }'` + diagAddendum.getString(),
                     node.returnExpression ? node.returnExpression : node);
             }
         }
