@@ -157,7 +157,7 @@ function updateOptionsAndRestartService(settings?: Settings) {
     if (settings && settings.python) {
         if (settings.python.venvPath) {
             commandLineOptions.venvPath = combinePaths(_rootPath,
-                normalizePath(settings.python.venvPath));
+                normalizePath(_expandPathVariables(settings.python.venvPath)));
         }
         if (settings.python.analysis &&
                 settings.python.analysis.typeshedPaths &&
@@ -166,11 +166,26 @@ function updateOptionsAndRestartService(settings?: Settings) {
             // Pyright supports only one typeshed path currently, whereas the
             // official VS Code Python extension supports multiple typeshed paths.
             // We'll use the first one specified and ignore the rest.
-            commandLineOptions.typeshedPath = settings.python.analysis.typeshedPaths[0];
+            commandLineOptions.typeshedPath =
+                _expandPathVariables(settings.python.analysis.typeshedPaths[0]);
         }
     }
 
     _analyzerService.setOptions(commandLineOptions);
+}
+
+// Expands certain predefined variables supported within VS Code settings.
+// Ideally, VS Code would provide an API for doing this expansion, but
+// it doesn't. We'll handle the most common variables here as a convenience.
+function _expandPathVariables(value: string): string {
+    const regexp = /\$\{(.*?)\}/g;
+    return value.replace(regexp, (match: string, name: string) => {
+        const trimmedName = name.trim();
+        if (trimmedName === 'workspaceFolder') {
+            return _rootPath;
+        }
+        return match;
+    });
 }
 
 function _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
