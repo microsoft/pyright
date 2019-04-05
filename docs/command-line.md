@@ -21,6 +21,9 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 
 # Pyright Exit Codes
 
-0: No errors or warnings reported
-1: One or more errors or warnings reported
-2: Fatal error occurred with no errors or warnings reported
+| Exit Code   | Meaning                                                           |
+| ----------- | ----------------------------------------------------------------  |
+| 0           | No errors or warnings reported                                    |
+| 1           | One or more errors or warnings reported                           |
+| 2           | Fatal error occurred with no errors or warnings reported          |
+
