@@ -63,4 +63,8 @@ export default class StringMap<T> {
             callback(this._map[key], this.decodeKey(key));
         });
     }
+
+    isEmpty() {
+        return Object.keys(this._map).length === 0;
+    }
 }

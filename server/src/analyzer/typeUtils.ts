@@ -370,8 +370,6 @@ export class TypeUtils {
 
         let canAssign = true;
 
-        // TODO - handle the case where either the source or dest have custom decorators
-
         const srcParamCount = srcType.getParameterCount();
         const destParamCount = destType.getParameterCount();
         const minParamCount = Math.min(srcParamCount, destParamCount);
@@ -734,7 +732,14 @@ export class TypeUtils {
                         specializationNeeded = true;
                     }
                 }
+            } else if (typeVarMap && typeVarMap.get(typeParam.getName())) {
+                // If the type var map already contains this type var, use
+                // the existing type.
+                typeArgType = typeVarMap.get(typeParam.getName())!;
+                specializationNeeded = true;
             } else {
+                // If the type var map wasn't provided or doesn't contain this
+                // type var, specialize the type var.
                 typeArgType = TypeUtils.specializeTypeVarType(typeParam);
                 if (typeArgType !== typeParam) {
                     specializationNeeded = true;

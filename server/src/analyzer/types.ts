@@ -264,10 +264,7 @@ export class ClassType extends Type {
             }
 
             return this._typeArguments.find(
-                typeArg => {
-                    return typeArg.requiresSpecialization(
-                        recursionCount + 1) !== undefined;
-                }
+                typeArg => typeArg.requiresSpecialization(recursionCount + 1)
             ) !== undefined;
         }
 

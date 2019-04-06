@@ -77,7 +77,12 @@ export enum MemberAccessFlags {
 
     // By default, if the class has a __getattribute__ or __getattr__
     // magic method, it is assumed to have any member.
-    SkipGetAttributeCheck = 4
+    SkipGetAttributeCheck = 4,
+
+    // By default, if the class has a __get__ magic method, this is
+    // followed to determine the final type. Properties use this
+    // technique.
+    SkipGetCheck = 8
 }
 
 interface ParamAssignmentInfo {
@@ -114,7 +119,7 @@ export class ExpressionEvaluator {
 
     getTypeFromDecorator(node: DecoratorNode, functionType: Type): Type {
         const baseTypeResult = this._getTypeFromExpression(
-            node.leftExpression, EvaluatorFlags.None);
+            node.leftExpression, EvaluatorFlags.DoNotSpecialize);
 
         let decoratorCall = baseTypeResult;
 
@@ -452,7 +457,12 @@ export class ExpressionEvaluator {
             memberType: FunctionType): Type {
 
         let classType = baseType instanceof ClassType ? baseType : baseType.getClassType();
-        let typeVarMap = TypeUtils.buildTypeVarMapFromSpecializedClass(classType);
+
+        // If the class has already been specialized (fully or partially), use its
+        // existing type arg mappings. If it hasn't, use a fresh type arg map.
+        let typeVarMap = classType.getTypeArguments() ?
+            TypeUtils.buildTypeVarMapFromSpecializedClass(classType) :
+            new TypeVarMap();
 
         if (memberType.getParameterCount() > 0) {
             let firstParam = memberType.getParameters()[0];
@@ -501,19 +511,37 @@ export class ExpressionEvaluator {
     private _getTypeFromClassMemberName(memberName: string, classType: ClassType,
             flags: MemberAccessFlags): Type | undefined {
 
-        // Build a map of type parameters and the type arguments associated with them.
-        let typeArgMap = TypeUtils.buildTypeVarMapFromSpecializedClass(classType);
+        const conditionallySpecialize = (type: Type, classType: ClassType) => {
+            if (classType.getTypeArguments()) {
+                const typeVarMap = TypeUtils.buildTypeVarMapFromSpecializedClass(classType);
+                return TypeUtils.specializeType(type, typeVarMap);
+            }
+            return type;
+        };
 
         let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
             !(flags & MemberAccessFlags.SkipInstanceMembers),
             !(flags & MemberAccessFlags.SkipBaseClasses));
         if (memberInfo) {
             let type = TypeUtils.getEffectiveTypeOfMember(memberInfo);
-            if (type instanceof PropertyType) {
-                type = type.getEffectiveReturnType();
+
+            if (!(flags & MemberAccessFlags.SkipGetCheck)) {
+                if (type instanceof PropertyType) {
+                    type = conditionallySpecialize(type.getEffectiveReturnType(), classType);
+                } else if (type instanceof ObjectType) {
+                    // See if there's a magic "__get__" method on the object.
+                    const memberClassType = type.getClassType();
+                    let getMember = TypeUtils.lookUpClassMember(memberClassType, '__get__', false);
+                    if (getMember) {
+                        const getType = TypeUtils.getEffectiveTypeOfMember(getMember);
+                        if (getType instanceof FunctionType) {
+                            type = conditionallySpecialize(getType.getEffectiveReturnType(), memberClassType);
+                        }
+                    }
+                }
             }
 
-            return TypeUtils.specializeType(type, typeArgMap);
+            return conditionallySpecialize(type, classType);
         }
 
         if (!(flags & MemberAccessFlags.SkipGetAttributeCheck)) {
@@ -530,8 +558,7 @@ export class ExpressionEvaluator {
                 if (!isObjectClass) {
                     const getAttribType = TypeUtils.getEffectiveTypeOfMember(getAttribMember);
                     if (getAttribType instanceof FunctionType) {
-                        return TypeUtils.specializeType(
-                            getAttribType.getEffectiveReturnType(), typeArgMap);
+                        return conditionallySpecialize(getAttribType.getEffectiveReturnType(), classType);
                     }
                 }
             }
@@ -540,8 +567,7 @@ export class ExpressionEvaluator {
             if (getAttrMember) {
                 const getAttrType = TypeUtils.getEffectiveTypeOfMember(getAttrMember);
                 if (getAttrType instanceof FunctionType) {
-                    return TypeUtils.specializeType(
-                        getAttrType.getEffectiveReturnType(), typeArgMap);
+                    return conditionallySpecialize(getAttrType.getEffectiveReturnType(), classType);
                 }
             }
         }
@@ -702,7 +728,7 @@ export class ExpressionEvaluator {
                 type = this._createNamedTupleType(errorNode, argList, false);
                 flags &= ~EvaluatorFlags.ConvertClassToObject;
             } else {
-                type = this._validateCallArguments(errorNode, argList, callType);
+                type = this._validateCallArguments(errorNode, argList, callType, new TypeVarMap());
                 if (!type) {
                     type = UnknownType.create();
                 }
@@ -712,7 +738,7 @@ export class ExpressionEvaluator {
             let functionType = this._findOverloadedFunctionType(errorNode, argList, callType);
 
             if (functionType) {
-                type = this._validateCallArguments(errorNode, argList, callType);
+                type = this._validateCallArguments(errorNode, argList, callType, new TypeVarMap());
                 if (!type) {
                     type = UnknownType.create();
                 }
@@ -740,8 +766,7 @@ export class ExpressionEvaluator {
                 if (memberType && memberType instanceof FunctionType) {
                     const callMethodType = this._partiallySpecializeFunctionForBoundClassOrObject(
                         callType, memberType);
-                    this._validateCallArguments(errorNode, argList, callMethodType);
-                    type = this._validateCallArguments(errorNode, argList, callType);
+                    type = this._validateCallArguments(errorNode, argList, callMethodType, new TypeVarMap());
                     if (!type) {
                         type = UnknownType.create();
                     }
@@ -805,7 +830,7 @@ export class ExpressionEvaluator {
         // Temporarily disable diagnostic output.
         this._silenceDiagnostics(() => {
             for (let overload of callType.getOverloads()) {
-                if (this._validateCallArguments(errorNode, argList, overload.type)) {
+                if (this._validateCallArguments(errorNode, argList, overload.type, new TypeVarMap())) {
                     validOverload = overload.type;
                     break;
                 }
@@ -815,7 +840,10 @@ export class ExpressionEvaluator {
         return validOverload;
     }
 
-     // Tries to match the arguments of a call to the constructor for a class.
+    // Tries to match the arguments of a call to the constructor for a class.
+    // If successful, it returns the resulting (specialized) object type that
+    // is allocated by the constructor. If unsuccessful, it records diagnostic
+    // information and returns undefined.
     private _validateConstructorArguments(errorNode: ExpressionNode,
             argList: FunctionArgument[], type: ClassType): Type | undefined {
         let validatedTypes = false;
@@ -828,7 +856,8 @@ export class ExpressionEvaluator {
         if (constructorMethodType) {
             constructorMethodType = this._bindFunctionToClassOrObject(
                 type, constructorMethodType, true);
-            returnType = this._validateCallArguments(errorNode, argList, constructorMethodType);
+            returnType = this._validateCallArguments(errorNode, argList, constructorMethodType,
+                new TypeVarMap());
             validatedTypes = true;
         }
 
@@ -841,8 +870,14 @@ export class ExpressionEvaluator {
             if (initMethodType) {
                 initMethodType = this._bindFunctionToClassOrObject(
                     new ObjectType(type), initMethodType);
-                if (this._validateCallArguments(errorNode, argList, initMethodType)) {
-                    returnType = new ObjectType(type);
+                let typeVarMap = new TypeVarMap();
+                if (this._validateCallArguments(errorNode, argList, initMethodType, typeVarMap)) {
+                    let specializedClassType = type;
+                    if (!typeVarMap.isEmpty()) {
+                        specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
+                        assert(specializedClassType instanceof ClassType);
+                    }
+                    returnType = new ObjectType(specializedClassType);
                 }
                 validatedTypes = true;
             }
@@ -851,7 +886,7 @@ export class ExpressionEvaluator {
         if (!validatedTypes && argList.length > 0) {
             this._addError(
                 `Expected no arguments to '${ type.getClassName() }' constructor`, errorNode);
-        } else {
+        } else if (!returnType) {
             // There was no __new__ or __init__, so fall back on the
             // object.__new__ which takes no parameters.
             returnType = new ObjectType(type);
@@ -865,19 +900,25 @@ export class ExpressionEvaluator {
         return returnType;
     }
 
+    // Validates that the arguments can be assigned to the call's parameter
+    // list, specializes the call based on arg types, and returns the
+    // specialized type of the return value. If it detects an error along
+    // the way, it emits a diagnostic and returns undefined.
     private _validateCallArguments(errorNode: ExpressionNode,
-            argList: FunctionArgument[], callType: Type): Type | undefined {
+            argList: FunctionArgument[], callType: Type, typeVarMap: TypeVarMap): Type | undefined {
 
         let returnType: Type | undefined;
 
         if (callType.isAny()) {
             returnType = UnknownType.create();
         } else if (callType instanceof FunctionType) {
-            returnType = this._validateFunctionArguments(errorNode, argList, callType);
+            returnType = this._validateFunctionArguments(errorNode, argList, callType, typeVarMap);
         } else if (callType instanceof OverloadedFunctionType) {
-            const overloadedFunctionType = this._findOverloadedFunctionType(errorNode, argList, callType);
+            const overloadedFunctionType = this._findOverloadedFunctionType(
+                errorNode, argList, callType);
             if (overloadedFunctionType) {
-                returnType = this._validateFunctionArguments(errorNode, argList, overloadedFunctionType);
+                returnType = this._validateFunctionArguments(errorNode,
+                    argList, overloadedFunctionType, typeVarMap);
             }
         } else if (callType instanceof ClassType) {
             if (!callType.isSpecialBuiltIn()) {
@@ -895,7 +936,8 @@ export class ExpressionEvaluator {
 
             if (memberType && memberType instanceof FunctionType) {
                 const callMethodType = TypeUtils.stripFirstParameter(memberType);
-                returnType = this._validateCallArguments(errorNode, argList, callMethodType);
+                returnType = this._validateCallArguments(
+                    errorNode, argList, callMethodType, typeVarMap);
             }
         } else if (callType instanceof UnionType) {
             let returnTypes: Type[] = [];
@@ -907,7 +949,8 @@ export class ExpressionEvaluator {
                         `Object of type 'None' cannot be called`,
                         errorNode);
                 } else {
-                    let entryReturnType = this._validateCallArguments(errorNode, argList, type);
+                    let entryReturnType = this._validateCallArguments(
+                        errorNode, argList, type, typeVarMap);
                     if (entryReturnType) {
                         returnTypes.push(entryReturnType);
                     }
@@ -932,7 +975,7 @@ export class ExpressionEvaluator {
     // specialized return type of the call.
     // This logic is based on PEP 3102: https://www.python.org/dev/peps/pep-3102/
     private _validateFunctionArguments(errorNode: ExpressionNode,
-            argList: FunctionArgument[], type: FunctionType): Type | undefined {
+            argList: FunctionArgument[], type: FunctionType, typeVarMap: TypeVarMap): Type | undefined {
 
         let argIndex = 0;
         const typeParams = type.getParameters();
@@ -987,10 +1030,6 @@ export class ExpressionEvaluator {
         if (positionalArgCount < 0) {
             positionalArgCount = argList.length;
         }
-
-        // Create a type variable map that records the matched type arguments
-        // as we match arguments to parameters.
-        const typeVarMap = new TypeVarMap();
 
         // Map the positional args to parameters.
         let paramIndex = 0;

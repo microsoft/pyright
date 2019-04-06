@@ -120,8 +120,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitClass(node: ClassNode): boolean {
-        this.walkMultiple(node.decorators);
-
         // We should have already resolved most of the base class
         // parameters in the semantic analyzer, but if these parameters
         // are variables, they may not have been resolved at that time.
@@ -168,8 +166,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 TypeUtils.getTypeVarArgumentsRecursive(argType));
         });
 
-        this.walkMultiple(node.arguments);
-
         // Update the type parameters for the class.
         if (classType.setTypeParameters(typeParameters)) {
             this._setAnalysisChanged();
@@ -187,12 +183,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         };
         this._bindNameNodeToType(node.name, classType, declaration);
 
+        this.walkMultiple(node.decorators);
+        this.walkMultiple(node.arguments);
         return false;
     }
 
     visitFunction(node: FunctionNode): boolean {
         const isMethod = ParseTreeUtils.isFunctionInClass(node);
-        this.walkMultiple(node.decorators);
 
         const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
         assert(functionType instanceof FunctionType);
@@ -443,6 +440,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this._updateExpressionTypeForNode(node.name, functionType);
 
+        this.walkMultiple(node.decorators);
         return false;
     }
 
@@ -1140,7 +1138,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _applyDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
             decoratorNode: DecoratorNode, node: FunctionNode): Type {
 
-        const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression);
+        const decoratorType = this._getTypeOfExpression(
+            decoratorNode.leftExpression, false);
 
         if (decoratorType.isAny()) {
             return decoratorType;
@@ -1621,9 +1620,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return evaluator.getType(node, EvaluatorFlags.ConvertClassToObject);
     }
 
-    private _getTypeOfExpression(node: ExpressionNode): Type {
+    private _getTypeOfExpression(node: ExpressionNode, specialize = true): Type {
         let evaluator = this._getEvaluator();
-        return evaluator.getType(node, EvaluatorFlags.None);
+        return evaluator.getType(node, specialize ? EvaluatorFlags.None : EvaluatorFlags.DoNotSpecialize);
     }
 
     private _updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
