@@ -29,7 +29,7 @@ Pyright includes both a [command-line tool](/docs/command-line.md) and a [Langua
 
 
 ## Documentation
-* [Getting Started with Type Annotations](/docs/getting-started.md)
+* [Getting Started with Type Checking](/docs/getting-started.md)
 * [Command-line Options](/docs/command-line.md)
 * [Configuration](/docs/configuration.md)
 * [Import Resolution](/docs/import-resolution.md)
