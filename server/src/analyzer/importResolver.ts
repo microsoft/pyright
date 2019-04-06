@@ -203,11 +203,6 @@ export class ImportResolver {
         // Determine which search path this file is part of.
         let curDir = getDirectoryPath(this._sourceFilePath);
         for (let i = 1; i < moduleName.leadingDots; i++) {
-            // Make sure we don't walk out of the root directory.
-            if (!curDir.startsWith(this._executionEnvironment.root)) {
-                return undefined;
-            }
-
             curDir = getDirectoryPath(curDir);
         }
 
