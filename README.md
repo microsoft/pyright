@@ -29,7 +29,7 @@ Pyright includes both a [command-line tool](/docs/command-line.md) and a [Langua
 
 
 ## Documentation
-* [Getting Started](/docs/getting-started.md)
+* [Getting Started with Type Annotations](/docs/getting-started.md)
 * [Command-line Options](/docs/command-line.md)
 * [Configuration](/docs/configuration.md)
 * [Import Resolution](/docs/import-resolution.md)
@@ -57,14 +57,18 @@ Pyright is a work in progress. Type-checking capabilities are not fully implemen
 ## Installation
 You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
 
-The latest version of the command-line tool can be installed with npm:
-`npm i pyright`
+The latest version of the command-line tool can be installed with npm. To install it globally:
+`npm install -g pyright`
 
-To install it globally:
-`npm i -g pyright`
+On MacOS or Linux, sudo is required to install globally:
+`sudo npm install -g pyright`
 
-To run the command-line tool:
-`npx pyright <options>`
+Once installed, you can run the tool from the command line as follows:
+`pyright <options>`
+
+To update to the latest version:
+`sudo npm update -g pyright`
+
 
 
 ## TODO
