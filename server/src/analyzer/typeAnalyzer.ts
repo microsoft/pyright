@@ -23,7 +23,8 @@ import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode
     MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParseNode, RaiseNode,
     ReturnNode, SliceExpressionNode, StarExpressionNode, SuiteNode,
     TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    UnaryExpressionNode, WhileNode, WithNode, YieldExpressionNode,
+    YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -38,8 +39,8 @@ import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType, FunctionTypeFlags,
-    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType, TupleType,
-    Type, TypeCategory, TypeVarType, UnionType, UnknownType } from './types';
+    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType,
+    TupleType, Type, TypeCategory, TypeVarType, UnionType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface EnumClassInfo {
@@ -405,7 +406,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         // Apply all of the decorators in reverse order.
-        let foundUnknown = false;
+        let foundUnknown = decoratedType instanceof UnknownType;
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
@@ -416,7 +417,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._addDiagnostic(
                         this._fileInfo.configOptions.reportUntypedFunctionDecorator,
                         `Untyped function declarator obscures type of function`,
-                        node.decorators[i]);
+                        node.decorators[i].leftExpression);
 
                     foundUnknown = true;
                 }
@@ -1137,77 +1138,62 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _applyDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
             decoratorNode: DecoratorNode, node: FunctionNode): Type {
 
-        const leftExpressionType = this._getTypeOfExpression(decoratorNode.leftExpression);
-        let outputType: Type | undefined;
+        const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression);
 
-        // Is it a function call?
-        if (decoratorNode.arguments) {
-            if (leftExpressionType instanceof FunctionType) {
-                // TODO - need to finish
-                outputType = UnknownType.create();
-            } else if (leftExpressionType instanceof OverloadedFunctionType) {
-                // TODO - need to finish
-                outputType = UnknownType.create();
-            }
-        } else {
-            outputType = TypeUtils.doForSubtypes(inputFunctionType, subtype => {
-                if (leftExpressionType.isAny()) {
-                    return leftExpressionType;
+        if (decoratorType.isAny()) {
+            return decoratorType;
+        }
+
+        // Special-case the "overload" because it has no definition.
+        if (decoratorType instanceof ClassType && decoratorType.getClassName() === 'overload') {
+            let existingSymbol = this._currentScope.lookUpSymbol(node.name.nameToken.value);
+            let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
+            if (inputFunctionType instanceof FunctionType) {
+                if (existingSymbol && existingSymbol.currentType instanceof OverloadedFunctionType) {
+                    existingSymbol.currentType.addOverload(typeSourceId, inputFunctionType);
+                    return existingSymbol.currentType;
+                } else {
+                    let newOverloadType = new OverloadedFunctionType();
+                    newOverloadType.addOverload(typeSourceId, inputFunctionType);
+                    return newOverloadType;
                 }
+            }
+        }
 
-                if (leftExpressionType instanceof FunctionType) {
-                    if (leftExpressionType.getBuiltInName() === 'abstractmethod') {
-                        originalFunctionType.setIsAbstractMethod();
+        let evaluator = this._getEvaluator();
+        let returnType = evaluator.getTypeFromDecorator(decoratorNode, inputFunctionType);
+
+        // Check for some built-in decorator types with known semantics.
+        if (decoratorType instanceof FunctionType) {
+            if (decoratorType.getBuiltInName() === 'abstractmethod') {
+                originalFunctionType.setIsAbstractMethod();
+                return returnType;
+            }
+        } else if (decoratorType instanceof ClassType) {
+            if (decoratorType.isBuiltIn()) {
+                switch (decoratorType.getClassName()) {
+                    case 'staticmethod': {
+                        originalFunctionType.setIsStaticMethod();
                         return inputFunctionType;
                     }
 
-                    // TODO - need to finish
-                } else if (leftExpressionType instanceof ClassType) {
-                    if (leftExpressionType.isBuiltIn()) {
-                        if (leftExpressionType.getClassName() === 'staticmethod') {
-                            originalFunctionType.setIsStaticMethod();
-                            return subtype;
+                    case 'classmethod': {
+                        originalFunctionType.setIsClassMethod();
+                        return inputFunctionType;
+                    }
+
+                    case 'property': {
+                        if (inputFunctionType instanceof FunctionType) {
+                            return new PropertyType(inputFunctionType);
                         }
 
-                        if (leftExpressionType.getClassName() === 'classmethod') {
-                            originalFunctionType.setIsClassMethod();
-                            return subtype;
-                        }
-
-                        if (leftExpressionType.getClassName() === 'overload') {
-                            let existingSymbol = this._currentScope.lookUpSymbol(node.name.nameToken.value);
-                            let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
-                            if (subtype instanceof FunctionType) {
-                                if (existingSymbol && existingSymbol.currentType instanceof OverloadedFunctionType) {
-                                    existingSymbol.currentType.addOverload(typeSourceId, subtype);
-                                    return existingSymbol.currentType;
-                                } else {
-                                    let newOverloadType = new OverloadedFunctionType();
-                                    newOverloadType.addOverload(typeSourceId, subtype);
-                                    return newOverloadType;
-                                }
-                            }
-                        }
-
-                        if (leftExpressionType.getClassName() === 'property') {
-                            if (subtype instanceof FunctionType) {
-                                return new PropertyType(subtype);
-                            }
-                        }
+                        break;
                     }
                 }
-
-                // TODO - need to log error
-                return UnknownType.create();
-            });
+            }
         }
 
-        if (!outputType) {
-            outputType = UnknownType.create();
-            // TODO - need to log a warning here
-        }
-
-        return outputType;
+        return returnType;
     }
 
     // Performs checks on a function that is located within a class

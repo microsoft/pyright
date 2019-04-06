@@ -92,6 +92,10 @@ export class TypeUtils {
             return this.canAssignToTypeVar(destType, srcType, diag);
         }
 
+        if (destType.isAny() || srcType.isAny()) {
+            return true;
+        }
+
         if (srcType instanceof TypeVarType) {
             // This should happen only if we have a bug and forgot to specialize
             // the source type or the code being analyzed contains a bug where
@@ -100,10 +104,6 @@ export class TypeUtils {
             diag.addMessage(`Type '${ srcType.asString() }' cannot be assigned to ` +
                 `type '${ destType.asString() }'.`);
             return false;
-        }
-
-        if (destType.isAny() || srcType.isAny()) {
-            return true;
         }
 
         if (recursionCount > MaxCanAssignTypeRecursion) {
@@ -332,12 +332,7 @@ export class TypeUtils {
         // If there's a bound type, make sure the source is derived from it.
         const boundType = destType.getBoundType();
         if (boundType) {
-            let isCompatibleWithBoundType = false;
-            if (effectiveSrcType instanceof ObjectType && boundType instanceof ObjectType) {
-                isCompatibleWithBoundType = effectiveSrcType.getClassType().isDerivedFrom(boundType.getClassType());
-            }
-
-            if (!isCompatibleWithBoundType) {
+            if (!TypeUtils.canAssignType(boundType, effectiveSrcType, diag.createAddendum())) {
                 diag.addMessage(`Type '${ effectiveSrcType.asString() }' is not compatible with ` +
                     `bound type '${ boundType.asString() }' for TypeVar '${ destType.getName() }'`);
                 return false;
