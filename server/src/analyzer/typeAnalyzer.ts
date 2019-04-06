@@ -20,8 +20,8 @@ import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode
     CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, ExceptNode, ExpressionNode,
     ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode,
     IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode,
-    MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParseNode, RaiseNode,
-    ReturnNode, SliceExpressionNode, StarExpressionNode, SuiteNode,
+    MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParseNode,
+    RaiseNode, ReturnNode, SliceExpressionNode, StarExpressionNode, SuiteNode,
     TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
     UnaryExpressionNode, WhileNode, WithNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
@@ -38,9 +38,10 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { TypeConstraintBuilder } from './typeConstraint';
-import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType, FunctionTypeFlags,
-    ModuleType, NoneType, ObjectType, OverloadedFunctionType, PropertyType,
-    TupleType, Type, TypeCategory, TypeVarType, UnionType, UnknownType } from './types';
+import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
+    FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
+    PropertyType, TupleType, Type, TypeCategory, TypeVarType, UnionType,
+    UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 interface EnumClassInfo {
@@ -1083,8 +1084,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const assignedName = node.valueExpression.nameToken.value;
                 let specialType: Type | undefined;
 
-                const specialTypes = ['Tuple', 'Generic', 'Protocol', 'Callable', 'Type', 'ClassVar',
-                    'Final', 'Literal'];
+                const specialTypes = ['Tuple', 'Generic', 'Protocol', 'Callable',
+                    'Type', 'ClassVar', 'Final', 'Literal'];
                 if (specialTypes.find(t => t === assignedName)) {
                     // Synthesize a class.
                     let specialClassType = new ClassType(assignedName,

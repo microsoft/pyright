@@ -668,6 +668,15 @@ export class TypeUtils {
         if (type instanceof ObjectType) {
             const classType = this._specializeClassType(type.getClassType(),
                 typeVarMap, recursionLevel + 1);
+
+            // Handle the "Type" special class.
+            if (classType.isBuiltIn() && classType.getClassName() === 'Type') {
+                const typeArgs = classType.getTypeArguments();
+                if (typeArgs && typeArgs.length >= 1) {
+                    return typeArgs[0];
+                }
+            }
+
             // Don't allocate a new ObjectType class if the class
             // didn't need to be specialized.
             if (classType === type.getClassType()) {

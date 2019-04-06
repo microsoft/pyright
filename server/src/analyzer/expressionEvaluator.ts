@@ -724,14 +724,27 @@ export class ExpressionEvaluator {
                 type = UnknownType.create();
             }
         } else if (callType instanceof ObjectType) {
-            let memberType = this._getTypeFromClassMemberName(
-                '__call__', callType.getClassType(), MemberAccessFlags.SkipGetAttributeCheck);
-            if (memberType && memberType instanceof FunctionType) {
-                const callMethodType = TypeUtils.stripFirstParameter(memberType);
-                this._validateCallArguments(errorNode, argList, callMethodType);
-                type = this._validateCallArguments(errorNode, argList, callType);
-                if (!type) {
-                    type = UnknownType.create();
+            const classType = callType.getClassType();
+
+            // Handle the "Type" object specially.
+            if (classType.isBuiltIn() && classType.getClassName() === 'Type') {
+                const typeArgs = classType.getTypeArguments();
+                if (typeArgs && typeArgs.length >= 1 && typeArgs[0] instanceof ObjectType) {
+                    const objType = typeArgs[0] as ObjectType;
+                    type = this._validateConstructorArguments(errorNode,
+                        argList, objType.getClassType());
+                }
+            } else {
+                let memberType = this._getTypeFromClassMemberName(
+                    '__call__', classType, MemberAccessFlags.SkipGetAttributeCheck);
+                if (memberType && memberType instanceof FunctionType) {
+                    const callMethodType = this._partiallySpecializeFunctionForBoundClassOrObject(
+                        callType, memberType);
+                    this._validateCallArguments(errorNode, argList, callMethodType);
+                    type = this._validateCallArguments(errorNode, argList, callType);
+                    if (!type) {
+                        type = UnknownType.create();
+                    }
                 }
             }
         } else if (callType instanceof UnionType) {
