@@ -1167,7 +1167,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (decoratorType instanceof FunctionType) {
             if (decoratorType.getBuiltInName() === 'abstractmethod') {
                 originalFunctionType.setIsAbstractMethod();
-                return returnType;
+                return inputFunctionType;
             }
         } else if (decoratorType instanceof ClassType) {
             if (decoratorType.isBuiltIn()) {

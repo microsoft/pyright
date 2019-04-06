@@ -400,7 +400,7 @@ export class SourceFile {
             }
 
             this._console.log(
-                `An internal error occurred while analyzing ${ this.getFilePath() }: ` + message);
+                `An internal error occurred while performing semantic analysis for ${ this.getFilePath() }: ` + message);
 
             const diagSink = new DiagnosticSink();
             diagSink.addError(`An internal error occurred while performing semantic analysis`);
@@ -445,7 +445,7 @@ export class SourceFile {
             }
 
             this._console.log(
-                `An internal error occurred while analyzing ${ this.getFilePath() }: ` + message);
+                `An internal error occurred while while performing type analysis for ${ this.getFilePath() }: ` + message);
             const diagSink = new DiagnosticSink();
             diagSink.addError(`An internal error occurred while performing type analysis`);
 

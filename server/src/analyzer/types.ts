@@ -558,6 +558,10 @@ export class ObjectType extends Type {
     }
 
     requiresSpecialization(recursionCount = 0) {
+        if (recursionCount > MaxRecursionCount) {
+            return false;
+        }
+
         return this._classType.requiresSpecialization(recursionCount + 1);
     }
 }
@@ -800,21 +804,18 @@ export class FunctionType extends Type {
     }
 
     requiresSpecialization(recursionCount = 0) {
-        if (this._functionDetails.parameters.find(
-                param => param.type.requiresSpecialization(recursionCount + 1))) {
+        if (recursionCount > MaxRecursionCount) {
+            return false;
+        }
+
+        for (let i = 0; i < this._functionDetails.parameters.length; i ++) {
+            if (this.getEffectiveParameterType(i).requiresSpecialization(recursionCount + 1)) {
+                return true;
+            }
+        }
+
+        if (this.getEffectiveReturnType().requiresSpecialization(recursionCount + 1)) {
             return true;
-        }
-
-        if (this._functionDetails.declaredReturnType) {
-            if (this._functionDetails.declaredReturnType.requiresSpecialization(recursionCount + 1)) {
-                return true;
-            }
-        }
-
-        if (this._functionDetails.declaredYieldType) {
-            if (this._functionDetails.declaredYieldType.requiresSpecialization(recursionCount + 1)) {
-                return true;
-            }
         }
 
         return false;
@@ -1146,6 +1147,10 @@ export class TupleType extends Type {
     }
 
     requiresSpecialization(recursionCount = 0) {
+        if (recursionCount > MaxRecursionCount) {
+            return false;
+        }
+
         return this._entryTypes.find(
             type => type.requiresSpecialization(recursionCount + 1)) !== undefined;
     }
@@ -1211,12 +1216,40 @@ export class TypeVarType extends Type {
     }
 
     isSame(type2: Type): boolean {
-        if (!super.isSame(type2) || this._constraints.length !== (type2 as TypeVarType)._constraints.length) {
+        if (!super.isSame(type2)) {
+            return false;
+        }
+
+        const type2TypeVar = type2 as TypeVarType;
+
+        if (this.getName() !== type2TypeVar.getName()) {
+            return false;
+        }
+
+        if (this._boundType) {
+            if (!type2TypeVar._boundType || !type2TypeVar._boundType.isSame(this._boundType)) {
+                return false;
+            }
+        } else {
+            if (type2TypeVar._boundType) {
+                return false;
+            }
+        }
+
+        if (this._isContravariant !== type2TypeVar._isContravariant) {
+            return false;
+        }
+
+        if (this._isCovariant !== type2TypeVar._isCovariant) {
+            return false;
+        }
+
+        if (this._constraints.length !== type2TypeVar._constraints.length) {
             return false;
         }
 
         for (let i = 0; i < this._constraints.length; i++) {
-            if (!this._constraints[i].isSame((type2 as TypeVarType)._constraints[i])) {
+            if (!this._constraints[i].isSame(type2TypeVar._constraints[i])) {
                 return false;
             }
         }

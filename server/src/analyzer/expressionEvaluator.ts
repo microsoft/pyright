@@ -703,6 +703,9 @@ export class ExpressionEvaluator {
                 flags &= ~EvaluatorFlags.ConvertClassToObject;
             } else {
                 type = this._validateCallArguments(errorNode, argList, callType);
+                if (!type) {
+                    type = UnknownType.create();
+                }
             }
         } else if (callType instanceof OverloadedFunctionType) {
             // Determine which of the overloads (if any) match.
@@ -710,6 +713,9 @@ export class ExpressionEvaluator {
 
             if (functionType) {
                 type = this._validateCallArguments(errorNode, argList, callType);
+                if (!type) {
+                    type = UnknownType.create();
+                }
             } else {
                 const exprString = ParseTreeUtils.printExpression(errorNode);
                 this._addError(
@@ -723,7 +729,10 @@ export class ExpressionEvaluator {
             if (memberType && memberType instanceof FunctionType) {
                 const callMethodType = TypeUtils.stripFirstParameter(memberType);
                 this._validateCallArguments(errorNode, argList, callMethodType);
-                type = memberType.getEffectiveReturnType();
+                type = this._validateCallArguments(errorNode, argList, callType);
+                if (!type) {
+                    type = UnknownType.create();
+                }
             }
         } else if (callType instanceof UnionType) {
             let returnTypes: Type[] = [];
@@ -821,8 +830,8 @@ export class ExpressionEvaluator {
                     new ObjectType(type), initMethodType);
                 if (this._validateCallArguments(errorNode, argList, initMethodType)) {
                     returnType = new ObjectType(type);
-                    validatedTypes = true;
                 }
+                validatedTypes = true;
             }
         }
 
@@ -1277,7 +1286,7 @@ export class ExpressionEvaluator {
                                     let entryTypeInfo = this._getTypeFromExpression(entry.expressions[1],
                                         EvaluatorFlags.None);
                                     if (entryTypeInfo) {
-                                        entryType = entryTypeInfo.type;
+                                        entryType = this._convertClassToObject(entryTypeInfo.type);
                                     }
                                 } else {
                                     this._addError(
@@ -1763,7 +1772,7 @@ export class ExpressionEvaluator {
         return tupleType;
     }
 
-    // Creates an Optional type annotation.
+    // Creates an Optional[X, Y, Z] type.
     private _createOptionalType(errorNode: ExpressionNode, typeArgs?: TypeResult[]): Type {
         if (!typeArgs || typeArgs.length !== 1) {
             this._addError(`Expected one type parameter after Optional`, errorNode);
@@ -1773,6 +1782,7 @@ export class ExpressionEvaluator {
         return TypeUtils.combineTypes([typeArgs[0].type, NoneType.create()]);
     }
 
+    // Creates a ClassVar type.
     private _createClassVarType(typeArgs: TypeResult[] | undefined): Type {
         if (typeArgs && typeArgs.length > 1) {
             this._addError(`Expected only one type parameter after ClassVar`, typeArgs[1].node);
@@ -1782,6 +1792,9 @@ export class ExpressionEvaluator {
         return this._convertClassToObject(type);
 }
 
+    // Creates one of several "special" types that are defined in typing.pyi
+    // but not declared in their entirety. This includes the likes of "Type",
+    // "Callable", etc.
     private _createSpecialType(classType: ClassType, typeArgs: TypeResult[] | undefined,
             flags: EvaluatorFlags, paramLimit?: number): Type {
 
@@ -1807,7 +1820,7 @@ export class ExpressionEvaluator {
         return this._convertClassToObjectConditional(specializedType, flags);
     }
 
-    // Unpacks the index expression for a Union type annotation.
+    // Unpacks the index expression for a "Union[X, Y, Z]" type annotation.
     private _createUnionType(typeArgs?: TypeResult[]): Type {
         let types: Type[] = [];
 
@@ -1826,6 +1839,8 @@ export class ExpressionEvaluator {
         return NoneType.create();
     }
 
+    // Creates a type that represents "Generic[T1, T2, ...]", used in the
+    // definition of a generic class.
     private _createGenericType(errorNode: ExpressionNode, classType: ClassType,
             typeArgs?: TypeResult[]): Type {
 
@@ -1912,15 +1927,17 @@ export class ExpressionEvaluator {
             return unconstrainedType;
         }
 
+        // Apply constraints from the current scope and its outer scopes.
+        let constrainedType = this._applyScopeTypeConstraintRecursive(
+            node, unconstrainedType);
+
         // Apply constraints associated with the expression we're
         // currently walking.
-        let constrainedType = unconstrainedType;
         this._expressionTypeConstraints.forEach(constraint => {
             constrainedType = constraint.applyToType(node, constrainedType);
         });
 
-        // Apply constraints from the current scope and its outer scopes.
-        return this._applyScopeTypeConstraintRecursive(node, constrainedType);
+        return constrainedType;
     }
 
     private _applyScopeTypeConstraintRecursive(node: ExpressionNode, type: Type,
