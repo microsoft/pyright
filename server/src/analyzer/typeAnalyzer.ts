@@ -974,8 +974,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitImportFrom(node: ImportFromNode): boolean {
         let importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
-        if (importInfo && importInfo.importFound && importInfo.resolvedPaths.length > 0) {
-            let resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+        if (importInfo && importInfo.importFound) {
+            let resolvedPath = importInfo.resolvedPaths.length > 0 ?
+                importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
 
             // Empty list implies "import *"
             if (node.imports.length === 0) {

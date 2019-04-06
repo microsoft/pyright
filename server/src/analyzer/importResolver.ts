@@ -228,22 +228,8 @@ export class ImportResolver {
         let isStubFile = false;
         let implicitImports: ImplicitImport[] = [];
 
-        for (let i = 0; i < moduleName.nameParts.length; i++) {
-            dirPath = combinePaths(dirPath, moduleName.nameParts[i]);
-            if (!fs.existsSync(dirPath) || !isDirectory(dirPath)) {
-                // We weren't able to find the subdirectory. See if we can
-                // find a ".py" or ".pyi" file with this name.
-                let pyFilePath = stripTrailingDirectorySeparator(dirPath) + '.py';
-                let pyiFilePath = pyFilePath + 'i';
-                if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
-                    resolvedPaths.push(pyiFilePath);
-                    isStubFile = true;
-                } else if (fs.existsSync(pyFilePath) && isFile(pyFilePath)) {
-                    resolvedPaths.push(pyFilePath);
-                }
-                break;
-            }
-
+        // Handle the "from . import XXX" case.
+        if (moduleName.nameParts.length === 0) {
             let pyFilePath = combinePaths(dirPath, '__init__.py');
             let pyiFilePath = pyFilePath + 'i';
             if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
@@ -253,14 +239,46 @@ export class ImportResolver {
                 resolvedPaths.push(pyFilePath);
             } else {
                 resolvedPaths.push(dirPath);
-                if (i === moduleName.nameParts.length - 1) {
-                    isNamespacePackage = true;
-                }
+                isNamespacePackage = true;
             }
 
-            if (i === moduleName.nameParts.length - 1) {
-                implicitImports = this._findImplicitImports(
-                    dirPath, [pyFilePath, pyiFilePath]);
+            implicitImports = this._findImplicitImports(
+                dirPath, [pyFilePath, pyiFilePath]);
+        } else {
+            for (let i = 0; i < moduleName.nameParts.length; i++) {
+                dirPath = combinePaths(dirPath, moduleName.nameParts[i]);
+                if (!fs.existsSync(dirPath) || !isDirectory(dirPath)) {
+                    // We weren't able to find the subdirectory. See if we can
+                    // find a ".py" or ".pyi" file with this name.
+                    let pyFilePath = stripTrailingDirectorySeparator(dirPath) + '.py';
+                    let pyiFilePath = pyFilePath + 'i';
+                    if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
+                        resolvedPaths.push(pyiFilePath);
+                        isStubFile = true;
+                    } else if (fs.existsSync(pyFilePath) && isFile(pyFilePath)) {
+                        resolvedPaths.push(pyFilePath);
+                    }
+                    break;
+                }
+
+                let pyFilePath = combinePaths(dirPath, '__init__.py');
+                let pyiFilePath = pyFilePath + 'i';
+                if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
+                    resolvedPaths.push(pyiFilePath);
+                    isStubFile = true;
+                } else if (fs.existsSync(pyFilePath) && isFile(pyFilePath)) {
+                    resolvedPaths.push(pyFilePath);
+                } else {
+                    resolvedPaths.push(dirPath);
+                    if (i === moduleName.nameParts.length - 1) {
+                        isNamespacePackage = true;
+                    }
+                }
+
+                if (i === moduleName.nameParts.length - 1) {
+                    implicitImports = this._findImplicitImports(
+                        dirPath, [pyFilePath, pyiFilePath]);
+                }
             }
         }
 
@@ -268,7 +286,7 @@ export class ImportResolver {
         if (allowPartial) {
             importFound = resolvedPaths.length > 0;
         } else {
-            importFound = resolvedPaths.length === moduleName.nameParts.length;
+            importFound = resolvedPaths.length >= moduleName.nameParts.length;
 
             // Empty namespace packages are not allowed.
             if (isNamespacePackage && implicitImports.length === 0) {
