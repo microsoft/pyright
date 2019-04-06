@@ -220,13 +220,13 @@ export class AnalyzerService {
                 }
             }
         } else {
-            this._console.log(
-                `No venvPath specified. Falling back on PYTHONPATH:`);
             const pythonPaths = PythonPathUtils.getPythonPathEnvironmentVariable();
             if (pythonPaths.length === 0) {
                 this._console.log(
-                    `  No valid paths found in PYTHONPATH environment variable.`);
+                    `No venvPath specified, and no valid paths found in PYTHONPATH environment variable.`);
             } else {
+                this._console.log(
+                    `Using PYTHONPATH directories to resolve imports:`);
                 pythonPaths.forEach(path => {
                     this._console.log(`  ${ path }`);
                 });
@@ -324,7 +324,7 @@ export class AnalyzerService {
     }
 
     private _updateTrackedFileList() {
-        this._console.log(`Finding source files`);
+        this._console.log(`Searching for source files`);
         let fileList = this._getFileNamesFromFileSpecs();
 
         let fileDiagnostics = this._program.setTrackedFiles(fileList);

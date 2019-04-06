@@ -93,11 +93,17 @@ function processArgs() {
             reportDiagnostics(results.diagnostics);
         }
 
-        if (args.timing !== undefined) {
-            timingStats.print(console);
+        if (!watch) {
+            // Print the total time.
+            timingStats.printSummary(console);
         }
 
-        if (watch === undefined) {
+        if (args.timing !== undefined) {
+            // Print the timing details.
+            timingStats.printDetails(console);
+        }
+
+        if (!watch) {
             process.exit(
                 results.diagnostics.length > 0 ?
                 ExitStatus.DiagnosticsReported :

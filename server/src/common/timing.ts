@@ -46,6 +46,7 @@ export class TimingStat {
 }
 
 export class TimingStats {
+    totalDuration = new Duration();
     findFilesTime = new TimingStat();
     readFileTime = new TimingStat();
     tokenizeFileTime = new TimingStat();
@@ -54,7 +55,11 @@ export class TimingStats {
     semanticAnalyzerTime = new TimingStat();
     typeAnalyzerTime = new TimingStat();
 
-    print(console: ConsoleInterface) {
+    printSummary(console: ConsoleInterface) {
+        console.log(`Completed in ${ this.totalDuration.getDurationInSeconds() }sec`);
+    }
+
+    printDetails(console: ConsoleInterface) {
         console.log('Find Source Files:    ' + this.findFilesTime.printTime());
         console.log('Read Source Files:    ' + this.readFileTime.printTime());
         console.log('Tokenize:             ' + this.tokenizeFileTime.printTime());
