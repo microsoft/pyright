@@ -77,11 +77,6 @@ function processArgs() {
     let watch = args.watch !== undefined;
     options.watch = watch;
 
-    if ((options.fileSpecs === undefined || options.fileSpecs.length === 0) && !args.project) {
-        printUsage();
-        return;
-    }
-
     let service = new AnalyzerService();
 
     service.setCompletionCallback(results => {
