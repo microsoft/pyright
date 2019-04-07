@@ -1143,4 +1143,13 @@ export class TypeUtils {
 
         return unionType;
     }
+
+    static isDataClass(type: ClassType): boolean {
+      return (type.getBaseClasses().length === 1 && type.getBaseClasses()[0].type.asString() === 'Type[NamedTuple]');
+    }
+
+    static isFunctionType(type: Type): boolean {
+      return (type.category === TypeCategory.Function || type.category === TypeCategory.OverloadedFunction);
+    }
+
 }
