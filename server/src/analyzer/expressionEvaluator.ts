@@ -209,13 +209,11 @@ export class ExpressionEvaluator {
         } else if (node instanceof TernaryExpressionNode) {
             typeResult = this._getTypeFromTernaryExpression(node, flags);
         } else if (node instanceof ListComprehensionNode) {
-            // TODO - need to implement
             // TODO - infer list type
             // this._getTypeFromExpression(node.baseExpression, EvaluatorFlags.None);
             let type = ScopeUtils.getBuiltInObject(this._scope, 'list', [UnknownType.create()]);
             typeResult = { type, node };
         } else if (node instanceof DictionaryNode) {
-            // TODO - need to implement
             // TODO - infer dict type
             let type = ScopeUtils.getBuiltInObject(this._scope, 'dict',
                 [UnknownType.create(), UnknownType.create()]);
@@ -226,7 +224,6 @@ export class ExpressionEvaluator {
             node.entries.forEach(expr => {
                 this._getTypeFromExpression(expr, EvaluatorFlags.None);
             });
-            // TODO - need to implement
             // TODO - infer set type
             let type = ScopeUtils.getBuiltInObject(this._scope, 'set', [UnknownType.create()]);
             typeResult = { type, node };
@@ -375,7 +372,6 @@ export class ExpressionEvaluator {
             }
         } else if (baseType instanceof PropertyType) {
             if (memberName === 'getter' || memberName === 'setter' || memberName === 'deleter') {
-                // TODO - need to come up with new strategy for properties
                 // Synthesize a decorator.
                 const decoratorType = new FunctionType(FunctionTypeFlags.InstanceMethod);
                 decoratorType.addParameter({
@@ -1735,9 +1731,11 @@ export class ExpressionEvaluator {
         if (node.startValue) {
             this._getTypeFromExpression(node.startValue, EvaluatorFlags.None);
         }
+
         if (node.endValue) {
             this._getTypeFromExpression(node.endValue, EvaluatorFlags.None);
         }
+
         if (node.stepValue) {
             this._getTypeFromExpression(node.stepValue, EvaluatorFlags.None);
         }

@@ -217,8 +217,8 @@ export class TypeUtils {
                 }
             } else if (srcType instanceof ClassType) {
                 // TODO - need to create function corresponding to constructor for class.
-                diag.addMessage(`Constructor is not compatible with type '${ destType.asString() }'.`);
-                return false;
+                // diag.addMessage(`Constructor is not compatible with type '${ destType.asString() }'.`);
+                return true;
             }
 
             if (srcFunction) {
@@ -896,7 +896,11 @@ export class TypeUtils {
         });
     }
 
-    static getMetaclass(type: ClassType): ClassType | UnknownType | undefined {
+    static getMetaclass(type: ClassType, recursionCount = 0): ClassType | UnknownType | undefined {
+        if (recursionCount > MaxCanAssignTypeRecursion) {
+            return undefined;
+        }
+
         for (let base of type.getBaseClasses()) {
             if (base.isMetaclass) {
                 if (base.type instanceof ClassType) {
@@ -907,8 +911,7 @@ export class TypeUtils {
             }
 
             if (base.type instanceof ClassType) {
-                // TODO - add protection for infinite recursion
-                let metaclass = this.getMetaclass(base.type);
+                let metaclass = this.getMetaclass(base.type, recursionCount + 1);
                 if (metaclass) {
                     return metaclass;
                 }
