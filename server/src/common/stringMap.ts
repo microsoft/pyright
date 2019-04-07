@@ -67,4 +67,17 @@ export default class StringMap<T> {
     isEmpty() {
         return Object.keys(this._map).length === 0;
     }
+
+    // subtract all keys in rhs from this
+    subtract(rhs: StringMap<T>): StringMap<T> {
+        Object.keys(rhs._map).forEach(k => { delete this._map[k]; });
+        return this;
+    }
+
+    // merge 'rhs' into this without overwriting existing keys
+    merge(rhs: StringMap<T>): StringMap<T> {
+        Object.keys(rhs._map).forEach(k => { if (!this._map[k]) { this._map[k] = rhs._map[k]; } });
+        return this;
+    }
+
 }
