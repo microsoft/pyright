@@ -867,7 +867,7 @@ export class ExpressionEvaluator {
             });
           });
           let boundType = this._bindFunctionToClassOrObject(new ObjectType(type), constructorMethodType);
-          this._validateCallArguments(node, boundType);
+          this._validateCallArguments(errorNode, argList, boundType, new TypeVarMap());
           validatedTypes = true;
         }
 
