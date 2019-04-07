@@ -849,6 +849,28 @@ export class ExpressionEvaluator {
         let validatedTypes = false;
         let returnType: Type | undefined;
 
+        if (TypeUtils.isDataClass(type)) {
+          let constructorMethodType: FunctionType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+          constructorMethodType.getParameters().push({
+            category: ParameterCategory.Simple,
+            name: 'self',
+            hasDefault: false,
+            type: type
+          });
+          type.getClassFields().forEach((s, k) => {
+            if (TypeUtils.isFunctionType(s.currentType) || k[0] === '_') { return; }
+            constructorMethodType.getParameters().push({
+              category: ParameterCategory.Simple,
+              name: k,
+              hasDefault: !type.getDataFields().get(k),
+              type: s.currentType
+            });
+          });
+          let boundType = this._bindFunctionToClassOrObject(new ObjectType(type), constructorMethodType);
+          this._validateCallArguments(node, boundType);
+          validatedTypes = true;
+        }
+
         // See if there's a "__new__" defined within the class (but not its base classes).
         let constructorMethodType = this._getTypeFromClassMemberName('__new__', type,
             MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
