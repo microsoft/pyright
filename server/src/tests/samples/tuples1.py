@@ -1,6 +1,6 @@
 # This sample file tests various aspects of type analysis for tuples.
 
-from typing import Tuple
+from typing import Any, Tuple
 import os
 
 def func1() -> Tuple[int, int, int]:
@@ -23,8 +23,8 @@ def func2() -> Tuple[int, int, str]:
     a = 1, 2, 3
 
     # This should generate an error because the
-    # number of items does not match.
-    return a
+    # item types don't match.
+    return a 
 
 def func3() -> Tuple[str, ...]:
     a = "1", 2, 3
@@ -54,4 +54,15 @@ def func7(a: tuple):
 def func8() -> str:
     dirname, fname = os.path.split('dir/file')
     return dirname
+
+
+def func9(param1: Tuple[int, ...]):
+    pass
+
+def func10() -> tuple[int]:
+    return (3, 4, 5, )
+
+func9(func10())
+func9((2, 3, 4))
+func9((2,))
 
