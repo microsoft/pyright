@@ -165,7 +165,7 @@ export class TypeUtils {
             }
 
             if (destType instanceof ClassType) {
-                return this._canAssignClass(destType, srcType, diag.createAddendum(),
+                return this._canAssignClass(destType, srcType, diag,
                     typeVarMap, allowSubclasses, recursionCount + 1);
             }
         }
@@ -175,7 +175,7 @@ export class TypeUtils {
 
             if (srcType instanceof ObjectType) {
                 return this._canAssignClass(destClassType, srcType.getClassType(),
-                    diag.createAddendum(), typeVarMap, allowSubclasses, recursionCount + 1);
+                    diag, typeVarMap, allowSubclasses, recursionCount + 1);
             }
         }
 
@@ -480,7 +480,7 @@ export class TypeUtils {
             assert(inheritanceChain.length > 0);
 
             return this._canAssignClassWithTypeArgs(srcType, inheritanceChain,
-                diag.createAddendum(), recursionCount + 1);
+                diag, recursionCount + 1);
         }
 
         // Special-case int-to-float conversion.
@@ -489,6 +489,8 @@ export class TypeUtils {
             return true;
         }
 
+        diag.addMessage(`'${ srcType.asString() }' is incompatible with ` +
+            `'${ destType.asString() }'`);
         return false;
     }
 
