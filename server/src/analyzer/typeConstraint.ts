@@ -16,7 +16,7 @@ import { BinaryExpressionNode, CallExpressionNode, ConstantNode, ExpressionNode,
     MemberAccessExpressionNode, NameNode, TypeAnnotationExpressionNode,
     UnaryExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { ClassType, NeverType, NoneType, ObjectType, TupleType, Type, UnionType } from './types';
+import { ClassType, NeverType, NoneType, ObjectType, Type, UnionType } from './types';
 import { TypeUtils } from './typeUtils';
 
 export interface ConditionalTypeConstraintResults {
@@ -422,18 +422,6 @@ export class TypeConstraintBuilder {
                             ifConstraints: [trueConstraint],
                             elseConstraints: [falseConstraint]
                         };
-                    } else if (classType instanceof TupleType) {
-                        let tupleBaseTypes = classType.getEntryTypes();
-                        if (tupleBaseTypes.length > 0 &&
-                                tupleBaseTypes.find(t => !(t instanceof ClassType)) === undefined) {
-                            const classTypeList = tupleBaseTypes.map(t => t as ClassType);
-                            const trueConstraint = new IsInstanceTypeConstraint(arg0Expr, classTypeList, true);
-                            const falseConstraint = new IsInstanceTypeConstraint(arg0Expr, classTypeList, false);
-                            return {
-                                ifConstraints: [trueConstraint],
-                                elseConstraints: [falseConstraint]
-                            };
-                        }
                     }
                 }
             }

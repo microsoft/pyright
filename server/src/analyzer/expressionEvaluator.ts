@@ -34,7 +34,7 @@ import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
-    PropertyType, TupleType, Type, TypeVarMap, TypeVarType, UnionType,
+    PropertyType, Type, TypeVarMap, TypeVarType, UnionType,
     UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
@@ -334,10 +334,6 @@ export class ExpressionEvaluator {
             type = this._validateTypeFromClassMemberAccess(
                 node.memberName, baseType.getClassType(), MemberAccessFlags.None);
             type = this._bindFunctionToClassOrObject(baseType, type);
-        } else if (baseType instanceof TupleType) {
-            type = this._validateTypeFromClassMemberAccess(
-                node.memberName, baseType.getBaseClass(), MemberAccessFlags.None);
-            type = this._bindFunctionToClassOrObject(new ObjectType(baseType.getBaseClass()), type);
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
             if (memberInfo) {
@@ -590,9 +586,6 @@ export class ExpressionEvaluator {
             } else if (subtype instanceof ObjectType) {
                 // TODO - need to implement
                 return UnknownType.create();
-            } else if (subtype instanceof TupleType) {
-                // TODO - need to implement
-                return UnknownType.create();
             } else if (subtype instanceof NoneType) {
                 this._addDiagnostic(
                     this._configOptions.reportOptionalSubscript,
@@ -646,18 +639,23 @@ export class ExpressionEvaluator {
         return typeResult;
     }
 
-    private _getTypeFromTupleExpression(node: TupleExpressionNode, flags: EvaluatorFlags): TypeResult {
-        let tupleType = new TupleType(ScopeUtils.getBuiltInType(this._scope, 'tuple') as ClassType);
+    private _getTypeFromTupleExpression(node: TupleExpressionNode,
+            flags: EvaluatorFlags): TypeResult {
 
-        node.expressions.forEach(expr => {
-            let entryTypeResult = this._getTypeFromExpression(expr, flags);
-            tupleType.addEntryType(entryTypeResult.type || UnknownType.create());
+        const entryTypes = node.expressions.map(expr => {
+            return this._getTypeFromExpression(
+                expr, flags) || UnknownType.create();
         });
 
-        return {
-            type: tupleType,
-            node
-        };
+        let type = UnknownType.create();
+        let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
+
+        if (builtInTupleType instanceof ClassType) {
+            type = this._createSpecialType(builtInTupleType, entryTypes,
+                EvaluatorFlags.ConvertClassToObject);
+        }
+
+        return { type, node };
     }
 
     private _getTypeFromCallExpression(node: CallExpressionNode,
@@ -1268,9 +1266,8 @@ export class ExpressionEvaluator {
         classFields.set('__class__', new Symbol(classType, DefaultTypeSourceId));
         const instanceFields = classType.getInstanceFields();
 
-        let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'tuple');
+        let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
         if (builtInTupleType instanceof ClassType) {
-            let tupleType = new TupleType(builtInTupleType);
             let constructorType = new FunctionType(FunctionTypeFlags.ClassMethod);
             constructorType.setDeclaredReturnType(new ObjectType(classType));
             constructorType.addParameter({
@@ -1305,7 +1302,6 @@ export class ExpressionEvaluator {
                             entryName = entryName.trim();
                             if (entryName) {
                                 let entryType = UnknownType.create();
-                                tupleType.addEntryType(entryType);
                                 const paramInfo: FunctionParameter = {
                                     category: ParameterCategory.Simple,
                                     name: entryName,
@@ -1372,7 +1368,6 @@ export class ExpressionEvaluator {
                                 entryType = UnknownType.create();
                             }
 
-                            tupleType.addEntryType(entryType);
                             const paramInfo: FunctionParameter = {
                                 category: ParameterCategory.Simple,
                                 name: entryName,
@@ -1793,35 +1788,6 @@ export class ExpressionEvaluator {
         return functionType;
     }
 
-    // Converts the type parameters for a Tuple type. It should have zero
-    // or more parameters, and the last one can be an ellipsis.
-    private _createTupleType(typeArgs?: TypeResult[]): TupleType {
-        let typeArgTypes = typeArgs ? typeArgs.map(t => t.type) : [];
-
-        if (!typeArgs) {
-            // PEP 484 indicates that "Tuple" is equivalent
-            // to "Tuple[Any, ...]".
-            typeArgTypes.push(AnyType.create(false));
-            typeArgTypes.push(AnyType.create(true));
-        }
-
-        let tupleType = new TupleType(ScopeUtils.getBuiltInType(this._scope, 'tuple') as ClassType);
-
-        if (typeArgTypes.length > 0) {
-            const lastType = typeArgTypes[typeArgTypes.length - 1];
-            if (lastType instanceof AnyType && lastType.isEllipsis()) {
-                tupleType.setAllowMoreEntries();
-                typeArgTypes.pop();
-            }
-        }
-
-        for (let typeArgType of typeArgTypes) {
-            tupleType.addEntryType(typeArgType);
-        }
-
-        return tupleType;
-    }
-
     // Creates an Optional[X, Y, Z] type.
     private _createOptionalType(errorNode: ExpressionNode, typeArgs?: TypeResult[]): Type {
         if (!typeArgs || typeArgs.length !== 1) {
@@ -2072,12 +2038,9 @@ export class ExpressionEvaluator {
                     return this._createSpecialType(classType, typeArgs, flags, 2);
                 }
 
-                case 'Protocol': {
-                    return this._createSpecialType(classType, typeArgs, flags);
-                }
-
+                case 'Protocol':
                 case 'Tuple': {
-                    return this._createTupleType(typeArgs);
+                    return this._createSpecialType(classType, typeArgs, flags);
                 }
 
                 case 'Union': {

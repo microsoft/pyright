@@ -40,7 +40,7 @@ import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
-    PropertyType, TupleType, Type, TypeCategory, TypeVarType, UnionType,
+    PropertyType, Type, TypeCategory, TypeVarType, UnionType,
     UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
@@ -343,10 +343,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     name: 'kwargs',
                     type: UnknownType.create()
                 });
+
                 if (classType.getBaseClasses().length > 0) {
                     let baseClass = classType.getBaseClasses()[0];
-                    if (baseClass instanceof ClassType) {
-                        superType.setDeclaredReturnType(new ObjectType(baseClass));
+                    if (baseClass.type instanceof ClassType) {
+                        superType.setDeclaredReturnType(new ObjectType(baseClass.type));
                     } else {
                         superType.setDeclaredReturnType(UnknownType.create());
                     }
@@ -698,16 +699,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._currentScope.addUnboundSymbol(node.name.nameToken.value);
             let exceptionType = this._getTypeOfExpression(node.typeExpression);
 
-            // If more than one type was specified for the exception,
-            // handle that here.
-            if (exceptionType instanceof TupleType) {
-                let tuple = exceptionType;
-                let unionType = new UnionType();
-                unionType.addTypes(tuple.getEntryTypes().map(t => {
+            // If more than one type was specified for the exception, we'll receive
+            // a specialized tuple object here.
+            const tupleType = TypeUtils.getSpecializedTupleType(exceptionType);
+            if (tupleType && tupleType.getTypeArguments()) {
+                const entryTypes = tupleType.getTypeArguments()!.map(t => {
                     return this._validateExceptionType(t, node.typeExpression!);
-                }));
-                exceptionType = unionType;
-            } else {
+                });
+                exceptionType = TypeUtils.combineTypes(entryTypes);
+            } else if (exceptionType instanceof ClassType) {
                 exceptionType = this._validateExceptionType(
                     exceptionType, node.typeExpression);
             }
@@ -1439,11 +1439,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return exceptionType;
         }
 
-        // Convert the class into an object type.
         if (exceptionType instanceof ClassType) {
+            const baseExceptionType = ScopeUtils.getBuiltInType(
+                this._currentScope, 'BaseException');
+            if (!baseExceptionType || !(baseExceptionType instanceof ClassType)) {
+                return new ObjectType(exceptionType);
+            }
+
+            if (!TypeUtils.derivesFromClassRecursive(exceptionType, baseExceptionType)) {
+                this._addError(
+                    `'${ exceptionType.asString() }' does not derive from ` +
+                    `'${ baseExceptionType.asString() }'`,
+                    errorNode);
+            }
+
             return new ObjectType(exceptionType);
-        } else if (exceptionType instanceof TupleType) {
-            return exceptionType;
         } else if (exceptionType instanceof ObjectType) {
             // TODO - we need to determine whether the type is an iterable
             // collection of classes. For now, just see if it derives
@@ -1458,7 +1468,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 return classType.isDerivedFrom(builtInType);
             }) !== undefined;
             if (isValid) {
-                return exceptionType;
+                return UnknownType.create();
             }
         }
 
@@ -1670,8 +1680,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         } else if (target instanceof TupleExpressionNode) {
             let assignedTypes = false;
 
-            if (type instanceof TupleType) {
-                const entryTypes = type.getEntryTypes();
+            const tupleType = TypeUtils.getSpecializedTupleType(type);
+            if (tupleType && tupleType.getTypeArguments()) {
+                const entryTypes = tupleType.getTypeArguments()!;
                 if (entryTypes.length !== target.expressions.length) {
                     this._addError(
                         `Tuple size mismatch: expected ${ target.expressions.length }` +
@@ -1874,14 +1885,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (baseType instanceof ObjectType) {
             let classMemberInfo = TypeUtils.lookUpClassMember(
                 baseType.getClassType(), memberNameValue);
-            if (classMemberInfo) {
-                if (classMemberInfo.symbol && classMemberInfo.symbol.declarations) {
-                    AnalyzerNodeInfo.setDeclaration(memberName, classMemberInfo.symbol.declarations[0]);
-                }
-            }
-        } else if (baseType instanceof TupleType) {
-            let classMemberInfo = TypeUtils.lookUpClassMember(
-                baseType.getBaseClass(), memberNameValue);
             if (classMemberInfo) {
                 if (classMemberInfo.symbol && classMemberInfo.symbol.declarations) {
                     AnalyzerNodeInfo.setDeclaration(memberName, classMemberInfo.symbol.declarations[0]);

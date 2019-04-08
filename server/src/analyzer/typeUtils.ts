@@ -14,7 +14,7 @@ import { ParameterCategory } from '../parser/parseNodes';
 import { Symbol } from './symbol';
 import { AnyType, ClassType, FunctionType,
     NeverType, NoneType, ObjectType, OverloadedFunctionType, SpecializedFunctionTypes,
-    TupleType, Type, TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
+    Type, TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
 
 const MaxCanAssignTypeRecursion = 20;
 
@@ -143,21 +143,6 @@ export class TypeUtils {
             return true;
         }
 
-        if (destType instanceof ObjectType) {
-            const destClassType = destType.getClassType();
-
-            // Construct a generic tuple object using the built-in tuple
-            // class so we can perform a comparison.
-            if (srcType instanceof TupleType) {
-                srcType = new ObjectType(srcType.getBaseClass());
-            }
-
-            if (srcType instanceof ObjectType) {
-                return this._canAssignClass(destClassType, srcType.getClassType(),
-                    diag.createAddendum(), typeVarMap, allowSubclasses, recursionCount + 1);
-            }
-        }
-
         if (srcType instanceof ClassType) {
             // Is the dest a generic "type" object?
             if (destType instanceof ObjectType) {
@@ -182,6 +167,15 @@ export class TypeUtils {
             if (destType instanceof ClassType) {
                 return this._canAssignClass(destType, srcType, diag.createAddendum(),
                     typeVarMap, allowSubclasses, recursionCount + 1);
+            }
+        }
+
+        if (destType instanceof ObjectType) {
+            const destClassType = destType.getClassType();
+
+            if (srcType instanceof ObjectType) {
+                return this._canAssignClass(destClassType, srcType.getClassType(),
+                    diag.createAddendum(), typeVarMap, allowSubclasses, recursionCount + 1);
             }
         }
 
@@ -225,39 +219,6 @@ export class TypeUtils {
                 return this._canAssignFunction(destType, srcFunction, diag.createAddendum(),
                     typeVarMap, recursionCount + 1);
             }
-        }
-
-        if (destType instanceof TupleType && srcType instanceof TupleType) {
-            const destEntries = destType.getEntryTypes();
-            const srcEntries = srcType.getEntryTypes();
-
-            if (srcEntries.length < destEntries.length  ||
-                    (srcEntries.length > destEntries.length && !destType.getAllowMoreEntries())) {
-
-                diag.addMessage(`Tuple entry count mismatch. Expected ${ destEntries.length } ` +
-                    `but got ${ srcEntries.length }.`);
-                return false;
-            }
-
-            const mismatchEntryIndex = srcEntries.findIndex((srcEntry, index) => {
-                // If there aren't enough dest entries, it's presumably because
-                // "allowMoreEntries" is true -- i.e. it's a "Tuple[Any, ...]".
-                if (index >= destEntries.length) {
-                    return false;
-                }
-
-                return !this.canAssignType(destEntries[index], srcEntry, diag.createAddendum(),
-                        typeVarMap, true, recursionCount + 1);
-            });
-
-            if (mismatchEntryIndex >= 0) {
-                diag.addMessage(`Entry ${ mismatchEntryIndex + 1 }: ` +
-                    `Type '${ srcEntries[mismatchEntryIndex].asString() }' ` +
-                    `cannot be assigned to type '${ destEntries[mismatchEntryIndex].asString() }'.`);
-                return false;
-            }
-
-            return true;
         }
 
         // None derives from object.
@@ -362,6 +323,23 @@ export class TypeUtils {
             `constraints imposed by TypeVar '${ destType.getName() }'`);
 
         return false;
+    }
+
+    // Determines whether the type is a Tuple class or object.
+    static getSpecializedTupleType(type: Type): ClassType | undefined {
+        let classType: ClassType | undefined;
+
+        if (type instanceof ClassType) {
+            classType = type;
+        } else if (type instanceof ObjectType) {
+            classType = type.getClassType();
+        }
+
+        if (classType && classType.isBuiltIn() && classType.getClassName() === 'Tuple') {
+            return classType;
+        }
+
+        return undefined;
     }
 
     private static _canAssignFunction(destType: FunctionType, srcType: FunctionType,
@@ -536,6 +514,41 @@ export class TypeUtils {
                         ancestorType, recursionCount + 1);
                 }
 
+                if (ancestorType.isSpecialBuiltIn()) {
+                    assert(curSrcType.isSameGenericClass(ancestorType));
+
+                    // Handle built-in types that support arbitrary numbers
+                    // of type parameters like Tuple.
+                    if (ancestorType.getClassName() === 'Tuple') {
+                        const ancestorTypeArgs = ancestorType.getTypeArguments() || [];
+                        const srcTypeArgs = curSrcType.getTypeArguments() || [];
+                        let destArgCount = ancestorTypeArgs.length;
+                        const destAllowsMoreArgs = destArgCount &&
+                            ancestorTypeArgs[destArgCount - 1] instanceof AnyType &&
+                            (ancestorTypeArgs[destArgCount - 1] as AnyType).isEllipsis();
+                        if (destAllowsMoreArgs) {
+                            destArgCount--;
+                        }
+
+                        if (srcTypeArgs.length === destArgCount ||
+                                (destAllowsMoreArgs && srcTypeArgs.length >= destArgCount)) {
+                            for (let i = 0; i < destArgCount; i++) {
+                                if (!this.canAssignType(ancestorTypeArgs[i], srcTypeArgs[i],
+                                        diag.createAddendum())) {
+                                    diag.addMessage(`Tuple entry ${ i + 1 } is incorrect type`);
+                                    return false;
+                                }
+                            }
+                        } else {
+                            diag.addMessage(
+                                `Tuple size mismatch: expected ${ destArgCount }` +
+                                    ` but got ${ srcTypeArgs.length }`);
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+
                 // If there are no type parameters on this class, we're done.
                 const ancestorTypeParams = ancestorType.getTypeParameters();
                 if (ancestorTypeParams.length === 0) {
@@ -543,14 +556,6 @@ export class TypeUtils {
                 }
 
                 assert(curSrcType.isSameGenericClass(ancestorType));
-
-                if (ancestorType.isSpecialBuiltIn()) {
-                    // TODO - need to add support for special built-in
-                    // types that support arbitrary numbers of type parameters
-                    // like Tuple. For now, punt and indicate that the type
-                    // is assignable.
-                    return true;
-                }
 
                 const ancestorTypeArgs = ancestorType.getTypeArguments()!;
                 // If the dest type isn't specialized, there are no type
@@ -566,8 +571,14 @@ export class TypeUtils {
 
                     for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
                         const srcTypeArg = srcTypeArgs[srcArgIndex];
-                        const typeParam = ancestorTypeParams[srcArgIndex];
-                        const ancestorTypeArg = ancestorTypeArgs[srcArgIndex];
+
+                        // In most cases, the ancestor type param count should match, but
+                        // there are a few special cases where this isn't true (e.g. assigning
+                        // a Tuple[X, Y, Z] to a tuple[W]).
+                        const ancestorArgIndex = srcArgIndex >= ancestorTypeParams.length ?
+                                ancestorTypeParams.length - 1 : srcArgIndex;
+                        const typeParam = ancestorTypeParams[ancestorArgIndex];
+                        const ancestorTypeArg = ancestorTypeArgs[ancestorArgIndex];
 
                         if (typeParam.isCovariant()) {
                             if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
@@ -671,7 +682,10 @@ export class TypeUtils {
             if (classType.isBuiltIn() && classType.getClassName() === 'Type') {
                 const typeArgs = classType.getTypeArguments();
                 if (typeArgs && typeArgs.length >= 1) {
-                    return typeArgs[0];
+                    const firstTypeArg = typeArgs[0];
+                    if (firstTypeArg instanceof ObjectType) {
+                        return firstTypeArg.getClassType();
+                    }
                 }
             }
 
@@ -686,13 +700,6 @@ export class TypeUtils {
         if (type instanceof ClassType) {
             return this._specializeClassType(type, typeVarMap,
                 recursionLevel + 1);
-        }
-
-        if (type instanceof TupleType) {
-            const entryTypes = type.getEntryTypes().map(
-                typeEntry => this.specializeType(typeEntry, typeVarMap, recursionLevel + 1));
-
-            return type.cloneForSpecialization(entryTypes);
         }
 
         if (type instanceof FunctionType) {
@@ -716,38 +723,37 @@ export class TypeUtils {
         let newTypeArgs: Type[] = [];
         let specializationNeeded = false;
 
-        classType.getTypeParameters().forEach((typeParam, index) => {
-            let typeArgType: Type;
+        // If type args were previously provided, specialize them.
+        if (oldTypeArgs) {
+            newTypeArgs = oldTypeArgs.map(oldTypeArgType => {
+                let newTypeArgType = this.specializeType(oldTypeArgType,
+                    typeVarMap, recursionLevel + 1);
+                if (newTypeArgType !== oldTypeArgType) {
+                    specializationNeeded = true;
+                }
+                return newTypeArgType;
+            });
+        } else {
+            classType.getTypeParameters().forEach(typeParam => {
+                let typeArgType: Type;
 
-            // If type args were previously provided, specialize them.
-            // Otherwise use the specialized type parameter.
-            if (oldTypeArgs) {
-                if (index >= oldTypeArgs.length) {
-                    typeArgType = UnknownType.create();
+                if (typeVarMap && typeVarMap.get(typeParam.getName())) {
+                    // If the type var map already contains this type var, use
+                    // the existing type.
+                    typeArgType = typeVarMap.get(typeParam.getName())!;
                     specializationNeeded = true;
                 } else {
-                    typeArgType = this.specializeType(oldTypeArgs[index],
-                        typeVarMap, recursionLevel + 1);
-                    if (typeArgType !== oldTypeArgs[index]) {
+                    // If the type var map wasn't provided or doesn't contain this
+                    // type var, specialize the type var.
+                    typeArgType = TypeUtils.specializeTypeVarType(typeParam);
+                    if (typeArgType !== typeParam) {
                         specializationNeeded = true;
                     }
                 }
-            } else if (typeVarMap && typeVarMap.get(typeParam.getName())) {
-                // If the type var map already contains this type var, use
-                // the existing type.
-                typeArgType = typeVarMap.get(typeParam.getName())!;
-                specializationNeeded = true;
-            } else {
-                // If the type var map wasn't provided or doesn't contain this
-                // type var, specialize the type var.
-                typeArgType = TypeUtils.specializeTypeVarType(typeParam);
-                if (typeArgType !== typeParam) {
-                    specializationNeeded = true;
-                }
-            }
 
-            newTypeArgs.push(typeArgType);
-        });
+                newTypeArgs.push(typeArgType);
+            });
+        }
 
         // If specialization wasn't needed, don't allocate a new class.
         if (!specializationNeeded) {
@@ -1056,8 +1062,8 @@ export class TypeUtils {
         }
 
         for (let baseClass of classType.getBaseClasses()) {
-            if (baseClass instanceof ClassType) {
-                if (this.derivesFromClassRecursive(baseClass, baseClassToFind)) {
+            if (baseClass.type instanceof ClassType) {
+                if (this.derivesFromClassRecursive(baseClass.type, baseClassToFind)) {
                     return true;
                 }
             }

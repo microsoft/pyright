@@ -254,10 +254,6 @@ export class ClassType extends Type {
     }
 
     requiresSpecialization(recursionCount = 0) {
-        if (this._classDetails.typeParameters.length === 0) {
-            return false;
-        }
-
         if (this._typeArguments) {
             if (recursionCount > MaxRecursionCount) {
                 return false;
@@ -266,6 +262,10 @@ export class ClassType extends Type {
             return this._typeArguments.find(
                 typeArg => typeArg.requiresSpecialization(recursionCount + 1)
             ) !== undefined;
+        }
+
+        if (this._classDetails.typeParameters.length === 0) {
+            return false;
         }
 
         return true;
@@ -1078,87 +1078,6 @@ export class UnionType extends Type {
     requiresSpecialization(recursionCount = 0) {
         return this._types.find(
             type => type.requiresSpecialization(recursionCount + 1)) !== undefined;
-    }
-}
-
-export class TupleType extends Type {
-    category = TypeCategory.Tuple;
-
-    private _tupleBaseClass: ClassType;
-
-    // Specified types for entries of the tuple.
-    private _entryTypes: Type[] = [];
-
-    // If true, allow more entries beyond the specified
-    // list of types.
-    private _allowMoreEntries = false;
-
-    constructor(baseClass: ClassType) {
-        super();
-        this._tupleBaseClass = baseClass;
-    }
-
-    getBaseClass() {
-        return this._tupleBaseClass;
-    }
-
-    getEntryTypes() {
-        return this._entryTypes;
-    }
-
-    addEntryType(type: Type) {
-        this._entryTypes.push(type);
-    }
-
-    setAllowMoreEntries() {
-        this._allowMoreEntries = true;
-    }
-
-    getAllowMoreEntries() {
-        return this._allowMoreEntries;
-    }
-
-    isSame(type2: Type): boolean {
-        if (!super.isSame(type2)) {
-            return false;
-        }
-
-        const type2Tuple = type2 as TupleType;
-        if (this._entryTypes.length !== type2Tuple._entryTypes.length) {
-            return false;
-        }
-
-        return this._entryTypes.find((t, index) =>
-            !type2Tuple._entryTypes[index].isSame(t)) === undefined;
-    }
-
-    asStringInternal(recursionCount = 0): string {
-        let tupleTypes = recursionCount < MaxRecursionCount ?
-            this._entryTypes.map(t => t.asStringInternal(recursionCount + 1)) : [];
-
-        if (this._allowMoreEntries) {
-            tupleTypes.push('...');
-        }
-
-        return 'Tuple[' + tupleTypes.join(', ') + ']';
-    }
-
-    requiresSpecialization(recursionCount = 0) {
-        if (recursionCount > MaxRecursionCount) {
-            return false;
-        }
-
-        return this._entryTypes.find(
-            type => type.requiresSpecialization(recursionCount + 1)) !== undefined;
-    }
-
-    cloneForSpecialization(entryTypes: Type[]): TupleType {
-        assert(entryTypes.length === this._entryTypes.length);
-
-        let newTupleType = new TupleType(this._tupleBaseClass);
-        newTupleType._allowMoreEntries = this._allowMoreEntries;
-        newTupleType._entryTypes = entryTypes;
-        return newTupleType;
     }
 }
 
