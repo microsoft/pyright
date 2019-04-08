@@ -350,7 +350,7 @@ export class SourceFile {
     getDefinitionForPosition(position: DiagnosticTextPosition): DocumentTextRange | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
-            return;
+            return undefined;
         }
 
         return DefinitionProvider.getDefinitionForPosition(
@@ -360,7 +360,7 @@ export class SourceFile {
     getHoverForPosition(position: DiagnosticTextPosition): string | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
-            return;
+            return undefined;
         }
 
         return HoverProvider.getHoverForPosition(

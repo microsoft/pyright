@@ -5,8 +5,8 @@
 * Author: Eric Traut
 *
 * A parse tree walker that performs static type checking. It assumes
-* that the semanticAnalyzer and typeHintAnalyzer have already run
-* and added information to the parse nodes.
+* that the semanticAnalyzer has already run and added information to
+* the parse nodes.
 */
 
 import * as assert from 'assert';

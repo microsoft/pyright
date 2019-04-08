@@ -124,6 +124,13 @@ export class HoverProvider {
             }
         }
 
+        // If we had no declaration, see if we can provide a minimal tooltip.
+        if (node instanceof NameNode) {
+            if (node instanceof NameNode) {
+                return '```\n' + node.nameToken.value + ' : Unknown```';
+            }
+        }
+
         return undefined;
     }
 
