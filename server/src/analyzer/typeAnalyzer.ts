@@ -166,7 +166,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 TypeUtils.getTypeVarArgumentsRecursive(argType));
         });
         if (TypeUtils.isDataClass(classType)) {
-          classType.getClassFields().merge(classType.getDataFields());
+            classType.getClassFields().merge(classType.getDataFields());
         }
 
         // Update the type parameters for the class.
@@ -179,11 +179,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         if (TypeUtils.isDataClass(classType)) {
-          classType.getClassFields().forEach((s, k) => {
-            if (!TypeUtils.isFunctionType(s.currentType) && /^_/.test(k) && s.declarations) {
-              this._addError(`Data field name can not start with _`, s.declarations[0].node);
-            }
-          });
+            classType.getClassFields().forEach((s, k) => {
+                if (!TypeUtils.isFunctionType(s.currentType) && /^_/.test(k) && s.declarations) {
+                    // TODO: python 3.7 enforces this convention, double check.
+                    this._addError(`Data field name can not start with _`, s.declarations[0].node);
+                }
+            });
         }
 
         let declaration: Declaration = {

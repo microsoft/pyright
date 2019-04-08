@@ -850,25 +850,25 @@ export class ExpressionEvaluator {
         let returnType: Type | undefined;
 
         if (TypeUtils.isDataClass(type)) {
-          let constructorMethodType: FunctionType = new FunctionType(FunctionTypeFlags.InstanceMethod);
-          constructorMethodType.getParameters().push({
-            category: ParameterCategory.Simple,
-            name: 'self',
-            hasDefault: false,
-            type: type
-          });
-          type.getClassFields().forEach((s, k) => {
-            if (TypeUtils.isFunctionType(s.currentType) || k[0] === '_') { return; }
+            let constructorMethodType: FunctionType = new FunctionType(FunctionTypeFlags.InstanceMethod);
             constructorMethodType.getParameters().push({
-              category: ParameterCategory.Simple,
-              name: k,
-              hasDefault: !type.getDataFields().get(k),
-              type: s.currentType
+                category: ParameterCategory.Simple,
+                name: 'self',
+                hasDefault: false,
+                type: type
             });
-          });
-          let boundType = this._bindFunctionToClassOrObject(new ObjectType(type), constructorMethodType);
-          this._validateCallArguments(errorNode, argList, boundType, new TypeVarMap());
-          validatedTypes = true;
+            type.getClassFields().forEach((s, k) => {
+                if (TypeUtils.isFunctionType(s.currentType) || k[0] === '_') { return; }
+                constructorMethodType.getParameters().push({
+                    category: ParameterCategory.Simple,
+                    name: k,
+                    hasDefault: !type.getDataFields().get(k),
+                    type: s.currentType
+                });
+            });
+            let boundType = this._bindFunctionToClassOrObject(new ObjectType(type), constructorMethodType);
+            this._validateCallArguments(errorNode, argList, boundType, new TypeVarMap());
+            validatedTypes = true;
         }
 
         // See if there's a "__new__" defined within the class (but not its base classes).

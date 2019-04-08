@@ -1145,11 +1145,11 @@ export class TypeUtils {
     }
 
     static isDataClass(type: ClassType): boolean {
-      return (type.getBaseClasses().length === 1 && type.getBaseClasses()[0].type.asString() === 'Type[NamedTuple]');
+        return (type.getBaseClasses().length === 1 && type.getBaseClasses()[0].type.asString() === 'Type[NamedTuple]');
     }
 
     static isFunctionType(type: Type): boolean {
-      return (type.category === TypeCategory.Function || type.category === TypeCategory.OverloadedFunction);
+        return (type.category === TypeCategory.Function || type.category === TypeCategory.OverloadedFunction);
     }
 
 }
