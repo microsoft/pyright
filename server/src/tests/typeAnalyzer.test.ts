@@ -211,7 +211,7 @@ test('Tuples1', () => {
 });
 
 test('NamedTuple', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['namedtuple.py']);
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['namedtuple1.py']);
 
     assert.equal(analysisResult.errors.length, 0);
     assert.equal(analysisResult.warnings.length, 0);
