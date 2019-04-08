@@ -24,7 +24,7 @@ Pyright supports:
 Pyright includes a recent copy of the stdlib type stubs from [Typeshed](https://github.com/python/typeshed). It can be configured to use another (perhaps more recent or modified) copy of the Typeshed type stubs. Of course, it also works with custom type stub files that are part of your project.
 
 ### Command-line Tool or Visual Studio Code Extension
-Pyright includes both a [command-line tool](/docs/command-line.md) and a [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) plugin for Visual Studio Code.
+Pyright includes both a [command-line tool](/docs/command-line.md) and an [extension for Visual Studio Code](https://github.com/Microsoft/pyright) that implements the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/).
 
 For rich Python editing and debugging cabailities with Visual Studio Code, be sure to also install the official [Microsoft Python extension for Visual Studio Code](https://marketplace.visualstudio.com/itemdetails?itemName=ms-python.python) as Pyright only provides syntax and type checking.
 
@@ -50,7 +50,7 @@ Pyright is a work in progress. Type-checking capabilities are not fully implemen
 
 **Q:** What is the difference between pyright and the [Microsoft Python Language Server](https://github.com/Microsoft/python-language-server)?
 
-**A:** The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python Visual Studio Code plugin, and it is officially supported by a team of Microsoft engineers. It focuses on providing core editing capabilities such as auto-completion (including 3rd party libraries), code navigation, documentation, with syntax checking and some type checking capabilities. Pyright has some overlapping functionality but is focused entirely on providing fast syntax and comprehensive type checking for your own code base with some unique features such as more configurabilty, command-line execution.
+**A:** The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python Visual Studio Code plugin, and it is officially supported by a team of Microsoft engineers. It focuses on providing core editing capabilities such as auto-completion (including 3rd party libraries), code navigation, documentation, with syntax checking and some type checking capabilities. Pyright is focused entirely on providing fast syntax and comprehensive type checking for your own code base with some unique features such as more configurabilty, command-line execution.
 
 **Q:** What is the long term plan for pyright?
 
