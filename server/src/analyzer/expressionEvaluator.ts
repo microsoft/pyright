@@ -1268,7 +1268,7 @@ export class ExpressionEvaluator {
 
         let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
         if (builtInTupleType instanceof ClassType) {
-            let constructorType = new FunctionType(FunctionTypeFlags.ClassMethod);
+            let constructorType = new FunctionType(FunctionTypeFlags.StaticMethod);
             constructorType.setDeclaredReturnType(new ObjectType(classType));
             constructorType.addParameter({
                 category: ParameterCategory.Simple,
