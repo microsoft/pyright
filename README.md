@@ -46,15 +46,16 @@ Pyright is a work in progress. Type-checking capabilities are not fully implemen
 ## FAQ
 **Q:** What is the difference between pyright and the [Microsoft Python Visual Studio Code plugin](https://github.com/Microsoft/vscode-python)?
 
-**A:** Pyright is focused entirely on type checking, and is a side project with no dedicated team. The Python VS Code plugin is Microsoft's officially supported extension for Visual Studio Code, and provides diverse array of features including auto-complete, debugging, linter plugins, type checking plugins, and much more. Pyright can be used in alongide the Microsoft Python extension to combine the rich capabilities the Python extension provides with the type checking capabilities of pyright.
+**A:** Pyright is focused on type checking and is a side project with no dedicated team. The Python VS Code plugin is Microsoft’s officially-supported extension for VS Code and provides a diverse array of features including auto-complete, debugging, linter plugins, type-checking plugins, and much more. Pyright can be used alongide the Microsoft Python extension.
 
-**Q:** What is the difference between pyright and the [Microsoft Python Language Server](https://github.com/Microsoft/python-language-server)?
+**Q:** What is the difference between Pyright and the [Microsoft Python Language Server](https://github.com/Microsoft/python-language-server)?
 
-**A:** The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python Visual Studio Code plugin, and it is officially supported by a team of Microsoft engineers. It focuses on providing core editing capabilities such as auto-completion (including 3rd party libraries), code navigation, documentation, with syntax checking and some type checking capabilities. Pyright is focused entirely on providing fast syntax and comprehensive type checking for your own code base with some unique features such as more configurabilty, command-line execution.
+**A:** The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python VS Code plugin, and it is officially supported by a team of Microsoft engineers. It focuses on providing core editing capabilities such as auto-completion (including third-party libraries), code navigation, and documentation. Pyright is focused on providing fast syntax and type checking with features such as more configurabilty and command-line execution.
 
-**Q:** What is the long term plan for pyright?
+**Q:** What is the long-term plan for Pyright?
 
-**A:** Pyright is a side project with no dedicated team, there is no guarantee of continued development on the project. If you find it useful feel free to use it and contribute to the code base.
+**A:** Pyright is a side project with no dedicated team. There is no guarantee of continued development on the project. If you find it useful, feel free to use it and contribute to the code base.
+
 
 ## Installation
 You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
@@ -80,7 +81,6 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Validate that all abstract methods are overridden
 * Type analysis support for generators
 * Type analysis support for coroutines
-* Type analysis support for async functions and lambdas
 * Support for old-style type annotations within comments
 * Address the many TODO comments in the code
 * Provide switch that treats instance variables and methods that begin with underscore as private
@@ -99,14 +99,8 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 
 ## Contributing
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.microsoft.com.
+This project welcomes contributions and suggestions. Most contributions require you to agree to a Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us the rights to use your contribution. For details, visit https://cla.microsoft.com.
 
-When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+When you submit a pull request, a CLA-bot will automatically determine whether you need to provide a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions provided by the bot. You will only need to do this once across all repos using our CLA.
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
