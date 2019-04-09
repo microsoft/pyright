@@ -188,6 +188,10 @@ export class AnalyzerService {
             }
         }
 
+        if (commandLineOptions.pythonPath) {
+            configOptions.pythonPath = commandLineOptions.pythonPath;
+        }
+
         if (commandLineOptions.typeshedPath) {
             if (!configOptions.typeshedPath) {
                 configOptions.typeshedPath = commandLineOptions.typeshedPath;
@@ -223,7 +227,7 @@ export class AnalyzerService {
             const pythonPaths = PythonPathUtils.getPythonPathEnvironmentVariable();
             if (pythonPaths.length === 0) {
                 this._console.log(
-                    `No venvPath specified, and no valid paths found in PYTHONPATH environment variable.`);
+                    `No venvPath specified, and no search paths found for configured python interpreter.`);
             } else {
                 this._console.log(
                     `Using PYTHONPATH directories to resolve imports:`);

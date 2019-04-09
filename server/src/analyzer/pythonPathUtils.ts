@@ -7,6 +7,7 @@
 * Utility routines used to resolve various paths in python.
 */
 
+import * as child_process from 'child_process';
 import * as fs from 'fs';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
@@ -69,8 +70,55 @@ export class PythonPathUtils {
             }
         }
 
-        // Fall back on PYTHONPATH.
-        return this.getPythonPathEnvironmentVariable();
+        // Fall back on the python interpreter.
+        return this.getPythonPathFromPythonInterpreter(configOptions.pythonPath);
+    }
+
+    static getPythonPathFromPythonInterpreter(interpreterPath?: string): string[] {
+        const commandLineArgs: string[] = ['-c', 'import sys; print sys.path'];
+
+        try {
+            let execOutput: string;
+
+            if (interpreterPath) {
+                execOutput = child_process.execFileSync(
+                    interpreterPath, commandLineArgs, { encoding: 'utf8' });
+            } else {
+                execOutput = child_process.execFileSync(
+                    'python', commandLineArgs, { encoding: 'utf8' });
+            }
+
+            let pythonPaths: string[] = [];
+
+            // Parse the execOutput. It should be an array of paths.
+            execOutput = execOutput.trim();
+            if (execOutput.startsWith('[') && execOutput.endsWith(']')) {
+                execOutput = execOutput.substr(1, execOutput.length - 2);
+            }
+
+            const execSplit = execOutput.split(',');
+
+            for (let execSplitEntry of execSplit) {
+                execSplitEntry = execSplitEntry.trim();
+                if (execSplitEntry.length >= 2 && execSplitEntry.startsWith('\'') &&
+                        execSplitEntry.endsWith('\'')) {
+                    execSplitEntry = execSplitEntry.substr(1, execSplitEntry.length - 2);
+                }
+
+                if (execSplitEntry) {
+                    const normalizedPath = normalizePath(execSplitEntry);
+                    // Make sure the path exists and is a directory. We don't currenlty
+                    // support zip files and other formats.
+                    if (fs.existsSync(normalizedPath) && isDirectory(normalizedPath)) {
+                        pythonPaths.push(normalizedPath);
+                    }
+                }
+            }
+
+            return pythonPaths;
+        } catch {
+            return [];
+        }
     }
 
     static getPythonPathEnvironmentVariable(): string[] {

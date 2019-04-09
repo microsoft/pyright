@@ -18,6 +18,7 @@ import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtil
 
 interface PythonSettings {
     venvPath?: string;
+    pythonPath?: string;
     analysis?: {
         typeshedPaths: string[];
     };
@@ -154,11 +155,18 @@ _connection.onHover(params => {
 function updateOptionsAndRestartService(settings?: Settings) {
     let commandLineOptions = new CommandLineOptions(_rootPath, true);
     commandLineOptions.watch = true;
+
     if (settings && settings.python) {
         if (settings.python.venvPath) {
             commandLineOptions.venvPath = combinePaths(_rootPath,
                 normalizePath(_expandPathVariables(settings.python.venvPath)));
         }
+
+        if (settings.python.pythonPath) {
+            commandLineOptions.pythonPath = combinePaths(_rootPath,
+                normalizePath(_expandPathVariables(settings.python.pythonPath)));
+        }
+
         if (settings.python.analysis &&
                 settings.python.analysis.typeshedPaths &&
                 settings.python.analysis.typeshedPaths.length > 0) {

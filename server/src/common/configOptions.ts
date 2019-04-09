@@ -50,6 +50,9 @@ export class ConfigOptions {
     // are based on this path.
     projectRoot: string;
 
+    // Path to python intepreter.
+    pythonPath?: string;
+
     // Path to use for typeshed definitions.
     typeshedPath?: string;
 
