@@ -23,10 +23,10 @@ Pyright supports:
 ### Built-in Type Stubs
 Pyright includes a recent copy of the stdlib type stubs from [Typeshed](https://github.com/python/typeshed). It can be configured to use another (perhaps more recent or modified) copy of the Typeshed type stubs. Of course, it also works with custom type stub files that are part of your project.
 
-### Command-line Tool or VS Code Extension
-Pyright includes both a [command-line tool](/docs/command-line.md) and a [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) plugin for VS Code.
+### Command-line Tool or Visual Studio Code Extension
+Pyright includes both a [command-line tool](/docs/command-line.md) and an [extension for Visual Studio Code](https://github.com/Microsoft/pyright) that implements the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/).
 
-
+For rich Python editing and debugging cabailities with Visual Studio Code, be sure to also install the official [Microsoft Python extension for Visual Studio Code](https://marketplace.visualstudio.com/itemdetails?itemName=ms-python.python) as Pyright only provides syntax and type checking.
 
 ## Documentation
 * [Getting Started with Type Checking](/docs/getting-started.md)
@@ -44,15 +44,17 @@ Pyright is a work in progress. Type-checking capabilities are not fully implemen
 
 
 ## FAQ
-**Q:** What is the difference between pyright and the [Microsoft Python VS Code plugin](https://github.com/Microsoft/vscode-python)?
+**Q:** What is the difference between pyright and the [Microsoft Python Visual Studio Code plugin](https://github.com/Microsoft/vscode-python)?
 
-**A:** The Python VS Code plugin is the official Python support extension for VS Code. It is officially supported by a team of engineers at Microsoft. It supports a diverse array of features including debugging, linter plugins, type checking plugins, and much more. Pyright is focused entirely on type checking. It is a side project with no dedicated team.
-
+**A:** Pyright is focused entirely on type checking, and is a side project with no dedicated team. The Python VS Code plugin is Microsoft's officially supported extension for Visual Studio Code, and provides diverse array of features including auto-complete, debugging, linter plugins, type checking plugins, and much more. Pyright can be used in alongide the Microsoft Python extension to combine the rich capabilities the Python extension provides with the type checking capabilities of pyright.
 
 **Q:** What is the difference between pyright and the [Microsoft Python Language Server](https://github.com/Microsoft/python-language-server)?
 
-**A:** The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python VS Code plugin, and it is officially supported by a team of Microsoft engineers. It also provides type checking capabilities. Pyright provides overlapping functionality but includes some unique features such as more configurabilty, command-line execution, and better performance.
+**A:** The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python Visual Studio Code plugin, and it is officially supported by a team of Microsoft engineers. It focuses on providing core editing capabilities such as auto-completion (including 3rd party libraries), code navigation, documentation, with syntax checking and some type checking capabilities. Pyright is focused entirely on providing fast syntax and comprehensive type checking for your own code base with some unique features such as more configurabilty, command-line execution.
 
+**Q:** What is the long term plan for pyright?
+
+**A:** Pyright is a side project with no dedicated team, there is no guarantee of continued development on the project. If you find it useful feel free to use it and contribute to the code base.
 
 ## Installation
 You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
