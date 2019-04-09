@@ -84,8 +84,9 @@ function processArgs() {
             process.exit(ExitStatus.FatalError);
         }
 
+        let diagnosticCount = 0;
         if (results.diagnostics.length > 0) {
-            reportDiagnostics(results.diagnostics);
+            diagnosticCount = reportDiagnostics(results.diagnostics);
         }
 
         if (!watch) {
@@ -100,7 +101,7 @@ function processArgs() {
 
         if (!watch) {
             process.exit(
-                results.diagnostics.length > 0 ?
+                diagnosticCount > 0 ?
                 ExitStatus.DiagnosticsReported :
                 ExitStatus.Success);
         }
@@ -129,7 +130,7 @@ function printUsage() {
     );
 }
 
-function reportDiagnostics(fileDiagnostics: FileDiagnostics[]) {
+function reportDiagnostics(fileDiagnostics: FileDiagnostics[]): number {
     let errorCount = 0;
     let warningCount = 0;
 
@@ -155,6 +156,8 @@ function reportDiagnostics(fileDiagnostics: FileDiagnostics[]) {
     console.log(
         `${ errorCount.toString() } ${ errorCount === 1 ? 'error' : 'errors' }, ` +
         `${ warningCount.toString() } ${ warningCount === 1 ? 'warning' : 'warnings' } `);
+
+    return errorCount + warningCount;
 }
 
 processArgs();

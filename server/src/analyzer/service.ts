@@ -333,7 +333,8 @@ export class AnalyzerService {
         if (fileList.length === 0) {
             this._console.log(`No source files found.`);
         } else {
-            this._console.log(`Found ${ fileList.length } source files`);
+            this._console.log(`Found ${ fileList.length } ` +
+                `source ${ fileList.length === 1 ? 'file' : 'files' }`);
         }
 
         this._requireTrackedFileUpdate = false;
