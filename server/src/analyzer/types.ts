@@ -381,9 +381,23 @@ export class ClassType extends Type {
 
     // Same as isSame except that it doesn't compare type arguments.
     isSameGenericClass(type2: ClassType) {
-        return this._classDetails === type2._classDetails ||
-            this.isAliasOf(type2) ||
-            type2.isAliasOf(this);
+        // If the class details match, it's definitely the same class.
+        if (this._classDetails === type2._classDetails) {
+            return true;
+        }
+
+        // Special built-in classes generate new class details for
+        // each instance, so we need to rely on a name comparison.
+        if (this.isSpecialBuiltIn() && type2.isSpecialBuiltIn() &&
+                this.getClassName() === type2.getClassName()) {
+            return true;
+        }
+
+        if (this.isAliasOf(type2) || type2.isAliasOf(this)) {
+            return true;
+        }
+
+        return false;
     }
 
     isSame(type2: Type): boolean {
