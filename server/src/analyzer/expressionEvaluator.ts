@@ -29,7 +29,7 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
-import { Symbol, SymbolCategory } from './symbol';
+import { Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
@@ -719,6 +719,25 @@ export class ExpressionEvaluator {
                     type = this._createNamedTupleType(errorNode, argList, true);
                     flags &= ~EvaluatorFlags.ConvertClassToObject;
                 }
+            } else if (callType.isAbstractClass()) {
+                const symbolTable = new SymbolTable();
+                TypeUtils.getAbstractMethodsRecursive(callType, symbolTable);
+
+                const diagAddendum = new DiagnosticAddendum();
+                const symbolTableKeys = symbolTable.getKeys();
+                const errorsToDisplay = 2;
+                symbolTableKeys.forEach((symbolName, index) => {
+                    if (index === errorsToDisplay) {
+                        diagAddendum.addMessage(`and ${ symbolTableKeys.length - errorsToDisplay } more...`);
+                    } else if (index < errorsToDisplay) {
+                        diagAddendum.addMessage(`'${ symbolName }' is abstract`);
+                    }
+                });
+
+                this._addError(
+                    `Cannot instantiate abstract class '${ callType.getClassName() }'` +
+                        diagAddendum.getString(),
+                    errorNode);
             }
 
             // Assume this is a call to the constructor.
@@ -1663,6 +1682,11 @@ export class ExpressionEvaluator {
                 type = UnknownType.create();
             }
         } else if (comparisonOperatorMap[node.operator]) {
+            if (leftType.isAny() || rightType.isAny()) {
+                type = UnknownType.create();
+            }
+
+            // TODO - need to look at the magic methods on the first type.
             type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
         } else if (booleanOperatorMap[node.operator]) {
             if (node.operator === OperatorType.And) {

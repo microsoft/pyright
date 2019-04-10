@@ -95,20 +95,20 @@ export class ParseTreeUtils {
         return undefined;
     }
 
-    static isFunctionInClass(functionNode: FunctionNode): boolean {
+    static getContainingClassNode(functionNode: FunctionNode): ClassNode | undefined {
         let curNode = functionNode.parent;
         while (curNode) {
             if (curNode instanceof ClassNode) {
-                return true;
+                return curNode;
             }
 
             if (curNode instanceof FunctionNode || curNode instanceof ModuleNode) {
-                return false;
+                return undefined;
             }
 
             curNode = curNode.parent;
         }
 
-        return false;
+        return undefined;
     }
 }

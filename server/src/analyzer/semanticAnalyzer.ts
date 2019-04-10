@@ -240,7 +240,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
-        const isMethod = ParseTreeUtils.isFunctionInClass(node);
+        const containingClass = ParseTreeUtils.getContainingClassNode(node);
 
         // The "__new__" magic method is not an instance method.
         // It acts as a static method instead.
@@ -285,7 +285,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         let declaration: Declaration = {
-            category: isMethod ? SymbolCategory.Method : SymbolCategory.Function,
+            category: containingClass ? SymbolCategory.Method : SymbolCategory.Function,
             node: node.name,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)

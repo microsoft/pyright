@@ -78,7 +78,6 @@ To update to the latest version:
 
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
-* Validate that all abstract methods are overridden
 * Type analysis support for generators
 * Type analysis support for coroutines
 * Support for old-style type annotations within comments

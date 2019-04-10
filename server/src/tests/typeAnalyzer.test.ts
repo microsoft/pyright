@@ -224,3 +224,10 @@ test('NamedTuple2', () => {
     assert.ok(/start with _/.test(analysisResult.errors[0].message));
     assert.equal(analysisResult.warnings.length, 0);
 });
+
+test('AbstractClass1', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['abstractClass1.py']);
+
+    assert.equal(analysisResult.errors.length, 2);
+    assert.equal(analysisResult.warnings.length, 0);
+});

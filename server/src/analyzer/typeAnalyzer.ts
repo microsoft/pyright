@@ -201,7 +201,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
         };
+
         this._bindNameNodeToType(node.name, classType, declaration);
+
+        this._validateClassMethods(classType);
 
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
@@ -209,7 +212,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
-        const isMethod = ParseTreeUtils.isFunctionInClass(node);
+        // Retrieve the containing class node if the function is a method.
+        const containingClassNode = ParseTreeUtils.getContainingClassNode(node);
+        const containingClassType = containingClassNode ?
+            AnalyzerNodeInfo.getExpressionType(containingClassNode) as ClassType : undefined;
 
         const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
         assert(functionType instanceof FunctionType);
@@ -443,8 +449,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
+        // Mark the class as abstract if it contains at least one abstract method.
+        if (functionType.isAbstractMethod() && containingClassType) {
+            containingClassType.setIsAbstractClass();
+        }
+
         let declaration: Declaration = {
-            category: isMethod ? SymbolCategory.Method : SymbolCategory.Function,
+            category: containingClassNode ? SymbolCategory.Method : SymbolCategory.Function,
             node: node.name,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines),
@@ -452,7 +463,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         };
         this._bindNameNodeToType(node.name, decoratedType, declaration);
 
-        if (isMethod) {
+        if (containingClassNode) {
             if (!functionType.isClassMethod() && !functionType.isStaticMethod()) {
                 functionType.setIsInstanceMethod();
             }
@@ -1151,6 +1162,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this.walk(node.typeAnnotation.expression);
 
         return false;
+    }
+
+    // Validates that any overridden methods contain the same signatures
+    // as the original method. Also marks the class as abstract if one or
+    // more abstract methods are not overridden.
+    private _validateClassMethods(classType: ClassType) {
+        // Construct a symbol table of all methods defined by subclasses
+        // of this class.
+        const subclassMethods = new SymbolTable();
+        TypeUtils.getAbstractMethodsRecursive(classType, subclassMethods);
+
+        if (subclassMethods.getKeys().length > 0) {
+            // Mark the class as abstract.
+            classType.setIsAbstractClass();
+        }
     }
 
     // Transforms the input function type into an output type based on the

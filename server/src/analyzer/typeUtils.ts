@@ -11,12 +11,12 @@ import * as assert from 'assert';
 
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { ParameterCategory } from '../parser/parseNodes';
-import { Symbol } from './symbol';
+import { Symbol, SymbolTable } from './symbol';
 import { AnyType, ClassType, FunctionType,
     NeverType, NoneType, ObjectType, OverloadedFunctionType, SpecializedFunctionTypes,
     Type, TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
 
-const MaxCanAssignTypeRecursion = 20;
+const MaxTypeRecursion = 20;
 
 export interface ClassMember {
     symbol?: Symbol;
@@ -106,7 +106,7 @@ export class TypeUtils {
             return false;
         }
 
-        if (recursionCount > MaxCanAssignTypeRecursion) {
+        if (recursionCount > MaxTypeRecursion) {
             return true;
         }
 
@@ -874,13 +874,17 @@ export class TypeUtils {
             return UnknownType.create();
         }
 
-        if (member.symbol.declarations) {
-            if (member.symbol.declarations[0].declaredType) {
-                return member.symbol.declarations[0].declaredType;
+        return this.getEffectiveTypeOfSymbol(member.symbol);
+    }
+
+    static getEffectiveTypeOfSymbol(symbol: Symbol): Type {
+        if (symbol.declarations) {
+            if (symbol.declarations[0].declaredType) {
+                return symbol.declarations[0].declaredType;
             }
         }
 
-        return member.symbol.inferredType.getType();
+        return symbol.inferredType.getType();
     }
 
     static lookUpObjectMember(objectType: Type, memberName: string): ClassMember | undefined {
@@ -905,7 +909,7 @@ export class TypeUtils {
     }
 
     static getMetaclass(type: ClassType, recursionCount = 0): ClassType | UnknownType | undefined {
-        if (recursionCount > MaxCanAssignTypeRecursion) {
+        if (recursionCount > MaxTypeRecursion) {
             return undefined;
         }
 
@@ -1131,6 +1135,43 @@ export class TypeUtils {
 
             return undefined;
         });
+    }
+
+    static getAbstractMethodsRecursive(classType: ClassType,
+            symbolTable: SymbolTable, recursiveCount = 0) {
+
+        // Protect against infinite recursion.
+        if (recursiveCount > MaxTypeRecursion) {
+            return;
+        }
+
+        for (const baseClass of classType.getBaseClasses()) {
+            if (baseClass.type instanceof ClassType) {
+                if (baseClass.type.isAbstractClass()) {
+                    // Recursively get abstract methods for subclasses.
+                    this.getAbstractMethodsRecursive(baseClass.type,
+                        symbolTable, recursiveCount + 1);
+                }
+            }
+        }
+
+        // Remove any entries that are overridden in this class with
+        // non-abstract methods.
+        if (symbolTable.getKeys().length > 0 || classType.isAbstractClass()) {
+            const classFields = classType.getClassFields();
+            for (const symbolName of classFields.getKeys()) {
+                const symbol = classFields.get(symbolName)!;
+                const symbolType = this.getEffectiveTypeOfSymbol(symbol);
+
+                if (symbolType instanceof FunctionType) {
+                    if (symbolType.isAbstractMethod()) {
+                        symbolTable.set(symbolName, symbol);
+                    } else {
+                        symbolTable.delete(symbolName);
+                    }
+                }
+            }
+        }
     }
 
     private static _combineTwoTypes(type1: Type, type2: Type): Type {

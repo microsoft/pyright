@@ -212,6 +212,7 @@ interface ClassDetails {
     dataFields: SymbolTable;
     instanceFields: SymbolTable;
     typeParameters: TypeVarType[];
+    isAbstractClass: boolean;
 }
 
 export class ClassType extends Type {
@@ -236,7 +237,8 @@ export class ClassType extends Type {
             classFields: new SymbolTable(),
             instanceFields: new SymbolTable(),
             dataFields: new SymbolTable(),
-            typeParameters: []
+            typeParameters: [],
+            isAbstractClass: false
         };
     }
 
@@ -291,6 +293,14 @@ export class ClassType extends Type {
             }
             return false;
         }) !== undefined;
+    }
+
+    setIsAbstractClass() {
+        this._classDetails.isAbstractClass = true;
+    }
+
+    isAbstractClass() {
+        return this._classDetails.isAbstractClass;
     }
 
     getClassName() {
