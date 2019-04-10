@@ -10,8 +10,9 @@
 import * as assert from 'assert';
 
 import { DiagnosticAddendum } from '../common/diagnostic';
+import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
-import { Symbol, SymbolTable } from './symbol';
+import { Symbol } from './symbol';
 import { AnyType, ClassType, FunctionType,
     ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
     SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
@@ -1137,8 +1138,15 @@ export class TypeUtils {
         });
     }
 
+    static doesClassHaveAbstractMethods(classType: ClassType) {
+        const abstractMethods = new StringMap<ClassMember>();
+        TypeUtils.getAbstractMethodsRecursive(classType, abstractMethods);
+
+        return abstractMethods.getKeys().length > 0;
+    }
+
     static getAbstractMethodsRecursive(classType: ClassType,
-            symbolTable: SymbolTable, recursiveCount = 0) {
+            symbolTable: StringMap<ClassMember>, recursiveCount = 0) {
 
         // Protect against infinite recursion.
         if (recursiveCount > MaxTypeRecursion) {
@@ -1165,7 +1173,11 @@ export class TypeUtils {
 
                 if (symbolType instanceof FunctionType) {
                     if (symbolType.isAbstractMethod()) {
-                        symbolTable.set(symbolName, symbol);
+                        symbolTable.set(symbolName, {
+                            class: classType,
+                            isInstanceMember: false,
+                            symbol
+                        });
                     } else {
                         symbolTable.delete(symbolName);
                     }

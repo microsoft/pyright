@@ -1170,13 +1170,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // as the original method. Also marks the class as abstract if one or
     // more abstract methods are not overridden.
     private _validateClassMethods(classType: ClassType) {
-        // Construct a symbol table of all methods defined by subclasses
-        // of this class.
-        const subclassMethods = new SymbolTable();
-        TypeUtils.getAbstractMethodsRecursive(classType, subclassMethods);
-
-        if (subclassMethods.getKeys().length > 0) {
-            // Mark the class as abstract.
+        if (TypeUtils.doesClassHaveAbstractMethods(classType)) {
             classType.setIsAbstractClass();
         }
     }

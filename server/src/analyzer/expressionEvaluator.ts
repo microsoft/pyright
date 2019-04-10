@@ -20,7 +20,8 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     DictionaryNode, EllipsisNode, ExpressionNode, IndexExpressionNode,
     LambdaNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
     NameNode, NumberNode, ParameterCategory, SetNode, SliceExpressionNode,
-    StringNode, TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode,
+    StarExpressionNode, StringNode, TernaryExpressionNode, TupleExpressionNode,
+    UnaryExpressionNode,
     YieldExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
     TokenType } from '../parser/tokenizerTypes';
@@ -36,7 +37,7 @@ import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
     PropertyType, Type, TypeVarMap, TypeVarType, UnionType,
     UnknownType } from './types';
-import { TypeUtils } from './typeUtils';
+import { ClassMember, TypeUtils } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -248,6 +249,12 @@ export class ExpressionEvaluator {
             this._getTypeFromExpression(node.rightExpression, EvaluatorFlags.None);
             typeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
         } else if (node instanceof YieldExpressionNode) {
+            // TODO - need to implement
+            this._getTypeFromExpression(node.expression, EvaluatorFlags.None);
+            // TODO - need to handle futures
+            let type = UnknownType.create();
+            typeResult = { type, node };
+        } else if (node instanceof StarExpressionNode) {
             // TODO - need to implement
             this._getTypeFromExpression(node.expression, EvaluatorFlags.None);
             // TODO - need to handle futures
@@ -727,7 +734,7 @@ export class ExpressionEvaluator {
                 }
             } else if (callType.isAbstractClass()) {
                 // If the class is abstract, it can't be instantiated.
-                const symbolTable = new SymbolTable();
+                const symbolTable = new StringMap<ClassMember>();
                 TypeUtils.getAbstractMethodsRecursive(callType, symbolTable);
 
                 const diagAddendum = new DiagnosticAddendum();
@@ -737,7 +744,9 @@ export class ExpressionEvaluator {
                     if (index === errorsToDisplay) {
                         diagAddendum.addMessage(`and ${ symbolTableKeys.length - errorsToDisplay } more...`);
                     } else if (index < errorsToDisplay) {
-                        diagAddendum.addMessage(`'${ symbolName }' is abstract`);
+                        const symbolWithClass = symbolTable.get(symbolName)!;
+                        const className = symbolWithClass.class!.getClassName();
+                        diagAddendum.addMessage(`'${ className }.${ symbolName }' is abstract`);
                     }
                 });
 
