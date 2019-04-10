@@ -163,13 +163,16 @@ export class ExpressionEvaluator {
     }
 
     isDataClass(type: ClassType): boolean {
-        // Does this class derive from a 'namedtuple'?
-        const namedTupleType = ScopeUtils.findBuiltInClassType(this._scope, 'NamedTuple');
-        if (namedTupleType instanceof ClassType) {
-            // No need to call 'derivesFromClassRecursive', python 3.7 checks the direct
-            // base class only.
-            return type.getBaseClasses().some(b => b.type
-                instanceof ClassType && b.type.isSameGenericClass(namedTupleType));
+        // Does this class derive from a 'NamedTuple'?
+        const symbolWithScope = this._scope.lookUpSymbolRecursive('NamedTuple');
+        if (symbolWithScope) {
+            const namedTupleType = symbolWithScope.symbol.currentType;
+            if (namedTupleType instanceof ClassType && namedTupleType.isBuiltIn()) {
+                // No need to call 'derivesFromClassRecursive', python 3.7 checks the direct
+                // base class only.
+                return type.getBaseClasses().some(b => b.type
+                    instanceof ClassType && b.type.isSameGenericClass(namedTupleType));
+            }
         }
 
         return false;

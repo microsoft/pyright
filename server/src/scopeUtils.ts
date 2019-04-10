@@ -43,15 +43,4 @@ export class ScopeUtils {
 
         return nameType;
     }
-
-    static findBuiltInClassType(currentScope: Scope, name: string): Type {
-        // getBuiltInType is unable to find 'typing.NamedTuple', this lookup finds it.
-        const s = currentScope.lookUpSymbolRecursive(name);
-        if (s && s.symbol.currentType instanceof ClassType &&
-                s.symbol.currentType.isBuiltIn()) {
-            return s.symbol.currentType;
-        }
-
-        return UnknownType.create();
-    }
 }
