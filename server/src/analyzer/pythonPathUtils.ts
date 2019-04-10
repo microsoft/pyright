@@ -12,9 +12,9 @@ import * as fs from 'fs';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
-    getFileSystemEntries,
-    isDirectory,
-    normalizePath } from '../common/pathUtils';
+    getFileSystemEntries, isDirectory, normalizePath } from '../common/pathUtils';
+
+let cachedSearchPaths: { [path: string]: string[] } = {};
 
 export class PythonPathUtils {
     static getTypeShedFallbackPath() {
@@ -75,9 +75,17 @@ export class PythonPathUtils {
     }
 
     static getPythonPathFromPythonInterpreter(interpreterPath?: string): string[] {
-        const commandLineArgs: string[] = ['-c', 'import sys; print sys.path'];
+        const searchKey = interpreterPath || '';
+
+        // If we've seen this request before, return the cached results.
+        if (cachedSearchPaths[searchKey]) {
+            return cachedSearchPaths[searchKey];
+        }
+
+        let pythonPaths: string[] = [];
 
         try {
+            const commandLineArgs: string[] = ['-c', 'import sys; print sys.path'];
             let execOutput: string;
 
             if (interpreterPath) {
@@ -87,8 +95,6 @@ export class PythonPathUtils {
                 execOutput = child_process.execFileSync(
                     'python', commandLineArgs, { encoding: 'utf8' });
             }
-
-            let pythonPaths: string[] = [];
 
             // Parse the execOutput. It should be an array of paths.
             execOutput = execOutput.trim();
@@ -114,11 +120,12 @@ export class PythonPathUtils {
                     }
                 }
             }
-
-            return pythonPaths;
         } catch {
-            return [];
+            pythonPaths = [];
         }
+
+        cachedSearchPaths[searchKey] = pythonPaths;
+        return pythonPaths;
     }
 
     static getPythonPathEnvironmentVariable(): string[] {
