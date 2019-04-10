@@ -238,3 +238,10 @@ test('AbstractClass1', () => {
     assert.equal(analysisResult.errors.length, 2);
     assert.equal(analysisResult.warnings.length, 0);
 });
+
+test('Module1', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['module1.py']);
+
+    assert.equal(analysisResult.errors.length, 0);
+    assert.equal(analysisResult.warnings.length, 0);
+});

@@ -13,8 +13,8 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { ParameterCategory } from '../parser/parseNodes';
 import { Symbol, SymbolTable } from './symbol';
 import { AnyType, ClassType, FunctionType,
-    NeverType, NoneType, ObjectType, OverloadedFunctionType, SpecializedFunctionTypes,
-    Type, TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
+    ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
+    SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
 
 const MaxTypeRecursion = 20;
 
@@ -221,8 +221,8 @@ export class TypeUtils {
             }
         }
 
-        // None derives from object.
-        if (srcType instanceof NoneType) {
+        // NoneType and ModuleType derive from object.
+        if (srcType instanceof NoneType || srcType instanceof ModuleType) {
             if (destType instanceof ObjectType) {
                 let destClassType = destType.getClassType();
                 if (destClassType.isBuiltIn() && destClassType.getClassName() === 'object') {
@@ -821,7 +821,7 @@ export class TypeUtils {
             includeInstanceFields = true, searchBaseClasses = true): ClassMember | undefined {
 
         if (classType instanceof ClassType) {
-            // TODO - for now, use naive depth-first search.
+            // TODO - Switch to true MRO. For now, use naive depth-first search.
 
             // Look in the instance fields first if requested.
             if (includeInstanceFields) {
