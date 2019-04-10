@@ -785,15 +785,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             });
         } else if (node instanceof TypeAnnotationExpressionNode) {
             this._addNamedTarget(node.valueExpression);
-        } else if (node instanceof StarExpressionNode) {
-            if (node.expression instanceof NameNode) {
-                this._bindNameNodeToType(node.expression, UnknownType.create());
-            } else {
-                // TODO - need to handle this case.
-                this._addError(
-                    'Internal error: Unhandled target expression type',
-                    node.expression);
-            }
+        } else if (node instanceof StarExpressionNode && node.expression instanceof NameNode) {
+            this._bindNameNodeToType(node.expression, UnknownType.create());
         } else if (node instanceof NameNode) {
             this._bindNameNodeToType(node, UnknownType.create());
         } else if (node instanceof MemberAccessExpressionNode) {
