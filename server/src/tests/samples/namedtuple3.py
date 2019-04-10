@@ -11,3 +11,4 @@ class DataTuple2(Parent):
 
 data = DataTuple2(id=1)
 
+

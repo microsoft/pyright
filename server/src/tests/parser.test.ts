@@ -27,5 +27,3 @@ test('Sample1', () => {
     assert.equal(diagSink.diagnostics.length, 0);
     assert.equal(parseResults.parseTree.statements.length, 4);
 });
-
-// TODO - add more parse tests

@@ -469,10 +469,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         // See if this is a simple or tuple assignment.
-        if (!this._addNamedTarget(node.leftExpression)) {
-            // Bind the name to an instance or class variable if appropriate.
-            this._bindPossibleMember(node.leftExpression);
-        }
+        this._addNamedTarget(node.leftExpression);
 
         this.walk(node.leftExpression);
         return false;
@@ -770,44 +767,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    private _bindPossibleMember(node: ExpressionNode) {
-        if (node instanceof MemberAccessExpressionNode) {
-            let targetNode = node.leftExpression;
-            if (targetNode instanceof NameNode) {
-                const nameValue = targetNode.nameToken.value;
-
-                // TODO - we shouldn't rely on these names, which are just conventions.
-                if (nameValue === 'self') {
-                    this._bindMemberVariable(node.memberName, true);
-                } else if (nameValue === 'cls' || nameValue === 'metacls') {
-                    this._bindMemberVariable(node.memberName, false);
-                }
-            }
-        } else if (node instanceof TupleExpressionNode) {
-            for (let expression of node.expressions) {
-                this._bindPossibleMember(expression);
-            }
-        }
-    }
-
-    private _bindMemberVariable(memberNameNode: NameNode, isInstance: boolean) {
-        let classDef = ParseTreeUtils.getEnclosingClass(memberNameNode);
-        if (classDef) {
-            let classType = AnalyzerNodeInfo.getExpressionType(classDef);
-            if (classType && classType instanceof ClassType) {
-                let memberName = memberNameNode.nameToken.value;
-                let memberInfo = TypeUtils.lookUpClassMember(classType, memberName);
-
-                if (!memberInfo) {
-                    const memberFields = isInstance ?
-                        classType.getInstanceFields() : classType.getClassFields();
-                    memberFields.set(memberName,
-                        new Symbol(UnboundType.create(), DefaultTypeSourceId));
-                }
-            }
-        }
-    }
-
     private _queueSubScopeAnalyzer(analyzer: SemanticAnalyzer) {
         analyzer.analyzeImmediate();
         this._subscopesToAnalyze.push(analyzer);
@@ -815,28 +774,20 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
     // Returns true if the node was handled by this method, false if it was
     // of an unhandled type.
-    private _addNamedTarget(node: ExpressionNode): boolean {
+    private _addNamedTarget(node: ExpressionNode) {
         if (node instanceof TupleExpressionNode) {
-            let isHandled = true;
             node.expressions.forEach(expr => {
-                if (!this._addNamedTarget(expr)) {
-                    isHandled = false;
-                }
+                this._addNamedTarget(expr);
             });
-
-            return isHandled;
         } else if (node instanceof ListNode) {
             node.entries.forEach(expr => {
                 this._addNamedTarget(expr);
             });
-
-            return true;
         } else if (node instanceof TypeAnnotationExpressionNode) {
-            return this._addNamedTarget(node.valueExpression);
+            this._addNamedTarget(node.valueExpression);
         } else if (node instanceof StarExpressionNode) {
             if (node.expression instanceof NameNode) {
                 this._bindNameNodeToType(node.expression, UnknownType.create());
-                return true;
             } else {
                 // TODO - need to handle this case.
                 this._addError(
@@ -845,7 +796,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             }
         } else if (node instanceof NameNode) {
             this._bindNameNodeToType(node, UnknownType.create());
-            return true;
         } else if (node instanceof MemberAccessExpressionNode) {
             // Nothing to do here. The target isn't introducing a new name.
         } else if (node instanceof IndexExpressionNode) {
@@ -854,8 +804,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             // We should never get here.
             this._addError('Internal error: Unhandled target expression type', node);
         }
-
-        return false;
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
