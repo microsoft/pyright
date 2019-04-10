@@ -47,8 +47,8 @@ export function getRootLength(pathString: string): number {
 }
 
 export function normalizeSlashes(pathString: string): string {
-    const backslashRegExp = /\\/g;
-    return pathString.replace(backslashRegExp, path.sep);
+    const separatorRegExp = /[\\\/]/g;
+    return pathString.replace(separatorRegExp, path.sep);
 }
 
 export function combinePaths(pathString: string, ...paths: (string | undefined)[]): string {
