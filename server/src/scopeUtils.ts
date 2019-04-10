@@ -12,6 +12,18 @@ import { Scope, ScopeType } from './analyzer/scope';
 import { ClassType, ObjectType, Type, UnknownType } from './analyzer/types';
 
 export class ScopeUtils {
+
+    static findBuiltInClassType(currentScope: Scope, name: string): Type {
+        // getBuiltInType is unable to find 'typing.NamedTuple', this lookup finds it.
+        const s = currentScope.lookUpSymbolRecursive(name);
+        if (s && s.symbol.currentType instanceof ClassType &&
+                s.symbol.currentType.isBuiltIn()) {
+            return s.symbol.currentType;
+        }
+
+        return UnknownType.create();
+    }
+
     static getBuiltInType(currentScope: Scope, name: string): Type {
         // Starting at the current scope, find the built-in scope, which should
         // be the top-most parent.
