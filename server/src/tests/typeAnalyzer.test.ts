@@ -225,6 +225,13 @@ test('NamedTuple2', () => {
     assert.equal(analysisResult.warnings.length, 0);
 });
 
+test('NamedTuple3', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['namedtuple3.py']);
+
+    assert.equal(analysisResult.errors.length, 1);
+    assert.equal(analysisResult.warnings.length, 0);
+});
+
 test('AbstractClass1', () => {
     let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['abstractClass1.py']);
 
