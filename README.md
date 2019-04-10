@@ -46,11 +46,11 @@ Pyright is a work in progress. Type-checking capabilities are not fully implemen
 ## FAQ
 **Q:** What is the difference between pyright and the [Microsoft Python Visual Studio Code plugin](https://github.com/Microsoft/vscode-python)?
 
-**A:** Pyright is focused on type checking and is a side project with no dedicated team. The Python VS Code plugin is Microsoft’s officially-supported extension for VS Code and provides a diverse array of features including auto-complete, debugging, linter plugins, type-checking plugins, and much more. Pyright can be used alongide the Microsoft Python extension.
+**A:** Pyright is focused on type checking. The Python VS Code plugin is Microsoft’s officially-supported extension for VS Code and provides a diverse array of features including auto-complete, debugging, linter plugins, type-checking plugins, and much more. Pyright can be used alongide the Microsoft Python extension.
 
 **Q:** What is the difference between Pyright and the [Microsoft Python Language Server](https://github.com/Microsoft/python-language-server)?
 
-**A:** The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python VS Code plugin, and it is officially supported by a team of Microsoft engineers. It focuses on providing core editing capabilities such as auto-completion (including third-party libraries), code navigation, and documentation. Pyright is focused on providing fast syntax and type checking with features such as more configurabilty and command-line execution.
+**A:** The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python VS Code plugin. It is officially supported by a team of Microsoft engineers. It focuses on providing core editing capabilities such as auto-completion, code navigation and documentation. Pyright is focused on providing fast syntax and type checking with features such as more configurabilty and command-line execution.
 
 **Q:** What is the long-term plan for Pyright?
 
