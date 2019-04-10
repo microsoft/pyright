@@ -947,7 +947,8 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
 
         // Record the class fields for this class.
         this._classType.setClassFields(this._currentScope.getSymbolTable());
-        this._classType.setDataFields(suiteScope.getSymbolTable().subtract(this._currentScope.getSymbolTable()));
+        this._classType.setDataFields(suiteScope.getSymbolTable().subtract(
+            this._currentScope.getSymbolTable()));
     }
 
     analyzeDeferred() {

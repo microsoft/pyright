@@ -209,6 +209,7 @@ interface ClassDetails {
     baseClasses: BaseClass[];
     aliasClass?: ClassType;
     classFields: SymbolTable;
+    dataFields: SymbolTable;
     instanceFields: SymbolTable;
     typeParameters: TypeVarType[];
 }
@@ -217,7 +218,7 @@ export class ClassType extends Type {
     category = TypeCategory.Class;
 
     private _classDetails: ClassDetails;
-    private _dataFields: SymbolTable;
+
     // A generic class that has been completely or partially
     // specialized will have type arguments that correspond to
     // some or all of the type parameters. Unspecified type
@@ -234,6 +235,7 @@ export class ClassType extends Type {
             baseClasses: [],
             classFields: new SymbolTable(),
             instanceFields: new SymbolTable(),
+            dataFields: new SymbolTable(),
             typeParameters: []
         };
     }
@@ -330,11 +332,11 @@ export class ClassType extends Type {
     }
 
     getDataFields(): SymbolTable {
-      return this._dataFields;
+        return this._classDetails.dataFields;
     }
 
     setDataFields(nameMap: SymbolTable) {
-      this._dataFields = nameMap;
+        this._classDetails.dataFields = nameMap;
     }
 
     getInstanceFields(): SymbolTable {

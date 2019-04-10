@@ -210,14 +210,14 @@ test('Tuples1', () => {
     assert.equal(analysisResults[0].errors.length, 4);
 });
 
-test('NamedTuple', () => {
+test('NamedTuple1', () => {
     let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['namedtuple1.py']);
 
     assert.equal(analysisResult.errors.length, 0);
     assert.equal(analysisResult.warnings.length, 0);
 });
 
-test('NamedTuple field name error', () => {
+test('NamedTuple2', () => {
     let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['namedtuple2.py']);
 
     assert.equal(analysisResult.errors.length, 1);

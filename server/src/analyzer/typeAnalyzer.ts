@@ -15,6 +15,7 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
+import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
     CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, ExceptNode, ExpressionNode,
@@ -120,6 +121,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitClass(node: ClassNode): boolean {
+        let evaluator = this._getEvaluator();
+
         // We should have already resolved most of the base class
         // parameters in the semantic analyzer, but if these parameters
         // are variables, they may not have been resolved at that time.
@@ -165,7 +168,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             TypeUtils.addTypeVarsToListIfUnique(typeParameters,
                 TypeUtils.getTypeVarArgumentsRecursive(argType));
         });
-        if (TypeUtils.isDataClass(classType)) {
+
+        const isDataClass = evaluator.isDataClass(classType);
+        if (isDataClass) {
             classType.getClassFields().merge(classType.getDataFields());
         }
 
@@ -178,11 +183,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this.walk(node.suite);
         });
 
-        if (TypeUtils.isDataClass(classType)) {
+        // Python 3.7 enforces the convention that data fields within
+        // a data class cannot being with "_".
+        if (isDataClass) {
             classType.getClassFields().forEach((s, k) => {
                 if (!TypeUtils.isFunctionType(s.currentType) && /^_/.test(k) && s.declarations) {
-                    // TODO: python 3.7 enforces this convention, double check.
-                    this._addError(`Data field name can not start with _`, s.declarations[0].node);
+                    if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V37) {
+                        this._addError(`Data field name cannot start with _`, s.declarations[0].node);
+                    }
                 }
             });
         }

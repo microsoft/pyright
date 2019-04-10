@@ -1155,13 +1155,7 @@ export class TypeUtils {
         return unionType;
     }
 
-    static isDataClass(type: ClassType): boolean {
-        return (type.getBaseClasses().some( v => v.type instanceof ClassType && v.type.isBuiltIn()
-            && v.type.getClassName() === 'NamedTuple' ));
-    }
-
     static isFunctionType(type: Type): boolean {
         return (type.category === TypeCategory.Function || type.category === TypeCategory.OverloadedFunction);
     }
-
 }

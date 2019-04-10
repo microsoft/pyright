@@ -162,6 +162,16 @@ export class ExpressionEvaluator {
         return resultType;
     }
 
+    isDataClass(type: ClassType): boolean {
+        // Does this class derive from a 'namedtuple'?
+        const namedTupleType = ScopeUtils.getBuiltInType(this._scope, 'namedtuple');
+        if (namedTupleType instanceof ClassType) {
+            return TypeUtils.derivesFromClassRecursive(type, namedTupleType);
+        }
+
+        return false;
+    }
+
     private _getTypeFromExpression(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
         // Is this type already cached?
         if (this._readTypeFromCache) {
@@ -843,7 +853,7 @@ export class ExpressionEvaluator {
         let validatedTypes = false;
         let returnType: Type | undefined;
 
-        if (TypeUtils.isDataClass(type)) {
+        if (this.isDataClass(type)) {
             let constructorMethodType: FunctionType = new FunctionType(FunctionTypeFlags.InstanceMethod);
             constructorMethodType.getParameters().push({
                 category: ParameterCategory.Simple,
@@ -851,10 +861,12 @@ export class ExpressionEvaluator {
                 hasDefault: false,
                 type: type
             });
+
             type.getClassFields().forEach((s, k) => {
                 if (TypeUtils.isFunctionType(s.currentType) || k[0] === '_') {
                     return;
                 }
+
                 constructorMethodType.getParameters().push({
                     category: ParameterCategory.Simple,
                     name: k,
@@ -862,7 +874,8 @@ export class ExpressionEvaluator {
                     type: s.currentType
                 });
             });
-            let boundType = this._bindFunctionToClassOrObject(new ObjectType(type), constructorMethodType);
+
+            const boundType = this._bindFunctionToClassOrObject(new ObjectType(type), constructorMethodType);
             this._validateCallArguments(errorNode, argList, boundType, new TypeVarMap());
             validatedTypes = true;
         }

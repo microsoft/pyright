@@ -1,10 +1,6 @@
+# This sample validates the Python 3.7 data class feature.
+
 from typing import NamedTuple
-
-"""
-
-Following code is supported by Python 3.7, and therefore should also be accepted by pyright.
-
-"""
 
 class Other:
     pass
