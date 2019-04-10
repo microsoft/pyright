@@ -3,8 +3,6 @@
 from collections import defaultdict
 from typing import DefaultDict, Optional, Union, Any
 
-x: DefaultDict[str, int] = defaultdict(int)
-
 class UnrelatedClass:
     def __init__(self) -> None:
         self.property: None = None
