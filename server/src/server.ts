@@ -251,7 +251,14 @@ function _convertUriToPath(uri: string): string {
 }
 
 function _convertPathToUri(path: string): string {
-    return 'file://' + path;
+    let pathName = path.replace(/\\/g, '/');
+
+    // Windows drive letter must be prefixed with a slash.
+    if (pathName[0] !== '/') {
+        pathName = '/' + pathName;
+    }
+
+    return 'file://' + pathName;
 }
 
 // Listen on the connection
