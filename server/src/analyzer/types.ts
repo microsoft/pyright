@@ -217,7 +217,7 @@ export class ClassType extends Type {
     category = TypeCategory.Class;
 
     private _classDetails: ClassDetails;
-
+    private _dataFields: SymbolTable;
     // A generic class that has been completely or partially
     // specialized will have type arguments that correspond to
     // some or all of the type parameters. Unspecified type
@@ -327,6 +327,14 @@ export class ClassType extends Type {
 
     setClassFields(nameMap: SymbolTable) {
         this._classDetails.classFields = nameMap;
+    }
+
+    getDataFields(): SymbolTable {
+      return this._dataFields;
+    }
+
+    setDataFields(nameMap: SymbolTable) {
+      this._dataFields = nameMap;
     }
 
     getInstanceFields(): SymbolTable {
