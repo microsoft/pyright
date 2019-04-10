@@ -269,23 +269,25 @@ export class TypeAnalyzer extends ParseTreeWalker {
             } else if (index === 0 && (functionType.isInstanceMethod() || functionType.isClassMethod())) {
                 // Specify type of "self" or "cls" parameter for instance or class methods
                 // if the type is not explicitly provided.
-                const classNode = ParseTreeUtils.getEnclosingClass(node);
-                if (classNode) {
-                    const paramType = functionType.getParameters()[index].type;
+                if (containingClassType) {
+                    const paramType = functionType.getParameters()[0].type;
 
                     if (paramType instanceof UnknownType) {
-                        const inferredClassType = AnalyzerNodeInfo.getExpressionType(classNode) as ClassType;
-
                         // Don't specialize the "self" for protocol classes because type
                         // comparisons will fail during structural typing analysis.
-                        if (inferredClassType && !inferredClassType.isProtocol()) {
-                            const specializedClassType = TypeUtils.selfSpecializeClassType(inferredClassType);
-
+                        if (containingClassType && !containingClassType.isProtocol()) {
                             if (functionType.isInstanceMethod()) {
+                                const specializedClassType = TypeUtils.selfSpecializeClassType(
+                                    containingClassType);
                                 if (functionType.setParameterType(index, new ObjectType(specializedClassType))) {
                                     this._setAnalysisChanged();
                                 }
                             } else if (functionType.isClassMethod()) {
+                                // For class methods, the cls parameter is allowed to skip the
+                                // abstract class test because the caller is possibly passing
+                                // in a non-abstract subclass.
+                                const specializedClassType = TypeUtils.selfSpecializeClassType(
+                                    containingClassType, true);
                                 if (functionType.setParameterType(index, specializedClassType)) {
                                     this._setAnalysisChanged();
                                 }

@@ -726,6 +726,7 @@ export class ExpressionEvaluator {
                     flags &= ~EvaluatorFlags.ConvertClassToObject;
                 }
             } else if (callType.isAbstractClass()) {
+                // If the class is abstract, it can't be instantiated.
                 const symbolTable = new SymbolTable();
                 TypeUtils.getAbstractMethodsRecursive(callType, symbolTable);
 

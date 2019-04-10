@@ -989,13 +989,13 @@ export class TypeUtils {
     // If the class is generic, the type is cloned, and its own
     // type parameters are used as type arguments. This is useful
     // for typing "self" or "cls" within a class's implementation.
-    static selfSpecializeClassType(type: ClassType): ClassType {
-        if (!type.isGeneric()) {
+    static selfSpecializeClassType(type: ClassType, skipAbstractClassTest = false): ClassType {
+        if (!type.isGeneric() && !skipAbstractClassTest) {
             return type;
         }
 
         let typeArgs = type.getTypeParameters();
-        return type.cloneForSpecialization(typeArgs);
+        return type.cloneForSpecialization(typeArgs, skipAbstractClassTest);
     }
 
     // Removes the first parameter of the function and returns a new function.

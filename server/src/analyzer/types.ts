@@ -226,6 +226,8 @@ export class ClassType extends Type {
     // parameters are undefined.
     private _typeArguments?: Type[];
 
+    private _skipAbstractClassTest = false;
+
     constructor(name: string, flags: ClassTypeFlags, typeSourceId: TypeSourceId) {
         super();
 
@@ -242,11 +244,14 @@ export class ClassType extends Type {
         };
     }
 
-    cloneForSpecialization(typeArguments: Type[]): ClassType {
+    cloneForSpecialization(typeArguments: Type[], skipAbstractClassTest = false): ClassType {
         let newClassType = new ClassType(this._classDetails.name,
             this._classDetails.flags, this._classDetails.typeSourceId);
         newClassType._classDetails = this._classDetails;
         newClassType.setTypeArguments(typeArguments);
+        if (skipAbstractClassTest) {
+            newClassType._setSkipAbstracClassTest();
+        }
         return newClassType;
     }
 
@@ -300,7 +305,8 @@ export class ClassType extends Type {
     }
 
     isAbstractClass() {
-        return this._classDetails.isAbstractClass;
+        return this._classDetails.isAbstractClass &&
+            !this._skipAbstractClassTest;
     }
 
     getClassName() {
@@ -538,6 +544,10 @@ export class ClassType extends Type {
         }
 
         return false;
+    }
+
+    private _setSkipAbstracClassTest() {
+        this._skipAbstractClassTest = true;
     }
 }
 

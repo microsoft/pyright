@@ -15,6 +15,15 @@ class AbstractFoo(ABC):
     def foo3(self):
         return 3
 
+    @classmethod
+    def foo4(cls):
+        # This should not generate an error even though
+        # it would appear to be attempting to instantiate
+        # an abstract class. That's because we need to 
+        # assume that the caller is making this call on
+        # a non-abstract subclass.
+        return cls()
+
 
 # This should generate an error because AbstractFoo
 # is an abstract class.
