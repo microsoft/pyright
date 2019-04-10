@@ -111,7 +111,7 @@ export function stripFileExtension(fileName: string) {
 }
 
 export function normalizePath(pathString: string): string {
-    return path.normalize(pathString);
+    return normalizeSlashes(path.normalize(pathString));
 }
 
 export interface FileSystemEntries {

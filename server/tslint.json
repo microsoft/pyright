@@ -64,7 +64,7 @@
         "ban-comma-operator": true,
         "restrict-plus-operands": true,
         "use-isnan": true,
-        "linebreak-style": true,
+        "linebreak-style": [true, "LF"],
         "comment-format": true,
         "no-boolean-literal-compare": true,
         "no-unnecessary-initializer": true,

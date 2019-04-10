@@ -71,4 +71,5 @@ if (fs.existsSync(packageLockFile)) {
 }
 
 console.log('Installing server npm modules into extension\'s server location...');
-cp.execSync('npm install --production --prefix ' + extensionServerDirectory);
+process.chdir(extensionServerDirectory)
+cp.execSync('npm install --production --prefix');
