@@ -21,8 +21,7 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     LambdaNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
     NameNode, NumberNode, ParameterCategory, SetNode, SliceExpressionNode,
     StarExpressionNode, StringNode, TernaryExpressionNode, TupleExpressionNode,
-    UnaryExpressionNode,
-    YieldExpressionNode } from '../parser/parseNodes';
+    UnaryExpressionNode, YieldExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
     TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -30,7 +29,7 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
-import { Symbol, SymbolCategory, SymbolTable } from './symbol';
+import { Symbol, SymbolCategory } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
@@ -76,14 +75,17 @@ export enum MemberAccessFlags {
     // Set this flag to consider only the specified class' members.
     SkipBaseClasses = 2,
 
+    // Do not include the "object" base class in the search.
+    SkipObjectBaseClass = 4,
+
     // By default, if the class has a __getattribute__ or __getattr__
     // magic method, it is assumed to have any member.
-    SkipGetAttributeCheck = 4,
+    SkipGetAttributeCheck = 8,
 
     // By default, if the class has a __get__ magic method, this is
     // followed to determine the final type. Properties use this
     // technique.
-    SkipGetCheck = 8
+    SkipGetCheck = 16
 }
 
 interface ParamAssignmentInfo {
@@ -537,6 +539,15 @@ export class ExpressionEvaluator {
         let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
             !(flags & MemberAccessFlags.SkipInstanceMembers),
             !(flags & MemberAccessFlags.SkipBaseClasses));
+
+        if (memberInfo) {
+            if (flags & MemberAccessFlags.SkipObjectBaseClass) {
+                if (memberInfo.class && memberInfo.class.isBuiltIn() && memberInfo.class.getClassName() === 'object') {
+                    memberInfo = undefined;
+                }
+            }
+        }
+
         if (memberInfo) {
             let type = TypeUtils.getEffectiveTypeOfMember(memberInfo);
 
@@ -888,6 +899,8 @@ export class ExpressionEvaluator {
         let validatedTypes = false;
         let returnType: Type | undefined;
 
+        // TODO - it would be preferable to synthesize the constructor for
+        // data classes rather than have special-case code here.
         if (this.isDataClass(type)) {
             let constructorMethodType = new FunctionType(FunctionTypeFlags.InstanceMethod);
             constructorMethodType.getParameters().push({
@@ -913,26 +926,23 @@ export class ExpressionEvaluator {
             const boundType = this._bindFunctionToClassOrObject(new ObjectType(type), constructorMethodType);
             this._validateCallArguments(errorNode, argList, boundType, new TypeVarMap());
             validatedTypes = true;
-        }
+        } else {
+            // Validate __new__
+            let constructorMethodType = this._getTypeFromClassMemberName('__new__', type,
+                MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
+                MemberAccessFlags.SkipObjectBaseClass);
+            if (constructorMethodType) {
+                constructorMethodType = this._bindFunctionToClassOrObject(
+                    type, constructorMethodType, true);
+                returnType = this._validateCallArguments(errorNode, argList, constructorMethodType,
+                    new TypeVarMap());
+                validatedTypes = true;
+            }
 
-        // See if there's a "__new__" defined within the class (but not its base classes).
-        let constructorMethodType = this._getTypeFromClassMemberName('__new__', type,
-            MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
-                MemberAccessFlags.SkipBaseClasses);
-        if (constructorMethodType) {
-            constructorMethodType = this._bindFunctionToClassOrObject(
-                type, constructorMethodType, true);
-            returnType = this._validateCallArguments(errorNode, argList, constructorMethodType,
-                new TypeVarMap());
-            validatedTypes = true;
-        }
-
-        if (!validatedTypes) {
-            // If we didn't find a "__new__", look recursively for an "__init__" in base classes.
-            let memberAccessFlags = MemberAccessFlags.SkipGetAttributeCheck |
-                MemberAccessFlags.SkipInstanceMembers;
-            let initMethodType = this._getTypeFromClassMemberName(
-                '__init__', type, memberAccessFlags);
+            // Validate __init__
+            let initMethodType = this._getTypeFromClassMemberName('__init__', type,
+                MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
+                MemberAccessFlags.SkipObjectBaseClass);
             if (initMethodType) {
                 initMethodType = this._bindFunctionToClassOrObject(
                     new ObjectType(type), initMethodType);
@@ -1103,7 +1113,8 @@ export class ExpressionEvaluator {
             if (paramIndex >= positionalParamCount) {
                 let adjustedCount = positionalParamCount;
                 this._addError(
-                    `Expected ${ adjustedCount } positional argument${ adjustedCount === 1 ? '' : 's' }`,
+                    `Expected ${ adjustedCount } positional ` +
+                    `${ adjustedCount === 1 ? 'argument' : 'arguments' }`,
                     argList[argIndex].valueExpression || errorNode);
                 reportedArgError = true;
                 break;

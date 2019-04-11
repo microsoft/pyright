@@ -355,6 +355,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             });
 
             // If this function is part of a class, add an implied "super" method.
+            // TODO - this code assumes the zero-parameter version of super. Another
+            // approach will be needed to handle the multi-parameter version which
+            // can even be used outside of a class definition.
             let classNode = ParseTreeUtils.getEnclosingClass(node);
             if (classNode) {
                 let classType = AnalyzerNodeInfo.getExpressionType(classNode) as ClassType;

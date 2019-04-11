@@ -173,6 +173,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         let sawMetaclass = false;
+        let nonMetaclassBaseClassCount = 0;
         let evaluator = new ExpressionEvaluator(this._currentScope,
             this._fileInfo.configOptions, this._fileInfo.diagnosticSink);
         node.arguments.forEach(arg => {
@@ -207,9 +208,13 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             }
 
             classType.addBaseClass(argType, isMetaclass);
+
+            if (!isMetaclass) {
+                nonMetaclassBaseClassCount++;
+            }
         });
 
-        if (node.arguments.length === 0) {
+        if (nonMetaclassBaseClassCount === 0) {
             let objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
             // Make sure we don't have 'object' derive from itself. Infinite
             // recursion will result.

@@ -854,10 +854,13 @@ export class TypeUtils {
 
             if (searchBaseClasses) {
                 for (let baseClass of classType.getBaseClasses()) {
-                    let methodType = this.lookUpClassMember(baseClass.type,
-                        memberName, searchBaseClasses);
-                    if (methodType) {
-                        return methodType;
+                    // Skip metaclasses.
+                    if (!baseClass.isMetaclass) {
+                        let methodType = this.lookUpClassMember(baseClass.type,
+                            memberName, searchBaseClasses);
+                        if (methodType) {
+                            return methodType;
+                        }
                     }
                 }
             }
