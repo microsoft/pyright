@@ -85,7 +85,7 @@ export class PythonPathUtils {
         let pythonPaths: string[] = [];
 
         try {
-            const commandLineArgs: string[] = ['-c', 'import sys; print sys.path'];
+            const commandLineArgs: string[] = ['-c', 'import sys; print(sys.path)'];
             let execOutput: string;
 
             if (interpreterPath) {
