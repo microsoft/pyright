@@ -1686,7 +1686,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _getTypeOfExpression(node: ExpressionNode, specialize = true): Type {
         let evaluator = this._getEvaluator();
-        return evaluator.getType(node, specialize ? EvaluatorFlags.None : EvaluatorFlags.DoNotSpecialize);
+        return evaluator.getType(node, specialize ?
+            EvaluatorFlags.ConvertEllipsisToAny :
+            EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.ConvertEllipsisToAny);
     }
 
     private _updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {

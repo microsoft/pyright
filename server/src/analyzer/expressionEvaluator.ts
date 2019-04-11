@@ -60,10 +60,13 @@ export enum EvaluatorFlags {
     // is the normal mode used for type annotations.
     ConvertClassToObject = 1,
 
+    // Interpret an ellipsis type annotation to mean "Any".
+    ConvertEllipsisToAny = 2,
+
     // Normally a generic named type is specialized with "Any"
     // types. This flag indicates that specialization shouldn't take
     // place.
-    DoNotSpecialize = 2
+    DoNotSpecialize = 4
 }
 
 export enum MemberAccessFlags {
@@ -215,7 +218,7 @@ export class ExpressionEvaluator {
                         if (statement.valueExpression instanceof NameNode) {
                             variableNameNode = statement.valueExpression;
                             variableType = this.getType(statement.typeAnnotation.expression,
-                                EvaluatorFlags.ConvertClassToObject);
+                                EvaluatorFlags.ConvertClassToObject | EvaluatorFlags.ConvertEllipsisToAny);
                         }
                     }
 
@@ -291,7 +294,8 @@ export class ExpressionEvaluator {
             typeResult = this._getBuiltInTypeFromLiteralExpression(node,
                 node.token.isInteger ? 'int' : 'float');
         } else if (node instanceof EllipsisNode) {
-            typeResult = { type: AnyType.create(true), node };
+            const convertToAny = (flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0;
+            typeResult = { type: AnyType.create(!convertToAny), node };
         } else if (node instanceof UnaryExpressionNode) {
             typeResult = this._getTypeFromUnaryExpression(node, flags);
         } else if (node instanceof BinaryExpressionNode) {
@@ -715,6 +719,11 @@ export class ExpressionEvaluator {
             }
         });
 
+        if (this._writeTypeToCache) {
+            // Cache the type information in the index expression node as well.
+            this._writeTypeToCache(node.indexExpression, type);
+        }
+
         return { type, node };
     }
 
@@ -756,8 +765,7 @@ export class ExpressionEvaluator {
             flags: EvaluatorFlags): TypeResult {
 
         const entryTypes = node.expressions.map(expr => {
-            return this._getTypeFromExpression(
-                expr, flags) || UnknownType.create();
+            return this._getTypeFromExpression(expr, flags) || UnknownType.create();
         });
 
         let type = UnknownType.create();
@@ -1906,13 +1914,17 @@ export class ExpressionEvaluator {
         if (typeArgs && typeArgs.length > 0) {
             if (typeArgs[0].typeList) {
                 typeArgs[0].typeList.forEach((entry, index) => {
+                    if (entry.type instanceof AnyType && entry.type.isEllipsis()) {
+                        this._addError(`'...' not permitted in this context`, entry.node);
+                    }
+
                     functionType.addParameter({
                         category: ParameterCategory.Simple,
                         name: `p${ index.toString() }`,
                         type: entry.type
                     });
                 });
-            } else if (typeArgs[0].type instanceof AnyType) {
+            } else if (typeArgs[0].type instanceof AnyType && typeArgs[0].type.isEllipsis()) {
                 TypeUtils.addDefaultFunctionParameters(functionType);
             } else {
                 this._addError(`Expected parameter type list or '...'`, typeArgs[0].node);
@@ -1922,6 +1934,9 @@ export class ExpressionEvaluator {
         }
 
         if (typeArgs && typeArgs.length > 1) {
+            if (typeArgs[1].type instanceof AnyType && typeArgs[1].type.isEllipsis()) {
+                this._addError(`'...' not permitted in this context`, typeArgs[1].node);
+            }
             functionType.setDeclaredReturnType(typeArgs[1].type);
         } else {
             functionType.setDeclaredReturnType(AnyType.create());
@@ -1941,6 +1956,10 @@ export class ExpressionEvaluator {
             return UnknownType.create();
         }
 
+        if (typeArgs[0].type instanceof AnyType && typeArgs[0].type.isEllipsis()) {
+            this._addError(`'...' not permitted in this context`, typeArgs[0].node);
+        }
+
         return TypeUtils.combineTypes([typeArgs[0].type, NoneType.create()]);
     }
 
@@ -1952,13 +1971,13 @@ export class ExpressionEvaluator {
 
         let type = (!typeArgs || typeArgs.length === 0) ? AnyType.create() : typeArgs[0].type;
         return this._convertClassToObject(type);
-}
+    }
 
     // Creates one of several "special" types that are defined in typing.pyi
-    // but not declared in their entirety. This includes the likes of "Type",
-    // "Callable", etc.
+    // but not declared in their entirety. This includes the likes of "Tuple",
+    // "Dict", etc.
     private _createSpecialType(classType: ClassType, typeArgs: TypeResult[] | undefined,
-            flags: EvaluatorFlags, paramLimit?: number): Type {
+            flags: EvaluatorFlags, paramLimit?: number, allowEllipsis = false): Type {
 
         let typeArgTypes = typeArgs ? typeArgs.map(t => t.type) : [];
         const typeArgCount = typeArgTypes.length;
@@ -1977,6 +1996,17 @@ export class ExpressionEvaluator {
             }
         }
 
+        if (typeArgs) {
+            // Verify that we didn't receive any inappropriate ellipses.
+            typeArgs.forEach((typeArg, index) => {
+                if (typeArg.type instanceof AnyType && typeArg.type.isEllipsis()) {
+                    if (!allowEllipsis || index !== typeArgs.length - 1) {
+                        this._addError(`'...' not allowed in this context`, typeArgs[index].node);
+                    }
+                }
+            });
+        }
+
         let specializedType = classType.cloneForSpecialization(typeArgTypes);
 
         return this._convertClassToObjectConditional(specializedType, flags);
@@ -1988,8 +2018,11 @@ export class ExpressionEvaluator {
 
         if (typeArgs) {
             for (let typeArg of typeArgs) {
-                if (typeArg.type) {
-                    types.push(typeArg.type);
+                types.push(typeArg.type);
+
+                // Verify that we didn't receive any inappropriate ellipses.
+                if (typeArg.type instanceof AnyType && typeArg.type.isEllipsis()) {
+                    this._addError(`'...' not allowed in this context`, typeArg.node);
                 }
             }
         }
@@ -2058,6 +2091,15 @@ export class ExpressionEvaluator {
                     typeArgs[typeParameters.length].node);
             }
             typeArgCount = typeParameters.length;
+        }
+
+        if (typeArgs) {
+            typeArgs.forEach(typeArg => {
+                // Verify that we didn't receive any inappropriate ellipses.
+                if (typeArg.type instanceof AnyType && typeArg.type.isEllipsis()) {
+                    this._addError(`'...' not allowed in this context`, typeArg.node);
+                }
+            });
         }
 
         // Fill in any missing type arguments with Any.
@@ -2184,9 +2226,12 @@ export class ExpressionEvaluator {
                     return this._createSpecialType(classType, typeArgs, flags, 2);
                 }
 
-                case 'Protocol':
+                case 'Protocol': {
+                    return this._createSpecialType(classType, typeArgs, flags, undefined);
+                }
+
                 case 'Tuple': {
-                    return this._createSpecialType(classType, typeArgs, flags);
+                    return this._createSpecialType(classType, typeArgs, flags, undefined, true);
                 }
 
                 case 'Union': {

@@ -252,3 +252,10 @@ test('Module1', () => {
     assert.equal(analysisResult.errors.length, 0);
     assert.equal(analysisResult.warnings.length, 0);
 });
+
+test('Ellipsis1', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.py']);
+
+    assert.equal(analysisResult.errors.length, 10);
+    assert.equal(analysisResult.warnings.length, 0);
+});
