@@ -86,7 +86,7 @@ export abstract class Type {
         return false;
     }
 
-    isSame(type2: Type): boolean {
+    isSame(type2: Type, recursionCount = 0): boolean {
         return this.category === type2.category;
     }
 
@@ -438,8 +438,12 @@ export class ClassType extends Type {
         return false;
     }
 
-    isSame(type2: Type): boolean {
-        if (!super.isSame(type2)) {
+    isSame(type2: Type, recursionCount = 0): boolean {
+        if (recursionCount > MaxRecursionCount) {
+            return true;
+        }
+
+        if (!super.isSame(type2, recursionCount + 1)) {
             return false;
         }
 
@@ -477,7 +481,7 @@ export class ClassType extends Type {
                 return false;
             }
 
-            if (!typeArg1.isSame(typeArg2)) {
+            if (!typeArg1.isSame(typeArg2, recursionCount + 1)) {
                 return false;
             }
         }
@@ -601,9 +605,13 @@ export class ObjectType extends Type {
         return this._truthyOrFalsy;
     }
 
-    isSame(type2: Type): boolean {
-        return super.isSame(type2) &&
-            this._classType.isSame((type2 as ObjectType)._classType);
+    isSame(type2: Type, recursionCount = 0): boolean {
+        if (recursionCount > MaxRecursionCount) {
+            return true;
+        }
+
+        return super.isSame(type2, recursionCount + 1) &&
+            this._classType.isSame((type2 as ObjectType)._classType, recursionCount + 1);
     }
 
     asStringInternal(recursionCount = 0): string {
@@ -1100,7 +1108,11 @@ export class UnionType extends Type {
         return newUnion;
     }
 
-    isSame(type2: Type): boolean {
+    isSame(type2: Type, recursionCount = 0): boolean {
+        if (recursionCount > MaxRecursionCount) {
+            return true;
+        }
+
         if (!(type2 instanceof UnionType)) {
             return false;
         }
@@ -1111,11 +1123,11 @@ export class UnionType extends Type {
 
         // The types do not have a particular order, so we need to
         // do the comparison in an order-independent manner.
-        return this._types.find(t => !type2.containsType(t)) === undefined;
+        return this._types.find(t => !type2.containsType(t, recursionCount)) === undefined;
     }
 
-    containsType(type: Type): boolean {
-        return this._types.find(t => t.isSame(type)) !== undefined;
+    containsType(type: Type, recursionCount = 0): boolean {
+        return this._types.find(t => t.isSame(type, recursionCount + 1)) !== undefined;
     }
 
     asStringInternal(recursionCount = 0): string {
@@ -1187,8 +1199,12 @@ export class TypeVarType extends Type {
         this._isContravariant = true;
     }
 
-    isSame(type2: Type): boolean {
-        if (!super.isSame(type2)) {
+    isSame(type2: Type, recursionCount = 0): boolean {
+        if (recursionCount > MaxRecursionCount) {
+            return true;
+        }
+
+        if (!super.isSame(type2, recursionCount + 1)) {
             return false;
         }
 
@@ -1199,7 +1215,9 @@ export class TypeVarType extends Type {
         }
 
         if (this._boundType) {
-            if (!type2TypeVar._boundType || !type2TypeVar._boundType.isSame(this._boundType)) {
+            if (!type2TypeVar._boundType ||
+                    !type2TypeVar._boundType.isSame(this._boundType, recursionCount + 1)) {
+
                 return false;
             }
         } else {
@@ -1221,7 +1239,7 @@ export class TypeVarType extends Type {
         }
 
         for (let i = 0; i < this._constraints.length; i++) {
-            if (!this._constraints[i].isSame(type2TypeVar._constraints[i])) {
+            if (!this._constraints[i].isSame(type2TypeVar._constraints[i], recursionCount + 1)) {
                 return false;
             }
         }
