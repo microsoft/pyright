@@ -69,22 +69,28 @@ export default class StringMap<T> {
     }
 
     // Subtract all keys in rhs from this
-    subtract(rhs: StringMap<T>) {
+    subtract(rhs: StringMap<T>): boolean {
+        let mapWasUpdated = false;
+
         Object.keys(rhs._map).forEach(k => {
             delete this._map[k];
+            mapWasUpdated = true;
         });
 
-        return this;
+        return mapWasUpdated;
     }
 
     // Merge 'rhs' into this without overwriting existing keys
-    merge(rhs: StringMap<T>) {
+    merge(rhs: StringMap<T>): boolean {
+        let mapWasUpdated = false;
+
         Object.keys(rhs._map).forEach(k => {
             if (!this._map[k]) {
                 this._map[k] = rhs._map[k];
+                mapWasUpdated = true;
             }
         });
 
-        return this;
+        return mapWasUpdated;
     }
 }

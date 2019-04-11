@@ -85,6 +85,10 @@ export class SourceFile {
     // special-case handling.
     private readonly _isCollectionsStubFile: boolean;
 
+    // True if the file is the "dataclasses.pyi" file, which needs
+    // special-case handling.
+    private readonly _isDataClassesStubFile: boolean;
+
     // True if the file is the "abc.pyi" file, which needs
     // special-case handling.
     private readonly _isAbcStubFile: boolean;
@@ -138,6 +142,8 @@ export class SourceFile {
             fileName === 'typing.pyi' || fileName === 'typing_extensions.pyi');
         this._isCollectionsStubFile = this._isStubFile &&
             this._filePath.endsWith('/collections/__init__.pyi');
+        this._isDataClassesStubFile = this._isStubFile &&
+            fileName === 'dataclasses.pyi';
         this._isAbcStubFile = this._isStubFile &&
             fileName === 'abc.pyi';
     }
@@ -486,6 +492,7 @@ export class SourceFile {
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
             isCollectionsStubFile: this._isCollectionsStubFile,
+            isDataClassesStubFile: this._isDataClassesStubFile,
             isAbcStubFile: this._isAbcStubFile,
             console: this._console
         };

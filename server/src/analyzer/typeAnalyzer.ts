@@ -121,8 +121,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitClass(node: ClassNode): boolean {
-        let evaluator = this._getEvaluator();
-
         // We should have already resolved most of the base class
         // parameters in the semantic analyzer, but if these parameters
         // are variables, they may not have been resolved at that time.
@@ -151,6 +149,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (argType instanceof ClassType) {
+                // If the class directly derives from NamedTuple, it's considered
+                // a dataclass.
+                if (argType.isBuiltIn() && argType.getClassName() === 'NamedTuple') {
+                    classType.setIsDataClass();
+                }
+
                 // Validate that the class isn't deriving from itself, creating a
                 // circular dependency.
                 if (TypeUtils.derivesFromClassRecursive(argType, classType)) {
@@ -169,11 +173,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 TypeUtils.getTypeVarArgumentsRecursive(argType));
         });
 
-        const isDataClass = evaluator.isDataClass(classType);
-        if (isDataClass) {
-            classType.getClassFields().merge(classType.getDataFields());
-        }
-
         // Update the type parameters for the class.
         if (classType.setTypeParameters(typeParameters)) {
             this._setAnalysisChanged();
@@ -183,16 +182,32 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this.walk(node.suite);
         });
 
-        // Python 3.7 enforces the convention that data fields within
-        // a data class cannot being with "_".
-        if (isDataClass) {
-            classType.getClassFields().forEach((s, k) => {
-                if (!TypeUtils.isFunctionType(s.currentType) && /^_/.test(k) && s.declarations) {
-                    if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V37) {
+        node.decorators.forEach(decoratorNode => {
+            const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression, false);
+
+            // Is this a @dataclass?
+            if (decoratorType instanceof OverloadedFunctionType) {
+                const overloads = decoratorType.getOverloads();
+                if (overloads.length > 0 && overloads[0].type.getBuiltInName() === 'dataclass') {
+                    classType.setIsDataClass();
+                }
+            }
+        });
+
+        if (classType.isDataClass()) {
+            if (classType.getClassFields().merge(classType.getDataFields())) {
+                this._setAnalysisChanged();
+            }
+
+            // Python 3.7 enforces the convention that data fields within
+            // a data class cannot being with "_".
+            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V37) {
+                classType.getClassFields().forEach((s, k) => {
+                    if (!TypeUtils.isFunctionType(s.currentType) && /^_/.test(k) && s.declarations) {
                         this._addError(`Data field name cannot start with _`, s.declarations[0].node);
                     }
-                }
-            });
+                });
+            }
         }
 
         let declaration: Declaration = {
@@ -220,9 +235,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
         assert(functionType instanceof FunctionType);
 
-        if (this._fileInfo.isCollectionsStubFile || this._fileInfo.isAbcStubFile) {
+        if (this._fileInfo.isCollectionsStubFile ||
+                this._fileInfo.isAbcStubFile ||
+                this._fileInfo.isDataClassesStubFile) {
+
             // Stash away the name of the function since we need to handle
-            // 'namedtuple' and 'abstractmethod' specially.
+            // 'namedtuple', 'abstractmethod' and 'dataclass' specially.
             functionType.setBuiltInName(node.name.nameToken.value);
         }
 

@@ -210,23 +210,30 @@ test('Tuples1', () => {
     assert.equal(analysisResults[0].errors.length, 4);
 });
 
-test('NamedTuple1', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['namedtuple1.py']);
+test('DataClass1', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['dataclass1.py']);
 
     assert.equal(analysisResult.errors.length, 0);
     assert.equal(analysisResult.warnings.length, 0);
 });
 
-test('NamedTuple2', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['namedtuple2.py']);
+test('DataClass2', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['dataclass2.py']);
 
     assert.equal(analysisResult.errors.length, 1);
     assert.ok(/start with _/.test(analysisResult.errors[0].message));
     assert.equal(analysisResult.warnings.length, 0);
 });
 
-test('NamedTuple3', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['namedtuple3.py']);
+test('DataClass3', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['dataclass3.py']);
+
+    assert.equal(analysisResult.errors.length, 2);
+    assert.equal(analysisResult.warnings.length, 0);
+});
+
+test('DataClass4', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['dataclass4.py']);
 
     assert.equal(analysisResult.errors.length, 2);
     assert.equal(analysisResult.warnings.length, 0);

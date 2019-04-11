@@ -155,6 +155,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         if (this._currentScope.getType() === ScopeType.BuiltIn ||
                 this._fileInfo.isTypingStubFile ||
                 this._fileInfo.isCollectionsStubFile ||
+                this._fileInfo.isDataClassesStubFile ||
                 this._fileInfo.isAbcStubFile) {
 
             classFlags |= ClassTypeFlags.BuiltInClass;
@@ -893,8 +894,11 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
 
         // Record the class fields for this class.
         this._classType.setClassFields(this._currentScope.getSymbolTable());
-        this._classType.setDataFields(suiteScope.getSymbolTable().subtract(
-            this._currentScope.getSymbolTable()));
+
+        // Record the data fields for this class.
+        const suiteScopeSymbols = suiteScope.getSymbolTable();
+        suiteScopeSymbols.subtract(this._currentScope.getSymbolTable());
+        this._classType.setDataFields(suiteScopeSymbols);
     }
 
     analyzeDeferred() {

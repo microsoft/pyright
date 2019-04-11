@@ -165,22 +165,6 @@ export class ExpressionEvaluator {
         return resultType;
     }
 
-    isDataClass(type: ClassType): boolean {
-        // Does this class derive from a 'NamedTuple'?
-        const symbolWithScope = this._scope.lookUpSymbolRecursive('NamedTuple');
-        if (symbolWithScope) {
-            const namedTupleType = symbolWithScope.symbol.currentType;
-            if (namedTupleType instanceof ClassType && namedTupleType.isBuiltIn()) {
-                // No need to call 'derivesFromClassRecursive', python 3.7 checks the direct
-                // base class only.
-                return type.getBaseClasses().some(b => b.type
-                    instanceof ClassType && b.type.isSameGenericClass(namedTupleType));
-            }
-        }
-
-        return false;
-    }
-
     private _getTypeFromExpression(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
         // Is this type already cached?
         if (this._readTypeFromCache) {
@@ -901,7 +885,7 @@ export class ExpressionEvaluator {
 
         // TODO - it would be preferable to synthesize the constructor for
         // data classes rather than have special-case code here.
-        if (this.isDataClass(type)) {
+        if (type.isDataClass()) {
             let constructorMethodType = new FunctionType(FunctionTypeFlags.InstanceMethod);
             constructorMethodType.getParameters().push({
                 category: ParameterCategory.Simple,

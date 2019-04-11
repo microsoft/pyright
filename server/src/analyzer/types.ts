@@ -194,7 +194,11 @@ export enum ClassTypeFlags {
     // exhibits non-standard behavior or is not defined
     // formally as a class. Examples include 'Optional'
     // and 'Union'.
-    SpecialBuiltIn = 0x04
+    SpecialBuiltIn = 0x04,
+
+    // Introduced in Python 3.7 - class either derives directly
+    // from NamedTuple or has a @dataclass class decorator.
+    DataClass = 0x08
 }
 
 export interface BaseClass {
@@ -311,6 +315,14 @@ export class ClassType extends Type {
 
     getClassName() {
         return this._classDetails.name;
+    }
+
+    setIsDataClass() {
+        this._classDetails.flags |= ClassTypeFlags.DataClass;
+    }
+
+    isDataClass() {
+        return !!(this._classDetails.flags & ClassTypeFlags.DataClass);
     }
 
     hasDecorators() {
