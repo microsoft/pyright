@@ -213,7 +213,6 @@ interface ClassDetails {
     baseClasses: BaseClass[];
     aliasClass?: ClassType;
     classFields: SymbolTable;
-    dataFields: SymbolTable;
     instanceFields: SymbolTable;
     typeParameters: TypeVarType[];
     isAbstractClass: boolean;
@@ -242,7 +241,6 @@ export class ClassType extends Type {
             baseClasses: [],
             classFields: new SymbolTable(),
             instanceFields: new SymbolTable(),
-            dataFields: new SymbolTable(),
             typeParameters: [],
             isAbstractClass: false
         };
@@ -357,14 +355,6 @@ export class ClassType extends Type {
 
     setClassFields(nameMap: SymbolTable) {
         this._classDetails.classFields = nameMap;
-    }
-
-    getDataFields(): SymbolTable {
-        return this._classDetails.dataFields;
-    }
-
-    setDataFields(nameMap: SymbolTable) {
-        this._classDetails.dataFields = nameMap;
     }
 
     getInstanceFields(): SymbolTable {

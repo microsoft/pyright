@@ -10,17 +10,19 @@
 
 import * as assert from 'assert';
 
-import { ConfigOptions, DiagnosticLevel } from '../common/configOptions';
+import { ConfigOptions, DiagnosticLevel, ExecutionEnvironment } from '../common/configOptions';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
+import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
-    BinaryExpressionNode, CallExpressionNode, ConstantNode, DecoratorNode,
-    DictionaryNode, EllipsisNode, ExpressionNode, IndexExpressionNode,
-    LambdaNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
-    NameNode, NumberNode, ParameterCategory, SetNode, SliceExpressionNode,
-    StarExpressionNode, StringNode, TernaryExpressionNode, TupleExpressionNode,
+    BinaryExpressionNode, CallExpressionNode, ClassNode, ConstantNode,
+    DecoratorNode, DictionaryNode, EllipsisNode, ExpressionNode,
+    IndexExpressionNode, LambdaNode, ListComprehensionNode, ListNode,
+    MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory, SetNode,
+    SliceExpressionNode, StarExpressionNode, StatementListNode, StringNode,
+    TernaryExpressionNode, TupleExpressionNode, TypeAnnotationExpressionNode,
     UnaryExpressionNode, YieldExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
     TokenType } from '../parser/tokenizerTypes';
@@ -99,17 +101,20 @@ export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) =>
 export class ExpressionEvaluator {
     private _scope: Scope;
     private _configOptions: ConfigOptions;
+    private _executionEnvironment: ExecutionEnvironment;
     private _expressionTypeConstraints: TypeConstraint[] = [];
     private _diagnosticSink?: TextRangeDiagnosticSink;
     private _readTypeFromCache?: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
 
     constructor(scope: Scope, configOptions: ConfigOptions,
+            executionEnvironment: ExecutionEnvironment,
             diagnosticSink?: TextRangeDiagnosticSink,
             readTypeCallback?: ReadTypeFromNodeCacheCallback,
             writeTypeCallback?: WriteTypeToNodeCacheCallback) {
         this._scope = scope;
         this._configOptions = configOptions;
+        this._executionEnvironment = executionEnvironment;
         this._diagnosticSink = diagnosticSink;
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
@@ -163,6 +168,96 @@ export class ExpressionEvaluator {
         }
 
         return resultType;
+    }
+
+    // Validates fields for compatibility with a dataclass and synthesizes
+    // an appropriate __new__ and __init__ methods.
+    synthesizeDataClassMethods(node: ClassNode, classType: ClassType) {
+        assert(classType.isDataClass());
+
+        let newType = new FunctionType(FunctionTypeFlags.StaticMethod);
+        let initType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+        let sawDefaultValue = false;
+
+        newType.addParameter({
+            category: ParameterCategory.Simple,
+            name: 'cls',
+            type: classType
+        });
+
+        newType.setDeclaredReturnType(new ObjectType(classType));
+
+        initType.addParameter({
+            category: ParameterCategory.Simple,
+            name: 'self',
+            type: new ObjectType(classType)
+        });
+
+        node.suite.statements.forEach(statementList => {
+            if (statementList instanceof StatementListNode) {
+                statementList.statements.forEach(statement => {
+                    let variableNameNode: NameNode | undefined;
+                    let variableType: Type | undefined;
+                    let hasDefaultValue = false;
+
+                    if (statement instanceof AssignmentNode) {
+                        if (statement.leftExpression instanceof NameNode) {
+                            variableNameNode = statement.leftExpression;
+                        } else if (statement.leftExpression instanceof TypeAnnotationExpressionNode &&
+                                statement.leftExpression.valueExpression instanceof NameNode) {
+
+                            variableNameNode = statement.leftExpression.valueExpression;
+                        }
+
+                        variableType = this.getType(statement.rightExpression, EvaluatorFlags.None);
+                        hasDefaultValue = true;
+                    } else if (statement instanceof TypeAnnotationExpressionNode) {
+                        if (statement.valueExpression instanceof NameNode) {
+                            variableNameNode = statement.valueExpression;
+                            variableType = this.getType(statement.typeAnnotation.expression,
+                                EvaluatorFlags.ConvertClassToObject);
+                        }
+                    }
+
+                    if (variableNameNode && variableType) {
+                        const variableName = variableNameNode.nameToken.value;
+
+                        // Python 3.7 enforces the convention that data fields within
+                        // a data class cannot being with "_".
+                        if (this._executionEnvironment.pythonVersion >= PythonVersion.V37) {
+                            if (variableName[0] === '_') {
+                                this._addError(`Data field name cannot start with _`, variableNameNode);
+                            }
+                        }
+
+                        // If we've already seen a variable with a default value defined,
+                        // all subsequent variables must also have default values.
+                        if (!hasDefaultValue && sawDefaultValue) {
+                            this._addError(`Data fields without default value cannot appear after ` +
+                                `data fields with default values`, variableNameNode);
+                        }
+
+                        // Add the new variable to the init function.
+                        const paramInfo: FunctionParameter = {
+                            category: ParameterCategory.Simple,
+                            name: variableName,
+                            hasDefault: hasDefaultValue,
+                            type: variableType
+                        };
+
+                        initType.addParameter(paramInfo);
+                        newType.addParameter(paramInfo);
+
+                        if (hasDefaultValue) {
+                            sawDefaultValue = true;
+                        }
+                    }
+                });
+            }
+        });
+
+        classType.getClassFields().set('__init__', new Symbol(initType, DefaultTypeSourceId));
+        classType.getClassFields().set('__new__', new Symbol(newType, DefaultTypeSourceId));
     }
 
     private _getTypeFromExpression(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
@@ -882,48 +977,27 @@ export class ExpressionEvaluator {
             argList: FunctionArgument[], type: ClassType): Type | undefined {
         let validatedTypes = false;
         let returnType: Type | undefined;
+        let reportedErrorsForNewCall = false;
 
-        // TODO - it would be preferable to synthesize the constructor for
-        // data classes rather than have special-case code here.
-        if (type.isDataClass()) {
-            let constructorMethodType = new FunctionType(FunctionTypeFlags.InstanceMethod);
-            constructorMethodType.getParameters().push({
-                category: ParameterCategory.Simple,
-                name: 'self',
-                hasDefault: false,
-                type: type
-            });
-
-            type.getClassFields().forEach((s, k) => {
-                if (TypeUtils.isFunctionType(s.currentType) || k[0] === '_') {
-                    return;
-                }
-
-                constructorMethodType.getParameters().push({
-                    category: ParameterCategory.Simple,
-                    name: k,
-                    hasDefault: !type.getDataFields().get(k),
-                    type: s.currentType
-                });
-            });
-
-            const boundType = this._bindFunctionToClassOrObject(new ObjectType(type), constructorMethodType);
-            this._validateCallArguments(errorNode, argList, boundType, new TypeVarMap());
-            validatedTypes = true;
-        } else {
-            // Validate __new__
-            let constructorMethodType = this._getTypeFromClassMemberName('__new__', type,
-                MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
-                MemberAccessFlags.SkipObjectBaseClass);
-            if (constructorMethodType) {
-                constructorMethodType = this._bindFunctionToClassOrObject(
-                    type, constructorMethodType, true);
-                returnType = this._validateCallArguments(errorNode, argList, constructorMethodType,
-                    new TypeVarMap());
-                validatedTypes = true;
+        // Validate __new__
+        let constructorMethodType = this._getTypeFromClassMemberName('__new__', type,
+            MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
+            MemberAccessFlags.SkipObjectBaseClass);
+        if (constructorMethodType) {
+            constructorMethodType = this._bindFunctionToClassOrObject(
+                type, constructorMethodType, true);
+            returnType = this._validateCallArguments(errorNode, argList, constructorMethodType,
+                new TypeVarMap());
+            if (!returnType) {
+                reportedErrorsForNewCall = true;
             }
+            validatedTypes = true;
+        }
 
-            // Validate __init__
+        // Validate __init__
+        // Don't report errors for __init__ if __new__ already generated errors. They're
+        // probably going to be entirely redundant anyway.
+        if (!reportedErrorsForNewCall) {
             let initMethodType = this._getTypeFromClassMemberName('__init__', type,
                 MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
                 MemberAccessFlags.SkipObjectBaseClass);

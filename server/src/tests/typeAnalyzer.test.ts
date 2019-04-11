@@ -228,14 +228,14 @@ test('DataClass2', () => {
 test('DataClass3', () => {
     let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['dataclass3.py']);
 
-    assert.equal(analysisResult.errors.length, 2);
+    assert.equal(analysisResult.errors.length, 1);
     assert.equal(analysisResult.warnings.length, 0);
 });
 
 test('DataClass4', () => {
     let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['dataclass4.py']);
 
-    assert.equal(analysisResult.errors.length, 2);
+    assert.equal(analysisResult.errors.length, 6);
     assert.equal(analysisResult.warnings.length, 0);
 });
 

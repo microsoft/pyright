@@ -149,10 +149,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (argType instanceof ClassType) {
-                // If the class directly derives from NamedTuple, it's considered
-                // a dataclass.
-                if (argType.isBuiltIn() && argType.getClassName() === 'NamedTuple') {
-                    classType.setIsDataClass();
+                // If the class directly derives from NamedTuple (in Python 3.6 or
+                // newer), it's considered a dataclass.
+                if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
+                    if (argType.isBuiltIn() && argType.getClassName() === 'NamedTuple') {
+                        classType.setIsDataClass();
+                    }
                 }
 
                 // Validate that the class isn't deriving from itself, creating a
@@ -195,19 +197,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         if (classType.isDataClass()) {
-            if (classType.getClassFields().merge(classType.getDataFields())) {
-                this._setAnalysisChanged();
-            }
-
-            // Python 3.7 enforces the convention that data fields within
-            // a data class cannot being with "_".
-            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V37) {
-                classType.getClassFields().forEach((s, k) => {
-                    if (!TypeUtils.isFunctionType(s.currentType) && /^_/.test(k) && s.declarations) {
-                        this._addError(`Data field name cannot start with _`, s.declarations[0].node);
-                    }
-                });
-            }
+            let evaluator = this._getEvaluator();
+            evaluator.synthesizeDataClassMethods(node, classType);
         }
 
         let declaration: Declaration = {
@@ -2063,6 +2054,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         return new ExpressionEvaluator(this._currentScope,
             this._fileInfo.configOptions,
+            this._fileInfo.executionEnvironment,
             diagSink, node => this._readTypeFromNodeCache(node),
             (node, type) => {
                 this._updateExpressionTypeForNode(node, type);

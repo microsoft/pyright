@@ -176,7 +176,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let sawMetaclass = false;
         let nonMetaclassBaseClassCount = 0;
         let evaluator = new ExpressionEvaluator(this._currentScope,
-            this._fileInfo.configOptions, this._fileInfo.diagnosticSink);
+            this._fileInfo.configOptions, this._fileInfo.executionEnvironment,
+            this._fileInfo.diagnosticSink);
         node.arguments.forEach(arg => {
             let argType: Type;
 
@@ -474,7 +475,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             this.walk(node.rightExpression);
         }
 
-        // See if this is a simple or tuple assignment.
         this._addNamedTarget(node.leftExpression);
 
         this.walk(node.leftExpression);
@@ -781,7 +781,11 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     // Returns true if the node was handled by this method, false if it was
     // of an unhandled type.
     private _addNamedTarget(node: ExpressionNode) {
-        if (node instanceof TupleExpressionNode) {
+        if (node instanceof NameNode) {
+            this._bindNameNodeToType(node, UnknownType.create());
+        } else if (node instanceof TypeAnnotationExpressionNode) {
+            this._addNamedTarget(node.valueExpression);
+        } else if (node instanceof TupleExpressionNode) {
             node.expressions.forEach(expr => {
                 this._addNamedTarget(expr);
             });
@@ -789,12 +793,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             node.entries.forEach(expr => {
                 this._addNamedTarget(expr);
             });
-        } else if (node instanceof TypeAnnotationExpressionNode) {
-            this._addNamedTarget(node.valueExpression);
         } else if (node instanceof StarExpressionNode && node.expression instanceof NameNode) {
             this._bindNameNodeToType(node.expression, UnknownType.create());
-        } else if (node instanceof NameNode) {
-            this._bindNameNodeToType(node, UnknownType.create());
         } else if (node instanceof MemberAccessExpressionNode) {
             // Nothing to do here. The target isn't introducing a new name.
         } else if (node instanceof IndexExpressionNode) {
@@ -894,11 +894,6 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
 
         // Record the class fields for this class.
         this._classType.setClassFields(this._currentScope.getSymbolTable());
-
-        // Record the data fields for this class.
-        const suiteScopeSymbols = suiteScope.getSymbolTable();
-        suiteScopeSymbols.subtract(this._currentScope.getSymbolTable());
-        this._classType.setDataFields(suiteScopeSymbols);
     }
 
     analyzeDeferred() {
