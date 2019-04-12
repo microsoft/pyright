@@ -3,7 +3,6 @@
 
 # This should generate three errors
 # 'Bar' is not bound
-# Argument to class must be a base class
 # Class cannot derive from itself
 class Bar(Bar):
     pass
@@ -11,7 +10,6 @@ class Bar(Bar):
 
 # This should generate three errors
 # 'ClassB' is not bound
-# Argument to class must be a base class
 # Class cannot derive from itself
 class ClassA(ClassB):
     pass
