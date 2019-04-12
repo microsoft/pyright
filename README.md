@@ -82,7 +82,6 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Support for old-style type annotations within comments
 * Address the many TODO comments in the code
 * Provide switch that treats instance variables and methods that begin with underscore as private
-* Validate parameters for magic functions
 * Synthesize TypeVar param and return types for lambdas where possible
 * Validate that overridden methods in subclass have same signature as base class methods
 * Add support for type hints on var-arg parameters
@@ -90,6 +89,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Add handling of set, get and delete for expressions
 * Flag assignments to read-only values (`None`, `True`, `False`, `__debug__`) as errors
 * Revamp support for properties - model with Descriptor protocol, detect missing setter
+* Add support for f-strings
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
 
 
