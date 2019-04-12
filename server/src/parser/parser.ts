@@ -951,8 +951,6 @@ export class Parser {
             }
         }
 
-        // TODO - need to process __future__ imports
-
         return importFromNode;
     }
 
