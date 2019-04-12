@@ -263,6 +263,20 @@ test('Ellipsis1', () => {
 test('Generators1', () => {
     let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['generators1.py']);
 
-    assert.equal(analysisResult.errors.length, 6);
+    assert.equal(analysisResult.errors.length, 5);
+    assert.equal(analysisResult.warnings.length, 0);
+});
+
+test('Generators2', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['generators2.py']);
+
+    assert.equal(analysisResult.errors.length, 2);
+    assert.equal(analysisResult.warnings.length, 0);
+});
+
+test('Generators3', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['generators3.py']);
+
+    assert.equal(analysisResult.errors.length, 1);
     assert.equal(analysisResult.warnings.length, 0);
 });

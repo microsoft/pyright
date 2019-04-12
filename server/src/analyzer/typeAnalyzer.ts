@@ -721,9 +721,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
         // Wrap the yield type in an Iterator.
-        const iterableClass = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
-        if (iterableClass instanceof ClassType) {
-            yieldType = new ObjectType(iterableClass.cloneForSpecialization([yieldType]));
+        const iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
+        if (iteratorType instanceof ClassType) {
+            yieldType = new ObjectType(iteratorType.cloneForSpecialization([yieldType]));
         } else {
             yieldType = UnknownType.create();
         }
@@ -1489,7 +1489,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 enclosingFunctionNode) as FunctionType;
             if (functionType) {
                 assert(functionType instanceof FunctionType);
-                declaredYieldType = TypeUtils.getDeclaredGeneratorYieldType(functionType);
+                const iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
+                declaredYieldType = TypeUtils.getDeclaredGeneratorYieldType(functionType, iteratorType);
             }
         }
 

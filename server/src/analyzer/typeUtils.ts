@@ -1209,15 +1209,20 @@ export class TypeUtils {
         }
     }
 
-    // Returns the declared yield type if provided, or unknown otherwise.
-    static getDeclaredGeneratorYieldType(functionType: FunctionType): Type | undefined {
+    // Returns the declared yield type if provided, or undefined otherwise.
+    static getDeclaredGeneratorYieldType(functionType: FunctionType,
+            iteratorType: Type): Type | undefined {
+
         const returnType = functionType.getSpecializedReturnType();
         if (returnType) {
             const generatorTypeArgs = this._getGeneratorReturnTypeArgs(returnType);
 
-            if (generatorTypeArgs && generatorTypeArgs.length >= 1) {
-                // The yield type is the first type arg.
-                return generatorTypeArgs[0];
+            if (generatorTypeArgs && generatorTypeArgs.length >= 1 &&
+                    iteratorType instanceof ClassType) {
+
+                // The yield type is the first type arg. Wrap it in an iterator.
+                return new ObjectType(iteratorType.cloneForSpecialization(
+                    [generatorTypeArgs[0]]));
             }
 
             // If the return type isn't a Generator, assume that it's the
