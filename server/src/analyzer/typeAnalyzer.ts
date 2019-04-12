@@ -578,7 +578,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._assignTypeToPossibleTuple(node.targetExpression, exprType);
 
         this.walk(node.targetExpression);
-        this.walk(node.forSuite);
+
+        const loopScope = this._enterTemporaryScope(() => {
+            this.walk(node.forSuite);
+        }, false, this._currentScope.isNotExecuted(), node);
+        this._mergeToCurrentScope(loopScope);
 
         if (node.elseSuite) {
             this.walk(node.elseSuite);
@@ -1377,7 +1381,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             this.walk(ifWhileSuite);
-        }, true, constExprValue === false);
+        }, true, constExprValue === false, isWhile ? ifWhileSuite : undefined);
 
         // Now handle the else statement if it's present. If there
         // are chained "else if" statements, they'll be handled
@@ -1985,22 +1989,60 @@ export class TypeAnalyzer extends ParseTreeWalker {
             (node: ExpressionNode) => this._getTypeOfExpression(node));
     }
 
-    private _enterTemporaryScope(callback: () => void, isConditional ? : boolean,
-            isNotExecuted ? : boolean) {
-        let prevScope = this._currentScope;
-        let newScope = new Scope(ScopeType.Temporary, prevScope);
+    // Create a temporary scope that can track values of modified variables
+    // within that scope.
+    // If loopNode is specified, the scope is also persisted to that node
+    // so the analyzer to take into account type information that is gathered
+    // lower in the loop body.
+    private _enterTemporaryScope(callback: () => void, isConditional?: boolean,
+            isNotExecuted?: boolean, loopNode?: ParseNode) {
+
+        let tempScope: Scope | undefined;
+
+        if (loopNode) {
+            // Was the scope persisted during the last analysis pass?
+            tempScope = AnalyzerNodeInfo.getScope(loopNode);
+
+            if (tempScope) {
+                // Convert all of the old type constraints to tombstones so
+                // they block upstream type constraints.
+                const oldTypeConstraints = tempScope.getTypeConstraints();
+                tempScope.clearTypeConstraints();
+
+                oldTypeConstraints.forEach(typeContraint => {
+                    const tombstone = typeContraint.convertToTombstone();
+                    if (tombstone) {
+                        tempScope!.addTypeConstraint(tombstone);
+                    }
+                });
+
+                tempScope.setParent(this._currentScope);
+            } else {
+                tempScope = new Scope(ScopeType.Temporary, this._currentScope);
+                AnalyzerNodeInfo.setScope(loopNode, tempScope);
+            }
+        } else {
+            tempScope = new Scope(ScopeType.Temporary, this._currentScope);
+        }
+
+        const prevScope = this._currentScope;
         if (isConditional) {
-            newScope.setConditional();
+            tempScope.setConditional();
         }
+
         if (this._currentScope.isNotExecuted() || isNotExecuted) {
-            newScope.setIsNotExecuted();
+            tempScope.setIsNotExecuted();
         }
-        this._currentScope = newScope;
 
+        this._currentScope = tempScope;
         callback();
-
         this._currentScope = prevScope;
-        return newScope;
+
+        // Unset the parent to allow any other temporary scopes in the
+        // chain to be deallocated.
+        tempScope.setParent(undefined);
+
+        return tempScope;
     }
 
     private _enterScope(node: ParseNode, callback: () => void): Scope {

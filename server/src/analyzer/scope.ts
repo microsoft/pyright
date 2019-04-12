@@ -110,6 +110,10 @@ export class Scope {
         return this._parent;
     }
 
+    setParent(scope?: Scope) {
+        this._parent = scope;
+    }
+
     getReturnType(): InferredType {
         return this._returnType;
     }

@@ -280,3 +280,10 @@ test('Generators3', () => {
     assert.equal(analysisResult.errors.length, 1);
     assert.equal(analysisResult.warnings.length, 0);
 });
+
+test('Loops1', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['loops1.py']);
+
+    assert.equal(analysisResult.errors.length, 2);
+    assert.equal(analysisResult.warnings.length, 0);
+});
