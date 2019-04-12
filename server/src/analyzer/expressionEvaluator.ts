@@ -19,11 +19,11 @@ import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     BinaryExpressionNode, CallExpressionNode, ClassNode, ConstantNode,
     DecoratorNode, DictionaryNode, EllipsisNode, ExpressionNode,
-    IndexExpressionNode, LambdaNode, ListComprehensionNode, ListNode,
-    MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory, SetNode,
-    SliceExpressionNode, StarExpressionNode, StatementListNode, StringNode,
-    TernaryExpressionNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, YieldExpressionNode } from '../parser/parseNodes';
+    IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionNode,
+    ListNode, MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory,
+    SetNode, SliceExpressionNode, StarExpressionNode, StatementListNode,
+    StringNode, TernaryExpressionNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, YieldExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
     TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -694,9 +694,9 @@ export class ExpressionEvaluator {
             if (subtype.isAny()) {
                 return subtype;
             } else if (subtype instanceof ClassType) {
-                let typeArgs = this._getTypeArgs(node.indexExpression);
+                let typeArgs = this._getTypeArgs(node.items);
                 return this._createSpecializeClassType(subtype, typeArgs,
-                    node.indexExpression, flags);
+                    node.items, flags);
             } else if (subtype instanceof FunctionType) {
                 // TODO - need to implement
                 return UnknownType.create();
@@ -719,24 +719,15 @@ export class ExpressionEvaluator {
             }
         });
 
-        if (this._writeTypeToCache) {
-            // Cache the type information in the index expression node as well.
-            this._writeTypeToCache(node.indexExpression, type);
-        }
-
         return { type, node };
     }
 
-    private _getTypeArgs(node: ExpressionNode): TypeResult[] {
+    private _getTypeArgs(node: IndexItemsNode): TypeResult[] {
         let typeArgs: TypeResult[] = [];
 
-        if (node instanceof TupleExpressionNode) {
-            node.expressions.forEach(expr => {
-                typeArgs.push(this._getTypeArg(expr));
-            });
-        } else {
-            typeArgs.push(this._getTypeArg(node));
-        }
+        node.items.forEach(expr => {
+            typeArgs.push(this._getTypeArg(expr));
+        });
 
         return typeArgs;
     }
@@ -1915,7 +1906,7 @@ export class ExpressionEvaluator {
             if (typeArgs[0].typeList) {
                 typeArgs[0].typeList.forEach((entry, index) => {
                     if (entry.type instanceof AnyType && entry.type.isEllipsis()) {
-                        this._addError(`'...' not permitted in this context`, entry.node);
+                        this._addError(`'...' not allowed in this context`, entry.node);
                     }
 
                     functionType.addParameter({
@@ -1935,7 +1926,7 @@ export class ExpressionEvaluator {
 
         if (typeArgs && typeArgs.length > 1) {
             if (typeArgs[1].type instanceof AnyType && typeArgs[1].type.isEllipsis()) {
-                this._addError(`'...' not permitted in this context`, typeArgs[1].node);
+                this._addError(`'...' not allowed in this context`, typeArgs[1].node);
             }
             functionType.setDeclaredReturnType(typeArgs[1].type);
         } else {
@@ -1957,7 +1948,7 @@ export class ExpressionEvaluator {
         }
 
         if (typeArgs[0].type instanceof AnyType && typeArgs[0].type.isEllipsis()) {
-            this._addError(`'...' not permitted in this context`, typeArgs[0].node);
+            this._addError(`'...' not allowed in this context`, typeArgs[0].node);
         }
 
         return TypeUtils.combineTypes([typeArgs[0].type, NoneType.create()]);

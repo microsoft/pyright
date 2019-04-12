@@ -59,7 +59,8 @@ export class ParseTreeUtils {
                 ')';
         } else if (node instanceof IndexExpressionNode) {
             return ParseTreeUtils.printExpression(node.baseExpression) + '[' +
-                this.printExpression(node.indexExpression) + ']';
+                node.items.items.map(item => this.printExpression(item)).join(', ') +
+                ']';
         }
 
         // TODO - need to finish

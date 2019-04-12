@@ -31,8 +31,9 @@ export class ExpressionUtils {
 
             } else if (node.leftExpression instanceof IndexExpressionNode &&
                     this._isSysVersionInfoExpression(node.leftExpression.baseExpression) &&
-                    node.leftExpression.indexExpression instanceof NumberNode &&
-                    node.leftExpression.indexExpression.token.value === 0 &&
+                    node.leftExpression.items.items.length === 1 &&
+                    node.leftExpression.items.items[0] instanceof NumberNode &&
+                    (node.leftExpression.items.items[0] as NumberNode).token.value === 0 &&
                     node.rightExpression instanceof NumberNode) {
 
                 // Handle the special case of "sys.version_info[0] >= X"

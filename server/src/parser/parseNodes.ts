@@ -42,6 +42,7 @@ export enum ParseNodeType {
     ImportFrom,
     ImportFromAs,
     Index,
+    IndexItems,
     Except,
     For,
     Function,
@@ -640,15 +641,14 @@ export class ListComprehensionNode<T extends ParseNode = ExpressionNode> extends
     }
 }
 
-export class IndexExpressionNode extends ExpressionNode {
-    readonly nodeType = ParseNodeType.Index;
-    baseExpression: ExpressionNode;
-    indexExpression: ExpressionNode;
+export class IndexItemsNode extends ParseNode {
+    readonly nodeType = ParseNodeType.IndexItems;
+    items: ExpressionNode[];
 
-    constructor(baseExpression: ExpressionNode, indexExpression: ExpressionNode) {
-        super(baseExpression);
-        this.baseExpression = baseExpression;
-        this.indexExpression = indexExpression;
+    constructor(openBracketToken: Token, closeBracketToken: Token, items: ExpressionNode[]) {
+        super(openBracketToken);
+        this.items = items;
+        this.extend(closeBracketToken);
     }
 
     getAssignmentError(): string | undefined {
@@ -656,7 +656,27 @@ export class IndexExpressionNode extends ExpressionNode {
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return [this.baseExpression, this.indexExpression];
+        return this.items;
+    }
+}
+
+export class IndexExpressionNode extends ExpressionNode {
+    readonly nodeType = ParseNodeType.Index;
+    baseExpression: ExpressionNode;
+    items: IndexItemsNode;
+
+    constructor(baseExpression: ExpressionNode, items: IndexItemsNode) {
+        super(baseExpression);
+        this.baseExpression = baseExpression;
+        this.items = items;
+    }
+
+    getAssignmentError(): string | undefined {
+        return undefined;
+    }
+
+    getChildren(): RecursiveParseNodeArray {
+        return [this.baseExpression, this.items];
     }
 }
 

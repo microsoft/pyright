@@ -14,14 +14,14 @@ import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpression
     ConstantNode, ContinueNode, DecoratorNode, DelNode, DictionaryExpandEntryNode,
     DictionaryKeyEntryNode, DictionaryNode, EllipsisNode, ExceptNode,
     ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromAsNode,
-    ImportFromNode, ImportNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
-    ListComprehensionIfNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
-    ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode, ParameterNode,
-    ParseNode, ParseNodeType, PassNode, RaiseNode, ReturnNode, SetNode,
-    SliceExpressionNode, StarExpressionNode, StatementListNode, StringNode, SuiteNode,
-    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, WhileNode, WithItemNode, WithNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    ImportFromNode, ImportNode, IndexExpressionNode, IndexItemsNode, LambdaNode,
+    ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode, ListNode,
+    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode,
+    ParameterNode, ParseNode, ParseNodeType, PassNode, RaiseNode, ReturnNode,
+    SetNode, SliceExpressionNode, StarExpressionNode, StatementListNode, StringNode,
+    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode, WithItemNode,
+    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 
 // To use this class, create a subclass and override the
 // visitXXX methods that you want to handle.
@@ -116,6 +116,9 @@ export class ParseTreeWalker {
 
             case ParseNodeType.Index:
                 return this.visitIndex(node as IndexExpressionNode);
+
+            case ParseNodeType.IndexItems:
+                return this.visitIndexItems(node as IndexItemsNode);
 
             case ParseNodeType.Ellipsis:
                 return this.visitEllipsis(node as EllipsisNode);
@@ -326,6 +329,10 @@ export class ParseTreeWalker {
     }
 
     visitIndex(node: IndexExpressionNode) {
+        return true;
+    }
+
+    visitIndexItems(node: IndexItemsNode) {
         return true;
     }
 

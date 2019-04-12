@@ -30,14 +30,14 @@ import { ArgumentCategory, ArgumentNode, AssertNode,
     DictionaryNode, EllipsisNode, ErrorExpressionNode, ExceptNode,
     ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
     ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode,
-    LambdaNode, ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionIterNode,
-    ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode,
-    ModuleNode, NameNode, NonlocalNode, NumberNode, ParameterCategory, ParameterNode,
-    ParseNode, PassNode, RaiseNode, ReturnNode, SetNode, SliceExpressionNode,
-    StarExpressionNode, StatementListNode, StatementNode, StringNode,
-    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpression,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode, WithItemNode,
-    WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
+    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
+    ListComprehensionIterNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
+    ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode, ParameterCategory,
+    ParameterNode, ParseNode, PassNode, RaiseNode, ReturnNode, SetNode,
+    SliceExpressionNode, StarExpressionNode, StatementListNode, StatementNode,
+    StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpression, TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode,
+    WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
     NumberToken, OperatorToken, OperatorType, QuoteTypeFlags, StringToken,
@@ -1592,6 +1592,8 @@ export class Parser {
 
         // Consume trailers.
         while (true) {
+            let nextToken = this._peekToken();
+
             // Is it a function call?
             if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
                 let argList = this._parseArgList();
@@ -1610,15 +1612,19 @@ export class Parser {
             } else if (this._consumeTokenIfType(TokenType.OpenBracket)) {
                 // Is it an index operator?
                 let indexExpr = this._parseSubscriptList();
-                let indexNode = new IndexExpressionNode(atomExpression, indexExpr);
-                indexNode.extend(indexNode);
+                let expressions = [indexExpr];
+                if (indexExpr instanceof TupleExpressionNode) {
+                    expressions = indexExpr.expressions;
+                }
 
-                let nextToken = this._peekToken();
+                let closingToken = this._peekToken();
                 if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
                     return this._handleExpressionParseError('Expected "]"');
-                } else {
-                    indexNode.extend(nextToken);
                 }
+
+                let indexItemsNode = new IndexItemsNode(nextToken, closingToken, expressions);
+                let indexNode = new IndexExpressionNode(atomExpression, indexItemsNode);
+                indexNode.extend(indexNode);
 
                 atomExpression = indexNode;
             } else if (this._consumeTokenIfType(TokenType.Dot)) {
