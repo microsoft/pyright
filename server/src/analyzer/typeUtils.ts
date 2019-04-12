@@ -111,9 +111,9 @@ export class TypeUtils {
             // the source type or the code being analyzed contains a bug where
             // a return type uses a type var that is not referenced elsewhere
             // in a function.
-            diag.addMessage(`Type '${ srcType.asString() }' cannot be assigned to ` +
-                `type '${ destType.asString() }'.`);
-            return false;
+            const specializedSrcType = this.specializeTypeVarType(srcType);
+            return this.canAssignType(destType, specializedSrcType, diag,
+                undefined, undefined, recursionCount + 1);
         }
 
         if (recursionCount > MaxTypeRecursion) {
@@ -468,6 +468,9 @@ export class TypeUtils {
                     missingNames.push(name);
                 } else {
                     if (symbol.declarations && symbol.declarations[0].declaredType) {
+                        // TODO - if the classMemberInfo indicates that the entry was found
+                        // in an ancestor class, apply specialization along the entire class
+                        // inheritance chain.
                         let destMemberType = symbol.declarations[0].declaredType;
                         destMemberType = this.specializeType(destMemberType, destClassTypeVarMap);
                         let srcMemberType = TypeUtils.getEffectiveTypeOfMember(classMemberInfo);
