@@ -636,7 +636,6 @@ interface FunctionDetails {
     flags: FunctionTypeFlags;
     parameters: FunctionParameter[];
     declaredReturnType?: Type;
-    declaredYieldType?: Type;
     inferredReturnType: InferredType;
     inferredYieldType: InferredType;
     builtInName?: string;
@@ -676,7 +675,6 @@ export class FunctionType extends Type {
             flags: this._functionDetails.flags,
             parameters: this._functionDetails.parameters.slice(startParam),
             declaredReturnType: this._functionDetails.declaredReturnType,
-            declaredYieldType: this._functionDetails.declaredYieldType,
             inferredReturnType: this._functionDetails.inferredReturnType,
             inferredYieldType: this._functionDetails.inferredYieldType,
             builtInName: this._functionDetails.builtInName
@@ -784,8 +782,9 @@ export class FunctionType extends Type {
         return this._functionDetails.declaredReturnType;
     }
 
-    getDeclaredYieldType() {
-        return this._functionDetails.declaredYieldType;
+    getSpecializedReturnType() {
+        return this._specializedTypes ? this._specializedTypes.returnType :
+            this._functionDetails.declaredReturnType;
     }
 
     setDeclaredReturnType(type?: Type): boolean {
@@ -800,28 +799,26 @@ export class FunctionType extends Type {
         return this._functionDetails.inferredReturnType;
     }
 
+    getInferredYieldType() {
+        return this._functionDetails.inferredYieldType;
+    }
+
     getEffectiveReturnType() {
-        if (this._specializedTypes) {
-            return this._specializedTypes.returnType;
+        const specializedReturnType = this.getSpecializedReturnType();
+        if (specializedReturnType) {
+            return specializedReturnType;
         }
 
-        if (this._functionDetails.declaredReturnType) {
-            return this._functionDetails.declaredReturnType;
+        if (this.isGenerator()) {
+            // Wrap this in an Iterator type.
+            return this._functionDetails.inferredYieldType.getType();
         }
 
         return this._functionDetails.inferredReturnType.getType();
     }
 
-    getInferredYieldType() {
-        return this._functionDetails.inferredYieldType;
-    }
-
-    getEffectiveYieldType() {
-        if (this._functionDetails.declaredYieldType) {
-            return this._functionDetails.declaredYieldType;
-        }
-
-        return this._functionDetails.inferredYieldType.getType();
+    isGenerator() {
+        return this._functionDetails.inferredYieldType.getSourceCount() > 0;
     }
 
     asStringInternal(recursionCount = 0): string {

@@ -23,7 +23,7 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     ListNode, MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory,
     SetNode, SliceExpressionNode, StarExpressionNode, StatementListNode,
     StringNode, TernaryExpressionNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, YieldExpressionNode } from '../parser/parseNodes';
+    TypeAnnotationExpressionNode, UnaryExpressionNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
     TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -334,11 +334,9 @@ export class ExpressionEvaluator {
             this._getTypeFromExpression(node.rightExpression, EvaluatorFlags.None);
             typeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
         } else if (node instanceof YieldExpressionNode) {
-            // TODO - need to implement
-            this._getTypeFromExpression(node.expression, EvaluatorFlags.None);
-            // TODO - need to handle futures
-            let type = UnknownType.create();
-            typeResult = { type, node };
+            typeResult = this._getTypeFromYieldExpression(node);
+        } else if (node instanceof YieldFromExpressionNode) {
+            typeResult = this._getTypeFromYieldFromExpression(node);
         } else if (node instanceof StarExpressionNode) {
             // TODO - need to implement
             this._getTypeFromExpression(node.expression, EvaluatorFlags.None);
@@ -1853,6 +1851,40 @@ export class ExpressionEvaluator {
 
         let type = TypeUtils.combineTypes([ifType!.type, elseType!.type]);
         return { type, node };
+    }
+
+    private _getTypeFromYieldExpression(node: YieldExpressionNode): TypeResult {
+        let sentType: Type | undefined;
+
+        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+        if (enclosingFunction) {
+            const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction)! as FunctionType;
+            assert(functionType instanceof FunctionType);
+            sentType = TypeUtils.getDeclaredGeneratorSendType(functionType);
+        }
+
+        if (!sentType) {
+            sentType = UnknownType.create();
+        }
+
+        return { type: sentType, node };
+    }
+
+    private _getTypeFromYieldFromExpression(node: YieldFromExpressionNode): TypeResult {
+        let sentType: Type | undefined;
+
+        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+        if (enclosingFunction) {
+            const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction)! as FunctionType;
+            assert(functionType instanceof FunctionType);
+            sentType = TypeUtils.getDeclaredGeneratorSendType(functionType);
+        }
+
+        if (!sentType) {
+            sentType = UnknownType.create();
+        }
+
+        return { type: sentType, node };
     }
 
     private _getTypeFromLambdaExpression(node: LambdaNode): TypeResult {

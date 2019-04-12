@@ -407,6 +407,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             let inferredYieldType = functionType.getInferredYieldType();
+
+            // Inferred yield types need to be wrapped in an Iterator to
+            // produce the final result.
+            let iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
+            if (iteratorType instanceof ClassType) {
+                inferredYieldType.setGenericClassWrapper(iteratorType);
+            }
             if (inferredYieldType.addSources(functionScope.getYieldType())) {
                 this._setAnalysisChanged();
             }
@@ -417,20 +424,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._setAnalysisChanged();
                 }
 
-                // If the declared type isn't compatible with 'None', flag an error.
-                const declaredReturnType = functionType.getDeclaredReturnType();
-                if (declaredReturnType && node.returnTypeAnnotation) {
-                    // TODO - for now, ignore this check for generators.
-                    if (functionType.getInferredYieldType().getSourceCount() === 0) {
+                let declaredReturnType = functionType.isGenerator() ?
+                    TypeUtils.getDeclaredGeneratorReturnType(functionType) :
+                    functionType.getDeclaredReturnType();
 
-                        // Skip this check for abstract methods.
-                        if (!functionType.isAbstractMethod()) {
-                            const diagAddendum = new DiagnosticAddendum();
-                            if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
-                                this._addError(`Function with declared type of ${ declaredReturnType.asString() }` +
-                                        ` must return value` + diagAddendum.getString(),
-                                    node.returnTypeAnnotation.rawExpression);
-                            }
+                if (declaredReturnType && node.returnTypeAnnotation) {
+                    // Skip this check for abstract methods.
+                    if (!functionType.isAbstractMethod()) {
+                        const diagAddendum = new DiagnosticAddendum();
+
+                        // If the declared type isn't compatible with 'None', flag an error.
+                        if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
+                            this._addError(`Function with declared type of ${ declaredReturnType.asString() }` +
+                                    ` must return value` + diagAddendum.getString(),
+                                node.returnTypeAnnotation.rawExpression);
                         }
                     }
                 }
@@ -439,8 +446,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let decoratedType: Type = functionType;
 
-        // TODO - properly handle generator and coroutine types.
-        if (node.isAsync || functionScope.getYieldType().getSourceCount() > 0) {
+        // TODO - properly handle async types.
+        if (node.isAsync) {
             decoratedType = UnknownType.create();
         }
 
@@ -666,8 +673,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (functionType) {
                 assert(functionType instanceof FunctionType);
 
-                // TODO - for now, ignore this check for generators.
-                if (functionType.getInferredYieldType().getSourceCount() === 0) {
+                if (functionType.isGenerator()) {
+                    declaredReturnType = TypeUtils.getDeclaredGeneratorReturnType(functionType);
+                } else {
                     declaredReturnType = functionType.getDeclaredReturnType();
                 }
 
@@ -712,14 +720,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
         this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
+        // Wrap the yield type in an Iterator.
+        const iterableClass = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
+        if (iterableClass instanceof ClassType) {
+            yieldType = new ObjectType(iterableClass.cloneForSpecialization([yieldType]));
+        } else {
+            yieldType = UnknownType.create();
+        }
+
         this._validateYieldType(node.expression, yieldType);
 
         return true;
     }
 
     visitYieldFrom(node: YieldFromExpressionNode) {
-        // TODO - determine the right type to use for the iteration.
-        let yieldType = UnknownType.create();
+        let yieldType = this._getTypeOfExpression(node.expression);
         let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
         this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
@@ -1467,13 +1482,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _validateYieldType(node: ParseNode, yieldType: Type) {
         let declaredYieldType: Type | undefined;
-        let enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
+        const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
+
         if (enclosingFunctionNode) {
             let functionType = AnalyzerNodeInfo.getExpressionType(
                 enclosingFunctionNode) as FunctionType;
             if (functionType) {
                 assert(functionType instanceof FunctionType);
-                declaredYieldType = functionType.getDeclaredYieldType();
+                declaredYieldType = TypeUtils.getDeclaredGeneratorYieldType(functionType);
             }
         }
 

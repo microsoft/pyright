@@ -15,7 +15,8 @@ import { ParameterCategory } from '../parser/parseNodes';
 import { Symbol } from './symbol';
 import { AnyType, ClassType, FunctionType,
     ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
-    SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
+    SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType, UnionType,
+    UnknownType } from './types';
 
 const MaxTypeRecursion = 20;
 
@@ -77,12 +78,20 @@ export class TypeUtils {
     static canAssignType(destType: Type, srcType: Type, diag: DiagnosticAddendum,
             typeVarMap?: TypeVarMap, allowSubclasses = true, recursionCount = 0): boolean {
 
+        if (recursionCount > MaxTypeRecursion) {
+            return true;
+        }
+
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
         if (destType instanceof TypeVarType) {
             if (typeVarMap) {
                 const existingTypeVarMapping = typeVarMap.get(destType.getName());
                 if (existingTypeVarMapping) {
+                    if (existingTypeVarMapping === srcType) {
+                        return true;
+                    }
+
                     return this.canAssignType(existingTypeVarMapping, srcType, diag.createAddendum(),
                         typeVarMap, allowSubclasses, recursionCount + 1);
                 }
@@ -278,7 +287,13 @@ export class TypeUtils {
 
     // Validates that the specified source type matches the constraints
     // of the type variable.
-    static canAssignToTypeVar(destType: TypeVarType, srcType: Type, diag: DiagnosticAddendum): boolean {
+    static canAssignToTypeVar(destType: TypeVarType, srcType: Type, diag: DiagnosticAddendum,
+            recursionCount = 0): boolean {
+
+        if (recursionCount > MaxTypeRecursion) {
+            return true;
+        }
+
         if (srcType.isAny()) {
             return true;
         }
@@ -294,7 +309,9 @@ export class TypeUtils {
         // If there's a bound type, make sure the source is derived from it.
         const boundType = destType.getBoundType();
         if (boundType) {
-            if (!TypeUtils.canAssignType(boundType, effectiveSrcType, diag.createAddendum())) {
+            if (!TypeUtils.canAssignType(boundType, effectiveSrcType, diag.createAddendum(),
+                    undefined, undefined, recursionCount + 1)) {
+
                 diag.addMessage(`Type '${ effectiveSrcType.asString() }' is not compatible with ` +
                     `bound type '${ boundType.asString() }' for TypeVar '${ destType.getName() }'`);
                 return false;
@@ -435,7 +452,7 @@ export class TypeUtils {
 
             // Some protocol definitions include recursive references to themselves.
             // We need to protect against infinite recursion, so we'll check for that here.
-            if (srcType.isProtocol() && srcType.isSameGenericClass(destType)) {
+            if (srcType.isSame(destType)) {
                 return true;
             }
 
@@ -537,7 +554,7 @@ export class TypeUtils {
                                 (destAllowsMoreArgs && srcTypeArgs.length >= destArgCount)) {
                             for (let i = 0; i < destArgCount; i++) {
                                 if (!this.canAssignType(ancestorTypeArgs[i], srcTypeArgs[i],
-                                        diag.createAddendum())) {
+                                        diag.createAddendum(), undefined, undefined, recursionCount + 1)) {
                                     diag.addMessage(`Tuple entry ${ i + 1 } is incorrect type`);
                                     return false;
                                 }
@@ -1187,6 +1204,77 @@ export class TypeUtils {
                 }
             }
         }
+    }
+
+    // Returns the declared yield type if provided, or unknown otherwise.
+    static getDeclaredGeneratorYieldType(functionType: FunctionType): Type | undefined {
+        const returnType = functionType.getSpecializedReturnType();
+        if (returnType) {
+            const generatorTypeArgs = this._getGeneratorReturnTypeArgs(returnType);
+
+            if (generatorTypeArgs && generatorTypeArgs.length >= 1) {
+                // The yield type is the first type arg.
+                return generatorTypeArgs[0];
+            }
+
+            // If the return type isn't a Generator, assume that it's the
+            // full return type.
+            return returnType;
+        }
+
+        return undefined;
+    }
+
+    // Returns the declared "send" type (the type returned from the yield
+    // statement) if it was delcared, or undefined otherwise.
+    static getDeclaredGeneratorSendType(functionType: FunctionType): Type | undefined {
+        const returnType = functionType.getSpecializedReturnType();
+        if (returnType) {
+            const generatorTypeArgs = this._getGeneratorReturnTypeArgs(returnType);
+
+            if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
+                // The send type is the second type arg.
+                return generatorTypeArgs[1];
+            }
+
+            return UnknownType.create();
+        }
+
+        return undefined;
+    }
+
+    // Returns the declared "return" type (the type returned from a return statement)
+    // if it was delcared, or undefined otherwise.
+    static getDeclaredGeneratorReturnType(functionType: FunctionType): Type | undefined {
+        const returnType = functionType.getSpecializedReturnType();
+        if (returnType) {
+            const generatorTypeArgs = this._getGeneratorReturnTypeArgs(returnType);
+
+            if (generatorTypeArgs && generatorTypeArgs.length >= 3) {
+                // The send type is the third type arg.
+                return generatorTypeArgs[2];
+            }
+
+            return UnknownType.create();
+        }
+
+        return undefined;
+    }
+
+    // If the declared return type for the function is a Generator or AsyncGenerator,
+    // returns the type arguments for the type.
+    private static _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
+        if (returnType instanceof ObjectType) {
+            const classType = returnType.getClassType();
+            if (classType.isBuiltIn()) {
+                const className = classType.getClassName();
+                if (className === 'Generator' || className === 'AsyncGenerator') {
+                    return classType.getTypeArguments();
+                }
+            }
+        }
+
+        return undefined;
     }
 
     private static _combineTwoTypes(type1: Type, type2: Type): Type {
