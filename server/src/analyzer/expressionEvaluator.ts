@@ -373,21 +373,11 @@ export class ExpressionEvaluator {
 
             let declaration = symbol.declarations ? symbol.declarations[0] : undefined;
 
+            // Was there a defined type hint?
             if (declaration && declaration.declaredType) {
-                // Was there a defined type hint?
                 type = declaration.declaredType;
-            } else if (declaration && declaration.category !== SymbolCategory.Variable) {
-                // If this is a non-variable type (e.g. a class, function, method), we
-                // can assume that it's not going to be modified outside the local scope.
-                type = symbol.currentType;
-            } else if (symbolWithScope.isBeyondLocalScope) {
-                // If we haven't already gone beyond the local scope, we can
-                // trust the current type. If we've moved beyond the local
-                // scope to some other outer scope (e.g. the global scope), we
-                // cannot trust the current type.
-                type = symbol.inferredType.getType();
             } else {
-                type = symbol.currentType;
+                type = symbol.inferredType.getType();
             }
         }
 

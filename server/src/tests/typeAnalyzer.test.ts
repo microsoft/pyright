@@ -109,7 +109,7 @@ test('CircularBaseClass', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['circularBaseClass.py']);
 
     assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 6);
+    assert.equal(analysisResults[0].errors.length, 4);
 });
 
 test('ReturnTypes1', () => {
