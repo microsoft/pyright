@@ -891,10 +891,6 @@ export class Parser {
             returnNode.extend(returnExpr);
         }
 
-        // TODO - report error if version is < V33 and one or more
-        // parameters are being returned from a generator (i.e.
-        // the block also contains a yield statement).
-
         return returnNode;
     }
 
