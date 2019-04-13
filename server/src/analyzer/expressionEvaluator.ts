@@ -2059,6 +2059,8 @@ export class ExpressionEvaluator {
                 typeArgs[0].typeList.forEach((entry, index) => {
                     if (entry.type instanceof AnyType && entry.type.isEllipsis()) {
                         this._addError(`'...' not allowed in this context`, entry.node);
+                    } else if (entry.type instanceof ModuleType) {
+                        this._addError(`Module not allowed in this context`, entry.node);
                     }
 
                     functionType.addParameter({
@@ -2079,6 +2081,8 @@ export class ExpressionEvaluator {
         if (typeArgs && typeArgs.length > 1) {
             if (typeArgs[1].type instanceof AnyType && typeArgs[1].type.isEllipsis()) {
                 this._addError(`'...' not allowed in this context`, typeArgs[1].node);
+            } else if (typeArgs[1].type instanceof ModuleType) {
+                this._addError(`Module not allowed in this context`, typeArgs[1].node);
             }
             functionType.setDeclaredReturnType(typeArgs[1].type);
         } else {
@@ -2101,6 +2105,8 @@ export class ExpressionEvaluator {
 
         if (typeArgs[0].type instanceof AnyType && typeArgs[0].type.isEllipsis()) {
             this._addError(`'...' not allowed in this context`, typeArgs[0].node);
+        } else if (typeArgs[0].type instanceof ModuleType) {
+            this._addError(`Module not allowed in this context`, typeArgs[0].node);
         }
 
         return TypeUtils.combineTypes([typeArgs[0].type, NoneType.create()]);
@@ -2140,11 +2146,14 @@ export class ExpressionEvaluator {
         }
 
         if (typeArgs) {
-            // Verify that we didn't receive any inappropriate ellipses.
+            // Verify that we didn't receive any inappropriate ellipses or modules.
             typeArgs.forEach((typeArg, index) => {
                 if (typeArg.type instanceof AnyType && typeArg.type.isEllipsis()) {
                     if (!allowEllipsis || index !== typeArgs.length - 1) {
                         this._addError(`'...' not allowed in this context`, typeArgs[index].node);
+                    }
+                    if (typeArg.type instanceof ModuleType) {
+                        this._addError(`Module not allowed in this context`, typeArg.node);
                     }
                 }
             });
@@ -2166,6 +2175,8 @@ export class ExpressionEvaluator {
                 // Verify that we didn't receive any inappropriate ellipses.
                 if (typeArg.type instanceof AnyType && typeArg.type.isEllipsis()) {
                     this._addError(`'...' not allowed in this context`, typeArg.node);
+                } else if (typeArg.type instanceof ModuleType) {
+                    this._addError(`Module not allowed in this context`, typeArg.node);
                 }
             }
         }
@@ -2238,9 +2249,11 @@ export class ExpressionEvaluator {
 
         if (typeArgs) {
             typeArgs.forEach(typeArg => {
-                // Verify that we didn't receive any inappropriate ellipses.
+                // Verify that we didn't receive any inappropriate ellipses or modules.
                 if (typeArg.type instanceof AnyType && typeArg.type.isEllipsis()) {
                     this._addError(`'...' not allowed in this context`, typeArg.node);
+                } else if (typeArg.type instanceof ModuleType) {
+                    this._addError(`Module not allowed in this context`, typeArg.node);
                 }
             });
         }
