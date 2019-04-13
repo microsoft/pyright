@@ -94,8 +94,11 @@ export class ConfigOptions {
     // Report attempts to call a Optional type?
     reportOptionalCall: DiagnosticLevel = 'none';
 
-    // Report untyped decorators that obscure the function type?
+    // Report untyped function decorators that obscure the function type?
     reportUntypedFunctionDecorator: DiagnosticLevel = 'none';
+
+    // Report untyped class decorators that obscure the class type?
+    reportUntypedClassDecorator: DiagnosticLevel = 'none';
 
     //---------------------------------------------------------------
     // Parsing and Import Resolution Settings
@@ -218,6 +221,10 @@ export class ConfigOptions {
         // Read the "reportUntypedFunctionDecorator" entry.
         this.reportUntypedFunctionDecorator = this._convertDiagnosticLevel(
             configObj.reportUntypedFunctionDecorator, 'reportUntypedFunctionDecorator', 'none');
+
+        // Read the "reportUntypedClassDecorator" entry.
+        this.reportUntypedClassDecorator = this._convertDiagnosticLevel(
+            configObj.reportUntypedClassDecorator, 'reportUntypedClassDecorator', 'none');
 
         // Read the "venvPath".
         this.venvPath = undefined;

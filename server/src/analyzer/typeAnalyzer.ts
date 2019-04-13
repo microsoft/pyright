@@ -25,9 +25,7 @@ import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode
     ParseNode, RaiseNode, ReturnNode, SliceExpressionNode, StarExpressionNode,
     StringNode, SuiteNode, TernaryExpressionNode, TryNode,
     TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode,
-    WithNode,
-    YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -186,17 +184,26 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this.walk(node.suite);
         });
 
-        node.decorators.forEach(decoratorNode => {
-            const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression, false);
+        let decoratedType: Type = classType;
+        let foundUnknown = decoratedType instanceof UnknownType;
 
-            // Is this a @dataclass?
-            if (decoratorType instanceof OverloadedFunctionType) {
-                const overloads = decoratorType.getOverloads();
-                if (overloads.length > 0 && overloads[0].type.getBuiltInName() === 'dataclass') {
-                    classType.setIsDataClass();
+        for (let i = node.decorators.length - 1; i >= 0; i--) {
+            const decorator = node.decorators[i];
+
+            decoratedType = this._applyClassDecorator(decoratedType,
+                classType, decorator);
+            if (decoratedType instanceof UnknownType) {
+                // Report this error only on the first unknown type.
+                if (!foundUnknown) {
+                    this._addDiagnostic(
+                        this._fileInfo.configOptions.reportUntypedClassDecorator,
+                        `Untyped class declarator obscures type of class`,
+                        node.decorators[i].leftExpression);
+
+                    foundUnknown = true;
                 }
             }
-        });
+        }
 
         if (classType.isDataClass()) {
             let evaluator = this._createEvaluator();
@@ -210,7 +217,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
         };
 
-        this._bindNameNodeToType(node.name, classType, declaration);
+        this._bindNameNodeToType(node.name, decoratedType, declaration);
 
         this._validateClassMethods(classType);
 
@@ -318,9 +325,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this.walk(node.returnTypeAnnotation);
         } else if (this._fileInfo.isStubFile) {
             // If a return type annotation is missing in a stub file, assume
-            // it's an "any" type. In normal source files, we can infer the
+            // it's an "unknown" type. In normal source files, we can infer the
             // type from the implementation.
-            functionType.setDeclaredReturnType(AnyType.create());
+            functionType.setDeclaredReturnType(UnknownType.create());
         }
 
         let functionScope = this._enterScope(node, () => {
@@ -458,7 +465,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
-            decoratedType = this._applyDecorator(decoratedType, functionType, decorator, node);
+            decoratedType = this._applyFunctionDecorator(decoratedType,
+                functionType, decorator, node);
             if (decoratedType instanceof UnknownType) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
@@ -1235,13 +1243,35 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
+    private _applyClassDecorator(inputClassType: Type, originalClassType: ClassType,
+            decoratorNode: DecoratorNode): Type {
+
+        const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression, false);
+
+        if (decoratorType.isAny()) {
+            return decoratorType;
+        }
+
+        // Is this a @dataclass?
+        if (decoratorType instanceof OverloadedFunctionType) {
+            const overloads = decoratorType.getOverloads();
+            if (overloads.length > 0 && overloads[0].type.getBuiltInName() === 'dataclass') {
+                originalClassType.setIsDataClass();
+            }
+
+            return inputClassType;
+        }
+
+        let evaluator = this._createEvaluator();
+        return evaluator.getTypeFromDecorator(decoratorNode, inputClassType);
+    }
+
     // Transforms the input function type into an output type based on the
     // decorator function described by the decoratorNode.
-    private _applyDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
+    private _applyFunctionDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
             decoratorNode: DecoratorNode, node: FunctionNode): Type {
 
-        const decoratorType = this._getTypeOfExpression(
-            decoratorNode.leftExpression, false);
+        const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression, false);
 
         if (decoratorType.isAny()) {
             return decoratorType;

@@ -100,7 +100,13 @@
     "reportUntypedFunctionDecorator": {
       "$id": "#/properties/reportUntypedFunctionDecorator",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of decorators without type annotations, which obscure function types",
+      "title": "Controls reporting of function decorators without type annotations, which obscure function types",
+      "default": "none"
+    },
+    "reportUntypedClassDecorator": {
+      "$id": "#/properties/reportUntypedClassDecorator",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of class decorators without type annotations, which obscure class types",
       "default": "none"
     },
     "pythonVersion": {

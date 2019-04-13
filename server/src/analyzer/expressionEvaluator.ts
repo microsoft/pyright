@@ -637,14 +637,9 @@ export class ExpressionEvaluator {
             return type;
         }
 
-        // If the class has decorators, there may be additional fields
-        // added that we don't know about.
-        // TODO - figure out a better approach here.
-        if (!classType.hasDecorators()) {
-            this._addError(
-                `'${ memberName }' is not a known member of '${ classType.getObjectName() }'`,
-                memberNameNode);
-        }
+        this._addError(
+            `'${ memberName }' is not a known member of '${ classType.getObjectName() }'`,
+            memberNameNode);
 
         return UnknownType.create();
     }
