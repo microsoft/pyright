@@ -84,7 +84,6 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Synthesize TypeVar param and return types for lambdas where possible
 * Validate that overridden methods in subclass have same signature as base class methods
 * Add support for type hints on var-arg parameters
-* Add support for NoReturn type
 * Add support for f-strings
 * Provide switch that reports circular import dependencies
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code

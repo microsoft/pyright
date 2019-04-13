@@ -79,22 +79,17 @@ export class InferredType {
             inferredTypeChanged = true;
         }
 
-        // Recompute the combined type.
-        let newCombinedType: Type | undefined;
-        for (let source of this._sources) {
-            if (!newCombinedType) {
-                newCombinedType = source.type;
-            } else {
-                newCombinedType = TypeUtils.combineTypes([newCombinedType, source.type]);
-            }
+        return this._recomputeCombinedType() || inferredTypeChanged;
+    }
+
+    removeSource(sourceId: TypeSourceId): boolean {
+        const sourceIndex = this._sources.findIndex(src => src.sourceId === sourceId);
+        if (sourceIndex < 0) {
+            return false;
         }
 
-        if (!newCombinedType!.isSame(this._combinedType)) {
-            this._combinedType = newCombinedType!;
-            inferredTypeChanged = true;
-        }
-
-        return inferredTypeChanged;
+        this._sources.splice(sourceIndex, 1);
+        return this._recomputeCombinedType();
     }
 
     addSources(inferredType: InferredType): boolean {
@@ -107,5 +102,27 @@ export class InferredType {
         }
 
         return madeChange;
+    }
+
+    private _recomputeCombinedType(): boolean {
+        let newCombinedType: Type | undefined;
+        for (let source of this._sources) {
+            if (!newCombinedType) {
+                newCombinedType = source.type;
+            } else {
+                newCombinedType = TypeUtils.combineTypes([newCombinedType, source.type]);
+            }
+        }
+
+        if (!newCombinedType) {
+            newCombinedType = UnknownType.create();
+        }
+
+        if (!newCombinedType.isSame(this._combinedType)) {
+            this._combinedType = newCombinedType;
+            return true;
+        }
+
+        return false;
     }
 }

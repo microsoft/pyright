@@ -47,3 +47,20 @@ def func3() -> str:
     # because we should never get here.
     return 52
 
+def func4(length: int) -> int:
+    n = 0
+    while True:
+        if n >= length:
+            return n
+        n += 3
+        break
+    else:
+        return 'hello'
+
+    # This should be flagged as an error because
+    # the break in the while True loop means that
+    # we might get here, and the return type does
+    # not match.
+    return 'not_returned'
+
+

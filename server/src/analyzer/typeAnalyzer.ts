@@ -18,14 +18,14 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
-    CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, DelNode, ExceptNode,
-    ExpressionNode, ForNode, FunctionNode, IfNode, ImportAsNode,
-    ImportFromNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
-    ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
-    ParseNode, RaiseNode, ReturnNode, SliceExpressionNode, StarExpressionNode,
-    StringNode, SuiteNode, TernaryExpressionNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode,
-    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    BreakNode, CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, DelNode,
+    ExceptNode, ExpressionNode, ForNode, FunctionNode, IfNode,
+    ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
+    ListComprehensionForNode, ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode,
+    ParameterCategory, ParseNode, RaiseNode, ReturnNode, SliceExpressionNode,
+    StarExpressionNode, StringNode, SuiteNode, TernaryExpressionNode,
+    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
+    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -408,50 +408,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this.walk(node.suite);
         });
 
-        if (!this._fileInfo.isStubFile) {
-            // Add all of the return and yield types that were found within the function.
-            let inferredReturnType = functionType.getInferredReturnType();
-            if (inferredReturnType.addSources(functionScope.getReturnType())) {
-                this._setAnalysisChanged();
-            }
-
-            let inferredYieldType = functionType.getInferredYieldType();
-
-            // Inferred yield types need to be wrapped in an Iterator to
-            // produce the final result.
-            let iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
-            if (iteratorType instanceof ClassType) {
-                inferredYieldType.setGenericClassWrapper(iteratorType);
-            }
-            if (inferredYieldType.addSources(functionScope.getYieldType())) {
-                this._setAnalysisChanged();
-            }
-
-            // Add the "None" type if the function doesn't always return.
-            if (!functionScope.getAlwaysReturnsOrRaises()) {
-                if (inferredReturnType.addSource(NoneType.create(), DefaultTypeSourceId)) {
-                    this._setAnalysisChanged();
-                }
-
-                let declaredReturnType = functionType.isGenerator() ?
-                    TypeUtils.getDeclaredGeneratorReturnType(functionType) :
-                    functionType.getDeclaredReturnType();
-
-                if (declaredReturnType && node.returnTypeAnnotation) {
-                    // Skip this check for abstract methods.
-                    if (!functionType.isAbstractMethod()) {
-                        const diagAddendum = new DiagnosticAddendum();
-
-                        // If the declared type isn't compatible with 'None', flag an error.
-                        if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
-                            this._addError(`Function with declared type of ${ declaredReturnType.asString() }` +
-                                    ` must return value` + diagAddendum.getString(),
-                                node.returnTypeAnnotation);
-                        }
-                    }
-                }
-            }
-        }
+        // Validate that the function returns the declared type.
+        this._validateFunctionReturn(node, functionType, functionScope);
 
         let decoratedType: Type = functionType;
 
@@ -570,7 +528,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitCall(node: CallExpressionNode): boolean {
         // Calculate and cache the expression and report
         // any validation errors.
-        this._getTypeOfExpression(node);
+        const returnValue = this._getTypeOfExpression(node);
+
+        // If the call indicates that it never returns, mark the
+        // scope as raising an exception.
+        if (TypeUtils.isNoReturnType(returnValue)) {
+            if (this._currentScope.getNestedTryDepth() === 0) {
+                this._currentScope.setAlwaysRaises();
+            }
+        }
+
         return true;
     }
 
@@ -678,7 +645,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitReturn(node: ReturnNode): boolean {
         let declaredReturnType: Type | undefined;
         let returnType: Type;
-        let typeSourceId = DefaultTypeSourceId;
 
         let enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunctionNode) {
@@ -704,25 +670,32 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (node.returnExpression) {
             returnType = this._getTypeOfExpression(node.returnExpression);
-            typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
         } else {
             // There is no return expression, so "None" is assumed.
             returnType = NoneType.create();
         }
 
+        let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
         this._currentScope.getReturnType().addSource(returnType, typeSourceId);
 
-        if (declaredReturnType && !this._currentScope.getAlwaysReturnsOrRaises()) {
-            const diagAddendum = new DiagnosticAddendum();
-
-            // Specialize the return type in case it contains references to type variables.
-            // These will be replaced with the corresponding constraint or bound types.
-            const specializedDeclaredType = TypeUtils.specializeType(declaredReturnType, undefined);
-            if (!TypeUtils.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
+        if (declaredReturnType) {
+            if (TypeUtils.isNoReturnType(declaredReturnType)) {
                 this._addError(
-                    `Expression of type '${ returnType.asString() }' cannot be assigned ` +
-                        `to return type '${ specializedDeclaredType.asString() }'` + diagAddendum.getString(),
-                    node.returnExpression ? node.returnExpression : node);
+                    `Function with declared return type 'NoReturn' cannot include a return statement`,
+                    node);
+            } else if (!this._currentScope.getAlwaysReturnsOrRaises()) {
+                const diagAddendum = new DiagnosticAddendum();
+
+                // Specialize the return type in case it contains references to type variables.
+                // These will be replaced with the corresponding constraint or bound types.
+                const specializedDeclaredType = TypeUtils.specializeType(declaredReturnType, undefined);
+                if (!TypeUtils.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
+                    this._addError(
+                        `Expression of type '${ returnType.asString() }' cannot be assigned ` +
+                            `to return type '${ specializedDeclaredType.asString() }'` +
+                            diagAddendum.getString(),
+                        node.returnExpression ? node.returnExpression : node);
+                }
             }
         }
 
@@ -743,7 +716,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             yieldType = UnknownType.create();
         }
 
-        this._validateYieldType(node.expression, yieldType);
+        this._validateYieldType(node, yieldType);
 
         return true;
     }
@@ -753,8 +726,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
         this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
-        this._validateYieldType(node.expression, yieldType);
+        this._validateYieldType(node, yieldType);
 
+        return true;
+    }
+
+    visitBreak(node: BreakNode): boolean {
+        this._currentScope.setBreaksFromLoop();
         return true;
     }
 
@@ -1234,6 +1212,70 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
+    private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType, functionScope: Scope) {
+        if (this._fileInfo.isStubFile) {
+            return;
+        }
+
+        // Add all of the return and yield types that were found within the function.
+        let inferredReturnType = functionType.getInferredReturnType();
+        if (inferredReturnType.addSources(functionScope.getReturnType())) {
+            this._setAnalysisChanged();
+        }
+
+        let inferredYieldType = functionType.getInferredYieldType();
+
+        // Inferred yield types need to be wrapped in an Iterator to
+        // produce the final result.
+        let iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
+        if (iteratorType instanceof ClassType) {
+            inferredYieldType.setGenericClassWrapper(iteratorType);
+        }
+
+        if (inferredYieldType.addSources(functionScope.getYieldType())) {
+            this._setAnalysisChanged();
+        }
+
+        // Add the "None" type if the function doesn't always return.
+        if (!functionScope.getAlwaysReturnsOrRaises()) {
+            if (inferredReturnType.addSource(NoneType.create(), DefaultTypeSourceId)) {
+                this._setAnalysisChanged();
+            }
+
+            let declaredReturnType = functionType.isGenerator() ?
+                TypeUtils.getDeclaredGeneratorReturnType(functionType) :
+                functionType.getDeclaredReturnType();
+
+            if (declaredReturnType && node.returnTypeAnnotation) {
+                // Skip this check for abstract methods and functions that are declared NoReturn.
+                if (!functionType.isAbstractMethod() && !TypeUtils.isNoReturnType(declaredReturnType)) {
+                    const diagAddendum = new DiagnosticAddendum();
+
+                    // If the declared type isn't compatible with 'None', flag an error.
+                    if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
+                        this._addError(`Function with declared type of '${ declaredReturnType.asString() }'` +
+                                ` must return value` + diagAddendum.getString(),
+                            node.returnTypeAnnotation);
+                    }
+                }
+            }
+        } else {
+            if (inferredReturnType.removeSource(DefaultTypeSourceId)) {
+                this._setAnalysisChanged();
+            }
+        }
+
+        if (node.returnTypeAnnotation) {
+            const declaredReturnType = functionType.getDeclaredReturnType();
+            if (declaredReturnType && TypeUtils.isNoReturnType(declaredReturnType)) {
+                if (!functionScope.getAlwaysRaises()) {
+                    this._addError(`Function with declared type of 'NoReturn' cannot return 'None'`,
+                        node.returnTypeAnnotation);
+                }
+            }
+        }
+    }
+
     // Validates that any overridden methods contain the same signatures
     // as the original method. Also marks the class as abstract if one or
     // more abstract methods are not overridden.
@@ -1527,7 +1569,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (ifScope && isWhile && ifIsUnconditional) {
+        if (ifScope && isWhile && ifIsUnconditional && !ifScope.getBreaksFromLoop()) {
             // If this is an infinite loop, mark it as always raising
             // So we don't assume that we'll fall through and possibly
             // return None at the end of the function.
@@ -1568,7 +1610,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return undefined;
     }
 
-    private _validateYieldType(node: ParseNode, yieldType: Type) {
+    private _validateYieldType(node: YieldExpressionNode | YieldFromExpressionNode, yieldType: Type) {
         let declaredYieldType: Type | undefined;
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
 
@@ -1583,12 +1625,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (declaredYieldType) {
-            const diagAddendum = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(declaredYieldType, yieldType, diagAddendum)) {
+            if (TypeUtils.isNoReturnType(declaredYieldType)) {
                 this._addError(
-                    `Expression of type '${ yieldType.asString() }' cannot be assigned ` +
-                        `to yield type '${ declaredYieldType.asString() }'` + diagAddendum.getString(),
+                    `Function with declared return type 'NoReturn' cannot include a yield statement`,
                     node);
+            } else {
+                const diagAddendum = new DiagnosticAddendum();
+                if (!TypeUtils.canAssignType(declaredYieldType, yieldType, diagAddendum)) {
+                    this._addError(
+                        `Expression of type '${ yieldType.asString() }' cannot be assigned ` +
+                            `to yield type '${ declaredYieldType.asString() }'` + diagAddendum.getString(),
+                        node.expression);
+                }
             }
         }
     }
@@ -2118,6 +2166,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 tempScope.setParent(this._currentScope);
             } else {
                 tempScope = new Scope(ScopeType.Temporary, this._currentScope);
+
+                // Mark the new scope as looping so we track any breaks within the scope.
+                tempScope.setIsLooping();
                 AnalyzerNodeInfo.setScope(loopNode, tempScope);
             }
         } else {

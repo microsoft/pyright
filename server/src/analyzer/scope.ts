@@ -53,6 +53,10 @@ export class Scope {
     // (i.e. is not guaranteed to be executed).
     private _isConditional: boolean;
 
+    // Indicates whether the scope is associated with a looping
+    // construct like while or for.
+    private _isLooping = false;
+
     // Indicates whether the scope is guaranteed not to be
     // executed because a condition is statically determined
     // to be always true or false.
@@ -65,6 +69,10 @@ export class Scope {
     // Tracks whether the code flow for the scope always raises
     // an exception before exiting the block.
     private _alwaysRaises = false;
+
+    // Tracks whether a "break" statement was executed within
+    // the loop.
+    private _breaksFromLoop = false;
 
     // Number of nested try statements the scope is currently within.
     // This is used to determine whether to set the _alwaysReturnsOrRaises
@@ -138,6 +146,10 @@ export class Scope {
 
     isNotExecuted() {
         return this._isNotExecuted;
+    }
+
+    setIsLooping() {
+        this._isLooping = true;
     }
 
     lookUpSymbol(name: string): Symbol | undefined {
@@ -266,6 +278,13 @@ export class Scope {
             }
         }
 
+        // If the scope we're merging isn't a looping scope,
+        // transfer the break to the this scope. This allows the break
+        // to propagate to the nearest looping scope but no further.
+        if (!scopeToMerge._isLooping && scopeToMerge._breaksFromLoop) {
+            this._breaksFromLoop = true;
+        }
+
         // Add any tombstone type constraints from the merged scope.
         // The other type constraints aren't needed and can be ignored.
         scopeToMerge.getTypeConstraints().forEach(constraint => {
@@ -361,6 +380,14 @@ export class Scope {
 
     getAlwaysReturnsOrRaises() {
         return this._alwaysReturns || this._alwaysRaises;
+    }
+
+    setBreaksFromLoop() {
+        this._breaksFromLoop = true;
+    }
+
+    getBreaksFromLoop() {
+        return this._breaksFromLoop;
     }
 
     incrementNestedTryDepth() {

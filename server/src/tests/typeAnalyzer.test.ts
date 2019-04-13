@@ -172,7 +172,7 @@ test('Annotations2', () => {
 test('Execution1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['execution1.py']);
 
-    validateResults(analysisResults, 2);
+    validateResults(analysisResults, 3);
 });
 
 test('Properties1', () => {
@@ -285,4 +285,10 @@ test('Constants1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['constants1.py']);
 
     validateResults(analysisResults, 20);
+});
+
+test('NoReturn1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn1.py']);
+
+    validateResults(analysisResults, 3);
 });

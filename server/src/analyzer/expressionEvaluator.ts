@@ -22,9 +22,8 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionNode,
     ListNode, MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory,
     ParseNode, SetNode, SliceExpressionNode, StarExpressionNode,
-    StatementListNode, StringNode, TernaryExpressionNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
-    YieldExpressionNode,
+    StatementListNode, StringNode, TernaryExpressionNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
     TokenType } from '../parser/tokenizerTypes';
@@ -37,9 +36,9 @@ import { Symbol, SymbolCategory } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
-    PropertyType, Type, TypeVarMap, TypeVarType, UnionType,
-    UnknownType } from './types';
+    FunctionTypeFlags, ModuleType, NeverType, NoneType, ObjectType,
+    OverloadedFunctionType, PropertyType, Type, TypeVarMap, TypeVarType,
+    UnionType, UnknownType } from './types';
 import { ClassMember, TypeUtils } from './typeUtils';
 
 interface TypeResult {
@@ -2185,7 +2184,7 @@ export class ExpressionEvaluator {
             return TypeUtils.combineTypes(types);
         }
 
-        return NoneType.create();
+        return NeverType.create();
     }
 
     // Creates a type that represents "Generic[T1, T2, ...]", used in the

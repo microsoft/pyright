@@ -360,6 +360,16 @@ export class TypeUtils {
         return undefined;
     }
 
+    static isNoReturnType(type: Type): boolean {
+        if (type instanceof ObjectType) {
+            const classType = type.getClassType();
+            if (classType.isBuiltIn() && classType.getClassName() === 'NoReturn') {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static _canAssignFunction(destType: FunctionType, srcType: FunctionType,
             diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined,
             recursionCount: number): boolean {
@@ -1307,9 +1317,5 @@ export class TypeUtils {
         }
 
         return unionType;
-    }
-
-    static isFunctionType(type: Type): boolean {
-        return (type.category === TypeCategory.Function || type.category === TypeCategory.OverloadedFunction);
     }
 }
