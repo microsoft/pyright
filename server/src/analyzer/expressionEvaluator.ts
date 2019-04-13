@@ -476,11 +476,15 @@ export class ExpressionEvaluator {
         } else if (baseType instanceof ClassType) {
             type = this._validateTypeFromClassMemberAccess(node.memberName,
                 baseType, usage, MemberAccessFlags.SkipInstanceMembers);
-            type = this._bindFunctionToClassOrObject(baseType, type);
+            if (type) {
+                type = this._bindFunctionToClassOrObject(baseType, type);
+            }
         } else if (baseType instanceof ObjectType) {
             type = this._validateTypeFromClassMemberAccess(
                 node.memberName, baseType.getClassType(), usage, MemberAccessFlags.None);
-            type = this._bindFunctionToClassOrObject(baseType, type);
+            if (type) {
+                type = this._bindFunctionToClassOrObject(baseType, type);
+            }
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
             if (memberInfo) {
@@ -541,7 +545,7 @@ export class ExpressionEvaluator {
             }
 
             this._addError(
-                `Cannot ${ operationName } '${ memberName }' for type '${ baseType.asString() }'`,
+                `Cannot ${ operationName } member '${ memberName }' for type '${ baseType.asString() }'`,
                 node.memberName);
             type = UnknownType.create();
         }
@@ -626,7 +630,7 @@ export class ExpressionEvaluator {
     // A wrapper around _getTypeFromClassMemberName that reports
     // errors if the member name is not found.
     private _validateTypeFromClassMemberAccess(memberNameNode: NameNode,
-            classType: ClassType, usage: EvaluatorUsage, flags: MemberAccessFlags) {
+            classType: ClassType, usage: EvaluatorUsage, flags: MemberAccessFlags): Type | undefined {
 
         // If this is a special type (like "List") that has an alias
         // class (like "list"), switch to the alias, which defines
@@ -640,15 +644,7 @@ export class ExpressionEvaluator {
         let type = this._getTypeFromClassMemberName(
             memberName, classType, usage, flags);
 
-        if (type) {
-            return type;
-        }
-
-        this._addError(
-            `'${ memberName }' is not a known member of '${ classType.getObjectName() }'`,
-            memberNameNode);
-
-        return UnknownType.create();
+        return type;
     }
 
     private _getTypeFromClassMemberName(memberName: string, classType: ClassType,
@@ -679,7 +675,16 @@ export class ExpressionEvaluator {
 
             if (!(flags & MemberAccessFlags.SkipGetCheck)) {
                 if (type instanceof PropertyType) {
-                    type = conditionallySpecialize(type.getEffectiveReturnType(), classType);
+                    if (usage === EvaluatorUsage.Get) {
+                        type = conditionallySpecialize(type.getEffectiveReturnType(), classType);
+                    } else if (usage === EvaluatorUsage.Set) {
+                        // The type isn't important for set or delete usage.
+                        // We just need to return some defined type.
+                        return type.hasSetter() ? AnyType.create() : undefined;
+                    } else {
+                        assert(usage === EvaluatorUsage.Delete);
+                        return type.hasDeleter() ? AnyType.create() : undefined;
+                    }
                 } else if (type instanceof ObjectType) {
                     // See if there's a magic "__get__", "__set__", or "__delete__"
                     // method on the object.
@@ -696,9 +701,15 @@ export class ExpressionEvaluator {
                     const memberClassType = type.getClassType();
                     let getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName, false);
                     if (getMember) {
-                        const getType = TypeUtils.getEffectiveTypeOfMember(getMember);
-                        if (getType instanceof FunctionType) {
-                            type = conditionallySpecialize(getType.getEffectiveReturnType(), memberClassType);
+                        const accessorType = TypeUtils.getEffectiveTypeOfMember(getMember);
+                        if (accessorType instanceof FunctionType) {
+                            if (usage === EvaluatorUsage.Get) {
+                                type = conditionallySpecialize(accessorType.getEffectiveReturnType(), memberClassType);
+                            } else {
+                                // The type isn't important for set or delete usage.
+                                // We just need to return some defined type.
+                                type = AnyType.create();
+                            }
                         }
                     }
                 }

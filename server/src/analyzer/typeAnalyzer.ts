@@ -1302,6 +1302,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 originalFunctionType.setIsAbstractMethod();
                 return inputFunctionType;
             }
+
+            // Handle property setters and deleters.
+            if (decoratorNode.leftExpression instanceof MemberAccessExpressionNode) {
+                const baseType = this._getTypeOfExpression(decoratorNode.leftExpression.leftExpression);
+                if (baseType instanceof PropertyType) {
+                    const memberName = decoratorNode.leftExpression.memberName.nameToken.value;
+                    if (memberName === 'setter') {
+                        baseType.setSetter(originalFunctionType);
+                        return baseType;
+                    } else if (memberName === 'deleter') {
+                        baseType.setDeleter(originalFunctionType);
+                        return baseType;
+                    }
+                }
+            }
+
         } else if (decoratorType instanceof ClassType) {
             if (decoratorType.isBuiltIn()) {
                 switch (decoratorType.getClassName()) {
@@ -1317,7 +1333,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     case 'property': {
                         if (inputFunctionType instanceof FunctionType) {
-                            return new PropertyType(inputFunctionType);
+                            // Allocate a property only during the first analysis pass.
+                            // Otherwise the analysis won't converge if there are setters
+                            // and deleters applied to the property.
+                            const oldPropertyType = AnalyzerNodeInfo.getExpressionType(decoratorNode);
+                            if (oldPropertyType) {
+                                return oldPropertyType;
+                            }
+                            const newProperty = new PropertyType(inputFunctionType);
+                            AnalyzerNodeInfo.setExpressionType(decoratorNode, newProperty);
+                            return newProperty;
                         }
 
                         break;

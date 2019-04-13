@@ -175,6 +175,12 @@ test('Execution1', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Properties1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties1.py']);
+
+    validateResults(analysisResults, 4);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions('.');
 
