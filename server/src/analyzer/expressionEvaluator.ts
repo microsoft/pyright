@@ -533,8 +533,15 @@ export class ExpressionEvaluator {
         }
 
         if (!type) {
+            let operationName = 'access';
+            if (usage === EvaluatorUsage.Set) {
+                operationName = 'set';
+            } else if (usage === EvaluatorUsage.Delete) {
+                operationName = 'delete';
+            }
+
             this._addError(
-                `'${ memberName }' is not a known member of '${ baseType.asString() }'`,
+                `Cannot ${ operationName } '${ memberName }' for type '${ baseType.asString() }'`,
                 node.memberName);
             type = UnknownType.create();
         }
@@ -701,29 +708,46 @@ export class ExpressionEvaluator {
         }
 
         if (!(flags & MemberAccessFlags.SkipGetAttributeCheck)) {
-            // See if the class has a "__getattribute__" or "__getattr__" method.
-            // If so, arbitrary members are supported.
-            let getAttribMember = TypeUtils.lookUpClassMember(classType, '__getattribute__', false);
-            if (getAttribMember && getAttribMember.class) {
-                const isObjectClass = getAttribMember.class.isBuiltIn() &&
-                    getAttribMember.class.getClassName() === 'object';
-                // The built-in 'object' class, from which every class derives,
-                // implements the default __getattribute__ method. We want to ignore
-                // this one. If this method is overridden, we need to assume that
-                // all members can be accessed.
-                if (!isObjectClass) {
-                    const getAttribType = TypeUtils.getEffectiveTypeOfMember(getAttribMember);
-                    if (getAttribType instanceof FunctionType) {
-                        return conditionallySpecialize(getAttribType.getEffectiveReturnType(), classType);
+            if (usage === EvaluatorUsage.Get) {
+                // See if the class has a "__getattribute__" or "__getattr__" method.
+                // If so, arbitrary members are supported.
+                let getAttribMember = TypeUtils.lookUpClassMember(classType, '__getattribute__', false);
+                if (getAttribMember && getAttribMember.class) {
+                    const isObjectClass = getAttribMember.class.isBuiltIn() &&
+                        getAttribMember.class.getClassName() === 'object';
+                    // The built-in 'object' class, from which every class derives,
+                    // implements the default __getattribute__ method. We want to ignore
+                    // this one. If this method is overridden, we need to assume that
+                    // all members can be accessed.
+                    if (!isObjectClass) {
+                        const getAttribType = TypeUtils.getEffectiveTypeOfMember(getAttribMember);
+                        if (getAttribType instanceof FunctionType) {
+                            return conditionallySpecialize(getAttribType.getEffectiveReturnType(), classType);
+                        }
                     }
                 }
-            }
 
-            let getAttrMember = TypeUtils.lookUpClassMember(classType, '__getattr__', false);
-            if (getAttrMember) {
-                const getAttrType = TypeUtils.getEffectiveTypeOfMember(getAttrMember);
-                if (getAttrType instanceof FunctionType) {
-                    return conditionallySpecialize(getAttrType.getEffectiveReturnType(), classType);
+                let getAttrMember = TypeUtils.lookUpClassMember(classType, '__getattr__', false);
+                if (getAttrMember) {
+                    const getAttrType = TypeUtils.getEffectiveTypeOfMember(getAttrMember);
+                    if (getAttrType instanceof FunctionType) {
+                        return conditionallySpecialize(getAttrType.getEffectiveReturnType(), classType);
+                    }
+                }
+            } else if (usage === EvaluatorUsage.Set) {
+                let setAttrMember = TypeUtils.lookUpClassMember(classType, '__setattr__', false);
+                if (setAttrMember) {
+                    // The type doesn't matter for a set usage. We just need
+                    // to return a defined type.
+                    return AnyType.create();
+                }
+            } else {
+                assert(usage === EvaluatorUsage.Delete);
+                let delAttrMember = TypeUtils.lookUpClassMember(classType, '__detattr__', false);
+                if (delAttrMember) {
+                    // The type doesn't matter for a delete usage. We just need
+                    // to return a defined type.
+                    return AnyType.create();
                 }
             }
         }

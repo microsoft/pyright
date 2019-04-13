@@ -87,6 +87,7 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Add support for NoReturn type
 * Revamp support for properties - model with Descriptor protocol, detect missing setter
 * Add support for f-strings
+* Provide switch that reports circular import dependencies
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code
 
 
