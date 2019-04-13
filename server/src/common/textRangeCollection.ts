@@ -14,18 +14,18 @@
 import { TextRange } from './textRange';
 
 export class TextRangeCollection<T extends TextRange> {
-    private items: T[];
+    private _items: T[];
 
     constructor(items: T[]) {
-        this.items = items;
+        this._items = items;
     }
 
     get start(): number {
-        return this.items.length > 0 ? this.items[0].start : 0;
+        return this._items.length > 0 ? this._items[0].start : 0;
     }
 
     get end(): number {
-        return this.items.length > 0 ? this.items[this.items.length - 1].end : 0;
+        return this._items.length > 0 ? this._items[this._items.length - 1].end : 0;
     }
 
     get length(): number {
@@ -33,7 +33,7 @@ export class TextRangeCollection<T extends TextRange> {
     }
 
     get count(): number {
-        return this.items.length;
+        return this._items.length;
     }
 
     contains(position: number) {
@@ -41,10 +41,10 @@ export class TextRangeCollection<T extends TextRange> {
     }
 
     getItemAt(index: number): T {
-        if (index < 0 || index >= this.items.length) {
+        if (index < 0 || index >= this._items.length) {
             throw new Error('index is out of range');
         }
-        return this.items[index];
+        return this._items[index];
     }
 
     getItemAtPosition(position: number): number {
@@ -63,7 +63,7 @@ export class TextRangeCollection<T extends TextRange> {
 
         while (min <= max) {
             const mid = Math.floor(min + (max - min) / 2);
-            const item = this.items[mid];
+            const item = this._items[mid];
 
             if (item.start === position) {
                 return mid;
@@ -94,12 +94,12 @@ export class TextRangeCollection<T extends TextRange> {
 
         while (min <= max) {
             const mid = Math.floor(min + (max - min) / 2);
-            const item = this.items[mid];
+            const item = this._items[mid];
 
             if (item.contains(position)) {
                 return mid;
             }
-            if (mid < this.count - 1 && item.end <= position && position < this.items[mid + 1].start) {
+            if (mid < this.count - 1 && item.end <= position && position < this._items[mid + 1].start) {
                 return -1;
             }
 
