@@ -1742,6 +1742,26 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
+    private _getTypeFromMagicMethodReturn(objType: Type, magicMethodName: string,
+            fallbackType: Type = UnknownType.create()): Type {
+
+        return TypeUtils.doForSubtypes(objType, subtype => {
+            if (subtype.isAny()) {
+                return UnknownType.create();
+            }
+
+            let operatorMethod = TypeUtils.lookUpObjectMember(subtype, magicMethodName, false);
+            if (operatorMethod) {
+                const accessorType = TypeUtils.getEffectiveTypeOfMember(operatorMethod);
+                if (accessorType instanceof FunctionType) {
+                    return accessorType.getEffectiveReturnType();
+                }
+            }
+
+            return fallbackType;
+        });
+    }
+
     private _getTypeFromBinaryExpression(node: BinaryExpressionNode,
             flags: EvaluatorFlags): TypeResult {
 
@@ -1799,47 +1819,45 @@ export class ExpressionEvaluator {
             [OperatorType.NotIn]: true
         };
 
-        let type: Type;
+        let type: Type | undefined;
 
         if (arithmeticOperatorMap[node.operator]) {
-            if (leftType.isAny() || rightType.isAny()) {
-                type = UnknownType.create();
-            } else if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
-                const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
-                const getTypeMatch = (classType: ClassType): boolean[] => {
-                    let foundMatch = false;
-                    return builtInClassTypes.map(builtInType => {
-                        if (builtInType && builtInType.isSameGenericClass(classType)) {
-                            foundMatch = true;
-                        }
-                        return foundMatch;
-                    });
-                };
+            const supportsBuiltInTypes = arithmeticOperatorMap[node.operator][2];
+            if (supportsBuiltInTypes) {
+                if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
+                    const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
+                    const getTypeMatch = (classType: ClassType): boolean[] => {
+                        let foundMatch = false;
+                        return builtInClassTypes.map(builtInType => {
+                            if (builtInType && builtInType.isSameGenericClass(classType)) {
+                                foundMatch = true;
+                            }
+                            return foundMatch;
+                        });
+                    };
 
-                const leftClassMatches = getTypeMatch(leftType.getClassType());
-                const rightClassMatches = getTypeMatch(rightType.getClassType());
-                const supportsBuiltInTypes = arithmeticOperatorMap[node.operator][2];
+                    const leftClassMatches = getTypeMatch(leftType.getClassType());
+                    const rightClassMatches = getTypeMatch(rightType.getClassType());
 
-                if (supportsBuiltInTypes && leftClassMatches[0] && rightClassMatches[0]) {
-                    // If they're both int types, the result is an int.
-                    type = new ObjectType(builtInClassTypes[0]!);
-                } else if (supportsBuiltInTypes && leftClassMatches[1] && rightClassMatches[1]) {
-                    // If they're both floats or one is a float and one is an int,
-                    // the result is a float.
-                    type = new ObjectType(builtInClassTypes[1]!);
-                } else if (supportsBuiltInTypes && leftClassMatches[2] && rightClassMatches[2]) {
-                    // If one is complex and the other is complex, float or int,
-                    // the result is complex.
-                    type = new ObjectType(builtInClassTypes[2]!);
-                } else {
-                    // In all other cases, we need to look at the magic methods
-                    // on the two types.
-                    // TODO - handle the general case
-                    type = UnknownType.create();
+                    if (leftClassMatches[0] && rightClassMatches[0]) {
+                        // If they're both int types, the result is an int.
+                        type = new ObjectType(builtInClassTypes[0]!);
+                    } else if (leftClassMatches[1] && rightClassMatches[1]) {
+                        // If they're both floats or one is a float and one is an int,
+                        // the result is a float.
+                        type = new ObjectType(builtInClassTypes[1]!);
+                    } else if (leftClassMatches[2] && rightClassMatches[2]) {
+                        // If one is complex and the other is complex, float or int,
+                        // the result is complex.
+                        type = new ObjectType(builtInClassTypes[2]!);
+                    }
                 }
-            } else {
-                // TODO - need to handle other types
-                type = UnknownType.create();
+            }
+
+            // Handle the general case.
+            if (!type) {
+                const magicMethodName = arithmeticOperatorMap[node.operator][0];
+                type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName);
             }
         } else if (bitwiseOperatorMap[node.operator]) {
             if (leftType.isAny() || rightType.isAny()) {
@@ -1853,23 +1871,19 @@ export class ExpressionEvaluator {
 
                 if (leftIsInt && rightIsInt) {
                     type = new ObjectType(intType as ClassType);
-                } else {
-                    // In all other cases, we need to look at the magic methods
-                    // on the two types.
-                    // TODO - handle the general case
-                    type = UnknownType.create();
                 }
-            } else {
-                // TODO - need to handle other types
-                type = UnknownType.create();
-            }
-        } else if (comparisonOperatorMap[node.operator]) {
-            if (leftType.isAny() || rightType.isAny()) {
-                type = UnknownType.create();
             }
 
-            // TODO - need to look at the magic methods on the first type.
-            type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
+            // Handle the general case.
+            if (!type) {
+                const magicMethodName = bitwiseOperatorMap[node.operator][0];
+                type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName);
+            }
+        } else if (comparisonOperatorMap[node.operator]) {
+            const magicMethodName = comparisonOperatorMap[node.operator];
+            type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName,
+                ScopeUtils.getBuiltInObject(this._scope, 'bool'));
+
         } else if (booleanOperatorMap[node.operator]) {
             if (node.operator === OperatorType.And) {
                 // If the operator is an AND or OR, we need to combine the two types.
@@ -1880,7 +1894,6 @@ export class ExpressionEvaluator {
                     TypeUtils.removeFalsinessFromType(leftType), rightType]);
             } else {
                 // The other boolean operators always return a bool value.
-                // TODO - validate inputs for "is", "is not", "in" and "not in" operators.
                 type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
             }
         } else {

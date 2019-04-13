@@ -911,9 +911,11 @@ export class TypeUtils {
         return symbol.inferredType.getType();
     }
 
-    static lookUpObjectMember(objectType: Type, memberName: string): ClassMember | undefined {
+    static lookUpObjectMember(objectType: Type, memberName: string,
+            includeInstanceFields = true): ClassMember | undefined {
+
         if (objectType instanceof ObjectType) {
-            return this.lookUpClassMember(objectType.getClassType(), memberName);
+            return this.lookUpClassMember(objectType.getClassType(), memberName, includeInstanceFields);
         }
 
         return undefined;
