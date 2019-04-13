@@ -13,7 +13,7 @@ import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
 import { ScopeType } from '../analyzer/scope';
 import { ConfigOptions } from '../common/configOptions';
 import StringMap from '../common/stringMap';
-import { TestUtils } from './testUtils';
+import { FileAnalysisResult, TestUtils } from './testUtils';
 
 test('Builtins1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['builtins1.py']);
@@ -91,88 +91,88 @@ test('Builtins1', () => {
     }
 });
 
+function validateResults(results: FileAnalysisResult[], errorCount: number, warningCount = 0) {
+    assert.equal(results.length, 1);
+    assert.equal(results[0].errors.length, errorCount);
+    assert.equal(results[0].warnings.length, warningCount);
+}
+
 test('TypeConstraint1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint1.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 6);
+    validateResults(analysisResults, 6);
 });
 
 test('TypeConstraint2', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint2.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 4);
+    validateResults(analysisResults, 4);
 });
 
 test('CircularBaseClass', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['circularBaseClass.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 4);
+    validateResults(analysisResults, 4);
 });
 
 test('ReturnTypes1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['returnTypes1.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 2);
+    validateResults(analysisResults, 2);
 });
 
 test('Specialization1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialization1.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 4);
+    validateResults(analysisResults, 4);
 });
 
 test('Expressions1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions1.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 2);
+    validateResults(analysisResults, 2);
 });
 
 test('Expressions2', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions2.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 1);
+    validateResults(analysisResults, 1);
 });
 
 test('Expressions3', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions3.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 1);
+    validateResults(analysisResults, 1);
 });
 
 test('Lambda1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda1.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 5);
+    validateResults(analysisResults, 5);
 });
 
 test('Function1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['function1.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 5);
+    validateResults(analysisResults, 5);
 });
 
 test('Annotations1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 2);
+    validateResults(analysisResults, 2);
+});
+
+test('Annotations2', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations2.py']);
+
+    validateResults(analysisResults, 2);
 });
 
 test('Execution1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['execution1.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 2);
+    validateResults(analysisResults, 2);
 });
 
 test('Optional1', () => {
@@ -180,117 +180,97 @@ test('Optional1', () => {
 
     // By default, optional diagnostics are ignored.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 0);
-    assert.equal(analysisResults[0].warnings.length, 0);
+    validateResults(analysisResults, 0);
 
     // Turn on warnings.
     configOptions.reportOptionalSubscript = 'warning';
     configOptions.reportOptionalMemberAccess = 'warning';
     configOptions.reportOptionalCall = 'warning';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 0);
-    assert.equal(analysisResults[0].warnings.length, 3);
+    validateResults(analysisResults, 0, 3);
 
     // Turn on errors.
     configOptions.reportOptionalSubscript = 'error';
     configOptions.reportOptionalMemberAccess = 'error';
     configOptions.reportOptionalCall = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 3);
-    assert.equal(analysisResults[0].warnings.length, 0);
+    validateResults(analysisResults, 3);
 });
 
 test('Tuples1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples1.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.equal(analysisResults[0].errors.length, 4);
+    validateResults(analysisResults, 4);
 });
 
 test('DataClass1', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['dataclass1.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass1.py']);
 
-    assert.equal(analysisResult.errors.length, 0);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 0);
 });
 
 test('DataClass2', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['dataclass2.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass2.py']);
 
-    assert.equal(analysisResult.errors.length, 1);
-    assert.ok(/start with _/.test(analysisResult.errors[0].message));
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 1);
 });
 
 test('DataClass3', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['dataclass3.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass3.py']);
 
-    assert.equal(analysisResult.errors.length, 1);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 1);
 });
 
 test('DataClass4', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['dataclass4.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass4.py']);
 
-    assert.equal(analysisResult.errors.length, 6);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 6);
 });
 
 test('AbstractClass1', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['abstractClass1.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass1.py']);
 
-    assert.equal(analysisResult.errors.length, 2);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 2);
 });
 
 test('Module1', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['module1.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['module1.py']);
 
-    assert.equal(analysisResult.errors.length, 0);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 0);
 });
 
 test('Ellipsis1', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.py']);
 
-    assert.equal(analysisResult.errors.length, 10);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 10);
 });
 
 test('Generators1', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['generators1.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators1.py']);
 
-    assert.equal(analysisResult.errors.length, 5);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 5);
 });
 
 test('Generators2', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['generators2.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators2.py']);
 
-    assert.equal(analysisResult.errors.length, 2);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 2);
 });
 
 test('Generators3', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['generators3.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators3.py']);
 
-    assert.equal(analysisResult.errors.length, 1);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 1);
 });
 
 test('Loops1', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['loops1.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops1.py']);
 
-    assert.equal(analysisResult.errors.length, 2);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 2);
 });
 
 test('Constants1', () => {
-    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['constants1.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['constants1.py']);
 
-    assert.equal(analysisResult.errors.length, 20);
-    assert.equal(analysisResult.warnings.length, 0);
+    validateResults(analysisResults, 20);
 });
