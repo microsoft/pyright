@@ -79,7 +79,6 @@ To update to the latest version:
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
 * Type analysis support for coroutines
-* Support for old-style type annotations within comments
 * Address the many TODO comments in the code
 * Provide switch that treats instance variables and methods that begin with underscore as private
 * Synthesize TypeVar param and return types for lambdas where possible

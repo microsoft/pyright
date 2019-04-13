@@ -936,11 +936,26 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let typeOfExpr = this._getTypeOfExpression(node.rightExpression);
+        let valueType = this._getTypeOfExpression(node.rightExpression);
+
+        let typeHintType: Type | undefined;
+        if (node.typeAnnotationComment) {
+            typeHintType = this._getTypeOfAnnotation(node.typeAnnotationComment);
+
+            this.walk(node.typeAnnotationComment);
+
+            const diagAddendum = new DiagnosticAddendum();
+            if (!TypeUtils.canAssignType(typeHintType, valueType, diagAddendum)) {
+                this._addError(
+                    `Expression of type '${ valueType.asString() }' cannot be assigned ` +
+                        `to type '${ typeHintType.asString() }'` + diagAddendum.getString(),
+                    node);
+            }
+        }
 
         if (!(node.leftExpression instanceof NameNode) ||
-                !this._assignTypeForPossibleEnumeration(node.leftExpression, typeOfExpr)) {
-            this._assignTypeToPossibleTuple(node.leftExpression, typeOfExpr);
+                !this._assignTypeForPossibleEnumeration(node.leftExpression, valueType)) {
+            this._assignTypeToPossibleTuple(node.leftExpression, typeHintType || valueType);
         }
 
         this.walk(node.rightExpression);
@@ -994,8 +1009,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitString(node: StringNode): boolean {
-        if (node.annotationExpression) {
-            this._getTypeOfExpression(node.annotationExpression);
+        if (node.typeAnnotation) {
+            this._getTypeOfExpression(node.typeAnnotation);
         }
         return true;
     }
@@ -1197,11 +1212,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
         let typeHint = this._getTypeOfAnnotation(node.typeAnnotation);
-        if (typeHint) {
-            if (!(node.valueExpression instanceof NameNode) ||
-                    !this._assignTypeForPossibleEnumeration(node.valueExpression, typeHint)) {
-                this._assignTypeToPossibleTuple(node.valueExpression, typeHint);
-            }
+        if (!(node.valueExpression instanceof NameNode) ||
+                !this._assignTypeForPossibleEnumeration(node.valueExpression, typeHint)) {
+            this._assignTypeToPossibleTuple(node.valueExpression, typeHint);
         }
 
         this.walk(node.valueExpression);

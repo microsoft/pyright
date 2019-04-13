@@ -308,8 +308,8 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromConstantExpression(node);
         } else if (node instanceof StringNode) {
             this._reportUsageErrorForReadOnly(node, usage);
-            if (node.annotationExpression) {
-                return this._getTypeFromExpression(node.annotationExpression, usage, flags);
+            if (node.typeAnnotation) {
+                return this._getTypeFromExpression(node.typeAnnotation, usage, flags);
             }
 
             let isBytes = (node.tokens[0].quoteTypeFlags & QuoteTypeFlags.Byte) !== 0;

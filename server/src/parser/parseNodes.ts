@@ -440,6 +440,8 @@ export class AssignmentNode extends ExpressionNode {
     leftExpression: ExpressionNode;
     rightExpression: ExpressionNode;
 
+    typeAnnotationComment?: ExpressionNode;
+
     constructor(leftExpression: ExpressionNode, rightExpression: ExpressionNode) {
         super(leftExpression);
         this.leftExpression = leftExpression;
@@ -448,7 +450,7 @@ export class AssignmentNode extends ExpressionNode {
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return [this.leftExpression, this.rightExpression];
+        return [this.leftExpression, this.rightExpression, this.typeAnnotationComment];
     }
 }
 
@@ -739,7 +741,7 @@ export class StringNode extends ExpressionNode {
     // If strings are found within the context of
     // a type annotation, they are further parsed
     // into an expression.
-    annotationExpression?: ExpressionNode;
+    typeAnnotation?: ExpressionNode;
 
     constructor(tokens: StringToken[]) {
         super(tokens[0]);
@@ -747,7 +749,7 @@ export class StringNode extends ExpressionNode {
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return this.annotationExpression ? [this.annotationExpression] : undefined;
+        return this.typeAnnotation ? [this.typeAnnotation] : undefined;
     }
 
     getValue(): string {

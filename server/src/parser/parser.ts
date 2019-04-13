@@ -2154,7 +2154,16 @@ export class Parser {
             }
         }
 
-        return new AssignmentNode(leftExpr, rightExpr);
+        const assignmentNode = new AssignmentNode(leftExpr, rightExpr);
+
+        // Look for a type annotation comment at the end of the line.
+        let typeAnnotationComment = this._getTypeAnnotationComment();
+        if (typeAnnotationComment) {
+            assignmentNode.typeAnnotationComment = typeAnnotationComment;
+            assignmentNode.extend(assignmentNode.typeAnnotationComment);
+        }
+
+        return assignmentNode;
     }
 
     private _parseTypeAnnotation(callback: () => void) {
@@ -2165,6 +2174,49 @@ export class Parser {
         callback();
 
         this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
+    }
+
+    private _getTypeAnnotationComment(): ExpressionNode | undefined {
+        if (this._tokenIndex === 0) {
+            return undefined;
+        }
+
+        const curToken = this._tokenizerOutput!.tokens.getItemAt(this._tokenIndex - 1);
+        const nextToken = this._tokenizerOutput!.tokens.getItemAt(this._tokenIndex);
+
+        if (curToken.end === nextToken.start) {
+            return undefined;
+        }
+
+        const interTokenContents = this._fileContents!.substring(curToken.end, nextToken.start);
+        const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
+        const match = interTokenContents.match(commentRegEx);
+        if (!match) {
+            return undefined;
+        }
+
+        // Synthesize a string token and StringNode.
+        const typeString = match[2];
+        const tokenOffset = curToken.end + match[1].length;
+        const stringToken = new StringToken(tokenOffset,
+            typeString.length, QuoteTypeFlags.None, typeString);
+        const stringNode = new StringNode([stringToken]);
+
+        let parser = new Parser();
+        let parseResults = parser.parseTextExpression(this._fileContents!,
+            tokenOffset, typeString.length, this._parseOptions);
+
+        parseResults.diagnostics.forEach(diag => {
+            this._addError(diag.message, stringNode);
+        });
+
+        if (!parseResults.parseTree) {
+            return undefined;
+        }
+
+        stringNode.typeAnnotation = parseResults.parseTree;
+
+        return stringNode;
     }
 
     private _parseString(): StringNode {
@@ -2199,7 +2251,7 @@ export class Parser {
                 });
 
                 if (parseResults.parseTree) {
-                    stringNode.annotationExpression = parseResults.parseTree;
+                    stringNode.typeAnnotation = parseResults.parseTree;
                 }
             }
         }
