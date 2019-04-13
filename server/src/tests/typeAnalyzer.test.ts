@@ -287,3 +287,10 @@ test('Loops1', () => {
     assert.equal(analysisResult.errors.length, 2);
     assert.equal(analysisResult.warnings.length, 0);
 });
+
+test('Constants1', () => {
+    let [analysisResult] = TestUtils.typeAnalyzeSampleFiles(['constants1.py']);
+
+    assert.equal(analysisResult.errors.length, 20);
+    assert.equal(analysisResult.warnings.length, 0);
+});

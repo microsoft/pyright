@@ -2131,12 +2131,6 @@ export class Parser {
         if (!annotationExpr && Tokenizer.isOperatorAssignment(this._peekOperatorType())) {
             let operatorToken = this._getNextToken() as OperatorToken;
 
-            // Is the left side of the assignment assignable?
-            const assignError = leftExpr.getAssignmentError();
-            if (assignError) {
-                this._addError(assignError, leftExpr);
-            }
-
             let rightExpr = this._tryParseYieldExpression() ||
                 this._parseTestListAsExpression('Expected expression to the right of operator');
             return new AugmentedAssignmentExpressionNode(leftExpr, rightExpr, operatorToken.operatorType);
@@ -2146,12 +2140,6 @@ export class Parser {
     }
 
     private _parseChainAssignments(leftExpr: ExpressionNode): ExpressionNode {
-        // Is the left side of the assignment assignable?
-        const assignError = leftExpr.getAssignmentError();
-        if (assignError) {
-            this._addError(assignError, leftExpr);
-        }
-
         let rightExpr: ExpressionNode | undefined;
         rightExpr = this._tryParseYieldExpression();
         if (!rightExpr) {

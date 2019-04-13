@@ -21,9 +21,10 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     DecoratorNode, DictionaryNode, EllipsisNode, ExpressionNode,
     IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionNode,
     ListNode, MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory,
-    SetNode, SliceExpressionNode, StarExpressionNode, StatementListNode,
-    StringNode, TernaryExpressionNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, YieldExpressionNode,
+    ParseNode, SetNode, SliceExpressionNode, StarExpressionNode,
+    StatementListNode, StringNode, TernaryExpressionNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
+    YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
     TokenType } from '../parser/tokenizerTypes';
@@ -68,6 +69,17 @@ export enum EvaluatorFlags {
     // types. This flag indicates that specialization shouldn't take
     // place.
     DoNotSpecialize = 4
+}
+
+export enum EvaluatorUsage {
+    // The expression is being read.
+    Get,
+
+    // The expression is being written.
+    Set,
+
+    // The expression is being deleted.
+    Delete
 }
 
 export enum MemberAccessFlags {
@@ -124,14 +136,14 @@ export class ExpressionEvaluator {
         this._writeTypeToCache = writeTypeCallback;
     }
 
-    getType(node: ExpressionNode, flags: EvaluatorFlags): Type {
-        let typeResult = this._getTypeFromExpression(node, flags);
+    getType(node: ExpressionNode, usage: EvaluatorUsage, flags: EvaluatorFlags): Type {
+        let typeResult = this._getTypeFromExpression(node, usage, flags);
         return typeResult.type;
     }
 
     getTypeFromDecorator(node: DecoratorNode, functionType: Type): Type {
         const baseTypeResult = this._getTypeFromExpression(
-            node.leftExpression, EvaluatorFlags.DoNotSpecialize);
+            node.leftExpression, EvaluatorUsage.Get, EvaluatorFlags.DoNotSpecialize);
 
         let decoratorCall = baseTypeResult;
 
@@ -143,7 +155,7 @@ export class ExpressionEvaluator {
                     argumentCategory: arg.argumentCategory,
                     name: arg.name,
                     type: this._getTypeFromExpression(arg.valueExpression,
-                        EvaluatorFlags.None).type
+                        EvaluatorUsage.Get, EvaluatorFlags.None).type
                 };
             });
 
@@ -162,9 +174,11 @@ export class ExpressionEvaluator {
 
     // Gets a member type from an object and if it's a function binds
     // it to the object.
-    getTypeFromObjectMember(memberName: string, objectType: ObjectType): Type | undefined {
+    getTypeFromObjectMember(memberName: string, usage: EvaluatorUsage,
+            objectType: ObjectType): Type | undefined {
+
         const memberType = this._getTypeFromClassMemberName(
-            memberName, objectType.getClassType(), MemberAccessFlags.None);
+            memberName, objectType.getClassType(), usage, MemberAccessFlags.None);
 
         let resultType = memberType;
         if (memberType instanceof FunctionType || memberType instanceof OverloadedFunctionType) {
@@ -213,12 +227,13 @@ export class ExpressionEvaluator {
                             variableNameNode = statement.leftExpression.valueExpression;
                         }
 
-                        variableType = this.getType(statement.rightExpression, EvaluatorFlags.None);
+                        variableType = this.getType(statement.rightExpression,
+                            EvaluatorUsage.Get, EvaluatorFlags.None);
                         hasDefaultValue = true;
                     } else if (statement instanceof TypeAnnotationExpressionNode) {
                         if (statement.valueExpression instanceof NameNode) {
                             variableNameNode = statement.valueExpression;
-                            variableType = this.getType(statement.typeAnnotation,
+                            variableType = this.getType(statement.typeAnnotation, EvaluatorUsage.Get,
                                 EvaluatorFlags.ConvertClassToObject | EvaluatorFlags.ConvertEllipsisToAny);
                         }
                     }
@@ -264,7 +279,9 @@ export class ExpressionEvaluator {
         classType.getClassFields().set('__new__', new Symbol(newType, DefaultTypeSourceId));
     }
 
-    private _getTypeFromExpression(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
+    private _getTypeFromExpression(node: ExpressionNode, usage: EvaluatorUsage,
+            flags: EvaluatorFlags): TypeResult {
+
         // Is this type already cached?
         if (this._readTypeFromCache) {
             let cachedType = this._readTypeFromCache(node);
@@ -278,76 +295,98 @@ export class ExpressionEvaluator {
         if (node instanceof NameNode) {
             typeResult = this._getTypeFromName(node, flags);
         } else if (node instanceof MemberAccessExpressionNode) {
-            typeResult = this._getTypeFromMemberAccessExpression(node, flags);
+            typeResult = this._getTypeFromMemberAccessExpression(node, usage, flags);
         } else if (node instanceof IndexExpressionNode) {
-            typeResult = this._getTypeFromIndexExpression(node, flags);
+            typeResult = this._getTypeFromIndexExpression(node, usage, flags);
         } else if (node instanceof CallExpressionNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromCallExpression(node, flags);
         } else if (node instanceof TupleExpressionNode) {
-            typeResult = this._getTypeFromTupleExpression(node, flags);
+            typeResult = this._getTypeFromTupleExpression(node, usage, flags);
         } else if (node instanceof ConstantNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromConstantExpression(node);
         } else if (node instanceof StringNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             if (node.annotationExpression) {
-                return this._getTypeFromExpression(node.annotationExpression, flags);
+                return this._getTypeFromExpression(node.annotationExpression, usage, flags);
             }
 
             let isBytes = (node.tokens[0].quoteTypeFlags & QuoteTypeFlags.Byte) !== 0;
             typeResult = this._getBuiltInTypeFromLiteralExpression(node,
                 isBytes ? 'byte' : 'str');
         } else if (node instanceof NumberNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getBuiltInTypeFromLiteralExpression(node,
                 node.token.isInteger ? 'int' : 'float');
         } else if (node instanceof EllipsisNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             const convertToAny = (flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0;
             typeResult = { type: AnyType.create(!convertToAny), node };
         } else if (node instanceof UnaryExpressionNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromUnaryExpression(node, flags);
         } else if (node instanceof BinaryExpressionNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromBinaryExpression(node, flags);
         } else if (node instanceof ListNode) {
-            typeResult = this._getTypeFromListExpression(node);
+            typeResult = this._getTypeFromListExpression(node, usage);
         } else if (node instanceof SliceExpressionNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromSliceExpression(node, flags);
         } else if (node instanceof AwaitExpressionNode) {
             // TODO - need to implement
-            typeResult = this._getTypeFromExpression(node.expression, flags);
+            typeResult = this._getTypeFromExpression(node.expression, EvaluatorUsage.Get, flags);
             typeResult = { type: UnknownType.create(), node };
         } else if (node instanceof TernaryExpressionNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromTernaryExpression(node, flags);
         } else if (node instanceof ListComprehensionNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             // TODO - infer list type
             // this._getTypeFromExpression(node.baseExpression, EvaluatorFlags.None);
             let type = ScopeUtils.getBuiltInObject(this._scope, 'list', [UnknownType.create()]);
             typeResult = { type, node };
         } else if (node instanceof DictionaryNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             // TODO - infer dict type
             let type = ScopeUtils.getBuiltInObject(this._scope, 'dict',
                 [UnknownType.create(), UnknownType.create()]);
             typeResult = { type, node };
         } else if (node instanceof LambdaNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromLambdaExpression(node);
         } else if (node instanceof SetNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             node.entries.forEach(expr => {
-                this._getTypeFromExpression(expr, EvaluatorFlags.None);
+                this._getTypeFromExpression(expr, EvaluatorUsage.Get, EvaluatorFlags.None);
             });
             // TODO - infer set type
             let type = ScopeUtils.getBuiltInObject(this._scope, 'set', [UnknownType.create()]);
             typeResult = { type, node };
         } else if (node instanceof AssignmentNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
+
             // TODO - need to implement
-            this._getTypeFromExpression(node.rightExpression, EvaluatorFlags.None);
-            typeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
+            this._getTypeFromExpression(node.rightExpression,
+                EvaluatorUsage.Get, EvaluatorFlags.None);
+            typeResult = this._getTypeFromExpression(node.leftExpression,
+                EvaluatorUsage.Set, EvaluatorFlags.None);
         } else if (node instanceof YieldExpressionNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromYieldExpression(node);
         } else if (node instanceof YieldFromExpressionNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromYieldFromExpression(node);
         } else if (node instanceof StarExpressionNode) {
             // TODO - need to implement
-            this._getTypeFromExpression(node.expression, EvaluatorFlags.None);
+            this._getTypeFromExpression(node.expression, usage, EvaluatorFlags.None);
             // TODO - need to handle futures
             let type = UnknownType.create();
             typeResult = { type, node };
+        } else if (node instanceof TypeAnnotationExpressionNode) {
+            typeResult = this._getTypeFromExpression(node.typeAnnotation,
+                EvaluatorUsage.Get, EvaluatorFlags.None);
         }
 
         if (typeResult) {
@@ -408,10 +447,12 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromMemberAccessExpression(node: MemberAccessExpressionNode,
-            flags: EvaluatorFlags): TypeResult {
+            usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
-        const baseTypeResult = this._getTypeFromExpression(node.leftExpression, EvaluatorFlags.None);
-        const memberType = this._getTypeFromMemberAccessExpressionWithBaseType(node, baseTypeResult, flags);
+        const baseTypeResult = this._getTypeFromExpression(
+            node.leftExpression, EvaluatorUsage.Get, EvaluatorFlags.None);
+        const memberType = this._getTypeFromMemberAccessExpressionWithBaseType(
+            node, baseTypeResult, usage, flags);
 
         if (this._writeTypeToCache) {
             // Cache the type information in the member name node as well.
@@ -422,7 +463,8 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromMemberAccessExpressionWithBaseType(node: MemberAccessExpressionNode,
-                baseTypeResult: TypeResult, flags: EvaluatorFlags): TypeResult {
+                baseTypeResult: TypeResult, usage: EvaluatorUsage,
+                flags: EvaluatorFlags): TypeResult {
 
         const baseType = baseTypeResult.type;
         const memberName = node.memberName.nameToken.value;
@@ -433,11 +475,11 @@ export class ExpressionEvaluator {
             type = baseType;
         } else if (baseType instanceof ClassType) {
             type = this._validateTypeFromClassMemberAccess(node.memberName,
-                baseType, MemberAccessFlags.SkipInstanceMembers);
+                baseType, usage, MemberAccessFlags.SkipInstanceMembers);
             type = this._bindFunctionToClassOrObject(baseType, type);
         } else if (baseType instanceof ObjectType) {
             type = this._validateTypeFromClassMemberAccess(
-                node.memberName, baseType.getClassType(), MemberAccessFlags.None);
+                node.memberName, baseType.getClassType(), usage, MemberAccessFlags.None);
             type = this._bindFunctionToClassOrObject(baseType, type);
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
@@ -460,6 +502,7 @@ export class ExpressionEvaluator {
                             type: typeEntry,
                             node
                         },
+                        usage,
                         EvaluatorFlags.None);
 
                     if (typeResult) {
@@ -576,7 +619,7 @@ export class ExpressionEvaluator {
     // A wrapper around _getTypeFromClassMemberName that reports
     // errors if the member name is not found.
     private _validateTypeFromClassMemberAccess(memberNameNode: NameNode,
-            classType: ClassType, flags: MemberAccessFlags) {
+            classType: ClassType, usage: EvaluatorUsage, flags: MemberAccessFlags) {
 
         // If this is a special type (like "List") that has an alias
         // class (like "list"), switch to the alias, which defines
@@ -587,7 +630,8 @@ export class ExpressionEvaluator {
         }
 
         const memberName = memberNameNode.nameToken.value;
-        let type = this._getTypeFromClassMemberName(memberName, classType, flags);
+        let type = this._getTypeFromClassMemberName(
+            memberName, classType, usage, flags);
 
         if (type) {
             return type;
@@ -606,7 +650,7 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromClassMemberName(memberName: string, classType: ClassType,
-            flags: MemberAccessFlags): Type | undefined {
+            usage: EvaluatorUsage, flags: MemberAccessFlags): Type | undefined {
 
         const conditionallySpecialize = (type: Type, classType: ClassType) => {
             if (classType.getTypeArguments()) {
@@ -635,9 +679,20 @@ export class ExpressionEvaluator {
                 if (type instanceof PropertyType) {
                     type = conditionallySpecialize(type.getEffectiveReturnType(), classType);
                 } else if (type instanceof ObjectType) {
-                    // See if there's a magic "__get__" method on the object.
+                    // See if there's a magic "__get__", "__set__", or "__delete__"
+                    // method on the object.
+                    let accessMethodName: string;
+
+                    if (usage === EvaluatorUsage.Get) {
+                        accessMethodName = '__get__';
+                    } else if (usage === EvaluatorUsage.Set) {
+                        accessMethodName = '__set__';
+                    } else {
+                        accessMethodName = '__del__';
+                    }
+
                     const memberClassType = type.getClassType();
-                    let getMember = TypeUtils.lookUpClassMember(memberClassType, '__get__', false);
+                    let getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName, false);
                     if (getMember) {
                         const getType = TypeUtils.getEffectiveTypeOfMember(getMember);
                         if (getType instanceof FunctionType) {
@@ -682,10 +737,10 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromIndexExpression(node: IndexExpressionNode,
-            flags: EvaluatorFlags): TypeResult {
+            usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
         const baseTypeResult = this._getTypeFromExpression(node.baseExpression,
-            EvaluatorFlags.DoNotSpecialize);
+            EvaluatorUsage.Get, EvaluatorFlags.DoNotSpecialize);
 
         const type = TypeUtils.doForSubtypes(baseTypeResult.type, subtype => {
             if (subtype.isAny()) {
@@ -737,23 +792,23 @@ export class ExpressionEvaluator {
                 type: UnknownType.create(),
                 typeList: node.entries.map(entry => {
                     return this._getTypeFromExpression(entry,
-                        EvaluatorFlags.ConvertClassToObject);
+                        EvaluatorUsage.Get, EvaluatorFlags.ConvertClassToObject);
                 }),
                 node
             };
         } else {
             typeResult = this._getTypeFromExpression(node,
-                EvaluatorFlags.ConvertClassToObject);
+                EvaluatorUsage.Get, EvaluatorFlags.ConvertClassToObject);
         }
 
         return typeResult;
     }
 
     private _getTypeFromTupleExpression(node: TupleExpressionNode,
-            flags: EvaluatorFlags): TypeResult {
+            usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
         const entryTypes = node.expressions.map(expr => {
-            return this._getTypeFromExpression(expr, flags) || UnknownType.create();
+            return this._getTypeFromExpression(expr, usage, flags) || UnknownType.create();
         });
 
         let type = UnknownType.create();
@@ -771,7 +826,7 @@ export class ExpressionEvaluator {
             flags: EvaluatorFlags): TypeResult {
 
         const baseTypeResult = this._getTypeFromExpression(
-            node.leftExpression, EvaluatorFlags.None);
+            node.leftExpression, EvaluatorUsage.Get, EvaluatorFlags.None);
 
         const argList = node.arguments.map(arg => {
             return {
@@ -779,7 +834,7 @@ export class ExpressionEvaluator {
                 argumentCategory: arg.argumentCategory,
                 name: arg.name,
                 type: this._getTypeFromExpression(arg.valueExpression,
-                    EvaluatorFlags.None).type
+                    EvaluatorUsage.Get, EvaluatorFlags.None).type
             };
         });
 
@@ -887,7 +942,8 @@ export class ExpressionEvaluator {
                 }
             } else {
                 let memberType = this._getTypeFromClassMemberName(
-                    '__call__', classType, MemberAccessFlags.SkipGetAttributeCheck);
+                    '__call__', classType, EvaluatorUsage.Get,
+                    MemberAccessFlags.SkipGetAttributeCheck);
                 if (memberType && memberType instanceof FunctionType) {
                     const callMethodType = this._partiallySpecializeFunctionForBoundClassOrObject(
                         callType, memberType);
@@ -977,8 +1033,8 @@ export class ExpressionEvaluator {
 
         // Validate __new__
         let constructorMethodType = this._getTypeFromClassMemberName('__new__', type,
-            MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
-            MemberAccessFlags.SkipObjectBaseClass);
+            EvaluatorUsage.Get, MemberAccessFlags.SkipGetAttributeCheck |
+                MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass);
         if (constructorMethodType) {
             constructorMethodType = this._bindFunctionToClassOrObject(
                 type, constructorMethodType, true);
@@ -995,8 +1051,8 @@ export class ExpressionEvaluator {
         // probably going to be entirely redundant anyway.
         if (!reportedErrorsForNewCall) {
             let initMethodType = this._getTypeFromClassMemberName('__init__', type,
-                MemberAccessFlags.SkipGetAttributeCheck | MemberAccessFlags.SkipInstanceMembers |
-                MemberAccessFlags.SkipObjectBaseClass);
+                EvaluatorUsage.Get, MemberAccessFlags.SkipGetAttributeCheck |
+                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass);
             if (initMethodType) {
                 initMethodType = this._bindFunctionToClassOrObject(
                     new ObjectType(type), initMethodType);
@@ -1060,7 +1116,7 @@ export class ExpressionEvaluator {
             }
         } else if (callType instanceof ObjectType) {
             let memberType = this._getTypeFromClassMemberName(
-                '__call__', callType.getClassType(),
+                '__call__', callType.getClassType(), EvaluatorUsage.Get,
                     MemberAccessFlags.SkipGetAttributeCheck |
                     MemberAccessFlags.SkipInstanceMembers);
 
@@ -1465,7 +1521,7 @@ export class ExpressionEvaluator {
                                 if (entry instanceof TupleExpressionNode && entry.expressions.length === 2) {
                                     entryNameNode = entry.expressions[0];
                                     let entryTypeInfo = this._getTypeFromExpression(entry.expressions[1],
-                                        EvaluatorFlags.None);
+                                        EvaluatorUsage.Get, EvaluatorFlags.None);
                                     if (entryTypeInfo) {
                                         entryType = this._convertClassToObject(entryTypeInfo.type);
                                     }
@@ -1559,6 +1615,14 @@ export class ExpressionEvaluator {
         return classType;
     }
 
+    private _reportUsageErrorForReadOnly(node: ParseNode, usage: EvaluatorUsage) {
+        if (usage === EvaluatorUsage.Set) {
+            this._addError(`Constant value cannot be assigned`, node);
+        } else if (usage === EvaluatorUsage.Delete) {
+            this._addError(`Constant value cannot be deleted`, node);
+        }
+    }
+
     private _getTypeFromConstantExpression(node: ConstantNode): TypeResult | undefined {
         let type: Type | undefined;
 
@@ -1589,8 +1653,11 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromUnaryExpression(node: UnaryExpressionNode, flags: EvaluatorFlags): TypeResult {
-        let exprType = this._getTypeFromExpression(node.expression, flags).type;
+    private _getTypeFromUnaryExpression(node: UnaryExpressionNode,
+            flags: EvaluatorFlags): TypeResult {
+
+        let exprType = this._getTypeFromExpression(node.expression,
+            EvaluatorUsage.Get, flags).type;
 
         // Map unary operators to magic functions. Note that the bitwise
         // invert has two magic functions that are aliases of each other.
@@ -1645,9 +1712,13 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromBinaryExpression(node: BinaryExpressionNode, flags: EvaluatorFlags): TypeResult {
-        let leftType = this._getTypeFromExpression(node.leftExpression, flags).type;
-        let rightType = this._getTypeFromExpression(node.rightExpression, flags).type;
+    private _getTypeFromBinaryExpression(node: BinaryExpressionNode,
+            flags: EvaluatorFlags): TypeResult {
+
+        let leftType = this._getTypeFromExpression(node.leftExpression,
+            EvaluatorUsage.Get, flags).type;
+        let rightType = this._getTypeFromExpression(node.rightExpression,
+            EvaluatorUsage.Get, flags).type;
 
         // Is this an AND operator? If so, we can assume that the
         // rightExpression won't be evaluated at runtime unless the
@@ -1658,7 +1729,7 @@ export class ExpressionEvaluator {
         }
 
         this._useExpressionTypeConstraint(typeConstraints, true, () => {
-            this._getTypeFromExpression(node.rightExpression, flags);
+            this._getTypeFromExpression(node.rightExpression, EvaluatorUsage.Get, flags);
         });
 
         const arithmeticOperatorMap: { [operator: number]: [string, string, boolean] } = {
@@ -1810,10 +1881,11 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromListExpression(node: ListNode): TypeResult {
+    private _getTypeFromListExpression(node: ListNode, usage: EvaluatorUsage): TypeResult {
         let listTypes: TypeResult[] = [];
         node.entries.forEach(expr => {
-            listTypes.push(this._getTypeFromExpression(expr, EvaluatorFlags.None));
+            listTypes.push(this._getTypeFromExpression(expr,
+                usage, EvaluatorFlags.None));
         });
 
         let type = ScopeUtils.getBuiltInType(this._scope, 'list');
@@ -1833,19 +1905,22 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromTernaryExpression(node: TernaryExpressionNode, flags: EvaluatorFlags): TypeResult {
-        this._getTypeFromExpression(node.testExpression, EvaluatorFlags.None);
+        this._getTypeFromExpression(node.testExpression,
+            EvaluatorUsage.Get, EvaluatorFlags.None);
 
         // Apply the type constraint when evaluating the if and else clauses.
         let typeConstraints = this._buildTypeConstraints(node.testExpression);
 
         let ifType: TypeResult | undefined;
         this._useExpressionTypeConstraint(typeConstraints, true, () => {
-            ifType = this._getTypeFromExpression(node.ifExpression, flags);
+            ifType = this._getTypeFromExpression(node.ifExpression,
+                EvaluatorUsage.Get, flags);
         });
 
         let elseType: TypeResult | undefined;
         this._useExpressionTypeConstraint(typeConstraints, false, () => {
-            elseType = this._getTypeFromExpression(node.elseExpression, flags);
+            elseType = this._getTypeFromExpression(node.elseExpression,
+                EvaluatorUsage.Get, flags);
         });
 
         let type = TypeUtils.combineTypes([ifType!.type, elseType!.type]);
@@ -1900,15 +1975,18 @@ export class ExpressionEvaluator {
     private _getTypeFromSliceExpression(node: SliceExpressionNode, flags: EvaluatorFlags): TypeResult {
         // TODO - need to implement
         if (node.startValue) {
-            this._getTypeFromExpression(node.startValue, EvaluatorFlags.None);
+            this._getTypeFromExpression(node.startValue,
+                EvaluatorUsage.Get, EvaluatorFlags.None);
         }
 
         if (node.endValue) {
-            this._getTypeFromExpression(node.endValue, EvaluatorFlags.None);
+            this._getTypeFromExpression(node.endValue,
+                EvaluatorUsage.Get, EvaluatorFlags.None);
         }
 
         if (node.stepValue) {
-            this._getTypeFromExpression(node.stepValue, EvaluatorFlags.None);
+            this._getTypeFromExpression(node.stepValue,
+                EvaluatorUsage.Get, EvaluatorFlags.None);
         }
 
         let type = ScopeUtils.getBuiltInType(this._scope, 'set') as ClassType;
@@ -2316,7 +2394,8 @@ export class ExpressionEvaluator {
 
     private _buildTypeConstraints(node: ExpressionNode) {
         return TypeConstraintBuilder.buildTypeConstraintsForConditional(node,
-            (node: ExpressionNode) => this.getType(node, EvaluatorFlags.None));
+            (node: ExpressionNode) => this.getType(node,
+                EvaluatorUsage.Get, EvaluatorFlags.None));
     }
 
     private _silenceDiagnostics(callback: () => void) {

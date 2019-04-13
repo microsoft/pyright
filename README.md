@@ -86,8 +86,6 @@ Pyright is a work in progress. The following functionality is not yet finished. 
 * Validate that overridden methods in subclass have same signature as base class methods
 * Add support for type hints on var-arg parameters
 * Add support for NoReturn type
-* Add handling of set, get and delete for expressions
-* Flag assignments to read-only values (`None`, `True`, `False`, `__debug__`) as errors
 * Revamp support for properties - model with Descriptor protocol, detect missing setter
 * Add support for f-strings
 * Add numeric codes to diagnostics and a configuration mechanism for disabling errors by code

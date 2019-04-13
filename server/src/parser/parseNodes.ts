@@ -388,15 +388,10 @@ export type SmallStatementNode = ExpressionNode | DelNode | PassNode |
     ImportNode | GlobalNode | NonlocalNode | AssertNode;
 
 export abstract class ExpressionNode extends ParseNode {
-    abstract getAssignmentError(): string | undefined;
 }
 
 export class ErrorExpressionNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Error;
-
-    getAssignmentError(): string | undefined {
-        return undefined;
-    }
 
     getChildren(): RecursiveParseNodeArray {
         return undefined;
@@ -413,10 +408,6 @@ export class UnaryExpressionNode extends ExpressionNode {
         this.expression = expression;
         this.operator = operator;
         this.extend(expression);
-    }
-
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign value to expression';
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -439,10 +430,6 @@ export class BinaryExpressionNode extends ExpressionNode {
         this.extend(rightExpression);
     }
 
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign value to expression';
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return [this.leftExpression, this.rightExpression];
     }
@@ -460,10 +447,6 @@ export class AssignmentNode extends ExpressionNode {
         this.extend(rightExpression);
     }
 
-    getAssignmentError(): string | undefined {
-        return this.rightExpression.getAssignmentError();
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return [this.leftExpression, this.rightExpression];
     }
@@ -479,10 +462,6 @@ export class TypeAnnotationExpressionNode extends ExpressionNode {
         this.valueExpression = valueExpression;
         this.typeAnnotation = typeAnnotation;
         this.extend(typeAnnotation);
-    }
-
-    getAssignmentError(): string | undefined {
-        return this.valueExpression.getAssignmentError();
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -504,10 +483,6 @@ export class AugmentedAssignmentExpressionNode extends ExpressionNode {
         this.extend(rightExpression);
     }
 
-    getAssignmentError(): string | undefined {
-        return this.rightExpression.getAssignmentError();
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return [this.leftExpression, this.rightExpression];
     }
@@ -521,10 +496,6 @@ export class AwaitExpressionNode extends ExpressionNode {
         super(awaitToken);
         this.expression = expression;
         this.extend(expression);
-    }
-
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign to await expression';
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -546,10 +517,6 @@ export class TernaryExpressionNode extends ExpressionNode {
         this.extend(elseExpression);
     }
 
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign value to conditional expression';
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return [this.ifExpression, this.testExpression, this.elseExpression];
     }
@@ -565,10 +532,6 @@ export class StarExpressionNode extends ExpressionNode {
         this.extend(expression);
     }
 
-    getAssignmentError(): string | undefined {
-        return this.expression.getAssignmentError();
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return this.expression;
     }
@@ -577,16 +540,6 @@ export class StarExpressionNode extends ExpressionNode {
 export class TupleExpressionNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Tuple;
     expressions: ExpressionNode[] = [];
-
-    getAssignmentError(): string | undefined {
-        for (let expr of this.expressions) {
-            let msg = expr.getAssignmentError();
-            if (msg) {
-                return msg;
-            }
-        }
-        return undefined;
-    }
 
     getChildren(): RecursiveParseNodeArray {
         return this.expressions;
@@ -601,10 +554,6 @@ export class CallExpressionNode extends ExpressionNode {
     constructor(leftExpression: ExpressionNode) {
         super(leftExpression);
         this.leftExpression = leftExpression;
-    }
-
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign value to function call';
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -622,10 +571,6 @@ export class ListComprehensionNode<T extends ParseNode = ExpressionNode> extends
         this.baseExpression = baseExpression;
     }
 
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign value to list comprehension statement';
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return [this.baseExpression, this.comprehensions];
     }
@@ -639,10 +584,6 @@ export class IndexItemsNode extends ParseNode {
         super(openBracketToken);
         this.items = items;
         this.extend(closeBracketToken);
-    }
-
-    getAssignmentError(): string | undefined {
-        return undefined;
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -662,10 +603,6 @@ export class IndexExpressionNode extends ExpressionNode {
         this.extend(items);
     }
 
-    getAssignmentError(): string | undefined {
-        return undefined;
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return [this.baseExpression, this.items];
     }
@@ -676,10 +613,6 @@ export class SliceExpressionNode extends ExpressionNode {
     startValue?: ExpressionNode;
     endValue?: ExpressionNode;
     stepValue?: ExpressionNode;
-
-    getAssignmentError(): string | undefined {
-        return undefined;
-    }
 
     getChildren(): RecursiveParseNodeArray {
         return [this.startValue, this.endValue, this.stepValue];
@@ -696,10 +629,6 @@ export class YieldExpressionNode extends ExpressionNode {
         this.extend(expression);
     }
 
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign to yield statement';
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return this.expression;
     }
@@ -713,10 +642,6 @@ export class YieldFromExpressionNode extends ExpressionNode {
         super(yieldToken);
         this.expression = expression;
         this.extend(expression);
-    }
-
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign to yield statement';
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -736,10 +661,6 @@ export class MemberAccessExpressionNode extends ExpressionNode {
         this.extend(memberName);
     }
 
-    getAssignmentError(): string | undefined {
-        return undefined;
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return [this.leftExpression, this.memberName];
     }
@@ -756,10 +677,6 @@ export class LambdaNode extends ExpressionNode {
         this.extend(expression);
     }
 
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign to lambda expression';
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return [this.parameters, this.expression];
     }
@@ -772,10 +689,6 @@ export class NameNode extends ExpressionNode {
     constructor(nameToken: IdentifierToken) {
         super(nameToken);
         this.nameToken = nameToken;
-    }
-
-    getAssignmentError(): string | undefined {
-        return undefined;
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -792,10 +705,6 @@ export class ConstantNode extends ExpressionNode {
         this.token = token;
     }
 
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign to constant';
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return undefined;
     }
@@ -803,10 +712,6 @@ export class ConstantNode extends ExpressionNode {
 
 export class EllipsisNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Ellipsis;
-
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign to ellipsis';
-    }
 
     getChildren(): RecursiveParseNodeArray {
         return undefined;
@@ -820,10 +725,6 @@ export class NumberNode extends ExpressionNode {
     constructor(token: NumberToken) {
         super(token);
         this.token = token;
-    }
-
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign to numeric literal';
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -845,10 +746,6 @@ export class StringNode extends ExpressionNode {
         this.tokens = tokens;
     }
 
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign to string literal';
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return this.annotationExpression ? [this.annotationExpression] : undefined;
     }
@@ -861,10 +758,6 @@ export class StringNode extends ExpressionNode {
 export class DictionaryNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Dictionary;
     entries: DictionaryEntryNode[] = [];
-
-    getAssignmentError(): string | undefined {
-        return undefined;
-    }
 
     getChildren(): RecursiveParseNodeArray {
         return this.entries;
@@ -897,10 +790,6 @@ export class DictionaryExpandEntryNode extends ExpressionNode {
         this.expandExpression = expandExpression;
     }
 
-    getAssignmentError(): string | undefined {
-        return 'Cannot assign to dictionary expand clause';
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return this.expandExpression;
     }
@@ -912,10 +801,6 @@ export class SetNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Set;
     entries: ExpressionNode[] = [];
 
-    getAssignmentError(): string | undefined {
-        return undefined;
-    }
-
     getChildren(): RecursiveParseNodeArray {
         return this.entries;
     }
@@ -924,10 +809,6 @@ export class SetNode extends ExpressionNode {
 export class ListNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.List;
     entries: ExpressionNode[] = [];
-
-    getAssignmentError(): string | undefined {
-        return undefined;
-    }
 
     getChildren(): RecursiveParseNodeArray {
         return this.entries;

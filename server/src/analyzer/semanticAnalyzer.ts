@@ -33,7 +33,7 @@ import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ExceptNode,
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
+import { EvaluatorFlags, EvaluatorUsage, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportType } from './importResult';
 import { DefaultTypeSourceId } from './inferredType';
@@ -186,7 +186,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 // time because forward declarations are supported in stub files.
                 argType = UnknownType.create();
             } else {
-                argType = evaluator.getType(arg.valueExpression, EvaluatorFlags.None);
+                argType = evaluator.getType(arg.valueExpression,
+                    EvaluatorUsage.Get, EvaluatorFlags.None);
             }
 
             let isMetaclass = false;
@@ -199,7 +200,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                     isMetaclass = true;
                     sawMetaclass = true;
                 } else {
-                    this._addError(`Named parameter '${ arg.name.nameToken.value }' not supported for classes`, arg);
+                    this._addError(`Named parameter '${ arg.name.nameToken.value }' ` +
+                        `not supported for classes`, arg);
                 }
             }
 
@@ -802,13 +804,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             });
         } else if (node instanceof StarExpressionNode && node.expression instanceof NameNode) {
             this._bindNameNodeToType(node.expression, UnknownType.create());
-        } else if (node instanceof MemberAccessExpressionNode) {
-            // Nothing to do here. The target isn't introducing a new name.
-        } else if (node instanceof IndexExpressionNode) {
-            // Nothing to do here. The target isn't introducing a new name.
-        } else {
-            // We should never get here.
-            this._addError('Internal error: Unhandled target expression type', node);
         }
     }
 

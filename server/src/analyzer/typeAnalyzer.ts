@@ -18,20 +18,21 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
-    CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, ExceptNode, ExpressionNode,
-    ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode,
-    IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode,
-    MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParseNode,
-    RaiseNode, ReturnNode, SliceExpressionNode, StarExpressionNode, StringNode,
-    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode, WithNode,
+    CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, DelNode, ExceptNode,
+    ExpressionNode, ForNode, FunctionNode, IfNode, ImportAsNode,
+    ImportFromNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
+    ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
+    ParseNode, RaiseNode, ReturnNode, SliceExpressionNode, StarExpressionNode,
+    StringNode, SuiteNode, TernaryExpressionNode, TryNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode,
+    WithNode,
     YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
+import { EvaluatorFlags, EvaluatorUsage, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportResult, ImportType } from './importResult';
 import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
@@ -198,7 +199,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         if (classType.isDataClass()) {
-            let evaluator = this._getEvaluator();
+            let evaluator = this._createEvaluator();
             evaluator.synthesizeDataClassMethods(node, classType);
         }
 
@@ -644,8 +645,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // If the type has an "__enter__" method, it can return
                     // a type other than its own type.
                     const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
-                    let evaluator = this._getEvaluator();
-                    let memberType = evaluator.getTypeFromObjectMember(enterMethodName, exprType);
+                    let evaluator = this._createEvaluator();
+                    let memberType = evaluator.getTypeFromObjectMember(
+                        enterMethodName, EvaluatorUsage.Get, exprType);
 
                     if (memberType) {
                         if (memberType instanceof FunctionType) {
@@ -894,6 +896,43 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._updateExpressionTypeForNode(node.leftExpression, specialType);
                     return false;
                 }
+            } else if (node.leftExpression instanceof TypeAnnotationExpressionNode &&
+                    node.leftExpression.valueExpression instanceof NameNode) {
+
+                const nameNode = node.leftExpression.valueExpression;
+                const assignedName = nameNode.nameToken.value;
+                let specialType: Type | undefined;
+
+                const specialTypes = ['Tuple', 'Generic', 'Protocol', 'Callable',
+                    'Type', 'ClassVar', 'Final', 'Literal'];
+                if (specialTypes.find(t => t === assignedName)) {
+                    // Synthesize a class.
+                    let specialClassType = new ClassType(assignedName,
+                        ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
+                        AnalyzerNodeInfo.getTypeSourceId(node));
+
+                    let aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
+                        assignedName.toLowerCase());
+                    if (aliasClass instanceof ClassType) {
+                        specialClassType.addBaseClass(aliasClass, false);
+                        specialClassType.setAliasClass(aliasClass);
+                    }
+
+                    specialType = specialClassType;
+                }
+
+                if (specialType) {
+                    let declaration: Declaration = {
+                        category: SymbolCategory.Class,
+                        node: nameNode,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(nameNode.start,
+                            nameNode.end, this._fileInfo.lines)
+                    };
+                    this._bindNameNodeToType(nameNode, specialType, declaration);
+                    this._updateExpressionTypeForNode(nameNode, specialType);
+                    return false;
+                }
             }
         }
 
@@ -910,8 +949,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode): boolean {
-        let leftType = this._getTypeOfExpression(node.leftExpression);
-        let rightType = this._getTypeOfExpression(node.rightExpression);
+        // Report any errors with assigning to this type.
+        this._evaluateExpressionForAssignment(node.leftExpression);
+
+        this._getTypeOfExpression(node.rightExpression);
 
         // TODO - need to verify types
         return true;
@@ -974,6 +1015,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // node, allowing it to be accessed for hover and definition
         // information.
         this._getTypeOfExpression(node);
+        return true;
+    }
+
+    visitDel(node: DelNode) {
+        node.expressions.forEach(expr => {
+            this._evaluateExpressionForDeletion(expr);
+        });
+
         return true;
     }
 
@@ -1147,47 +1196,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
-        // Special-case the typing.pyi file, which contains some special
-        // types that the type analyzer needs to interpret differently.
-        if (this._fileInfo.isTypingStubFile) {
-            // Special-case the typing file.
-            if (node.valueExpression instanceof NameNode) {
-                const assignedName = node.valueExpression.nameToken.value;
-                let specialType: Type | undefined;
-
-                const specialTypes = ['Tuple', 'Generic', 'Protocol', 'Callable',
-                    'Type', 'ClassVar', 'Final', 'Literal'];
-                if (specialTypes.find(t => t === assignedName)) {
-                    // Synthesize a class.
-                    let specialClassType = new ClassType(assignedName,
-                        ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-                        AnalyzerNodeInfo.getTypeSourceId(node));
-
-                    let aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
-                        assignedName.toLowerCase());
-                    if (aliasClass instanceof ClassType) {
-                        specialClassType.addBaseClass(aliasClass, false);
-                        specialClassType.setAliasClass(aliasClass);
-                    }
-
-                    specialType = specialClassType;
-                }
-
-                if (specialType) {
-                    let declaration: Declaration = {
-                        category: SymbolCategory.Class,
-                        node: node.valueExpression,
-                        path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(node.valueExpression.start,
-                            node.valueExpression.end, this._fileInfo.lines)
-                    };
-                    this._bindNameNodeToType(node.valueExpression, specialType, declaration);
-                    this._updateExpressionTypeForNode(node.valueExpression, specialType);
-                    return false;
-                }
-            }
-        }
-
         let typeHint = this._getTypeOfAnnotation(node.typeAnnotation);
         if (typeHint) {
             if (!(node.valueExpression instanceof NameNode) ||
@@ -1242,7 +1250,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let evaluator = this._getEvaluator();
+        let evaluator = this._createEvaluator();
         let returnType = evaluator.getTypeFromDecorator(decoratorNode, inputFunctionType);
 
         // Check for some built-in decorator types with known semantics.
@@ -1709,15 +1717,27 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _getTypeOfAnnotation(node: ExpressionNode): Type {
-        let evaluator = this._getEvaluator();
-        return evaluator.getType(node, EvaluatorFlags.ConvertClassToObject);
+        let evaluator = this._createEvaluator();
+        return evaluator.getType(node, EvaluatorUsage.Get,
+            EvaluatorFlags.ConvertClassToObject);
     }
 
     private _getTypeOfExpression(node: ExpressionNode, specialize = true): Type {
-        let evaluator = this._getEvaluator();
-        return evaluator.getType(node, specialize ?
-            EvaluatorFlags.ConvertEllipsisToAny :
-            EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.ConvertEllipsisToAny);
+        let evaluator = this._createEvaluator();
+        return evaluator.getType(node, EvaluatorUsage.Get,
+            specialize ?
+                EvaluatorFlags.ConvertEllipsisToAny :
+                EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.ConvertEllipsisToAny);
+    }
+
+    private _evaluateExpressionForAssignment(node: ExpressionNode): Type {
+        let evaluator = this._createEvaluator();
+        return evaluator.getType(node, EvaluatorUsage.Set, EvaluatorFlags.None);
+    }
+
+    private _evaluateExpressionForDeletion(node: ExpressionNode): Type {
+        let evaluator = this._createEvaluator();
+        return evaluator.getType(node, EvaluatorUsage.Delete, EvaluatorFlags.None);
     }
 
     private _updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
@@ -1748,7 +1768,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _assignTypeToPossibleTuple(target: ExpressionNode, type: Type): void {
-        if (target instanceof MemberAccessExpressionNode) {
+        if (target instanceof NameNode) {
+            let name = target.nameToken;
+            let declaration: Declaration = {
+                category: SymbolCategory.Variable,
+                node: target,
+                path: this._fileInfo.filePath,
+                range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
+            };
+            this._bindNameNodeToType(target, type, declaration);
+            this._addAssignmentTypeConstraint(target, type);
+        } else if (target instanceof MemberAccessExpressionNode) {
             let targetNode = target.leftExpression;
 
             // Handle member accesses (e.g. self.x or cls.y).
@@ -1813,19 +1843,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // TODO - need to figure out right type
                 this._bindNameNodeToType(target.expression, type, declaration);
             }
-        } else if (target instanceof NameNode) {
-            let name = target.nameToken;
-            let declaration: Declaration = {
-                category: SymbolCategory.Variable,
-                node: target,
-                path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
-            };
-            this._bindNameNodeToType(target, type, declaration);
-            this._addAssignmentTypeConstraint(target, type);
         } else {
             this._addAssignmentTypeConstraint(target, type);
         }
+
+        // Report any errors with assigning to this type.
+        this._evaluateExpressionForAssignment(target);
     }
 
     private _bindMultiPartModuleNameToType(nameParts: NameNode[], type: ModuleType,
@@ -2112,7 +2135,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return undefined;
     }
 
-    private _getEvaluator() {
+    private _createEvaluator() {
         let diagSink: TextRangeDiagnosticSink | undefined = this._fileInfo.diagnosticSink;
 
         // If the current scope isn't executed, create a dummy sink
