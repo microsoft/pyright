@@ -41,6 +41,8 @@ export class AnalyzerService {
     private _executionRootPath: string;
     private _console: ConsoleInterface;
     private _sourceFileWatcher: (fs.FSWatcher | undefined)[] | undefined;
+    private _reloadConfigTimer: any;
+    private _configFilePath: string | undefined;
     private _configFileWatcher: fs.FSWatcher | undefined;
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
     private _watchForChanges = false;
@@ -158,6 +160,8 @@ export class AnalyzerService {
             configOptions.include.push(...commandLineOptions.fileSpecs);
         }
 
+        this._configFilePath = configFilePath;
+
         // If we found a config file, parse it to compute the effective options.
         if (configFilePath) {
             this._console.log(`Loading configuration file at ${ configFilePath }`);
@@ -165,7 +169,7 @@ export class AnalyzerService {
             if (configJsonObj) {
                 configOptions.initializeFromJson(configJsonObj, this._console);
             }
-            this._updateConfigFileWatcher(configFilePath);
+            this._updateConfigFileWatcher();
         }
 
         const reportDuplicateSetting = (settingName: string) => {
@@ -437,29 +441,53 @@ export class AnalyzerService {
         }
     }
 
-    private _updateConfigFileWatcher(configFilePath: string) {
+    private _updateConfigFileWatcher() {
         if (this._configFileWatcher) {
             this._configFileWatcher.close();
             this._configFileWatcher = undefined;
         }
 
-        if (this._watchForChanges) {
-            this._configFileWatcher = fs.watch(configFilePath, {}, (event, fileName) => {
+        if (this._watchForChanges && this._configFilePath) {
+            this._configFileWatcher = fs.watch(this._configFilePath, {}, (event, fileName) => {
                 if (event === 'change') {
-                    this._reloadConfigFile(configFilePath);
+                    this._scheduleReloadConfigFile();
                 }
             });
         }
     }
 
-    private _reloadConfigFile(configFilePath: string) {
-        this._console.log(`Found configuration file at ${ configFilePath }`);
-        let configJsonObj = this._parseConfigFile(configFilePath);
-        if (configJsonObj) {
-            this._configOptions.initializeFromJson(configJsonObj, this._console);
+    private _clearReloadConfigTimer() {
+        if (this._reloadConfigTimer) {
+            clearTimeout(this._reloadConfigTimer);
+            this._reloadConfigTimer = undefined;
         }
+    }
 
-        this._applyConfigOptions();
+    private _scheduleReloadConfigFile() {
+        this._clearReloadConfigTimer();
+
+        // Wait for a little while after we receive the
+        // change update event because it may take a while
+        // for the file to be written out. Plus, there may
+        // be multiple changes.
+        this._reloadConfigTimer = setTimeout(() => {
+            this._clearReloadConfigTimer();
+            this._reloadConfigFile();
+        }, 100);
+    }
+
+    private _reloadConfigFile() {
+        if (this._configFilePath) {
+            this._updateConfigFileWatcher();
+
+            this._console.log(`Reloading configuration file at ${ this._configFilePath }`);
+            let configJsonObj = this._parseConfigFile(this._configFilePath);
+            if (configJsonObj) {
+                this._configOptions.initializeFromJson(configJsonObj, this._console);
+            }
+
+            this._applyConfigOptions();
+        }
     }
 
     private _applyConfigOptions() {
