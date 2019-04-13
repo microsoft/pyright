@@ -36,7 +36,7 @@ import { ArgumentCategory, ArgumentNode, AssertNode,
     ParameterNode, ParseNode, PassNode, RaiseNode, ReturnNode, SetNode,
     SliceExpressionNode, StarExpressionNode, StatementListNode, StatementNode,
     StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpression, TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode,
     WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
@@ -79,6 +79,7 @@ export class Parser {
     private _diagSink: DiagnosticSink = new DiagnosticSink();
     private _isInLoop = false;
     private _isInFinally = false;
+    private _isParsingTypeAnnotation = false;
 
     parseSourceFile(fileContents: string, parseOptions: ParseOptions,
             diagSink: DiagnosticSink, cancelToken?: CancelToken): ParseResults {
@@ -526,7 +527,9 @@ export class Parser {
 
         let returnType: ExpressionNode | undefined;
         if (this._consumeTokenIfType(TokenType.Arrow)) {
-            returnType = this._parseTestExpression();
+            this._parseTypeAnnotation(() => {
+                returnType = this._parseTestExpression();
+            });
         }
 
         let suite = this._parseSuite();
@@ -544,8 +547,8 @@ export class Parser {
             }
         }
         if (returnType) {
-            functionNode.returnTypeAnnotation = this._parseTypeAnnotation(returnType);
-            functionNode.extend(functionNode.returnTypeAnnotation.rawExpression);
+            functionNode.returnTypeAnnotation = returnType;
+            functionNode.extend(returnType);
         }
 
         return functionNode;
@@ -674,8 +677,10 @@ export class Parser {
         paramNode.extend(paramName);
 
         if (allowAnnotations && this._consumeTokenIfType(TokenType.Colon)) {
-            paramNode.typeAnnotation = this._parseTypeAnnotation(this._parseTestExpression());
-            paramNode.extend(paramNode.typeAnnotation.rawExpression);
+            this._parseTypeAnnotation(() => {
+                paramNode.typeAnnotation = this._parseTestExpression();
+                paramNode.extend(paramNode.typeAnnotation);
+            });
         }
 
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
@@ -1801,13 +1806,7 @@ export class Parser {
         }
 
         if (nextToken.type === TokenType.String) {
-            let stringTokenList: StringToken[] = [];
-
-            while (this._peekTokenType() === TokenType.String) {
-                stringTokenList.push(this._getNextToken() as StringToken);
-            }
-
-            return new StringNode(stringTokenList);
+            return this._parseString();
         }
 
         if (nextToken.type === TokenType.OpenParenthesis) {
@@ -2098,7 +2097,7 @@ export class Parser {
     //             '<<=' | '>>=' | '**=' | '//=')
     private _parseExpressionStatement(): ExpressionNode {
         let leftExpr = this._parseTestOrStarListAsExpression();
-        let annotationExpr: TypeAnnotationExpression | undefined;
+        let annotationExpr: ExpressionNode | undefined;
 
         if (leftExpr instanceof ErrorExpressionNode) {
             return leftExpr;
@@ -2106,16 +2105,18 @@ export class Parser {
 
         // Is this a type annotation assignment?
         if (this._consumeTokenIfType(TokenType.Colon)) {
-            annotationExpr = this._parseTypeAnnotation(this._parseTestExpression());
-            leftExpr = new TypeAnnotationExpressionNode(leftExpr, annotationExpr);
+            this._parseTypeAnnotation(() => {
+                annotationExpr = this._parseTestExpression();
+                leftExpr = new TypeAnnotationExpressionNode(leftExpr, annotationExpr);
+
+                if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
+                    this._addError('Type annotations for variables requires Python 3.6 or newer',
+                        annotationExpr);
+                }
+            });
 
             if (!this._consumeTokenIfOperator(OperatorType.Assign)) {
                 return leftExpr;
-            }
-
-            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
-                this._addError('Type annotations for variables requires Python 3.6 or newer',
-                    annotationExpr.rawExpression);
             }
 
             let rightExpr = this._parseTestExpression();
@@ -2172,41 +2173,54 @@ export class Parser {
         return new AssignmentNode(leftExpr, rightExpr);
     }
 
-    private _parseTypeAnnotation(node: ExpressionNode): TypeAnnotationExpression {
-        let rawExpression = node;
-        let parsedExpression = node;
+    private _parseTypeAnnotation(callback: () => void) {
+        // Temporary set a flag that indicates we're parsing a type annotation.
+        const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
+        this._isParsingTypeAnnotation = true;
 
-        if (rawExpression instanceof StringNode) {
-            if (rawExpression.tokens.length > 1) {
-                this._addError('Type hints cannot span multiple string literals', node);
-            } else if (rawExpression.tokens[0].quoteTypeFlags & QuoteTypeFlags.Triplicate) {
-                this._addError('Type hints cannot use triple quotes', node);
-            } else if (rawExpression.tokens[0].quoteTypeFlags &
+        callback();
+
+        this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
+    }
+
+    private _parseString(): StringNode {
+        let stringTokenList: StringToken[] = [];
+
+        while (this._peekTokenType() === TokenType.String) {
+            stringTokenList.push(this._getNextToken() as StringToken);
+        }
+
+        const stringNode = new StringNode(stringTokenList);
+
+        // If we're parsing a type annotation, parse the contents of the string.
+        if (this._isParsingTypeAnnotation) {
+            if (stringNode.tokens.length > 1) {
+                this._addError('Type hints cannot span multiple string literals', stringNode);
+            } else if (stringNode.tokens[0].quoteTypeFlags & QuoteTypeFlags.Triplicate) {
+                this._addError('Type hints cannot use triple quotes', stringNode);
+            } else if (stringNode.tokens[0].quoteTypeFlags &
                     (QuoteTypeFlags.Raw | QuoteTypeFlags.Unicode | QuoteTypeFlags.Byte)) {
-                this._addError('Type hints cannot use raw, unicode or byte string literals', node);
-            } else if (rawExpression.tokens[0].value.length !== rawExpression.tokens[0].length - 2) {
-                this._addError('Type hints cannot contain escape characters', node);
+                this._addError('Type hints cannot use raw, unicode or byte string literals', stringNode);
+            } else if (stringNode.tokens[0].value.length !== stringNode.tokens[0].length - 2) {
+                this._addError('Type hints cannot contain escape characters', stringNode);
             } else {
-                let stringValue = rawExpression.tokens[0].value;
-                let tokenOffset = rawExpression.tokens[0].start;
+                let stringValue = stringNode.tokens[0].value;
+                let tokenOffset = stringNode.tokens[0].start;
                 let parser = new Parser();
                 let parseResults = parser.parseTextExpression(this._fileContents!,
                     tokenOffset + 1, stringValue.length, this._parseOptions);
 
                 parseResults.diagnostics.forEach(diag => {
-                    this._addError(diag.message, node);
+                    this._addError(diag.message, stringNode);
                 });
 
                 if (parseResults.parseTree) {
-                    parsedExpression = parseResults.parseTree;
+                    stringNode.annotationExpression = parseResults.parseTree;
                 }
             }
         }
 
-        return {
-            rawExpression,
-            expression: parsedExpression
-        };
+        return stringNode;
     }
 
     // Peeks at the next token and returns true if it can never

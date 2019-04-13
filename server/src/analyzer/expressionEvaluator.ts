@@ -23,7 +23,8 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     ListNode, MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory,
     SetNode, SliceExpressionNode, StarExpressionNode, StatementListNode,
     StringNode, TernaryExpressionNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    TypeAnnotationExpressionNode, UnaryExpressionNode, YieldExpressionNode,
+    YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
     TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -217,7 +218,7 @@ export class ExpressionEvaluator {
                     } else if (statement instanceof TypeAnnotationExpressionNode) {
                         if (statement.valueExpression instanceof NameNode) {
                             variableNameNode = statement.valueExpression;
-                            variableType = this.getType(statement.typeAnnotation.expression,
+                            variableType = this.getType(statement.typeAnnotation,
                                 EvaluatorFlags.ConvertClassToObject | EvaluatorFlags.ConvertEllipsisToAny);
                         }
                     }
@@ -287,6 +288,10 @@ export class ExpressionEvaluator {
         } else if (node instanceof ConstantNode) {
             typeResult = this._getTypeFromConstantExpression(node);
         } else if (node instanceof StringNode) {
+            if (node.annotationExpression) {
+                return this._getTypeFromExpression(node.annotationExpression, flags);
+            }
+
             let isBytes = (node.tokens[0].quoteTypeFlags & QuoteTypeFlags.Byte) !== 0;
             typeResult = this._getBuiltInTypeFromLiteralExpression(node,
                 isBytes ? 'byte' : 'str');

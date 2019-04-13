@@ -28,8 +28,8 @@ import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ExceptNode,
     ImportFromAsNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
     ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode,
     ModuleNode, NameNode, NonlocalNode, ParameterNode, RaiseNode, ReturnNode,
-    StarExpressionNode, SuiteNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, WhileNode, WithNode } from '../parser/parseNodes';
+    StarExpressionNode, StringNode, SuiteNode, TryNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, WhileNode, WithNode } from '../parser/parseNodes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -278,7 +278,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             // doesn't reference a type that hasn't yet been declared.
             if (!this._fileInfo.isStubFile) {
                 if (param.typeAnnotation) {
-                    this.walk(param.typeAnnotation.rawExpression);
+                    this.walk(param.typeAnnotation);
                 }
             }
         });
@@ -287,7 +287,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // doesn't reference a type that hasn't yet been declared.
         if (!this._fileInfo.isStubFile) {
             if (node.returnTypeAnnotation) {
-                this.walk(node.returnTypeAnnotation.rawExpression);
+                this.walk(node.returnTypeAnnotation);
             }
         }
 
@@ -536,6 +536,13 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return true;
     }
 
+    visitString(node: StringNode): boolean {
+        // Don't explore the parsed forward reference in
+        // a string node because this pass of the analyzer
+        // isn't capable of handling forward references.
+        return false;
+    }
+
     visitImportAs(node: ImportAsNode): boolean {
         if (node.alias || node.module.nameParts.length > 0) {
             let nameNode = node.alias ? node.alias : node.module.nameParts[0];
@@ -607,7 +614,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // If this is not a stub file, make sure the raw type annotation
         // doesn't reference a type that hasn't yet been declared.
         if (!this._fileInfo.isStubFile) {
-            this.walk(node.typeAnnotation.rawExpression);
+            this.walk(node.typeAnnotation);
         }
 
         return false;

@@ -257,23 +257,13 @@ export class ExceptNode extends ParseNode {
     }
 }
 
-export interface TypeAnnotationExpression {
-    // Type annotations can be specified as string literal values.
-    // In such a case, the rawExpression will contain the string
-    // literal and the expression will contain the parsed annotation.
-    // If the rawExpression is not a string literal, the two fields
-    // will be the same.
-    rawExpression: ExpressionNode;
-    expression: ExpressionNode;
-}
-
 export class FunctionNode extends ParseNode {
     readonly nodeType = ParseNodeType.Function;
     decorators: DecoratorNode[] = [];
     isAsync?: boolean;
     name: NameNode;
     parameters: ParameterNode[] = [];
-    returnTypeAnnotation?: TypeAnnotationExpression;
+    returnTypeAnnotation?: ExpressionNode;
     suite: SuiteNode;
 
     constructor(defToken: Token, name: NameNode, suite: SuiteNode) {
@@ -285,7 +275,7 @@ export class FunctionNode extends ParseNode {
 
     getChildren(): RecursiveParseNodeArray {
         return [this.decorators, this.name, this.parameters,
-            this.returnTypeAnnotation ? this.returnTypeAnnotation.expression : undefined,
+            this.returnTypeAnnotation ? this.returnTypeAnnotation : undefined,
             this.suite];
     }
 }
@@ -300,7 +290,7 @@ export class ParameterNode extends ParseNode {
     readonly nodeType = ParseNodeType.Parameter;
     category: ParameterCategory;
     name?: NameNode;
-    typeAnnotation?: TypeAnnotationExpression;
+    typeAnnotation?: ExpressionNode;
     defaultValue?: ExpressionNode;
 
     constructor(startToken: Token, paramCategory: ParameterCategory) {
@@ -310,7 +300,7 @@ export class ParameterNode extends ParseNode {
 
     getChildren(): RecursiveParseNodeArray {
         return [this.name,
-            this.typeAnnotation ? this.typeAnnotation.expression : undefined,
+            this.typeAnnotation ? this.typeAnnotation : undefined,
             this.defaultValue];
     }
 }
@@ -482,13 +472,13 @@ export class AssignmentNode extends ExpressionNode {
 export class TypeAnnotationExpressionNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.TypeAnnotation;
     valueExpression: ExpressionNode;
-    typeAnnotation: TypeAnnotationExpression;
+    typeAnnotation: ExpressionNode;
 
-    constructor(valueExpression: ExpressionNode, typeAnnotation: TypeAnnotationExpression) {
+    constructor(valueExpression: ExpressionNode, typeAnnotation: ExpressionNode) {
         super(valueExpression);
         this.valueExpression = valueExpression;
         this.typeAnnotation = typeAnnotation;
-        this.extend(typeAnnotation.rawExpression);
+        this.extend(typeAnnotation);
     }
 
     getAssignmentError(): string | undefined {
@@ -496,7 +486,7 @@ export class TypeAnnotationExpressionNode extends ExpressionNode {
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return [this.valueExpression, this.typeAnnotation.expression];
+        return [this.valueExpression, this.typeAnnotation];
     }
 }
 
@@ -669,6 +659,7 @@ export class IndexExpressionNode extends ExpressionNode {
         super(baseExpression);
         this.baseExpression = baseExpression;
         this.items = items;
+        this.extend(items);
     }
 
     getAssignmentError(): string | undefined {
@@ -844,6 +835,11 @@ export class StringNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.String;
     tokens: StringToken[];
 
+    // If strings are found within the context of
+    // a type annotation, they are further parsed
+    // into an expression.
+    annotationExpression?: ExpressionNode;
+
     constructor(tokens: StringToken[]) {
         super(tokens[0]);
         this.tokens = tokens;
@@ -854,7 +850,7 @@ export class StringNode extends ExpressionNode {
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return undefined;
+        return this.annotationExpression ? [this.annotationExpression] : undefined;
     }
 
     getValue(): string {

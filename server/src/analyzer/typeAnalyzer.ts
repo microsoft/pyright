@@ -22,9 +22,10 @@ import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode
     ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode,
     IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode,
     MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParseNode,
-    RaiseNode, ReturnNode, SliceExpressionNode, StarExpressionNode, SuiteNode,
-    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, WhileNode, WithNode, YieldExpressionNode,
+    RaiseNode, ReturnNode, SliceExpressionNode, StarExpressionNode, StringNode,
+    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode, WithNode,
+    YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -238,7 +239,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         node.parameters.forEach((param, index) => {
             let annotatedType: Type | undefined;
             if (param.typeAnnotation) {
-                annotatedType = this._getTypeOfAnnotation(param.typeAnnotation.expression);
+                annotatedType = this._getTypeOfAnnotation(param.typeAnnotation);
 
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
@@ -274,7 +275,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this.walk(param.defaultValue);
                 }
 
-                this.walk(param.typeAnnotation.expression);
+                this.walk(param.typeAnnotation);
             } else if (index === 0 && (functionType.isInstanceMethod() || functionType.isClassMethod())) {
                 // Specify type of "self" or "cls" parameter for instance or class methods
                 // if the type is not explicitly provided.
@@ -308,12 +309,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         if (node.returnTypeAnnotation) {
-            const returnType = this._getTypeOfAnnotation(node.returnTypeAnnotation.expression);
+            const returnType = this._getTypeOfAnnotation(node.returnTypeAnnotation);
             if (functionType.setDeclaredReturnType(returnType)) {
                 this._setAnalysisChanged();
             }
 
-            this.walk(node.returnTypeAnnotation.expression);
+            this.walk(node.returnTypeAnnotation);
         } else if (this._fileInfo.isStubFile) {
             // If a return type annotation is missing in a stub file, assume
             // it's an "any" type. In normal source files, we can infer the
@@ -437,7 +438,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
                             this._addError(`Function with declared type of ${ declaredReturnType.asString() }` +
                                     ` must return value` + diagAddendum.getString(),
-                                node.returnTypeAnnotation.rawExpression);
+                                node.returnTypeAnnotation);
                         }
                     }
                 }
@@ -951,6 +952,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return true;
     }
 
+    visitString(node: StringNode): boolean {
+        if (node.annotationExpression) {
+            this._getTypeOfExpression(node.annotationExpression);
+        }
+        return true;
+    }
+
     visitName(node: NameNode) {
         let symbolInScope = this._currentScope.lookUpSymbolRecursive(node.nameToken.value);
 
@@ -1180,7 +1188,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let typeHint = this._getTypeOfAnnotation(node.typeAnnotation.expression);
+        let typeHint = this._getTypeOfAnnotation(node.typeAnnotation);
         if (typeHint) {
             if (!(node.valueExpression instanceof NameNode) ||
                     !this._assignTypeForPossibleEnumeration(node.valueExpression, typeHint)) {
@@ -1192,7 +1200,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Walk the type expression to fill in the type information
         // for the hover provider.
-        this.walk(node.typeAnnotation.expression);
+        this.walk(node.typeAnnotation);
 
         return false;
     }
@@ -1781,7 +1789,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 });
             }
         } else if (target instanceof TypeAnnotationExpressionNode) {
-            let typeHint = this._getTypeOfAnnotation(target.typeAnnotation.expression);
+            let typeHint = this._getTypeOfAnnotation(target.typeAnnotation);
 
             const diagAddendum = new DiagnosticAddendum();
             if (!TypeUtils.canAssignType(typeHint, type, diagAddendum)) {
@@ -1789,7 +1797,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     `Expression of type '${ type.asString() }'` +
                         ` cannot be assigned to type '${ typeHint.asString() }'` +
                         diagAddendum.getString(),
-                    target.typeAnnotation.expression);
+                    target.typeAnnotation);
             }
 
             this._assignTypeToPossibleTuple(target.valueExpression, typeHint);

@@ -128,7 +128,7 @@ export class PostParseWalker extends ParseTreeWalker {
             this.walkMultiple(node.parameters);
 
             if (node.returnTypeAnnotation) {
-                this.walk(node.returnTypeAnnotation.expression);
+                this.walk(node.returnTypeAnnotation);
             }
 
             this.walk(node.suite);
