@@ -415,8 +415,7 @@ export class ExpressionEvaluator {
         }
 
         if (memberType instanceof FunctionType) {
-            memberType = this._partiallySpecializeFunctionForBoundClassOrObject(
-                objType, memberType);
+            memberType = this._bindFunctionToClassOrObject(objType, memberType);
             const typeVarMap = TypeUtils.buildTypeVarMapFromSpecializedClass(classType);
 
             const specializedMemberType = TypeUtils.specializeType(
@@ -629,14 +628,14 @@ export class ExpressionEvaluator {
         if (baseType.isAny()) {
             type = baseType;
         } else if (baseType instanceof ClassType) {
-            type = this._validateTypeFromClassMemberAccess(node.memberName,
-                baseType, usage, MemberAccessFlags.SkipInstanceMembers);
+            type = this._getTypeFromClassMemberName(baseType, node.memberName.nameToken.value,
+                usage, MemberAccessFlags.SkipInstanceMembers);
             if (type) {
                 type = this._bindFunctionToClassOrObject(baseType, type);
             }
         } else if (baseType instanceof ObjectType) {
-            type = this._validateTypeFromClassMemberAccess(
-                node.memberName, baseType.getClassType(), usage, MemberAccessFlags.None);
+            type = this._getTypeFromClassMemberName(baseType.getClassType(),
+                node.memberName.nameToken.value, usage, MemberAccessFlags.None);
             if (type) {
                 type = this._bindFunctionToClassOrObject(baseType, type);
             }
@@ -782,10 +781,8 @@ export class ExpressionEvaluator {
         return TypeUtils.stripFirstParameter(specializedFunction);
    }
 
-    // A wrapper around _getTypeFromClassMemberName that reports
-    // errors if the member name is not found.
-    private _validateTypeFromClassMemberAccess(memberNameNode: NameNode,
-            classType: ClassType, usage: EvaluatorUsage, flags: MemberAccessFlags): Type | undefined {
+    private _getTypeFromClassMemberName(classType: ClassType, memberName: string,
+            usage: EvaluatorUsage, flags: MemberAccessFlags): Type | undefined {
 
         // If this is a special type (like "List") that has an alias
         // class (like "list"), switch to the alias, which defines
@@ -794,16 +791,6 @@ export class ExpressionEvaluator {
         if (aliasClass) {
             classType = aliasClass;
         }
-
-        const memberName = memberNameNode.nameToken.value;
-        let type = this._getTypeFromClassMemberName(
-            classType, memberName, usage, flags);
-
-        return type;
-    }
-
-    private _getTypeFromClassMemberName(classType: ClassType, memberName: string,
-            usage: EvaluatorUsage, flags: MemberAccessFlags): Type | undefined {
 
         const conditionallySpecialize = (type: Type, classType: ClassType) => {
             if (classType.getTypeArguments()) {
@@ -1127,8 +1114,7 @@ export class ExpressionEvaluator {
                     classType, '__call__', EvaluatorUsage.Get,
                     MemberAccessFlags.SkipForMethodLookup);
                 if (memberType && memberType instanceof FunctionType) {
-                    const callMethodType = this._partiallySpecializeFunctionForBoundClassOrObject(
-                        callType, memberType);
+                    const callMethodType = this._bindFunctionToClassOrObject(callType, memberType);
                     type = this._validateCallArguments(errorNode, argList, callMethodType, new TypeVarMap());
                     if (!type) {
                         type = UnknownType.create();
