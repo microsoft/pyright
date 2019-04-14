@@ -616,35 +616,45 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         node.withItems.forEach(item => {
-            if (item.target) {
-                let exprType = this._getTypeOfExpression(item.expression);
+            const exprType = this._getTypeOfExpression(item.expression);
+            const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
 
-                if (exprType instanceof ObjectType) {
-                    // If the type has an "__enter__" method, it can return
-                    // a type other than its own type.
-                    const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
-                    let evaluator = this._createEvaluator();
-                    let memberType = evaluator.getTypeFromObjectMember(
-                        enterMethodName, EvaluatorUsage.Get, exprType);
-
-                    if (memberType) {
-                        if (memberType instanceof FunctionType) {
-                            exprType = memberType.getEffectiveReturnType();
-                        } else if (memberType.isAny()) {
-                            exprType = memberType;
-                        }
-                    }
-
-                    // For "async while", an implicit "await" is performed.
-                    if (node.isAsync) {
-                        exprType = evaluator.evaluateAwaitOperation(
-                            exprType, item.target);
-                    }
-                } else {
-                    exprType = UnknownType.create();
+            const scopedType = TypeUtils.doForSubtypes(exprType, subtype => {
+                if (subtype.isAny()) {
+                    return subtype;
                 }
 
-                this._assignTypeToPossibleTuple(item.target, exprType);
+                if (subtype instanceof ObjectType) {
+                    let evaluator = this._createEvaluator();
+                    let memberType = evaluator.getTypeFromObjectMember(
+                        enterMethodName, EvaluatorUsage.Get, subtype);
+
+                    if (memberType) {
+                        let memberReturnType: Type;
+                        if (memberType instanceof FunctionType) {
+                            memberReturnType = memberType.getEffectiveReturnType();
+                        } else {
+                            memberReturnType = UnknownType.create();
+                        }
+
+                        // For "async while", an implicit "await" is performed.
+                        if (node.isAsync) {
+                            memberReturnType = evaluator.evaluateAwaitOperation(
+                                memberReturnType, item);
+                        }
+
+                        return memberReturnType;
+                    }
+                }
+
+                this._addError(`Type ${ subtype.asString() } cannot be used ` +
+                    `with 'with' because it does not implement '${ enterMethodName }'`,
+                    item.expression);
+                return UnknownType.create();
+            });
+
+            if (item.target) {
+                this._assignTypeToPossibleTuple(item.target, scopedType);
                 this.walk(item.target);
             }
         });

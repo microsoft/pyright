@@ -481,6 +481,7 @@ export class SourceFile {
         let fileInfo: AnalyzerFileInfo = {
             importMap: importMap || {},
             builtinsScope,
+            typingModulePath: this._analysisJob.typingModulePath,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
             configOptions,
