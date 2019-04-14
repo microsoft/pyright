@@ -61,7 +61,7 @@ export class TestUtils {
 
         // Link the parents.
         let parentWalker = new PostParseWalker(textRangeDiagSink,
-            parseResults.parseTree, false);
+            parseResults.parseTree);
         parentWalker.analyze();
 
         // Walk the AST to verify internal consistency.

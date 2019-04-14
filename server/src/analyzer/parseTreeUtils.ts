@@ -67,11 +67,21 @@ export class ParseTreeUtils {
         return '<Expression>';
     }
 
-    static getEnclosingClass(node: ParseNode): ClassNode | undefined {
+    static getEnclosingClass(node: ParseNode, stopAtFunction = false): ClassNode | undefined {
         let curNode = node.parent;
         while (curNode) {
             if (curNode instanceof ClassNode) {
                 return curNode;
+            }
+
+            if (curNode instanceof ModuleNode) {
+                return undefined;
+            }
+
+            if (curNode instanceof FunctionNode) {
+                if (stopAtFunction) {
+                    return undefined;
+                }
             }
 
             curNode = curNode.parent;
@@ -87,23 +97,6 @@ export class ParseTreeUtils {
                 return curNode;
             }
             if (curNode instanceof ClassNode) {
-                return undefined;
-            }
-
-            curNode = curNode.parent;
-        }
-
-        return undefined;
-    }
-
-    static getContainingClassNode(functionNode: FunctionNode): ClassNode | undefined {
-        let curNode = functionNode.parent;
-        while (curNode) {
-            if (curNode instanceof ClassNode) {
-                return curNode;
-            }
-
-            if (curNode instanceof FunctionNode || curNode instanceof ModuleNode) {
                 return undefined;
             }
 

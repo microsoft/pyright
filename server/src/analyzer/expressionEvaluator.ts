@@ -187,6 +187,13 @@ export class ExpressionEvaluator {
         return resultType;
     }
 
+    // Applies an "await" operation to the specified type and returns
+    // the result.
+    evaluateAwaitOperation(type: Type, errorNode: ParseNode): Type {
+        // TODO - need to implement
+        return UnknownType.create();
+    }
+
     // Validates fields for compatibility with a dataclass and synthesizes
     // an appropriate __new__ and __init__ methods.
     synthesizeDataClassMethods(node: ClassNode, classType: ClassType) {
@@ -334,9 +341,8 @@ export class ExpressionEvaluator {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromSliceExpression(node, flags);
         } else if (node instanceof AwaitExpressionNode) {
-            // TODO - need to implement
             typeResult = this._getTypeFromExpression(node.expression, EvaluatorUsage.Get, flags);
-            typeResult = { type: UnknownType.create(), node };
+            typeResult = { type: this.evaluateAwaitOperation(typeResult.type, node), node };
         } else if (node instanceof TernaryExpressionNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromTernaryExpression(node, flags);

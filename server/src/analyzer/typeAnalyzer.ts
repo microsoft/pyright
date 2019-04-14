@@ -228,7 +228,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitFunction(node: FunctionNode): boolean {
         // Retrieve the containing class node if the function is a method.
-        const containingClassNode = ParseTreeUtils.getContainingClassNode(node);
+        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         const containingClassType = containingClassNode ?
             AnalyzerNodeInfo.getExpressionType(containingClassNode) as ClassType : undefined;
 
@@ -411,14 +411,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Validate that the function returns the declared type.
         this._validateFunctionReturn(node, functionType, functionScope);
 
-        let decoratedType: Type = functionType;
-
-        // TODO - properly handle async types.
+        let asyncType = functionType;
         if (node.isAsync) {
-            decoratedType = UnknownType.create();
+            asyncType = this._createAwaitableFunction(functionType);
         }
 
         // Apply all of the decorators in reverse order.
+        let decoratedType: Type = asyncType;
         let foundUnknown = decoratedType instanceof UnknownType;
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
@@ -454,7 +453,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (containingClassNode) {
             if (!functionType.isClassMethod() && !functionType.isStaticMethod()) {
+                // Mark the function as an instance method.
                 functionType.setIsInstanceMethod();
+
+                // If there's a separate async version, mark it as an instance
+                // method as well.
+                if (functionType !== asyncType) {
+                    asyncType.setIsInstanceMethod();
+                }
             }
             this._validateMethod(node, functionType);
         }
@@ -631,6 +637,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             exprType = memberType;
                         }
                     }
+
+                    // For "async while", an implicit "await" is performed.
+                    if (node.isAsync) {
+                        exprType = evaluator.evaluateAwaitOperation(
+                            exprType, item.target);
+                    }
+                } else {
+                    exprType = UnknownType.create();
                 }
 
                 this._assignTypeToPossibleTuple(item.target, exprType);
@@ -1212,7 +1226,58 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType, functionScope: Scope) {
+    private _createAwaitableFunction(functionType: FunctionType): FunctionType {
+        const returnType = functionType.getEffectiveReturnType();
+
+        let awaitableReturnType: Type;
+        let awaitableType = this._getTypingType('Awaitable');
+
+        if (awaitableType instanceof ClassType) {
+            awaitableReturnType = new ObjectType(awaitableType.cloneForSpecialization(
+                [returnType]));
+        } else {
+            awaitableReturnType = UnknownType.create();
+        }
+
+        // Clone the original function and replace its return type with an
+        // Awaitable[<returnType>].
+        const awaitableFunctionType = functionType.clone();
+        awaitableFunctionType.setDeclaredReturnType(awaitableReturnType);
+
+        return awaitableFunctionType;
+    }
+
+    private _getTypingType(symbolName: string): Type | undefined {
+        const typingImportInfo = AnalyzerNodeInfo.getImplicitTypingImportInfo(this._moduleNode);
+        if (!typingImportInfo || !typingImportInfo.importFound) {
+            return undefined;
+        }
+
+        const importPath = typingImportInfo.resolvedPaths[
+            typingImportInfo.resolvedPaths.length - 1];
+        const typingParseInfo = this._fileInfo.importMap[importPath];
+        if (!typingParseInfo) {
+            return undefined;
+        }
+
+        const moduleType = AnalyzerNodeInfo.getExpressionType(typingParseInfo.parseTree);
+        if (!(moduleType instanceof ModuleType)) {
+            return undefined;
+        }
+
+        const symbol = moduleType.getFields().get(symbolName);
+        if (!symbol) {
+            return undefined;
+        }
+
+        return TypeUtils.getEffectiveTypeOfSymbol(symbol);
+    }
+
+    private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType,
+            functionScope: Scope) {
+
+        // Stub files are allowed to not return an actual value,
+        // so skip this if it's a stub file.
         if (this._fileInfo.isStubFile) {
             return;
         }

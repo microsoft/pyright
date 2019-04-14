@@ -25,11 +25,12 @@ import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ExceptNode,
     ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
-    ImportFromAsNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
+    ImportFromAsNode, LambdaNode, ListComprehensionForNode,
     ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode,
     ModuleNode, NameNode, NonlocalNode, ParameterNode, RaiseNode, ReturnNode,
     StarExpressionNode, StringNode, SuiteNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, WhileNode, WithNode } from '../parser/parseNodes';
+    TupleExpressionNode, TypeAnnotationExpressionNode, WhileNode, WithNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -40,11 +41,10 @@ import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
-import { Declaration, Symbol, SymbolCategory } from './symbol';
+import { Declaration, SymbolCategory } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, Type, TypeCategory,
     UnboundType, UnknownType } from './types';
-import { TypeUtils } from './typeUtils';
 
 type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;
 
@@ -249,7 +249,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
-        const containingClass = ParseTreeUtils.getContainingClassNode(node);
+        const containingClass = ParseTreeUtils.getEnclosingClass(node, true);
 
         // The "__new__" magic method is not an instance method.
         // It acts as a static method instead.
@@ -339,6 +339,16 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         this._queueSubScopeAnalyzer(analyzer);
 
         return false;
+    }
+
+    visitYield(node: YieldExpressionNode): boolean {
+        this._validateYieldUsage(node);
+        return true;
+    }
+
+    visitYieldFrom(node: YieldFromExpressionNode): boolean {
+        this._validateYieldUsage(node);
+        return true;
     }
 
     visitFor(node: ForNode): boolean {
@@ -701,6 +711,18 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         this._currentScope = prevScope;
         return newScope;
+    }
+
+    private _validateYieldUsage(node: YieldExpressionNode | YieldFromExpressionNode) {
+        const functionNode = ParseTreeUtils.getEnclosingFunction(node);
+
+        if (!functionNode) {
+            this._addError(
+                `'yield' not allowed outside of a function`, node);
+        } else if (functionNode.isAsync) {
+            this._addError(
+                `'yield' not allowed in an async function`, node);
+        }
     }
 
     private _handleIfWhileCommon(testExpression: ExpressionNode, ifWhileSuite: SuiteNode,

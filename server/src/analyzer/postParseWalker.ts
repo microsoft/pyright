@@ -27,17 +27,15 @@ import { ParseTreeWalker } from './parseTreeWalker';
 export class PostParseWalker extends ParseTreeWalker {
     private _parseTree: ModuleNode;
     private _diagnosticSink: TextRangeDiagnosticSink;
-    private _isStubFile: boolean;
     private _moduleNames: ModuleNameNode[] = [];
     private _currentNameBindings: NameBindings;
     private _currentBindingType: NameBindingType;
 
-    constructor(diagSink: TextRangeDiagnosticSink, parseTree: ModuleNode, isStubFile: boolean) {
+    constructor(diagSink: TextRangeDiagnosticSink, parseTree: ModuleNode) {
         super();
 
         this._diagnosticSink = diagSink;
         this._parseTree = parseTree;
-        this._isStubFile = isStubFile;
 
         let moduleNameBindings = new NameBindings(NameBindingType.Global);
         AnalyzerNodeInfo.setNameBindings(parseTree, moduleNameBindings);

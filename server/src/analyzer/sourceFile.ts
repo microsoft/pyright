@@ -310,7 +310,7 @@ export class SourceFile {
             let textRangeDiagSink = new TextRangeDiagnosticSink(parseResults.lines, diagSink.diagnostics);
 
             // Fill in the parent links and get the list of imports.
-            let walker = new PostParseWalker(textRangeDiagSink, parseResults.parseTree, this._isStubFile);
+            let walker = new PostParseWalker(textRangeDiagSink, parseResults.parseTree);
             timingStats.postParseWalkerTime.timeOperation(() => {
                 walker.analyze();
             });
@@ -529,9 +529,24 @@ export class SourceFile {
             imports.push(builtinsImportResult);
 
             // Associate the builtins import with the module node so we can find it later.
-            AnalyzerNodeInfo.setImportInfo(moduleNode, builtinsImportResult);
+            AnalyzerNodeInfo.setImplicitBuiltinsImportInfo(moduleNode, builtinsImportResult);
         } else {
             builtinsImportResult = undefined;
+        }
+
+        // Always include an implicit import of the typing module.
+        let typingImportResult: ImportResult | undefined = resolver.resolveImport({
+            leadingDots: 0,
+            nameParts: ['typing']
+        });
+
+        // Avoid importing typing from the typing.pyi file itself.
+        if (typingImportResult.resolvedPaths.length === 0 ||
+                typingImportResult.resolvedPaths[0] !== this.getFilePath()) {
+            imports.push(typingImportResult);
+
+            // Associate the builtins import with the module node so we can find it later.
+            AnalyzerNodeInfo.setImplicitTypingImportInfo(moduleNode, typingImportResult);
         }
 
         for (let moduleNameNode of moduleNameNodes) {

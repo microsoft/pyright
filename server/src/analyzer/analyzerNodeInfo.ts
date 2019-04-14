@@ -33,6 +33,12 @@ export class AnalyzerNodeInfo {
     // Information about an import; used for import nodes only.
     _importInfo?: ImportResult;
 
+    // Information about the 'builtins' import; used for module nodes only.
+    _implicitBuiltinsImportInfo?: ImportResult;
+
+    // Information about the 'typing' import; used for module nodes only.
+    _implicitTypingImportInfo?: ImportResult;
+
     //---------------------------------------------------------------
     // Set by SemanticAnalyzer
 
@@ -67,9 +73,10 @@ export class AnalyzerNodeInfo {
         const analyzerNode = node as AnalyzerNodeInfo;
 
         delete analyzerNode._scope;
-        // delete analyzerNode._definitionInfo;
         delete analyzerNode._expressionType;
         delete analyzerNode._expressionTypeVersion;
+        delete analyzerNode._declaration;
+        delete analyzerNode._typeSourceId;
     }
 
     static getNameBindings(node: ParseNode): NameBindings | undefined {
@@ -100,6 +107,26 @@ export class AnalyzerNodeInfo {
     static setImportInfo(node: ParseNode, importInfo: ImportResult) {
         const analyzerNode = node as AnalyzerNodeInfo;
         analyzerNode._importInfo = importInfo;
+    }
+
+    static getImplicitBuiltinsImportInfo(node: ParseNode): ImportResult | undefined {
+        const analyzerNode = node as AnalyzerNodeInfo;
+        return analyzerNode._implicitBuiltinsImportInfo;
+    }
+
+    static setImplicitBuiltinsImportInfo(node: ParseNode, importInfo: ImportResult) {
+        const analyzerNode = node as AnalyzerNodeInfo;
+        analyzerNode._implicitBuiltinsImportInfo = importInfo;
+    }
+
+    static getImplicitTypingImportInfo(node: ParseNode): ImportResult | undefined {
+        const analyzerNode = node as AnalyzerNodeInfo;
+        return analyzerNode._implicitTypingImportInfo;
+    }
+
+    static setImplicitTypingImportInfo(node: ParseNode, importInfo: ImportResult) {
+        const analyzerNode = node as AnalyzerNodeInfo;
+        analyzerNode._implicitTypingImportInfo = importInfo;
     }
 
     static getDeclaration(node: ParseNode): Declaration | undefined {
