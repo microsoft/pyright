@@ -1791,7 +1791,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             let addNewMemberToLocalClass = false;
             if (memberInfo) {
-                if (memberInfo.inheritanceChain[0] === classType &&
+                if (memberInfo.classType instanceof ClassType &&
+                        classType.isSameGenericClass(memberInfo.classType) &&
                         memberInfo.isInstanceMember === isInstanceMember) {
 
                     const symbol = memberFields.get(memberName)!;
@@ -1809,8 +1810,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // name, but there's also now an instance variable introduced. Combine the
                     // type of the class variable with that of the new instance variable.
                     if (memberInfo.symbol && !memberInfo.isInstanceMember && isInstanceMember) {
-                        typeOfExpr = TypeUtils.combineTypes(
-                            [typeOfExpr, TypeUtils.getEffectiveTypeOfMember(memberInfo)]);
+                        typeOfExpr = TypeUtils.combineTypes([typeOfExpr, memberInfo.symbolType]);
                     }
                     addNewMemberToLocalClass = true;
                 }
@@ -2158,7 +2158,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 let valueMember = TypeUtils.lookUpClassMember(enumClass, 'value', false);
                 let valueType: Type;
                 if (valueMember) {
-                    valueType = TypeUtils.getEffectiveTypeOfMember(valueMember);
+                    valueType = valueMember.symbolType;
                 } else {
                     valueType = UnknownType.create();
                 }

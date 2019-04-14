@@ -405,29 +405,19 @@ export class ExpressionEvaluator {
     }
 
     private _getSpecializedReturnType(objType: ObjectType, memberName: string) {
-        const classType = objType.getClassType();
-
-        const classMember = TypeUtils.lookUpClassMember(classType, memberName, false);
+        const classMember = TypeUtils.lookUpObjectMember(objType, memberName, false);
         if (!classMember) {
             return undefined;
         }
 
-        let memberType = TypeUtils.getEffectiveTypeOfMember(classMember);
-        if (memberType.isAny()) {
-            return memberType;
+        if (classMember.symbolType.isAny()) {
+            return classMember.symbolType;
         }
 
-        if (memberType instanceof FunctionType) {
-            memberType = TypeUtils.bindFunctionToClassOrObject(objType, memberType);
-            const typeVarMap = TypeUtils.buildTypeVarMapFromSpecializedClass(classType);
-
-            const specializedMemberType = TypeUtils.specializeType(
-                memberType, typeVarMap) as FunctionType;
-            if (!specializedMemberType) {
-                return undefined;
-            }
-
-            return specializedMemberType.getEffectiveReturnType();
+        if (classMember.symbolType instanceof FunctionType) {
+            let methodType = TypeUtils.bindFunctionToClassOrObject(objType,
+                classMember.symbolType) as FunctionType;
+            return methodType.getEffectiveReturnType();
         }
 
         return undefined;
@@ -730,14 +720,6 @@ export class ExpressionEvaluator {
             classType = aliasClass;
         }
 
-        const conditionallySpecialize = (type: Type, classType: ClassType) => {
-            if (classType.getTypeArguments()) {
-                const typeVarMap = TypeUtils.buildTypeVarMapFromSpecializedClass(classType);
-                return TypeUtils.specializeType(type, typeVarMap);
-            }
-            return type;
-        };
-
         let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
             !(flags & MemberAccessFlags.SkipInstanceMembers),
             !(flags & MemberAccessFlags.SkipBaseClasses));
@@ -745,8 +727,8 @@ export class ExpressionEvaluator {
         if (memberInfo) {
             // Should we ignore members on the 'object' base class?
             if (flags & MemberAccessFlags.SkipObjectBaseClass) {
-                if (memberInfo.inheritanceChain[0] instanceof ClassType) {
-                    const classType = memberInfo.inheritanceChain[0] as ClassType;
+                if (memberInfo.classType instanceof ClassType) {
+                    const classType = memberInfo.classType;
                     if (classType.isBuiltIn() && classType.getClassName() === 'object') {
                         memberInfo = undefined;
                     }
@@ -755,12 +737,12 @@ export class ExpressionEvaluator {
         }
 
         if (memberInfo) {
-            let type = TypeUtils.getEffectiveTypeOfMember(memberInfo);
+            let type = memberInfo.symbolType;
 
             if (!(flags & MemberAccessFlags.SkipGetCheck)) {
                 if (type instanceof PropertyType) {
                     if (usage === EvaluatorUsage.Get) {
-                        type = conditionallySpecialize(type.getEffectiveReturnType(), classType);
+                        return type.getEffectiveReturnType();
                     } else if (usage === EvaluatorUsage.Set) {
                         // The type isn't important for set or delete usage.
                         // We just need to return some defined type.
@@ -785,10 +767,9 @@ export class ExpressionEvaluator {
                     const memberClassType = type.getClassType();
                     let getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName, false);
                     if (getMember) {
-                        const accessorType = TypeUtils.getEffectiveTypeOfMember(getMember);
-                        if (accessorType instanceof FunctionType) {
+                        if (getMember.symbolType instanceof FunctionType) {
                             if (usage === EvaluatorUsage.Get) {
-                                type = conditionallySpecialize(accessorType.getEffectiveReturnType(), memberClassType);
+                                type = getMember.symbolType.getEffectiveReturnType();
                             } else {
                                 // The type isn't important for set or delete usage.
                                 // We just need to return some defined type.
@@ -799,7 +780,7 @@ export class ExpressionEvaluator {
                 }
             }
 
-            return conditionallySpecialize(type, classType);
+            return type;
         }
 
         if (!(flags & MemberAccessFlags.SkipGetAttributeCheck)) {
@@ -812,13 +793,13 @@ export class ExpressionEvaluator {
                         MemberAccessFlags.SkipObjectBaseClass);
 
                 if (getAttribType && getAttribType instanceof FunctionType) {
-                    return conditionallySpecialize(getAttribType.getEffectiveReturnType(), classType);
+                    return getAttribType.getEffectiveReturnType();
                 }
 
                 let getAttrType = this._getTypeFromClassMemberName(classType,
                     '__getattr__', EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup);
                 if (getAttrType && getAttrType instanceof FunctionType) {
-                    return conditionallySpecialize(getAttrType.getEffectiveReturnType(), classType);
+                    return getAttrType.getEffectiveReturnType();
                 }
             } else if (usage === EvaluatorUsage.Set) {
                 let setAttrType = this._getTypeFromClassMemberName(classType,
@@ -988,13 +969,17 @@ export class ExpressionEvaluator {
                 const diagAddendum = new DiagnosticAddendum();
                 const symbolTableKeys = symbolTable.getKeys();
                 const errorsToDisplay = 2;
+
                 symbolTableKeys.forEach((symbolName, index) => {
                     if (index === errorsToDisplay) {
                         diagAddendum.addMessage(`and ${ symbolTableKeys.length - errorsToDisplay } more...`);
                     } else if (index < errorsToDisplay) {
                         const symbolWithClass = symbolTable.get(symbolName)!;
-                        const className = (symbolWithClass.inheritanceChain[0] as ClassType).getClassName();
-                        diagAddendum.addMessage(`'${ className }.${ symbolName }' is abstract`);
+
+                        if (symbolWithClass.classType instanceof ClassType) {
+                            const className = symbolWithClass.classType.getClassName();
+                            diagAddendum.addMessage(`'${ className }.${ symbolName }' is abstract`);
+                        }
                     }
                 });
 
@@ -1140,7 +1125,7 @@ export class ExpressionEvaluator {
         // Validate __new__
         let constructorMethodType = this._getTypeFromClassMemberName(type, '__new__',
             EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup |
-                MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass);
+                MemberAccessFlags.SkipObjectBaseClass);
         if (constructorMethodType) {
             constructorMethodType = TypeUtils.bindFunctionToClassOrObject(
                 type, constructorMethodType, true);

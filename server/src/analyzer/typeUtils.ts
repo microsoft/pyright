@@ -12,6 +12,7 @@ import * as assert from 'assert';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
+import { DefaultTypeSourceId } from './inferredType';
 import { Symbol } from './symbol';
 import { AnyType, ClassType, FunctionType,
     InheritanceChain, ModuleType, NeverType, NoneType, ObjectType,
@@ -21,15 +22,17 @@ import { AnyType, ClassType, FunctionType,
 const MaxTypeRecursion = 20;
 
 export interface ClassMember {
-    // Symbol, if found
-    symbol?: Symbol;
+    // Symbol
+    symbol: Symbol;
+
+    // Partially-specialed class that contains the class member
+    classType: Type;
+
+    // Partially-specialed type of symbol
+    symbolType: Type;
 
     // True if instance member, false if class member
     isInstanceMember: boolean;
-
-    // Class inheritance chain with the class that
-    // defined the symbol in the first entry of the list.
-    inheritanceChain: InheritanceChain;
 }
 
 export class TypeUtils {
@@ -219,12 +222,8 @@ export class TypeUtils {
             } else if (srcType instanceof ObjectType) {
                 const callMember = this.lookUpObjectMember(srcType, '__call__');
                 if (callMember) {
-                    let srcClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(
-                        srcType.getClassType());
-                    let callType = TypeUtils.getEffectiveTypeOfMember(callMember);
-                    callType = this.specializeType(callType, srcClassTypeVarMap);
-                    if (callType instanceof FunctionType) {
-                        srcFunction = TypeUtils.stripFirstParameter(callType);
+                    if (callMember.symbolType instanceof FunctionType) {
+                        srcFunction = TypeUtils.stripFirstParameter(callMember.symbolType);
                     }
                 }
             } else if (srcType instanceof ClassType) {
@@ -377,6 +376,20 @@ export class TypeUtils {
         return false;
     }
 
+    // Partially specializes a type within the context of a specified
+    // (presumably specialized) class.
+    static partiallySpecializeType(type: Type, contextClassType: ClassType): Type {
+        // If the context class is not specialized (or doesn't need specialization),
+        // then there's no need to do any more work.
+        if (contextClassType.isGeneric()) {
+            return type;
+        }
+
+        // Partially specialize the type using the specialized class type vars.
+        const typeVarMap = this.buildTypeVarMapFromSpecializedClass(contextClassType);
+        return this.specializeType(type, typeVarMap);
+    }
+
     // Specializes a (potentially generic) type by substituting
     // type variables with specified types. If typeVarMap is provided
     // type variables that are not specified are left as is. If not
@@ -505,6 +518,450 @@ export class TypeUtils {
         return memberType;
     }
 
+    static lookUpObjectMember(objectType: Type, memberName: string,
+            includeInstanceFields = true): ClassMember | undefined {
+
+        if (objectType instanceof ObjectType) {
+            return this.lookUpClassMember(objectType.getClassType(), memberName, includeInstanceFields);
+        }
+
+        return undefined;
+    }
+
+    // Looks up a member in a class using the multiple-inheritance rules
+    // defined by Python. For more details, see this note on method resolution
+    // order: https://www.python.org/download/releases/2.3/mro/.
+    // As it traverses the inheritance tree, it applies partial specialization
+    // to the the base class and member. For example, if ClassA inherits from
+    // ClassB[str] which inherits from Dict[_T1, int], a search for '__iter__'
+    // would return a class type of Dict[str, int] and a symbolType of
+    // (self) -> Iterator[str].
+    static lookUpClassMember(classType: Type, memberName: string,
+            includeInstanceFields = true, searchBaseClasses = true): ClassMember | undefined {
+
+        if (classType instanceof ClassType) {
+            // TODO - Switch to true MRO. For now, use naive depth-first search.
+
+            // Look in the instance fields first if requested.
+            if (includeInstanceFields) {
+                const instanceFields = classType.getInstanceFields();
+                const instanceFieldEntry = instanceFields.get(memberName);
+                if (instanceFieldEntry) {
+                    let symbol = instanceFieldEntry;
+
+                    return {
+                        symbol,
+                        isInstanceMember: true,
+                        classType,
+                        symbolType: this.partiallySpecializeType(
+                            this.getEffectiveTypeOfSymbol(symbol), classType)
+                    };
+                }
+            }
+
+            // Next look in the class fields.
+            const classFields = classType.getClassFields();
+            const classFieldEntry = classFields.get(memberName);
+            if (classFieldEntry) {
+                let symbol = classFieldEntry;
+
+                return {
+                    symbol,
+                    isInstanceMember: false,
+                    classType,
+                    symbolType: this.partiallySpecializeType(
+                        this.getEffectiveTypeOfSymbol(symbol), classType)
+                };
+            }
+
+            if (searchBaseClasses) {
+                for (let baseClass of classType.getBaseClasses()) {
+                    // Skip metaclasses.
+                    if (!baseClass.isMetaclass) {
+                        let methodType = this.lookUpClassMember(
+                            this.partiallySpecializeType(baseClass.type, classType),
+                            memberName, searchBaseClasses);
+                        if (methodType) {
+                            return methodType;
+                        }
+                    }
+                }
+            }
+        } else if (classType.isAny()) {
+            // The class derives from an unknown type, so all bets are off
+            // when trying to find a member. Return an unknown symbol.
+            return {
+                symbol: new Symbol(UnknownType.create(), DefaultTypeSourceId),
+                isInstanceMember: false,
+                classType: UnknownType.create(),
+                symbolType: UnknownType.create()
+            };
+        }
+
+        return undefined;
+    }
+
+    static getEffectiveTypeOfSymbol(symbol: Symbol): Type {
+        if (symbol.declarations) {
+            if (symbol.declarations[0].declaredType) {
+                return symbol.declarations[0].declaredType;
+            }
+        }
+
+        return symbol.inferredType.getType();
+    }
+
+    static addDefaultFunctionParameters(functionType: FunctionType) {
+        functionType.addParameter({
+            category: ParameterCategory.VarArgList,
+            name: 'args',
+            type: UnknownType.create()
+        });
+        functionType.addParameter({
+            category: ParameterCategory.VarArgDictionary,
+            name: 'kwargs',
+            type: UnknownType.create()
+        });
+    }
+
+    static getMetaclass(type: ClassType, recursionCount = 0): ClassType | UnknownType | undefined {
+        if (recursionCount > MaxTypeRecursion) {
+            return undefined;
+        }
+
+        for (let base of type.getBaseClasses()) {
+            if (base.isMetaclass) {
+                if (base.type instanceof ClassType) {
+                    return base.type;
+                } else {
+                    return UnknownType.create();
+                }
+            }
+
+            if (base.type instanceof ClassType) {
+                let metaclass = this.getMetaclass(base.type, recursionCount + 1);
+                if (metaclass) {
+                    return metaclass;
+                }
+            }
+        }
+
+        return undefined;
+    }
+
+    static addTypeVarToListIfUnique(list: TypeVarType[], type: TypeVarType) {
+        if (list.find(t => t === type) === undefined) {
+            list.push(type);
+        }
+    }
+
+    // Combines two lists of type var types, maintaining the combined order
+    // but removing any duplicates.
+    static addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[]) {
+        for (let t of list2) {
+            this.addTypeVarToListIfUnique(list1, t);
+        }
+    }
+
+    // Walks the type recursively (in a depth-first manner), finds all
+    // type variables that are referenced, and returns an ordered list
+    // of unique type variables. For example, if the type is
+    // Union[List[Dict[_T1, _T2]], _T1, _T3], the result would be
+    // [_T1, _T2, _T3].
+    static getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
+        let getTypeVarsFromClass = (classType: ClassType) => {
+            let combinedList: TypeVarType[] = [];
+            let typeArgs = classType.getTypeArguments();
+
+            if (typeArgs) {
+                typeArgs.forEach(typeArg => {
+                    if (typeArg instanceof Type) {
+                        this.addTypeVarsToListIfUnique(combinedList,
+                            this.getTypeVarArgumentsRecursive(typeArg));
+                    }
+                });
+            }
+
+            return combinedList;
+        };
+
+        if (type instanceof TypeVarType) {
+            return [type];
+        } else if (type instanceof ClassType) {
+            return getTypeVarsFromClass(type);
+        } else if (type instanceof ObjectType) {
+            return getTypeVarsFromClass(type.getClassType());
+        } else if (type instanceof UnionType) {
+            let combinedList: TypeVarType[] = [];
+            for (let subtype of type.getTypes()) {
+                this.addTypeVarsToListIfUnique(combinedList,
+                    this.getTypeVarArgumentsRecursive(subtype));
+            }
+        }
+
+        return [];
+    }
+
+    // If the class is generic, the type is cloned, and its own
+    // type parameters are used as type arguments. This is useful
+    // for typing "self" or "cls" within a class's implementation.
+    static selfSpecializeClassType(type: ClassType, setSkipAbstractClassTest = false): ClassType {
+        if (!type.isGeneric() && !setSkipAbstractClassTest) {
+            return type;
+        }
+
+        let typeArgs = type.getTypeParameters();
+        return type.cloneForSpecialization(typeArgs, setSkipAbstractClassTest);
+    }
+
+    // Removes the first parameter of the function and returns a new function.
+    static stripFirstParameter(type: FunctionType): FunctionType {
+        return type.clone(true);
+    }
+
+    // Builds a mapping between type parameters and their specialized
+    // types. For example, if the generic type is Dict[_T1, _T2] and the
+    // specialized type is Dict[str, int], it returns a map that associates
+    // _T1 with str and _T2 with int.
+    static buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeVarMap {
+        let typeArgMap = new TypeVarMap();
+
+        // Get the type parameters for the class.
+        let typeParameters = classType.getTypeParameters();
+        let typeArgs = classType.getTypeArguments();
+
+        typeParameters.forEach((typeParam, index) => {
+            const typeVarName = typeParam.getName();
+            let typeArgType: Type;
+
+            if (typeArgs) {
+                if (index >= typeArgs.length) {
+                    typeArgType = AnyType.create();
+                } else {
+                    typeArgType = typeArgs[index];
+                }
+            } else {
+                typeArgType = this.specializeTypeVarType(typeParam);
+            }
+
+            typeArgMap.set(typeVarName, typeArgType);
+        });
+
+        return typeArgMap;
+    }
+
+    // Converts a type var type into the most specific type
+    // that fits the specified constraints.
+    static specializeTypeVarType(type: TypeVarType): Type {
+        let subtypes: Type[] = [];
+        type.getConstraints().forEach(constraint => {
+            subtypes.push(constraint);
+        });
+
+        const boundType = type.getBoundType();
+        if (boundType) {
+            subtypes.push(boundType);
+        }
+
+        if (subtypes.length === 0) {
+            return AnyType.create();
+        }
+
+        return TypeUtils.combineTypes(subtypes);
+    }
+
+    static cloneTypeVarMap(typeVarMap: TypeVarMap): TypeVarMap {
+        let newTypeVarMap = new TypeVarMap();
+        newTypeVarMap.getKeys().forEach(key => {
+            newTypeVarMap.set(key, typeVarMap.get(key)!);
+        });
+        return newTypeVarMap;
+    }
+
+    static derivesFromClassRecursive(classType: ClassType, baseClassToFind: ClassType) {
+        if (classType.isSameGenericClass(baseClassToFind)) {
+            return true;
+        }
+
+        for (let baseClass of classType.getBaseClasses()) {
+            if (baseClass.type instanceof ClassType) {
+                if (this.derivesFromClassRecursive(baseClass.type, baseClassToFind)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // Filters a type such that that it is guaranteed not to
+    // be falsy. For example, if a type is a union of None
+    // and an "int", this method would strip off the "None"
+    // and return only the "int".
+    static removeFalsinessFromType(type: Type): Type {
+        return this.doForSubtypes(type, subtype => {
+            if (subtype instanceof ObjectType) {
+                const truthyOrFalsy = subtype.getTruthyOrFalsy();
+                if (truthyOrFalsy !== undefined) {
+                    // If the object is already definitely truthy,
+                    // it's fine to include.
+                    if (truthyOrFalsy) {
+                        return subtype;
+                    }
+                } else {
+                    // If the object is potentially falsy, mark it
+                    // as definitely truthy here.
+                    if (this.canBeFalsy(subtype)) {
+                        return subtype.cloneAsTruthy();
+                    }
+                }
+            } else if (this.canBeTruthy(subtype)) {
+                return subtype;
+            }
+
+            return undefined;
+        });
+    }
+
+    // Filters a type such that that it is guaranteed not to
+    // be truthy. For example, if a type is a union of None
+    // and a custom class "Foo" that has no __len__ or __nonzero__
+    // method, this method would strip off the "Foo"
+    // and return only the "None".
+    static removeTruthinessFromType(type: Type): Type {
+        return this.doForSubtypes(type, subtype => {
+            if (subtype instanceof ObjectType) {
+                const truthyOrFalsy = subtype.getTruthyOrFalsy();
+                if (truthyOrFalsy !== undefined) {
+                    // If the object is already definitely falsy,
+                    // it's fine to include.
+                    if (!truthyOrFalsy) {
+                        return subtype;
+                    }
+                } else {
+                    // If the object is potentially truthy, mark it
+                    // as definitely falsy here.
+                    if (this.canBeTruthy(subtype)) {
+                        return subtype.cloneAsFalsy();
+                    }
+                }
+            } else if (this.canBeFalsy(subtype)) {
+                return subtype;
+            }
+
+            return undefined;
+        });
+    }
+
+    static doesClassHaveAbstractMethods(classType: ClassType) {
+        const abstractMethods = new StringMap<ClassMember>();
+        TypeUtils.getAbstractMethodsRecursive(classType, abstractMethods);
+
+        return abstractMethods.getKeys().length > 0;
+    }
+
+    static getAbstractMethodsRecursive(classType: ClassType,
+            symbolTable: StringMap<ClassMember>, recursiveCount = 0) {
+
+        // Protect against infinite recursion.
+        if (recursiveCount > MaxTypeRecursion) {
+            return;
+        }
+
+        for (const baseClass of classType.getBaseClasses()) {
+            if (baseClass.type instanceof ClassType) {
+                if (baseClass.type.isAbstractClass()) {
+                    // Recursively get abstract methods for subclasses.
+                    this.getAbstractMethodsRecursive(baseClass.type,
+                        symbolTable, recursiveCount + 1);
+                }
+            }
+        }
+
+        // Remove any entries that are overridden in this class with
+        // non-abstract methods.
+        if (symbolTable.getKeys().length > 0 || classType.isAbstractClass()) {
+            const classFields = classType.getClassFields();
+            for (const symbolName of classFields.getKeys()) {
+                const symbol = classFields.get(symbolName)!;
+                const symbolType = this.getEffectiveTypeOfSymbol(symbol);
+
+                if (symbolType instanceof FunctionType) {
+                    if (symbolType.isAbstractMethod()) {
+                        symbolTable.set(symbolName, {
+                            symbol,
+                            isInstanceMember: false,
+                            classType,
+                            symbolType: this.getEffectiveTypeOfSymbol(symbol)
+                        });
+                    } else {
+                        symbolTable.delete(symbolName);
+                    }
+                }
+            }
+        }
+    }
+
+    // Returns the declared yield type if provided, or undefined otherwise.
+    static getDeclaredGeneratorYieldType(functionType: FunctionType,
+            iteratorType: Type): Type | undefined {
+
+        const returnType = functionType.getSpecializedReturnType();
+        if (returnType) {
+            const generatorTypeArgs = this._getGeneratorReturnTypeArgs(returnType);
+
+            if (generatorTypeArgs && generatorTypeArgs.length >= 1 &&
+                    iteratorType instanceof ClassType) {
+
+                // The yield type is the first type arg. Wrap it in an iterator.
+                return new ObjectType(iteratorType.cloneForSpecialization(
+                    [generatorTypeArgs[0]]));
+            }
+
+            // If the return type isn't a Generator, assume that it's the
+            // full return type.
+            return returnType;
+        }
+
+        return undefined;
+    }
+
+    // Returns the declared "send" type (the type returned from the yield
+    // statement) if it was delcared, or undefined otherwise.
+    static getDeclaredGeneratorSendType(functionType: FunctionType): Type | undefined {
+        const returnType = functionType.getSpecializedReturnType();
+        if (returnType) {
+            const generatorTypeArgs = this._getGeneratorReturnTypeArgs(returnType);
+
+            if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
+                // The send type is the second type arg.
+                return generatorTypeArgs[1];
+            }
+
+            return UnknownType.create();
+        }
+
+        return undefined;
+    }
+
+    // Returns the declared "return" type (the type returned from a return statement)
+    // if it was delcared, or undefined otherwise.
+    static getDeclaredGeneratorReturnType(functionType: FunctionType): Type | undefined {
+        const returnType = functionType.getSpecializedReturnType();
+        if (returnType) {
+            const generatorTypeArgs = this._getGeneratorReturnTypeArgs(returnType);
+
+            if (generatorTypeArgs && generatorTypeArgs.length >= 3) {
+                // The send type is the third type arg.
+                return generatorTypeArgs[2];
+            }
+
+            return UnknownType.create();
+        }
+
+        return undefined;
+    }
+
     private static _partiallySpecializeFunctionForBoundClassOrObject(
             baseType: ClassType | ObjectType, memberType: FunctionType): Type {
 
@@ -626,23 +1083,18 @@ export class TypeUtils {
 
             let missingNames: string[] = [];
             let wrongTypes: string[] = [];
-            let srcClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(srcType);
             let destClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(destType);
 
             destClassFields.forEach((symbol, name) => {
-                const classMemberInfo = TypeUtils.lookUpClassMember(srcType, name, false);
-                if (!classMemberInfo) {
+                const memberInfo = TypeUtils.lookUpClassMember(srcType, name, false);
+                if (!memberInfo) {
                     diag.addMessage(`'${ name }' is not present`);
                     missingNames.push(name);
                 } else {
                     if (symbol.declarations && symbol.declarations[0].declaredType) {
-                        // TODO - if the classMemberInfo indicates that the entry was found
-                        // in an ancestor class, apply specialization along the entire class
-                        // inheritance chain.
                         let destMemberType = symbol.declarations[0].declaredType;
                         destMemberType = this.specializeType(destMemberType, destClassTypeVarMap);
-                        let srcMemberType = TypeUtils.getEffectiveTypeOfMember(classMemberInfo);
-                        srcMemberType = this.specializeType(srcMemberType, srcClassTypeVarMap);
+                        let srcMemberType = memberInfo.symbolType;
 
                         if (!TypeUtils.canAssignType(destMemberType, srcMemberType,
                                 diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
@@ -913,444 +1365,6 @@ export class TypeUtils {
         }
 
         return functionType.cloneForSpecialization(specializedParameters);
-    }
-
-    // Looks up a member in a class using the multiple-inheritance rules
-    // defined by Python. For more details, see this note on method resolution
-    // order: https://www.python.org/download/releases/2.3/mro/.
-    static lookUpClassMember(classType: Type, memberName: string,
-            includeInstanceFields = true, searchBaseClasses = true): ClassMember | undefined {
-
-        if (classType instanceof ClassType) {
-            // TODO - Switch to true MRO. For now, use naive depth-first search.
-
-            // Look in the instance fields first if requested.
-            if (includeInstanceFields) {
-                const instanceFields = classType.getInstanceFields();
-                const instanceFieldEntry = instanceFields.get(memberName);
-                if (instanceFieldEntry) {
-                    let symbol = instanceFieldEntry;
-
-                    return {
-                        symbol,
-                        isInstanceMember: true,
-                        inheritanceChain: [classType]
-                    };
-                }
-            }
-
-            // Next look in the class fields.
-            const classFields = classType.getClassFields();
-            const classFieldEntry = classFields.get(memberName);
-            if (classFieldEntry) {
-                let symbol = classFieldEntry;
-
-                return {
-                    symbol,
-                    isInstanceMember: false,
-                    inheritanceChain: [classType]
-                };
-            }
-
-            if (searchBaseClasses) {
-                for (let baseClass of classType.getBaseClasses()) {
-                    // Skip metaclasses.
-                    if (!baseClass.isMetaclass) {
-                        let methodType = this.lookUpClassMember(baseClass.type,
-                            memberName, searchBaseClasses);
-                        if (methodType) {
-                            methodType.inheritanceChain.push(classType);
-                            return methodType;
-                        }
-                    }
-                }
-            }
-        } else if (classType.isAny()) {
-            return {
-                isInstanceMember: false,
-                inheritanceChain: [classType]
-            };
-        }
-
-        return undefined;
-    }
-
-    static getEffectiveTypeOfMember(member: ClassMember): Type {
-        if (!member.symbol) {
-            return UnknownType.create();
-        }
-
-        return this.getEffectiveTypeOfSymbol(member.symbol);
-    }
-
-    static getEffectiveTypeOfSymbol(symbol: Symbol): Type {
-        if (symbol.declarations) {
-            if (symbol.declarations[0].declaredType) {
-                return symbol.declarations[0].declaredType;
-            }
-        }
-
-        return symbol.inferredType.getType();
-    }
-
-    static lookUpObjectMember(objectType: Type, memberName: string,
-            includeInstanceFields = true): ClassMember | undefined {
-
-        if (objectType instanceof ObjectType) {
-            return this.lookUpClassMember(objectType.getClassType(), memberName, includeInstanceFields);
-        }
-
-        return undefined;
-    }
-
-    static addDefaultFunctionParameters(functionType: FunctionType) {
-        functionType.addParameter({
-            category: ParameterCategory.VarArgList,
-            name: 'args',
-            type: UnknownType.create()
-        });
-        functionType.addParameter({
-            category: ParameterCategory.VarArgDictionary,
-            name: 'kwargs',
-            type: UnknownType.create()
-        });
-    }
-
-    static getMetaclass(type: ClassType, recursionCount = 0): ClassType | UnknownType | undefined {
-        if (recursionCount > MaxTypeRecursion) {
-            return undefined;
-        }
-
-        for (let base of type.getBaseClasses()) {
-            if (base.isMetaclass) {
-                if (base.type instanceof ClassType) {
-                    return base.type;
-                } else {
-                    return UnknownType.create();
-                }
-            }
-
-            if (base.type instanceof ClassType) {
-                let metaclass = this.getMetaclass(base.type, recursionCount + 1);
-                if (metaclass) {
-                    return metaclass;
-                }
-            }
-        }
-
-        return undefined;
-    }
-
-    static addTypeVarToListIfUnique(list: TypeVarType[], type: TypeVarType) {
-        if (list.find(t => t === type) === undefined) {
-            list.push(type);
-        }
-    }
-
-    // Combines two lists of type var types, maintaining the combined order
-    // but removing any duplicates.
-    static addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[]) {
-        for (let t of list2) {
-            this.addTypeVarToListIfUnique(list1, t);
-        }
-    }
-
-    // Walks the type recursively (in a depth-first manner), finds all
-    // type variables that are referenced, and returns an ordered list
-    // of unique type variables. For example, if the type is
-    // Union[List[Dict[_T1, _T2]], _T1, _T3], the result would be
-    // [_T1, _T2, _T3].
-    static getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
-        let getTypeVarsFromClass = (classType: ClassType) => {
-            let combinedList: TypeVarType[] = [];
-            let typeArgs = classType.getTypeArguments();
-
-            if (typeArgs) {
-                typeArgs.forEach(typeArg => {
-                    if (typeArg instanceof Type) {
-                        this.addTypeVarsToListIfUnique(combinedList,
-                            this.getTypeVarArgumentsRecursive(typeArg));
-                    }
-                });
-            }
-
-            return combinedList;
-        };
-
-        if (type instanceof TypeVarType) {
-            return [type];
-        } else if (type instanceof ClassType) {
-            return getTypeVarsFromClass(type);
-        } else if (type instanceof ObjectType) {
-            return getTypeVarsFromClass(type.getClassType());
-        } else if (type instanceof UnionType) {
-            let combinedList: TypeVarType[] = [];
-            for (let subtype of type.getTypes()) {
-                this.addTypeVarsToListIfUnique(combinedList,
-                    this.getTypeVarArgumentsRecursive(subtype));
-            }
-        }
-
-        return [];
-    }
-
-    // If the class is generic, the type is cloned, and its own
-    // type parameters are used as type arguments. This is useful
-    // for typing "self" or "cls" within a class's implementation.
-    static selfSpecializeClassType(type: ClassType, skipAbstractClassTest = false): ClassType {
-        if (!type.isGeneric() && !skipAbstractClassTest) {
-            return type;
-        }
-
-        let typeArgs = type.getTypeParameters();
-        return type.cloneForSpecialization(typeArgs, skipAbstractClassTest);
-    }
-
-    // Removes the first parameter of the function and returns a new function.
-    static stripFirstParameter(type: FunctionType): FunctionType {
-        return type.clone(true);
-    }
-
-    // Builds a mapping between type parameters and their specialized
-    // types. For example, if the generic type is Dict[_T1, _T2] and the
-    // specialized type is Dict[str, int], it returns a map that associates
-    // _T1 with str and _T2 with int.
-    static buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeVarMap {
-        let typeArgMap = new TypeVarMap();
-
-        // Get the type parameters for the class.
-        let typeParameters = classType.getTypeParameters();
-        let typeArgs = classType.getTypeArguments();
-
-        typeParameters.forEach((typeParam, index) => {
-            const typeVarName = typeParam.getName();
-            let typeArgType: Type;
-
-            if (typeArgs) {
-                if (index >= typeArgs.length) {
-                    typeArgType = AnyType.create();
-                } else {
-                    typeArgType = typeArgs[index];
-                }
-            } else {
-                typeArgType = this.specializeTypeVarType(typeParam);
-            }
-
-            typeArgMap.set(typeVarName, typeArgType);
-        });
-
-        return typeArgMap;
-    }
-
-    // Converts a type var type into the most specific type
-    // that fits the specified constraints.
-    static specializeTypeVarType(type: TypeVarType): Type {
-        let subtypes: Type[] = [];
-        type.getConstraints().forEach(constraint => {
-            subtypes.push(constraint);
-        });
-
-        const boundType = type.getBoundType();
-        if (boundType) {
-            subtypes.push(boundType);
-        }
-
-        if (subtypes.length === 0) {
-            return AnyType.create();
-        }
-
-        return TypeUtils.combineTypes(subtypes);
-    }
-
-    static cloneTypeVarMap(typeVarMap: TypeVarMap): TypeVarMap {
-        let newTypeVarMap = new TypeVarMap();
-        newTypeVarMap.getKeys().forEach(key => {
-            newTypeVarMap.set(key, typeVarMap.get(key)!);
-        });
-        return newTypeVarMap;
-    }
-
-    static derivesFromClassRecursive(classType: ClassType, baseClassToFind: ClassType) {
-        if (classType.isSameGenericClass(baseClassToFind)) {
-            return true;
-        }
-
-        for (let baseClass of classType.getBaseClasses()) {
-            if (baseClass.type instanceof ClassType) {
-                if (this.derivesFromClassRecursive(baseClass.type, baseClassToFind)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    // Filters a type such that that it is guaranteed not to
-    // be falsy. For example, if a type is a union of None
-    // and an "int", this method would strip off the "None"
-    // and return only the "int".
-    static removeFalsinessFromType(type: Type): Type {
-        return this.doForSubtypes(type, subtype => {
-            if (subtype instanceof ObjectType) {
-                const truthyOrFalsy = subtype.getTruthyOrFalsy();
-                if (truthyOrFalsy !== undefined) {
-                    // If the object is already definitely truthy,
-                    // it's fine to include.
-                    if (truthyOrFalsy) {
-                        return subtype;
-                    }
-                } else {
-                    // If the object is potentially falsy, mark it
-                    // as definitely truthy here.
-                    if (this.canBeFalsy(subtype)) {
-                        return subtype.cloneAsTruthy();
-                    }
-                }
-            } else if (this.canBeTruthy(subtype)) {
-                return subtype;
-            }
-
-            return undefined;
-        });
-    }
-
-    // Filters a type such that that it is guaranteed not to
-    // be truthy. For example, if a type is a union of None
-    // and a custom class "Foo" that has no __len__ or __nonzero__
-    // method, this method would strip off the "Foo"
-    // and return only the "None".
-    static removeTruthinessFromType(type: Type): Type {
-        return this.doForSubtypes(type, subtype => {
-            if (subtype instanceof ObjectType) {
-                const truthyOrFalsy = subtype.getTruthyOrFalsy();
-                if (truthyOrFalsy !== undefined) {
-                    // If the object is already definitely falsy,
-                    // it's fine to include.
-                    if (!truthyOrFalsy) {
-                        return subtype;
-                    }
-                } else {
-                    // If the object is potentially truthy, mark it
-                    // as definitely falsy here.
-                    if (this.canBeTruthy(subtype)) {
-                        return subtype.cloneAsFalsy();
-                    }
-                }
-            } else if (this.canBeFalsy(subtype)) {
-                return subtype;
-            }
-
-            return undefined;
-        });
-    }
-
-    static doesClassHaveAbstractMethods(classType: ClassType) {
-        const abstractMethods = new StringMap<ClassMember>();
-        TypeUtils.getAbstractMethodsRecursive(classType, abstractMethods);
-
-        return abstractMethods.getKeys().length > 0;
-    }
-
-    static getAbstractMethodsRecursive(classType: ClassType,
-            symbolTable: StringMap<ClassMember>, recursiveCount = 0) {
-
-        // Protect against infinite recursion.
-        if (recursiveCount > MaxTypeRecursion) {
-            return;
-        }
-
-        for (const baseClass of classType.getBaseClasses()) {
-            if (baseClass.type instanceof ClassType) {
-                if (baseClass.type.isAbstractClass()) {
-                    // Recursively get abstract methods for subclasses.
-                    this.getAbstractMethodsRecursive(baseClass.type,
-                        symbolTable, recursiveCount + 1);
-                }
-            }
-        }
-
-        // Remove any entries that are overridden in this class with
-        // non-abstract methods.
-        if (symbolTable.getKeys().length > 0 || classType.isAbstractClass()) {
-            const classFields = classType.getClassFields();
-            for (const symbolName of classFields.getKeys()) {
-                const symbol = classFields.get(symbolName)!;
-                const symbolType = this.getEffectiveTypeOfSymbol(symbol);
-
-                if (symbolType instanceof FunctionType) {
-                    if (symbolType.isAbstractMethod()) {
-                        symbolTable.set(symbolName, {
-                            symbol,
-                            isInstanceMember: false,
-                            inheritanceChain: [classType]
-                        });
-                    } else {
-                        symbolTable.delete(symbolName);
-                    }
-                }
-            }
-        }
-    }
-
-    // Returns the declared yield type if provided, or undefined otherwise.
-    static getDeclaredGeneratorYieldType(functionType: FunctionType,
-            iteratorType: Type): Type | undefined {
-
-        const returnType = functionType.getSpecializedReturnType();
-        if (returnType) {
-            const generatorTypeArgs = this._getGeneratorReturnTypeArgs(returnType);
-
-            if (generatorTypeArgs && generatorTypeArgs.length >= 1 &&
-                    iteratorType instanceof ClassType) {
-
-                // The yield type is the first type arg. Wrap it in an iterator.
-                return new ObjectType(iteratorType.cloneForSpecialization(
-                    [generatorTypeArgs[0]]));
-            }
-
-            // If the return type isn't a Generator, assume that it's the
-            // full return type.
-            return returnType;
-        }
-
-        return undefined;
-    }
-
-    // Returns the declared "send" type (the type returned from the yield
-    // statement) if it was delcared, or undefined otherwise.
-    static getDeclaredGeneratorSendType(functionType: FunctionType): Type | undefined {
-        const returnType = functionType.getSpecializedReturnType();
-        if (returnType) {
-            const generatorTypeArgs = this._getGeneratorReturnTypeArgs(returnType);
-
-            if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
-                // The send type is the second type arg.
-                return generatorTypeArgs[1];
-            }
-
-            return UnknownType.create();
-        }
-
-        return undefined;
-    }
-
-    // Returns the declared "return" type (the type returned from a return statement)
-    // if it was delcared, or undefined otherwise.
-    static getDeclaredGeneratorReturnType(functionType: FunctionType): Type | undefined {
-        const returnType = functionType.getSpecializedReturnType();
-        if (returnType) {
-            const generatorTypeArgs = this._getGeneratorReturnTypeArgs(returnType);
-
-            if (generatorTypeArgs && generatorTypeArgs.length >= 3) {
-                // The send type is the third type arg.
-                return generatorTypeArgs[2];
-            }
-
-            return UnknownType.create();
-        }
-
-        return undefined;
     }
 
     // If the declared return type for the function is a Generator or AsyncGenerator,
