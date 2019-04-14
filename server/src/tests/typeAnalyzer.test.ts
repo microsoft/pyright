@@ -275,6 +275,12 @@ test('Generators3', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Coroutines1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines1.py']);
+
+    validateResults(analysisResults, 3);
+});
+
 test('Loops1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops1.py']);
 
@@ -291,4 +297,10 @@ test('NoReturn1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn1.py']);
 
     validateResults(analysisResults, 3);
+});
+
+test('With1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['with1.py']);
+
+    validateResults(analysisResults, 2);
 });
