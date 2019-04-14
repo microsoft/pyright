@@ -188,10 +188,48 @@ export class ExpressionEvaluator {
     }
 
     // Applies an "await" operation to the specified type and returns
-    // the result.
+    // the result. According to PEP 492, await operates on:
+    // 1) a generator object
+    // 2) an Awaitable (object that provides an __await__ that
+    //    returns a generator object)
     evaluateAwaitOperation(type: Type, errorNode: ParseNode): Type {
-        // TODO - need to implement
-        return UnknownType.create();
+        return TypeUtils.doForSubtypes(type, subtype => {
+            if (subtype.isAny()) {
+                return UnknownType.create();
+            }
+
+            const generatorReturnType = this._getReturnTypeFromGenerator(subtype);
+            if (generatorReturnType) {
+                return generatorReturnType;
+            }
+
+            if (subtype instanceof ObjectType) {
+                const awaitReturnType = this._getSpecializedReturnType(
+                    subtype, '__await__');
+                if (awaitReturnType) {
+                    if (awaitReturnType.isAny()) {
+                        return UnknownType.create();
+                    }
+
+                    if (awaitReturnType instanceof ObjectType) {
+                        const iterReturnType = this._getSpecializedReturnType(
+                            awaitReturnType, '__iter__');
+
+                        if (iterReturnType) {
+                            const generatorReturnType = this._getReturnTypeFromGenerator(
+                                awaitReturnType);
+                            if (generatorReturnType) {
+                                return generatorReturnType;
+                            }
+                        }
+                    }
+                }
+            }
+
+            this._addError(`'${ subtype.asString() }' is not awaitable`, errorNode);
+
+            return UnknownType.create();
+        });
     }
 
     // Validates fields for compatibility with a dataclass and synthesizes
@@ -285,6 +323,53 @@ export class ExpressionEvaluator {
         classType.getClassFields().set('__new__', new Symbol(newType, DefaultTypeSourceId));
     }
 
+    private _getReturnTypeFromGenerator(type: Type): Type | undefined {
+        if (type.isAny()) {
+            return type;
+        }
+
+        if (type instanceof ObjectType) {
+            // Is this a Generator? If so, return the third
+            // type argument, which is the await response type.
+            const classType = type.getClassType();
+            if (classType.isBuiltIn() && classType.getClassName() === 'Generator') {
+                const typeArgs = classType.getTypeArguments();
+                if (typeArgs && typeArgs.length >= 3) {
+                    return typeArgs[2];
+                }
+            }
+        }
+
+        return undefined;
+    }
+
+    private _getSpecializedReturnType(objType: ObjectType, memberName: string) {
+        const classType = objType.getClassType();
+        const awaitClassMember = TypeUtils.lookUpClassMember(classType, memberName, false);
+        if (!awaitClassMember) {
+            return undefined;
+        }
+
+        const memberType = TypeUtils.getEffectiveTypeOfMember(awaitClassMember);
+        if (memberType.isAny()) {
+            return memberType;
+        }
+
+        if (memberType instanceof FunctionType) {
+            const typeVarMap = TypeUtils.buildTypeVarMapFromSpecializedClass(classType);
+            const specializedMemberType = TypeUtils.specializeType(
+                memberType, typeVarMap) as FunctionType;
+            if (!specializedMemberType) {
+                return undefined;
+            }
+
+            return TypeUtils.specializeType(
+                specializedMemberType.getEffectiveReturnType(), typeVarMap);
+        }
+
+        return undefined;
+    }
+
     private _getTypeFromExpression(node: ExpressionNode, usage: EvaluatorUsage,
             flags: EvaluatorFlags): TypeResult {
 
@@ -341,8 +426,12 @@ export class ExpressionEvaluator {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromSliceExpression(node, flags);
         } else if (node instanceof AwaitExpressionNode) {
-            typeResult = this._getTypeFromExpression(node.expression, EvaluatorUsage.Get, flags);
-            typeResult = { type: this.evaluateAwaitOperation(typeResult.type, node), node };
+            typeResult = this._getTypeFromExpression(
+                node.expression, EvaluatorUsage.Get, flags);
+            typeResult = {
+                type: this.evaluateAwaitOperation(typeResult.type, node.expression),
+                node
+            };
         } else if (node instanceof TernaryExpressionNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromTernaryExpression(node, flags);
