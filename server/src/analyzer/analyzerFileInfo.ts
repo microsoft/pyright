@@ -21,6 +21,7 @@ export type ImportMap = { [importPath: string]: ParseResults };
 export interface AnalyzerFileInfo {
     importMap: ImportMap;
     builtinsScope?: Scope;
+    typingModulePath?: string;
     diagnosticSink: TextRangeDiagnosticSink;
     executionEnvironment: ExecutionEnvironment;
     configOptions: ConfigOptions;

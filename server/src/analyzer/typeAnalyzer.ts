@@ -1248,14 +1248,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _getTypingType(symbolName: string): Type | undefined {
-        const typingImportInfo = AnalyzerNodeInfo.getImplicitTypingImportInfo(this._moduleNode);
-        if (!typingImportInfo || !typingImportInfo.importFound) {
+        const typingImportPath = this._fileInfo.typingModulePath;
+        if (!typingImportPath) {
             return undefined;
         }
 
-        const importPath = typingImportInfo.resolvedPaths[
-            typingImportInfo.resolvedPaths.length - 1];
-        const typingParseInfo = this._fileInfo.importMap[importPath];
+        const typingParseInfo = this._fileInfo.importMap[typingImportPath];
         if (!typingParseInfo) {
             return undefined;
         }

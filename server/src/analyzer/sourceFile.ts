@@ -61,6 +61,7 @@ export interface AnalysisJob {
 
     imports?: ImportResult[];
     builtinsImport?: ImportResult;
+    typingModulePath?: string;
 }
 
 export class SourceFile {
@@ -317,9 +318,8 @@ export class SourceFile {
 
             // Save information in the analysis job.
             this._analysisJob.parseResults = parseResults;
-            [this._analysisJob.imports, this._analysisJob.builtinsImport] =
-                this._resolveImports(parseResults.parseTree,
-                    walker.getImportedModules(), configOptions, execEnvironment);
+            [this._analysisJob.imports, this._analysisJob.builtinsImport, this._analysisJob.typingModulePath] =
+                this._resolveImports(walker.getImportedModules(), configOptions, execEnvironment);
             this._analysisJob.parseDiagnostics = diagSink.diagnostics;
         } catch (e) {
             let message: string;
@@ -510,9 +510,9 @@ export class SourceFile {
         }
     }
 
-    private _resolveImports(moduleNode: ModuleNode, moduleNameNodes: ModuleNameNode[],
+    private _resolveImports(moduleNameNodes: ModuleNameNode[],
             configOptions: ConfigOptions, execEnv: ExecutionEnvironment):
-            [ImportResult[], ImportResult?] {
+            [ImportResult[], ImportResult?, string?] {
         let imports: ImportResult[] = [];
 
         let resolver = new ImportResolver(this._filePath, configOptions, execEnv);
@@ -527,9 +527,6 @@ export class SourceFile {
         if (builtinsImportResult.resolvedPaths.length === 0 ||
                 builtinsImportResult.resolvedPaths[0] !== this.getFilePath()) {
             imports.push(builtinsImportResult);
-
-            // Associate the builtins import with the module node so we can find it later.
-            AnalyzerNodeInfo.setImplicitBuiltinsImportInfo(moduleNode, builtinsImportResult);
         } else {
             builtinsImportResult = undefined;
         }
@@ -541,12 +538,11 @@ export class SourceFile {
         });
 
         // Avoid importing typing from the typing.pyi file itself.
+        let typingModulePath: string | undefined;
         if (typingImportResult.resolvedPaths.length === 0 ||
                 typingImportResult.resolvedPaths[0] !== this.getFilePath()) {
             imports.push(typingImportResult);
-
-            // Associate the builtins import with the module node so we can find it later.
-            AnalyzerNodeInfo.setImplicitTypingImportInfo(moduleNode, typingImportResult);
+            typingModulePath = typingImportResult.resolvedPaths[0];
         }
 
         for (let moduleNameNode of moduleNameNodes) {
@@ -559,6 +555,6 @@ export class SourceFile {
             AnalyzerNodeInfo.setImportInfo(moduleNameNode, importResult);
         }
 
-        return [imports, builtinsImportResult];
+        return [imports, builtinsImportResult, typingModulePath];
     }
 }
