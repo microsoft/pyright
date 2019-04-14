@@ -204,7 +204,8 @@ export class TypeUtils {
                 // make a copy of the existing one if it's specified.
                 const overloads = srcType.getOverloads();
                 const overloadIndex = overloads.findIndex(overload => {
-                    const typeVarMapClone = typeVarMap ? TypeUtils.cloneTypeVarMap(typeVarMap) : undefined;
+                    const typeVarMapClone = typeVarMap ?
+                        TypeUtils.cloneTypeVarMap(typeVarMap) : undefined;
                     return this.canAssignType(destType, overload.type, diag.createAddendum(),
                         typeVarMapClone, true, recursionCount + 1);
                 });
@@ -218,7 +219,8 @@ export class TypeUtils {
             } else if (srcType instanceof ObjectType) {
                 const callMember = this.lookUpObjectMember(srcType, '__call__');
                 if (callMember) {
-                    let srcClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(srcType.getClassType());
+                    let srcClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(
+                        srcType.getClassType());
                     let callType = TypeUtils.getEffectiveTypeOfMember(callMember);
                     callType = this.specializeType(callType, srcClassTypeVarMap);
                     if (callType instanceof FunctionType) {
@@ -227,7 +229,6 @@ export class TypeUtils {
                 }
             } else if (srcType instanceof ClassType) {
                 // TODO - need to create function corresponding to constructor for class.
-                // diag.addMessage(`Constructor is not compatible with type '${ destType.asString() }'.`);
                 return true;
             }
 
@@ -788,9 +789,6 @@ export class TypeUtils {
                             }
                         }
                     }
-                } else {
-                    // TODO - handle other types like Unions
-                    return false;
                 }
             }
         }
