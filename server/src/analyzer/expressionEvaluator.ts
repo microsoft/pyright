@@ -281,6 +281,9 @@ export class ExpressionEvaluator {
                         diag.addMessage(`'__iter__' method does not return an object`);
                     }
                 }
+            } else {
+                // TODO - handle other types including Tuple and ClassType.
+                return UnknownType.create();
             }
 
             this._addError(`'${ subtype.asString() }' is not iterable` + diag.getString(),
