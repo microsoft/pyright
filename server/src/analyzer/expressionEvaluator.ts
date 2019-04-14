@@ -184,7 +184,7 @@ export class ExpressionEvaluator {
 
         let resultType = memberType;
         if (memberType instanceof FunctionType || memberType instanceof OverloadedFunctionType) {
-            resultType = this._bindFunctionToClassOrObject(objectType, memberType);
+            resultType = TypeUtils.bindFunctionToClassOrObject(objectType, memberType);
         }
 
         return resultType;
@@ -415,7 +415,7 @@ export class ExpressionEvaluator {
         }
 
         if (memberType instanceof FunctionType) {
-            memberType = this._bindFunctionToClassOrObject(objType, memberType);
+            memberType = TypeUtils.bindFunctionToClassOrObject(objType, memberType);
             const typeVarMap = TypeUtils.buildTypeVarMapFromSpecializedClass(classType);
 
             const specializedMemberType = TypeUtils.specializeType(
@@ -631,13 +631,13 @@ export class ExpressionEvaluator {
             type = this._getTypeFromClassMemberName(baseType, node.memberName.nameToken.value,
                 usage, MemberAccessFlags.SkipInstanceMembers);
             if (type) {
-                type = this._bindFunctionToClassOrObject(baseType, type);
+                type = TypeUtils.bindFunctionToClassOrObject(baseType, type);
             }
         } else if (baseType instanceof ObjectType) {
             type = this._getTypeFromClassMemberName(baseType.getClassType(),
                 node.memberName.nameToken.value, usage, MemberAccessFlags.None);
             if (type) {
-                type = this._bindFunctionToClassOrObject(baseType, type);
+                type = TypeUtils.bindFunctionToClassOrObject(baseType, type);
             }
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
@@ -715,71 +715,6 @@ export class ExpressionEvaluator {
 
         return { type, node };
     }
-
-    // If the memberType is an instance or class method, creates a new
-    // version of the function that has the "self" or "cls" parameter bound
-    // to it. If treatAsClassMember is true, the function is treated like a
-    // class member even if it's not marked as such. That's needed to
-    // special-case the __new__ magic method when it's invoked as a
-    // constructor (as opposed to by name).
-    private _bindFunctionToClassOrObject(baseType: ClassType | ObjectType | undefined,
-            memberType: Type, treatAsClassMember = false): Type {
-
-        if (memberType instanceof FunctionType) {
-            // If the caller specified no base type, always strip the
-            // first parameter. This is used in cases like constructors.
-            if (!baseType) {
-                return TypeUtils.stripFirstParameter(memberType);
-            } else if (memberType.isInstanceMethod()) {
-                if (baseType instanceof ObjectType) {
-                    return this._partiallySpecializeFunctionForBoundClassOrObject(
-                        baseType, memberType);
-                }
-            } else if (memberType.isClassMethod() || treatAsClassMember) {
-                if (baseType instanceof ClassType) {
-                    return this._partiallySpecializeFunctionForBoundClassOrObject(
-                        baseType, memberType);
-                } else {
-                    return this._partiallySpecializeFunctionForBoundClassOrObject(
-                        baseType.getClassType(), memberType);
-                }
-            }
-        } else if (memberType instanceof OverloadedFunctionType) {
-            let newOverloadType = new OverloadedFunctionType();
-            memberType.getOverloads().forEach(overload => {
-                newOverloadType.addOverload(overload.typeSourceId,
-                    this._bindFunctionToClassOrObject(baseType, overload.type,
-                        treatAsClassMember) as FunctionType);
-            });
-
-            return newOverloadType;
-        }
-
-        return memberType;
-    }
-
-    private _partiallySpecializeFunctionForBoundClassOrObject(baseType: ClassType | ObjectType,
-            memberType: FunctionType): Type {
-
-        let classType = baseType instanceof ClassType ? baseType : baseType.getClassType();
-
-        // If the class has already been specialized (fully or partially), use its
-        // existing type arg mappings. If it hasn't, use a fresh type arg map.
-        let typeVarMap = classType.getTypeArguments() ?
-            TypeUtils.buildTypeVarMapFromSpecializedClass(classType) :
-            new TypeVarMap();
-
-        if (memberType.getParameterCount() > 0) {
-            let firstParam = memberType.getParameters()[0];
-
-            // Fill out the typeVarMap.
-            TypeUtils.canAssignType(firstParam.type, baseType, new DiagnosticAddendum(), typeVarMap);
-        }
-
-        const specializedFunction = TypeUtils.specializeType(
-            memberType, typeVarMap) as FunctionType;
-        return TypeUtils.stripFirstParameter(specializedFunction);
-   }
 
     private _getTypeFromClassMemberName(classType: ClassType, memberName: string,
             usage: EvaluatorUsage, flags: MemberAccessFlags): Type | undefined {
@@ -1114,7 +1049,7 @@ export class ExpressionEvaluator {
                     classType, '__call__', EvaluatorUsage.Get,
                     MemberAccessFlags.SkipForMethodLookup);
                 if (memberType && memberType instanceof FunctionType) {
-                    const callMethodType = this._bindFunctionToClassOrObject(callType, memberType);
+                    const callMethodType = TypeUtils.bindFunctionToClassOrObject(callType, memberType);
                     type = this._validateCallArguments(errorNode, argList, callMethodType, new TypeVarMap());
                     if (!type) {
                         type = UnknownType.create();
@@ -1204,7 +1139,7 @@ export class ExpressionEvaluator {
             EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup |
                 MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass);
         if (constructorMethodType) {
-            constructorMethodType = this._bindFunctionToClassOrObject(
+            constructorMethodType = TypeUtils.bindFunctionToClassOrObject(
                 type, constructorMethodType, true);
             returnType = this._validateCallArguments(errorNode, argList, constructorMethodType,
                 new TypeVarMap());
@@ -1222,7 +1157,7 @@ export class ExpressionEvaluator {
                 EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup |
                     MemberAccessFlags.SkipObjectBaseClass);
             if (initMethodType) {
-                initMethodType = this._bindFunctionToClassOrObject(
+                initMethodType = TypeUtils.bindFunctionToClassOrObject(
                     new ObjectType(type), initMethodType);
                 let typeVarMap = new TypeVarMap();
                 if (this._validateCallArguments(errorNode, argList, initMethodType, typeVarMap)) {

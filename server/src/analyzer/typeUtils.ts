@@ -376,6 +376,157 @@ export class TypeUtils {
         return false;
     }
 
+    // Specializes a (potentially generic) type by substituting
+    // type variables with specified types. If typeVarMap is provided
+    // type variables that are not specified are left as is. If not
+    // provided, type variables are replaced with a concrete type derived
+    // from the type variable.
+    static specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
+            recursionLevel = 0): Type {
+
+        // Prevent infinite recursion in case a type refers to itself.
+        if (recursionLevel > 100) {
+            return AnyType.create();
+        }
+
+        // Shortcut the operation if possible.
+        if (!type.requiresSpecialization()) {
+            return type;
+        }
+
+        if (type.isAny()) {
+            return type;
+        }
+
+        if (type instanceof NoneType) {
+            return type;
+        }
+
+        if (type instanceof TypeVarType) {
+            if (!typeVarMap) {
+                return this._getConcreteTypeFromTypeVar(type, recursionLevel);
+            }
+
+            const replacementType = typeVarMap.get(type.getName());
+            if (replacementType) {
+                return replacementType;
+            }
+
+            return type;
+        }
+
+        if (type instanceof UnionType) {
+            let subtypes: Type[] = [];
+            type.getTypes().forEach(typeEntry => {
+                subtypes.push(this.specializeType(typeEntry, typeVarMap,
+                    recursionLevel + 1));
+            });
+
+            return TypeUtils.combineTypes(subtypes);
+        }
+
+        if (type instanceof ObjectType) {
+            const classType = this._specializeClassType(type.getClassType(),
+                typeVarMap, recursionLevel + 1);
+
+            // Handle the "Type" special class.
+            if (classType.isBuiltIn() && classType.getClassName() === 'Type') {
+                const typeArgs = classType.getTypeArguments();
+                if (typeArgs && typeArgs.length >= 1) {
+                    const firstTypeArg = typeArgs[0];
+                    if (firstTypeArg instanceof ObjectType) {
+                        return firstTypeArg.getClassType();
+                    }
+                }
+            }
+
+            // Don't allocate a new ObjectType class if the class
+            // didn't need to be specialized.
+            if (classType === type.getClassType()) {
+                return type;
+            }
+            return new ObjectType(classType);
+        }
+
+        if (type instanceof ClassType) {
+            return this._specializeClassType(type, typeVarMap,
+                recursionLevel + 1);
+        }
+
+        if (type instanceof FunctionType) {
+            return this._specializeFunctionType(type, typeVarMap,
+                recursionLevel + 1);
+        }
+
+        // TODO - need to implement
+        return type;
+    }
+
+    // If the memberType is an instance or class method, creates a new
+    // version of the function that has the "self" or "cls" parameter bound
+    // to it. If treatAsClassMember is true, the function is treated like a
+    // class member even if it's not marked as such. That's needed to
+    // special-case the __new__ magic method when it's invoked as a
+    // constructor (as opposed to by name).
+    static bindFunctionToClassOrObject(baseType: ClassType | ObjectType | undefined,
+            memberType: Type, treatAsClassMember = false): Type {
+
+        if (memberType instanceof FunctionType) {
+            // If the caller specified no base type, always strip the
+            // first parameter. This is used in cases like constructors.
+            if (!baseType) {
+                return TypeUtils.stripFirstParameter(memberType);
+            } else if (memberType.isInstanceMethod()) {
+                if (baseType instanceof ObjectType) {
+                    return this._partiallySpecializeFunctionForBoundClassOrObject(
+                        baseType, memberType);
+                }
+            } else if (memberType.isClassMethod() || treatAsClassMember) {
+                if (baseType instanceof ClassType) {
+                    return this._partiallySpecializeFunctionForBoundClassOrObject(
+                        baseType, memberType);
+                } else {
+                    return this._partiallySpecializeFunctionForBoundClassOrObject(
+                        baseType.getClassType(), memberType);
+                }
+            }
+        } else if (memberType instanceof OverloadedFunctionType) {
+            let newOverloadType = new OverloadedFunctionType();
+            memberType.getOverloads().forEach(overload => {
+                newOverloadType.addOverload(overload.typeSourceId,
+                    this.bindFunctionToClassOrObject(baseType, overload.type,
+                        treatAsClassMember) as FunctionType);
+            });
+
+            return newOverloadType;
+        }
+
+        return memberType;
+    }
+
+    private static _partiallySpecializeFunctionForBoundClassOrObject(
+            baseType: ClassType | ObjectType, memberType: FunctionType): Type {
+
+        let classType = baseType instanceof ClassType ? baseType : baseType.getClassType();
+
+        // If the class has already been specialized (fully or partially), use its
+        // existing type arg mappings. If it hasn't, use a fresh type arg map.
+        let typeVarMap = classType.getTypeArguments() ?
+            TypeUtils.buildTypeVarMapFromSpecializedClass(classType) :
+            new TypeVarMap();
+
+        if (memberType.getParameterCount() > 0) {
+            let firstParam = memberType.getParameters()[0];
+
+            // Fill out the typeVarMap.
+            TypeUtils.canAssignType(firstParam.type, baseType, new DiagnosticAddendum(), typeVarMap);
+        }
+
+        const specializedFunction = TypeUtils.specializeType(
+            memberType, typeVarMap) as FunctionType;
+        return TypeUtils.stripFirstParameter(specializedFunction);
+    }
+
     private static _canAssignFunction(destType: FunctionType, srcType: FunctionType,
             diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined,
             recursionCount: number): boolean {
@@ -663,92 +814,6 @@ export class TypeUtils {
         const specializedType = this.specializeType(baseClass, typeVarMap, recursionCount + 1);
         assert(specializedType instanceof ClassType);
         return specializedType as ClassType;
-    }
-
-    // Specializes a (potentially generic) type by substituting
-    // type variables with specified types. If typeVarMap is provided
-    // type variables that are not specified are left as is. If not
-    // provided, type variables are replaced with a concrete type derived
-    // from the type variable.
-    static specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
-            recursionLevel = 0): Type {
-
-        // Prevent infinite recursion in case a type refers to itself.
-        if (recursionLevel > 100) {
-            return AnyType.create();
-        }
-
-        // Shortcut the operation if possible.
-        if (!type.requiresSpecialization()) {
-            return type;
-        }
-
-        if (type.isAny()) {
-            return type;
-        }
-
-        if (type instanceof NoneType) {
-            return type;
-        }
-
-        if (type instanceof TypeVarType) {
-            if (!typeVarMap) {
-                return this._getConcreteTypeFromTypeVar(type, recursionLevel);
-            }
-
-            const replacementType = typeVarMap.get(type.getName());
-            if (replacementType) {
-                return replacementType;
-            }
-
-            return type;
-        }
-
-        if (type instanceof UnionType) {
-            let subtypes: Type[] = [];
-            type.getTypes().forEach(typeEntry => {
-                subtypes.push(this.specializeType(typeEntry, typeVarMap,
-                    recursionLevel + 1));
-            });
-
-            return TypeUtils.combineTypes(subtypes);
-        }
-
-        if (type instanceof ObjectType) {
-            const classType = this._specializeClassType(type.getClassType(),
-                typeVarMap, recursionLevel + 1);
-
-            // Handle the "Type" special class.
-            if (classType.isBuiltIn() && classType.getClassName() === 'Type') {
-                const typeArgs = classType.getTypeArguments();
-                if (typeArgs && typeArgs.length >= 1) {
-                    const firstTypeArg = typeArgs[0];
-                    if (firstTypeArg instanceof ObjectType) {
-                        return firstTypeArg.getClassType();
-                    }
-                }
-            }
-
-            // Don't allocate a new ObjectType class if the class
-            // didn't need to be specialized.
-            if (classType === type.getClassType()) {
-                return type;
-            }
-            return new ObjectType(classType);
-        }
-
-        if (type instanceof ClassType) {
-            return this._specializeClassType(type, typeVarMap,
-                recursionLevel + 1);
-        }
-
-        if (type instanceof FunctionType) {
-            return this._specializeFunctionType(type, typeVarMap,
-                recursionLevel + 1);
-        }
-
-        // TODO - need to implement
-        return type;
     }
 
     private static _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap | undefined,
