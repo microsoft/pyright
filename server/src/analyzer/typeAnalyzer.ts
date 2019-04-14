@@ -578,11 +578,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (compr instanceof ListComprehensionForNode) {
                     this.walk(compr.iterableExpression);
 
-                    // TODO - need to figure out right type for target expression.
-                    // let exprType = this._getTypeOfExpression(compr.iterableExpression);
-                    let exprType = UnknownType.create();
+                    const iteratorType = this._getTypeOfExpression(compr.iterableExpression);
+                    const evaluator = this._createEvaluator();
+                    const iteratedType = evaluator.getTypeFromIterable(
+                        iteratorType, !!compr.isAsync, compr.iterableExpression);
 
-                    this._assignTypeToPossibleTuple(compr.targetExpression, exprType);
+                    this._assignTypeToPossibleTuple(compr.targetExpression, iteratedType);
                     this.walk(compr.targetExpression);
                 } else {
                     this.walk(compr.testExpression);
