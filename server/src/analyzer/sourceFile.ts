@@ -82,17 +82,10 @@ export class SourceFile {
     // special-case handling.
     private readonly _isTypingStubFile: boolean;
 
-    // True if the file is the "collections.pyi" file, which needs
-    // special-case handling.
-    private readonly _isCollectionsStubFile: boolean;
-
-    // True if the file is the "dataclasses.pyi" file, which needs
-    // special-case handling.
-    private readonly _isDataClassesStubFile: boolean;
-
-    // True if the file is the "abc.pyi" file, which needs
-    // special-case handling.
-    private readonly _isAbcStubFile: boolean;
+    // True if the file one of the other built-in stub files
+    // that require special-case handling: "collections.pyi",
+    // "dataclasses.pyi", "abc.pyi", "asyncio/coroutines.pyi".
+    private readonly _isBuiltInStubFile: boolean;
 
     // Latest analysis job that has completed at least one phase
     // of analysis.
@@ -141,12 +134,16 @@ export class SourceFile {
         const fileName = getFileName(filePath);
         this._isTypingStubFile = this._isStubFile && (
             fileName === 'typing.pyi' || fileName === 'typing_extensions.pyi');
-        this._isCollectionsStubFile = this._isStubFile &&
-            this._filePath.endsWith('/collections/__init__.pyi');
-        this._isDataClassesStubFile = this._isStubFile &&
-            fileName === 'dataclasses.pyi';
-        this._isAbcStubFile = this._isStubFile &&
-            fileName === 'abc.pyi';
+
+        this._isBuiltInStubFile = false;
+        if (this._isStubFile) {
+            if (this._filePath.endsWith('/collections/__init__.pyi') ||
+                    fileName === 'dataclasses.pyi' ||
+                    fileName === 'abc.pyi') {
+
+                this._isBuiltInStubFile = true;
+            }
+        }
     }
 
     getFilePath(): string {
@@ -491,9 +488,7 @@ export class SourceFile {
             filePath: this._filePath,
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
-            isCollectionsStubFile: this._isCollectionsStubFile,
-            isDataClassesStubFile: this._isDataClassesStubFile,
-            isAbcStubFile: this._isAbcStubFile,
+            isBuiltInStubFile: this._isBuiltInStubFile,
             console: this._console
         };
         return fileInfo;

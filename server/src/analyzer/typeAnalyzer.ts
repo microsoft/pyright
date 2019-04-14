@@ -235,10 +235,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
         assert(functionType instanceof FunctionType);
 
-        if (this._fileInfo.isCollectionsStubFile ||
-                this._fileInfo.isAbcStubFile ||
-                this._fileInfo.isDataClassesStubFile) {
-
+        if (this._fileInfo.isBuiltInStubFile) {
             // Stash away the name of the function since we need to handle
             // 'namedtuple', 'abstractmethod' and 'dataclass' specially.
             functionType.setBuiltInName(node.name.nameToken.value);

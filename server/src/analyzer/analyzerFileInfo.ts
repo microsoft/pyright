@@ -29,8 +29,6 @@ export interface AnalyzerFileInfo {
     filePath: string;
     isStubFile: boolean;
     isTypingStubFile: boolean;
-    isCollectionsStubFile: boolean;
-    isDataClassesStubFile: boolean;
-    isAbcStubFile: boolean;
+    isBuiltInStubFile: boolean;
     console: ConsoleInterface;
 }

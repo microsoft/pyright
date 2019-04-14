@@ -99,9 +99,7 @@ export class TestUtils {
             filePath,
             isStubFile: filePath.endsWith('.pyi'),
             isTypingStubFile: false,
-            isCollectionsStubFile: false,
-            isDataClassesStubFile: false,
-            isAbcStubFile: false,
+            isBuiltInStubFile: false,
             console: new StandardConsole()
         };
 
