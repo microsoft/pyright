@@ -493,7 +493,7 @@ export class AnalyzerService {
     private _applyConfigOptions() {
         this._updateSourceFileWatchers();
         this._updateTrackedFileList();
-        this._scheduleReanalysis(true);
+        this._scheduleReanalysis(false);
     }
 
     private _clearReanalysisTimer() {
