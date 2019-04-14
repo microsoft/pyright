@@ -102,7 +102,10 @@ export enum MemberAccessFlags {
     // By default, if the class has a __get__ magic method, this is
     // followed to determine the final type. Properties use this
     // technique.
-    SkipGetCheck = 16
+    SkipGetCheck = 16,
+
+    // This set of flags is appropriate for looking up methods.
+    SkipForMethodLookup = SkipInstanceMembers | SkipGetAttributeCheck | SkipGetCheck
 }
 
 interface ParamAssignmentInfo {
@@ -177,7 +180,7 @@ export class ExpressionEvaluator {
             objectType: ObjectType): Type | undefined {
 
         const memberType = this._getTypeFromClassMemberName(
-            memberName, objectType.getClassType(), usage, MemberAccessFlags.None);
+            objectType.getClassType(), memberName, usage, MemberAccessFlags.None);
 
         let resultType = memberType;
         if (memberType instanceof FunctionType || memberType instanceof OverloadedFunctionType) {
@@ -192,7 +195,7 @@ export class ExpressionEvaluator {
     // 1) a generator object
     // 2) an Awaitable (object that provides an __await__ that
     //    returns a generator object)
-    evaluateAwaitOperation(type: Type, errorNode: ParseNode): Type {
+    getTypeFromAwaitable(type: Type, errorNode: ParseNode): Type {
         return TypeUtils.doForSubtypes(type, subtype => {
             if (subtype.isAny()) {
                 return UnknownType.create();
@@ -227,6 +230,61 @@ export class ExpressionEvaluator {
             }
 
             this._addError(`'${ subtype.asString() }' is not awaitable`, errorNode);
+
+            return UnknownType.create();
+        });
+    }
+
+    // Validates that the type is iterable and returns the iterated type.
+    getTypeFromIterable(type: Type, isAsync: boolean, errorNode: ParseNode): Type {
+        const iterMethodName = isAsync ? '__aiter__' : '__iter__';
+        const nextMethodName = isAsync ? '__anext__' : '__next__';
+
+        // TODO - tighten this up, perhaps with a configuration switch.
+        if (type instanceof UnionType) {
+            type = type.removeOptional();
+        }
+
+        return TypeUtils.doForSubtypes(type, subtype => {
+            if (subtype.isAny()) {
+                return UnknownType.create();
+            }
+
+            let diag = new DiagnosticAddendum();
+            if (subtype instanceof ObjectType) {
+                const iterReturnType = this._getSpecializedReturnType(
+                    subtype, iterMethodName);
+                if (!iterReturnType) {
+                    diag.addMessage(`'__iter__' method not defined`);
+                } else {
+                    if (iterReturnType.isAny()) {
+                        return UnknownType.create();
+                    }
+
+                    if (iterReturnType instanceof ObjectType) {
+                        const nextReturnType = this._getSpecializedReturnType(
+                            iterReturnType, nextMethodName);
+
+                        if (!nextReturnType) {
+                            diag.addMessage(`'__next__' method not defined on type ` +
+                                `'${ iterReturnType.asString() }'`);
+                        } else {
+                            if (!isAsync) {
+                                return nextReturnType;
+                            }
+
+                            // If it's an async iteration, there's an implicit
+                            // 'await' operator applied.
+                            return this.getTypeFromAwaitable(nextReturnType, errorNode);
+                        }
+                    } else {
+                        diag.addMessage(`'__iter__' method does not return an object`);
+                    }
+                }
+            }
+
+            this._addError(`'${ subtype.asString() }' is not iterable` + diag.getString(),
+                errorNode);
 
             return UnknownType.create();
         });
@@ -345,26 +403,29 @@ export class ExpressionEvaluator {
 
     private _getSpecializedReturnType(objType: ObjectType, memberName: string) {
         const classType = objType.getClassType();
-        const awaitClassMember = TypeUtils.lookUpClassMember(classType, memberName, false);
-        if (!awaitClassMember) {
+
+        const classMember = TypeUtils.lookUpClassMember(classType, memberName, false);
+        if (!classMember) {
             return undefined;
         }
 
-        const memberType = TypeUtils.getEffectiveTypeOfMember(awaitClassMember);
+        let memberType = TypeUtils.getEffectiveTypeOfMember(classMember);
         if (memberType.isAny()) {
             return memberType;
         }
 
         if (memberType instanceof FunctionType) {
+            memberType = this._partiallySpecializeFunctionForBoundClassOrObject(
+                objType, memberType);
             const typeVarMap = TypeUtils.buildTypeVarMapFromSpecializedClass(classType);
+
             const specializedMemberType = TypeUtils.specializeType(
                 memberType, typeVarMap) as FunctionType;
             if (!specializedMemberType) {
                 return undefined;
             }
 
-            return TypeUtils.specializeType(
-                specializedMemberType.getEffectiveReturnType(), typeVarMap);
+            return specializedMemberType.getEffectiveReturnType();
         }
 
         return undefined;
@@ -429,7 +490,7 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromExpression(
                 node.expression, EvaluatorUsage.Get, flags);
             typeResult = {
-                type: this.evaluateAwaitOperation(typeResult.type, node.expression),
+                type: this.getTypeFromAwaitable(typeResult.type, node.expression),
                 node
             };
         } else if (node instanceof TernaryExpressionNode) {
@@ -736,12 +797,12 @@ export class ExpressionEvaluator {
 
         const memberName = memberNameNode.nameToken.value;
         let type = this._getTypeFromClassMemberName(
-            memberName, classType, usage, flags);
+            classType, memberName, usage, flags);
 
         return type;
     }
 
-    private _getTypeFromClassMemberName(memberName: string, classType: ClassType,
+    private _getTypeFromClassMemberName(classType: ClassType, memberName: string,
             usage: EvaluatorUsage, flags: MemberAccessFlags): Type | undefined {
 
         const conditionallySpecialize = (type: Type, classType: ClassType) => {
@@ -757,9 +818,13 @@ export class ExpressionEvaluator {
             !(flags & MemberAccessFlags.SkipBaseClasses));
 
         if (memberInfo) {
+            // Should we ignore members on the 'object' base class?
             if (flags & MemberAccessFlags.SkipObjectBaseClass) {
-                if (memberInfo.class && memberInfo.class.isBuiltIn() && memberInfo.class.getClassName() === 'object') {
-                    memberInfo = undefined;
+                if (memberInfo.inheritanceChain[0] instanceof ClassType) {
+                    const classType = memberInfo.inheritanceChain[0] as ClassType;
+                    if (classType.isBuiltIn() && classType.getClassName() === 'object') {
+                        memberInfo = undefined;
+                    }
                 }
             }
         }
@@ -816,40 +881,33 @@ export class ExpressionEvaluator {
             if (usage === EvaluatorUsage.Get) {
                 // See if the class has a "__getattribute__" or "__getattr__" method.
                 // If so, arbitrary members are supported.
-                let getAttribMember = TypeUtils.lookUpClassMember(classType, '__getattribute__', false);
-                if (getAttribMember && getAttribMember.class) {
-                    const isObjectClass = getAttribMember.class.isBuiltIn() &&
-                        getAttribMember.class.getClassName() === 'object';
-                    // The built-in 'object' class, from which every class derives,
-                    // implements the default __getattribute__ method. We want to ignore
-                    // this one. If this method is overridden, we need to assume that
-                    // all members can be accessed.
-                    if (!isObjectClass) {
-                        const getAttribType = TypeUtils.getEffectiveTypeOfMember(getAttribMember);
-                        if (getAttribType instanceof FunctionType) {
-                            return conditionallySpecialize(getAttribType.getEffectiveReturnType(), classType);
-                        }
-                    }
+                let getAttribType = this._getTypeFromClassMemberName(classType,
+                    '__getattribute__', EvaluatorUsage.Get,
+                        MemberAccessFlags.SkipForMethodLookup |
+                        MemberAccessFlags.SkipObjectBaseClass);
+
+                if (getAttribType && getAttribType instanceof FunctionType) {
+                    return conditionallySpecialize(getAttribType.getEffectiveReturnType(), classType);
                 }
 
-                let getAttrMember = TypeUtils.lookUpClassMember(classType, '__getattr__', false);
-                if (getAttrMember) {
-                    const getAttrType = TypeUtils.getEffectiveTypeOfMember(getAttrMember);
-                    if (getAttrType instanceof FunctionType) {
-                        return conditionallySpecialize(getAttrType.getEffectiveReturnType(), classType);
-                    }
+                let getAttrType = this._getTypeFromClassMemberName(classType,
+                    '__getattr__', EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup);
+                if (getAttrType && getAttrType instanceof FunctionType) {
+                    return conditionallySpecialize(getAttrType.getEffectiveReturnType(), classType);
                 }
             } else if (usage === EvaluatorUsage.Set) {
-                let setAttrMember = TypeUtils.lookUpClassMember(classType, '__setattr__', false);
-                if (setAttrMember) {
+                let setAttrType = this._getTypeFromClassMemberName(classType,
+                    '__setattr__', EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup);
+                if (setAttrType) {
                     // The type doesn't matter for a set usage. We just need
                     // to return a defined type.
                     return AnyType.create();
                 }
             } else {
                 assert(usage === EvaluatorUsage.Delete);
-                let delAttrMember = TypeUtils.lookUpClassMember(classType, '__detattr__', false);
-                if (delAttrMember) {
+                let delAttrType = this._getTypeFromClassMemberName(classType,
+                    '__detattr__', EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup);
+                if (delAttrType) {
                     // The type doesn't matter for a delete usage. We just need
                     // to return a defined type.
                     return AnyType.create();
@@ -1010,7 +1068,7 @@ export class ExpressionEvaluator {
                         diagAddendum.addMessage(`and ${ symbolTableKeys.length - errorsToDisplay } more...`);
                     } else if (index < errorsToDisplay) {
                         const symbolWithClass = symbolTable.get(symbolName)!;
-                        const className = symbolWithClass.class!.getClassName();
+                        const className = (symbolWithClass.inheritanceChain[0] as ClassType).getClassName();
                         diagAddendum.addMessage(`'${ className }.${ symbolName }' is abstract`);
                     }
                 });
@@ -1066,8 +1124,8 @@ export class ExpressionEvaluator {
                 }
             } else {
                 let memberType = this._getTypeFromClassMemberName(
-                    '__call__', classType, EvaluatorUsage.Get,
-                    MemberAccessFlags.SkipGetAttributeCheck);
+                    classType, '__call__', EvaluatorUsage.Get,
+                    MemberAccessFlags.SkipForMethodLookup);
                 if (memberType && memberType instanceof FunctionType) {
                     const callMethodType = this._partiallySpecializeFunctionForBoundClassOrObject(
                         callType, memberType);
@@ -1156,8 +1214,8 @@ export class ExpressionEvaluator {
         let reportedErrorsForNewCall = false;
 
         // Validate __new__
-        let constructorMethodType = this._getTypeFromClassMemberName('__new__', type,
-            EvaluatorUsage.Get, MemberAccessFlags.SkipGetAttributeCheck |
+        let constructorMethodType = this._getTypeFromClassMemberName(type, '__new__',
+            EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup |
                 MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass);
         if (constructorMethodType) {
             constructorMethodType = this._bindFunctionToClassOrObject(
@@ -1174,9 +1232,9 @@ export class ExpressionEvaluator {
         // Don't report errors for __init__ if __new__ already generated errors. They're
         // probably going to be entirely redundant anyway.
         if (!reportedErrorsForNewCall) {
-            let initMethodType = this._getTypeFromClassMemberName('__init__', type,
-                EvaluatorUsage.Get, MemberAccessFlags.SkipGetAttributeCheck |
-                    MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipObjectBaseClass);
+            let initMethodType = this._getTypeFromClassMemberName(type, '__init__',
+                EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup |
+                    MemberAccessFlags.SkipObjectBaseClass);
             if (initMethodType) {
                 initMethodType = this._bindFunctionToClassOrObject(
                     new ObjectType(type), initMethodType);
@@ -1240,9 +1298,8 @@ export class ExpressionEvaluator {
             }
         } else if (callType instanceof ObjectType) {
             let memberType = this._getTypeFromClassMemberName(
-                '__call__', callType.getClassType(), EvaluatorUsage.Get,
-                    MemberAccessFlags.SkipGetAttributeCheck |
-                    MemberAccessFlags.SkipInstanceMembers);
+                callType.getClassType(), '__call__', EvaluatorUsage.Get,
+                    MemberAccessFlags.SkipForMethodLookup);
 
             if (memberType && memberType instanceof FunctionType) {
                 const callMethodType = TypeUtils.stripFirstParameter(memberType);
@@ -1844,11 +1901,11 @@ export class ExpressionEvaluator {
                 return UnknownType.create();
             }
 
-            let operatorMethod = TypeUtils.lookUpObjectMember(subtype, magicMethodName, false);
-            if (operatorMethod) {
-                const accessorType = TypeUtils.getEffectiveTypeOfMember(operatorMethod);
-                if (accessorType instanceof FunctionType) {
-                    return accessorType.getEffectiveReturnType();
+            if (subtype instanceof ObjectType) {
+                let magicMethodType = this._getTypeFromClassMemberName(subtype.getClassType(),
+                    magicMethodName, EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup);
+                if (magicMethodType && magicMethodType instanceof FunctionType) {
+                    return magicMethodType.getEffectiveReturnType();
                 }
             }
 

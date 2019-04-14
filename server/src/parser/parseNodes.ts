@@ -169,21 +169,21 @@ export class ForNode extends ParseNode {
     readonly nodeType = ParseNodeType.For;
     isAsync?: boolean;
     targetExpression: ExpressionNode;
-    sequenceExpression: ExpressionNode;
+    iterableExpression: ExpressionNode;
     forSuite: SuiteNode;
     elseSuite?: SuiteNode;
 
     constructor(forToken: Token, targetExpression: ExpressionNode,
-            sequenceExpression: ExpressionNode, forSuite: SuiteNode) {
+            iterableExpression: ExpressionNode, forSuite: SuiteNode) {
         super(forToken);
         this.targetExpression = targetExpression;
-        this.sequenceExpression = sequenceExpression;
+        this.iterableExpression = iterableExpression;
         this.forSuite = forSuite;
         this.extend(forSuite);
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return [this.targetExpression, this.sequenceExpression, this.forSuite, this.elseSuite];
+        return [this.targetExpression, this.iterableExpression, this.forSuite, this.elseSuite];
     }
 }
 
@@ -193,18 +193,18 @@ export class ListComprehensionForNode extends ParseNode {
     readonly nodeType = ParseNodeType.ListComprehensionFor;
     isAsync?: boolean;
     targetExpression: ExpressionNode;
-    sequenceExpression: ExpressionNode;
+    iterableExpression: ExpressionNode;
 
-    constructor(startToken: Token, targetExpression: ExpressionNode, sequenceExpression: ExpressionNode) {
+    constructor(startToken: Token, targetExpression: ExpressionNode, iterableExpression: ExpressionNode) {
         super(startToken);
         this.targetExpression = targetExpression;
-        this.sequenceExpression = sequenceExpression;
+        this.iterableExpression = iterableExpression;
         this.extend(targetExpression);
-        this.extend(sequenceExpression);
+        this.extend(iterableExpression);
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return [this.targetExpression, this.sequenceExpression];
+        return [this.targetExpression, this.iterableExpression];
     }
 }
 

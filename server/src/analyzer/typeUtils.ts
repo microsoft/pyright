@@ -14,16 +14,22 @@ import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { Symbol } from './symbol';
 import { AnyType, ClassType, FunctionType,
-    ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
-    SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType, UnionType,
-    UnknownType } from './types';
+    InheritanceChain, ModuleType, NeverType, NoneType, ObjectType,
+    OverloadedFunctionType, SpecializedFunctionTypes, Type, TypeCategory,
+    TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
 
 const MaxTypeRecursion = 20;
 
 export interface ClassMember {
+    // Symbol, if found
     symbol?: Symbol;
+
+    // True if instance member, false if class member
     isInstanceMember: boolean;
-    class?: ClassType;
+
+    // Class inheritance chain with the class that
+    // defined the symbol in the first entry of the list.
+    inheritanceChain: InheritanceChain;
 }
 
 export class TypeUtils {
@@ -506,7 +512,7 @@ export class TypeUtils {
             return false;
         }
 
-        let inheritanceChain: Type[] = [];
+        let inheritanceChain: InheritanceChain = [];
         if (srcType.isDerivedFrom(destType, inheritanceChain)) {
             assert(inheritanceChain.length > 0);
 
@@ -527,8 +533,9 @@ export class TypeUtils {
 
     // Determines whether the specified type can be assigned to the
     // specified inheritance chain, taking into account its type arguments.
-    private static _canAssignClassWithTypeArgs(srcType: ClassType, inheritanceChain: Type[],
-            diag: DiagnosticAddendum, recursionCount: number): boolean {
+    private static _canAssignClassWithTypeArgs(srcType: ClassType,
+            inheritanceChain: InheritanceChain, diag: DiagnosticAddendum,
+            recursionCount: number): boolean {
 
         let curSrcType = srcType;
 
@@ -864,7 +871,7 @@ export class TypeUtils {
                     return {
                         symbol,
                         isInstanceMember: true,
-                        class: classType
+                        inheritanceChain: [classType]
                     };
                 }
             }
@@ -878,7 +885,7 @@ export class TypeUtils {
                 return {
                     symbol,
                     isInstanceMember: false,
-                    class: classType
+                    inheritanceChain: [classType]
                 };
             }
 
@@ -889,6 +896,7 @@ export class TypeUtils {
                         let methodType = this.lookUpClassMember(baseClass.type,
                             memberName, searchBaseClasses);
                         if (methodType) {
+                            methodType.inheritanceChain.push(classType);
                             return methodType;
                         }
                     }
@@ -896,7 +904,8 @@ export class TypeUtils {
             }
         } else if (classType.isAny()) {
             return {
-                isInstanceMember: false
+                isInstanceMember: false,
+                inheritanceChain: [classType]
             };
         }
 
@@ -1209,9 +1218,9 @@ export class TypeUtils {
                 if (symbolType instanceof FunctionType) {
                     if (symbolType.isAbstractMethod()) {
                         symbolTable.set(symbolName, {
-                            class: classType,
+                            symbol,
                             isInstanceMember: false,
-                            symbol
+                            inheritanceChain: [classType]
                         });
                     } else {
                         symbolTable.delete(symbolName);

@@ -66,6 +66,8 @@ export enum TypeCategory {
 
 const MaxRecursionCount = 20;
 
+export type InheritanceChain = (ClassType | UnknownType)[];
+
 export class TypeVarMap extends StringMap<Type> {}
 
 export abstract class Type {
@@ -512,9 +514,9 @@ export class ClassType extends Type {
     // Determines whether this is a subclass (derived class)
     // of the specified class. If the caller passes an empty
     // array to inheritanceChain, it will be filled in by
-    // the call to include the chain inherited classes starting
+    // the call to include the chain of inherited classes starting
     // with type2 and ending with this type.
-    isDerivedFrom(type2: ClassType, inheritanceChain?: Type[]): boolean {
+    isDerivedFrom(type2: ClassType, inheritanceChain?: InheritanceChain): boolean {
         // Is it the exact same class?
         if (this.isSameGenericClass(type2)) {
             if (inheritanceChain) {

@@ -350,7 +350,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     visitFor(node: ForNode): boolean {
-        this.walk(node.sequenceExpression);
+        this.walk(node.iterableExpression);
 
         // Populate the new scope with target parameters.
         this._addNamedTarget(node.targetExpression);
@@ -373,7 +373,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         this._enterTemporaryScope(() => {
             node.comprehensions.forEach(compr => {
                 if (compr instanceof ListComprehensionForNode) {
-                    this.walk(compr.sequenceExpression);
+                    this.walk(compr.iterableExpression);
 
                     this._addNamedTarget(compr.targetExpression);
                 } else {

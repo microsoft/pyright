@@ -545,17 +545,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitFor(node: ForNode): boolean {
-        this.walk(node.sequenceExpression);
+        this.walk(node.iterableExpression);
 
-        let exprType = this._getTypeOfExpression(node.sequenceExpression);
-        if (exprType.category === TypeCategory.Unbound) {
-            exprType = UnknownType.create();
-        } else {
-            // TODO - need to figure out correct type of iterated items.
-            exprType = UnknownType.create();
-        }
+        const iteratorType = this._getTypeOfExpression(node.iterableExpression);
+        const evaluator = this._createEvaluator();
+        const iteratedType = evaluator.getTypeFromIterable(
+            iteratorType, !!node.isAsync, node.iterableExpression);
 
-        this._assignTypeToPossibleTuple(node.targetExpression, exprType);
+        this._assignTypeToPossibleTuple(node.targetExpression, iteratedType);
 
         this.walk(node.targetExpression);
 
@@ -579,10 +576,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._enterTemporaryScope(() => {
             node.comprehensions.forEach(compr => {
                 if (compr instanceof ListComprehensionForNode) {
-                    this.walk(compr.sequenceExpression);
+                    this.walk(compr.iterableExpression);
 
                     // TODO - need to figure out right type for target expression.
-                    // let exprType = this._getTypeOfExpression(compr.sequenceExpression);
+                    // let exprType = this._getTypeOfExpression(compr.iterableExpression);
                     let exprType = UnknownType.create();
 
                     this._assignTypeToPossibleTuple(compr.targetExpression, exprType);
@@ -639,7 +636,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                         // For "async while", an implicit "await" is performed.
                         if (node.isAsync) {
-                            memberReturnType = evaluator.evaluateAwaitOperation(
+                            memberReturnType = evaluator.getTypeFromAwaitable(
                                 memberReturnType, item);
                         }
 
@@ -1793,7 +1790,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             let addNewMemberToLocalClass = false;
             if (memberInfo) {
-                if (memberInfo.class === classType && memberInfo.isInstanceMember === isInstanceMember) {
+                if (memberInfo.inheritanceChain[0] === classType &&
+                        memberInfo.isInstanceMember === isInstanceMember) {
+
                     const symbol = memberFields.get(memberName)!;
                     assert(symbol !== undefined);
                     if (symbol.setCurrentType(typeOfExpr, AnalyzerNodeInfo.getTypeSourceId(node.memberName))) {
