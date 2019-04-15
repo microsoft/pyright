@@ -477,7 +477,7 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromListExpression(node, usage);
         } else if (node instanceof SliceExpressionNode) {
             this._reportUsageErrorForReadOnly(node, usage);
-            typeResult = this._getTypeFromSliceExpression(node, flags);
+            typeResult = this._getTypeFromSliceExpression(node);
         } else if (node instanceof AwaitExpressionNode) {
             typeResult = this._getTypeFromExpression(
                 node.expression, EvaluatorUsage.Get, flags);
@@ -516,7 +516,6 @@ export class ExpressionEvaluator {
         } else if (node instanceof UnpackExpressionNode) {
             // TODO - need to implement
             this._getTypeFromExpression(node.expression, usage, EvaluatorFlags.None);
-            // TODO - need to handle futures
             let type = UnknownType.create();
             typeResult = { type, node };
         } else if (node instanceof TypeAnnotationExpressionNode) {
@@ -2088,35 +2087,36 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromSliceExpression(node: SliceExpressionNode, flags: EvaluatorFlags): TypeResult {
-        // TODO - need to implement
+    private _getTypeFromSliceExpression(node: SliceExpressionNode): TypeResult {
+        const intObject = ScopeUtils.getBuiltInObject(this._scope, 'int');
+
+        const validateIndexType = (indexExpr: ExpressionNode) => {
+            const exprType = this._getTypeFromExpression(indexExpr,
+                EvaluatorUsage.Get, EvaluatorFlags.None).type;
+
+            let diag = new DiagnosticAddendum();
+            if (!TypeUtils.canAssignType(intObject, exprType, diag)) {
+                this._addError(
+                    `Index for slice operation must be an integer value` + diag.getString(),
+                    indexExpr);
+            }
+        };
+
+        // Validate the index values.
         if (node.startValue) {
-            this._getTypeFromExpression(node.startValue,
-                EvaluatorUsage.Get, EvaluatorFlags.None);
+            validateIndexType(node.startValue);
         }
 
         if (node.endValue) {
-            this._getTypeFromExpression(node.endValue,
-                EvaluatorUsage.Get, EvaluatorFlags.None);
+            validateIndexType(node.endValue);
         }
 
         if (node.stepValue) {
-            this._getTypeFromExpression(node.stepValue,
-                EvaluatorUsage.Get, EvaluatorFlags.None);
+            validateIndexType(node.stepValue);
         }
 
-        let type = ScopeUtils.getBuiltInType(this._scope, 'set') as ClassType;
-        let convertedType: Type;
-        if (type instanceof ClassType) {
-            // TODO - infer set type
-            type = type.cloneForSpecialization([UnknownType.create()]);
-
-            convertedType = this._convertClassToObject(type);
-        } else {
-            convertedType = UnknownType.create();
-        }
-
-        return { type: convertedType, node };
+        const sliceObject = ScopeUtils.getBuiltInObject(this._scope, 'slice');
+        return { type: sliceObject, node };
     }
 
     // Converts the type parameters for a Callable type. It should
