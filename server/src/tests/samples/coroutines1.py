@@ -40,10 +40,11 @@ class ScopedClass1:
 async def consumer2():
     a = ScopedClass1()
 
+    # This should generate an error because
+    # there is no __enter__ method on ScopedClass1.
     with a as b:
-        # This should generate an error because
-        # b is a Future, not an actual int.
         needs_int(b)
 
     async with a as b:
         needs_int(b)
+

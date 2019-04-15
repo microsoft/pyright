@@ -304,3 +304,9 @@ test('With1', () => {
 
     validateResults(analysisResults, 2);
 });
+
+test('ForLoops1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoops1.py']);
+
+    validateResults(analysisResults, 2);
+});

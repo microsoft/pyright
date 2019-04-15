@@ -255,7 +255,7 @@ export class ExpressionEvaluator {
                 const iterReturnType = this._getSpecializedReturnType(
                     subtype, iterMethodName);
                 if (!iterReturnType) {
-                    diag.addMessage(`'__iter__' method not defined`);
+                    diag.addMessage(`'${ iterMethodName }' method not defined`);
                 } else {
                     if (iterReturnType.isAny()) {
                         return UnknownType.create();
@@ -266,7 +266,7 @@ export class ExpressionEvaluator {
                             iterReturnType, nextMethodName);
 
                         if (!nextReturnType) {
-                            diag.addMessage(`'__next__' method not defined on type ` +
+                            diag.addMessage(`'${ nextMethodName }' method not defined on type ` +
                                 `'${ iterReturnType.asString() }'`);
                         } else {
                             if (!isAsync) {
@@ -278,7 +278,7 @@ export class ExpressionEvaluator {
                             return this.getTypeFromAwaitable(nextReturnType, errorNode);
                         }
                     } else {
-                        diag.addMessage(`'__iter__' method does not return an object`);
+                        diag.addMessage(`'${ iterMethodName }' method does not return an object`);
                     }
                 }
             } else {
