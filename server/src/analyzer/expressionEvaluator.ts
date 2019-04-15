@@ -490,10 +490,7 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromTernaryExpression(node, flags);
         } else if (node instanceof ListComprehensionNode) {
             this._reportUsageErrorForReadOnly(node, usage);
-            // TODO - infer list type
-            // this._getTypeFromExpression(node.baseExpression, EvaluatorFlags.None);
-            let type = ScopeUtils.getBuiltInObject(this._scope, 'list', [UnknownType.create()]);
-            typeResult = { type, node };
+            typeResult = this._getTypeFromListComprehensionExpression(node, flags);
         } else if (node instanceof DictionaryNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             // TODO - infer dict type
@@ -1980,8 +1977,14 @@ export class ExpressionEvaluator {
 
         let convertedType: Type;
         if (type instanceof ClassType) {
-            // TODO - infer list type from listTypes
-            type = type.cloneForSpecialization([UnknownType.create()]);
+            const entryTypes = node.entries.map(entry => this._getTypeFromExpression(
+                entry, EvaluatorUsage.Get, EvaluatorFlags.None));
+
+            const listEntryType = entryTypes.length > 0 ?
+                TypeUtils.combineTypes(entryTypes.map(e => e.type)) :
+                UnknownType.create();
+
+            type = type.cloneForSpecialization([listEntryType]);
 
             // List literals are always objects, not classes.
             convertedType = this._convertClassToObject(type);
@@ -2057,6 +2060,17 @@ export class ExpressionEvaluator {
             type = UnknownType.create();
         }
 
+        return { type, node };
+    }
+
+    // Returns the type of one entry returned by the list comprehension,
+    // as opposed to the entire list.
+    private _getTypeFromListComprehensionExpression(node: ListComprehensionNode,
+            flags: EvaluatorFlags): TypeResult {
+
+        let type = UnknownType.create();
+
+        // TODO - need to implement
         return { type, node };
     }
 
