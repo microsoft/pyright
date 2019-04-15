@@ -614,10 +614,18 @@ export class ExpressionEvaluator {
                 type = TypeUtils.bindFunctionToClassOrObject(baseType, type);
             }
         } else if (baseType instanceof ObjectType) {
-            type = this._getTypeFromClassMemberName(baseType.getClassType(),
-                node.memberName.nameToken.value, usage, MemberAccessFlags.None);
-            if (type) {
-                type = TypeUtils.bindFunctionToClassOrObject(baseType, type);
+            const classFromTypeObject = this._getClassFromPotentialTypeObject(baseType);
+            if (classFromTypeObject) {
+                // Handle the case where the object is a 'Type' object, which
+                // represents a class.
+                return this._getTypeFromMemberAccessExpressionWithBaseType(node,
+                   { type: classFromTypeObject, node: baseTypeResult.node }, usage, flags);
+            } else {
+                type = this._getTypeFromClassMemberName(baseType.getClassType(),
+                    node.memberName.nameToken.value, usage, MemberAccessFlags.None);
+                if (type) {
+                    type = TypeUtils.bindFunctionToClassOrObject(baseType, type);
+                }
             }
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
@@ -694,6 +702,26 @@ export class ExpressionEvaluator {
         type = this._convertClassToObjectConditional(type, flags);
 
         return { type, node };
+    }
+
+    // If the object type is a 'Type' object, converts it to the corresponding
+    // class that it represents and returns that class. Otherwise returns undefined.
+    private _getClassFromPotentialTypeObject(potentialTypeObject: ObjectType): Type | undefined {
+        const objectClass = potentialTypeObject.getClassType();
+        if (objectClass.isBuiltIn() && objectClass.getClassName() === 'Type') {
+            const typeArgs = objectClass.getTypeArguments();
+
+            if (typeArgs && typeArgs.length > 0) {
+                const firstTypeArg = typeArgs[0];
+                if (firstTypeArg instanceof ObjectType) {
+                    return firstTypeArg.getClassType();
+                }
+            }
+
+            return AnyType.create();
+        }
+
+        return undefined;
     }
 
     private _getTypeFromClassMemberName(classType: ClassType, memberName: string,
@@ -1064,17 +1092,15 @@ export class ExpressionEvaluator {
                 type = UnknownType.create();
             }
         } else if (callType instanceof ObjectType) {
-            const classType = callType.getClassType();
-
             // Handle the "Type" object specially.
-            if (classType.isBuiltIn() && classType.getClassName() === 'Type') {
-                const typeArgs = classType.getTypeArguments();
-                if (typeArgs && typeArgs.length >= 1 && typeArgs[0] instanceof ObjectType) {
-                    const objType = typeArgs[0] as ObjectType;
+            const classFromTypeObject = this._getClassFromPotentialTypeObject(callType);
+            if (classFromTypeObject) {
+                if (classFromTypeObject instanceof ClassType) {
                     type = this._validateConstructorArguments(errorNode,
-                        argList, objType.getClassType());
+                        argList, classFromTypeObject);
                 }
             } else {
+                const classType = callType.getClassType();
                 let memberType = this._getTypeFromClassMemberName(
                     classType, '__call__', EvaluatorUsage.Get,
                     MemberAccessFlags.SkipForMethodLookup);
