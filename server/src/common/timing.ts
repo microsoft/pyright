@@ -41,7 +41,9 @@ export class TimingStat {
     }
 
     printTime(): string {
-        return (this.totalTime / 1000).toString() + 'sec';
+        let totalTimeInSec = this.totalTime / 1000;
+        let roundedTime = Math.round(totalTimeInSec * 100) / 100;
+        return roundedTime.toString() + 'sec';
     }
 }
 
@@ -60,6 +62,8 @@ export class TimingStats {
     }
 
     printDetails(console: ConsoleInterface) {
+        console.log('');
+        console.log('Timing stats');
         console.log('Find Source Files:    ' + this.findFilesTime.printTime());
         console.log('Read Source Files:    ' + this.readFileTime.printTime());
         console.log('Tokenize:             ' + this.tokenizeFileTime.printTime());

@@ -106,8 +106,28 @@ export class AnalyzerService {
         return this._program.getHoverForPosition(filePath, position);
     }
 
+    printStats() {
+        this._console.log('');
+        this._console.log('Analysis stats');
+
+        const fileCount = this._program.getFileCount();
+        this._console.log('Total files analyzed: ' + fileCount.toString());
+
+        let averagePassCount = this._program.getAverageAnalysisPassCount();
+        averagePassCount = Math.round(averagePassCount * 10) / 10;
+        this._console.log('Average pass count:   ' + averagePassCount.toString());
+
+        const [maxPassCount, sourceFile] = this._program.getMaxAnalysisPassCount();
+        const path = sourceFile ? ` (${ sourceFile.getFilePath() })` : '';
+        this._console.log('Maximum pass count:   ' + maxPassCount.toString() + path);
+    }
+
     test_getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
         return this._getConfigOptions(commandLineOptions);
+    }
+
+    test_getFileNamesFromFileSpecs(): string[] {
+        return this._getFileNamesFromFileSpecs();
     }
 
     // Calculates the effective options based on the command-line options,
@@ -309,10 +329,6 @@ export class AnalyzerService {
                 return undefined;
             }
         }
-    }
-
-    test_getFileNamesFromFileSpecs(): string[] {
-        return this._getFileNamesFromFileSpecs();
     }
 
     private _getFileNamesFromFileSpecs(): string[] {

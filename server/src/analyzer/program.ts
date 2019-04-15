@@ -88,6 +88,34 @@ export class Program {
         return this._sourceFileList.length;
     }
 
+    getAverageAnalysisPassCount() {
+        let passCount = 0;
+        this._sourceFileList.forEach(sourceFileInfo => {
+            passCount += sourceFileInfo.sourceFile.getAnalysisPassCount();
+        });
+
+        if (this._sourceFileList.length === 0) {
+            return 0;
+        }
+
+        return passCount / this._sourceFileList.length;
+    }
+
+    getMaxAnalysisPassCount(): [number, SourceFile?] {
+        let maxPassCount = 0;
+        let sourceFile: SourceFile | undefined;
+
+        this._sourceFileList.forEach(sourceFileInfo => {
+            const passCount = sourceFileInfo.sourceFile.getAnalysisPassCount();
+            if (passCount > maxPassCount) {
+                maxPassCount = passCount;
+                sourceFile = sourceFileInfo.sourceFile;
+            }
+        });
+
+        return [maxPassCount, sourceFile];
+    }
+
     getFilesToAnalyzeCount() {
         let sourceFileCount = 0;
 

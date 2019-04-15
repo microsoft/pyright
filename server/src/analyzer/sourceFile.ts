@@ -370,6 +370,10 @@ export class SourceFile {
                 this._analysisJob.parseResults, position);
     }
 
+    getAnalysisPassCount() {
+        return this._analysisJob.typeAnalysisPassNumber;
+    }
+
     setTypeAnalysisPassNeeded() {
         this._analysisJob.isTypeAnalysisPassNeeded = true;
         this._analysisJob.isTypeAnalysisFinalized = false;

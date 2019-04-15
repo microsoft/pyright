@@ -34,7 +34,7 @@ function processArgs() {
         { name: 'files', type: String, multiple: true, defaultOption: true },
         { name: 'help', alias: 'h', type: Boolean },
         { name: 'project', alias: 'p', type: String },
-        { name: 'timing' },
+        { name: 'stats' },
         { name: 'typeshed-path', alias: 't', type: String },
         { name: 'venv-path', alias: 'v', type: String },
         { name: 'watch', alias: 'w' }
@@ -94,8 +94,9 @@ function processArgs() {
             timingStats.printSummary(console);
         }
 
-        if (args.timing !== undefined) {
-            // Print the timing details.
+        if (args.stats !== undefined) {
+            // Print the stats details.
+            service.printStats();
             timingStats.printDetails(console);
         }
 
@@ -123,7 +124,7 @@ function printUsage() {
         '  Options:\n' +
         '  -h,--help                        Show this help message\n' +
         '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +
-        '  --timing                         Print detailed timing stats\n' +
+        '  --stats                          Print detailed performance stats\n' +
         '  -t,--typeshed-path DIRECTORY     Use typeshed type stubs at this location\n' +
         '  -v,--venv-path DIRECTORY         Directory that contains virtual environments\n' +
         '  -w,--watch                       Continue to run and watch for changes\n'

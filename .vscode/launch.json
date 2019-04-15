@@ -12,7 +12,7 @@
       "args": [
         "-p",
         "${workspaceRoot}/../brain",
-        "--timing"
+        "--stats"
       ],
       "internalConsoleOptions": "openOnSessionStart",
       "outFiles": [

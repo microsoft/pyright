@@ -6,7 +6,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | :--------------------------------- | :---------------------------------------------------  |
 | -h, --help                          | Show help message                                    |
 | -p, --project FILE OR DIRECTORY     | Use the configuration file at this location          |
-| --timing                            | Print detailed timing stats                          |
+| --stats                             | Print detailed performance stats                     |
 | -t, --typeshed-path DIRECTORY       | Use typeshed type stubs at this location (1)         |
 | -v, --venv-path DIRECTORY           | Directory that contains virtual environments (2)     |
 | -w, --watch                         | Continue to run and watch for changes (3)            |
