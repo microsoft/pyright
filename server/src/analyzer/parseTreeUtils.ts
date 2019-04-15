@@ -14,14 +14,11 @@ import { TextRangeCollection } from '../common/textRangeCollection';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode,
     BinaryExpressionNode, CallExpressionNode, ClassNode, ConstantNode,
     DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode,
-    ExpressionNode, FunctionNode, IndexExpressionNode, LambdaNode,
-    ListComprehensionForNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNode,
-    NameNode, NumberNode, ParameterCategory, ParseNode,
-    SetNode, SliceExpressionNode, StarExpressionNode,
-    TernaryExpressionNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode,
-    UnaryExpressionNode,
-    YieldExpressionNode,
+    ExpressionNode, FunctionNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNode, NameNode,
+    NumberNode, ParameterCategory, ParseNode, SetNode, SliceExpressionNode,
+    TernaryExpressionNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnaryExpressionNode, UnpackExpressionNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
@@ -101,7 +98,7 @@ export class ParseTreeUtils {
                 return ParseTreeUtils.printExpression(expr);
             });
             return `[${ expressions.join(', ') }]`;
-        } else if (node instanceof StarExpressionNode) {
+        } else if (node instanceof UnpackExpressionNode) {
             return '*' + ParseTreeUtils.printExpression(node.expression);
         } else if (node instanceof TupleExpressionNode) {
             let expressions = node.expressions.map(expr => {

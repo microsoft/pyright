@@ -23,8 +23,8 @@ import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode
     ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
     ListComprehensionForNode, ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode,
     ParameterCategory, ParseNode, RaiseNode, ReturnNode, SliceExpressionNode,
-    StarExpressionNode, StringNode, SuiteNode, TernaryExpressionNode,
-    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
+    StringNode, SuiteNode, TernaryExpressionNode, TryNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
     WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -993,7 +993,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitStar(node: StarExpressionNode): boolean {
+    visitUnpack(node: UnpackExpressionNode): boolean {
         this._getTypeOfExpression(node);
         return true;
     }
@@ -2017,7 +2017,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             this._assignTypeToPossibleTuple(target.valueExpression, typeHint);
-        } else if (target instanceof StarExpressionNode) {
+        } else if (target instanceof UnpackExpressionNode) {
             if (target.expression instanceof NameNode) {
                 let name = target.expression.nameToken;
                 let declaration: Declaration = {

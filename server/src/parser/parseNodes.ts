@@ -64,7 +64,6 @@ export enum ParseNodeType {
     Return,
     Set,
     Slice,
-    Star,
     StatementList,
     String,
     Suite,
@@ -73,6 +72,7 @@ export enum ParseNodeType {
     Try,
     TypeAnnotation,
     UnaryOperation,
+    Unpack,
     While,
     With,
     WithItem,
@@ -524,8 +524,8 @@ export class TernaryExpressionNode extends ExpressionNode {
     }
 }
 
-export class StarExpressionNode extends ExpressionNode {
-    readonly nodeType = ParseNodeType.Star;
+export class UnpackExpressionNode extends ExpressionNode {
+    readonly nodeType = ParseNodeType.Unpack;
     expression: ExpressionNode;
 
     constructor(starToken: Token, expression: ExpressionNode) {
@@ -797,7 +797,8 @@ export class DictionaryExpandEntryNode extends ExpressionNode {
     }
 }
 
-export type DictionaryEntryNode = DictionaryKeyEntryNode | DictionaryExpandEntryNode | ListComprehensionNode<DictionaryKeyEntryNode>;
+export type DictionaryEntryNode = DictionaryKeyEntryNode | DictionaryExpandEntryNode |
+    ListComprehensionNode<DictionaryKeyEntryNode> | ListComprehensionNode<DictionaryExpandEntryNode>;
 
 export class SetNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Set;

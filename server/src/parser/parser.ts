@@ -34,9 +34,9 @@ import { ArgumentCategory, ArgumentNode, AssertNode,
     ListComprehensionIterNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
     ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode, ParameterCategory,
     ParameterNode, ParseNode, PassNode, RaiseNode, ReturnNode, SetNode,
-    SliceExpressionNode, StarExpressionNode, StatementListNode, StatementNode,
-    StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode,
+    SliceExpressionNode, StatementListNode, StatementNode, StringNode,
+    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnaryExpressionNode, UnpackExpressionNode, WhileNode,
     WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
@@ -1295,9 +1295,9 @@ export class Parser {
             // Make sure that we don't have more than one star expression in the list.
             let sawStar = false;
             for (let expr of exprListResult.list) {
-                if (expr instanceof StarExpressionNode) {
+                if (expr instanceof UnpackExpressionNode) {
                     if (sawStar) {
-                        this._addError('Only one starred expression allowed in list', expr);
+                        this._addError('Only one unpack operation allowed in list', expr);
                         break;
                     }
                     sawStar = true;
@@ -1311,11 +1311,11 @@ export class Parser {
     // exp_or_star: expr | star_expr
     // expr: xor_expr ('|' xor_expr)*
     // star_expr: '*' expr
-    private _parseExpression(allowStar: boolean): ExpressionNode {
+    private _parseExpression(allowUnpack: boolean): ExpressionNode {
         let startToken = this._peekToken();
 
-        if (allowStar && this._consumeTokenIfOperator(OperatorType.Multiply)) {
-            return new StarExpressionNode(startToken, this._parseExpression(false));
+        if (allowUnpack && this._consumeTokenIfOperator(OperatorType.Multiply)) {
+            return new UnpackExpressionNode(startToken, this._parseExpression(false));
         }
 
         return this._parseBitwiseOrExpression();
@@ -1972,15 +1972,16 @@ export class Parser {
             }
 
             if (keyExpression && valueExpression) {
-                if (keyExpression instanceof StarExpressionNode) {
-                    this._addError('Star expressions not allowed in dictionaries', keyExpression);
+                if (keyExpression instanceof UnpackExpressionNode) {
+                    this._addError('Unpack operation not allowed in dictionaries', keyExpression);
                 }
 
                 if (isSet) {
                     this._addError('Key/value pairs are not allowed within a set', valueExpression);
                 } else {
-                    let dictEntry: DictionaryEntryNode = new DictionaryKeyEntryNode(keyExpression, valueExpression);
-                    let listComp = this._tryParseListComprehension(dictEntry);
+                    let keyEntryNode = new DictionaryKeyEntryNode(keyExpression, valueExpression);
+                    let dictEntry: DictionaryEntryNode = keyEntryNode;
+                    let listComp = this._tryParseListComprehension(keyEntryNode);
                     if (listComp) {
                         dictEntry = listComp;
                         sawListComprehension = true;
@@ -1992,13 +1993,14 @@ export class Parser {
                 if (isSet) {
                     this._addError('Unpack operator not allowed within a set', doubleStarExpression);
                 } else {
-                    let expandEntryNode: ExpressionNode = new DictionaryExpandEntryNode(doubleStarExpression);
-                    let listComp = this._tryParseListComprehension(expandEntryNode);
+                    let listEntryNode = new DictionaryExpandEntryNode(doubleStarExpression);
+                    let expandEntryNode: DictionaryEntryNode = listEntryNode;
+                    let listComp = this._tryParseListComprehension(listEntryNode);
                     if (listComp) {
                         expandEntryNode = listComp;
                         sawListComprehension = true;
                     }
-                    dictionaryEntries.push();
+                    dictionaryEntries.push(expandEntryNode);
                     isDictionary = true;
                 }
             } else {

@@ -21,9 +21,9 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     DecoratorNode, DictionaryNode, EllipsisNode, ExpressionNode,
     IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionNode,
     ListNode, MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory,
-    ParseNode, SetNode, SliceExpressionNode, StarExpressionNode,
-    StatementListNode, StringNode, TernaryExpressionNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, YieldExpressionNode,
+    ParseNode, SetNode, SliceExpressionNode, StatementListNode,
+    StringNode, TernaryExpressionNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnaryExpressionNode, UnpackExpressionNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
     TokenType } from '../parser/tokenizerTypes';
@@ -490,39 +490,30 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromTernaryExpression(node, flags);
         } else if (node instanceof ListComprehensionNode) {
             this._reportUsageErrorForReadOnly(node, usage);
-            typeResult = this._getTypeFromListComprehensionExpression(node, flags);
+            typeResult = this._getTypeFromListComprehensionExpression(node);
         } else if (node instanceof DictionaryNode) {
             this._reportUsageErrorForReadOnly(node, usage);
-            // TODO - infer dict type
-            let type = ScopeUtils.getBuiltInObject(this._scope, 'dict',
-                [UnknownType.create(), UnknownType.create()]);
-            typeResult = { type, node };
+            typeResult = this._getTypeFromDictionaryExpression(node);
         } else if (node instanceof LambdaNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromLambdaExpression(node);
         } else if (node instanceof SetNode) {
             this._reportUsageErrorForReadOnly(node, usage);
-            node.entries.forEach(expr => {
-                this._getTypeFromExpression(expr, EvaluatorUsage.Get, EvaluatorFlags.None);
-            });
-            // TODO - infer set type
-            let type = ScopeUtils.getBuiltInObject(this._scope, 'set', [UnknownType.create()]);
-            typeResult = { type, node };
+            typeResult = this._getTypeFromSetExpression(node);
         } else if (node instanceof AssignmentNode) {
             this._reportUsageErrorForReadOnly(node, usage);
 
-            // TODO - need to implement
-            this._getTypeFromExpression(node.rightExpression,
+            // Don't validate the type match for the assignment here. Simply
+            // return the type result of the RHS.
+            typeResult = this._getTypeFromExpression(node.rightExpression,
                 EvaluatorUsage.Get, EvaluatorFlags.None);
-            typeResult = this._getTypeFromExpression(node.leftExpression,
-                EvaluatorUsage.Set, EvaluatorFlags.None);
         } else if (node instanceof YieldExpressionNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromYieldExpression(node);
         } else if (node instanceof YieldFromExpressionNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromYieldFromExpression(node);
-        } else if (node instanceof StarExpressionNode) {
+        } else if (node instanceof UnpackExpressionNode) {
             // TODO - need to implement
             this._getTypeFromExpression(node.expression, usage, EvaluatorFlags.None);
             // TODO - need to handle futures
@@ -1966,6 +1957,31 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
+    private _getTypeFromSetExpression(node: SetNode): TypeResult {
+        const entryTypes = node.entries.map(expr =>
+            this._getTypeFromExpression(expr, EvaluatorUsage.Get, EvaluatorFlags.None)
+        );
+
+        // Infer the set type based on the entries.
+        const inferredEntryType = entryTypes.length > 0 ?
+            TypeUtils.combineTypes(entryTypes.map(e => e.type)) :
+            UnknownType.create();
+
+        let type = ScopeUtils.getBuiltInObject(this._scope, 'set', [inferredEntryType]);
+
+        return { type, node };
+    }
+
+    private _getTypeFromDictionaryExpression(node: DictionaryNode): TypeResult {
+        let keyType = UnknownType.create();
+        let valueType = UnknownType.create();
+
+        // TODO - infer key and value types
+        const type = ScopeUtils.getBuiltInObject(this._scope, 'dict', [keyType, valueType]);
+
+        return { type, node };
+    }
+
     private _getTypeFromListExpression(node: ListNode, usage: EvaluatorUsage): TypeResult {
         let listTypes: TypeResult[] = [];
         node.entries.forEach(expr => {
@@ -2065,9 +2081,7 @@ export class ExpressionEvaluator {
 
     // Returns the type of one entry returned by the list comprehension,
     // as opposed to the entire list.
-    private _getTypeFromListComprehensionExpression(node: ListComprehensionNode,
-            flags: EvaluatorFlags): TypeResult {
-
+    private _getTypeFromListComprehensionExpression(node: ListComprehensionNode): TypeResult {
         let type = UnknownType.create();
 
         // TODO - need to implement

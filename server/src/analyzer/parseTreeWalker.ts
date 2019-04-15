@@ -18,9 +18,9 @@ import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpression
     ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode, ListNode,
     MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode,
     ParameterNode, ParseNode, ParseNodeType, PassNode, RaiseNode, ReturnNode,
-    SetNode, SliceExpressionNode, StarExpressionNode, StatementListNode, StringNode,
-    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, WhileNode, WithItemNode,
+    SetNode, SliceExpressionNode, StatementListNode, StringNode, SuiteNode,
+    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithItemNode,
     WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 
 // To use this class, create a subclass and override the
@@ -186,9 +186,6 @@ export class ParseTreeWalker {
             case ParseNodeType.Slice:
                 return this.visitSlice(node as SliceExpressionNode);
 
-            case ParseNodeType.Star:
-                return this.visitStar(node as StarExpressionNode);
-
             case ParseNodeType.StatementList:
                 return this.visitStatementList(node as StatementListNode);
 
@@ -209,6 +206,9 @@ export class ParseTreeWalker {
 
             case ParseNodeType.UnaryOperation:
                 return this.visitUnaryOperation(node as UnaryExpressionNode);
+
+            case ParseNodeType.Unpack:
+                return this.visitUnpack(node as UnpackExpressionNode);
 
             case ParseNodeType.While:
                 return this.visitWhile(node as WhileNode);
@@ -420,10 +420,6 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitStar(node: StarExpressionNode) {
-        return true;
-    }
-
     visitStatementList(node: StatementListNode) {
         return true;
     }
@@ -449,6 +445,10 @@ export class ParseTreeWalker {
     }
 
     visitUnaryOperation(node: UnaryExpressionNode) {
+        return true;
+    }
+
+    visitUnpack(node: UnpackExpressionNode) {
         return true;
     }
 

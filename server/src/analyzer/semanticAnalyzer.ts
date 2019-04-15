@@ -28,8 +28,8 @@ import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ExceptNode,
     ImportFromAsNode, LambdaNode, ListComprehensionForNode,
     ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode,
     ModuleNode, NameNode, NonlocalNode, ParameterNode, RaiseNode, ReturnNode,
-    StarExpressionNode, StringNode, SuiteNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, WhileNode, WithNode,
+    StringNode, SuiteNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnpackExpressionNode, WhileNode, WithNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -822,7 +822,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             node.entries.forEach(expr => {
                 this._addNamedTarget(expr);
             });
-        } else if (node instanceof StarExpressionNode && node.expression instanceof NameNode) {
+        } else if (node instanceof UnpackExpressionNode && node.expression instanceof NameNode) {
             this._bindNameNodeToType(node.expression, UnknownType.create());
         }
     }
