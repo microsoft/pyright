@@ -141,9 +141,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 argType = argType.removeUnbound();
             }
 
-            if (!argType.isAny() && argType.category !== TypeCategory.Class &&
-                    argType.category !== TypeCategory.Tuple) {
-
+            if (!argType.isAny() && argType.category !== TypeCategory.Class) {
                 this._addError(`Argument to class must be a base class`, arg);
                 argType = UnknownType.create();
             }

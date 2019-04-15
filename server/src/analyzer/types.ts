@@ -34,9 +34,6 @@ export enum TypeCategory {
     // get to this point.
     Never,
 
-    // Immutable sequence of typed values.
-    Tuple,
-
     // Callable type with typed input parameters and return parameter.
     Function,
 
