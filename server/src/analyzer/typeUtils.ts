@@ -472,7 +472,6 @@ export class TypeUtils {
                 recursionLevel + 1);
         }
 
-        // TODO - need to implement
         return type;
     }
 
