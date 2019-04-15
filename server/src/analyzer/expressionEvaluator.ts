@@ -1752,74 +1752,34 @@ export class ExpressionEvaluator {
         // Map unary operators to magic functions. Note that the bitwise
         // invert has two magic functions that are aliases of each other.
         const unaryOperatorMap: { [operator: number]: [string, string] } = {
-            [OperatorType.Add]: ['__pos__', ''],
-            [OperatorType.Subtract]: ['__neg__', ''],
-            [OperatorType.Not]: ['__not__', ''],
-            [OperatorType.BitwiseInvert]: ['__inv__', '__invert__']
+            [OperatorType.Add]: ['+', '__pos__'],
+            [OperatorType.Subtract]: ['-', '__neg__'],
+            [OperatorType.Not]: ['not', '__not__'],
+            [OperatorType.BitwiseInvert]: ['~', '__inv__']
         };
 
-        let type: Type;
-        if (exprType.isAny()) {
-            type = exprType;
-        } else if (exprType instanceof ObjectType) {
-            if (node.operator === OperatorType.Not) {
-                // The "not" operator always returns a boolean.
-                type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
-            } else if (node.operator === OperatorType.BitwiseInvert) {
-                const intObjType = ScopeUtils.getBuiltInObject(this._scope, 'int');
+        let type: Type | undefined;
 
-                if (intObjType.isSame(exprType)) {
-                    type = intObjType;
-                } else {
-                    // TODO - need to handle generic case.
-                    type = UnknownType.create();
-                }
-            } else if (node.operator === OperatorType.Add || node.operator === OperatorType.Subtract) {
-                const intType = ScopeUtils.getBuiltInObject(this._scope, 'int');
-                const floatType = ScopeUtils.getBuiltInObject(this._scope, 'float');
-                const complexType = ScopeUtils.getBuiltInObject(this._scope, 'complex');
-
-                if (intType.isSame(exprType)) {
-                    type = intType;
-                } else if (floatType.isSame(exprType)) {
-                    type = floatType;
-                } else if (complexType.isSame(exprType)) {
-                    type = complexType;
-                } else {
-                    // TODO - need to handle generic case.
-                    type = UnknownType.create();
-                }
+        // __not__ always returns a boolean.
+        if (node.operator === OperatorType.Not) {
+            type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
+        } else {
+            if (exprType.isAny()) {
+                type = exprType;
             } else {
-                // We should never get here.
-                this._addError('Unexpected unary operator', node);
+                const magicMethodName = unaryOperatorMap[node.operator][1];
+                type = this._getTypeFromMagicMethodReturn(exprType, magicMethodName);
+            }
+
+            if (!type) {
+                this._addError(`Operator '${ unaryOperatorMap[node.operator][0] }'` +
+                    ` not supported for type '${ exprType.asString() }'`,
+                    node.expression);
                 type = UnknownType.create();
             }
-        } else {
-            // TODO - need to handle additional types.
-            type = UnknownType.create();
         }
 
         return { type, node };
-    }
-
-    private _getTypeFromMagicMethodReturn(objType: Type, magicMethodName: string,
-            fallbackType: Type = UnknownType.create()): Type {
-
-        return TypeUtils.doForSubtypes(objType, subtype => {
-            if (subtype.isAny()) {
-                return UnknownType.create();
-            }
-
-            if (subtype instanceof ObjectType) {
-                let magicMethodType = this._getTypeFromClassMemberName(subtype.getClassType(),
-                    magicMethodName, EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup);
-                if (magicMethodType && magicMethodType instanceof FunctionType) {
-                    return magicMethodType.getEffectiveReturnType();
-                }
-            }
-
-            return fallbackType;
-        });
     }
 
     private _getTypeFromBinaryExpression(node: BinaryExpressionNode,
@@ -1842,47 +1802,50 @@ export class ExpressionEvaluator {
             this._getTypeFromExpression(node.rightExpression, EvaluatorUsage.Get, flags);
         });
 
-        const arithmeticOperatorMap: { [operator: number]: [string, string, boolean] } = {
-            [OperatorType.Add]: ['__add__', '__radd__', true],
-            [OperatorType.Subtract]: ['__sub__', '__rsub__', true],
-            [OperatorType.Multiply]: ['__mul__', '__rmul__', true],
-            [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__', true],
-            [OperatorType.Divide]: ['__truediv__', '__rtruediv__', true],
-            [OperatorType.Mod]: ['__mod__', '__rmod__', true],
-            [OperatorType.Power]: ['__power__', '__rpower__', true],
-            [OperatorType.MatrixMultiply]: ['__matmul__', '', false]
+        const arithmeticOperatorMap: { [operator: number]: [string, string, boolean, string] } = {
+            [OperatorType.Add]: ['__add__', '__radd__', true, '+'],
+            [OperatorType.Subtract]: ['__sub__', '__rsub__', true, '-'],
+            [OperatorType.Multiply]: ['__mul__', '__rmul__', true, '*'],
+            [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__', true, '//'],
+            [OperatorType.Divide]: ['__truediv__', '__rtruediv__', true, '/'],
+            [OperatorType.Mod]: ['__mod__', '__rmod__', true, '%'],
+            [OperatorType.Power]: ['__power__', '__rpower__', true, '**'],
+            [OperatorType.MatrixMultiply]: ['__matmul__', '', false, '@']
         };
 
-        const bitwiseOperatorMap: { [operator: number]: [string, string] } = {
-            [OperatorType.BitwiseAnd]: ['__and__', '__rand__'],
-            [OperatorType.BitwiseOr]: ['__or__', '__ror__'],
-            [OperatorType.BitwiseXor]: ['__xor__', '__rxor__'],
-            [OperatorType.LeftShift]: ['__lshift__', '__rlshift__'],
-            [OperatorType.RightShift]: ['__rshift__', '__rrshift__']
+        const bitwiseOperatorMap: { [operator: number]: [string, string, string] } = {
+            [OperatorType.BitwiseAnd]: ['__and__', '__rand__', '&'],
+            [OperatorType.BitwiseOr]: ['__or__', '__ror__', '|'],
+            [OperatorType.BitwiseXor]: ['__xor__', '__rxor__', '^'],
+            [OperatorType.LeftShift]: ['__lshift__', '__rlshift__', '<<'],
+            [OperatorType.RightShift]: ['__rshift__', '__rrshift__', '>>']
         };
 
-        const comparisonOperatorMap: { [operator: number]: string } = {
-            [OperatorType.Equals]: '__eq__',
-            [OperatorType.NotEquals]: '__ne__',
-            [OperatorType.LessThan]: '__lt__',
-            [OperatorType.LessThanOrEqual]: '__le__',
-            [OperatorType.GreaterThan]: '__gt__',
-            [OperatorType.GreaterThanOrEqual]: '__ge__'
+        const comparisonOperatorMap: { [operator: number]: [string, string] } = {
+            [OperatorType.Equals]: ['__eq__', '=='],
+            [OperatorType.NotEquals]: ['__ne__', '!='],
+            [OperatorType.LessThan]: ['__lt__', '<'],
+            [OperatorType.LessThanOrEqual]: ['__le__', '<='],
+            [OperatorType.GreaterThan]: ['__gt__', '>'],
+            [OperatorType.GreaterThanOrEqual]: ['__ge__', '>=']
         };
 
-        const booleanOperatorMap: { [operator: number]: boolean } = {
-            [OperatorType.And]: true,
-            [OperatorType.Or]: true,
-            [OperatorType.Is]: true,
-            [OperatorType.IsNot]: true,
-            [OperatorType.In]: true,
-            [OperatorType.NotIn]: true
+        const booleanOperatorMap: { [operator: number]: [boolean, string] } = {
+            [OperatorType.And]: [true, 'and'],
+            [OperatorType.Or]: [true, 'or'],
+            [OperatorType.Is]: [true, 'is'],
+            [OperatorType.IsNot]: [true, 'is not'],
+            [OperatorType.In]: [true, 'in'],
+            [OperatorType.NotIn]: [true, 'not in']
         };
 
         let type: Type | undefined;
+        let operatorText = 'unknown';
 
         if (arithmeticOperatorMap[node.operator]) {
+            operatorText = arithmeticOperatorMap[node.operator][3];
             const supportsBuiltInTypes = arithmeticOperatorMap[node.operator][2];
+
             if (supportsBuiltInTypes) {
                 if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
                     const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
@@ -1920,6 +1883,8 @@ export class ExpressionEvaluator {
                 type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName);
             }
         } else if (bitwiseOperatorMap[node.operator]) {
+            operatorText = bitwiseOperatorMap[node.operator][2];
+
             if (leftType.isAny() || rightType.isAny()) {
                 type = UnknownType.create();
             } else if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
@@ -1940,11 +1905,15 @@ export class ExpressionEvaluator {
                 type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName);
             }
         } else if (comparisonOperatorMap[node.operator]) {
-            const magicMethodName = comparisonOperatorMap[node.operator];
+            operatorText = comparisonOperatorMap[node.operator][1];
+            const magicMethodName = comparisonOperatorMap[node.operator][0];
+
             type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName,
                 ScopeUtils.getBuiltInObject(this._scope, 'bool'));
 
         } else if (booleanOperatorMap[node.operator]) {
+            operatorText = booleanOperatorMap[node.operator][1];
+
             if (node.operator === OperatorType.And) {
                 // If the operator is an AND or OR, we need to combine the two types.
                 type = TypeUtils.combineTypes([
@@ -1956,13 +1925,36 @@ export class ExpressionEvaluator {
                 // The other boolean operators always return a bool value.
                 type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
             }
-        } else {
-            // We should never get here.
-            this._addError('Unexpected binary operator', node);
+        }
+
+        if (!type) {
+            this._addError(`Operator '${ operatorText }' not ` +
+                `supported for type '${ leftType.asString() }'`,
+                node.leftExpression);
             type = UnknownType.create();
         }
 
         return { type, node };
+    }
+
+    private _getTypeFromMagicMethodReturn(objType: Type, magicMethodName: string,
+            fallbackType: Type | undefined = UnknownType.create()): Type | undefined {
+
+        return TypeUtils.doForSubtypes(objType, subtype => {
+            if (subtype.isAny()) {
+                return UnknownType.create();
+            }
+
+            if (subtype instanceof ObjectType) {
+                let magicMethodType = this._getTypeFromClassMemberName(subtype.getClassType(),
+                    magicMethodName, EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup);
+                if (magicMethodType && magicMethodType instanceof FunctionType) {
+                    return magicMethodType.getEffectiveReturnType();
+                }
+            }
+
+            return fallbackType;
+        });
     }
 
     private _getBuiltInClassTypes(names: string[]): (ClassType | undefined)[] {
