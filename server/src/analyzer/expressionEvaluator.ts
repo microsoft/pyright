@@ -822,14 +822,13 @@ export class ExpressionEvaluator {
                 return subtype;
             } else if (subtype instanceof ClassType) {
                 let typeArgs = this._getTypeArgs(node.items);
-                return this._createSpecializeClassType(subtype, typeArgs,
-                    node.items, flags);
+                return this._createSpecializeClassType(subtype, typeArgs, node.items, flags);
             } else if (subtype instanceof FunctionType) {
-                // TODO - need to implement
+                // TODO - need to implement. This is used in cases where
+                // a generic Callable is used as a function parameter.
                 return UnknownType.create();
             } else if (subtype instanceof ObjectType) {
-                // TODO - need to implement
-                return UnknownType.create();
+                return this._getTypeFromIndexedObject(node, subtype, usage);
             } else if (subtype instanceof NoneType) {
                 this._addDiagnostic(
                     this._configOptions.reportOptionalSubscript,
@@ -847,6 +846,62 @@ export class ExpressionEvaluator {
         });
 
         return { type, node };
+    }
+
+    private _getTypeFromIndexedObject(node: IndexExpressionNode,
+            baseType: ObjectType, usage: EvaluatorUsage): Type {
+
+        let magicMethodName: string;
+        if (usage === EvaluatorUsage.Get) {
+            magicMethodName = '__getitem__';
+        } else if (usage === EvaluatorUsage.Set) {
+            magicMethodName = '__setitem__';
+        } else {
+            assert(usage === EvaluatorUsage.Delete);
+            magicMethodName = '__delitem__';
+        }
+
+        let itemMethodType = this._getTypeFromClassMemberName(
+            baseType.getClassType(), magicMethodName, EvaluatorUsage.Get,
+                MemberAccessFlags.SkipForMethodLookup);
+
+        if (!itemMethodType) {
+            this._addError(
+                `Object of type '${ baseType.asString() }' does not define ` +
+                    `'${ magicMethodName }'`,
+                node.baseExpression);
+            return UnknownType.create();
+        }
+
+        let indexTypeList = node.items.items.map(item =>
+            this._getTypeFromExpression(item, EvaluatorUsage.Get, EvaluatorFlags.None).type);
+
+        let indexType: Type;
+        if (indexTypeList.length === 1) {
+            indexType = indexTypeList[0];
+        } else {
+            indexType = ScopeUtils.getBuiltInObject(this._scope, 'tuple');
+        }
+
+        let argList: FunctionArgument[] = [{
+            argumentCategory: ArgumentCategory.Simple,
+            type: baseType
+        }, {
+            argumentCategory: ArgumentCategory.Simple,
+            type: indexType
+        }];
+
+        if (usage === EvaluatorUsage.Set) {
+            argList.push({
+                argumentCategory: ArgumentCategory.Simple,
+                type: AnyType.create()
+            });
+        }
+
+        let returnType = this._validateCallArguments(node, argList,
+            itemMethodType, new TypeVarMap());
+
+        return returnType || UnknownType.create();
     }
 
     private _getTypeArgs(node: IndexItemsNode): TypeResult[] {
