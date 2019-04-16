@@ -950,13 +950,13 @@ export class ExpressionEvaluator {
                 type: UnknownType.create(),
                 typeList: node.entries.map(entry => {
                     return this._getTypeFromExpression(entry,
-                        EvaluatorUsage.Get, EvaluatorFlags.ConvertClassToObject);
+                        EvaluatorUsage.Get, EvaluatorFlags.None);
                 }),
                 node
             };
         } else {
             typeResult = this._getTypeFromExpression(node,
-                EvaluatorUsage.Get, EvaluatorFlags.ConvertClassToObject);
+                EvaluatorUsage.Get, EvaluatorFlags.None);
         }
 
         return typeResult;
@@ -965,16 +965,16 @@ export class ExpressionEvaluator {
     private _getTypeFromTupleExpression(node: TupleExpressionNode,
             usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
-        const entryTypes = node.expressions.map(expr => {
-            return this._getTypeFromExpression(expr, usage, flags) || UnknownType.create();
-        });
+        const entryTypes = node.expressions.map(
+            expr => this._getTypeFromExpression(expr, usage, flags).type
+        );
 
         let type = UnknownType.create();
         let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
 
         if (builtInTupleType instanceof ClassType) {
-            type = this._createSpecialType(builtInTupleType, entryTypes,
-                EvaluatorFlags.ConvertClassToObject);
+            type = TypeUtils.convertClassToObject(
+                builtInTupleType.cloneForSpecialization(entryTypes));
         }
 
         return { type, node };
@@ -2220,7 +2220,7 @@ export class ExpressionEvaluator {
                     functionType.addParameter({
                         category: ParameterCategory.Simple,
                         name: `p${ index.toString() }`,
-                        type: entry.type
+                        type: TypeUtils.convertClassToObject(entry.type)
                     });
                 });
             } else if (typeArgs[0].type instanceof AnyType && typeArgs[0].type.isEllipsis()) {
@@ -2238,7 +2238,7 @@ export class ExpressionEvaluator {
             } else if (typeArgs[1].type instanceof ModuleType) {
                 this._addError(`Module not allowed in this context`, typeArgs[1].node);
             }
-            functionType.setDeclaredReturnType(typeArgs[1].type);
+            functionType.setDeclaredReturnType(TypeUtils.convertClassToObject(typeArgs[1].type));
         } else {
             functionType.setDeclaredReturnType(AnyType.create());
         }
@@ -2263,7 +2263,9 @@ export class ExpressionEvaluator {
             this._addError(`Module not allowed in this context`, typeArgs[0].node);
         }
 
-        return TypeUtils.combineTypes([typeArgs[0].type, NoneType.create()]);
+        return TypeUtils.combineTypes([
+            TypeUtils.convertClassToObject(typeArgs[0].type),
+            NoneType.create()]);
     }
 
     // Creates a ClassVar type.
@@ -2282,23 +2284,6 @@ export class ExpressionEvaluator {
     private _createSpecialType(classType: ClassType, typeArgs: TypeResult[] | undefined,
             flags: EvaluatorFlags, paramLimit?: number, allowEllipsis = false): Type {
 
-        let typeArgTypes = typeArgs ? typeArgs.map(t => t.type) : [];
-        const typeArgCount = typeArgTypes.length;
-
-        // Make sure the argument list count is correct.
-        if (paramLimit !== undefined) {
-            if (typeArgs && typeArgCount > paramLimit) {
-                this._addError(
-                    `Expected at most ${ paramLimit } type arguments`, typeArgs[paramLimit].node);
-                typeArgTypes = typeArgTypes.slice(0, paramLimit);
-            } else if (typeArgCount < paramLimit) {
-                // Fill up the remainder of the slots with unknown types.
-                while (typeArgTypes.length < paramLimit) {
-                    typeArgTypes.push(UnknownType.create());
-                }
-            }
-        }
-
         if (typeArgs) {
             // Verify that we didn't receive any inappropriate ellipses or modules.
             typeArgs.forEach((typeArg, index) => {
@@ -2311,6 +2296,23 @@ export class ExpressionEvaluator {
                     }
                 }
             });
+        }
+
+        let typeArgTypes = typeArgs ? typeArgs.map(
+            t => TypeUtils.convertClassToObject(t.type)) : [];
+
+        // Make sure the argument list count is correct.
+        if (paramLimit !== undefined) {
+            if (typeArgs && typeArgTypes.length > paramLimit) {
+                this._addError(
+                    `Expected at most ${ paramLimit } type arguments`, typeArgs[paramLimit].node);
+                typeArgTypes = typeArgTypes.slice(0, paramLimit);
+            } else if (typeArgTypes.length < paramLimit) {
+                // Fill up the remainder of the slots with unknown types.
+                while (typeArgTypes.length < paramLimit) {
+                    typeArgTypes.push(UnknownType.create());
+                }
+            }
         }
 
         let specializedType = classType.cloneForSpecialization(typeArgTypes);
@@ -2413,7 +2415,8 @@ export class ExpressionEvaluator {
         }
 
         // Fill in any missing type arguments with Any.
-        let typeArgTypes = typeArgs ? typeArgs.map(t => t.type) : [];
+        let typeArgTypes = typeArgs ? typeArgs.map(
+            t => TypeUtils.convertClassToObject(t.type)) : [];
         while (typeArgTypes.length < classType.getTypeParameters().length) {
             typeArgTypes.push(AnyType.create());
         }

@@ -1902,8 +1902,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _getTypeOfAnnotation(node: ExpressionNode): Type {
         let evaluator = this._createEvaluator();
-        return evaluator.getType(node, EvaluatorUsage.Get,
-            EvaluatorFlags.ConvertClassToObject);
+        return TypeUtils.convertClassToObject(
+            evaluator.getType(node, EvaluatorUsage.Get,
+                EvaluatorFlags.None));
     }
 
     private _getTypeOfExpression(node: ExpressionNode, specialize = true): Type {
