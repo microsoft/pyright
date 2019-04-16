@@ -34,6 +34,8 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportMissingTypeStubs** [boolean or string, optional]: Generate or suppress diagnostics for imports that have no corresponding type stub file (either a typeshed file or a custom type stub). The type checker requires type stubs to do its best job at analysis. The default value for this setting is 'none', although pyright can do a much better job of static type checking if type stub files are provided for all imports.
 
+**reportImportCycles** [boolean or string, optional]: Generate or suppress diagnostics for cyclical import chains. These are not errors in Python, but they do slow down type analysis and often hint at architectural layering issues. Generally, they should be avoided. The default value for this setting is 'none'. Note that there are import cycles in the typeshed stdlib typestub files that are ignored by this setting.
+
 **reportOptionalSubscript** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to subscript (index) a variable with an Optional type. The default value for this setting is 'none'.
 
 **reportOptionalMemberAccess** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to access a member of a variable with an Optional type. The default value for this setting is 'none'.

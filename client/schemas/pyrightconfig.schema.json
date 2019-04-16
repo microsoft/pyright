@@ -79,6 +79,12 @@
       "title": "Controls reporting of imports that cannot be resolved to type stub files",
       "default": "none"
     },
+    "reportImportCycles": {
+      "$id": "#/properties/reportImportCycles",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of module imports that create cycles in import graph",
+      "default": "none"
+    },
     "reportOptionalSubscript": {
       "$id": "#/properties/reportOptionalSubscript",
       "$ref": "#/definitions/diagnostic",

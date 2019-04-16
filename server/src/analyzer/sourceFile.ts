@@ -23,6 +23,7 @@ import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { CircularDependency } from './circularDependency';
 import { DefinitionProvider } from './definitionProvider';
 import { HoverProvider } from './hoverProvider';
 import { ImportResolver } from './importResolver';
@@ -53,6 +54,8 @@ export interface AnalysisJob {
     semanticAnalysisDiagnostics: Diagnostic[];
     typeAnalysisLastPassDiagnostics: Diagnostic[];
     typeAnalysisFinalDiagnostics: Diagnostic[];
+
+    circularDependencies: CircularDependency[];
 
     typeAnalysisPassNumber: number;
     isTypeAnalysisPassNeeded: boolean;
@@ -97,6 +100,8 @@ export class SourceFile {
         semanticAnalysisDiagnostics: [],
         typeAnalysisLastPassDiagnostics: [],
         typeAnalysisFinalDiagnostics: [],
+
+        circularDependencies: [],
 
         typeAnalysisPassNumber: 1,
         isTypeAnalysisPassNeeded: true,
@@ -152,6 +157,10 @@ export class SourceFile {
         return this._diagnosticVersion;
     }
 
+    isStubFile() {
+        return this._isStubFile;
+    }
+
     // Returns a list of cached diagnostics from the latest analysis job.
     // If the prevVersion is specified, the method returns undefined if
     // the diagnostics haven't changed.
@@ -167,6 +176,16 @@ export class SourceFile {
             this._analysisJob.parseDiagnostics,
             this._analysisJob.semanticAnalysisDiagnostics,
             this._analysisJob.typeAnalysisFinalDiagnostics);
+
+        if (options.reportImportCycles !== 'none' && this._analysisJob.circularDependencies.length > 0) {
+            const category = options.reportImportCycles === 'warning' ?
+                DiagnosticCategory.Warning : DiagnosticCategory.Error;
+
+            this._analysisJob.circularDependencies.forEach(cirDep => {
+                diagList.push(new Diagnostic(category, 'Cycle detected in import chain\n' +
+                    cirDep.getPaths().map(path => '  ' + path).join('\n')));
+            });
+        }
 
         if (this._isTypeshedStubFile) {
             if (options.reportTypeshedErrors === 'none') {
@@ -260,6 +279,14 @@ export class SourceFile {
         }
 
         return undefined;
+    }
+
+    // Adds a new circular dependency for this file but only if
+    // it hasn't already been added.
+    addCircularDependency(circDependency: CircularDependency) {
+        if (!this._analysisJob.circularDependencies.some(dep => dep.isEqual(circDependency))) {
+            this._analysisJob.circularDependencies.push(circDependency);
+        }
     }
 
     // Parse the file and update the state. Callers should wait for completion
@@ -415,6 +442,7 @@ export class SourceFile {
         this._analysisJob.nextPhaseToRun = AnalysisPhase.TypeAnalysis;
         this._diagnosticVersion++;
         this._analysisJob.typeAnalysisPassNumber = 1;
+        this._analysisJob.circularDependencies = [];
         this._analysisJob.isTypeAnalysisPassNeeded = true;
         this._analysisJob.isTypeAnalysisFinalized = false;
         this._analysisJob.nextPhaseToRun = AnalysisPhase.TypeAnalysis;

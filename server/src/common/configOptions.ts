@@ -85,6 +85,9 @@ export class ConfigOptions {
     // Report missing type stub files?
     reportMissingTypeStubs: DiagnosticLevel = 'none';
 
+    // Report cycles in import graph?
+    reportImportCycles: DiagnosticLevel = 'none';
+
     // Report attempts to subscript (index) an Optional type?
     reportOptionalSubscript: DiagnosticLevel = 'none';
 
@@ -208,6 +211,10 @@ export class ConfigOptions {
         // Read the "reportMissingTypeStubs" entry.
         this.reportMissingTypeStubs = this._convertDiagnosticLevel(
             configObj.reportMissingTypeStubs, 'reportMissingTypeStubs', 'none');
+
+        // Read the "reportImportCycles" entry.
+        this.reportImportCycles = this._convertDiagnosticLevel(
+            configObj.reportImportCycles, 'reportImportCycles', 'none');
 
         // Read the "reportOptionalSubscript" entry.
         this.reportOptionalSubscript = this._convertDiagnosticLevel(

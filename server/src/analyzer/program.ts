@@ -17,6 +17,7 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { Duration } from '../common/timing';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { CircularDependency } from './circularDependency';
 import { ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
@@ -397,6 +398,12 @@ export class Program {
 
         // Mark all files in the closure as finalized.
         Object.keys(closureMap).forEach(filePath => {
+            assert(!this._sourceFileMap[filePath].sourceFile.isAnalysisFinalized());
+
+            if (options.reportImportCycles) {
+                this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
+            }
+
             this._sourceFileMap[filePath].sourceFile.finalizeAnalysis();
         });
 
@@ -413,6 +420,7 @@ export class Program {
     private _getNonFinalizedImportsRecursive(fileToAnalyze: SourceFileInfo,
             closureMap: { [path: string]: boolean }, analysisQueue: SourceFileInfo[],
             options: ConfigOptions, timeElapsedCallback: () => boolean): boolean {
+
         // If the file is already finalized, no need to do any more work.
         if (fileToAnalyze.sourceFile.isAnalysisFinalized()) {
             return false;
@@ -450,6 +458,64 @@ export class Program {
         }
 
         return false;
+    }
+
+    private _detectAndReportImportCycles(sourceFileInfo: SourceFileInfo,
+            dependencyChain: SourceFileInfo[] = [],
+            dependencyMap: { [path: string]: SourceFileInfo } = {}): boolean {
+
+        // Don't bother checking for typestub files.
+        if (sourceFileInfo.sourceFile.isStubFile()) {
+            return false;
+        }
+
+        // Don't bother checking files that are already finalized
+        // because they've already been searched.
+        if (sourceFileInfo.sourceFile.isAnalysisFinalized()) {
+            return false;
+        }
+
+        const filePath = sourceFileInfo.sourceFile.getFilePath();
+        if (dependencyMap[filePath]) {
+            // Look for chains at least two in length. A file that contains
+            // an "import . from X" will technically create a cycle with
+            // itself, but those are not interesting to report.
+            if (dependencyChain.length > 1 && sourceFileInfo === dependencyChain[0]) {
+                this._logImportCycle(dependencyChain);
+                return true;
+            }
+            return false;
+        } else {
+            // We use both a map (for fast lookups) and a list
+            // (for ordering information).
+            dependencyMap[filePath] = sourceFileInfo;
+            dependencyChain.push(sourceFileInfo);
+
+            let reportedCycle = false;
+            for (const imp of sourceFileInfo.imports) {
+                if (this._detectAndReportImportCycles(imp, dependencyChain, dependencyMap)) {
+                    reportedCycle = true;
+                }
+            }
+
+            delete dependencyMap[filePath];
+            dependencyChain.pop();
+
+            return reportedCycle;
+        }
+    }
+
+    private _logImportCycle(dependencyChain: SourceFileInfo[]) {
+        const circDep = new CircularDependency();
+        dependencyChain.forEach(sourceFileInfo => {
+            circDep.appendPath(sourceFileInfo.sourceFile.getFilePath());
+        });
+
+        circDep.normalizeOrder();
+        const firstFilePath = circDep.getPaths()[0];
+        const firstSourceFile = this._sourceFileMap[firstFilePath];
+        assert(firstSourceFile !== undefined);
+        firstSourceFile.sourceFile.addCircularDependency(circDep);
     }
 
     private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo,

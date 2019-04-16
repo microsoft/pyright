@@ -78,7 +78,6 @@ To update to the latest version:
 
 Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
 
-* Provide switch that reports circular import dependencies
 * Provide switch that treats instance variables and methods that begin with underscore as private
 * Validate that overridden methods in subclass have same signature as base class methods
 * Add support for f-strings
