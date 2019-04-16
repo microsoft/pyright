@@ -1342,7 +1342,8 @@ export class ExpressionEvaluator {
         // Determine how many positional args are being passed before
         // we see a named arg.
         let positionalArgCount = argList.findIndex(
-            arg => arg.argumentCategory === ArgumentCategory.Dictionary || arg.name !== undefined);
+            arg => arg.argumentCategory === ArgumentCategory.UnpackedDictionary ||
+                arg.name !== undefined);
         if (positionalArgCount < 0) {
             positionalArgCount = argList.length;
         }
@@ -1363,6 +1364,9 @@ export class ExpressionEvaluator {
             if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
                 // Consume the remaining positional args.
                 argIndex = positionalArgCount;
+            } else if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
+                // Assume the unpacked list fills the remaining positional args.
+                break;
             } else {
                 let paramType = type.getEffectiveParameterType(paramIndex);
                 if (!this._validateArgType(paramType, argList[argIndex].type,
@@ -1383,14 +1387,14 @@ export class ExpressionEvaluator {
         }
 
         if (!reportedArgError) {
-            let foundDictionaryArg = false;
-            let foundListArg = argList.find(
-                arg => arg.argumentCategory === ArgumentCategory.List) !== undefined;
+            let foundUnpackedDictionaryArg = false;
+            let foundUnpackedListArg = argList.find(
+                arg => arg.argumentCategory === ArgumentCategory.UnpackedList) !== undefined;
 
             // Now consume any named parameters.
             while (argIndex < argList.length) {
-                if (argList[argIndex].argumentCategory === ArgumentCategory.Dictionary) {
-                    foundDictionaryArg = true;
+                if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedDictionary) {
+                    foundUnpackedDictionaryArg = true;
                 } else {
                     // Protect against the case where a non-named argument appears after
                     // a named argument. This will have already been reported as a parse
@@ -1431,7 +1435,7 @@ export class ExpressionEvaluator {
             // but have not yet received them. If we received a dictionary argument
             // (i.e. an arg starting with a "**") or a list argument (i.e. an arg
             // starting with a "*"), we will assume that all parameters are matched.
-            if (!foundDictionaryArg && !foundListArg) {
+            if (!foundUnpackedDictionaryArg && !foundUnpackedListArg) {
                 let unassignedParams = paramMap.getKeys().filter(name => {
                     const entry = paramMap.get(name)!;
                     return entry.argsReceived < entry.argsNeeded;

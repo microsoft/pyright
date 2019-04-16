@@ -1748,9 +1748,9 @@ export class Parser {
 
         let argType = ArgumentCategory.Simple;
         if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
-            argType = ArgumentCategory.List;
+            argType = ArgumentCategory.UnpackedList;
         } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
-            argType = ArgumentCategory.Dictionary;
+            argType = ArgumentCategory.UnpackedDictionary;
         }
 
         let valueExpr = this._parseTestExpression();

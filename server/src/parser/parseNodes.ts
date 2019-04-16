@@ -820,8 +820,8 @@ export class ListNode extends ExpressionNode {
 
 export enum ArgumentCategory {
     Simple,
-    List,
-    Dictionary
+    UnpackedList,
+    UnpackedDictionary
 }
 
 export class ArgumentNode extends ParseNode {
