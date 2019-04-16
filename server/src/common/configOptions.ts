@@ -94,6 +94,9 @@ export class ConfigOptions {
     // Report attempts to call a Optional type?
     reportOptionalCall: DiagnosticLevel = 'none';
 
+    // Report attempts to use an Optional type as an iterable?
+    reportOptionalIterable: DiagnosticLevel = 'none';
+
     // Report untyped function decorators that obscure the function type?
     reportUntypedFunctionDecorator: DiagnosticLevel = 'none';
 
@@ -217,6 +220,10 @@ export class ConfigOptions {
         // Read the "reportOptionalCall" entry.
         this.reportOptionalCall = this._convertDiagnosticLevel(
             configObj.reportOptionalCall, 'reportOptionalCall', 'none');
+
+        // Read the "reportOptionalIterable" entry.
+        this.reportOptionalIterable = this._convertDiagnosticLevel(
+            configObj.reportOptionalIterable, 'reportOptionalIterable', 'none');
 
         // Read the "reportUntypedFunctionDecorator" entry.
         this.reportUntypedFunctionDecorator = this._convertDiagnosticLevel(

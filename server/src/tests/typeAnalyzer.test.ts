@@ -198,15 +198,17 @@ test('Optional1', () => {
     configOptions.reportOptionalSubscript = 'warning';
     configOptions.reportOptionalMemberAccess = 'warning';
     configOptions.reportOptionalCall = 'warning';
+    configOptions.reportOptionalIterable = 'warning';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    validateResults(analysisResults, 0, 3);
+    validateResults(analysisResults, 0, 4);
 
     // Turn on errors.
     configOptions.reportOptionalSubscript = 'error';
     configOptions.reportOptionalMemberAccess = 'error';
     configOptions.reportOptionalCall = 'error';
+    configOptions.reportOptionalIterable = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    validateResults(analysisResults, 3);
+    validateResults(analysisResults, 4);
 });
 
 test('Tuples1', () => {

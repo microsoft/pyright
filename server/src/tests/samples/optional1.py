@@ -36,3 +36,8 @@ if 1:
 # this should generate an error.
 c[2]
 
+
+# If "reportOptionalIterable" is enabled,
+# this should generate an error.
+for val in c:
+    pass

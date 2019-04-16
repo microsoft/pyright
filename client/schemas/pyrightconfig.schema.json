@@ -97,6 +97,12 @@
       "title": "Controls reporting of attempts to call a variable with Optional type",
       "default": "none"
     },
+    "reportOptionalIterable": {
+      "$id": "#/properties/reportOptionalIterable",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to use an Optional type as an iterable value",
+      "default": "none"
+    },
     "reportUntypedFunctionDecorator": {
       "$id": "#/properties/reportUntypedFunctionDecorator",
       "$ref": "#/definitions/diagnostic",

@@ -235,8 +235,11 @@ export class ExpressionEvaluator {
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         const nextMethodName = isAsync ? '__anext__' : '__next__';
 
-        // TODO - tighten this up, perhaps with a configuration switch.
-        if (type instanceof UnionType) {
+        if (type instanceof UnionType && type.getTypes().some(t => t instanceof NoneType)) {
+            this._addDiagnostic(
+                this._configOptions.reportOptionalIterable,
+                `Object of type 'None' cannot be used as iterable value`,
+                errorNode);
             type = type.removeOptional();
         }
 
