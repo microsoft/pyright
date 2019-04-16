@@ -358,14 +358,16 @@ export class ImportResolver {
             }
 
             if (path) {
-                if (shouldImportFile(dirName)) {
-                    let implicitImport: ImplicitImport = {
-                        isStubFile,
-                        name: dirName,
-                        path
-                    };
+                if (!exclusions.find(exclusion => exclusion === path)) {
+                    if (shouldImportFile(dirName)) {
+                        let implicitImport: ImplicitImport = {
+                            isStubFile,
+                            name: dirName,
+                            path
+                        };
 
-                    implicitImportMap[implicitImport.name] = implicitImport;
+                        implicitImportMap[implicitImport.name] = implicitImport;
+                    }
                 }
             }
         }
