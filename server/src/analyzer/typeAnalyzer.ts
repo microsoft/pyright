@@ -1968,11 +1968,23 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             // Handle member accesses (e.g. self.x or cls.y).
             if (targetNode instanceof NameNode) {
-                // TODO - we shouldn't rely on these names, which are just conventions.
-                if (targetNode.nameToken.value === 'self') {
-                    this._bindMemberVariableToType(target, type, true);
-                } else if (targetNode.nameToken.value === 'cls') {
-                    this._bindMemberVariableToType(target, type, false);
+                // Determine whether we're writing to a class or instance member.
+                const enclosingClassNode = ParseTreeUtils.getEnclosingClass(target);
+                if (enclosingClassNode) {
+                    const classType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
+
+                    if (classType && classType instanceof ClassType) {
+                        const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression, false);
+                        if (typeOfLeftExpr instanceof ObjectType) {
+                            if (typeOfLeftExpr.getClassType().isSameGenericClass(classType)) {
+                                this._bindMemberVariableToType(target, type, true);
+                            }
+                        } else if (typeOfLeftExpr instanceof ClassType) {
+                            if (typeOfLeftExpr.isSameGenericClass(classType)) {
+                                this._bindMemberVariableToType(target, type, false);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -2025,7 +2037,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
                 };
-                // TODO - need to figure out right type
+                type = UnknownType.create();
                 this._bindNameNodeToType(target.expression, type, declaration);
             }
         } else {
