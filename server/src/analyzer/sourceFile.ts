@@ -18,7 +18,7 @@ import { getFileName } from '../common/pathUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
-import { ModuleNameNode, ModuleNode } from '../parser/parseNodes';
+import { ModuleNode } from '../parser/parseNodes';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
@@ -28,7 +28,7 @@ import { HoverProvider } from './hoverProvider';
 import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
-import { PostParseWalker } from './postParseWalker';
+import { ModuleImport, PostParseWalker } from './postParseWalker';
 import { Scope } from './scope';
 import { ModuleScopeAnalyzer } from './semanticAnalyzer';
 import { TypeAnalyzer } from './typeAnalyzer';
@@ -51,7 +51,6 @@ export interface AnalysisJob {
 
     parseDiagnostics: Diagnostic[];
     semanticAnalysisDiagnostics: Diagnostic[];
-    typeHintAnalysisDiagnostics: Diagnostic[];
     typeAnalysisLastPassDiagnostics: Diagnostic[];
     typeAnalysisFinalDiagnostics: Diagnostic[];
 
@@ -96,7 +95,6 @@ export class SourceFile {
 
         parseDiagnostics: [],
         semanticAnalysisDiagnostics: [],
-        typeHintAnalysisDiagnostics: [],
         typeAnalysisLastPassDiagnostics: [],
         typeAnalysisFinalDiagnostics: [],
 
@@ -168,7 +166,6 @@ export class SourceFile {
         diagList = diagList.concat(
             this._analysisJob.parseDiagnostics,
             this._analysisJob.semanticAnalysisDiagnostics,
-            this._analysisJob.typeHintAnalysisDiagnostics,
             this._analysisJob.typeAnalysisFinalDiagnostics);
 
         if (this._isTypeshedStubFile) {
@@ -510,7 +507,7 @@ export class SourceFile {
         }
     }
 
-    private _resolveImports(moduleNameNodes: ModuleNameNode[],
+    private _resolveImports(moduleImports: ModuleImport[],
             configOptions: ConfigOptions, execEnv: ExecutionEnvironment):
             [ImportResult[], ImportResult?, string?] {
         let imports: ImportResult[] = [];
@@ -520,7 +517,8 @@ export class SourceFile {
         // Always include an implicit import of the builtins module.
         let builtinsImportResult: ImportResult | undefined = resolver.resolveImport({
             leadingDots: 0,
-            nameParts: ['builtins']
+            nameParts: ['builtins'],
+            importedSymbols: undefined
         });
 
         // Avoid importing builtins from the builtins.pyi file itself.
@@ -534,7 +532,8 @@ export class SourceFile {
         // Always include an implicit import of the typing module.
         let typingImportResult: ImportResult | undefined = resolver.resolveImport({
             leadingDots: 0,
-            nameParts: ['typing']
+            nameParts: ['typing'],
+            importedSymbols: undefined
         });
 
         // Avoid importing typing from the typing.pyi file itself.
@@ -545,14 +544,18 @@ export class SourceFile {
             typingModulePath = typingImportResult.resolvedPaths[0];
         }
 
-        for (let moduleNameNode of moduleNameNodes) {
+        for (const moduleImport of moduleImports) {
             let importResult = resolver.resolveImport({
-                leadingDots: moduleNameNode.leadingDots,
-                nameParts: moduleNameNode.nameParts.map(p => p.nameToken.value)
+                leadingDots: moduleImport.leadingDots,
+                nameParts: moduleImport.nameParts,
+                importedSymbols: moduleImport.importedSymbols
             });
             imports.push(importResult);
 
-            AnalyzerNodeInfo.setImportInfo(moduleNameNode, importResult);
+            // Associate the import results with the module import
+            // name node in the parse tree so we can access it later
+            // (for hover and definition support).
+            AnalyzerNodeInfo.setImportInfo(moduleImport.nameNode, importResult);
         }
 
         return [imports, builtinsImportResult, typingModulePath];

@@ -17,9 +17,10 @@ import { is3x, versionToString } from '../common/pythonVersion';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { PythonPathUtils } from './pythonPathUtils';
 
-export interface ImportedModuleName {
+export interface ImportedModuleDescriptor {
     leadingDots: number;
     nameParts: string[];
+    importedSymbols: string[] | undefined;
 }
 
 export class ImportResolver {
@@ -36,8 +37,8 @@ export class ImportResolver {
 
     // Resolves the import and returns the path if it exists, otherwise
     // returns undefined.
-    resolveImport(moduleName: ImportedModuleName): ImportResult {
-        let importName = this._formatImportName(moduleName);
+    resolveImport(moduleDescriptor: ImportedModuleDescriptor): ImportResult {
+        let importName = this._formatImportName(moduleDescriptor);
 
         // Find the site packages for the configured virtual environment.
         if (this._cachedPythonSearchPaths === undefined) {
@@ -45,10 +46,9 @@ export class ImportResolver {
                 this._configOptions, this._executionEnvironment);
         }
 
-        // Is it a built-in path?
-        if (moduleName.leadingDots === 0 && moduleName.nameParts.length > 0) {
-            // First check for a typeshed file.
-            let builtInImport = this._findTypeshedPath(moduleName, importName, true);
+        // First check for a typeshed file.
+        if (moduleDescriptor.leadingDots === 0 && moduleDescriptor.nameParts.length > 0) {
+            let builtInImport = this._findTypeshedPath(moduleDescriptor, importName, true);
             if (builtInImport) {
                 builtInImport.isTypeshedFile = true;
                 return builtInImport;
@@ -56,8 +56,8 @@ export class ImportResolver {
         }
 
         // Is it a relative import?
-        if (moduleName.leadingDots > 0) {
-            let relativeImport = this._resolveRelativeImport(moduleName, importName);
+        if (moduleDescriptor.leadingDots > 0) {
+            let relativeImport = this._resolveRelativeImport(moduleDescriptor, importName);
             if (relativeImport) {
                 return relativeImport;
             }
@@ -66,7 +66,7 @@ export class ImportResolver {
 
             // Look for it in the root directory of the execution environment.
             let localImport = this._resolveAbsoluteImport(
-                this._executionEnvironment.root, moduleName, importName);
+                this._executionEnvironment.root, moduleDescriptor, importName);
             if (localImport && localImport.importFound) {
                 return localImport;
             }
@@ -74,7 +74,7 @@ export class ImportResolver {
 
             for (let i = 0; i < this._executionEnvironment.extraPaths.length; i++) {
                 let extraPath = this._executionEnvironment.extraPaths[i];
-                localImport = this._resolveAbsoluteImport(extraPath, moduleName, importName);
+                localImport = this._resolveAbsoluteImport(extraPath, moduleDescriptor, importName);
                 if (localImport && localImport.importFound) {
                     return localImport;
                 }
@@ -88,14 +88,14 @@ export class ImportResolver {
             // Check for a typings file.
             if (this._configOptions.typingsPath) {
                 let typingsImport = this._resolveAbsoluteImport(
-                    this._configOptions.typingsPath, moduleName, importName);
+                    this._configOptions.typingsPath, moduleDescriptor, importName);
                 if (typingsImport && typingsImport.importFound) {
                     return typingsImport;
                 }
             }
 
             // Check for a typeshed file.
-            let typeshedImport = this._findTypeshedPath(moduleName, importName, false);
+            let typeshedImport = this._findTypeshedPath(moduleDescriptor, importName, false);
             if (typeshedImport) {
                 typeshedImport.isTypeshedFile = true;
                 return typeshedImport;
@@ -107,7 +107,7 @@ export class ImportResolver {
                     // Allow partial resolution because some third-party packages
                     // use tricks to populate their package namespaces.
                     let thirdPartyImport = this._resolveAbsoluteImport(
-                        searchPath, moduleName, importName, true);
+                        searchPath, moduleDescriptor, importName, true);
                     if (thirdPartyImport) {
                         thirdPartyImport.importType = ImportType.ThirdParty;
                         return thirdPartyImport;
@@ -133,7 +133,7 @@ export class ImportResolver {
         };
     }
 
-    private _findTypeshedPath(moduleName: ImportedModuleName, importName: string,
+    private _findTypeshedPath(moduleDescriptor: ImportedModuleDescriptor, importName: string,
             isStdLib: boolean): ImportResult | undefined {
 
         let typeshedPath = '';
@@ -180,7 +180,7 @@ export class ImportResolver {
                 minorVersion === 0 ? '3' : '2and3';
             let testPath = combinePaths(typeshedPath, pythonVersionString);
             if (fs.existsSync(testPath)) {
-                let importInfo = this._resolveAbsoluteImport(testPath, moduleName, importName);
+                let importInfo = this._resolveAbsoluteImport(testPath, moduleDescriptor, importName);
                 if (importInfo && importInfo.importFound) {
                     if (isStdLib) {
                         importInfo.importType = ImportType.BuiltIn;
@@ -199,20 +199,22 @@ export class ImportResolver {
         return undefined;
     }
 
-    private _resolveRelativeImport(moduleName: ImportedModuleName, importName: string): ImportResult | undefined {
+    private _resolveRelativeImport(moduleDescriptor: ImportedModuleDescriptor,
+            importName: string): ImportResult | undefined {
+
         // Determine which search path this file is part of.
         let curDir = getDirectoryPath(this._sourceFilePath);
-        for (let i = 1; i < moduleName.leadingDots; i++) {
+        for (let i = 1; i < moduleDescriptor.leadingDots; i++) {
             curDir = getDirectoryPath(curDir);
         }
 
         // Now try to match the module parts from the current directory location.
-        return this._resolveAbsoluteImport(curDir, moduleName, importName);
+        return this._resolveAbsoluteImport(curDir, moduleDescriptor, importName);
     }
 
     // Follows import resolution algorithm defined in PEP-420:
     // https://www.python.org/dev/peps/pep-0420/
-    private _resolveAbsoluteImport(rootPath: string, moduleName: ImportedModuleName,
+    private _resolveAbsoluteImport(rootPath: string, moduleDescriptor: ImportedModuleDescriptor,
             importName: string, allowPartial = false): ImportResult | undefined {
 
         // Starting at the specified path, walk the file system to find the
@@ -224,7 +226,7 @@ export class ImportResolver {
         let implicitImports: ImplicitImport[] = [];
 
         // Handle the "from . import XXX" case.
-        if (moduleName.nameParts.length === 0) {
+        if (moduleDescriptor.nameParts.length === 0) {
             let pyFilePath = combinePaths(dirPath, '__init__.py');
             let pyiFilePath = pyFilePath + 'i';
             if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
@@ -238,10 +240,10 @@ export class ImportResolver {
             }
 
             implicitImports = this._findImplicitImports(
-                dirPath, [pyFilePath, pyiFilePath]);
+                dirPath, [pyFilePath, pyiFilePath], moduleDescriptor.importedSymbols);
         } else {
-            for (let i = 0; i < moduleName.nameParts.length; i++) {
-                dirPath = combinePaths(dirPath, moduleName.nameParts[i]);
+            for (let i = 0; i < moduleDescriptor.nameParts.length; i++) {
+                dirPath = combinePaths(dirPath, moduleDescriptor.nameParts[i]);
                 if (!fs.existsSync(dirPath) || !isDirectory(dirPath)) {
                     // We weren't able to find the subdirectory. See if we can
                     // find a ".py" or ".pyi" file with this name.
@@ -265,14 +267,14 @@ export class ImportResolver {
                     resolvedPaths.push(pyFilePath);
                 } else {
                     resolvedPaths.push(dirPath);
-                    if (i === moduleName.nameParts.length - 1) {
+                    if (i === moduleDescriptor.nameParts.length - 1) {
                         isNamespacePackage = true;
                     }
                 }
 
-                if (i === moduleName.nameParts.length - 1) {
+                if (i === moduleDescriptor.nameParts.length - 1) {
                     implicitImports = this._findImplicitImports(
-                        dirPath, [pyFilePath, pyiFilePath]);
+                        dirPath, [pyFilePath, pyiFilePath], moduleDescriptor.importedSymbols);
                 }
             }
         }
@@ -281,7 +283,7 @@ export class ImportResolver {
         if (allowPartial) {
             importFound = resolvedPaths.length > 0;
         } else {
-            importFound = resolvedPaths.length >= moduleName.nameParts.length;
+            importFound = resolvedPaths.length >= moduleDescriptor.nameParts.length;
 
             // Empty namespace packages are not allowed.
             if (isNamespacePackage && implicitImports.length === 0) {
@@ -301,30 +303,47 @@ export class ImportResolver {
         };
     }
 
-    private _findImplicitImports(dirPath: string, exclusions: string[]): ImplicitImport[] {
-        let implicitImportMap: { [name: string]: ImplicitImport } = {};
+    private _findImplicitImports(dirPath: string, exclusions: string[],
+            importedSymbols: string[] | undefined): ImplicitImport[] {
 
+        const implicitImportMap: { [name: string]: ImplicitImport } = {};
+        const importAll = importedSymbols === undefined || importedSymbols.length === 0;
+        const shouldImportFile = (strippedFileName: string) => {
+            if (importAll) {
+                return true;
+            }
+
+            return importedSymbols!.some(sym => sym === strippedFileName);
+        };
+
+        // Enumerate all of the files and directories in the path.
         let entries = getFileSystemEntries(dirPath);
+
+        // Add implicit file-based modules.
         for (let fileName of entries.files) {
             if (fileName.endsWith('.py') || fileName.endsWith('.pyi')) {
                 let filePath = combinePaths(dirPath, fileName);
 
                 if (!exclusions.find(exclusion => exclusion === filePath)) {
-                    let implicitImport: ImplicitImport = {
-                        isStubFile: fileName.endsWith('.pyi'),
-                        name: stripFileExtension(fileName),
-                        path: filePath
-                    };
+                    const strippedFileName = stripFileExtension(fileName);
+                    if (shouldImportFile(strippedFileName)) {
+                        const implicitImport: ImplicitImport = {
+                            isStubFile: fileName.endsWith('.pyi'),
+                            name: strippedFileName,
+                            path: filePath
+                        };
 
-                    // Always prefer stub files over non-stub files.
-                    if (!implicitImportMap[implicitImport.name] ||
-                            !implicitImportMap[implicitImport.name].isStubFile) {
-                        implicitImportMap[implicitImport.name] = implicitImport;
+                        // Always prefer stub files over non-stub files.
+                        if (!implicitImportMap[implicitImport.name] ||
+                                !implicitImportMap[implicitImport.name].isStubFile) {
+                            implicitImportMap[implicitImport.name] = implicitImport;
+                        }
                     }
                 }
             }
         }
 
+        // Add implicit directory-based modules.
         for (let dirName of entries.directories) {
             let pyFilePath = combinePaths(dirPath, dirName, '__init__.py');
             let pyiFilePath = pyFilePath + 'i';
@@ -339,25 +358,27 @@ export class ImportResolver {
             }
 
             if (path) {
-                let implicitImport: ImplicitImport = {
-                    isStubFile,
-                    name: dirName,
-                    path
-                };
+                if (shouldImportFile(dirName)) {
+                    let implicitImport: ImplicitImport = {
+                        isStubFile,
+                        name: dirName,
+                        path
+                    };
 
-                implicitImportMap[implicitImport.name] = implicitImport;
+                    implicitImportMap[implicitImport.name] = implicitImport;
+                }
             }
         }
 
         return Object.keys(implicitImportMap).map(key => implicitImportMap[key]);
     }
 
-    private _formatImportName(moduleName: ImportedModuleName) {
+    private _formatImportName(moduleDescriptor: ImportedModuleDescriptor) {
         let name = '';
-        for (let i = 0; i < moduleName.leadingDots; i++) {
+        for (let i = 0; i < moduleDescriptor.leadingDots; i++) {
             name += '.';
         }
 
-        return name + moduleName.nameParts.map(iden => iden).join('.');
+        return name + moduleDescriptor.nameParts.map(iden => iden).join('.');
     }
 }
