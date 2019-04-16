@@ -1533,7 +1533,7 @@ export class ExpressionEvaluator {
                             `A TypeVar cannot be bounded and constrained`,
                             argList[i].valueExpression || errorNode);
                     } else {
-                        typeVar.setBoundType(this._convertClassToObject(argList[i].type));
+                        typeVar.setBoundType(TypeUtils.convertClassToObject(argList[i].type));
                     }
                 } else if (paramName === 'covariant') {
                     if (argList[i].valueExpression && this._getBooleanValue(argList[i].valueExpression!)) {
@@ -1568,7 +1568,7 @@ export class ExpressionEvaluator {
                         `A TypeVar cannot be bounded and constrained`,
                         argList[i].valueExpression || errorNode);
                 } else {
-                    typeVar.addConstraint(this._convertClassToObject(argList[i].type));
+                    typeVar.addConstraint(TypeUtils.convertClassToObject(argList[i].type));
                 }
             }
         }
@@ -1681,7 +1681,7 @@ export class ExpressionEvaluator {
                                     let entryTypeInfo = this._getTypeFromExpression(entry.expressions[1],
                                         EvaluatorUsage.Get, EvaluatorFlags.None);
                                     if (entryTypeInfo) {
-                                        entryType = this._convertClassToObject(entryTypeInfo.type);
+                                        entryType = TypeUtils.convertClassToObject(entryTypeInfo.type);
                                     }
                                 } else {
                                     this._addError(
@@ -2083,7 +2083,7 @@ export class ExpressionEvaluator {
             type = type.cloneForSpecialization([listEntryType]);
 
             // List literals are always objects, not classes.
-            convertedType = this._convertClassToObject(type);
+            convertedType = TypeUtils.convertClassToObject(type);
         } else {
             convertedType = UnknownType.create();
         }
@@ -2273,7 +2273,7 @@ export class ExpressionEvaluator {
         }
 
         let type = (!typeArgs || typeArgs.length === 0) ? AnyType.create() : typeArgs[0].type;
-        return this._convertClassToObject(type);
+        return TypeUtils.convertClassToObject(type);
     }
 
     // Creates one of several "special" types that are defined in typing.pyi
@@ -2562,18 +2562,7 @@ export class ExpressionEvaluator {
 
     private _convertClassToObjectConditional(type: Type, flags: EvaluatorFlags): Type {
         if (flags & EvaluatorFlags.ConvertClassToObject) {
-           return this._convertClassToObject(type);
-        }
-
-        return type;
-    }
-
-    private _convertClassToObject(type: Type): Type {
-        if (type instanceof ClassType) {
-            type = new ObjectType(type);
-        } else if (type instanceof UnionType) {
-            return TypeUtils.doForSubtypes(type,
-                subtype => this._convertClassToObject(subtype));
+           return TypeUtils.convertClassToObject(type);
         }
 
         return type;

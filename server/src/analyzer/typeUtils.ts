@@ -36,26 +36,23 @@ export interface ClassMember {
 }
 
 export class TypeUtils {
-    // Calls a callback for each subtype and combines the results into
-    // a final type.
+    // Calls a callback for each subtype and combines the results
+    // into a final type.
     static doForSubtypes(type: Type, callback: (type: Type) => (Type | undefined)): Type {
-        let newTypes: Type[] = [];
-
         if (type instanceof UnionType) {
+            let newTypes: Type[] = [];
+
             type.getTypes().forEach(typeEntry => {
                 const transformedType = callback(typeEntry);
                 if (transformedType) {
                     newTypes.push(transformedType);
                 }
             });
-        } else {
-            const transformedType = callback(type);
-            if (transformedType) {
-                newTypes.push(transformedType);
-            }
+
+            return this.combineTypes(newTypes);
         }
 
-        return this.combineTypes(newTypes);
+        return callback(type) || NeverType.create();
     }
 
     // Combines multiple types into a single type. If the types are
@@ -959,6 +956,16 @@ export class TypeUtils {
         }
 
         return undefined;
+    }
+
+    static convertClassToObject(type: Type): Type {
+        return TypeUtils.doForSubtypes(type, subtype => {
+            if (subtype instanceof ClassType) {
+                return new ObjectType(subtype);
+            }
+
+            return subtype;
+        });
     }
 
     private static _partiallySpecializeFunctionForBoundClassOrObject(
