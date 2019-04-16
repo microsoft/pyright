@@ -1879,35 +1879,39 @@ export class ExpressionEvaluator {
         let type: Type | undefined;
 
         if (arithmeticOperatorMap[node.operator]) {
-            const supportsBuiltInTypes = arithmeticOperatorMap[node.operator][2];
+            if (leftType.isAny() || rightType.isAny()) {
+                type = UnknownType.create();
+            } else {
+                const supportsBuiltInTypes = arithmeticOperatorMap[node.operator][2];
 
-            if (supportsBuiltInTypes) {
-                if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
-                    const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
-                    const getTypeMatch = (classType: ClassType): boolean[] => {
-                        let foundMatch = false;
-                        return builtInClassTypes.map(builtInType => {
-                            if (builtInType && builtInType.isSameGenericClass(classType)) {
-                                foundMatch = true;
-                            }
-                            return foundMatch;
-                        });
-                    };
+                if (supportsBuiltInTypes) {
+                    if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
+                        const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
+                        const getTypeMatch = (classType: ClassType): boolean[] => {
+                            let foundMatch = false;
+                            return builtInClassTypes.map(builtInType => {
+                                if (builtInType && builtInType.isSameGenericClass(classType)) {
+                                    foundMatch = true;
+                                }
+                                return foundMatch;
+                            });
+                        };
 
-                    const leftClassMatches = getTypeMatch(leftType.getClassType());
-                    const rightClassMatches = getTypeMatch(rightType.getClassType());
+                        const leftClassMatches = getTypeMatch(leftType.getClassType());
+                        const rightClassMatches = getTypeMatch(rightType.getClassType());
 
-                    if (leftClassMatches[0] && rightClassMatches[0]) {
-                        // If they're both int types, the result is an int.
-                        type = new ObjectType(builtInClassTypes[0]!);
-                    } else if (leftClassMatches[1] && rightClassMatches[1]) {
-                        // If they're both floats or one is a float and one is an int,
-                        // the result is a float.
-                        type = new ObjectType(builtInClassTypes[1]!);
-                    } else if (leftClassMatches[2] && rightClassMatches[2]) {
-                        // If one is complex and the other is complex, float or int,
-                        // the result is complex.
-                        type = new ObjectType(builtInClassTypes[2]!);
+                        if (leftClassMatches[0] && rightClassMatches[0]) {
+                            // If they're both int types, the result is an int.
+                            type = new ObjectType(builtInClassTypes[0]!);
+                        } else if (leftClassMatches[1] && rightClassMatches[1]) {
+                            // If they're both floats or one is a float and one is an int,
+                            // the result is a float.
+                            type = new ObjectType(builtInClassTypes[1]!);
+                        } else if (leftClassMatches[2] && rightClassMatches[2]) {
+                            // If one is complex and the other is complex, float or int,
+                            // the result is complex.
+                            type = new ObjectType(builtInClassTypes[2]!);
+                        }
                     }
                 }
             }
@@ -1938,11 +1942,14 @@ export class ExpressionEvaluator {
                 type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName);
             }
         } else if (comparisonOperatorMap[node.operator]) {
-            const magicMethodName = comparisonOperatorMap[node.operator];
+            if (leftType.isAny() || rightType.isAny()) {
+                type = UnknownType.create();
+            } else {
+                const magicMethodName = comparisonOperatorMap[node.operator];
 
-            type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName,
-                ScopeUtils.getBuiltInObject(this._scope, 'bool'));
-
+                type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName,
+                    ScopeUtils.getBuiltInObject(this._scope, 'bool'));
+            }
         } else if (booleanOperatorMap[node.operator]) {
             if (node.operator === OperatorType.And) {
                 // If the operator is an AND or OR, we need to combine the two types.
