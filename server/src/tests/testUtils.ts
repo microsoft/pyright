@@ -136,6 +136,9 @@ export class TestUtils {
         const filePaths = fileNames.map(name => this.resolveSampleFilePath(name));
         program.setTrackedFiles(filePaths);
 
+        // Always enable "test mode".
+        configOptions.internalTestMode = true;
+
         while (program.analyze(configOptions)) {
             // Continue to call analyze until it completes. Since we're not
             // specifying a timeout, it should complete the first time.

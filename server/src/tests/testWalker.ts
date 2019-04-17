@@ -7,7 +7,7 @@
 import * as assert from 'assert';
 
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
-import { ParseNode } from '../parser/parseNodes';
+import { AssignmentNode, ParseNode } from '../parser/parseNodes';
 
 export class TestWalker extends ParseTreeWalker {
     constructor() {
@@ -37,14 +37,26 @@ export class TestWalker extends ParseTreeWalker {
         let prevNode: ParseNode | undefined;
 
         children.forEach(child => {
-            // Make sure the child is contained within the parent.
-            assert(child.start >= node.start && child.end <= node.end);
-            if (prevNode) {
-                // Make sure the child is after the previous child.
-                assert(child.start >= prevNode.end);
+            let skipCheck = false;
+
+            // There's an exception we need to deal with here. Comment
+            // annotations can occur outside of an assignment node's range.
+            if (node instanceof AssignmentNode) {
+                if (child === node.typeAnnotationComment) {
+                    skipCheck = true;
+                }
             }
 
-            prevNode = child;
+            if (!skipCheck) {
+                // Make sure the child is contained within the parent.
+                assert(child.start >= node.start && child.end <= node.end);
+                if (prevNode) {
+                    // Make sure the child is after the previous child.
+                    assert(child.start >= prevNode.end);
+                }
+
+                prevNode = child;
+            }
         });
     }
 }

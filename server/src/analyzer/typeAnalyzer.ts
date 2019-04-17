@@ -1057,6 +1057,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Walk the leftExpression but not the memberName.
         this.walk(node.leftExpression);
+
+        this._conditionallyReportPrivateUsage(node.memberName);
+
         return false;
     }
 

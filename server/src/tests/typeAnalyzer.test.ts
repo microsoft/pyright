@@ -221,7 +221,7 @@ test('Private1', () => {
     // Turn on errors.
     configOptions.reportPrivateUsage = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['private1.py'], configOptions);
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 3);
 });
 
 test('Tuples1', () => {

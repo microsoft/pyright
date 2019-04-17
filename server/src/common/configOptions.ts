@@ -132,6 +132,12 @@ export class ConfigOptions {
     // Default pythonPlatform. Can be overridden by executionEnvironment.
     defaultPythonPlatform?: string;
 
+    //---------------------------------------------------------------
+    // Internal-only switches
+
+    // Run additional analysis as part of test cases?
+    internalTestMode?: boolean;
+
     // Finds the best execution environment for a given file path. The
     // specified file path should be absolute.
     // If no matching execution environment can be found, a default

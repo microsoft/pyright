@@ -201,10 +201,7 @@ export class PostParseWalker extends ParseTreeWalker {
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
         this._addPossibleTupleNamedTarget(node.valueExpression);
 
-        // Don't walk the type annotation node in this pass.
-        this.walk(node.valueExpression);
-
-        return false;
+        return true;
     }
 
     visitFor(node: ForNode) {

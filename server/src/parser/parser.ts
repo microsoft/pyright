@@ -2381,7 +2381,7 @@ export class Parser {
             if (!disallowedKeywords.find(type => type === keywordType)) {
                 const keywordText = this._fileContents!.substring(nextToken.start, nextToken.end);
                 this._getNextToken();
-                return new IdentifierToken(nextToken.start, nextToken.end, keywordText);
+                return new IdentifierToken(nextToken.start, nextToken.end - nextToken.start, keywordText);
             }
         }
 

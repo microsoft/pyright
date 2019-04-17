@@ -21,6 +21,7 @@ import { timingStats } from '../common/timing';
 import { ModuleNode } from '../parser/parseNodes';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
+import { TestWalker } from '../tests/testWalker';
 import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
@@ -336,6 +337,13 @@ export class SourceFile {
             timingStats.postParseWalkerTime.timeOperation(() => {
                 walker.analyze();
             });
+
+            // If we're in "test mode" (used for unit testing), run an additional
+            // "test walker" over the parse tree to validate its internal consistency.
+            if (configOptions.internalTestMode) {
+                let testWalker = new TestWalker();
+                testWalker.walk(parseResults.parseTree);
+            }
 
             // Save information in the analysis job.
             this._analysisJob.parseResults = parseResults;
