@@ -73,15 +73,6 @@ To update to the latest version:
 `sudo npm update -g pyright`
 
 
-
-## TODO
-
-Pyright is a work in progress. The following functionality is not yet finished. If you would like to contribute to any of these areas, contact the maintainers of the repo.
-
-* Provide switch that treats instance variables and methods that begin with underscore as private
-* Add support for f-strings
-
-
 ## Contributing
 
 This project welcomes contributions and suggestions. Most contributions require you to agree to a Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us the rights to use your contribution. For details, visit https://cla.microsoft.com.
