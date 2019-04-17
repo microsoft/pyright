@@ -1019,7 +1019,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitName(node: NameNode) {
-        let symbolInScope = this._currentScope.lookUpSymbolRecursive(node.nameToken.value);
+        const nameValue = node.nameToken.value;
+        const symbolInScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
         if (symbolInScope && symbolInScope.symbol.declarations) {
             // For now, always assume it's the first declaration
@@ -1033,6 +1034,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // node, allowing it to be accessed for hover and definition
         // information.
         this._getTypeOfExpression(node);
+
+        // Determine if we should log information about private usage.
+        this._conditionallyReportPrivateUsage(node);
+
         return true;
     }
 
@@ -1227,6 +1232,44 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this.walk(node.typeAnnotation);
 
         return false;
+    }
+
+    private _conditionallyReportPrivateUsage(node: NameNode) {
+        if (this._fileInfo.configOptions.reportPrivateUsage === 'none') {
+            return;
+        }
+
+        const nameValue = node.nameToken.value;
+
+        // Is it a private name?
+        if (!nameValue.startsWith('_') || nameValue.startsWith('__')) {
+            return;
+        }
+
+        const declaration = AnalyzerNodeInfo.getDeclaration(node);
+        if (!declaration || node === declaration.node) {
+            return;
+        }
+
+        let classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(declaration.node);
+
+        // If this is the name of a class, find the module or class that contains it rather
+        // than using constraining the use of the class name within the class itself.
+        if (declaration.node.parent &&
+                declaration.node.parent === classOrModuleNode &&
+                classOrModuleNode instanceof ClassNode) {
+
+            classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(classOrModuleNode);
+        }
+
+        if (classOrModuleNode && !ParseTreeUtils.isNodeContainedWithin(node, classOrModuleNode)) {
+            const scopeName = classOrModuleNode instanceof ClassNode ?
+                'class' : 'module';
+
+            this._addDiagnostic(this._fileInfo.configOptions.reportPrivateUsage,
+                `'${ nameValue }' is private and used outside of its owning ${ scopeName }`,
+                node);
+        }
     }
 
     private _createAwaitableFunction(functionType: FunctionType): FunctionType {

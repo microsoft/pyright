@@ -106,6 +106,10 @@ export class ConfigOptions {
     // Report untyped class decorators that obscure the class type?
     reportUntypedClassDecorator: DiagnosticLevel = 'none';
 
+    // Report usage of private variables and functions outside of
+    // the owning class or module?
+    reportPrivateUsage: DiagnosticLevel = 'none';
+
     //---------------------------------------------------------------
     // Parsing and Import Resolution Settings
 
@@ -239,6 +243,10 @@ export class ConfigOptions {
         // Read the "reportUntypedClassDecorator" entry.
         this.reportUntypedClassDecorator = this._convertDiagnosticLevel(
             configObj.reportUntypedClassDecorator, 'reportUntypedClassDecorator', 'none');
+
+        // Read the "reportPrivateUsage" entry.
+        this.reportPrivateUsage = this._convertDiagnosticLevel(
+            configObj.reportPrivateUsage, 'reportPrivateUsage', 'none');
 
         // Read the "venvPath".
         this.venvPath = undefined;

@@ -116,7 +116,7 @@ export class PostParseWalker extends ParseTreeWalker {
 
     visitWith(node: WithNode): boolean {
         node.withItems.forEach(item => {
-            this.walk(item.expression);
+            this.walk(item);
         });
 
         node.withItems.forEach(item => {

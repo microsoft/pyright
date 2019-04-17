@@ -258,12 +258,30 @@ export class ParseTreeUtils {
         return undefined;
     }
 
+    static getEnclosingClassOrModule(node: ParseNode): ClassNode | ModuleNode | undefined {
+        let curNode = node.parent;
+        while (curNode) {
+            if (curNode instanceof ClassNode) {
+                return curNode;
+            }
+
+            if (curNode instanceof ModuleNode) {
+                return curNode;
+            }
+
+            curNode = curNode.parent;
+        }
+
+        return undefined;
+    }
+
     static getEnclosingFunction(node: ParseNode): FunctionNode | undefined {
         let curNode = node.parent;
         while (curNode) {
             if (curNode instanceof FunctionNode) {
                 return curNode;
             }
+
             if (curNode instanceof ClassNode) {
                 return undefined;
             }
@@ -272,5 +290,18 @@ export class ParseTreeUtils {
         }
 
         return undefined;
+    }
+
+    static isNodeContainedWithin(node: ParseNode, potentialContainer: ParseNode): boolean {
+        let curNode = node.parent;
+        while (curNode) {
+            if (curNode === potentialContainer) {
+                return true;
+            }
+
+            curNode = curNode.parent;
+        }
+
+        return false;
     }
 }

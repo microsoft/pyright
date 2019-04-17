@@ -48,6 +48,8 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportUntypedClassDecorator** [boolean or string, optional]: Generate or suppress diagnostics for class decorators that have no type annotations. These obscure the class type, defeating many type analysis features.
 
+**reportPrivateUsage** [boolean or string, optional]: Generate or suppress diagnostics for uses of private variables or functions outside of the class or module that declares them. Private variables and functions, by convention, are named starting with a single underscoe (“_”) character.
+
 
 ## Execution Environment Options
 Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with different import search paths or a different version of the python interpreter than the rest of the source base.

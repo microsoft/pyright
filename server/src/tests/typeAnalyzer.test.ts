@@ -211,6 +211,19 @@ test('Optional1', () => {
     validateResults(analysisResults, 4);
 });
 
+test('Private1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, optional diagnostics are ignored.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['private1.py'], configOptions);
+    validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.reportPrivateUsage = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['private1.py'], configOptions);
+    validateResults(analysisResults, 4);
+});
+
 test('Tuples1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples1.py']);
 
