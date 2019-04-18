@@ -106,6 +106,9 @@ export class ConfigOptions {
     // Report untyped class decorators that obscure the class type?
     reportUntypedClassDecorator: DiagnosticLevel = 'none';
 
+    // Report untyped base class that obscure the class type?
+    reportUntypedBaseClass: DiagnosticLevel = 'none';
+
     // Report usage of private variables and functions outside of
     // the owning class or module?
     reportPrivateUsage: DiagnosticLevel = 'none';
@@ -249,6 +252,10 @@ export class ConfigOptions {
         // Read the "reportUntypedClassDecorator" entry.
         this.reportUntypedClassDecorator = this._convertDiagnosticLevel(
             configObj.reportUntypedClassDecorator, 'reportUntypedClassDecorator', 'none');
+
+        // Read the "reportUntypedBaseClass" entry.
+        this.reportUntypedBaseClass = this._convertDiagnosticLevel(
+            configObj.reportUntypedBaseClass, 'reportUntypedBaseClass', 'none');
 
         // Read the "reportPrivateUsage" entry.
         this.reportPrivateUsage = this._convertDiagnosticLevel(

@@ -163,6 +163,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
 
+            if (this._fileInfo.configOptions.reportUntypedBaseClass !== 'none') {
+                if (argType instanceof UnknownType ||
+                        argType instanceof UnionType && argType.getTypes().some(t => t instanceof UnknownType)) {
+
+                    this._addDiagnostic(
+                        this._fileInfo.configOptions.reportUntypedBaseClass,
+                        `Base class type is unknown, obscuring type of derived class`,
+                        arg);
+                }
+            }
+
             if (classType.updateBaseClassType(index, argType)) {
                 this._setAnalysisChanged();
             }

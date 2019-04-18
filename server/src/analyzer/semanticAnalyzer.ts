@@ -203,12 +203,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 }
             }
 
-            if (!argType.isAny()) {
-                if (argType.category !== TypeCategory.Class) {
-                    this._addError(`Argument to class must be a base class`, arg);
-                }
-            }
-
             classType.addBaseClass(argType, isMetaclass);
 
             if (!isMetaclass) {

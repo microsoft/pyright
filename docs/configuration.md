@@ -48,6 +48,8 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportUntypedClassDecorator** [boolean or string, optional]: Generate or suppress diagnostics for class decorators that have no type annotations. These obscure the class type, defeating many type analysis features.
 
+**reportUntypedBaseClass** [boolean or string, optional]: Generate or suppress diagnostics for base classes whose type cannot be determined statically. These obscure the class type, defeating many type analysis features.
+
 **reportPrivateUsage** [boolean or string, optional]: Generate or suppress diagnostics for uses of private variables or functions outside of the class or module that declares them. Private variables and functions, by convention, are named starting with a single underscoe (“_”) character.
 
 
