@@ -569,6 +569,13 @@ export class ExpressionEvaluator {
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (type instanceof ClassType) {
                 type = this._createSpecializeClassType(type, undefined, node);
+            } else if (type instanceof ObjectType) {
+                // If this is an object that contains a Type[X], transform it
+                // into class X.
+                const typeType = this._getClassFromPotentialTypeObject(type);
+                if (typeType) {
+                    type = typeType;
+                }
             }
         }
 
