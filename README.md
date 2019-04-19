@@ -28,6 +28,23 @@ Pyright includes both a [command-line tool](/docs/command-line.md) and an [exten
 
 For rich Python editing and debugging cabailities with Visual Studio Code, be sure to also install the official [Microsoft Python extension for Visual Studio Code](https://marketplace.visualstudio.com/itemdetails?itemName=ms-python.python) as Pyright only provides syntax and type checking.
 
+
+## Installation
+You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
+
+The latest version of the command-line tool can be installed with npm. To install it globally:
+`npm install -g pyright`
+
+On MacOS or Linux, sudo is required to install globally:
+`sudo npm install -g pyright`
+
+Once installed, you can run the tool from the command line as follows:
+`pyright <options>`
+
+To update to the latest version:
+`sudo npm update -g pyright`
+
+
 ## Documentation
 * [Getting Started with Type Checking](/docs/getting-started.md)
 * [Command-line Options](/docs/command-line.md)
@@ -55,22 +72,6 @@ Pyright is a work in progress. Type-checking capabilities are not fully implemen
 **Q:** What is the long-term plan for Pyright?
 
 **A:** Pyright is a side project with no dedicated team. There is no guarantee of continued development on the project. If you find it useful, feel free to use it and contribute to the code base.
-
-
-## Installation
-You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
-
-The latest version of the command-line tool can be installed with npm. To install it globally:
-`npm install -g pyright`
-
-On MacOS or Linux, sudo is required to install globally:
-`sudo npm install -g pyright`
-
-Once installed, you can run the tool from the command line as follows:
-`pyright <options>`
-
-To update to the latest version:
-`sudo npm update -g pyright`
 
 
 ## Contributing
