@@ -169,6 +169,36 @@ test('Annotations2', () => {
     validateResults(analysisResults, 2);
 });
 
+test('AnnotatedVars1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVars1.py']);
+
+    validateResults(analysisResults, 2);
+});
+
+test('AnnotatedVars2', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVars2.py']);
+
+    validateResults(analysisResults, 5);
+});
+
+test('AnnotatedVars3', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVars3.py']);
+
+    validateResults(analysisResults, 7);
+});
+
+test('AnnotatedVars4', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVars4.py']);
+
+    validateResults(analysisResults, 5);
+});
+
+test('AnnotatedVars5', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVars5.py']);
+
+    validateResults(analysisResults, 4);
+});
+
 test('Execution1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['execution1.py']);
 
