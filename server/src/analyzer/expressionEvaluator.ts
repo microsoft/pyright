@@ -457,7 +457,7 @@ export class ExpressionEvaluator {
 
             let isBytes = (node.tokens[0].quoteTypeFlags & QuoteTypeFlags.Byte) !== 0;
             typeResult = this._getBuiltInTypeFromLiteralExpression(node,
-                isBytes ? 'byte' : 'str');
+                isBytes ? 'bytes' : 'str');
         } else if (node instanceof NumberNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getBuiltInTypeFromLiteralExpression(node,
