@@ -169,34 +169,34 @@ test('Annotations2', () => {
     validateResults(analysisResults, 2);
 });
 
-test('AnnotatedVars1', () => {
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVars1.py']);
+test('AnnotatedVar1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar1.py']);
 
     validateResults(analysisResults, 2);
 });
 
-test('AnnotatedVars2', () => {
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVars2.py']);
+test('AnnotatedVar2', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar2.py']);
 
     validateResults(analysisResults, 5);
 });
 
-test('AnnotatedVars3', () => {
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVars3.py']);
+test('AnnotatedVar3', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar3.py']);
 
     validateResults(analysisResults, 7);
 });
 
-test('AnnotatedVars4', () => {
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVars4.py']);
+test('AnnotatedVar4', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar4.py']);
 
     validateResults(analysisResults, 5);
 });
 
-test('AnnotatedVars5', () => {
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVars5.py']);
+test('AnnotatedVar5', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar5.py']);
 
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 5);
 });
 
 test('Execution1', () => {
