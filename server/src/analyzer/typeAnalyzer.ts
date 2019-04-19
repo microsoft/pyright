@@ -226,7 +226,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
         };
 
-        this._bindNameNodeToType(node.name, decoratedType, declaration);
+        this._assignTypeToNameNode(node.name, decoratedType, declaration);
 
         this._validateClassMethods(classType);
 
@@ -455,7 +455,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines),
             declaredType: decoratedType
         };
-        this._bindNameNodeToType(node.name, decoratedType, declaration);
+        this._assignTypeToNameNode(node.name, decoratedType, declaration);
 
         if (containingClassNode) {
             if (!functionType.isClassMethod() && !functionType.isStaticMethod()) {
@@ -501,7 +501,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             range: convertOffsetsToRange(param.start, param.end, this._fileInfo.lines)
                         };
                         const paramType = UnknownType.create();
-                        this._bindNameNodeToType(param.name, paramType, declaration);
+                        this._assignTypeToNameNode(param.name, paramType, declaration);
                     }
                 }
 
@@ -561,7 +561,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const iteratedType = evaluator.getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression);
 
-        this._assignTypeToPossibleTuple(node.targetExpression, iteratedType);
+        this._assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
 
         this.walk(node.targetExpression);
 
@@ -592,7 +592,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const iteratedType = evaluator.getTypeFromIterable(
                         iteratorType, !!compr.isAsync, compr.iterableExpression);
 
-                    this._assignTypeToPossibleTuple(compr.targetExpression, iteratedType);
+                    this._assignTypeToExpression(compr.targetExpression, iteratedType, compr.targetExpression);
                     this.walk(compr.targetExpression);
                 } else {
                     this.walk(compr.testExpression);
@@ -670,7 +670,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             });
 
             if (item.target) {
-                this._assignTypeToPossibleTuple(item.target, scopedType);
+                this._assignTypeToExpression(item.target, scopedType, item.target);
                 this.walk(item.target);
             }
         });
@@ -808,7 +808,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 path: this._fileInfo.filePath,
                 range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
             };
-            this._bindNameNodeToType(node.name, exceptionType, declaration);
+            this._assignTypeToNameNode(node.name, exceptionType, declaration);
             this._updateExpressionTypeForNode(node.name, exceptionType);
         }
 
@@ -915,7 +915,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         range: convertOffsetsToRange(node.leftExpression.start,
                             node.leftExpression.end, this._fileInfo.lines)
                     };
-                    this._bindNameNodeToType(node.leftExpression, specialType, declaration);
+                    this._assignTypeToNameNode(node.leftExpression, specialType, declaration);
                     this._updateExpressionTypeForNode(node.leftExpression, specialType);
                     return false;
                 }
@@ -952,7 +952,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         range: convertOffsetsToRange(nameNode.start,
                             nameNode.end, this._fileInfo.lines)
                     };
-                    this._bindNameNodeToType(nameNode, specialType, declaration);
+                    this._assignTypeToNameNode(nameNode, specialType, declaration);
                     this._updateExpressionTypeForNode(nameNode, specialType);
                     return false;
                 }
@@ -961,33 +961,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let valueType = this._getTypeOfExpression(node.rightExpression);
 
-        let typeHintType: Type | undefined;
+        // If a type declaration was provided, note it here.
         if (node.typeAnnotationComment) {
-            typeHintType = this._getTypeOfAnnotation(node.typeAnnotationComment);
-
-            this.walk(node.typeAnnotationComment);
-
-            const diagAddendum = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(typeHintType, valueType, diagAddendum)) {
-                this._addError(
-                    `Expression of type '${ valueType.asString() }' cannot be assigned ` +
-                        `to type '${ typeHintType.asString() }'` + diagAddendum.getString(),
-                    node);
-            }
+            const typeHintType = this._getTypeOfAnnotation(node.typeAnnotationComment);
+            this._declareTypeForExpression(node.leftExpression, typeHintType,
+                node.typeAnnotationComment, node.rightExpression);
         }
 
-        // Try to handle the special case of enumerations.
-        let isEnum = false;
-        if (node.leftExpression instanceof NameNode) {
-            isEnum = this._assignTypeForPossibleEnumeration(
-                node.leftExpression, valueType);
+        // If this is an enum, transform the type as required.
+        let effectiveType = valueType;
+        if (node.leftExpression instanceof NameNode && !node.typeAnnotationComment) {
+            effectiveType = this._transformTypeForPossibleEnumClass(
+                node.leftExpression, effectiveType);
         }
 
-        if (!isEnum) {
-            // It wasn't an enum, so fall back on the common path.
-            this._assignTypeToPossibleTuple(
-                node.leftExpression, typeHintType || valueType);
-        }
+        this._assignTypeToExpression(node.leftExpression, effectiveType, node.rightExpression);
 
         return true;
     }
@@ -1055,7 +1043,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // that applies here. This is correct in all cases except for
             // possibly properties (getters/setters/deleters) and functions
             // (@overload).
-            AnalyzerNodeInfo.setDeclaration(node, symbolInScope.symbol.declarations[0]);
+            AnalyzerNodeInfo.setDeclaration(node,
+                TypeUtils.getPrimaryDeclarationOfSymbol(symbolInScope.symbol)!);
         }
 
         // Call _getTypeOfExpression so the type is cached in the
@@ -1132,7 +1121,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 if (node.alias) {
-                    this._bindNameNodeToType(node.alias, moduleType, moduleDeclaration);
+                    this._assignTypeToNameNode(node.alias, moduleType, moduleDeclaration);
                     this._updateExpressionTypeForNode(node.alias, moduleType);
                 } else {
                     this._bindMultiPartModuleNameToType(node.module.nameParts,
@@ -1225,7 +1214,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         }
                     }
 
-                    this._bindNameNodeToType(aliasNode, symbolType, declaration);
+                    this._assignTypeToNameNode(aliasNode, symbolType, declaration);
                 });
             }
         } else {
@@ -1241,7 +1230,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         this._updateExpressionTypeForNode(importAs.name, symbolType);
                     }
 
-                    this._bindNameNodeToType(aliasNode, symbolType);
+                    this._assignTypeToNameNode(aliasNode, symbolType);
                 });
             }
         }
@@ -1250,21 +1239,103 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
-        const typeHintType = this._getTypeOfAnnotation(node.typeAnnotation);
+        let typeHintType = this._getTypeOfAnnotation(node.typeAnnotation);
 
-        // Try to handle the special case of enumerations.
-        let isEnum = false;
+        // If this is within an enum, transform the type.
         if (node.valueExpression instanceof NameNode) {
-            isEnum = this._assignTypeForPossibleEnumeration(
+            typeHintType = this._transformTypeForPossibleEnumClass(
                 node.valueExpression, typeHintType);
         }
 
-        if (!isEnum) {
-            // It wasn't an enumeration, so follow the common path.
-            this._assignTypeToPossibleTuple(node.valueExpression, typeHintType);
+        if (!this._currentScope.isNotExecuted()) {
+            this._declareTypeForExpression(node.valueExpression, typeHintType,
+                node.typeAnnotation);
+
+            if (this._fileInfo.isStubFile) {
+                this._assignTypeToExpression(node.valueExpression, typeHintType,
+                    node.typeAnnotation);
+            }
         }
 
         return true;
+    }
+
+    // Assigns a declared type (as opposed to an inferred type) to an expression
+    // (e.g. a local variable, class variable, instance variable, etc.).
+    private _declareTypeForExpression(target: ExpressionNode, declaredType: Type,
+            typeAnnotationNode: ExpressionNode, srcExprNode?: ExpressionNode) {
+
+        let declarationHandled = false;
+
+        if (target instanceof NameNode) {
+            const name = target.nameToken;
+            const declaration: Declaration = {
+                category: SymbolCategory.Variable,
+                node: target,
+                path: this._fileInfo.filePath,
+                declaredType,
+                range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
+            };
+
+            const symbolWithScope = this._currentScope.lookUpSymbolFromPermanentScope(name.value);
+            if (symbolWithScope && symbolWithScope.symbol) {
+                this._addDeclarationToSymbol(symbolWithScope.symbol, declaration, target);
+            }
+            declarationHandled = true;
+        } else if (target instanceof MemberAccessExpressionNode) {
+            let targetNode = target.leftExpression;
+
+            // Handle member accesses (e.g. self.x or cls.y).
+            if (targetNode instanceof NameNode) {
+
+                // Determine whether we're writing to a class or instance member.
+                const enclosingClassNode = ParseTreeUtils.getEnclosingClass(target);
+                if (enclosingClassNode) {
+                    const classType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
+
+                    if (classType && classType instanceof ClassType) {
+                        const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression, false);
+                        if (typeOfLeftExpr instanceof ObjectType) {
+                            if (typeOfLeftExpr.getClassType().isSameGenericClass(classType)) {
+                                this._assignTypeToMemberVariable(target, declaredType, true,
+                                    typeAnnotationNode, srcExprNode);
+                                declarationHandled = true;
+                            }
+                        } else if (typeOfLeftExpr instanceof ClassType) {
+                            if (typeOfLeftExpr.isSameGenericClass(classType)) {
+                                this._assignTypeToMemberVariable(target, declaredType, false,
+                                    typeAnnotationNode, srcExprNode);
+                                declarationHandled = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!declarationHandled) {
+            this._addError(
+                `Type annotation not supported for this type of expression`,
+                typeAnnotationNode);
+        }
+    }
+
+    private _addDeclarationToSymbol(symbol: Symbol, declaration: Declaration, errorNode: ExpressionNode) {
+        // Are we adding a new declaration with a declared type?
+        if (symbol.declarations && declaration.declaredType) {
+            const declWithDefinedType = symbol.declarations.find(decl => !!decl.declaredType);
+
+            if (declWithDefinedType && declaration.node !== declWithDefinedType.node) {
+                // If we're adding a declaration, make sure it's the same type as an existing declaration.
+                if (!declaration.declaredType.isSame(declWithDefinedType.declaredType!)) {
+                    this._addError(`Declared type '${ declaration.declaredType.asString() }' is not compatible ` +
+                        `with previous declared type '${ declWithDefinedType.declaredType!.asString() }'`,
+                        errorNode);
+                }
+            }
+        }
+
+        symbol.addDeclaration(declaration);
     }
 
     private _conditionallyReportPrivateUsage(node: NameNode) {
@@ -1835,8 +1906,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _bindMemberVariableToType(node: MemberAccessExpressionNode,
-            typeOfExpr: Type, isInstanceMember: boolean) {
+    // Associates a member variable with a specified type.
+    // If typeAnnotationNode is provided, assumes that the specified
+    // type is declared (rather than inferred).
+    private _assignTypeToMemberVariable(node: MemberAccessExpressionNode, typeOfExpr: Type,
+            isInstanceMember: boolean, typeAnnotationNode?: ExpressionNode, srcExprNode?: ExpressionNode) {
 
         let classDef = ParseTreeUtils.getEnclosingClass(node);
         if (!classDef) {
@@ -1850,6 +1924,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let memberName = node.memberName.nameToken.value;
             let memberInfo = TypeUtils.lookUpClassMember(classType, memberName);
 
+            // A local helper function that creates a new declaration.
             let createDeclaration = () => {
                 let declaration: Declaration = {
                     category: typeOfExpr instanceof FunctionType ?
@@ -1858,12 +1933,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.memberName.start, node.memberName.end, this._fileInfo.lines)
                 };
+
+                if (typeAnnotationNode) {
+                    declaration.declaredType = typeOfExpr;
+                }
+
                 return declaration;
             };
 
             const memberFields = isInstanceMember ? classType.getInstanceFields() : classType.getClassFields();
 
             let addNewMemberToLocalClass = false;
+            let inheritedDeclaration: Declaration | undefined;
             if (memberInfo) {
                 if (memberInfo.classType instanceof ClassType &&
                         classType.isSameGenericClass(memberInfo.classType) &&
@@ -1871,19 +1952,29 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     const symbol = memberFields.get(memberName)!;
                     assert(symbol !== undefined);
-                    if (symbol.setCurrentType(typeOfExpr, AnalyzerNodeInfo.getTypeSourceId(node.memberName))) {
+
+                    // If the type annotation node is provided, use it to generate a source ID.
+                    // If an expression contains both a type annotation and an assigment, we want
+                    // to generate two sources because the types may different, and the analysis
+                    // won't converge if we use the same source ID for both.
+                    const sourceId = AnalyzerNodeInfo.getTypeSourceId(typeAnnotationNode || node.memberName);
+                    if (symbol.setCurrentType(typeOfExpr, sourceId)) {
                         this._setAnalysisChanged();
                     }
 
-                    // If there is no declaration yet, assign one now.
-                    let declaration = createDeclaration();
-                    symbol.addDeclaration(declaration);
-                    AnalyzerNodeInfo.setDeclaration(node.memberName, symbol.declarations![0]);
+                    this._addDeclarationToSymbol(symbol, createDeclaration(), node);
+                    AnalyzerNodeInfo.setDeclaration(node.memberName,
+                        TypeUtils.getPrimaryDeclarationOfSymbol(symbol)!);
                 } else {
                     // Handle the case where there is a class variable defined with the same
                     // name, but there's also now an instance variable introduced. Combine the
                     // type of the class variable with that of the new instance variable.
                     if (memberInfo.symbol && !memberInfo.isInstanceMember && isInstanceMember) {
+                        if (memberInfo.symbol.declarations) {
+                            inheritedDeclaration = memberInfo.symbol.declarations.find(decl => !!decl.declaredType);
+                            // declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
+                        }
+
                         typeOfExpr = TypeUtils.combineTypes([typeOfExpr, memberInfo.symbolType]);
                     }
                     addNewMemberToLocalClass = true;
@@ -1895,11 +1986,40 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (addNewMemberToLocalClass) {
                 let newSymbol = new Symbol(typeOfExpr, AnalyzerNodeInfo.getTypeSourceId(node.memberName));
+
+                // If this is an instance variable that has a corresponding class varible
+                // with a defined type, it should inherit that declaration (and declared type).
+                if (inheritedDeclaration) {
+                    newSymbol.addDeclaration(inheritedDeclaration);
+                }
+
                 newSymbol.addDeclaration(createDeclaration());
                 memberFields.set(memberName, newSymbol);
                 this._setAnalysisChanged();
 
-                AnalyzerNodeInfo.setDeclaration(node.memberName, newSymbol.declarations![0]);
+                AnalyzerNodeInfo.setDeclaration(node.memberName,
+                    TypeUtils.getPrimaryDeclarationOfSymbol(newSymbol)!);
+            }
+
+            // Look up the member info again, now that we've potentially added a declared type.
+            memberInfo = TypeUtils.lookUpClassMember(classType, memberName);
+            if (memberInfo) {
+                const declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
+                if (declaredType && !declaredType.isAny()) {
+                    if (declaredType instanceof FunctionType) {
+                        // Overwriting an existing method.
+                        // TODO - not sure what assumption to make here.
+                    } else if (declaredType instanceof PropertyType) {
+                        // TODO - need to validate property setter type.
+                    } else {
+                        const diagAddendum = new DiagnosticAddendum();
+                        if (!TypeUtils.canAssignType(declaredType, typeOfExpr, diagAddendum)) {
+                            this._addError(`Expression of type '${ typeOfExpr.asString() }' cannot be ` +
+                                `assigned to declared type '${ declaredType.asString() }'` + diagAddendum.getString(),
+                                srcExprNode || typeAnnotationNode || node);
+                        }
+                    }
+                }
             }
         }
     }
@@ -2028,7 +2148,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _assignTypeToPossibleTuple(target: ExpressionNode, type: Type): void {
+    private _assignTypeToExpression(target: ExpressionNode, type: Type, srcExpr: ExpressionNode): void {
         if (target instanceof NameNode) {
             const name = target.nameToken;
             const declaration: Declaration = {
@@ -2038,7 +2158,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
             };
 
-            this._bindNameNodeToType(target, type, declaration);
+            this._assignTypeToNameNode(target, type, declaration, srcExpr);
             this._addAssignmentTypeConstraint(target, type);
         } else if (target instanceof MemberAccessExpressionNode) {
             let targetNode = target.leftExpression;
@@ -2054,11 +2174,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression, false);
                         if (typeOfLeftExpr instanceof ObjectType) {
                             if (typeOfLeftExpr.getClassType().isSameGenericClass(classType)) {
-                                this._bindMemberVariableToType(target, type, true);
+                                this._assignTypeToMemberVariable(target, type, true);
                             }
                         } else if (typeOfLeftExpr instanceof ClassType) {
                             if (typeOfLeftExpr.isSameGenericClass(classType)) {
-                                this._bindMemberVariableToType(target, type, false);
+                                this._assignTypeToMemberVariable(target, type, false);
                             }
                         }
                     }
@@ -2077,7 +2197,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         target);
                 } else {
                     target.expressions.forEach((expr, index) => {
-                        this._assignTypeToPossibleTuple(expr, entryTypes[index]);
+                        this._assignTypeToExpression(expr, entryTypes[index], srcExpr);
                     });
                     assignedTypes = true;
                 }
@@ -2085,22 +2205,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (!assignedTypes) {
                 target.expressions.forEach(expr => {
-                    this._assignTypeToPossibleTuple(expr, UnknownType.create());
+                    this._assignTypeToExpression(expr, UnknownType.create(), srcExpr);
                 });
             }
         } else if (target instanceof TypeAnnotationExpressionNode) {
-            let typeHint = this._getTypeOfAnnotation(target.typeAnnotation);
-
-            const diagAddendum = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(typeHint, type, diagAddendum)) {
-                this._addError(
-                    `Expression of type '${ type.asString() }'` +
-                        ` cannot be assigned to type '${ typeHint.asString() }'` +
-                        diagAddendum.getString(),
-                    target.typeAnnotation);
-            }
-
-            this._assignTypeToPossibleTuple(target.valueExpression, typeHint);
+            this._assignTypeToExpression(target.valueExpression, type, srcExpr);
         } else if (target instanceof UnpackExpressionNode) {
             if (target.expression instanceof NameNode) {
                 let name = target.expression.nameToken;
@@ -2111,7 +2220,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
                 };
                 type = UnknownType.create();
-                this._bindNameNodeToType(target.expression, type, declaration);
+                this._assignTypeToNameNode(target.expression, type, declaration, srcExpr);
             }
         } else {
             this._addAssignmentTypeConstraint(target, type);
@@ -2164,27 +2273,40 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _bindNameNodeToType(nameNode: NameNode, type: Type, declaration?: Declaration) {
-        const name = nameNode.nameToken.value;
-        this._bindNameToType(name, type, AnalyzerNodeInfo.getTypeSourceId(nameNode), declaration);
+    private _assignTypeToNameNode(nameNode: NameNode, type: Type, declaration?: Declaration,
+            srcExpressionNode?: ParseNode) {
 
-        // Set the declaration on itself so hovering over the definition will
-        // provide hover information.
-        let symbolDeclaration = declaration;
+        const nameValue = nameNode.nameToken.value;
 
-        let existingDeclaration: Declaration | undefined;
-        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name);
-        if (symbolWithScope && symbolWithScope.symbol && symbolWithScope.symbol.declarations) {
-            existingDeclaration = symbolWithScope.symbol.declarations[0];
+        // Determine if there's a declared type for this symbol.
+        let declaredType: Type | undefined = declaration ? declaration.declaredType : undefined;
+
+        const symbolWithScope = this._currentScope.lookUpSymbolFromPermanentScope(nameValue);
+        if (symbolWithScope && symbolWithScope.symbol) {
+            if (symbolWithScope.symbol.declarations) {
+                const declWithDefinedType = symbolWithScope.symbol.declarations.find(
+                    decl => !!decl.declaredType);
+
+                if (declWithDefinedType) {
+                    declaredType = declWithDefinedType.declaredType!;
+                }
+            }
         }
 
-        // If the caller didn't specify a declaration, use the existing one.
-        if (!symbolDeclaration) {
-            symbolDeclaration = existingDeclaration;
+        // We found an existing declared type. Make sure the newly-bound type is assignable.
+        if (declaredType && srcExpressionNode) {
+            const diagAddendum = new DiagnosticAddendum();
+            if (!TypeUtils.canAssignType(declaredType, type, diagAddendum)) {
+                this._addError(`Expression of type '${ type.asString() }' cannot be ` +
+                    `assigned to declared type '${ declaredType.asString() }'` + diagAddendum.getString(),
+                    srcExpressionNode || nameNode);
+            }
         }
 
-        if (symbolDeclaration) {
-            AnalyzerNodeInfo.setDeclaration(nameNode, symbolDeclaration);
+        this._bindNameToType(nameValue, type, AnalyzerNodeInfo.getTypeSourceId(nameNode), declaration);
+
+        if (declaration) {
+            AnalyzerNodeInfo.setDeclaration(nameNode, declaration);
         }
     }
 
@@ -2197,27 +2319,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _assignTypeForPossibleEnumeration(node: NameNode, typeOfExpr?: Type): boolean {
+    private _transformTypeForPossibleEnumClass(node: NameNode, typeOfExpr: Type): Type {
         let enumClassInfo = this._getEnclosingEnumClassInfo(node);
 
         if (enumClassInfo) {
-            const diagAddendum = new DiagnosticAddendum();
-
-            if (typeOfExpr && !TypeUtils.canAssignType(enumClassInfo.valueType, typeOfExpr, diagAddendum)) {
-                this._addError(
-                    `Expression of type '${ typeOfExpr.asString() }' cannot be assigned ` +
-                        `to type '${ enumClassInfo.valueType.asString() }'` + diagAddendum.getString(),
-                    node);
-            } else {
-                // The type of each enumerated item is an instance of the enum class.
-                let enumObj = new ObjectType(enumClassInfo.enumClass);
-                this._assignTypeToPossibleTuple(node, enumObj);
-            }
-
-            return true;
+            // The type of each enumerated item is an instance of the enum class.
+            return new ObjectType(enumClassInfo.enumClass);
         }
 
-        return false;
+        return typeOfExpr;
     }
 
     // If the node is within a class that derives from the metaclass
@@ -2266,18 +2376,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 baseType.getClassType(), memberNameValue);
             if (classMemberInfo) {
                 if (classMemberInfo.symbol && classMemberInfo.symbol.declarations) {
-                    AnalyzerNodeInfo.setDeclaration(memberName, classMemberInfo.symbol.declarations[0]);
+                    AnalyzerNodeInfo.setDeclaration(memberName,
+                        TypeUtils.getPrimaryDeclarationOfSymbol(classMemberInfo.symbol)!);
                 }
             }
         } else if (baseType instanceof ModuleType) {
             let moduleMemberInfo = baseType.getFields().get(memberNameValue);
             if (moduleMemberInfo && moduleMemberInfo.declarations) {
-                AnalyzerNodeInfo.setDeclaration(memberName, moduleMemberInfo.declarations[0]);
+                AnalyzerNodeInfo.setDeclaration(memberName,
+                    TypeUtils.getPrimaryDeclarationOfSymbol(moduleMemberInfo)!);
             }
         } else if (baseType instanceof ClassType) {
             let classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue, false);
             if (classMemberInfo && classMemberInfo.symbol && classMemberInfo.symbol.declarations) {
-                AnalyzerNodeInfo.setDeclaration(memberName, classMemberInfo.symbol.declarations[0]);
+                AnalyzerNodeInfo.setDeclaration(memberName,
+                    TypeUtils.getPrimaryDeclarationOfSymbol(classMemberInfo.symbol)!);
             }
         } else if (baseType instanceof UnionType) {
             for (let t of baseType.getTypes()) {

@@ -91,7 +91,12 @@ export class Symbol {
             // the list.
             let declIndex = this.declarations.findIndex(decl => decl.node === declaration.node);
             if (declIndex >= 0) {
-                this.declarations[declIndex] = declaration;
+                // This declaration has already been added. Update the declared
+                // type if it's available. The other fields in the declaration
+                // should be the same from one analysis pass to the next.
+                if (declaration.declaredType) {
+                    this.declarations[declIndex].declaredType = declaration.declaredType;
+                }
             } else {
                 this.declarations.push(declaration);
             }

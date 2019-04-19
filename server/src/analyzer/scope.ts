@@ -160,6 +160,16 @@ export class Scope {
         return this._lookUpSymbolRecursiveInternal(name, false, false);
     }
 
+    lookUpSymbolFromPermanentScope(name: string): SymbolWithScope | undefined {
+        // If this is a temporary scope, recurse until we get to a
+        // permanent scope.
+        if (this._scopeType === ScopeType.Temporary) {
+            return this._parent!.lookUpSymbolFromPermanentScope(name);
+        }
+
+        return this.lookUpSymbolRecursive(name);
+    }
+
     // Adds a new (unbound) symbol to the scope.
     addUnboundSymbol(name: string) {
         let symbol = new Symbol(UnboundType.create(), DefaultTypeSourceId);
@@ -427,6 +437,7 @@ export class Scope {
 
     private _lookUpSymbolRecursiveInternal(name: string, isOutsideCallerModule: boolean,
             isBeyondLocalScope: boolean): SymbolWithScope | undefined {
+
         // If we're searching outside of the original caller's module (global) scope,
         // hide any names that are not meant to be visible to importers.
         if (isOutsideCallerModule && this._exportFilterMap && !this._exportFilterMap[name]) {

@@ -13,7 +13,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DefaultTypeSourceId } from './inferredType';
-import { Symbol } from './symbol';
+import { Declaration, Symbol } from './symbol';
 import { AnyType, ClassType, FunctionType,
     InheritanceChain, ModuleType, NeverType, NoneType, ObjectType,
     OverloadedFunctionType, SpecializedFunctionTypes, Type, TypeCategory,
@@ -25,10 +25,10 @@ export interface ClassMember {
     // Symbol
     symbol: Symbol;
 
-    // Partially-specialed class that contains the class member
+    // Partially-specialized class that contains the class member
     classType: Type;
 
-    // Partially-specialed type of symbol
+    // Partially-specialized type of symbol
     symbolType: Type;
 
     // True if instance member, false if class member
@@ -543,7 +543,7 @@ export class TypeUtils {
                 const instanceFields = classType.getInstanceFields();
                 const instanceFieldEntry = instanceFields.get(memberName);
                 if (instanceFieldEntry) {
-                    let symbol = instanceFieldEntry;
+                    const symbol = instanceFieldEntry;
 
                     return {
                         symbol,
@@ -559,7 +559,7 @@ export class TypeUtils {
             const classFields = classType.getClassFields();
             const classFieldEntry = classFields.get(memberName);
             if (classFieldEntry) {
-                let symbol = classFieldEntry;
+                const symbol = classFieldEntry;
 
                 return {
                     symbol,
@@ -574,7 +574,7 @@ export class TypeUtils {
                 for (let baseClass of classType.getBaseClasses()) {
                     // Skip metaclasses.
                     if (!baseClass.isMetaclass) {
-                        let methodType = this.lookUpClassMember(
+                        const methodType = this.lookUpClassMember(
                             this.partiallySpecializeType(baseClass.type, classType),
                             memberName, searchBaseClasses);
                         if (methodType) {
@@ -598,13 +598,40 @@ export class TypeUtils {
     }
 
     static getEffectiveTypeOfSymbol(symbol: Symbol): Type {
-        if (symbol.declarations) {
-            if (symbol.declarations[0].declaredType) {
-                return symbol.declarations[0].declaredType;
-            }
+        // If there's a declared type, it takes precedence.
+        const declaredType = this.getDeclaredTypeOfSymbol(symbol);
+        if (declaredType) {
+            return declaredType;
         }
 
         return symbol.inferredType.getType();
+    }
+
+    static getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
+        if (symbol.declarations) {
+            const declWithDeclaredType = symbol.declarations.find(decl => decl.declaredType !== undefined);
+            if (declWithDeclaredType) {
+                return declWithDeclaredType.declaredType;
+            }
+        }
+
+        return undefined;
+    }
+
+    // Returns the first declaration with a declared type. If no such
+    // declaration exists, returns the first declaration.
+    static getPrimaryDeclarationOfSymbol(symbol: Symbol): Declaration | undefined {
+        if (symbol.declarations) {
+            const declWithDeclaredType = symbol.declarations.find(
+                decl => decl.declaredType !== undefined);
+            if (declWithDeclaredType) {
+                return declWithDeclaredType;
+            }
+
+            return symbol.declarations[0];
+        }
+
+        return undefined;
     }
 
     static addDefaultFunctionParameters(functionType: FunctionType) {
@@ -1097,8 +1124,9 @@ export class TypeUtils {
                     diag.addMessage(`'${ name }' is not present`);
                     missingNames.push(name);
                 } else {
-                    if (symbol.declarations && symbol.declarations[0].declaredType) {
-                        let destMemberType = symbol.declarations[0].declaredType;
+                    const primaryDecl = this.getPrimaryDeclarationOfSymbol(symbol);
+                    if (primaryDecl && primaryDecl.declaredType) {
+                        let destMemberType = primaryDecl.declaredType;
                         destMemberType = this.specializeType(destMemberType, destClassTypeVarMap);
                         let srcMemberType = memberInfo.symbolType;
 
