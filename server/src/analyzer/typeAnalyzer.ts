@@ -967,23 +967,31 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (!(node.leftExpression instanceof NameNode) ||
-                !this._assignTypeForPossibleEnumeration(node.leftExpression, valueType)) {
-            this._assignTypeToPossibleTuple(node.leftExpression, typeHintType || valueType);
+        // Try to handle the special case of enumerations.
+        let isEnum = false;
+        if (node.leftExpression instanceof NameNode) {
+            isEnum = this._assignTypeForPossibleEnumeration(
+                node.leftExpression, valueType);
         }
 
-        this.walk(node.rightExpression);
-        this.walk(node.leftExpression);
-        return false;
+        if (!isEnum) {
+            // It wasn't an enum, so fall back on the common path.
+            this._assignTypeToPossibleTuple(
+                node.leftExpression, typeHintType || valueType);
+        }
+
+        return true;
     }
 
     visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode): boolean {
+        let exprType = this._getTypeOfExpression(node.rightExpression);
+
+        // TODO - need to verify that the LHS supports this operation
+        // TODO - determine resulting type of operation
+
         // Report any errors with assigning to this type.
-        this._evaluateExpressionForAssignment(node.leftExpression);
+        this._evaluateExpressionForAssignment(node.leftExpression, exprType);
 
-        this._getTypeOfExpression(node.rightExpression);
-
-        // TODO - need to verify types
         return true;
     }
 
@@ -1066,10 +1074,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._setDefinitionForMemberName(
             this._getTypeOfExpression(node.leftExpression), node.memberName);
 
+        this._conditionallyReportPrivateUsage(node.memberName);
+
         // Walk the leftExpression but not the memberName.
         this.walk(node.leftExpression);
-
-        this._conditionallyReportPrivateUsage(node.memberName);
 
         return false;
     }
@@ -1233,19 +1241,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
-        let typeHint = this._getTypeOfAnnotation(node.typeAnnotation);
-        if (!(node.valueExpression instanceof NameNode) ||
-                !this._assignTypeForPossibleEnumeration(node.valueExpression, typeHint)) {
-            this._assignTypeToPossibleTuple(node.valueExpression, typeHint);
+        const typeHintType = this._getTypeOfAnnotation(node.typeAnnotation);
+
+        // Try to handle the special case of enumerations.
+        let isEnum = false;
+        if (node.valueExpression instanceof NameNode) {
+            isEnum = this._assignTypeForPossibleEnumeration(
+                node.valueExpression, typeHintType);
         }
 
-        this.walk(node.valueExpression);
+        if (!isEnum) {
+            // It wasn't an enumeration, so follow the common path.
+            this._assignTypeToPossibleTuple(node.valueExpression, typeHintType);
+        }
 
-        // Walk the type expression to fill in the type information
-        // for the hover provider.
-        this.walk(node.typeAnnotation);
-
-        return false;
+        return true;
     }
 
     private _conditionallyReportPrivateUsage(node: NameNode) {
@@ -1972,9 +1982,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.ConvertEllipsisToAny);
     }
 
-    private _evaluateExpressionForAssignment(node: ExpressionNode): Type {
+    private _evaluateExpressionForAssignment(node: ExpressionNode, type: Type) {
         let evaluator = this._createEvaluator();
-        return evaluator.getType(node, EvaluatorUsage.Set, EvaluatorFlags.None);
+        evaluator.getType(node, EvaluatorUsage.Set, EvaluatorFlags.None);
     }
 
     private _evaluateExpressionForDeletion(node: ExpressionNode): Type {
@@ -2011,13 +2021,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _assignTypeToPossibleTuple(target: ExpressionNode, type: Type): void {
         if (target instanceof NameNode) {
-            let name = target.nameToken;
-            let declaration: Declaration = {
+            const name = target.nameToken;
+            const declaration: Declaration = {
                 category: SymbolCategory.Variable,
                 node: target,
                 path: this._fileInfo.filePath,
                 range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
             };
+
             this._bindNameNodeToType(target, type, declaration);
             this._addAssignmentTypeConstraint(target, type);
         } else if (target instanceof MemberAccessExpressionNode) {
@@ -2044,8 +2055,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
             }
-
-            // TODO - need to validate type compatibility for assignment
         } else if (target instanceof TupleExpressionNode) {
             let assignedTypes = false;
 
@@ -2059,7 +2068,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         target);
                 } else {
                     target.expressions.forEach((expr, index) => {
-                        // TODO - need to perform better type compatibility checking here
                         this._assignTypeToPossibleTuple(expr, entryTypes[index]);
                     });
                     assignedTypes = true;
@@ -2067,7 +2075,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (!assignedTypes) {
-                // TODO - need to perform better type compatibility checking here
                 target.expressions.forEach(expr => {
                     this._assignTypeToPossibleTuple(expr, UnknownType.create());
                 });
@@ -2102,7 +2109,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         // Report any errors with assigning to this type.
-        this._evaluateExpressionForAssignment(target);
+        this._evaluateExpressionForAssignment(target, type);
     }
 
     private _bindMultiPartModuleNameToType(nameParts: NameNode[], type: ModuleType,
@@ -2155,13 +2162,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Set the declaration on itself so hovering over the definition will
         // provide hover information.
         let symbolDeclaration = declaration;
-        if (!symbolDeclaration) {
-            // If the caller didn't specify a declaration, look it up.
-            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameNode.nameToken.value);
-            if (symbolWithScope && symbolWithScope.symbol && symbolWithScope.symbol.declarations) {
-                symbolDeclaration = symbolWithScope.symbol.declarations[0];
-            }
+
+        let existingDeclaration: Declaration | undefined;
+        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name);
+        if (symbolWithScope && symbolWithScope.symbol && symbolWithScope.symbol.declarations) {
+            existingDeclaration = symbolWithScope.symbol.declarations[0];
         }
+
+        // If the caller didn't specify a declaration, use the existing one.
+        if (!symbolDeclaration) {
+            symbolDeclaration = existingDeclaration;
+        }
+
         if (symbolDeclaration) {
             AnalyzerNodeInfo.setDeclaration(nameNode, symbolDeclaration);
         }
@@ -2169,12 +2181,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _bindNameToType(name: string, type: Type, typeSourceId: TypeSourceId,
             declaration?: Declaration) {
-        // If this is a temporary scope, it may not yet have the name
-        // added. We'll add it here because bindName expects it
-        // to be present already.
-        if (!this._currentScope.lookUpSymbol(name)) {
-            this._currentScope.addUnboundSymbol(name);
-        }
 
         this._currentScope.setSymbolCurrentType(name, type, typeSourceId);
         if (declaration) {
@@ -2184,8 +2190,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _assignTypeForPossibleEnumeration(node: NameNode, typeOfExpr?: Type): boolean {
         let enumClassInfo = this._getEnclosingEnumClassInfo(node);
+
         if (enumClassInfo) {
             const diagAddendum = new DiagnosticAddendum();
+
             if (typeOfExpr && !TypeUtils.canAssignType(enumClassInfo.valueType, typeOfExpr, diagAddendum)) {
                 this._addError(
                     `Expression of type '${ typeOfExpr.asString() }' cannot be assigned ` +
