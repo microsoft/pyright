@@ -43,7 +43,7 @@ import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
     PropertyType, Type, TypeCategory, TypeVarType, UnionType,
     UnknownType } from './types';
-import { TypeUtils } from './typeUtils';
+import { ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
 interface EnumClassInfo {
     enumClass: ClassType;
@@ -2002,7 +2002,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             // Look up the member info again, now that we've potentially added a declared type.
-            memberInfo = TypeUtils.lookUpClassMember(classType, memberName);
+            memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
+                ClassMemberLookupFlags.DeclaredTypesOnly);
             if (memberInfo) {
                 const declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
                 if (declaredType && !declaredType.isAny()) {
@@ -2350,7 +2351,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             let metaclass = TypeUtils.getMetaclass(enumClass);
             if (metaclass && metaclass instanceof ClassType && metaclass.getClassName() === 'EnumMeta') {
-                let valueMember = TypeUtils.lookUpClassMember(enumClass, 'value', false);
+                let valueMember = TypeUtils.lookUpClassMember(enumClass, 'value',
+                    ClassMemberLookupFlags.SkipInstanceVariables);
                 let valueType: Type;
                 if (valueMember) {
                     valueType = valueMember.symbolType;
@@ -2387,7 +2389,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     TypeUtils.getPrimaryDeclarationOfSymbol(moduleMemberInfo)!);
             }
         } else if (baseType instanceof ClassType) {
-            let classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue, false);
+            let classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue,
+                ClassMemberLookupFlags.SkipInstanceVariables);
             if (classMemberInfo && classMemberInfo.symbol && classMemberInfo.symbol.declarations) {
                 AnalyzerNodeInfo.setDeclaration(memberName,
                     TypeUtils.getPrimaryDeclarationOfSymbol(classMemberInfo.symbol)!);

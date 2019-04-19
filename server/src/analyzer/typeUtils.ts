@@ -35,6 +35,24 @@ export interface ClassMember {
     isInstanceMember: boolean;
 }
 
+export enum ClassMemberLookupFlags {
+    Default = 0,
+
+    // By default, base classes are searched as well as the
+    // original (derived) class. If this flag is set, no recursion
+    // is performed.
+    SkipBaseClasses = 0x01,
+
+    // By default, both class and instance variables are searched.
+    // If this flag is set, the instance variables are skipped.
+    SkipInstanceVariables = 0x02,
+
+    // By default, the first symbol is returned even if it has only
+    // an inferred type associated with it. If this flag is set,
+    // the search looks only for symbols with declared types.
+    DeclaredTypesOnly = 0x04
+}
+
 export class TypeUtils {
     // Calls a callback for each subtype and combines the results
     // into a final type.
@@ -515,10 +533,10 @@ export class TypeUtils {
     }
 
     static lookUpObjectMember(objectType: Type, memberName: string,
-            includeInstanceFields = true): ClassMember | undefined {
+            flags = ClassMemberLookupFlags.Default): ClassMember | undefined {
 
         if (objectType instanceof ObjectType) {
-            return this.lookUpClassMember(objectType.getClassType(), memberName, includeInstanceFields);
+            return this.lookUpClassMember(objectType.getClassType(), memberName, flags);
         }
 
         return undefined;
@@ -533,25 +551,29 @@ export class TypeUtils {
     // would return a class type of Dict[str, int] and a symbolType of
     // (self) -> Iterator[str].
     static lookUpClassMember(classType: Type, memberName: string,
-            includeInstanceFields = true, searchBaseClasses = true): ClassMember | undefined {
+            flags = ClassMemberLookupFlags.Default): ClassMember | undefined {
+
+        const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
 
         if (classType instanceof ClassType) {
             // TODO - Switch to true MRO. For now, use naive depth-first search.
 
             // Look in the instance fields first if requested.
-            if (includeInstanceFields) {
+            if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
                 const instanceFields = classType.getInstanceFields();
                 const instanceFieldEntry = instanceFields.get(memberName);
                 if (instanceFieldEntry) {
                     const symbol = instanceFieldEntry;
 
-                    return {
-                        symbol,
-                        isInstanceMember: true,
-                        classType,
-                        symbolType: this.partiallySpecializeType(
-                            this.getEffectiveTypeOfSymbol(symbol), classType)
-                    };
+                    if (!declaredTypesOnly || this.getDeclaredTypeOfSymbol(symbol)) {
+                        return {
+                            symbol,
+                            isInstanceMember: true,
+                            classType,
+                            symbolType: this.partiallySpecializeType(
+                                this.getEffectiveTypeOfSymbol(symbol), classType)
+                        };
+                    }
                 }
             }
 
@@ -561,22 +583,25 @@ export class TypeUtils {
             if (classFieldEntry) {
                 const symbol = classFieldEntry;
 
-                return {
-                    symbol,
-                    isInstanceMember: false,
-                    classType,
-                    symbolType: this.partiallySpecializeType(
-                        this.getEffectiveTypeOfSymbol(symbol), classType)
-                };
+                if (!declaredTypesOnly || this.getDeclaredTypeOfSymbol(symbol)) {
+                    return {
+                        symbol,
+                        isInstanceMember: false,
+                        classType,
+                        symbolType: this.partiallySpecializeType(
+                            this.getEffectiveTypeOfSymbol(symbol), classType)
+                    };
+                }
             }
 
-            if (searchBaseClasses) {
+            if ((flags & ClassMemberLookupFlags.SkipBaseClasses) === 0) {
                 for (let baseClass of classType.getBaseClasses()) {
                     // Skip metaclasses.
                     if (!baseClass.isMetaclass) {
+                        // Recursively perform search.
                         const methodType = this.lookUpClassMember(
                             this.partiallySpecializeType(baseClass.type, classType),
-                            memberName, searchBaseClasses);
+                            memberName, flags);
                         if (methodType) {
                             return methodType;
                         }
@@ -1119,7 +1144,8 @@ export class TypeUtils {
             let destClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(destType);
 
             destClassFields.forEach((symbol, name) => {
-                const memberInfo = TypeUtils.lookUpClassMember(srcType, name, false);
+                const memberInfo = TypeUtils.lookUpClassMember(srcType, name,
+                    ClassMemberLookupFlags.SkipInstanceVariables);
                 if (!memberInfo) {
                     diag.addMessage(`'${ name }' is not present`);
                     missingNames.push(name);

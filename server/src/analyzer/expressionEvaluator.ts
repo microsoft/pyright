@@ -39,7 +39,7 @@ import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NeverType, NoneType, ObjectType,
     OverloadedFunctionType, PropertyType, Type, TypeVarMap, TypeVarType,
     UnionType, UnknownType } from './types';
-import { ClassMember, TypeUtils } from './typeUtils';
+import { ClassMember, ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -404,7 +404,8 @@ export class ExpressionEvaluator {
     }
 
     private _getSpecializedReturnType(objType: ObjectType, memberName: string) {
-        const classMember = TypeUtils.lookUpObjectMember(objType, memberName, false);
+        const classMember = TypeUtils.lookUpObjectMember(objType, memberName,
+            ClassMemberLookupFlags.SkipInstanceVariables);
         if (!classMember) {
             return undefined;
         }
@@ -734,9 +735,15 @@ export class ExpressionEvaluator {
             classType = aliasClass;
         }
 
+        let classLookupFlags = ClassMemberLookupFlags.Default;
+        if (flags & MemberAccessFlags.SkipInstanceMembers) {
+            classLookupFlags |= ClassMemberLookupFlags.SkipInstanceVariables;
+        }
+        if (flags & MemberAccessFlags.SkipBaseClasses) {
+            classLookupFlags |= ClassMemberLookupFlags.SkipBaseClasses;
+        }
         let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-            !(flags & MemberAccessFlags.SkipInstanceMembers),
-            !(flags & MemberAccessFlags.SkipBaseClasses));
+            classLookupFlags);
 
         if (memberInfo) {
             // Should we ignore members on the 'object' base class?
@@ -779,7 +786,8 @@ export class ExpressionEvaluator {
                     }
 
                     const memberClassType = type.getClassType();
-                    let getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName, false);
+                    let getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName,
+                        ClassMemberLookupFlags.SkipInstanceVariables);
                     if (getMember) {
                         if (getMember.symbolType instanceof FunctionType) {
                             if (usage === EvaluatorUsage.Get) {
