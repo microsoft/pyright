@@ -199,16 +199,18 @@ test('Optional1', () => {
     configOptions.reportOptionalMemberAccess = 'warning';
     configOptions.reportOptionalCall = 'warning';
     configOptions.reportOptionalIterable = 'warning';
+    configOptions.reportOptionalContextManager = 'warning';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    validateResults(analysisResults, 0, 4);
+    validateResults(analysisResults, 0, 5);
 
     // Turn on errors.
     configOptions.reportOptionalSubscript = 'error';
     configOptions.reportOptionalMemberAccess = 'error';
     configOptions.reportOptionalCall = 'error';
     configOptions.reportOptionalIterable = 'error';
+    configOptions.reportOptionalContextManager = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 5);
 });
 
 test('Private1', () => {

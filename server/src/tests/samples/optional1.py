@@ -7,6 +7,9 @@ class Foo:
     def do_stuff(self):
         pass
 
+    def __enter__(self):
+        return 3
+
 a = None
 if 1:
     a = Foo()
@@ -41,3 +44,12 @@ c[2]
 # this should generate an error.
 for val in c:
     pass
+
+# If "reportOptionalContextManager" is enabled,
+# this should generate an error.
+cm = None
+if 1:
+    cm = Foo()
+with cm as val:
+    pass
+

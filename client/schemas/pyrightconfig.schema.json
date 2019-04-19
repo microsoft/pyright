@@ -109,6 +109,12 @@
       "title": "Controls reporting of attempts to use an Optional type as an iterable value",
       "default": "none"
     },
+    "reportOptionalContextManager": {
+      "$id": "#/properties/reportOptionalContextManager",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to use an Optional type as a parameter to a with statement",
+      "default": "none"
+    },
     "reportUntypedFunctionDecorator": {
       "$id": "#/properties/reportUntypedFunctionDecorator",
       "$ref": "#/definitions/diagnostic",
