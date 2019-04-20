@@ -54,6 +54,14 @@ export enum ClassMemberLookupFlags {
 }
 
 export class TypeUtils {
+    static isOptionalType(type: Type): boolean {
+        if (type instanceof UnionType) {
+            return type.getTypes().some(t => t instanceof NoneType);
+        }
+
+        return false;
+    }
+
     // Calls a callback for each subtype and combines the results
     // into a final type.
     static doForSubtypes(type: Type, callback: (type: Type) => (Type | undefined)): Type {

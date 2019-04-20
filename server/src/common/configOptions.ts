@@ -103,6 +103,9 @@ export class ConfigOptions {
     // Report attempts to use an Optional type in a "with" statement?
     reportOptionalContextManager: DiagnosticLevel = 'none';
 
+    // Report attempts to use an Optional type in a binary or unary operation.
+    reportOptionalOperand: DiagnosticLevel = 'none';
+
     // Report untyped function decorators that obscure the function type?
     reportUntypedFunctionDecorator: DiagnosticLevel = 'none';
 
@@ -251,6 +254,10 @@ export class ConfigOptions {
         // Read the "reportOptionalContextManager" entry.
         this.reportOptionalContextManager = this._convertDiagnosticLevel(
             configObj.reportOptionalContextManager, 'reportOptionalContextManager', 'none');
+
+        // Read the "reportOptionalOperand" entry.
+        this.reportOptionalOperand = this._convertDiagnosticLevel(
+            configObj.reportOptionalOperand, 'reportOptionalOperand', 'none');
 
         // Read the "reportUntypedFunctionDecorator" entry.
         this.reportUntypedFunctionDecorator = this._convertDiagnosticLevel(

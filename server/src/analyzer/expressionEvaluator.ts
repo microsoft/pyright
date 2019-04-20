@@ -1828,11 +1828,21 @@ export class ExpressionEvaluator {
         const unaryOperatorMap: { [operator: number]: string } = {
             [OperatorType.Add]: '__pos__',
             [OperatorType.Subtract]: '__neg__',
-            [OperatorType.Not]: '__not__',
-            [OperatorType.BitwiseInvert]: '__inv__'
+            [OperatorType.BitwiseInvert]: '__invert__'
         };
 
         let type: Type | undefined;
+
+        if (node.operator !== OperatorType.Not) {
+            if (TypeUtils.isOptionalType(exprType)) {
+                this._addDiagnostic(
+                    this._configOptions.reportOptionalOperand,
+                    `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
+                    `supported for 'None' type`,
+                    node.expression);
+                exprType = (exprType as UnionType).removeOptional();
+            }
+        }
 
         // __not__ always returns a boolean.
         if (node.operator === OperatorType.Not) {
@@ -1842,13 +1852,14 @@ export class ExpressionEvaluator {
                 type = exprType;
             } else {
                 const magicMethodName = unaryOperatorMap[node.operator];
-                type = this._getTypeFromMagicMethodReturn(exprType, magicMethodName);
+                type = this._getTypeFromMagicMethodReturn(exprType, [],
+                    magicMethodName, node);
             }
 
             if (!type) {
                 this._addError(`Operator '${ ParseTreeUtils.printOperator(node.operator) }'` +
                     ` not supported for type '${ exprType.asString() }'`,
-                    node.expression);
+                    node);
                 type = UnknownType.create();
             }
         }
@@ -1857,7 +1868,6 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromBinaryExpression(node: BinaryExpressionNode): TypeResult {
-
         let leftType = this.getType(node.leftExpression);
 
         // Is this an AND operator? If so, we can assume that the
@@ -1880,7 +1890,7 @@ export class ExpressionEvaluator {
             [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__', true],
             [OperatorType.Divide]: ['__truediv__', '__rtruediv__', true],
             [OperatorType.Mod]: ['__mod__', '__rmod__', true],
-            [OperatorType.Power]: ['__power__', '__rpower__', true],
+            [OperatorType.Power]: ['__pow__', '__rpow__', true],
             [OperatorType.MatrixMultiply]: ['__matmul__', '', false]
         };
 
@@ -1911,6 +1921,35 @@ export class ExpressionEvaluator {
         };
 
         let type: Type | undefined;
+
+        // Optional checks apply to all operations except for boolean operations.
+        if (booleanOperatorMap[node.operator] === undefined) {
+            if (TypeUtils.isOptionalType(leftType)) {
+                // Skip the optional error reporting for == and !=, since
+                // None is a valid operand for these operators.
+                if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
+                    this._addDiagnostic(
+                        this._configOptions.reportOptionalOperand,
+                        `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
+                        `supported for 'None' type`,
+                        node.leftExpression);
+                }
+                leftType = (leftType as UnionType).removeOptional();
+            }
+
+            if (TypeUtils.isOptionalType(rightType)) {
+                // Skip the optional error reporting for == and !=, since
+                // None is a valid operand for these operators.
+                if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
+                    this._addDiagnostic(
+                        this._configOptions.reportOptionalOperand,
+                        `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
+                        `supported for 'None' type`,
+                        node.rightExpression);
+                }
+                rightType = (rightType as UnionType).removeOptional();
+            }
+        }
 
         if (arithmeticOperatorMap[node.operator]) {
             if (leftType.isAny() || rightType.isAny()) {
@@ -1953,7 +1992,14 @@ export class ExpressionEvaluator {
             // Handle the general case.
             if (!type) {
                 const magicMethodName = arithmeticOperatorMap[node.operator][0];
-                type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName);
+                type = this._getTypeFromMagicMethodReturn(leftType, [rightType],
+                    magicMethodName, node);
+
+                if (!type) {
+                    const altMagicMethodName = arithmeticOperatorMap[node.operator][1];
+                    type = this._getTypeFromMagicMethodReturn(rightType, [leftType],
+                        altMagicMethodName, node);
+                }
             }
         } else if (bitwiseOperatorMap[node.operator]) {
             if (leftType.isAny() || rightType.isAny()) {
@@ -1973,7 +2019,8 @@ export class ExpressionEvaluator {
             // Handle the general case.
             if (!type) {
                 const magicMethodName = bitwiseOperatorMap[node.operator][0];
-                type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName);
+                type = this._getTypeFromMagicMethodReturn(leftType, [rightType],
+                    magicMethodName, node);
             }
         } else if (comparisonOperatorMap[node.operator]) {
             if (leftType.isAny() || rightType.isAny()) {
@@ -1981,8 +2028,8 @@ export class ExpressionEvaluator {
             } else {
                 const magicMethodName = comparisonOperatorMap[node.operator];
 
-                type = this._getTypeFromMagicMethodReturn(leftType, magicMethodName,
-                    ScopeUtils.getBuiltInObject(this._scope, 'bool'));
+                type = this._getTypeFromMagicMethodReturn(leftType, [rightType],
+                    magicMethodName, node);
             }
         } else if (booleanOperatorMap[node.operator]) {
             if (node.operator === OperatorType.And) {
@@ -2000,32 +2047,76 @@ export class ExpressionEvaluator {
 
         if (!type) {
             this._addError(`Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
-                `supported for type '${ leftType.asString() }'`,
-                node.leftExpression);
+                `supported for types '${ leftType.asString() }' and '${ rightType.asString() }'`,
+                node);
             type = UnknownType.create();
         }
 
         return { type, node };
     }
 
-    private _getTypeFromMagicMethodReturn(objType: Type, magicMethodName: string,
-            fallbackType: Type | undefined = UnknownType.create()): Type | undefined {
+    private _getTypeFromMagicMethodReturn(objType: Type, args: Type[],
+            magicMethodName: string, errorNode: ExpressionNode): Type | undefined {
 
-        return TypeUtils.doForSubtypes(objType, subtype => {
+        let magicMethodSupported = true;
+
+        // Create a helper lambda for object subtypes.
+        let handleObjectSubtype = (subtype: ObjectType) => {
+            let magicMethodType = this._getTypeFromClassMemberName(subtype.getClassType(),
+                magicMethodName, EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup);
+
+            if (magicMethodType) {
+                let functionArgs = args.map(arg => {
+                    return {
+                        argumentCategory: ArgumentCategory.Simple,
+                        type: arg
+                    };
+                });
+
+                const callMethodType = TypeUtils.bindFunctionToClassOrObject(subtype, magicMethodType);
+                let returnType: Type | undefined;
+
+                this._silenceDiagnostics(() => {
+                    returnType = this._validateCallArguments(errorNode,
+                            functionArgs, callMethodType, new TypeVarMap());
+                });
+
+                if (!returnType) {
+                    magicMethodSupported = false;
+                }
+
+                return returnType;
+            }
+
+            magicMethodSupported = false;
+            return undefined;
+        };
+
+        let returnType = TypeUtils.doForSubtypes(objType, subtype => {
             if (subtype.isAny()) {
                 return UnknownType.create();
             }
 
             if (subtype instanceof ObjectType) {
-                let magicMethodType = this._getTypeFromClassMemberName(subtype.getClassType(),
-                    magicMethodName, EvaluatorUsage.Get, MemberAccessFlags.SkipForMethodLookup);
-                if (magicMethodType && magicMethodType instanceof FunctionType) {
-                    return magicMethodType.getEffectiveReturnType();
+                return handleObjectSubtype(subtype);
+            } else if (subtype instanceof NoneType) {
+                // NoneType derives from 'object', so do the lookup on 'object'
+                // in this case.
+                const obj = ScopeUtils.getBuiltInObject(this._scope, 'object');
+                if (obj instanceof ObjectType) {
+                    return handleObjectSubtype(obj);
                 }
             }
 
-            return fallbackType;
+            magicMethodSupported = false;
+            return undefined;
         });
+
+        if (!magicMethodSupported) {
+            return undefined;
+        }
+
+        return returnType;
     }
 
     private _getBuiltInClassTypes(names: string[]): (ClassType | undefined)[] {

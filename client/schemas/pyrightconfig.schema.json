@@ -115,6 +115,12 @@
       "title": "Controls reporting of attempts to use an Optional type as a parameter to a with statement",
       "default": "none"
     },
+    "reportOptionalOperand": {
+      "$id": "#/properties/reportOptionalOperand",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to use an Optional type as an operand for a binary or unary operator",
+      "default": "none"
+    },
     "reportUntypedFunctionDecorator": {
       "$id": "#/properties/reportUntypedFunctionDecorator",
       "$ref": "#/definitions/diagnostic",

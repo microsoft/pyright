@@ -625,12 +625,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         node.withItems.forEach(item => {
             let exprType = this._getTypeOfExpression(item.expression);
 
-            if (exprType instanceof UnionType && exprType.getTypes().some(t => t instanceof NoneType)) {
+            if (TypeUtils.isOptionalType(exprType)) {
                 this._addDiagnostic(
                     this._fileInfo.configOptions.reportOptionalContextManager,
                     `Object of type 'None' cannot be used with 'with'`,
                     node);
-                exprType = exprType.removeOptional();
+                exprType = (exprType as UnionType).removeOptional();
             }
 
             const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
@@ -941,6 +941,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                         let specializedBaseClass = TypeUtils.specializeType(aliasClass, undefined);
                         specialClassType.addBaseClass(specializedBaseClass, false);
+                    } else {
+                        // The other classes derive from 'object'.
+                        let objBaseClass = ScopeUtils.getBuiltInType(this._currentScope, 'object');
+                        if (objBaseClass instanceof ClassType) {
+                            specialClassType.addBaseClass(objBaseClass, false);
+                        }
                     }
 
                     specialType = specialClassType;

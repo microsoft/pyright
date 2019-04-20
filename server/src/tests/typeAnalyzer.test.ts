@@ -130,7 +130,7 @@ test('Specialization1', () => {
 test('Expressions1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions1.py']);
 
-    validateResults(analysisResults, 2);
+    validateResults(analysisResults, 3);
 });
 
 test('Expressions2', () => {
@@ -230,8 +230,9 @@ test('Optional1', () => {
     configOptions.reportOptionalCall = 'warning';
     configOptions.reportOptionalIterable = 'warning';
     configOptions.reportOptionalContextManager = 'warning';
+    configOptions.reportOptionalOperand = 'warning';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    validateResults(analysisResults, 0, 5);
+    validateResults(analysisResults, 0, 8);
 
     // Turn on errors.
     configOptions.reportOptionalSubscript = 'error';
@@ -239,8 +240,9 @@ test('Optional1', () => {
     configOptions.reportOptionalCall = 'error';
     configOptions.reportOptionalIterable = 'error';
     configOptions.reportOptionalContextManager = 'error';
+    configOptions.reportOptionalOperand = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    validateResults(analysisResults, 5);
+    validateResults(analysisResults, 8);
 });
 
 test('Private1', () => {

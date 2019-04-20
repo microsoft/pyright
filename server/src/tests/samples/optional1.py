@@ -53,3 +53,13 @@ if 1:
 with cm as val:
     pass
 
+# If "reportOptionalOperand" is enabled,
+# this should generate 3 errors.
+e = None
+if 1:
+    e = 4
+
+e + 4
+4 + e
+e < 5
+not e
