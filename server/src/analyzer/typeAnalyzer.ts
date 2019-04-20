@@ -937,8 +937,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     let aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
                         assignedName.toLowerCase());
                     if (aliasClass instanceof ClassType) {
-                        specialClassType.addBaseClass(aliasClass, false);
                         specialClassType.setAliasClass(aliasClass);
+
+                        let specializedBaseClass = TypeUtils.specializeType(aliasClass, undefined);
+                        specialClassType.addBaseClass(specializedBaseClass, false);
                     }
 
                     specialType = specialClassType;
@@ -2191,16 +2193,26 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const tupleType = TypeUtils.getSpecializedTupleType(type);
             if (tupleType && tupleType.getTypeArguments()) {
                 const entryTypes = tupleType.getTypeArguments()!;
-                if (entryTypes.length !== target.expressions.length) {
-                    this._addError(
-                        `Tuple size mismatch: expected ${ target.expressions.length }` +
-                            ` but got ${ entryTypes.length }`,
-                        target);
-                } else {
+                let entryCount = entryTypes.length;
+                const allowsMoreEntries = entryCount > 0 &&
+                    entryTypes[entryCount - 1] instanceof AnyType &&
+                    (entryTypes[entryCount - 1] as AnyType).isEllipsis();
+                if (allowsMoreEntries) {
+                    entryCount--;
+                }
+
+                if (target.expressions.length === entryCount ||
+                        (allowsMoreEntries && target.expressions.length >= entryCount)) {
                     target.expressions.forEach((expr, index) => {
-                        this._assignTypeToExpression(expr, entryTypes[index], srcExpr);
+                        const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
+                        this._assignTypeToExpression(expr, entryType, srcExpr);
                     });
                     assignedTypes = true;
+                } else {
+                    this._addError(
+                        `Tuple size mismatch: expected ${ target.expressions.length }` +
+                            ` but got ${ entryCount }`,
+                        target);
                 }
             }
 
