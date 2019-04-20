@@ -57,8 +57,6 @@ To update to the latest version:
 ## Limitations
 Pyright currently provides support for Python 3.0 and newer. There is currently no plan to support older versions.
 
-Pyright is a work in progress. Type-checking capabilities are not fully implemented. For a list of incomplete functionality, refer to the TODO list below.
-
 
 ## FAQ
 **Q:** What is the difference between pyright and the [Microsoft Python Visual Studio Code plugin](https://github.com/Microsoft/vscode-python)?
