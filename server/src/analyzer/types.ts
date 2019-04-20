@@ -628,7 +628,8 @@ export enum FunctionTypeFlags {
     InstanceMethod = 1,
     ClassMethod = 2,
     StaticMethod = 4,
-    AbstractMethod = 8
+    AbstractMethod = 8,
+    DisableDefaultChecks = 16
 }
 
 interface FunctionDetails {
@@ -755,6 +756,14 @@ export class FunctionType extends Type {
 
     getParameterCount() {
         return this._functionDetails.parameters.length;
+    }
+
+    isDefaultParameterCheckDisabled() {
+        return (this._functionDetails.flags & FunctionTypeFlags.DisableDefaultChecks) !== 0;
+    }
+
+    setDefaultParameterCheckDisabled() {
+        this._functionDetails.flags |= FunctionTypeFlags.DisableDefaultChecks;
     }
 
     setParameterType(index: number, type: Type): boolean {

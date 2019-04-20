@@ -262,6 +262,12 @@ test('Tuples1', () => {
     validateResults(analysisResults, 4);
 });
 
+test('NamedTuples1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples1.py']);
+
+    validateResults(analysisResults, 6);
+});
+
 test('DataClass1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass1.py']);
 

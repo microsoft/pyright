@@ -675,6 +675,14 @@ export class ExpressionEvaluator {
                 type = decoratorType;
             }
         } else if (baseType instanceof FunctionType || baseType instanceof OverloadedFunctionType) {
+            // If we're assigning a value to the __defaults__ member of a function,
+            // note that the default value processing for that function should be disabled.
+            if (baseType instanceof FunctionType && memberName === '__defaults__') {
+                if (usage === EvaluatorUsage.Set) {
+                    baseType.setDefaultParameterCheckDisabled();
+                }
+            }
+
             // TODO - not yet sure what to do about members of functions,
             // which have associated dictionaries.
             type = UnknownType.create();
@@ -990,13 +998,18 @@ export class ExpressionEvaluator {
             };
         });
 
+        // This is a hack to make named tuples work correctly. We don't want
+        // to create a new ClassType for every analysis pass. Instead, we'll
+        // use the cached version and update it after the first pass.
+        const cachedExpressionType = AnalyzerNodeInfo.getExpressionType(node);
+
         return this._getTypeFromCallExpressionWithBaseType(
-            node.leftExpression, argList, baseTypeResult, flags);
+            node.leftExpression, argList, baseTypeResult, flags, cachedExpressionType);
     }
 
     private _getTypeFromCallExpressionWithBaseType(errorNode: ExpressionNode,
             argList: FunctionArgument[], baseTypeResult: TypeResult,
-            flags: EvaluatorFlags): TypeResult {
+            flags: EvaluatorFlags, cachedCallType?: Type): TypeResult {
 
         let type: Type | undefined;
         const callType = baseTypeResult.type;
@@ -1022,7 +1035,7 @@ export class ExpressionEvaluator {
                 } else if (className === 'TypeVar') {
                     type = this._createTypeVarType(errorNode, argList);
                 } else if (className === 'NamedTuple') {
-                    type = this._createNamedTupleType(errorNode, argList, true);
+                    type = this._createNamedTupleType(errorNode, argList, true, cachedCallType);
                 }
             } else if (callType.isAbstractClass()) {
                 // If the class is abstract, it can't be instantiated.
@@ -1060,7 +1073,7 @@ export class ExpressionEvaluator {
             // The stdlib collections/__init__.pyi stub file defines namedtuple
             // as a function rather than a class, so we need to check for it here.
             if (callType.getBuiltInName() === 'namedtuple') {
-                type = this._createNamedTupleType(errorNode, argList, false);
+                type = this._createNamedTupleType(errorNode, argList, false, cachedCallType);
             } else {
                 type = this._validateCallArguments(errorNode, argList, callType, new TypeVarMap());
                 if (!type) {
@@ -1120,7 +1133,7 @@ export class ExpressionEvaluator {
                             type: typeEntry,
                             node: baseTypeResult.node
                         },
-                        EvaluatorFlags.None);
+                        EvaluatorFlags.None, cachedCallType);
                     if (typeResult) {
                         returnTypes.push(typeResult.type);
                     }
@@ -1453,7 +1466,7 @@ export class ExpressionEvaluator {
             // but have not yet received them. If we received a dictionary argument
             // (i.e. an arg starting with a "**") or a list argument (i.e. an arg
             // starting with a "*"), we will assume that all parameters are matched.
-            if (!foundUnpackedDictionaryArg && !foundUnpackedListArg) {
+            if (!foundUnpackedDictionaryArg && !foundUnpackedListArg && !type.isDefaultParameterCheckDisabled()) {
                 let unassignedParams = paramMap.getKeys().filter(name => {
                     const entry = paramMap.get(name)!;
                     return entry.argsReceived < entry.argsNeeded;
@@ -1588,7 +1601,7 @@ export class ExpressionEvaluator {
     // Creates a new custom tuple factory class with named values.
     // Supports both typed and untyped variants.
     private _createNamedTupleType(errorNode: ExpressionNode, argList: FunctionArgument[],
-            includesTypes: boolean): ClassType {
+            includesTypes: boolean, cachedCallType?: Type): ClassType {
 
         let className = 'namedtuple';
         if (argList.length === 0) {
@@ -1604,9 +1617,19 @@ export class ExpressionEvaluator {
             }
         }
 
-        let classType = new ClassType(className, ClassTypeFlags.None,
-            AnalyzerNodeInfo.getTypeSourceId(errorNode));
-        classType.addBaseClass(ScopeUtils.getBuiltInType(this._scope, 'NamedTuple'), false);
+        // Use the cached class type and update it if this isn't the first
+        // analysis path. If this is the first pass, allocate a new ClassType.
+        let classType = cachedCallType as ClassType;
+        if (classType) {
+            assert(classType instanceof ClassType);
+        } else {
+            classType = new ClassType(className, ClassTypeFlags.None,
+                AnalyzerNodeInfo.getTypeSourceId(errorNode));
+
+            AnalyzerNodeInfo.setExpressionType(errorNode, classType);
+            classType.addBaseClass(ScopeUtils.getBuiltInType(this._scope, 'NamedTuple'), false);
+        }
+
         const classFields = classType.getClassFields();
         classFields.set('__class__', new Symbol(classType, DefaultTypeSourceId));
         const instanceFields = classType.getInstanceFields();
@@ -1621,14 +1644,11 @@ export class ExpressionEvaluator {
                 type: classType
             });
 
-            let initType = new FunctionType(FunctionTypeFlags.InstanceMethod);
             const selfParameter: FunctionParameter = {
                 category: ParameterCategory.Simple,
                 name: 'self',
                 type: new ObjectType(classType)
             };
-            initType.setDeclaredReturnType(NoneType.create());
-            initType.addParameter(selfParameter);
 
             let addGenericGetAttribute = false;
 
@@ -1654,7 +1674,6 @@ export class ExpressionEvaluator {
                                 };
 
                                 constructorType.addParameter(paramInfo);
-                                initType.addParameter(paramInfo);
 
                                 instanceFields.set(entryName, new Symbol(entryType, DefaultTypeSourceId));
                             }
@@ -1719,7 +1738,6 @@ export class ExpressionEvaluator {
                             };
 
                             constructorType.addParameter(paramInfo);
-                            initType.addParameter(paramInfo);
 
                             instanceFields.set(entryName, new Symbol(entryType, DefaultTypeSourceId));
                         });
@@ -1733,11 +1751,9 @@ export class ExpressionEvaluator {
 
             if (addGenericGetAttribute) {
                 TypeUtils.addDefaultFunctionParameters(constructorType);
-                TypeUtils.addDefaultFunctionParameters(initType);
             }
 
             classFields.set('__new__', new Symbol(constructorType, DefaultTypeSourceId));
-            classFields.set('__init__', new Symbol(initType, DefaultTypeSourceId));
 
             let keysItemType = new FunctionType(FunctionTypeFlags.None);
             keysItemType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'list',
