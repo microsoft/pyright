@@ -147,6 +147,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (argType instanceof ClassType) {
+                if (argType.isBuiltIn() && argType.getClassName() === 'Protocol') {
+                    if (!this._fileInfo.isStubFile && this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37) {
+                        this._addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
+                    }
+                }
+
                 // If the class directly derives from NamedTuple (in Python 3.6 or
                 // newer), it's considered a dataclass.
                 if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {

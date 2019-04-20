@@ -1579,7 +1579,7 @@ export class Parser {
             awaitToken = this._getKeywordToken(KeywordType.Await);
             if (this._getLanguageVersion() < PythonVersion.V35) {
                 this._addError(
-                    `Support for 'await' keyword requires Python 3.5 or newer`,
+                    `Use of 'await' requires Python 3.5 or newer`,
                     awaitToken);
             }
         }
