@@ -1036,6 +1036,9 @@ export class ExpressionEvaluator {
                     type = this._createTypeVarType(errorNode, argList);
                 } else if (className === 'NamedTuple') {
                     type = this._createNamedTupleType(errorNode, argList, true, cachedCallType);
+                } else if (className === 'Protocol' || className === 'Generic' ||
+                        className === 'Callable' || className === 'Type') {
+                    this._addError(`'${ className }' cannot be instantiated directly`, errorNode);
                 }
             } else if (callType.isAbstractClass()) {
                 // If the class is abstract, it can't be instantiated.
