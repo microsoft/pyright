@@ -35,6 +35,8 @@ import { Scope } from './scope';
 import { ModuleScopeAnalyzer } from './semanticAnalyzer';
 import { TypeAnalyzer } from './typeAnalyzer';
 
+const MaxImportCyclesPerFile = 4;
+
 export enum AnalysisPhase {
     Parse = 0,
     SemanticAnalysis = 1,
@@ -285,8 +287,11 @@ export class SourceFile {
     // Adds a new circular dependency for this file but only if
     // it hasn't already been added.
     addCircularDependency(circDependency: CircularDependency) {
-        if (!this._analysisJob.circularDependencies.some(dep => dep.isEqual(circDependency))) {
-            this._analysisJob.circularDependencies.push(circDependency);
+        // Some topologies can result in a massive number of cycles. We'll cut it off.
+        if (this._analysisJob.circularDependencies.length < MaxImportCyclesPerFile) {
+            if (!this._analysisJob.circularDependencies.some(dep => dep.isEqual(circDependency))) {
+                this._analysisJob.circularDependencies.push(circDependency);
+            }
         }
     }
 

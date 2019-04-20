@@ -400,7 +400,7 @@ export class Program {
         Object.keys(closureMap).forEach(filePath => {
             assert(!this._sourceFileMap[filePath].sourceFile.isAnalysisFinalized());
 
-            if (options.reportImportCycles) {
+            if (options.reportImportCycles !== 'none') {
                 this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
             }
 
