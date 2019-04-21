@@ -14,7 +14,8 @@ import * as assert from 'assert';
 
 import { Tokenizer } from '../parser/tokenizer';
 import { DedentToken, IdentifierToken, IndentToken, NewLineToken, NewLineType,
-    NumberToken, OperatorToken, OperatorType, TokenType } from '../parser/tokenizerTypes';
+    NumberToken, OperatorToken, OperatorType, StringToken,
+    StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 
 const _implicitTokenCount = 2;
 const _implicitTokenCountNoImplicitNewLine = 1;
@@ -283,16 +284,37 @@ test('Strings: single quote escape', () => {
     // tslint:disable-next-line:quotemark
     const results = t.tokenize("'\\'quoted\\''");
     assert.equal(results.tokens.count, 1 + _implicitTokenCount);
-    assert.equal(results.tokens.getItemAt(0).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(0).length, 12);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote);
+    assert.equal(stringToken.length, 12);
+    assert.equal(stringToken.value, '\'quoted\'');
 });
 
 test('Strings: double quote escape', () => {
     const t = new Tokenizer();
     const results = t.tokenize('"\\"quoted\\""');
     assert.equal(results.tokens.count, 1 + _implicitTokenCount);
-    assert.equal(results.tokens.getItemAt(0).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(0).length, 12);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken.length, 12);
+    assert.equal(stringToken.value, '"quoted"');
+});
+
+test('Strings: triplicate double quote escape', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('"""\\"quoted\\""""');
+    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.Triplicate);
+    assert.equal(stringToken.length, 16);
+    assert.equal(stringToken.value, '"quoted"');
 });
 
 test('Strings: single quoted f-string ', () => {
@@ -302,8 +324,12 @@ test('Strings: single quoted f-string ', () => {
     assert.equal(results.tokens.count, 3 + _implicitTokenCount);
     assert.equal(results.tokens.getItemAt(0).type, TokenType.Identifier);
     assert.equal(results.tokens.getItemAt(1).type, TokenType.Operator);
-    assert.equal(results.tokens.getItemAt(2).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(2).length, 9);
+
+    const stringToken = results.tokens.getItemAt(2) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote);
+    assert.equal(stringToken.length, 9);
+    assert.equal(stringToken.value, 'quoted');
 });
 
 test('Strings: double quoted f-string ', () => {
@@ -314,9 +340,13 @@ test('Strings: double quoted f-string ', () => {
     assert.equal(results.tokens.getItemAt(1).type, TokenType.OpenParenthesis);
     assert.equal(results.tokens.getItemAt(2).type, TokenType.Number);
     assert.equal(results.tokens.getItemAt(3).type, TokenType.Comma);
-    assert.equal(results.tokens.getItemAt(4).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(4).length, 9);
     assert.equal(results.tokens.getItemAt(5).type, TokenType.CloseParenthesis);
+
+    const stringToken = results.tokens.getItemAt(4) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken.length, 9);
+    assert.equal(stringToken.value, 'quoted');
 });
 
 test('Strings: single quoted multiline f-string ', () => {
@@ -324,16 +354,26 @@ test('Strings: single quoted multiline f-string ', () => {
     // tslint:disable-next-line:quotemark
     const results = t.tokenize("f'''quoted'''");
     assert.equal(results.tokens.count, 1 + _implicitTokenCount);
-    assert.equal(results.tokens.getItemAt(0).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(0).length, 13);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags,
+        StringTokenFlags.SingleQuote | StringTokenFlags.Triplicate);
+    assert.equal(stringToken.length, 13);
+    assert.equal(stringToken.value, 'quoted');
 });
 
 test('Strings: double quoted multiline f-string ', () => {
     const t = new Tokenizer();
     const results = t.tokenize('f"""quoted """');
     assert.equal(results.tokens.count, 1 + _implicitTokenCount);
-    assert.equal(results.tokens.getItemAt(0).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(0).length, 14);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags,
+        StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate);
+    assert.equal(stringToken.length, 14);
+    assert.equal(stringToken.value, 'quoted ');
 });
 
 test('Strings: escape at the end of single quoted string ', () => {
@@ -341,8 +381,14 @@ test('Strings: escape at the end of single quoted string ', () => {
     // tslint:disable-next-line:quotemark
     const results = t.tokenize("'quoted\\'\nx");
     assert.equal(results.tokens.count, 3 + _implicitTokenCount);
-    assert.equal(results.tokens.getItemAt(0).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(0).length, 9);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags,
+        StringTokenFlags.SingleQuote | StringTokenFlags.Unterminated);
+    assert.equal(stringToken.length, 9);
+    assert.equal(stringToken.value, 'quoted\'');
+
     assert.equal(results.tokens.getItemAt(1).type, TokenType.NewLine);
     assert.equal(results.tokens.getItemAt(2).type, TokenType.Identifier);
 });
@@ -351,32 +397,64 @@ test('Strings: escape at the end of double quoted string ', () => {
     const t = new Tokenizer();
     const results = t.tokenize('"quoted\\"\nx');
     assert.equal(results.tokens.count, 3 + _implicitTokenCount);
-    assert.equal(results.tokens.getItemAt(0).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(0).length, 9);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.Unterminated);
+    assert.equal(stringToken.length, 9);
+    assert.equal(stringToken.value, 'quoted"');
+
     assert.equal(results.tokens.getItemAt(1).type, TokenType.NewLine);
     assert.equal(results.tokens.getItemAt(2).type, TokenType.Identifier);
 });
 
 test('Strings: b/u/r-string', () => {
     const t = new Tokenizer();
-    const results = t.tokenize('b"b" u"u" br"br" ur"ur"');
+    const results = t.tokenize('b"b" U\'u\' bR"br" Ru\'ur\'');
     assert.equal(results.tokens.count, 4 + _implicitTokenCount);
-    assert.equal(results.tokens.getItemAt(0).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(0).length, 4);
-    assert.equal(results.tokens.getItemAt(1).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(1).length, 4);
-    assert.equal(results.tokens.getItemAt(2).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(2).length, 6);
-    assert.equal(results.tokens.getItemAt(3).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(3).length, 6);
+
+    const stringToken0 = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken0.type, TokenType.String);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.Byte);
+    assert.equal(stringToken0.length, 4);
+    assert.equal(stringToken0.value, 'b');
+
+    const stringToken1 = results.tokens.getItemAt(1) as StringToken;
+    assert.equal(stringToken1.type, TokenType.String);
+    assert.equal(stringToken1.flags,
+        StringTokenFlags.SingleQuote | StringTokenFlags.Unicode);
+    assert.equal(stringToken1.length, 4);
+    assert.equal(stringToken1.value, 'u');
+
+    const stringToken2 = results.tokens.getItemAt(2) as StringToken;
+    assert.equal(stringToken2.type, TokenType.String);
+    assert.equal(stringToken2.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.Byte | StringTokenFlags.Raw);
+    assert.equal(stringToken2.length, 6);
+    assert.equal(stringToken2.value, 'br');
+
+    const stringToken3 = results.tokens.getItemAt(3) as StringToken;
+    assert.equal(stringToken3.type, TokenType.String);
+    assert.equal(stringToken3.flags, StringTokenFlags.SingleQuote |
+        StringTokenFlags.Unicode | StringTokenFlags.Raw);
+    assert.equal(stringToken3.length, 6);
+    assert.equal(stringToken3.value, 'ur');
 });
 
 test('Strings: escape at the end of double quoted string ', () => {
     const t = new Tokenizer();
     const results = t.tokenize('"quoted\\"\nx');
     assert.equal(results.tokens.count, 3 + _implicitTokenCount);
-    assert.equal(results.tokens.getItemAt(0).type, TokenType.String);
-    assert.equal(results.tokens.getItemAt(0).length, 9);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.Unterminated);
+    assert.equal(stringToken.length, 9);
+    assert.equal(stringToken.value, 'quoted"');
+
     assert.equal(results.tokens.getItemAt(1).type, TokenType.NewLine);
     assert.equal(results.tokens.getItemAt(2).type, TokenType.Identifier);
 });

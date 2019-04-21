@@ -25,7 +25,7 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     StringNode, TernaryExpressionNode, TupleExpressionNode, TypeAnnotationExpressionNode,
     UnaryExpressionNode, UnpackExpressionNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
-import { KeywordToken, KeywordType, OperatorType, QuoteTypeFlags,
+import { KeywordToken, KeywordType, OperatorType, StringTokenFlags,
     TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -456,7 +456,7 @@ export class ExpressionEvaluator {
                 return this._getTypeFromExpression(node.typeAnnotation, usage, flags);
             }
 
-            let isBytes = (node.tokens[0].quoteTypeFlags & QuoteTypeFlags.Byte) !== 0;
+            let isBytes = (node.tokens[0].flags & StringTokenFlags.Byte) !== 0;
             typeResult = this._getBuiltInTypeFromLiteralExpression(node,
                 isBytes ? 'bytes' : 'str');
         } else if (node instanceof NumberNode) {

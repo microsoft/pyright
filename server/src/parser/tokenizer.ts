@@ -18,7 +18,7 @@ import { isBinary, isDecimal, isHex, isIdentifierChar, isIdentifierStartChar, is
 import { CharacterStream } from './characterStream';
 import { DedentToken, IdentifierToken, IndentToken, KeywordToken, KeywordType,
     NewLineToken, NewLineType, NumberToken, OperatorFlags, OperatorToken, OperatorType,
-    QuoteTypeFlags, StringToken, Token, TokenType } from './tokenizerTypes';
+    StringToken, StringTokenFlags, Token, TokenType } from './tokenizerTypes';
 
 const _keywords: { [key: string]: KeywordType } = {
     'and': KeywordType.And,
@@ -210,7 +210,7 @@ export class Tokenizer {
             }
 
             const quoteTypeFlags = this._getQuoteTypeFlags(stringPrefix);
-            if (quoteTypeFlags !== QuoteTypeFlags.None) {
+            if (quoteTypeFlags !== StringTokenFlags.None) {
                 this._handleString(quoteTypeFlags, stringPrefixLength);
                 return true;
             }
@@ -716,118 +716,152 @@ export class Tokenizer {
         return -1;
     }
 
-    private _getQuoteTypeFlags(prefix: string): QuoteTypeFlags {
-        let flags = QuoteTypeFlags.None;
+    private _getQuoteTypeFlags(prefix: string): StringTokenFlags {
+        let flags = StringTokenFlags.None;
 
-        if (prefix.length > 0) {
-            prefix = prefix.toLowerCase();
-            if (prefix[0] === 'u') {
-                flags |= QuoteTypeFlags.Unicode;
-            } else if (prefix[0] === 'b') {
-                flags |= QuoteTypeFlags.Byte;
-            }
+        prefix = prefix.toLowerCase();
+        for (let i = 0; i < prefix.length; i++) {
+            switch (prefix[i]) {
+                case 'u':
+                    flags |= StringTokenFlags.Unicode;
+                    break;
 
-            if (prefix[prefix.length - 1] === 'r') {
-                flags |= QuoteTypeFlags.Raw;
+                case 'b':
+                    flags |= StringTokenFlags.Byte;
+                    break;
+
+                case 'r':
+                    flags |= StringTokenFlags.Raw;
+                    break;
             }
         }
 
         if (this._cs.currentChar === Char.SingleQuote) {
-            flags |= QuoteTypeFlags.SingleQuote;
+            flags |= StringTokenFlags.SingleQuote;
             if (this._cs.nextChar === Char.SingleQuote && this._cs.lookAhead(2) === Char.SingleQuote) {
-                flags |= QuoteTypeFlags.Triplicate;
+                flags |= StringTokenFlags.Triplicate;
             }
-            return flags;
-        }
-        if (this._cs.currentChar === Char.DoubleQuote) {
-            flags |= QuoteTypeFlags.DoubleQuote;
+        } else if (this._cs.currentChar === Char.DoubleQuote) {
+            flags |= StringTokenFlags.DoubleQuote;
             if (this._cs.nextChar === Char.DoubleQuote && this._cs.lookAhead(2) === Char.DoubleQuote) {
-                flags |= QuoteTypeFlags.Triplicate;
+                flags |= StringTokenFlags.Triplicate;
             }
-            return flags;
         }
-        return QuoteTypeFlags.None;
+
+        return flags;
     }
 
-    private _handleString(quoteTypeFlags: QuoteTypeFlags, stringPrefixLength: number): void {
+    private _handleString(flags: StringTokenFlags, stringPrefixLength: number): void {
         let start = this._cs.position - stringPrefixLength;
-        let quoteLength = 1;
+        let value: string;
 
-        if (quoteTypeFlags & QuoteTypeFlags.Triplicate) {
+        if (flags & StringTokenFlags.Triplicate) {
             this._cs.advance(3);
-            this._skipToTripleEndQuote(quoteTypeFlags & QuoteTypeFlags.SingleQuote ?
-                Char.SingleQuote : Char.DoubleQuote);
-            quoteLength = 3;
+            [value, flags] = this._skipToTripleEndQuote(flags);
         } else {
             this._cs.moveNext();
-            this._skipToSingleEndQuote(quoteTypeFlags & QuoteTypeFlags.SingleQuote ?
-                Char.SingleQuote : Char.DoubleQuote);
+            [value, flags] = this._skipToSingleEndQuote(flags);
         }
 
         let end = this._cs.position;
 
-        // TODO - need to handle proper de-escaping to get string value
-        const value = this._cs.getText().substr(start + stringPrefixLength + quoteLength,
-            end - start - quoteLength * 2 - stringPrefixLength);
-        this._tokens.push(new StringToken(start, end - start, quoteTypeFlags, value));
+        this._tokens.push(new StringToken(start, end - start, flags, value));
     }
 
-    private _skipToSingleEndQuote(quote: number): void {
+    private _skipToSingleEndQuote(flags: StringTokenFlags): [string, StringTokenFlags] {
+        const quote = flags & StringTokenFlags.SingleQuote ?
+            Char.SingleQuote : Char.DoubleQuote;
+        const isRaw = (flags & StringTokenFlags.Raw) !== 0;
         let isEscaped = false;
+        let unescapedValue = '';
 
-        while (!this._cs.isEndOfStream()) {
+        while (true) {
+            if (this._cs.isEndOfStream()) {
+                // Hit the end of file without a termination.
+                flags |= StringTokenFlags.Unterminated;
+                return [unescapedValue, flags];
+            }
+
             if (this._cs.currentChar === Char.LineFeed || this._cs.currentChar === Char.CarriageReturn) {
                 if (!isEscaped) {
                     // Unterminated single-line string
-                    return;
-                } else {
+                    flags |= StringTokenFlags.Unterminated;
+                    return [unescapedValue, flags];
+                }
+
+                // Skip over the escaped new line (either one or two characters).
+                if (this._cs.currentChar === Char.LineFeed && this._cs.nextChar === Char.CarriageReturn) {
+                    this._cs.moveNext();
+                }
+
+                this._cs.moveNext();
+                isEscaped = false;
+            } else {
+                if (isEscaped) {
+                    unescapedValue += String.fromCharCode(this._cs.currentChar);
+
                     // TODO - need to properly handle escapes \ooo, \xhh, \N{name}, \uxxxx and \Uxxxxxxxx
                     isEscaped = false;
-
-                    // Skip over the escaped new line (either one or two characters).
-                    if (this._cs.currentChar === Char.LineFeed && this._cs.nextChar === Char.CarriageReturn) {
-                        this._cs.advance(2);
-                        continue;
-                    } else {
-                        this._cs.moveNext();
-                        continue;
+                } else if (this._cs.currentChar === Char.Backslash) {
+                    if (isRaw) {
+                        unescapedValue += String.fromCharCode(this._cs.currentChar);
                     }
-                }
-            }
-
-            if (this._cs.currentChar === Char.Backslash) {
-                isEscaped = !isEscaped;
-            } else {
-                if (!isEscaped && this._cs.currentChar === quote) {
+                    isEscaped = true;
+                } else if (this._cs.currentChar === quote) {
                     break;
+                } else {
+                    unescapedValue += String.fromCharCode(this._cs.currentChar);
+                    isEscaped = false;
                 }
-                isEscaped = false;
+
+                this._cs.moveNext();
             }
-            this._cs.moveNext();
         }
 
         this._cs.moveNext();
+        return [unescapedValue, flags];
     }
 
-    private _skipToTripleEndQuote(quote: number): void {
+    private _skipToTripleEndQuote(flags: StringTokenFlags): [string, StringTokenFlags] {
+        const quote = flags & StringTokenFlags.SingleQuote ?
+            Char.SingleQuote : Char.DoubleQuote;
+        const isRaw = (flags & StringTokenFlags.Raw) !== 0;
+        let unescapedValue = '';
+
         while (!this ._cs.isEndOfStream() && (this._cs.currentChar !== quote ||
                 this._cs.nextChar !== quote || this._cs.lookAhead(2) !== quote)) {
 
-            // TODO - need to handle escaping of all flavors
             if (this._cs.currentChar === Char.CarriageReturn) {
+                unescapedValue += String.fromCharCode(this._cs.currentChar);
                 if (this._cs.nextChar === Char.LineFeed) {
                     this._cs.moveNext();
+                    unescapedValue += String.fromCharCode(this._cs.currentChar);
                 }
                 this._cs.moveNext();
                 this._addLineRange();
             } else if (this._cs.currentChar === Char.LineFeed) {
+                unescapedValue += String.fromCharCode(this._cs.currentChar);
                 this._cs.moveNext();
                 this._addLineRange();
+            } else if (this._cs.currentChar === Char.Backslash) {
+                if (isRaw) {
+                    unescapedValue += String.fromCharCode(this._cs.currentChar);
+                }
+
+                // This is an escape. Move past the next character.
+                this._cs.moveNext();
+
+                // TODO - need to handle special escapes
+                unescapedValue += String.fromCharCode(this._cs.currentChar);
+                this._cs.moveNext();
             } else {
+                unescapedValue += String.fromCharCode(this._cs.currentChar);
                 this._cs.moveNext();
             }
         }
         this._cs.advance(3);
+
+        return [unescapedValue, flags];
     }
 
     private _skipFloatingPointCandidate(): boolean {

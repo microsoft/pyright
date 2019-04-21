@@ -40,8 +40,8 @@ import { ArgumentCategory, ArgumentNode, AssertNode,
     WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
-    NumberToken, OperatorToken, OperatorType, QuoteTypeFlags, StringToken,
-    Token, TokenType } from './tokenizerTypes';
+    NumberToken, OperatorToken, OperatorType, StringToken,
+    StringTokenFlags, Token, TokenType } from './tokenizerTypes';
 
 interface ExpressionListResult {
     list: ExpressionNode[];
@@ -2207,7 +2207,7 @@ export class Parser {
         const typeString = match[2];
         const tokenOffset = curToken.end + match[1].length;
         const stringToken = new StringToken(tokenOffset,
-            typeString.length, QuoteTypeFlags.None, typeString);
+            typeString.length, StringTokenFlags.None, typeString);
         const stringNode = new StringNode([stringToken]);
 
         let parser = new Parser();
@@ -2231,7 +2231,12 @@ export class Parser {
         let stringTokenList: StringToken[] = [];
 
         while (this._peekTokenType() === TokenType.String) {
-            stringTokenList.push(this._getNextToken() as StringToken);
+            const stringToken = this._getNextToken() as StringToken;
+            if (stringToken.flags & StringTokenFlags.Unterminated) {
+                this._addError('String literal is unterminated', stringToken);
+            }
+
+            stringTokenList.push(stringToken);
         }
 
         const stringNode = new StringNode(stringTokenList);
@@ -2240,10 +2245,10 @@ export class Parser {
         if (this._isParsingTypeAnnotation) {
             if (stringNode.tokens.length > 1) {
                 this._addError('Type hints cannot span multiple string literals', stringNode);
-            } else if (stringNode.tokens[0].quoteTypeFlags & QuoteTypeFlags.Triplicate) {
+            } else if (stringNode.tokens[0].flags & StringTokenFlags.Triplicate) {
                 this._addError('Type hints cannot use triple quotes', stringNode);
-            } else if (stringNode.tokens[0].quoteTypeFlags &
-                    (QuoteTypeFlags.Raw | QuoteTypeFlags.Unicode | QuoteTypeFlags.Byte)) {
+            } else if (stringNode.tokens[0].flags &
+                    (StringTokenFlags.Raw | StringTokenFlags.Unicode | StringTokenFlags.Byte)) {
                 this._addError('Type hints cannot use raw, unicode or byte string literals', stringNode);
             } else if (stringNode.tokens[0].value.length !== stringNode.tokens[0].length - 2) {
                 this._addError('Type hints cannot contain escape characters', stringNode);

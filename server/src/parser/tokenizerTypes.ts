@@ -140,14 +140,16 @@ export enum KeywordType {
     Yield
 }
 
-export enum QuoteTypeFlags {
+export enum StringTokenFlags {
     None = 0x0,
     SingleQuote = 0x1,
     DoubleQuote = 0x2,
     Triplicate = 0x4,
     Raw = 0x8,
     Unicode = 0x10,
-    Byte = 0x20
+    Byte = 0x20,
+    Unterminated = 0x40,
+    FString = 0x80
 }
 
 export class Token extends TextRange implements Token {
@@ -198,12 +200,12 @@ export class KeywordToken extends Token {
 }
 
 export class StringToken extends Token {
-    readonly quoteTypeFlags: QuoteTypeFlags;
+    readonly flags: StringTokenFlags;
     readonly value: string;
 
-    constructor(start: number, length: number, quoteTypeFlags: QuoteTypeFlags, value: string) {
+    constructor(start: number, length: number, flags: StringTokenFlags, value: string) {
         super(TokenType.String, start, length);
-        this.quoteTypeFlags = quoteTypeFlags;
+        this.flags = flags;
         this.value = value;
     }
 }
