@@ -1,5 +1,3 @@
-![Pyright](/docs/img/PyrightLarge.png)
-
 # Static type checker for Python
 
 ### Speed
