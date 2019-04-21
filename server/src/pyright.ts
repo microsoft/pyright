@@ -136,9 +136,13 @@ function reportDiagnostics(fileDiagnostics: FileDiagnostics[]): number {
     let warningCount = 0;
 
     fileDiagnostics.forEach(fileDiagnostics => {
-        if (fileDiagnostics.diagnostics.length > 0) {
+        // Don't report unused code diagnostics.
+        const fileErrorsAndWarnings = fileDiagnostics.diagnostics.filter(
+            diag => diag.category !== DiagnosticCategory.UnusedCode);
+
+        if (fileErrorsAndWarnings.length > 0) {
             console.log(`${ fileDiagnostics.filePath }`);
-            fileDiagnostics.diagnostics.forEach(diag => {
+            fileErrorsAndWarnings.forEach(diag => {
                 let message = `  ${ diag.message }`;
                 if (diag.range) {
                     message += ` (${ diag.range.start.line + 1 }, ${ diag.range.start.column + 1 })`;
