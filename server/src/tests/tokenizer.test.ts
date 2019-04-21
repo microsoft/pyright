@@ -494,7 +494,7 @@ test('Strings: raw strings with escapes', () => {
     assert.equal(stringToken1.value, '\\\r\n\\\n\\a');
 });
 
-test('Strings: escape at the end of double quoted string ', () => {
+test('Strings: escape at the end of double quoted string', () => {
     const t = new Tokenizer();
     const results = t.tokenize('"quoted\\"\nx');
     assert.equal(results.tokens.count, 3 + _implicitTokenCount);
@@ -508,6 +508,34 @@ test('Strings: escape at the end of double quoted string ', () => {
 
     assert.equal(results.tokens.getItemAt(1).type, TokenType.NewLine);
     assert.equal(results.tokens.getItemAt(2).type, TokenType.Identifier);
+});
+
+test('Strings: special escape characters', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('"\\r\\n\\a\\v\\t\\b\\f\\\\"');
+    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken.length, 18);
+    assert.equal(stringToken.value, '\r\n\u0007\v\t\b\f\\');
+});
+
+test('Strings: invalid escape characters', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('"\\d  \\ "');
+    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.UnrecognizedEscape);
+    assert.equal(stringToken.length, 8);
+    assert.equal(stringToken.value, '\\d  \\ ');
+    assert.equal(stringToken.invalidEscapeOffsets!.length, 2);
+    assert.equal(stringToken.invalidEscapeOffsets![0], 2);
+    assert.equal(stringToken.invalidEscapeOffsets![1], 6);
 });
 
 test('Comments', () => {

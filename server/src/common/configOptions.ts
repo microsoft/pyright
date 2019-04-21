@@ -119,6 +119,9 @@ export class ConfigOptions {
     // the owning class or module?
     reportPrivateUsage: DiagnosticLevel = 'none';
 
+    // Report usage of invalid escape sequences in string literals?
+    reportInvalidStringEscapeSequence: DiagnosticLevel = 'warning';
+
     //---------------------------------------------------------------
     // Parsing and Import Resolution Settings
 
@@ -274,6 +277,10 @@ export class ConfigOptions {
         // Read the "reportPrivateUsage" entry.
         this.reportPrivateUsage = this._convertDiagnosticLevel(
             configObj.reportPrivateUsage, 'reportPrivateUsage', 'none');
+
+        // Read the "reportInvalidStringEscapeSequence" entry.
+        this.reportInvalidStringEscapeSequence = this._convertDiagnosticLevel(
+            configObj.reportInvalidStringEscapeSequence, 'reportInvalidStringEscapeSequence', 'warning');
 
         // Read the "venvPath".
         this.venvPath = undefined;

@@ -2207,7 +2207,7 @@ export class Parser {
         const typeString = match[2];
         const tokenOffset = curToken.end + match[1].length;
         const stringToken = new StringToken(tokenOffset,
-            typeString.length, StringTokenFlags.None, typeString);
+            typeString.length, StringTokenFlags.None, typeString, undefined);
         const stringNode = new StringNode([stringToken]);
 
         let parser = new Parser();
@@ -2231,20 +2231,7 @@ export class Parser {
         let stringTokenList: StringToken[] = [];
 
         while (this._peekTokenType() === TokenType.String) {
-            const stringToken = this._getNextToken() as StringToken;
-            if (stringToken.flags & StringTokenFlags.Unterminated) {
-                this._addError('String literal is unterminated', stringToken);
-            }
-
-            if (stringToken.flags & StringTokenFlags.NonAsciiInBytes) {
-                this._addError('Non-ASCII character not allowed in bytes string literal', stringToken);
-            }
-
-            if (stringToken.flags & StringTokenFlags.UnrecognizedEscape) {
-                this._addWarning('Unsupported escape sequence in string literal', stringToken);
-            }
-
-            stringTokenList.push(stringToken);
+            stringTokenList.push(this._getNextToken() as StringToken);
         }
 
         const stringNode = new StringNode(stringTokenList);
@@ -2466,12 +2453,6 @@ export class Parser {
     private _addError(message: string, range: TextRange) {
         assert(range !== undefined);
         this._diagSink.addError(message,
-            convertOffsetsToRange(range.start, range.end, this._tokenizerOutput!.lines));
-    }
-
-    private _addWarning(message: string, range: TextRange) {
-        assert(range !== undefined);
-        this._diagSink.addWarning(message,
             convertOffsetsToRange(range.start, range.end, this._tokenizerOutput!.lines));
     }
 }

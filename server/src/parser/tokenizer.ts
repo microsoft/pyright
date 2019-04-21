@@ -109,6 +109,12 @@ export interface TokenizerOutput {
     lines: TextRangeCollection<TextRange>;
 }
 
+interface StringScannerOutput {
+    value: string;
+    flags: StringTokenFlags;
+    invalidEscapeOffsets?: number[];
+}
+
 export class Tokenizer {
     private _cs = new CharacterStream('');
     private _tokens: Token[] = [];
@@ -753,7 +759,6 @@ export class Tokenizer {
 
     private _handleString(flags: StringTokenFlags, stringPrefixLength: number): void {
         let start = this._cs.position - stringPrefixLength;
-        let value: string;
 
         if (flags & StringTokenFlags.Triplicate) {
             this._cs.advance(3);
@@ -761,25 +766,27 @@ export class Tokenizer {
             this._cs.moveNext();
         }
 
-        [value, flags] = this._skipToEndOfStringLiteral(flags);
+        const stringLiteralInfo = this._skipToEndOfStringLiteral(flags, start);
 
         let end = this._cs.position;
 
-        this._tokens.push(new StringToken(start, end - start, flags, value));
+        this._tokens.push(new StringToken(start, end - start, stringLiteralInfo.flags,
+            stringLiteralInfo.value, stringLiteralInfo.invalidEscapeOffsets));
     }
 
-    private _skipToEndOfStringLiteral(flags: StringTokenFlags): [string, StringTokenFlags] {
+    private _skipToEndOfStringLiteral(flags: StringTokenFlags, startPosition: number): StringScannerOutput {
         const quoteChar = (flags & StringTokenFlags.SingleQuote) ? Char.SingleQuote : Char.DoubleQuote;
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
         const isRaw = (flags & StringTokenFlags.Raw) !== 0;
         const isBytes = (flags & StringTokenFlags.Bytes) !== 0;
         let unescapedValue = '';
+        let invalidEscapeOffsets: number[] | undefined;
 
         while (true) {
             if (this._cs.isEndOfStream()) {
                 // Hit the end of file without a termination.
                 flags |= StringTokenFlags.Unterminated;
-                return [unescapedValue, flags];
+                return { value: unescapedValue, flags, invalidEscapeOffsets };
             }
 
             if (this._cs.currentChar === Char.Backslash) {
@@ -886,6 +893,12 @@ export class Tokenizer {
                             default:
                                 localValue = '\\' + String.fromCharCode(this._cs.currentChar);
                                 flags |= StringTokenFlags.UnrecognizedEscape;
+
+                                if (!invalidEscapeOffsets) {
+                                    invalidEscapeOffsets = [];
+                                }
+                                invalidEscapeOffsets.push(this._cs.position - startPosition);
+
                                 this._cs.moveNext();
                                 break;
                         }
@@ -897,7 +910,7 @@ export class Tokenizer {
                 if (!isTriplicate) {
                     // Unterminated single-line string
                     flags |= StringTokenFlags.Unterminated;
-                    return [unescapedValue, flags];
+                    return { value: unescapedValue, flags, invalidEscapeOffsets };
                 }
 
                 // Skip over the escaped new line (either one or two characters).
@@ -928,7 +941,7 @@ export class Tokenizer {
             }
         }
 
-        return [unescapedValue, flags];
+        return { value: unescapedValue, flags, invalidEscapeOffsets };
     }
 
     private _skipFloatingPointCandidate(): boolean {

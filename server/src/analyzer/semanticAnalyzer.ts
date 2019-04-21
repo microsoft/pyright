@@ -31,6 +31,7 @@ import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ExceptNode,
     StringNode, SuiteNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnpackExpressionNode, WhileNode, WithNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -43,8 +44,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, SymbolCategory } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, Type, TypeCategory,
-    UnboundType, UnknownType } from './types';
+    FunctionTypeFlags, ModuleType, Type, UnboundType, UnknownType } from './types';
 
 type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;
 
@@ -541,6 +541,26 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     visitString(node: StringNode): boolean {
+        for (let stringToken of node.tokens) {
+            if (stringToken.flags & StringTokenFlags.Unterminated) {
+                this._addError('String literal is unterminated', stringToken);
+            }
+
+            if (stringToken.flags & StringTokenFlags.NonAsciiInBytes) {
+                this._addError('Non-ASCII character not allowed in bytes string literal', stringToken);
+            }
+
+            if (stringToken.flags & StringTokenFlags.UnrecognizedEscape) {
+                if (stringToken.invalidEscapeOffsets) {
+                    stringToken.invalidEscapeOffsets.forEach(offset => {
+                        const textRange = new TextRange(stringToken.start + offset, 1);
+                        this._addDiagnostic(this._fileInfo.configOptions.reportInvalidStringEscapeSequence,
+                            'Unsupported escape sequence in string literal', textRange);
+                    });
+                }
+            }
+        }
+
         // Don't explore the parsed forward reference in
         // a string node because this pass of the analyzer
         // isn't capable of handling forward references.

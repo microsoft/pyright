@@ -209,11 +209,15 @@ export class KeywordToken extends Token {
 export class StringToken extends Token {
     readonly flags: StringTokenFlags;
     readonly value: string;
+    readonly invalidEscapeOffsets: number[] | undefined;
 
-    constructor(start: number, length: number, flags: StringTokenFlags, value: string) {
+    constructor(start: number, length: number, flags: StringTokenFlags, value: string,
+            invalidEscapeOffsets: number[] | undefined) {
+
         super(TokenType.String, start, length);
         this.flags = flags;
         this.value = value;
+        this.invalidEscapeOffsets = invalidEscapeOffsets;
     }
 }
 
