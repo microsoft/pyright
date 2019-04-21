@@ -727,7 +727,7 @@ export class Tokenizer {
                     break;
 
                 case 'b':
-                    flags |= StringTokenFlags.Byte;
+                    flags |= StringTokenFlags.Bytes;
                     break;
 
                 case 'r':
@@ -772,6 +772,7 @@ export class Tokenizer {
         const quote = flags & StringTokenFlags.SingleQuote ?
             Char.SingleQuote : Char.DoubleQuote;
         const isRaw = (flags & StringTokenFlags.Raw) !== 0;
+        const isBytes = (flags & StringTokenFlags.Bytes) !== 0;
         let isEscaped = false;
         let unescapedValue = '';
 
@@ -798,6 +799,10 @@ export class Tokenizer {
                 isEscaped = false;
             } else {
                 if (isEscaped) {
+                    if (isBytes && this._cs.currentChar >= 128) {
+                        flags |= StringTokenFlags.NonAsciiInByte;
+                    }
+
                     unescapedValue += String.fromCharCode(this._cs.currentChar);
 
                     // TODO - need to properly handle escapes \ooo, \xhh, \N{name}, \uxxxx and \Uxxxxxxxx
@@ -810,6 +815,10 @@ export class Tokenizer {
                 } else if (this._cs.currentChar === quote) {
                     break;
                 } else {
+                    if (isBytes && this._cs.currentChar >= 128) {
+                        flags |= StringTokenFlags.NonAsciiInByte;
+                    }
+
                     unescapedValue += String.fromCharCode(this._cs.currentChar);
                     isEscaped = false;
                 }
@@ -825,6 +834,7 @@ export class Tokenizer {
     private _skipToTripleEndQuote(flags: StringTokenFlags): [string, StringTokenFlags] {
         const quote = flags & StringTokenFlags.SingleQuote ?
             Char.SingleQuote : Char.DoubleQuote;
+        const isBytes = (flags & StringTokenFlags.Bytes) !== 0;
         const isRaw = (flags & StringTokenFlags.Raw) !== 0;
         let unescapedValue = '';
 
@@ -851,10 +861,18 @@ export class Tokenizer {
                 // This is an escape. Move past the next character.
                 this._cs.moveNext();
 
+                if (isBytes && this._cs.currentChar >= 128) {
+                    flags |= StringTokenFlags.NonAsciiInByte;
+                }
+
                 // TODO - need to handle special escapes
                 unescapedValue += String.fromCharCode(this._cs.currentChar);
                 this._cs.moveNext();
             } else {
+                if (isBytes && this._cs.currentChar >= 128) {
+                    flags |= StringTokenFlags.NonAsciiInByte;
+                }
+
                 unescapedValue += String.fromCharCode(this._cs.currentChar);
                 this._cs.moveNext();
             }

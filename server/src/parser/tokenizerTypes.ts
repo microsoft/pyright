@@ -142,14 +142,21 @@ export enum KeywordType {
 
 export enum StringTokenFlags {
     None = 0x0,
+
+    // Quote types
     SingleQuote = 0x1,
     DoubleQuote = 0x2,
     Triplicate = 0x4,
+
+    // String content format
     Raw = 0x8,
     Unicode = 0x10,
-    Byte = 0x20,
-    Unterminated = 0x40,
-    FString = 0x80
+    Bytes = 0x20,
+
+    // Error conditions
+    Unterminated = 0x1000,
+    NonAsciiInByte = 0x1001,
+    UnrecognizedEscape = 0x1002
 }
 
 export class Token extends TextRange implements Token {

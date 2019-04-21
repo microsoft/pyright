@@ -2235,6 +2235,9 @@ export class Parser {
             if (stringToken.flags & StringTokenFlags.Unterminated) {
                 this._addError('String literal is unterminated', stringToken);
             }
+            if (stringToken.flags & StringTokenFlags.NonAsciiInByte) {
+                this._addError('Non-ASCII character not allowed in bytes string literal', stringToken);
+            }
 
             stringTokenList.push(stringToken);
         }
@@ -2248,7 +2251,7 @@ export class Parser {
             } else if (stringNode.tokens[0].flags & StringTokenFlags.Triplicate) {
                 this._addError('Type hints cannot use triple quotes', stringNode);
             } else if (stringNode.tokens[0].flags &
-                    (StringTokenFlags.Raw | StringTokenFlags.Unicode | StringTokenFlags.Byte)) {
+                    (StringTokenFlags.Raw | StringTokenFlags.Unicode | StringTokenFlags.Bytes)) {
                 this._addError('Type hints cannot use raw, unicode or byte string literals', stringNode);
             } else if (stringNode.tokens[0].value.length !== stringNode.tokens[0].length - 2) {
                 this._addError('Type hints cannot contain escape characters', stringNode);

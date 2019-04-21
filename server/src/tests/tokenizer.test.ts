@@ -417,7 +417,7 @@ test('Strings: b/u/r-string', () => {
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken0.type, TokenType.String);
     assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Byte);
+        StringTokenFlags.Bytes);
     assert.equal(stringToken0.length, 4);
     assert.equal(stringToken0.value, 'b');
 
@@ -431,7 +431,7 @@ test('Strings: b/u/r-string', () => {
     const stringToken2 = results.tokens.getItemAt(2) as StringToken;
     assert.equal(stringToken2.type, TokenType.String);
     assert.equal(stringToken2.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Byte | StringTokenFlags.Raw);
+        StringTokenFlags.Bytes | StringTokenFlags.Raw);
     assert.equal(stringToken2.length, 6);
     assert.equal(stringToken2.value, 'br');
 
@@ -441,6 +441,45 @@ test('Strings: b/u/r-string', () => {
         StringTokenFlags.Unicode | StringTokenFlags.Raw);
     assert.equal(stringToken3.length, 6);
     assert.equal(stringToken3.value, 'ur');
+});
+
+test('Strings: bytes string with non-ASCII', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('B"Teßt" b\'\'\'Teñt\'\'\'');
+    assert.equal(results.tokens.count, 2 + _implicitTokenCount);
+
+    const stringToken0 = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken0.type, TokenType.String);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.Bytes | StringTokenFlags.NonAsciiInByte);
+    assert.equal(stringToken0.length, 7);
+
+    const stringToken1 = results.tokens.getItemAt(1) as StringToken;
+    assert.equal(stringToken1.type, TokenType.String);
+    assert.equal(stringToken1.flags, StringTokenFlags.SingleQuote |
+        StringTokenFlags.Bytes | StringTokenFlags.NonAsciiInByte |
+        StringTokenFlags.Triplicate);
+    assert.equal(stringToken1.length, 11);
+});
+
+test('Strings: raw strings with escapes', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('R"\\""');
+    assert.equal(results.tokens.count, 2 + _implicitTokenCount);
+
+    const stringToken0 = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken0.type, TokenType.String);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.Raw);
+    assert.equal(stringToken0.length, 5);
+    assert.equal(stringToken0.value, '\\"');
+
+    const stringToken1 = results.tokens.getItemAt(1) as StringToken;
+    assert.equal(stringToken1.type, TokenType.String);
+    assert.equal(stringToken1.flags, StringTokenFlags.SingleQuote |
+        StringTokenFlags.Bytes | StringTokenFlags.NonAsciiInByte |
+        StringTokenFlags.Triplicate);
+    assert.equal(stringToken1.length, 11);
 });
 
 test('Strings: escape at the end of double quoted string ', () => {
