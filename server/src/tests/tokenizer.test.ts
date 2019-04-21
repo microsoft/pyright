@@ -538,6 +538,57 @@ test('Strings: invalid escape characters', () => {
     assert.equal(stringToken.invalidEscapeOffsets![1], 6);
 });
 
+test('Strings: good hex escapes', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('"\\x4d" "\\u006b" "\\U0000006F"');
+    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
+
+    const stringToken0 = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken0.type, TokenType.String);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken0.length, 6);
+    assert.equal(stringToken0.value, 'M');
+
+    const stringToken1 = results.tokens.getItemAt(1) as StringToken;
+    assert.equal(stringToken1.type, TokenType.String);
+    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken1.length, 8);
+    assert.equal(stringToken1.value, 'k');
+
+    const stringToken2 = results.tokens.getItemAt(2) as StringToken;
+    assert.equal(stringToken2.type, TokenType.String);
+    assert.equal(stringToken2.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken2.length, 12);
+    assert.equal(stringToken2.value, 'o');
+});
+
+test('Strings: bad hex escapes', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('"\\x4g" "\\u006" "\\U0000006m"');
+    assert.equal(results.tokens.count, 3 + _implicitTokenCount);
+
+    const stringToken0 = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken0.type, TokenType.String);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.UnrecognizedEscape);
+    assert.equal(stringToken0.length, 6);
+    assert.equal(stringToken0.value, '\\x4g');
+
+    const stringToken1 = results.tokens.getItemAt(1) as StringToken;
+    assert.equal(stringToken1.type, TokenType.String);
+    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.UnrecognizedEscape);
+    assert.equal(stringToken1.length, 7);
+    assert.equal(stringToken1.value, '\\u006');
+
+    const stringToken2 = results.tokens.getItemAt(2) as StringToken;
+    assert.equal(stringToken2.type, TokenType.String);
+    assert.equal(stringToken2.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.UnrecognizedEscape);
+    assert.equal(stringToken2.length, 12);
+    assert.equal(stringToken2.value, '\\U0000006m');
+});
+
 test('Comments', () => {
     const t = new Tokenizer();
     const results = t.tokenize(' #co"""mment1\n\t\n#comm\'ent2 ');

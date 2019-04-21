@@ -782,6 +782,40 @@ export class Tokenizer {
         let unescapedValue = '';
         let invalidEscapeOffsets: number[] | undefined;
 
+        const addInvalidEscapeOffset = () => {
+            flags |= StringTokenFlags.UnrecognizedEscape;
+            if (!invalidEscapeOffsets) {
+                invalidEscapeOffsets = [];
+            }
+            invalidEscapeOffsets.push(this._cs.position - startPosition);
+        };
+
+        const scanHexEscape = (digitCount: number) => {
+            let foundIllegalHexDigit = false;
+            let hexValue = 0;
+            let localValue = '';
+
+            for (let i = 0; i < digitCount; i++) {
+                const charCode = this._cs.lookAhead(1 + i);
+                if (!this._isHexCharCode(charCode)) {
+                    foundIllegalHexDigit = true;
+                    break;
+                }
+                hexValue = 16 * hexValue + this._getHexDigitValue(charCode);
+            }
+
+            if (foundIllegalHexDigit) {
+                addInvalidEscapeOffset();
+                localValue = '\\' + String.fromCharCode(this._cs.currentChar);
+                this._cs.moveNext();
+            } else {
+                localValue = String.fromCharCode(hexValue);
+                this._cs.advance(1 + digitCount);
+            }
+
+            return localValue;
+        };
+
         while (true) {
             if (this._cs.isEndOfStream()) {
                 // Hit the end of file without a termination.
@@ -854,23 +888,8 @@ export class Tokenizer {
                                 this._cs.moveNext();
                                 break;
 
-                            case Char._0:
-                            case Char._1:
-                            case Char._2:
-                            case Char._3:
-                            case Char._4:
-                            case Char._5:
-                            case Char._6:
-                            case Char._7:
-                                // TODO - need to handle octal
-                                localValue = '0';
-                                this._cs.moveNext();
-                                break;
-
                             case Char.x:
-                                // TODO - need to handle hex
-                                localValue = '0';
-                                this._cs.moveNext();
+                                localValue = scanHexEscape(2);
                                 break;
 
                             case Char.N:
@@ -880,26 +899,33 @@ export class Tokenizer {
                                 break;
 
                             case Char.u:
-                                // TODO - need to handle unicode
-                                localValue = '0';
+                                localValue = scanHexEscape(4);
                                 break;
 
                             case Char.U:
-                                // TODO - need to handle unicode
-                                localValue = '0';
-                                this._cs.moveNext();
+                                localValue = scanHexEscape(8);
                                 break;
 
                             default:
-                                localValue = '\\' + String.fromCharCode(this._cs.currentChar);
-                                flags |= StringTokenFlags.UnrecognizedEscape;
+                                if (this._isOctalCharCode(this._cs.currentChar)) {
+                                    let octalCode = this._cs.currentChar - Char._0;
+                                    this._cs.moveNext();
+                                    if (this._isOctalCharCode(this._cs.currentChar)) {
+                                        octalCode = octalCode * 8 + this._cs.currentChar - Char._0;
+                                        this._cs.moveNext();
 
-                                if (!invalidEscapeOffsets) {
-                                    invalidEscapeOffsets = [];
+                                        if (this._isOctalCharCode(this._cs.currentChar)) {
+                                            octalCode = octalCode * 8 + this._cs.currentChar - Char._0;
+                                            this._cs.moveNext();
+                                        }
+                                    }
+
+                                    localValue = String.fromCharCode(octalCode);
+                                } else {
+                                    localValue = '\\' + String.fromCharCode(this._cs.currentChar);
+                                    addInvalidEscapeOffset();
+                                    this._cs.moveNext();
                                 }
-                                invalidEscapeOffsets.push(this._cs.position - startPosition);
-
-                                this._cs.moveNext();
                                 break;
                         }
                     }
@@ -942,6 +968,42 @@ export class Tokenizer {
         }
 
         return { value: unescapedValue, flags, invalidEscapeOffsets };
+    }
+
+    private _isOctalCharCode(charCode: number): boolean {
+        return charCode >= Char._0 && charCode <= Char._7;
+    }
+
+    private _isHexCharCode(charCode: number): boolean {
+        if (charCode >= Char._0 && charCode <= Char._9) {
+            return true;
+        }
+
+        if (charCode >= Char.a && charCode <= Char.f) {
+            return true;
+        }
+
+        if (charCode >= Char.A && charCode <= Char.F) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private _getHexDigitValue(charCode: number): number {
+        if (charCode >= Char._0 && charCode <= Char._9) {
+            return charCode - Char._0;
+        }
+
+        if (charCode >= Char.a && charCode <= Char.f) {
+            return charCode - Char.a + 10;
+        }
+
+        if (charCode >= Char.A && charCode <= Char.F) {
+            return charCode - Char.A + 10;
+        }
+
+        return 0;
     }
 
     private _skipFloatingPointCandidate(): boolean {
