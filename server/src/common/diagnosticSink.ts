@@ -38,6 +38,10 @@ export class DiagnosticSink {
         this.addDiagnostic(new Diagnostic(DiagnosticCategory.Warning, message, range));
     }
 
+    addUnusedCode(message: string, range?: DiagnosticTextRange) {
+        this.addDiagnostic(new Diagnostic(DiagnosticCategory.UnusedCode, message, range));
+    }
+
     addDiagnostic(diag: Diagnostic) {
         this.diagnostics.push(diag);
     }
@@ -71,5 +75,9 @@ export class TextRangeDiagnosticSink extends DiagnosticSink {
 
     addWarningWithTextRange(message: string, range: TextRange) {
         this.addWarning(message, convertOffsetsToRange(range.start, range.end, this._lines));
+    }
+
+    addUnusedCodeWithTextRange(message: string, range: TextRange) {
+        this.addUnusedCode(message, convertOffsetsToRange(range.start, range.end, this._lines));
     }
 }

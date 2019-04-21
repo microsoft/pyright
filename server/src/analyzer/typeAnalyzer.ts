@@ -1758,9 +1758,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (constExprValue !== undefined) {
             if (constExprValue) {
                 ifIsUnconditional = true;
+                if (elseSuite) {
+                    this._addUnusedCode('Code is unreachable', elseSuite);
+                }
                 elseScope = undefined;
             } else {
                 elseIsUnconditional = true;
+                this._addUnusedCode('Code is unreachable', ifWhileSuite);
                 ifScope = undefined;
             }
         }
@@ -2528,6 +2532,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (!this._currentScope.isNotExecuted()) {
             this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
         }
+    }
+
+    private _addUnusedCode(message: string, textRange: TextRange) {
+        this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(message, textRange);
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {

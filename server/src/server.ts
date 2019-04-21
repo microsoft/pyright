@@ -5,9 +5,9 @@
 */
 
 import {
-    createConnection, Diagnostic, DiagnosticSeverity, IConnection,
-    InitializeResult, IPCMessageReader, IPCMessageWriter, Location,
-    MarkupContent, Position, Range, TextDocuments
+    createConnection, Diagnostic, DiagnosticSeverity, DiagnosticTag,
+    IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter,
+    Location, MarkupContent, Position, Range, TextDocuments
 } from 'vscode-languageserver';
 
 import { AnalyzerService } from './analyzer/service';
@@ -201,8 +201,15 @@ function _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
         let severity = diag.category === DiagnosticCategory.Error ?
             DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
 
-        return Diagnostic.create(_convertRange(diag.range), diag.message, severity,
+        let vsDiag = Diagnostic.create(_convertRange(diag.range), diag.message, severity,
             undefined, 'pyright');
+
+        if (diag.category === DiagnosticCategory.UnusedCode) {
+            vsDiag.tags = [DiagnosticTag.Unnecessary];
+            vsDiag.severity = DiagnosticSeverity.Hint;
+        }
+
+        return vsDiag;
     });
 }
 
