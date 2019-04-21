@@ -589,6 +589,44 @@ test('Strings: bad hex escapes', () => {
     assert.equal(stringToken2.value, '\\U0000006m');
 });
 
+test('Strings: good name escapes', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('"\\N{caret}" "a\\N{A9}a"');
+    assert.equal(results.tokens.count, 2 + _implicitTokenCount);
+
+    const stringToken0 = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken0.type, TokenType.String);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken0.length, 11);
+    assert.equal(stringToken0.value, '-');
+
+    const stringToken1 = results.tokens.getItemAt(1) as StringToken;
+    assert.equal(stringToken1.type, TokenType.String);
+    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken1.length, 10);
+    assert.equal(stringToken1.value, 'a-a');
+});
+
+test('Strings: bad name escapes', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('"\\N{caret" "\\N{ A9}"');
+    assert.equal(results.tokens.count, 2 + _implicitTokenCount);
+
+    const stringToken0 = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken0.type, TokenType.String);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.UnrecognizedEscape);
+    assert.equal(stringToken0.length, 10);
+    assert.equal(stringToken0.value, '\\N{caret');
+
+    const stringToken1 = results.tokens.getItemAt(1) as StringToken;
+    assert.equal(stringToken1.type, TokenType.String);
+    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.UnrecognizedEscape);
+    assert.equal(stringToken1.length, 9);
+    assert.equal(stringToken1.value, '\\N{ A9}');
+});
+
 test('Comments', () => {
     const t = new Tokenizer();
     const results = t.tokenize(' #co"""mment1\n\t\n#comm\'ent2 ');

@@ -892,11 +892,39 @@ export class Tokenizer {
                                 localValue = scanHexEscape(2);
                                 break;
 
-                            case Char.N:
-                                // TODO - need to handle name
-                                localValue = '0';
-                                this._cs.moveNext();
+                            case Char.N: {
+                                let foundIllegalChar = false;
+                                let charCount = 1;
+                                if (this._cs.lookAhead(charCount) !== Char.OpenBrace) {
+                                    foundIllegalChar = true;
+                                } else {
+                                    charCount++;
+                                    while (true) {
+                                        const lookaheadChar = this._cs.lookAhead(charCount);
+                                        if (lookaheadChar === Char.CloseBrace) {
+                                            break;
+                                        } else if (!this._isAlphaNumericChar(lookaheadChar)) {
+                                            foundIllegalChar = true;
+                                            break;
+                                        } else {
+                                            charCount++;
+                                        }
+                                    }
+                                }
+
+                                if (foundIllegalChar) {
+                                    addInvalidEscapeOffset();
+                                    localValue = '\\' + String.fromCharCode(this._cs.currentChar);
+                                    this._cs.moveNext();
+                                } else {
+                                    // We don't have the Unicode name database handy, so
+                                    // assume that the name is valid and use a '-' as a
+                                    // replacement character.
+                                    localValue = '-';
+                                    this._cs.advance(1 + charCount);
+                                }
                                 break;
+                            }
 
                             case Char.u:
                                 localValue = scanHexEscape(4);
@@ -968,6 +996,22 @@ export class Tokenizer {
         }
 
         return { value: unescapedValue, flags, invalidEscapeOffsets };
+    }
+
+    private _isAlphaNumericChar(charCode: number): boolean {
+        if (charCode >= Char._0 && charCode <= Char._9) {
+            return true;
+        }
+
+        if (charCode >= Char.a && charCode <= Char.z) {
+            return true;
+        }
+
+        if (charCode >= Char.A && charCode <= Char.A) {
+            return true;
+        }
+
+        return false;
     }
 
     private _isOctalCharCode(charCode: number): boolean {
