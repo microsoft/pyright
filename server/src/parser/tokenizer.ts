@@ -757,23 +757,22 @@ export class Tokenizer {
 
         if (flags & StringTokenFlags.Triplicate) {
             this._cs.advance(3);
-            [value, flags] = this._skipToTripleEndQuote(flags);
         } else {
             this._cs.moveNext();
-            [value, flags] = this._skipToSingleEndQuote(flags);
         }
+
+        [value, flags] = this._skipToEndOfStringLiteral(flags);
 
         let end = this._cs.position;
 
         this._tokens.push(new StringToken(start, end - start, flags, value));
     }
 
-    private _skipToSingleEndQuote(flags: StringTokenFlags): [string, StringTokenFlags] {
-        const quote = flags & StringTokenFlags.SingleQuote ?
-            Char.SingleQuote : Char.DoubleQuote;
+    private _skipToEndOfStringLiteral(flags: StringTokenFlags): [string, StringTokenFlags] {
+        const quoteChar = (flags & StringTokenFlags.SingleQuote) ? Char.SingleQuote : Char.DoubleQuote;
+        const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
         const isRaw = (flags & StringTokenFlags.Raw) !== 0;
         const isBytes = (flags & StringTokenFlags.Bytes) !== 0;
-        let isEscaped = false;
         let unescapedValue = '';
 
         while (true) {
@@ -783,8 +782,119 @@ export class Tokenizer {
                 return [unescapedValue, flags];
             }
 
-            if (this._cs.currentChar === Char.LineFeed || this._cs.currentChar === Char.CarriageReturn) {
-                if (!isEscaped) {
+            if (this._cs.currentChar === Char.Backslash) {
+                // Move past the escape (backslash) character.
+                this._cs.moveNext();
+                let localValue = '';
+
+                if (this._cs.getCurrentChar() === Char.CarriageReturn || this._cs.getCurrentChar() === Char.LineFeed) {
+                    if (this._cs.getCurrentChar() === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
+                        if (isRaw) {
+                            localValue += String.fromCharCode(this._cs.currentChar);
+                        }
+                        this._cs.moveNext();
+                    }
+                    if (isRaw) {
+                        localValue = '\\' + localValue + String.fromCharCode(this._cs.currentChar);
+                    }
+                    this._cs.moveNext();
+                    this._addLineRange();
+                } else {
+                    if (isRaw) {
+                        localValue = '\\' + String.fromCharCode(this._cs.currentChar);
+                        this._cs.moveNext();
+                    } else {
+                        switch (this._cs.getCurrentChar()) {
+                            case Char.Backslash:
+                            case Char.SingleQuote:
+                            case Char.DoubleQuote:
+                                localValue = String.fromCharCode(this._cs.currentChar);
+                                this._cs.moveNext();
+                                break;
+
+                            case Char.a:
+                                localValue = '\u0007';
+                                this._cs.moveNext();
+                                break;
+
+                            case Char.b:
+                                localValue = '\b';
+                                this._cs.moveNext();
+                                break;
+
+                            case Char.f:
+                                localValue = '\f';
+                                this._cs.moveNext();
+                                break;
+
+                            case Char.n:
+                                localValue = '\n';
+                                this._cs.moveNext();
+                                break;
+
+                            case Char.r:
+                                localValue = '\r';
+                                this._cs.moveNext();
+                                break;
+
+                            case Char.t:
+                                localValue = '\t';
+                                this._cs.moveNext();
+                                break;
+
+                            case Char.v:
+                                localValue = '\v';
+                                this._cs.moveNext();
+                                break;
+
+                            case Char._0:
+                            case Char._1:
+                            case Char._2:
+                            case Char._3:
+                            case Char._4:
+                            case Char._5:
+                            case Char._6:
+                            case Char._7:
+                                // TODO - need to handle octal
+                                localValue = '0';
+                                this._cs.moveNext();
+                                break;
+
+                            case Char.x:
+                                // TODO - need to handle hex
+                                localValue = '0';
+                                this._cs.moveNext();
+                                break;
+
+                            case Char.N:
+                                // TODO - need to handle name
+                                localValue = '0';
+                                this._cs.moveNext();
+                                break;
+
+                            case Char.u:
+                                // TODO - need to handle unicode
+                                localValue = '0';
+                                break;
+
+                            case Char.U:
+                                // TODO - need to handle unicode
+                                localValue = '0';
+                                this._cs.moveNext();
+                                break;
+
+                            default:
+                                localValue = '\\' + String.fromCharCode(this._cs.currentChar);
+                                flags |= StringTokenFlags.UnrecognizedEscape;
+                                this._cs.moveNext();
+                                break;
+                        }
+                    }
+                }
+
+                unescapedValue += localValue;
+            } else if (this._cs.currentChar === Char.LineFeed || this._cs.currentChar === Char.CarriageReturn) {
+                if (!isTriplicate) {
                     // Unterminated single-line string
                     flags |= StringTokenFlags.Unterminated;
                     return [unescapedValue, flags];
@@ -792,92 +902,31 @@ export class Tokenizer {
 
                 // Skip over the escaped new line (either one or two characters).
                 if (this._cs.currentChar === Char.LineFeed && this._cs.nextChar === Char.CarriageReturn) {
+                    unescapedValue += String.fromCharCode(this._cs.currentChar);
                     this._cs.moveNext();
                 }
 
+                unescapedValue += String.fromCharCode(this._cs.currentChar);
                 this._cs.moveNext();
-                isEscaped = false;
+                this._addLineRange();
+            } else if (!isTriplicate && this._cs.currentChar === quoteChar) {
+                this._cs.moveNext();
+                break;
+            } else if (isTriplicate && this._cs.currentChar === quoteChar &&
+                    this._cs.nextChar === quoteChar && this._cs.lookAhead(2) === quoteChar) {
+
+                this._cs.advance(3);
+                break;
             } else {
-                if (isEscaped) {
-                    if (isBytes && this._cs.currentChar >= 128) {
-                        flags |= StringTokenFlags.NonAsciiInByte;
-                    }
-
-                    unescapedValue += String.fromCharCode(this._cs.currentChar);
-
-                    // TODO - need to properly handle escapes \ooo, \xhh, \N{name}, \uxxxx and \Uxxxxxxxx
-                    isEscaped = false;
-                } else if (this._cs.currentChar === Char.Backslash) {
-                    if (isRaw) {
-                        unescapedValue += String.fromCharCode(this._cs.currentChar);
-                    }
-                    isEscaped = true;
-                } else if (this._cs.currentChar === quote) {
-                    break;
-                } else {
-                    if (isBytes && this._cs.currentChar >= 128) {
-                        flags |= StringTokenFlags.NonAsciiInByte;
-                    }
-
-                    unescapedValue += String.fromCharCode(this._cs.currentChar);
-                    isEscaped = false;
+                if (isBytes && this._cs.currentChar >= 128) {
+                    flags |= StringTokenFlags.NonAsciiInBytes;
                 }
+
+                unescapedValue += String.fromCharCode(this._cs.currentChar);
 
                 this._cs.moveNext();
             }
         }
-
-        this._cs.moveNext();
-        return [unescapedValue, flags];
-    }
-
-    private _skipToTripleEndQuote(flags: StringTokenFlags): [string, StringTokenFlags] {
-        const quote = flags & StringTokenFlags.SingleQuote ?
-            Char.SingleQuote : Char.DoubleQuote;
-        const isBytes = (flags & StringTokenFlags.Bytes) !== 0;
-        const isRaw = (flags & StringTokenFlags.Raw) !== 0;
-        let unescapedValue = '';
-
-        while (!this ._cs.isEndOfStream() && (this._cs.currentChar !== quote ||
-                this._cs.nextChar !== quote || this._cs.lookAhead(2) !== quote)) {
-
-            if (this._cs.currentChar === Char.CarriageReturn) {
-                unescapedValue += String.fromCharCode(this._cs.currentChar);
-                if (this._cs.nextChar === Char.LineFeed) {
-                    this._cs.moveNext();
-                    unescapedValue += String.fromCharCode(this._cs.currentChar);
-                }
-                this._cs.moveNext();
-                this._addLineRange();
-            } else if (this._cs.currentChar === Char.LineFeed) {
-                unescapedValue += String.fromCharCode(this._cs.currentChar);
-                this._cs.moveNext();
-                this._addLineRange();
-            } else if (this._cs.currentChar === Char.Backslash) {
-                if (isRaw) {
-                    unescapedValue += String.fromCharCode(this._cs.currentChar);
-                }
-
-                // This is an escape. Move past the next character.
-                this._cs.moveNext();
-
-                if (isBytes && this._cs.currentChar >= 128) {
-                    flags |= StringTokenFlags.NonAsciiInByte;
-                }
-
-                // TODO - need to handle special escapes
-                unescapedValue += String.fromCharCode(this._cs.currentChar);
-                this._cs.moveNext();
-            } else {
-                if (isBytes && this._cs.currentChar >= 128) {
-                    flags |= StringTokenFlags.NonAsciiInByte;
-                }
-
-                unescapedValue += String.fromCharCode(this._cs.currentChar);
-                this._cs.moveNext();
-            }
-        }
-        this._cs.advance(3);
 
         return [unescapedValue, flags];
     }

@@ -155,8 +155,8 @@ export enum StringTokenFlags {
 
     // Error conditions
     Unterminated = 0x1000,
-    NonAsciiInByte = 0x1001,
-    UnrecognizedEscape = 0x1002
+    NonAsciiInBytes = 0x2000,
+    UnrecognizedEscape = 0x4000
 }
 
 export class Token extends TextRange implements Token {

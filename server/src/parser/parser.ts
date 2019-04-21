@@ -2235,8 +2235,13 @@ export class Parser {
             if (stringToken.flags & StringTokenFlags.Unterminated) {
                 this._addError('String literal is unterminated', stringToken);
             }
-            if (stringToken.flags & StringTokenFlags.NonAsciiInByte) {
+
+            if (stringToken.flags & StringTokenFlags.NonAsciiInBytes) {
                 this._addError('Non-ASCII character not allowed in bytes string literal', stringToken);
+            }
+
+            if (stringToken.flags & StringTokenFlags.UnrecognizedEscape) {
+                this._addWarning('Unsupported escape sequence in string literal', stringToken);
             }
 
             stringTokenList.push(stringToken);
@@ -2461,6 +2466,12 @@ export class Parser {
     private _addError(message: string, range: TextRange) {
         assert(range !== undefined);
         this._diagSink.addError(message,
+            convertOffsetsToRange(range.start, range.end, this._tokenizerOutput!.lines));
+    }
+
+    private _addWarning(message: string, range: TextRange) {
+        assert(range !== undefined);
+        this._diagSink.addWarning(message,
             convertOffsetsToRange(range.start, range.end, this._tokenizerOutput!.lines));
     }
 }

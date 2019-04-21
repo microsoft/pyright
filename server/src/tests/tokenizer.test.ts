@@ -214,6 +214,18 @@ test('IndentDedentParen', () => {
     assert.equal(results.tokens.getItemAt(9).type, TokenType.EndOfStream);
 });
 
+test('Strings: simple', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize(' "a"');
+    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.length, 3);
+    assert.equal(stringToken.value, 'a');
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote);
+});
+
 test('Strings: unclosed', () => {
     const t = new Tokenizer();
     const results = t.tokenize(' "string" """line1\n#line2"""\t\'un#closed');
@@ -229,7 +241,7 @@ test('Strings: unclosed', () => {
 
 test('Strings: escaped across multiple lines', () => {
     const t = new Tokenizer();
-    const results = t.tokenize(' "a\\\nb" \'c\\\n\rb\'');
+    const results = t.tokenize(' "a\\\nb" \'c\\\r\nb\'');
     assert.equal(results.tokens.count, 2 + _implicitTokenCount);
 
     const ranges = [[1, 6], [8, 7]];
@@ -451,20 +463,20 @@ test('Strings: bytes string with non-ASCII', () => {
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken0.type, TokenType.String);
     assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Bytes | StringTokenFlags.NonAsciiInByte);
+        StringTokenFlags.Bytes | StringTokenFlags.NonAsciiInBytes);
     assert.equal(stringToken0.length, 7);
 
     const stringToken1 = results.tokens.getItemAt(1) as StringToken;
     assert.equal(stringToken1.type, TokenType.String);
     assert.equal(stringToken1.flags, StringTokenFlags.SingleQuote |
-        StringTokenFlags.Bytes | StringTokenFlags.NonAsciiInByte |
+        StringTokenFlags.Bytes | StringTokenFlags.NonAsciiInBytes |
         StringTokenFlags.Triplicate);
     assert.equal(stringToken1.length, 11);
 });
 
 test('Strings: raw strings with escapes', () => {
     const t = new Tokenizer();
-    const results = t.tokenize('R"\\""');
+    const results = t.tokenize('R"\\"" r"\\\r\n\\\n\\a"');
     assert.equal(results.tokens.count, 2 + _implicitTokenCount);
 
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
@@ -476,10 +488,10 @@ test('Strings: raw strings with escapes', () => {
 
     const stringToken1 = results.tokens.getItemAt(1) as StringToken;
     assert.equal(stringToken1.type, TokenType.String);
-    assert.equal(stringToken1.flags, StringTokenFlags.SingleQuote |
-        StringTokenFlags.Bytes | StringTokenFlags.NonAsciiInByte |
-        StringTokenFlags.Triplicate);
-    assert.equal(stringToken1.length, 11);
+    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote |
+        StringTokenFlags.Raw);
+    assert.equal(stringToken1.length, 10);
+    assert.equal(stringToken1.value, '\\\r\n\\\n\\a');
 });
 
 test('Strings: escape at the end of double quoted string ', () => {
