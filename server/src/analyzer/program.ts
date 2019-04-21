@@ -9,6 +9,7 @@
 */
 
 import * as assert from 'assert';
+import { CompletionList } from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
@@ -573,6 +574,17 @@ export class Program {
         }
 
         return sourceFile.getHoverForPosition(position);
+    }
+
+    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition):
+            CompletionList | undefined {
+
+        let sourceFile = this.getSourceFile(filePath);
+        if (!sourceFile) {
+            return undefined;
+        }
+
+        return sourceFile.getCompletionsForPosition(position);
     }
 
     // Returns a list of empty file diagnostic entries for the files

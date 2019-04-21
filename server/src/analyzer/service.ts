@@ -9,6 +9,7 @@
 */
 
 import * as fs from 'fs';
+import { CompletionList } from 'vscode-languageserver';
 
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
@@ -104,6 +105,12 @@ export class AnalyzerService {
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
             string | undefined {
         return this._program.getHoverForPosition(filePath, position);
+    }
+
+    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition):
+            CompletionList | undefined {
+
+        return this._program.getCompletionsForPosition(filePath, position);
     }
 
     printStats() {

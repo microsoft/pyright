@@ -99,7 +99,10 @@ _connection.onInitialize((params): InitializeResult => {
             // sync mode (as opposed to incremental).
             textDocumentSync: _documents.syncKind,
             definitionProvider: true,
-            hoverProvider: true
+            hoverProvider: true,
+            completionProvider: {
+                triggerCharacters: ['.']
+            }
         }
     };
 });
@@ -150,6 +153,17 @@ _connection.onHover(params => {
         value: hoverMarkdown
     };
     return { contents: markupContent };
+});
+
+_connection.onCompletion(params => {
+    let filePath = _convertUriToPath(params.textDocument.uri);
+
+    let position: DiagnosticTextPosition = {
+        line: params.position.line,
+        column: params.position.character
+    };
+
+    return _analyzerService.getCompletionsForPosition(filePath, position);
 });
 
 function updateOptionsAndRestartService(settings?: Settings) {

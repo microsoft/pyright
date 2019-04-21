@@ -9,6 +9,7 @@
 
 import * as assert from 'assert';
 import * as fs from 'fs';
+import { CompletionList } from 'vscode-languageserver';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
@@ -25,6 +26,7 @@ import { TestWalker } from '../tests/testWalker';
 import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
+import { CompletionProvider } from './completionProvider';
 import { DefinitionProvider } from './definitionProvider';
 import { HoverProvider } from './hoverProvider';
 import { ImportResolver } from './importResolver';
@@ -405,6 +407,22 @@ export class SourceFile {
 
         return HoverProvider.getHoverForPosition(
                 this._analysisJob.parseResults, position);
+    }
+
+    getCompletionsForPosition(position: DiagnosticTextPosition): CompletionList | undefined {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._analysisJob.parseResults) {
+            return undefined;
+        }
+
+        // This command should be called only for open files, in which
+        // case we should have the file contents already loaded.
+        if (this._fileContents === undefined) {
+            return undefined;
+        }
+
+        return CompletionProvider.getCompletionsForPosition(
+                this._analysisJob.parseResults, this._fileContents, position);
     }
 
     getAnalysisPassCount() {
