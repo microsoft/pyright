@@ -1130,7 +1130,13 @@ export class Parser {
     private _parseYieldExpression(): YieldExpressionNode | YieldFromExpressionNode {
         let yieldToken = this._getKeywordToken(KeywordType.Yield);
 
+        let nextToken = this._peekToken();
         if (this._consumeTokenIfKeyword(KeywordType.From)) {
+            if (this._getLanguageVersion() < PythonVersion.V33) {
+                this._addError(
+                    `Use of 'yield from' requires Python 3.3 or newer`,
+                    nextToken);
+            }
             return new YieldFromExpressionNode(yieldToken, this._parseTestExpression());
         }
 
