@@ -12,16 +12,16 @@ import * as assert from 'assert';
 import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
     ConstantNode, ContinueNode, DecoratorNode, DelNode, DictionaryExpandEntryNode,
-    DictionaryKeyEntryNode, DictionaryNode, EllipsisNode, ExceptNode,
-    ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromAsNode,
-    ImportFromNode, ImportNode, IndexExpressionNode, IndexItemsNode, LambdaNode,
-    ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode, ListNode,
-    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode,
-    ParameterNode, ParseNode, ParseNodeType, PassNode, RaiseNode, ReturnNode,
-    SetNode, SliceExpressionNode, StatementListNode, StringNode, SuiteNode,
-    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithItemNode,
-    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    DictionaryKeyEntryNode, DictionaryNode, EllipsisNode, ErrorExpressionNode,
+    ExceptNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
+    ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode, IndexItemsNode,
+    LambdaNode, ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode,
+    ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
+    NumberNode, ParameterNode, ParseNode, ParseNodeType, PassNode, RaiseNode,
+    ReturnNode, SetNode, SliceExpressionNode, StatementListNode, StringNode,
+    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
+    WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 
 // To use this class, create a subclass and override the
 // visitXXX methods that you want to handle.
@@ -98,6 +98,9 @@ export class ParseTreeWalker {
 
             case ParseNodeType.DictionaryExpandEntry:
                 return this.visitDictionaryExpandEntry(node as DictionaryExpandEntryNode);
+
+            case ParseNodeType.Error:
+                return this.visitError(node as ErrorExpressionNode);
 
             case ParseNodeType.If:
                 return this.visitIf(node as IfNode);
@@ -225,13 +228,10 @@ export class ParseTreeWalker {
             case ParseNodeType.YieldFrom:
                 return this.visitYieldFrom(node as YieldFromExpressionNode);
 
-            case ParseNodeType.Error:
-                return false;
-
             case ParseNodeType.None:
             default:
                 assert.fail('Unexpected node type');
-                return false;
+                return true;
         }
     }
 
@@ -301,6 +301,10 @@ export class ParseTreeWalker {
     }
 
     visitDictionaryExpandEntry(node: DictionaryExpandEntryNode) {
+        return true;
+    }
+
+    visitError(node: ErrorExpressionNode) {
         return true;
     }
 

@@ -68,8 +68,7 @@ export class HoverProvider {
 
         if (declaration) {
             switch (declaration.category) {
-                case SymbolCategory.Variable:
-                case SymbolCategory.Import: {
+                case SymbolCategory.Variable: {
                     if (node instanceof NameNode) {
                         return '```\n(variable) ' + node.nameToken.value +
                             this._getTypeText(node) + '```';
@@ -96,13 +95,6 @@ export class HoverProvider {
                     if (node instanceof NameNode) {
                         return '```\n(function) ' + node.nameToken.value +
                             this._getTypeText(node) + '\n```';
-                    }
-                    break;
-                }
-
-                case SymbolCategory.Lambda: {
-                    if (node instanceof LambdaNode) {
-                        return '```\n(lambda) ' + this._getTypeText(node) + '```';
                     }
                     break;
                 }

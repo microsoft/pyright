@@ -19,13 +19,14 @@ import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
     BreakNode, CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, DelNode,
-    ExceptNode, ExpressionNode, ForNode, FunctionNode, IfNode,
-    ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
-    ListComprehensionForNode, ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode,
-    ParameterCategory, ParseNode, RaiseNode, ReturnNode, SliceExpressionNode,
-    StringNode, SuiteNode, TernaryExpressionNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
-    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    ErrorExpressionNode, ExceptNode, ExpressionNode, ForNode, FunctionNode,
+    IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
+    ListComprehensionForNode, ListComprehensionNode, MemberAccessExpressionNode, ModuleNode,
+    NameNode, ParameterCategory, ParseNode, RaiseNode, ReturnNode,
+    SliceExpressionNode, StringNode, SuiteNode, TernaryExpressionNode,
+    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
+    UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode,
+    YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -530,15 +531,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Cache the function type.
         this._updateExpressionTypeForNode(node, functionType);
-
-        // Add a declaration for the hover provider.
-        let declaration: Declaration = {
-            category: SymbolCategory.Lambda,
-            node,
-            path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.start, node.end, this._fileInfo.lines)
-        };
-        AnalyzerNodeInfo.setDeclaration(node, declaration);
 
         return false;
     }
@@ -1272,6 +1264,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return true;
+    }
+
+    visitError(node: ErrorExpressionNode) {
+        this._getTypeOfExpression(node);
+
+        // Don't explore further.
+        return false;
     }
 
     // Assigns a declared type (as opposed to an inferred type) to an expression

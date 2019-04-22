@@ -23,6 +23,18 @@ import { AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode,
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
 export class ParseTreeUtils {
+    static getNodeDepth(node: ParseNode): number {
+        let depth = 0;
+        let curNode: ParseNode | undefined = node;
+
+        while (curNode) {
+            depth++;
+            curNode = curNode.parent;
+        }
+
+        return depth;
+    }
+
     // Returns the deepest node that contains the specified position.
     static findNodeByPosition(node: ParseNode, position: DiagnosticTextPosition,
             lines: TextRangeCollection<TextRange>): ParseNode | undefined {

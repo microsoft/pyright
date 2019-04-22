@@ -287,6 +287,21 @@ export class Program {
         return false;
     }
 
+    // This method is similar to analyze() except that it analyzes
+    // a single file (and its dependencies if necessary).
+    private _analyzeFile(sourceFileInfo: SourceFileInfo, options: ConfigOptions,
+            maxTime?: MaxAnalysisTime) {
+
+        let elapsedTime = new Duration();
+
+        if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+            this._doFullAnalysis(sourceFileInfo, options, () => {
+                return maxTime !== undefined &&
+                    elapsedTime.getDurationInMilliseconds() > maxTime.openFilesTimeInMs;
+            });
+        }
+    }
+
     private _parseFile(fileToParse: SourceFileInfo, options: ConfigOptions) {
         if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) {
             return;
@@ -576,15 +591,26 @@ export class Program {
         return sourceFile.getHoverForPosition(position);
     }
 
-    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition):
+    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
+        options: ConfigOptions, maxTime?: MaxAnalysisTime):
             CompletionList | undefined {
 
-        let sourceFile = this.getSourceFile(filePath);
-        if (!sourceFile) {
+        let sourceFileInfo = this._sourceFileMap[filePath];
+        if (!sourceFileInfo) {
             return undefined;
         }
 
-        return sourceFile.getCompletionsForPosition(position);
+        if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+            this._analyzeFile(sourceFileInfo, options, maxTime);
+
+            // If we ran out of time before completing the type analysis,
+            // bail on the completions.
+            if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+                return undefined;
+            }
+        }
+
+        return sourceFileInfo.sourceFile.getCompletionsForPosition(position);
     }
 
     // Returns a list of empty file diagnostic entries for the files

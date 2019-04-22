@@ -261,10 +261,18 @@ export class SourceFile {
     }
 
     isSemanticAnalysisRequired() {
+        if (this.isParseRequired()) {
+            return true;
+        }
+
         return this._analysisJob.nextPhaseToRun <= AnalysisPhase.SemanticAnalysis;
     }
 
     isTypeAnalysisRequired() {
+        if (this.isSemanticAnalysisRequired()) {
+            return true;
+        }
+
         // If the analysis is complete, no more analysis is required.
         if (this._analysisJob.nextPhaseToRun < AnalysisPhase.TypeAnalysis ||
                 this._analysisJob.isTypeAnalysisPassNeeded) {

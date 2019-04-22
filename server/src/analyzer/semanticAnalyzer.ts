@@ -23,14 +23,14 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ExceptNode,
-    ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
-    ImportFromAsNode, LambdaNode, ListComprehensionForNode,
-    ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode,
-    ModuleNode, NameNode, NonlocalNode, ParameterNode, RaiseNode, ReturnNode,
-    StringNode, SuiteNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnpackExpressionNode, WhileNode, WithNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ErrorExpressionNode,
+    ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
+    ImportAsNode, ImportFromAsNode, LambdaNode,
+    ListComprehensionForNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
+    ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParameterNode, RaiseNode,
+    ReturnNode, StringNode, SuiteNode, TryNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, UnpackExpressionNode, WhileNode,
+    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -641,6 +641,11 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             this.walk(node.typeAnnotation);
         }
 
+        return false;
+    }
+
+    visitError(node: ErrorExpressionNode) {
+        // Don't analyze an error node.
         return false;
     }
 

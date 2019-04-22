@@ -110,7 +110,8 @@ export class AnalyzerService {
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition):
             CompletionList | undefined {
 
-        return this._program.getCompletionsForPosition(filePath, position);
+        return this._program.getCompletionsForPosition(filePath, position,
+            this._configOptions, this._maxAnalysisTime);
     }
 
     printStats() {

@@ -27,17 +27,17 @@ import { ArgumentCategory, ArgumentNode, AssertNode,
     BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
     ConstantNode, ContinueNode, DecoratorNode, DelNode,
     DictionaryEntryNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode,
-    DictionaryNode, EllipsisNode, ErrorExpressionNode, ExceptNode,
-    ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
-    ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode,
-    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
-    ListComprehensionIterNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
-    ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode, ParameterCategory,
-    ParameterNode, ParseNode, PassNode, RaiseNode, ReturnNode, SetNode,
-    SliceExpressionNode, StatementListNode, StatementNode, StringNode,
-    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, UnpackExpressionNode, WhileNode,
-    WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
+    DictionaryNode, EllipsisNode, ErrorExpressionCategory, ErrorExpressionNode,
+    ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
+    ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode,
+    IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionForNode,
+    ListComprehensionIfNode, ListComprehensionIterNode, ListComprehensionNode, ListNode,
+    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode,
+    ParameterCategory, ParameterNode, ParseNode, PassNode, RaiseNode, ReturnNode,
+    SetNode, SliceExpressionNode, StatementListNode, StatementNode,
+    StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
+    WhileNode, WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
     NumberToken, OperatorToken, OperatorType, StringToken,
@@ -317,10 +317,12 @@ export class Parser {
         let elseSuite: SuiteNode | undefined;
 
         if (!this._consumeTokenIfKeyword(KeywordType.In)) {
-            seqExpr = this._handleExpressionParseError('Expected "in"');
+            seqExpr = this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingIn, 'Expected "in"');
             forSuite = new SuiteNode(this._peekToken());
         } else {
-            seqExpr = this._parseTestListAsExpression('Expected expression after "in"');
+            seqExpr = this._parseTestListAsExpression(
+                ErrorExpressionCategory.MissingExpression, 'Expected expression after "in"');
             forSuite = this._parseLoopSuite();
 
             if (this._consumeTokenIfKeyword(KeywordType.Else)) {
@@ -388,7 +390,8 @@ export class Parser {
         let seqExpr: ExpressionNode;
 
         if (!this._consumeTokenIfKeyword(KeywordType.In)) {
-            seqExpr = this._handleExpressionParseError('Expected "in"');
+            seqExpr = this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingIn, 'Expected "in"');
         } else {
             seqExpr = this._parseOrTest();
         }
@@ -776,6 +779,9 @@ export class Parser {
             let namePart = this._getTokenIfIdentifier();
             if (!namePart) {
                 this._addError('Expected decorator name', this._peekToken());
+                callNameExpr = new ErrorExpressionNode(
+                    this._peekToken(),
+                    ErrorExpressionCategory.MissingDecoratorCallName);
                 break;
             }
 
@@ -790,10 +796,6 @@ export class Parser {
             if (!this._consumeTokenIfType(TokenType.Dot)) {
                 break;
             }
-        }
-
-        if (!callNameExpr) {
-            callNameExpr = new ErrorExpressionNode(this._peekToken());
         }
 
         let decoratorNode = new DecoratorNode(atOperator, callNameExpr);
@@ -886,7 +888,9 @@ export class Parser {
         let returnNode = new ReturnNode(returnToken);
 
         if (!this._isNextTokenNeverExpression()) {
-            let returnExpr = this._parseTestListAsExpression('Expected expression after "return"');
+            let returnExpr = this._parseTestListAsExpression(
+                ErrorExpressionCategory.MissingExpression,
+                'Expected expression after "return"');
             returnNode.returnExpression = returnExpr;
             returnNode.extend(returnExpr);
         }
@@ -1261,9 +1265,11 @@ export class Parser {
         return tupleNode;
     }
 
-    private _parseTestListAsExpression(errorString: string): ExpressionNode {
+    private _parseTestListAsExpression(errorCategory: ErrorExpressionCategory,
+            errorString: string): ExpressionNode {
+
         if (this._isNextTokenNeverExpression()) {
-            return this._handleExpressionParseError(errorString);
+            return this._handleExpressionParseError(errorCategory, errorString);
         }
 
         let exprListResult = this._parseTestExpressionList();
@@ -1275,7 +1281,8 @@ export class Parser {
 
     private _parseTestOrStarListAsExpression(): ExpressionNode {
         if (this._isNextTokenNeverExpression()) {
-            return this._handleExpressionParseError('Expected expression');
+            return this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingExpression, 'Expected expression');
         }
 
         let exprListResult = this._parseTestOrStarExpressionList();
@@ -1357,7 +1364,8 @@ export class Parser {
         }
 
         if (!this._consumeTokenIfKeyword(KeywordType.Else)) {
-            return this._handleExpressionParseError('Expected "else"');
+            return this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingElse, 'Expected "else"');
         }
 
         let elseExpr = this._parseTestExpression();
@@ -1608,7 +1616,9 @@ export class Parser {
 
                 let nextToken = this._peekToken();
                 if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                    return this._handleExpressionParseError('Expected ")"');
+                    return this._handleExpressionParseError(
+                        ErrorExpressionCategory.MissingCallCloseParen,
+                        'Expected ")"', callNode);
                 } else {
                     callNode.extend(nextToken);
                 }
@@ -1623,20 +1633,24 @@ export class Parser {
                 }
 
                 let closingToken = this._peekToken();
-                if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
-                    return this._handleExpressionParseError('Expected "]"');
-                }
-
                 let indexItemsNode = new IndexItemsNode(nextToken, closingToken, expressions);
                 let indexNode = new IndexExpressionNode(atomExpression, indexItemsNode);
                 indexNode.extend(indexNode);
+
+                if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
+                    return this._handleExpressionParseError(
+                        ErrorExpressionCategory.MissingIndexCloseBracket,
+                        'Expected "]"', indexNode);
+                }
 
                 atomExpression = indexNode;
             } else if (this._consumeTokenIfType(TokenType.Dot)) {
                 // Is it a member access?
                 let memberName = this._getTokenIfIdentifier();
                 if (!memberName) {
-                    return this._handleExpressionParseError('Expected member name after "."');
+                    return this._handleExpressionParseError(
+                        ErrorExpressionCategory.MissingMemberAccessName,
+                        'Expected member name after "."', atomExpression);
                 }
                 atomExpression = new MemberAccessExpressionNode(
                         atomExpression, new NameNode(memberName));
@@ -1668,7 +1682,9 @@ export class Parser {
         }
 
         if (listResult.list.length === 0) {
-            return this._handleExpressionParseError('Expected index or slice expression');
+            return this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingExpression,
+                'Expected index or slice expression');
         }
 
         return this._makeExpressionOrTuple(listResult);
@@ -1835,14 +1851,20 @@ export class Parser {
             }
         }
 
-        return this._handleExpressionParseError('Expected expression');
+        return this._handleExpressionParseError(
+            ErrorExpressionCategory.MissingExpression,
+            'Expected expression');
     }
 
     // Allocates a dummy "error expression" and consumes the remainder
-    // of the tokens on the line for error recovery.
-    private _handleExpressionParseError(errorMsg: string): ErrorExpressionNode {
+    // of the tokens on the line for error recovery. A partially-completed
+    // child node can be passed to help the completion provider determine
+    // what to do.
+    private _handleExpressionParseError(category: ErrorExpressionCategory,
+            errorMsg: string, childNode?: ParseNode): ErrorExpressionNode {
+
         this._addError(errorMsg, this._peekToken());
-        let expr = new ErrorExpressionNode(this._peekToken());
+        let expr = new ErrorExpressionNode(this._peekToken(), category, childNode);
         this._consumeTokensUntilType(TokenType.NewLine);
         return expr;
     }
@@ -1886,7 +1908,9 @@ export class Parser {
         let yieldExpr = this._tryParseYieldExpression();
         if (yieldExpr) {
             if (this._peekTokenType() !== TokenType.CloseParenthesis) {
-                return this._handleExpressionParseError('Expected ")"');
+                return this._handleExpressionParseError(
+                    ErrorExpressionCategory.MissingTupleCloseParen,
+                    'Expected ")"');
             } else {
                 yieldExpr.extend(this._getNextToken());
             }
@@ -1898,7 +1922,9 @@ export class Parser {
         let tupleOrExpression = this._makeExpressionOrTuple(exprListResult);
 
         if (this._peekTokenType() !== TokenType.CloseParenthesis) {
-            return this._handleExpressionParseError('Expected ")"');
+            return this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingTupleCloseParen,
+                'Expected ")"');
         } else {
             tupleOrExpression.extend(this._getNextToken());
         }
@@ -1915,7 +1941,9 @@ export class Parser {
         let exprListResult = this._parseTestListWithComprehension();
         let closeBracket: Token | undefined = this._peekToken();
         if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
-            return this._handleExpressionParseError('Expected "]"');
+            return this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingListCloseBracket,
+                'Expected "]"');
         }
 
         let listAtom = new ListNode(startBracket);
@@ -2136,7 +2164,9 @@ export class Parser {
             let operatorToken = this._getNextToken() as OperatorToken;
 
             let rightExpr = this._tryParseYieldExpression() ||
-                this._parseTestListAsExpression('Expected expression to the right of operator');
+                this._parseTestListAsExpression(
+                    ErrorExpressionCategory.MissingExpression,
+                    'Expected expression to the right of operator');
             return new AugmentedAssignmentExpressionNode(leftExpr, rightExpr, operatorToken.operatorType);
         }
 
@@ -2147,7 +2177,9 @@ export class Parser {
         let rightExpr: ExpressionNode | undefined;
         rightExpr = this._tryParseYieldExpression();
         if (!rightExpr) {
-            rightExpr = this._parseTestListAsExpression('Expected expression to the right of "="');
+            rightExpr = this._parseTestListAsExpression(
+                ErrorExpressionCategory.MissingExpression,
+                'Expected expression to the right of "="');
         }
 
         if (rightExpr instanceof ErrorExpressionNode) {

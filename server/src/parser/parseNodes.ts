@@ -80,6 +80,18 @@ export enum ParseNodeType {
     YieldFrom
 }
 
+export enum ErrorExpressionCategory {
+    MissingIn,
+    MissingElse,
+    MissingExpression,
+    MissingDecoratorCallName,
+    MissingCallCloseParen,
+    MissingIndexCloseBracket,
+    MissingMemberAccessName,
+    MissingTupleCloseParen,
+    MissingListCloseBracket
+}
+
 export abstract class ParseNode extends TextRange {
     readonly nodeType: ParseNodeType = ParseNodeType.None;
 
@@ -392,9 +404,23 @@ export abstract class ExpressionNode extends ParseNode {
 
 export class ErrorExpressionNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Error;
+    readonly category: ErrorExpressionCategory;
+    readonly child?: ParseNode;
+
+    constructor(initialRange: TextRange, category: ErrorExpressionCategory,
+            child?: ParseNode) {
+
+        super(initialRange);
+
+        this.category = category;
+        if (child) {
+            this.child = child;
+            this.extend(child);
+        }
+    }
 
     getChildren(): RecursiveParseNodeArray {
-        return undefined;
+        return this.child;
     }
 }
 

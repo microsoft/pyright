@@ -18,12 +18,13 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     BinaryExpressionNode, CallExpressionNode, ClassNode, ConstantNode,
-    DecoratorNode, DictionaryNode, EllipsisNode, ExpressionNode,
-    IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionNode,
-    ListNode, MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory,
-    ParseNode, SetNode, SliceExpressionNode, StatementListNode,
-    StringNode, TernaryExpressionNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, UnpackExpressionNode, YieldExpressionNode,
+    DecoratorNode, DictionaryNode, EllipsisNode, ErrorExpressionNode,
+    ExpressionNode, IndexExpressionNode, IndexItemsNode, LambdaNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode, NumberNode,
+    ParameterCategory, ParseNode, SetNode, SliceExpressionNode,
+    StatementListNode, StringNode, TernaryExpressionNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
+    YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, StringTokenFlags,
     TokenType } from '../parser/tokenizerTypes';
@@ -519,6 +520,15 @@ export class ExpressionEvaluator {
             typeResult = { type, node };
         } else if (node instanceof TypeAnnotationExpressionNode) {
             typeResult = this._getTypeFromExpression(node.typeAnnotation);
+        } else if (node instanceof ErrorExpressionNode) {
+            // Evaluate the child expression as best we can so the
+            // type information is cached for the completion handler.
+            this._silenceDiagnostics(() => {
+                if (node.child) {
+                    this._getTypeFromExpression(node.child);
+                }
+            });
+            typeResult = { type: UnknownType.create(), node };
         }
 
         if (typeResult) {

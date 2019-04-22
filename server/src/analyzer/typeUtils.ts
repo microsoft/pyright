@@ -13,7 +13,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DefaultTypeSourceId } from './inferredType';
-import { Declaration, Symbol } from './symbol';
+import { Declaration, Symbol, SymbolTable } from './symbol';
 import { AnyType, ClassType, FunctionType,
     InheritanceChain, ModuleType, NeverType, NoneType, ObjectType,
     OverloadedFunctionType, SpecializedFunctionTypes, Type, TypeCategory,
@@ -1025,6 +1025,44 @@ export class TypeUtils {
             }
 
             return subtype;
+        });
+    }
+
+    static getMembersForClass(classType: ClassType, symbolTable: SymbolTable,
+            includeInstanceVars: boolean) {
+
+        this._getMembersForClassRecursive(classType, symbolTable, includeInstanceVars);
+    }
+
+    private static _getMembersForClassRecursive(classType: ClassType,
+            symbolTable: SymbolTable, includeInstanceVars: boolean,
+            recursionCount = 0) {
+
+        if (recursionCount > MaxTypeRecursion) {
+            return;
+        }
+
+        // Add any new instance variables.
+        if (includeInstanceVars) {
+            classType.getInstanceFields().forEach((symbol, name) => {
+                if (!symbolTable.get(name)) {
+                    symbolTable.set(name, symbol);
+                }
+            });
+        }
+
+        // Add any new class variables.
+        classType.getClassFields().forEach((symbol, name) => {
+            if (!symbolTable.get(name)) {
+                symbolTable.set(name, symbol);
+            }
+        });
+
+        classType.getBaseClasses().forEach(baseClassType => {
+            if (baseClassType instanceof ClassType) {
+                this._getMembersForClassRecursive(baseClassType,
+                    symbolTable, includeInstanceVars, recursionCount + 1);
+            }
         });
     }
 

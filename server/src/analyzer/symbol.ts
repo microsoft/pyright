@@ -17,10 +17,8 @@ import { Type, TypeCategory } from './types';
 
 export enum SymbolCategory {
     Variable,
-    Import,
     Parameter,
     Function,
-    Lambda,
     Method,
     Class,
     Module
