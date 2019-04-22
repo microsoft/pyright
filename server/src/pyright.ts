@@ -10,6 +10,7 @@
 // Add the start timer at the very top of the file, before we import other modules.
 import { timingStats } from './common/timing';
 
+import chalk from 'chalk';
 import * as commandLineArgs from 'command-line-args';
 // tslint:disable-next-line
 import { CommandLineOptions, OptionDefinition } from 'command-line-args';
@@ -143,10 +144,15 @@ function reportDiagnostics(fileDiagnostics: FileDiagnostics[]): number {
         if (fileErrorsAndWarnings.length > 0) {
             console.log(`${ fileDiagnostics.filePath }`);
             fileErrorsAndWarnings.forEach(diag => {
-                let message = `  ${ diag.message }`;
+                let message = '  ';
                 if (diag.range) {
-                    message += ` (${ diag.range.start.line + 1 }, ${ diag.range.start.column + 1 })`;
+                    message += chalk.yellow(`${ diag.range.start.line + 1 }`) + ':' +
+                        chalk.yellow(`${ diag.range.start.column + 1 }`) + ' - ';
                 }
+
+                message += diag.category === DiagnosticCategory.Error ?
+                    chalk.red('error') : chalk.green('warning');
+                message += `: ${ diag.message }`;
                 console.log(message);
 
                 if (diag.category === DiagnosticCategory.Error) {
