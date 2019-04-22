@@ -783,11 +783,14 @@ export class Tokenizer {
         let invalidEscapeOffsets: number[] | undefined;
 
         const addInvalidEscapeOffset = () => {
-            flags |= StringTokenFlags.UnrecognizedEscape;
-            if (!invalidEscapeOffsets) {
-                invalidEscapeOffsets = [];
+            // Invalid escapes are not reported for raw strings.
+            if ((flags & StringTokenFlags.Raw) === 0) {
+                flags |= StringTokenFlags.UnrecognizedEscape;
+                if (!invalidEscapeOffsets) {
+                    invalidEscapeOffsets = [];
+                }
+                invalidEscapeOffsets.push(this._cs.position - startPosition);
             }
-            invalidEscapeOffsets.push(this._cs.position - startPosition);
         };
 
         const scanHexEscape = (digitCount: number) => {
