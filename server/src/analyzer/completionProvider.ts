@@ -12,16 +12,13 @@ import { CompletionItem, CompletionItemKind, CompletionList } from 'vscode-langu
 
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
-import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode,
-    MemberAccessExpressionNode, ModuleNode, NameNode,
-    ParseNode,
-    SuiteNode } from '../parser/parseNodes';
+import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode, MemberAccessExpressionNode,
+    ModuleNode, ParseNode, SuiteNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeUtils } from './parseTreeUtils';
-import { Scope } from './scope';
 import { SymbolCategory, SymbolTable } from './symbol';
-import { ClassType, ObjectType } from './types';
+import { ClassType, ModuleType, ObjectType } from './types';
 import { TypeUtils } from './typeUtils';
 
 const _keywords: string[] = [
@@ -164,10 +161,13 @@ export class CompletionProvider {
 
         const leftType = AnalyzerNodeInfo.getExpressionType(leftExprNode);
         let symbolTable = new SymbolTable();
+
         if (leftType instanceof ObjectType) {
             TypeUtils.getMembersForClass(leftType.getClassType(), symbolTable, true);
         } else if (leftType instanceof ClassType) {
             TypeUtils.getMembersForClass(leftType, symbolTable, false);
+        } else if (leftType instanceof ModuleType) {
+            symbolTable = leftType.getFields();
         }
 
         let completionList = CompletionList.create();
