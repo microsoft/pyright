@@ -559,11 +559,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const iteratedType = evaluator.getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression);
 
-        this._assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
-
-        this.walk(node.targetExpression);
-
         const loopScope = this._enterTemporaryScope(() => {
+            this._assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
+            this.walk(node.targetExpression);
             this.walk(node.forSuite);
         }, false, this._currentScope.isNotExecuted(), node);
         this._mergeToCurrentScope(loopScope);
