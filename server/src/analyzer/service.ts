@@ -575,7 +575,7 @@ export class AnalyzerService {
                 }
             }
         } catch (err) {
-            this._console.log('Error performing analysis: ' + JSON.stringify(err));
+            this._console.log('Error performing analysis: ' + String(err));
 
             if (this._onCompletionCallback) {
                 this._onCompletionCallback({
