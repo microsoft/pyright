@@ -38,7 +38,7 @@ function processArgs() {
         { name: 'stats' },
         { name: 'typeshed-path', alias: 't', type: String },
         { name: 'venv-path', alias: 'v', type: String },
-        { name: 'watch', alias: 'w' }
+        { name: 'watch', alias: 'w', type: Boolean }
     ];
 
     let args: CommandLineOptions;
