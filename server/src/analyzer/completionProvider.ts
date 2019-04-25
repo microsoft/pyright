@@ -13,7 +13,7 @@ import { CompletionItem, CompletionItemKind, CompletionList } from 'vscode-langu
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode, MemberAccessExpressionNode,
-    ModuleNode, ParseNode, SuiteNode } from '../parser/parseNodes';
+    ModuleNode, ParseNode, StringNode, SuiteNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeUtils } from './parseTreeUtils';
@@ -100,6 +100,11 @@ export class CompletionProvider {
         const priorWordIndex = priorText.search(/\w+$/);
         const priorWord = priorWordIndex >= 0 ? priorText.substr(priorWordIndex) : '';
 
+        // Don't offer completions if we're within a comment.
+        if (this._isWithinComment(parseResults, offset, priorText)) {
+            return undefined;
+        }
+
         // See if the node is part of an error node. If so, that takes
         // precendence.
         let errorNode: ParseNode | undefined = node;
@@ -115,6 +120,11 @@ export class CompletionProvider {
         // that of its ancestors.
         let curNode = errorNode || node;
         while (true) {
+            // Don't offer completions inside of a string node.
+            if (curNode instanceof StringNode) {
+                return undefined;
+            }
+
             if (curNode instanceof ErrorExpressionNode) {
                 return this._getExpressionErrorCompletions(curNode, priorWord);
             }
@@ -139,6 +149,26 @@ export class CompletionProvider {
         }
 
         return undefined;
+    }
+
+    private static _isWithinComment(parseResults: ParseResults, offset: number,
+            priorText: string): boolean {
+
+        const tokenIndex = parseResults.tokens.getItemAtPosition(offset);
+        if (tokenIndex < 0) {
+            return false;
+        }
+
+        const token = parseResults.tokens.getItemAt(tokenIndex);
+
+        // If we're in the middle of a token, we're not in a comment.
+        if (token.end < offset) {
+            return false;
+        }
+
+        // See if the text that preceeds the current position contains
+        // a '#' character.
+        return !!priorText.match(/#/);
     }
 
     private static _getExpressionErrorCompletions(node: ErrorExpressionNode,
