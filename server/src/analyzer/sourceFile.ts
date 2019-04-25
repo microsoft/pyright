@@ -402,6 +402,7 @@ export class SourceFile {
         this._analysisJob.fileContentsVersion = this._fileContentsVersion;
         this._analysisJob.nextPhaseToRun = AnalysisPhase.SemanticAnalysis;
         this._analysisJob.parseTreeNeedsCleaning = false;
+        this._analysisJob.hitMaxImportDepth = undefined;
         this._diagnosticVersion++;
 
         return true;
