@@ -971,7 +971,7 @@ export class Tokenizer {
                 }
 
                 // Skip over the escaped new line (either one or two characters).
-                if (this._cs.currentChar === Char.LineFeed && this._cs.nextChar === Char.CarriageReturn) {
+                if (this._cs.currentChar === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
                     unescapedValue += String.fromCharCode(this._cs.currentChar);
                     this._cs.moveNext();
                 }

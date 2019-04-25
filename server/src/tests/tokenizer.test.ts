@@ -12,6 +12,8 @@
 
 import * as assert from 'assert';
 
+import { TestUtils } from './testUtils';
+
 import { Tokenizer } from '../parser/tokenizer';
 import { DedentToken, IdentifierToken, IndentToken, NewLineToken, NewLineType,
     NumberToken, OperatorToken, OperatorType, StringToken,
@@ -997,4 +999,21 @@ test('Identifiers', () => {
 
     assert.equal(results.tokens.getItemAt(3).type, TokenType.Identifier);
     assert.equal(results.tokens.getItemAt(3).length, 5);
+});
+
+test('Lines1', () => {
+    const sampleText = TestUtils.readSampleFile('lines1.py');
+    const t = new Tokenizer();
+
+    // Start with the line feed only. We don't know whether the
+    // sample file was stored with CR/LF or just LF, so do
+    // the replacement here.
+    const sampleTextLfOnly = sampleText.replace(/\r\n/g, '\n');
+    const resultsLf = t.tokenize(sampleTextLfOnly);
+    assert.equal(resultsLf.lines.count, 14);
+
+    // Now replace the LF with CR/LF sequences.
+    const sampleTextCrLf = sampleTextLfOnly.replace(/\n/g, '\r\n');
+    const resultsCrLf = t.tokenize(sampleTextCrLf);
+    assert.equal(resultsCrLf.lines.count, 14);
 });
