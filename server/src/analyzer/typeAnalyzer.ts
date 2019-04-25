@@ -970,6 +970,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const typeHintType = this._getTypeOfAnnotation(node.typeAnnotationComment);
             this._declareTypeForExpression(node.leftExpression, typeHintType,
                 node.typeAnnotationComment, node.rightExpression);
+
+            const diagAddendum = new DiagnosticAddendum();
+            if (!TypeUtils.canAssignType(typeHintType, valueType, diagAddendum)) {
+                this._addError(`Expression of type '${ valueType.asString() }' cannot be ` +
+                    `assigned to declared type '${ typeHintType.asString() }'` +
+                    diagAddendum.getString(),
+                    node.rightExpression);
+            }
+
+            // The effective type of the expression takes on the type of the type hint.
+            valueType = typeHintType;
         }
 
         // If this is an enum, transform the type as required.
@@ -1292,6 +1303,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (symbolWithScope && symbolWithScope.symbol) {
                 this._addDeclarationToSymbol(symbolWithScope.symbol, declaration, target);
             }
+            AnalyzerNodeInfo.setDeclaration(target, declaration);
             declarationHandled = true;
         } else if (target instanceof MemberAccessExpressionNode) {
             let targetNode = target.leftExpression;
@@ -2235,7 +2247,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 });
             }
         } else if (target instanceof TypeAnnotationExpressionNode) {
-            this._assignTypeToExpression(target.valueExpression, type, srcExpr);
+            const typeHintType = this._getTypeOfAnnotation(target.typeAnnotation);
+            const diagAddendum = new DiagnosticAddendum();
+
+            if (!TypeUtils.canAssignType(typeHintType, type, diagAddendum)) {
+                this._addError(`Expression of type '${ type.asString() }' cannot be ` +
+                    `assigned to declared type '${ typeHintType.asString() }'` +
+                    diagAddendum.getString(),
+                    srcExpr);
+            }
+
+            // Use the type hint type rather than the assigned type.
+            this._assignTypeToExpression(target.valueExpression, typeHintType, srcExpr);
         } else if (target instanceof UnpackExpressionNode) {
             if (target.expression instanceof NameNode) {
                 let name = target.expression.nameToken;
