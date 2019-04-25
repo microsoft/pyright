@@ -61,6 +61,7 @@ export interface AnalysisJob {
     typeAnalysisFinalDiagnostics: Diagnostic[];
 
     circularDependencies: CircularDependency[];
+    hitMaxImportDepth?: number;
 
     typeAnalysisPassNumber: number;
     isTypeAnalysisPassNeeded: boolean;
@@ -192,6 +193,11 @@ export class SourceFile {
             });
         }
 
+        if (this._analysisJob.hitMaxImportDepth !== undefined) {
+            diagList.push(new Diagnostic(DiagnosticCategory.Error,
+                `Import chain depth exceeded ${ this._analysisJob.hitMaxImportDepth }`));
+        }
+
         if (this._isTypeshedStubFile) {
             if (options.reportTypeshedErrors === 'none') {
                 return undefined;
@@ -303,6 +309,10 @@ export class SourceFile {
                 this._analysisJob.circularDependencies.push(circDependency);
             }
         }
+    }
+
+    setHitMaxImportDepth(maxImportDepth: number) {
+        this._analysisJob.hitMaxImportDepth = maxImportDepth;
     }
 
     // Parse the file and update the state. Callers should wait for completion

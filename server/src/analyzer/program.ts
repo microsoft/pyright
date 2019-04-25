@@ -23,6 +23,8 @@ import { ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
 
+const MaxImportDepth = 256;
+
 export interface SourceFileInfo {
     sourceFile: SourceFile;
     isTracked: boolean;
@@ -446,6 +448,13 @@ export class Program {
         // dependency. Don't recurse further.
         const filePath = fileToAnalyze.sourceFile.getFilePath();
         if (closureMap[filePath] !== undefined) {
+            return false;
+        }
+
+        // If the import chain is too long, emit an error. Otherwise we
+        // risk blowing the stack.
+        if (Object.keys(closureMap).length > MaxImportDepth) {
+            fileToAnalyze.sourceFile.setHitMaxImportDepth(MaxImportDepth);
             return false;
         }
 
