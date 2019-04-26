@@ -8,6 +8,8 @@
 * symbol tables.
 */
 
+import * as assert from 'assert';
+
 import { Scope, ScopeType } from './analyzer/scope';
 import { ClassType, ObjectType, Type, UnknownType } from './analyzer/types';
 
@@ -42,5 +44,20 @@ export class ScopeUtils {
         }
 
         return nameType;
+    }
+
+    static getPermanentScope(scope: Scope): Scope {
+        let curScope: Scope | undefined = scope;
+        while (curScope) {
+            if (curScope.getType() === ScopeType.Temporary) {
+                return curScope;
+            }
+
+            curScope = curScope.getParent();
+        }
+
+        // We should never get here.
+        assert.fail('No permanent scope found');
+        return scope;
     }
 }

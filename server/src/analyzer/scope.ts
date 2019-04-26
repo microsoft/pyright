@@ -171,9 +171,10 @@ export class Scope {
     }
 
     // Adds a new (unbound) symbol to the scope.
-    addUnboundSymbol(name: string) {
+    addUnboundSymbol(name: string): Symbol {
         let symbol = new Symbol(UnboundType.create(), DefaultTypeSourceId);
         this._symbolTable.set(name, symbol);
+        return symbol;
     }
 
     // Binds a type to an existing name in the scope.
