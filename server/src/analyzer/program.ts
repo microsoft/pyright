@@ -350,7 +350,7 @@ export class Program {
         let closureMap: { [path: string]: boolean } = {};
         let analysisQueue: SourceFileInfo[] = [];
         if (this._getNonFinalizedImportsRecursive(fileToAnalyze, closureMap,
-                analysisQueue, options, timeElapsedCallback)) {
+                analysisQueue, options, timeElapsedCallback, 0)) {
             return true;
         }
 
@@ -437,7 +437,8 @@ export class Program {
     // completing.
     private _getNonFinalizedImportsRecursive(fileToAnalyze: SourceFileInfo,
             closureMap: { [path: string]: boolean }, analysisQueue: SourceFileInfo[],
-            options: ConfigOptions, timeElapsedCallback: () => boolean): boolean {
+            options: ConfigOptions, timeElapsedCallback: () => boolean,
+            recursionCount: number): boolean {
 
         // If the file is already finalized, no need to do any more work.
         if (fileToAnalyze.sourceFile.isAnalysisFinalized()) {
@@ -453,7 +454,7 @@ export class Program {
 
         // If the import chain is too long, emit an error. Otherwise we
         // risk blowing the stack.
-        if (Object.keys(closureMap).length > MaxImportDepth) {
+        if (recursionCount > MaxImportDepth) {
             fileToAnalyze.sourceFile.setHitMaxImportDepth(MaxImportDepth);
             return false;
         }
@@ -470,7 +471,7 @@ export class Program {
         // Recursively add the file's imports.
         for (let importedFileInfo of fileToAnalyze.imports) {
             if (this._getNonFinalizedImportsRecursive(importedFileInfo, closureMap,
-                    analysisQueue, options, timeElapsedCallback)) {
+                    analysisQueue, options, timeElapsedCallback, recursionCount + 1)) {
                 return true;
             }
         }
