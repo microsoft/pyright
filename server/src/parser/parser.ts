@@ -1100,18 +1100,15 @@ export class Parser {
     private _parseAssertStatement(): AssertNode {
         let assertToken = this._getKeywordToken(KeywordType.Assert);
 
-        let assertNode = new AssertNode(assertToken);
+        let expr = this._parseTestExpression();
+        let assertNode = new AssertNode(assertToken, expr);
 
-        while (true) {
-            let expr = this._parseTestExpression();
-            assertNode.expressions.push(expr);
-
-            if (!this._consumeTokenIfType(TokenType.Comma)) {
-                break;
-            }
+        if (this._consumeTokenIfType(TokenType.Comma)) {
+            let exceptionExpr = this._parseTestExpression();
+            assertNode.exceptionExpression = exceptionExpr;
+            assertNode.extend(exceptionExpr);
         }
 
-        assertNode.extend(assertNode.expressions);
         return assertNode;
     }
 

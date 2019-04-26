@@ -976,10 +976,17 @@ export class NonlocalNode extends ParseNode {
 
 export class AssertNode extends ParseNode {
     readonly nodeType = ParseNodeType.Assert;
-    expressions: ExpressionNode[] = [];
+    testExpression: ExpressionNode;
+    exceptionExpression?: ExpressionNode;
+
+    constructor(assertToken: Token, testExpression: ExpressionNode) {
+        super(assertToken);
+        this.testExpression = testExpression;
+        this.extend(testExpression);
+    }
 
     getChildren(): RecursiveParseNodeArray {
-        return this.expressions;
+        return [this.testExpression, this.exceptionExpression];
     }
 }
 
