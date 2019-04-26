@@ -17,15 +17,16 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
-    BreakNode, CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, DelNode,
-    ErrorExpressionNode, ExceptNode, ExpressionNode, ForNode, FunctionNode,
-    IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
-    ListComprehensionForNode, ListComprehensionNode, MemberAccessExpressionNode, ModuleNode,
-    NameNode, ParameterCategory, ParseNode, RaiseNode, ReturnNode,
-    SliceExpressionNode, StringNode, SuiteNode, TernaryExpressionNode,
-    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
-    UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode,
+import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
+    BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode, ConstantNode, DecoratorNode,
+    DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode, ForNode,
+    FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode,
+    LambdaNode, ListComprehensionForNode, ListComprehensionNode, MemberAccessExpressionNode,
+    ModuleNode, NameNode, ParameterCategory, ParseNode, RaiseNode,
+    ReturnNode, SliceExpressionNode, StringNode, SuiteNode,
+    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithNode,
+    YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -991,6 +992,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         this._assignTypeToExpression(node.leftExpression, effectiveType, node.rightExpression);
+
+        return true;
+    }
+
+    visitAssert(node: AssertNode) {
+        const typeConstraints = this._buildConditionalTypeConstraints(node.testExpression);
+
+        // Assume that the assert constrains types.
+        if (typeConstraints) {
+            typeConstraints.ifConstraints.forEach(constraint => {
+                this._currentScope.addTypeConstraint(constraint);
+            });
+        }
 
         return true;
     }
