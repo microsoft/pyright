@@ -850,6 +850,17 @@ export class TypeUtils {
         return false;
     }
 
+    // If the type is a union, it removes any "unknown" or "any" type
+    // from the union, returning only the known types.
+    static removeAnyFromUnion(type: Type): Type {
+        if (type instanceof UnionType) {
+            let remainingTypes = type.getTypes().filter(t => !t.isAny());
+            return this.combineTypes(remainingTypes);
+        }
+
+        return type;
+    }
+
     // Filters a type such that that it is guaranteed not to
     // be falsy. For example, if a type is a union of None
     // and an "int", this method would strip off the "None"

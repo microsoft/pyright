@@ -1971,7 +1971,9 @@ export class ExpressionEvaluator {
                 const supportsBuiltInTypes = arithmeticOperatorMap[node.operator][2];
 
                 if (supportsBuiltInTypes) {
-                    if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
+                    let simplifiedLeftType = TypeUtils.removeAnyFromUnion(leftType);
+                    let simplifiedRightType = TypeUtils.removeAnyFromUnion(rightType);
+                    if (simplifiedLeftType instanceof ObjectType && simplifiedRightType instanceof ObjectType) {
                         const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
                         const getTypeMatch = (classType: ClassType): boolean[] => {
                             let foundMatch = false;
@@ -1983,8 +1985,8 @@ export class ExpressionEvaluator {
                             });
                         };
 
-                        const leftClassMatches = getTypeMatch(leftType.getClassType());
-                        const rightClassMatches = getTypeMatch(rightType.getClassType());
+                        const leftClassMatches = getTypeMatch(simplifiedLeftType.getClassType());
+                        const rightClassMatches = getTypeMatch(simplifiedRightType.getClassType());
 
                         if (leftClassMatches[0] && rightClassMatches[0]) {
                             // If they're both int types, the result is an int.
