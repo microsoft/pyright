@@ -183,21 +183,18 @@ export class ModuleType extends Type {
 export enum ClassTypeFlags {
     None = 0x00,
 
-    // The class has one or more decorators.
-    HasDecorators = 0x01,
-
     // Class is defined in the "builtins" or "typings" file.
-    BuiltInClass = 0x02,
+    BuiltInClass = 0x01,
 
     // Class requires special-case handling because it
     // exhibits non-standard behavior or is not defined
     // formally as a class. Examples include 'Optional'
     // and 'Union'.
-    SpecialBuiltIn = 0x04,
+    SpecialBuiltIn = 0x02,
 
     // Introduced in Python 3.7 - class either derives directly
     // from NamedTuple or has a @dataclass class decorator.
-    DataClass = 0x08
+    DataClass = 0x04
 }
 
 export interface BaseClass {
@@ -320,10 +317,6 @@ export class ClassType extends Type {
 
     isDataClass() {
         return !!(this._classDetails.flags & ClassTypeFlags.DataClass);
-    }
-
-    hasDecorators() {
-        return !!(this._classDetails.flags & ClassTypeFlags.HasDecorators);
     }
 
     getBaseClasses(): BaseClass[] {

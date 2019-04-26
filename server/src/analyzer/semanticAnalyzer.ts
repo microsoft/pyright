@@ -158,9 +158,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
             classFlags |= ClassTypeFlags.BuiltInClass;
         }
-        if (node.decorators.length > 0) {
-            classFlags |= ClassTypeFlags.HasDecorators;
-        }
 
         let classType = new ClassType(node.name.nameToken.value, classFlags,
             AnalyzerNodeInfo.getTypeSourceId(node));
