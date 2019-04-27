@@ -31,12 +31,20 @@ export interface ConditionalTypeConstraintResults {
 }
 
 export abstract class TypeConstraint {
+    // The expression this type constraint applies to.
+    private _expression: ExpressionNode;
+
     // Should constraint assume "truthiness" (positive test) or
     // "falsiness" (negative test)?
     private _isPositiveTest: boolean;
 
-    constructor(isPositiveTest: boolean) {
+    constructor(expression: ExpressionNode, isPositiveTest: boolean) {
+        this._expression = expression;
         this._isPositiveTest = isPositiveTest;
+    }
+
+    getExpression() {
+        return this._expression;
     }
 
     isPositiveTest() {
@@ -74,15 +82,15 @@ export abstract class TypeConstraint {
         return false;
     }
 
-    static doesExpressionMatch(expression1: ExpressionNode, expression2: ExpressionNode): boolean {
+    protected doesExpressionMatch(expression1: ExpressionNode): boolean {
         if (expression1 instanceof NameNode) {
-            if (expression2 instanceof NameNode) {
-                return expression1.nameToken.value === expression2.nameToken.value;
+            if (this._expression instanceof NameNode) {
+                return expression1.nameToken.value === this._expression.nameToken.value;
             }
         } else if (expression1 instanceof MemberAccessExpressionNode) {
-            if (expression2 instanceof MemberAccessExpressionNode) {
-                return this.doesExpressionMatch(expression1.leftExpression, expression2.leftExpression) &&
-                    this.doesExpressionMatch(expression1.memberName, expression2.memberName);
+            if (this._expression instanceof MemberAccessExpressionNode) {
+                return this.doesExpressionMatch(expression1.leftExpression) &&
+                    this.doesExpressionMatch(expression1.memberName);
             }
         }
 
@@ -95,15 +103,12 @@ export abstract class TypeConstraint {
 // Represents a simple check for truthiness. It eliminates the
 // possibility of "None" for a type.
 export class TruthyTypeConstraint extends TypeConstraint {
-    private _expression: ExpressionNode;
-
     constructor(node: ExpressionNode, isPositiveTest = true) {
-        super(isPositiveTest);
-        this._expression = node;
+        super(node, isPositiveTest);
     }
 
     applyToType(node: ExpressionNode, type: Type): Type {
-        if (TypeConstraint.doesExpressionMatch(node, this._expression)) {
+        if (this.doesExpressionMatch(node)) {
             if (type.isAny()) {
                 return type;
             }
@@ -131,15 +136,12 @@ export class TruthyTypeConstraint extends TypeConstraint {
 
 // Represents an "is" or "is not" None check.
 export class IsNoneTypeConstraint extends TypeConstraint {
-    private _expression: ExpressionNode;
-
     constructor(node: ExpressionNode, isPositiveTest = true) {
-        super(isPositiveTest);
-        this._expression = node;
+        super(node, isPositiveTest);
     }
 
     applyToType(node: ExpressionNode, type: Type): Type {
-        if (TypeConstraint.doesExpressionMatch(node, this._expression)) {
+        if (this.doesExpressionMatch(node)) {
             if (type instanceof UnionType) {
                 let remainingTypes = type.getTypes().filter(t => {
                     if (t.isAny()) {
@@ -170,17 +172,15 @@ export class IsNoneTypeConstraint extends TypeConstraint {
 // Represents an "isinstance" check, potentially constraining a
 // union type.
 export class IsInstanceTypeConstraint extends TypeConstraint {
-    private _expression: ExpressionNode;
     private _classTypeList: ClassType[];
 
     constructor(node: ExpressionNode, typeList: ClassType[], isPositiveTest = true) {
-        super(isPositiveTest);
-        this._expression = node;
+        super(node, isPositiveTest);
         this._classTypeList = typeList;
     }
 
     applyToType(node: ExpressionNode, type: Type): Type {
-        if (TypeConstraint.doesExpressionMatch(node, this._expression)) {
+        if (this.doesExpressionMatch(node)) {
             // Filters the varType by the parameters of the isinstance
             // and returns the list of types the varType could be after
             // applying the filter.
@@ -260,15 +260,12 @@ export class IsInstanceTypeConstraint extends TypeConstraint {
 // Provides a way to indicate that all subsequent type constraints
 // associated with this expression should not take effect.
 export class TombstoneTypeConstraint extends TypeConstraint {
-    private _expression: ExpressionNode;
-
     constructor(node: ExpressionNode) {
-        super(true);
-        this._expression = node;
+        super(node, true);
     }
 
     blockSubsequentContraints(node: ExpressionNode) {
-        return TypeConstraint.doesExpressionMatch(node, this._expression);
+        return this.doesExpressionMatch(node);
     }
 
     applyToType(node: ExpressionNode, type: Type): Type {
@@ -285,17 +282,25 @@ export class TombstoneTypeConstraint extends TypeConstraint {
 // This is especially useful for globla and instance/class variables
 // whose inferred types are unions of all assigned types.
 export class AssignmentTypeConstraint extends TypeConstraint {
-    private _expression: ExpressionNode;
+    private _isConditional: boolean;
     private _type: Type;
 
     constructor(node: ExpressionNode, type: Type) {
-        super(true);
-        this._expression = node;
+        super(node, true);
         this._type = type;
+        this._isConditional = false;
+    }
+
+    makeConditional() {
+        this._isConditional = true;
     }
 
     applyToType(node: ExpressionNode, type: Type): Type {
-        if (TypeConstraint.doesExpressionMatch(node, this._expression)) {
+        if (this.doesExpressionMatch(node)) {
+            if (this._isConditional) {
+                let types = [this._type, type];
+                return TypeUtils.combineTypes(types);
+            }
             return this._type;
         }
 
@@ -303,7 +308,7 @@ export class AssignmentTypeConstraint extends TypeConstraint {
     }
 
     convertToTombstone(): TombstoneTypeConstraint | undefined {
-        return new TombstoneTypeConstraint(this._expression);
+        return new TombstoneTypeConstraint(this.getExpression());
     }
 }
 
