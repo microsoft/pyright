@@ -82,15 +82,21 @@ export abstract class TypeConstraint {
         return false;
     }
 
-    protected doesExpressionMatch(expression1: ExpressionNode): boolean {
+    protected doesExpressionMatch(expression1: ExpressionNode) {
+        return this._doesExpressionMatchRecursive(expression1, this._expression);
+    }
+
+    private _doesExpressionMatchRecursive(expression1: ExpressionNode,
+            expression2: ExpressionNode): boolean {
+
         if (expression1 instanceof NameNode) {
-            if (this._expression instanceof NameNode) {
-                return expression1.nameToken.value === this._expression.nameToken.value;
+            if (expression2 instanceof NameNode) {
+                return expression1.nameToken.value === expression2.nameToken.value;
             }
         } else if (expression1 instanceof MemberAccessExpressionNode) {
-            if (this._expression instanceof MemberAccessExpressionNode) {
-                return this.doesExpressionMatch(expression1.leftExpression) &&
-                    this.doesExpressionMatch(expression1.memberName);
+            if (expression2 instanceof MemberAccessExpressionNode) {
+                return this._doesExpressionMatchRecursive(expression1.leftExpression, expression2.leftExpression) &&
+                    this._doesExpressionMatchRecursive(expression1.memberName, expression2.memberName);
             }
         }
 
