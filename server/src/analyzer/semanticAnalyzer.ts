@@ -474,7 +474,9 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         // If we can't prove that exceptions will propagate beyond
         // the try/catch block. clear the "alwyas raises" condition.
-        if (!alwaysRaisesBeforeTry && !allPathsRaise) {
+        if (alwaysRaisesBeforeTry || allPathsRaise) {
+            this._currentScope.setAlwaysRaises();
+        } else {
             this._currentScope.clearAlwaysRaises();
         }
 
