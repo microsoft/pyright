@@ -409,9 +409,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     visitRaise(node: RaiseNode): boolean {
-        if (this._currentScope.getNestedTryDepth() === 0) {
-            this._currentScope.setAlwaysRaises();
-        }
+        this._currentScope.setAlwaysRaises();
 
         if (!node.typeExpression && this._nestedExceptDepth === 0) {
             this._addError(
@@ -445,23 +443,39 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     visitTry(node: TryNode): boolean {
-        this._currentScope.incrementNestedTryDepth();
+        let alwaysRaisesBeforeTry = this._currentScope.getAlwaysRaises();
+
         this.walk(node.trySuite);
-        this._currentScope.decrementNestedTryDepth();
+
+        let allPathsRaise = true;
 
         // Wrap the except clauses in a conditional scope
         // so we can throw away any names that are bound
         // in this scope.
         this._nestedExceptDepth++;
         node.exceptClauses.forEach(exceptNode => {
-            this._enterTemporaryScope(() => {
+            const exceptScope = this._enterTemporaryScope(() => {
                 this.walk(exceptNode);
             });
+            if (!exceptScope.getAlwaysRaises()) {
+                allPathsRaise = false;
+            }
         });
         this._nestedExceptDepth--;
 
         if (node.elseSuite) {
-            this.walk(node.elseSuite);
+            let elseScope = this._enterTemporaryScope(() => {
+                this.walk(node.elseSuite!);
+            }, true);
+            if (!elseScope.getAlwaysRaises()) {
+                allPathsRaise = false;
+            }
+        }
+
+        // If we can't prove that exceptions will propagate beyond
+        // the try/catch block. clear the "alwyas raises" condition.
+        if (!alwaysRaisesBeforeTry && !allPathsRaise) {
+            this._currentScope.clearAlwaysRaises();
         }
 
         if (node.finallySuite) {

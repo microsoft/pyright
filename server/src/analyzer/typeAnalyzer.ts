@@ -544,9 +544,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // If the call indicates that it never returns, mark the
         // scope as raising an exception.
         if (TypeUtils.isNoReturnType(returnValue)) {
-            if (this._currentScope.getNestedTryDepth() === 0) {
-                this._currentScope.setAlwaysRaises();
-            }
+            this._currentScope.setAlwaysRaises();
         }
 
         return true;
@@ -733,7 +731,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        this._currentScope.setAlwaysReturns();
+        if (!this._currentScope.getAlwaysRaises()) {
+            this._currentScope.setAlwaysReturns();
+        }
+
         return true;
     }
 
@@ -771,7 +772,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitRaise(node: RaiseNode): boolean {
-        if (this._currentScope.getNestedTryDepth() === 0) {
+        if (!this._currentScope.getAlwaysReturns()) {
             this._currentScope.setAlwaysRaises();
         }
         return true;
@@ -815,9 +816,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitTry(node: TryNode): boolean {
-        this._currentScope.incrementNestedTryDepth();
+        let alwaysRaisesBeforeTry = this._currentScope.getAlwaysRaises();
+
         this.walk(node.trySuite);
-        this._currentScope.decrementNestedTryDepth();
+
+        let allPathsRaise = true;
 
         // Wrap the except clauses in a conditional scope
         // so we can throw away any names that are bound
@@ -827,13 +830,25 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this.walk(exceptNode);
             }, true);
             this._mergeToCurrentScope(exceptScope);
+            if (!exceptScope.getAlwaysRaises()) {
+                allPathsRaise = false;
+            }
         });
 
         if (node.elseSuite) {
             let elseScope = this._enterTemporaryScope(() => {
                 this.walk(node.elseSuite!);
             }, true);
+            if (!elseScope.getAlwaysRaises()) {
+                allPathsRaise = false;
+            }
             this._mergeToCurrentScope(elseScope);
+        }
+
+        // If we can't prove that exceptions will propagate beyond
+        // the try/catch block. clear the "alwyas raises" condition.
+        if (!alwaysRaisesBeforeTry && !allPathsRaise) {
+            this._currentScope.clearAlwaysRaises();
         }
 
         if (node.finallySuite) {
@@ -1291,6 +1306,35 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._getTypeOfExpression(node);
 
         // Don't explore further.
+        return false;
+    }
+
+    visitSuite(node: SuiteNode): boolean {
+        // Manually walk the statements in the suite so we can flag
+        // the point where an unconditional return or raise occurs.
+        let reportedUnreachableCode = false;
+
+        node.statements.forEach((statement, index) => {
+            this.walk(statement);
+
+            if (!this._currentScope.isNotExecuted()) {
+                if (this._currentScope.getAlwaysRaises() || this._currentScope.getAlwaysReturns()) {
+                    if (!reportedUnreachableCode) {
+                        if (index < node.statements.length - 1) {
+                            // Create a text range that covers the next statement through
+                            // the end of the suite.
+                            const start = node.statements[index + 1].start;
+                            const end = node.statements[node.statements.length - 1].end;
+                            this._addUnusedCode(new TextRange(start, end - start));
+                        }
+
+                        // Note that we already reported this so we don't do it again.
+                        reportedUnreachableCode = true;
+                    }
+                }
+            }
+        });
+
         return false;
     }
 
@@ -1777,12 +1821,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 isIfUnconditional = true;
                 ifScope.setUnconditional();
                 if (elseSuite) {
-                    this._addUnusedCode('Code is unreachable', elseSuite);
+                    this._addUnusedCode(elseSuite);
                 }
             } else {
                 isElseUnconditional = true;
                 elseScope.setUnconditional();
-                this._addUnusedCode('Code is unreachable', ifWhileSuite);
+                this._addUnusedCode(ifWhileSuite);
             }
         }
 
@@ -2559,8 +2603,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _addUnusedCode(message: string, textRange: TextRange) {
-        this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(message, textRange);
+    private _addUnusedCode(textRange: TextRange) {
+        this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange('Code is unreachable', textRange);
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {

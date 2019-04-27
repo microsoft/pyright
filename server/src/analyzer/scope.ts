@@ -74,11 +74,6 @@ export class Scope {
     // the loop.
     private _breaksFromLoop = false;
 
-    // Number of nested try statements the scope is currently within.
-    // This is used to determine whether to set the _alwaysReturnsOrRaises
-    // flag when a raise statement is encountered.
-    private _nestedTryDepth = 0;
-
     // Inferred return and yield types for the scope.
     private _returnType = new InferredType();
     private _yieldType = new InferredType();
@@ -384,6 +379,10 @@ export class Scope {
         this._alwaysRaises = true;
     }
 
+    clearAlwaysRaises() {
+        this._alwaysRaises = false;
+    }
+
     getAlwaysRaises() {
         return this._alwaysRaises;
     }
@@ -398,19 +397,6 @@ export class Scope {
 
     getBreaksFromLoop() {
         return this._breaksFromLoop;
-    }
-
-    incrementNestedTryDepth() {
-        this._nestedTryDepth++;
-    }
-
-    decrementNestedTryDepth() {
-        assert(this._nestedTryDepth > 0);
-        this._nestedTryDepth--;
-    }
-
-    getNestedTryDepth() {
-        return this._nestedTryDepth;
     }
 
     getTypeConstraints() {
