@@ -85,11 +85,7 @@ export class TypeConstraint {
     }
 
     applyToType(node: ExpressionNode, type: Type): Type {
-        if (this._isTombstone) {
-            return type;
-        }
-
-        if (this.doesExpressionMatch(node)) {
+        if (!this._isTombstone && this.doesExpressionMatch(node)) {
             if (this._isConditional) {
                 let types = [this._type, type];
                 return TypeUtils.combineTypes(types);
