@@ -208,7 +208,7 @@ test('AnnotatedVar5', () => {
 test('Execution1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['execution1.py']);
 
-    validateResults(analysisResults, 3);
+    validateResults(analysisResults, 2);
 });
 
 test('Properties1', () => {

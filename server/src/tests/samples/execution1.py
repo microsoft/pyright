@@ -28,8 +28,8 @@ def func2() -> int:
         # type doesn't match.
         return 'hello'
 
-    # This should be an error because the return
-    # type doesn't match.
+    # This should not be an error because we
+    # should never get here.
     return 'not_returned'
 
 
