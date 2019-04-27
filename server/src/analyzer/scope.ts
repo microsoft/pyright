@@ -364,7 +364,7 @@ export class Scope {
             }
         });
 
-        // Combine any tombstone type constraints from the two scopes.
+        // Combine type constraints from the two scopes.
         // The other type constraints aren't needed and can be ignored.
         scope1.getTypeConstraints().forEach(constraint => {
             const tombstone = constraint.convertToTombstone();
@@ -379,6 +379,7 @@ export class Scope {
             }
         });
 
+        // Combine the return and yield types.
         combinedScope._returnType.addSources(scope1._returnType);
         combinedScope._returnType.addSources(scope2._returnType);
 

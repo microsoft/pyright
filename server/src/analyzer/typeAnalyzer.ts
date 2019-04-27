@@ -1853,7 +1853,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Figure out how to combine the scopes.
         if (ifContributions && elseContributions) {
             // If both an "if" and an "else" scope exist, combine the names from both scopes.
-            this._mergeToCurrentScope(ifContributions, elseContributions);
+            const combinedScope = Scope.combineConditionalScopes(ifContributions, elseContributions);
+            this._mergeToCurrentScope(combinedScope);
         } else if (ifContributions) {
             // If there's only an "if" scope executed, merge its contents conditionally.
             this._mergeToCurrentScope(ifContributions);
@@ -1878,6 +1879,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._currentScope.setAlwaysRaises();
         }
 
+        // Even if the if or else scopes didn't contribute symbols to the
+        // current scope, they can contribute return types.
         if (!isElseUnconditional) {
             this._mergeReturnAndYieldTypeToCurrentScope(ifScope);
         }
@@ -2102,12 +2105,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _mergeToCurrentScope(firstScopeToMerge: Scope, secondScopeToMerge?: Scope) {
-        let scopeToMerge = firstScopeToMerge;
-        if (secondScopeToMerge) {
-            scopeToMerge = Scope.combineConditionalScopes(firstScopeToMerge, secondScopeToMerge);
-        }
-
+    private _mergeToCurrentScope(scopeToMerge: Scope) {
         if (this._currentScope.mergeSymbolTable(scopeToMerge)) {
             this._setAnalysisChanged();
         }
