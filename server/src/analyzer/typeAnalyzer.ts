@@ -558,15 +558,30 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const iteratedType = evaluator.getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression);
 
+        // Assume that the for loop scope is unconditional unless there's
+        // an "else" statement, in which case we'll assume that they are both
+        // conditional.
         const loopScope = this._enterTemporaryScope(() => {
             this._assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
             this.walk(node.targetExpression);
             this.walk(node.forSuite);
-        }, false, this._currentScope.isNotExecuted(), node);
-        this._mergeToCurrentScope(loopScope);
+        }, !!node.elseSuite, this._currentScope.isNotExecuted(), node);
 
+        let scopeToMerge = loopScope;
         if (node.elseSuite) {
-            this.walk(node.elseSuite);
+            const elseScope = this._enterTemporaryScope(() => {
+                this.walk(node.elseSuite!);
+            }, true);
+
+            if (!elseScope.getAlwaysReturnsOrRaises() && !loopScope.getAlwaysReturnsOrRaises()) {
+                scopeToMerge = Scope.combineConditionalScopes(loopScope, elseScope);
+            } else if (loopScope.getAlwaysReturnsOrRaises()) {
+                scopeToMerge = elseScope;
+            }
+        }
+
+        if (!scopeToMerge.getAlwaysReturnsOrRaises()) {
+            this._mergeToCurrentScope(scopeToMerge);
         }
 
         return false;
@@ -1785,8 +1800,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._getTypeOfExpression(testExpression);
         this.walk(testExpression);
 
-        let typeConstraints = this._buildConditionalTypeConstraints(
-            testExpression);
+        let typeConstraints = this._buildConditionalTypeConstraints(testExpression);
 
         // Push a temporary scope so we can track
         // which variables have been assigned to conditionally.
@@ -1835,18 +1849,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (typeConstraints) {
-            // If the if statement always returns, the else type constraints
-            // are in effect after the if/else is complete.
-            if (ifScope.getAlwaysReturnsOrRaises()) {
-                this._currentScope.addTypeConstraints(typeConstraints.elseConstraints);
-            }
-
-            if (elseScope.getAlwaysReturnsOrRaises()) {
-                this._currentScope.addTypeConstraints(typeConstraints.ifConstraints);
-            }
-        }
-
         let ifContributions = !ifScope.getAlwaysReturnsOrRaises() && !isElseUnconditional ? ifScope : undefined;
         let elseContributions = !elseScope.getAlwaysReturnsOrRaises() && !isIfUnconditional ? elseScope : undefined;
 
@@ -1856,10 +1858,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const combinedScope = Scope.combineConditionalScopes(ifContributions, elseContributions);
             this._mergeToCurrentScope(combinedScope);
         } else if (ifContributions) {
-            // If there's only an "if" scope executed, merge its contents conditionally.
+            // If there's only an "if" scope executed, merge its contents.
+            ifContributions.setUnconditional();
             this._mergeToCurrentScope(ifContributions);
         } else if (elseContributions) {
-            // If there's only an "else" scope executed, merge its contents conditionally.
+            // If there's only an "else" scope executed, merge its contents.
+            elseContributions.setUnconditional();
             this._mergeToCurrentScope(elseContributions);
         } else {
             // If both an if and else clause are executed but they both return or
@@ -2523,18 +2527,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             tempScope = AnalyzerNodeInfo.getScope(loopNode);
 
             if (tempScope) {
-                // Convert all of the old type constraints to tombstones so
-                // they block upstream type constraints.
-                const oldTypeConstraints = tempScope.getTypeConstraints();
-                tempScope.clearTypeConstraints();
-
-                oldTypeConstraints.forEach(typeContraint => {
-                    const tombstone = typeContraint.convertToTombstone();
-                    if (tombstone) {
-                        tempScope!.addTypeConstraint(tombstone);
-                    }
-                });
-
                 tempScope.setParent(this._currentScope);
             } else {
                 tempScope = new Scope(ScopeType.Temporary, this._currentScope);

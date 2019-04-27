@@ -16,6 +16,7 @@ import * as assert from 'assert';
 import { DefaultTypeSourceId, InferredType, TypeSourceId } from './inferredType';
 import { Declaration, Symbol, SymbolTable } from './symbol';
 import { TypeConstraint } from './typeConstraint';
+import { TypeConstraintUtils } from './typeConstraintUtils';
 import { Type, UnboundType } from './types';
 import { TypeUtils } from './typeUtils';
 
@@ -287,14 +288,9 @@ export class Scope {
             this._breaksFromLoop = true;
         }
 
-        // Add any tombstone type constraints from the merged scope.
-        // The other type constraints aren't needed and can be ignored.
-        scopeToMerge.getTypeConstraints().forEach(constraint => {
-            const tombstone = constraint.convertToTombstone();
-            if (tombstone) {
-                this.addTypeConstraint(tombstone, false);
-            }
-        });
+        const typeConstraints = TypeConstraintUtils.dedupeTypeConstraints(
+            scopeToMerge.getTypeConstraints(), scopeToMerge.isConditional());
+        this.addTypeConstraints(typeConstraints);
 
         return modifiedType;
     }
@@ -365,19 +361,9 @@ export class Scope {
         });
 
         // Combine type constraints from the two scopes.
-        // The other type constraints aren't needed and can be ignored.
-        scope1.getTypeConstraints().forEach(constraint => {
-            const tombstone = constraint.convertToTombstone();
-            if (tombstone) {
-                combinedScope.addTypeConstraint(tombstone);
-            }
-        });
-        scope2.getTypeConstraints().forEach(constraint => {
-            const tombstone = constraint.convertToTombstone();
-            if (tombstone) {
-                combinedScope.addTypeConstraint(tombstone);
-            }
-        });
+        const combinedTypeConstraints = TypeConstraintUtils.combineTypeConstraints(
+            scope1.getTypeConstraints(), scope2.getTypeConstraints());
+        combinedScope.addTypeConstraints(combinedTypeConstraints);
 
         // Combine the return and yield types.
         combinedScope._returnType.addSources(scope1._returnType);
@@ -433,12 +419,8 @@ export class Scope {
         return this._typeConstraints;
     }
 
-    addTypeConstraint(constraint: TypeConstraint, backOfList = true) {
-        if (backOfList) {
-            this._typeConstraints.push(constraint);
-        } else {
-            this._typeConstraints.unshift(constraint);
-        }
+    addTypeConstraint(constraint: TypeConstraint) {
+        this._typeConstraints.push(constraint);
     }
 
     clearTypeConstraints() {

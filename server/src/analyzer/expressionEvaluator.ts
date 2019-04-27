@@ -2574,32 +2574,16 @@ export class ExpressionEvaluator {
             return type;
         }
 
-        // Determine if any of the local constraints is blocking constraints
-        // from parent scopes from being applied.
-        let blockParentConstraints = false;
-        for (let constraint of scope.getTypeConstraints()) {
-            if (constraint.blockSubsequentContraints(node)) {
-                blockParentConstraints = true;
-                break;
-            }
-        }
-
-        if (!blockParentConstraints) {
-            // Recursively allow the parent scopes to apply their type constraints.
-            const parentScope = scope.getParent();
-            if (parentScope) {
-                type = this._applyScopeTypeConstraintRecursive(node, type, parentScope);
-            }
+        // Recursively allow the parent scopes to apply their type constraints.
+        const parentScope = scope.getParent();
+        if (parentScope) {
+            type = this._applyScopeTypeConstraintRecursive(node, type, parentScope);
         }
 
         // Apply the constraints within the current scope. Stop if one of
         // them indicates that further constraints shouldn't be applied.
         for (let constraint of scope.getTypeConstraints()) {
             type = constraint.applyToType(node, type);
-
-            if (constraint.blockSubsequentContraints(node)) {
-                break;
-            }
         }
 
         return type;

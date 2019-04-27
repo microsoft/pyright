@@ -37,55 +37,33 @@ export class TypeConstraint {
     // Resulting type if the expression matches.
     private _type: Type;
 
-    // Transform this into a "tombstone" that blocks subsequent
-    // constraints?
-    private _generateTombstone: boolean;
-
     // Indiciates that the type should be applied conditionally.
     private _isConditional: boolean;
 
-    // Is this a tombstone?
-    private _isTombstone: boolean;
-
-    constructor(expression: ExpressionNode, type: Type, generateTombstone: boolean) {
+    constructor(expression: ExpressionNode, type: Type) {
         this._expression = expression;
         this._type = type;
-        this._generateTombstone = generateTombstone;
         this._isConditional = false;
-        this._isTombstone = false;
     }
 
     getExpression() {
         return this._expression;
     }
 
-    makeConditional() {
+    getType() {
+        return this._type;
+    }
+
+    isConditional() {
+        return this._isConditional;
+    }
+
+    setIsConditional() {
         this._isConditional = true;
     }
 
-    // Should this type constraint prevent any other type constraints
-    // from applying their transforms to any additional constraints?
-    // This is needed to invalidate constraint logic when an expression
-    // is reassigned a new value (and hence a new type).
-    blockSubsequentContraints(node: ExpressionNode) {
-        if (this._isTombstone) {
-            return this.doesExpressionMatch(node);
-        }
-        return false;
-    }
-
-    convertToTombstone(): TypeConstraint | undefined {
-        if (this._isTombstone) {
-            return this;
-        } else if (this._generateTombstone) {
-            this._isTombstone = true;
-            return this;
-        }
-        return undefined;
-    }
-
     applyToType(node: ExpressionNode, type: Type): Type {
-        if (!this._isTombstone && this.doesExpressionMatch(node)) {
+        if (this.doesExpressionMatch(node)) {
             if (this._isConditional) {
                 let types = [this._type, type];
                 return TypeUtils.combineTypes(types);
@@ -115,8 +93,8 @@ export class TypeConstraint {
         return false;
     }
 
-    protected doesExpressionMatch(expression1: ExpressionNode) {
-        return this._doesExpressionMatchRecursive(expression1, this._expression);
+    doesExpressionMatch(expression: ExpressionNode) {
+        return this._doesExpressionMatchRecursive(expression, this._expression);
     }
 
     private _doesExpressionMatchRecursive(expression1: ExpressionNode,
@@ -155,20 +133,22 @@ export class TypeConstraintBuilder {
             // patterns used in control flow.
             if (testExpression.operator === OperatorType.Is ||
                     testExpression.operator === OperatorType.IsNot) {
-                if (testExpression.rightExpression instanceof ConstantNode &&
-                        testExpression.rightExpression.token.keywordType === KeywordType.None) {
+                if (TypeConstraint.isSupportedExpression(testExpression.leftExpression)) {
+                    if (testExpression.rightExpression instanceof ConstantNode &&
+                            testExpression.rightExpression.token.keywordType === KeywordType.None) {
 
-                    const originalType = typeEvaluator(testExpression.leftExpression);
-                    const positiveType = this._transformTypeForIsNoneExpression(originalType, true);
-                    const negativeType = this._transformTypeForIsNoneExpression(originalType, false);
-                    const trueConstraint = new TypeConstraint(testExpression.leftExpression, positiveType, false);
-                    const falseConstraint = new TypeConstraint(testExpression.leftExpression, negativeType, false);
-                    const isPositive = testExpression.operator === OperatorType.Is;
+                        const originalType = typeEvaluator(testExpression.leftExpression);
+                        const positiveType = this._transformTypeForIsNoneExpression(originalType, true);
+                        const negativeType = this._transformTypeForIsNoneExpression(originalType, false);
+                        const trueConstraint = new TypeConstraint(testExpression.leftExpression, positiveType);
+                        const falseConstraint = new TypeConstraint(testExpression.leftExpression, negativeType);
+                        const isPositive = testExpression.operator === OperatorType.Is;
 
-                    results.ifConstraints.push(isPositive ? trueConstraint : falseConstraint);
-                    results.elseConstraints.push(isPositive ? falseConstraint : trueConstraint);
+                        results.ifConstraints.push(isPositive ? trueConstraint : falseConstraint);
+                        results.elseConstraints.push(isPositive ? falseConstraint : trueConstraint);
 
-                    return results;
+                        return results;
+                    }
                 }
             } else if (testExpression.operator === OperatorType.And) {
                 let leftConstraints = this.buildTypeConstraintsForConditional(
@@ -231,8 +211,8 @@ export class TypeConstraintBuilder {
                 const originalType = typeEvaluator(testExpression);
                 const positiveType = this._transformTypeForTruthyExpression(originalType, true);
                 const negativeType = this._transformTypeForTruthyExpression(originalType, false);
-                const trueConstraint = new TypeConstraint(testExpression, positiveType, false);
-                const falseConstraint = new TypeConstraint(testExpression, negativeType, false);
+                const trueConstraint = new TypeConstraint(testExpression, positiveType);
+                const falseConstraint = new TypeConstraint(testExpression, negativeType);
                 return {
                     ifConstraints: [trueConstraint],
                     elseConstraints: [falseConstraint]
@@ -256,8 +236,8 @@ export class TypeConstraintBuilder {
                         const originalType = typeEvaluator(arg0Expr);
                         const positiveType = this._transformTypeForIsInstanceExpression(originalType, [classType], true);
                         const negativeType = this._transformTypeForIsInstanceExpression(originalType, [classType], false);
-                        const trueConstraint = new TypeConstraint(arg0Expr, positiveType, false);
-                        const falseConstraint = new TypeConstraint(arg0Expr, negativeType, false);
+                        const trueConstraint = new TypeConstraint(arg0Expr, positiveType);
+                        const falseConstraint = new TypeConstraint(arg0Expr, negativeType);
                         return {
                             ifConstraints: [trueConstraint],
                             elseConstraints: [falseConstraint]
@@ -275,10 +255,18 @@ export class TypeConstraintBuilder {
             assignmentType: Type): TypeConstraint | undefined {
 
         if (targetNode instanceof TypeAnnotationExpressionNode) {
-            return new TypeConstraint(targetNode.valueExpression, assignmentType, true);
+            if (TypeConstraint.isSupportedExpression(targetNode.valueExpression)) {
+                return new TypeConstraint(targetNode.valueExpression, assignmentType);
+            }
+
+            return undefined;
         }
 
-        return new TypeConstraint(targetNode, assignmentType, true);
+        if (TypeConstraint.isSupportedExpression(targetNode)) {
+            return new TypeConstraint(targetNode, assignmentType);
+        }
+
+        return undefined;
     }
 
     // Represents a simple check for truthiness. It eliminates the
