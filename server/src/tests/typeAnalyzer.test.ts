@@ -214,7 +214,7 @@ test('Execution1', () => {
 test('Properties1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties1.py']);
 
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 5);
 });
 
 test('Operators1', () => {

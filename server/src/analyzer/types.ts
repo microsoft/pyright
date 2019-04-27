@@ -923,8 +923,16 @@ export class PropertyType extends Type {
         this._getter = getter;
     }
 
+    getGetter() {
+        return this._getter;
+    }
+
     hasSetter() {
         return this._setter !== undefined;
+    }
+
+    getSetter() {
+        return this._setter;
     }
 
     setSetter(setter: FunctionType) {
@@ -933,6 +941,10 @@ export class PropertyType extends Type {
 
     hasDeleter() {
         return this._deleter !== undefined;
+    }
+
+    getDeleter() {
+        return this._deleter;
     }
 
     setDeleter(deleter: FunctionType) {

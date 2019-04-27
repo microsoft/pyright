@@ -35,7 +35,7 @@ import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { EvaluatorFlags, EvaluatorUsage, ExpressionEvaluator } from './expressionEvaluator';
+import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportType } from './importResult';
 import { DefaultTypeSourceId } from './inferredType';
@@ -182,7 +182,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 argType = UnknownType.create();
             } else {
                 argType = evaluator.getType(arg.valueExpression,
-                    EvaluatorUsage.Get, EvaluatorFlags.None);
+                    { method: 'get' }, EvaluatorFlags.None);
             }
 
             let isMetaclass = false;

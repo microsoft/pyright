@@ -32,7 +32,7 @@ import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { EvaluatorFlags, EvaluatorUsage, ExpressionEvaluator } from './expressionEvaluator';
+import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportResult, ImportType } from './importResult';
 import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
@@ -652,8 +652,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                 if (subtype instanceof ObjectType) {
                     let evaluator = this._createEvaluator();
-                    let memberType = evaluator.getTypeFromObjectMember(
-                        enterMethodName, EvaluatorUsage.Get, subtype);
+                    let memberType = evaluator.getTypeFromObjectMember(item.expression,
+                        enterMethodName, { method: 'get' }, subtype);
 
                     if (memberType) {
                         let memberReturnType: Type;
@@ -2184,13 +2184,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _getTypeOfAnnotation(node: ExpressionNode): Type {
         let evaluator = this._createEvaluator();
         return TypeUtils.convertClassToObject(
-            evaluator.getType(node, EvaluatorUsage.Get,
+            evaluator.getType(node, { method: 'get' },
                 EvaluatorFlags.None));
     }
 
     private _getTypeOfExpression(node: ExpressionNode, specialize = true): Type {
         let evaluator = this._createEvaluator();
-        return evaluator.getType(node, EvaluatorUsage.Get,
+        return evaluator.getType(node, { method: 'get' },
             specialize ?
                 EvaluatorFlags.ConvertEllipsisToAny :
                 EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.ConvertEllipsisToAny);
@@ -2198,12 +2198,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _evaluateExpressionForAssignment(node: ExpressionNode, type: Type) {
         let evaluator = this._createEvaluator();
-        evaluator.getType(node, EvaluatorUsage.Set, EvaluatorFlags.None);
+        evaluator.getType(node, { method: 'set', typeToSet: type }, EvaluatorFlags.None);
     }
 
     private _evaluateExpressionForDeletion(node: ExpressionNode): Type {
         let evaluator = this._createEvaluator();
-        return evaluator.getType(node, EvaluatorUsage.Delete, EvaluatorFlags.None);
+        return evaluator.getType(node, { method: 'del' }, EvaluatorFlags.None);
     }
 
     private _updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {

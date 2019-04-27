@@ -39,6 +39,10 @@ val = a.read_write_prop
 
 a.read_write_prop = 'hello'
 
+# This should generate an error because the type
+# is incorrect.
+a.read_write_prop = ClassA()
+
 # This should generate an error because this
 # property has no deleter.
 del a.read_write_prop
