@@ -106,163 +106,6 @@ export abstract class TypeConstraint {
     abstract applyToType(node: ExpressionNode, type: Type): Type;
 }
 
-// Represents a simple check for truthiness. It eliminates the
-// possibility of "None" for a type.
-export class TruthyTypeConstraint extends TypeConstraint {
-    constructor(node: ExpressionNode, isPositiveTest = true) {
-        super(node, isPositiveTest);
-    }
-
-    applyToType(node: ExpressionNode, type: Type): Type {
-        if (this.doesExpressionMatch(node)) {
-            if (type.isAny()) {
-                return type;
-            }
-
-            let types: Type[];
-            if (type instanceof UnionType) {
-                types = type.getTypes();
-            } else {
-                types = [type];
-            }
-
-            if (this.isPositiveTest()) {
-                types = types.filter(t => TypeUtils.canBeTruthy(t));
-            } else {
-                types = types.filter(t => TypeUtils.canBeFalsy(t));
-            }
-
-            return TypeUtils.combineTypes(types);
-        }
-
-        // Return the original type.
-        return type;
-    }
-}
-
-// Represents an "is" or "is not" None check.
-export class IsNoneTypeConstraint extends TypeConstraint {
-    constructor(node: ExpressionNode, isPositiveTest = true) {
-        super(node, isPositiveTest);
-    }
-
-    applyToType(node: ExpressionNode, type: Type): Type {
-        if (this.doesExpressionMatch(node)) {
-            if (type instanceof UnionType) {
-                let remainingTypes = type.getTypes().filter(t => {
-                    if (t.isAny()) {
-                        // We need to assume that "Any" is always an instance and not an instance,
-                        // so it matches regardless of whether the test is positive or negative.
-                        return true;
-                    }
-
-                    // See if it's a match for None.
-                    return (t instanceof NoneType) === this.isPositiveTest();
-                });
-
-                return TypeUtils.combineTypes(remainingTypes);
-            } else if (type instanceof NoneType) {
-                if (!this.isPositiveTest()) {
-                    // Use a "Never" type (which is a special form
-                    // of None) to indicate that the condition will
-                    // always evaluate to false.
-                    return NeverType.create();
-                }
-            }
-        }
-
-        return type;
-    }
-}
-
-// Represents an "isinstance" check, potentially constraining a
-// union type.
-export class IsInstanceTypeConstraint extends TypeConstraint {
-    private _classTypeList: ClassType[];
-
-    constructor(node: ExpressionNode, typeList: ClassType[], isPositiveTest = true) {
-        super(node, isPositiveTest);
-        this._classTypeList = typeList;
-    }
-
-    applyToType(node: ExpressionNode, type: Type): Type {
-        if (this.doesExpressionMatch(node)) {
-            // Filters the varType by the parameters of the isinstance
-            // and returns the list of types the varType could be after
-            // applying the filter.
-            const filterType = (varType: ClassType): ObjectType[] => {
-                let filteredTypes: ClassType[] = [];
-
-                let foundSuperclass = false;
-                for (let filterType of this._classTypeList) {
-                    const filterIsSuperclass = varType.isDerivedFrom(filterType);
-                    const filterIsSubclass = filterType.isDerivedFrom(varType);
-
-                    if (filterIsSuperclass) {
-                        foundSuperclass = true;
-                    }
-
-                    if (this.isPositiveTest()) {
-                        if (filterIsSuperclass) {
-                            // If the variable type is a subclass of the isinstance
-                            // filter, we haven't learned anything new about the
-                            // variable type.
-                            filteredTypes.push(varType);
-                        } else if (filterIsSubclass) {
-                            // If the variable type is a superclass of the isinstance
-                            // filter, we can narrow the type to the subclass.
-                            filteredTypes.push(filterType);
-                        }
-                    }
-                }
-
-                // In the negative case, if one or more of the filters
-                // always match the type (i.e. they are an exact match or
-                // a superclass of the type), then there's nothing left after
-                // the filter is applied. If we didn't find any superclass
-                // match, then the original variable type survives the filter.
-                if (!this.isPositiveTest() && !foundSuperclass) {
-                    filteredTypes.push(varType);
-                }
-
-                return filteredTypes.map(t => new ObjectType(t));
-            };
-
-            const finalizeFilteredTypeList = (types: Type[]): Type => {
-                return TypeUtils.combineTypes(types);
-            };
-
-            if (type instanceof ObjectType) {
-                let filteredType = filterType(type.getClassType());
-                return finalizeFilteredTypeList(filteredType);
-            } else if (type instanceof UnionType) {
-                let remainingTypes: Type[] = [];
-
-                type.getTypes().forEach(t => {
-                    if (t.isAny()) {
-                        // Any types always remain for both positive and negative
-                        // checks because we can't say anything about them.
-                        remainingTypes.push(t);
-                    } else if (t instanceof ObjectType) {
-                        remainingTypes = remainingTypes.concat(
-                            filterType(t.getClassType()));
-                    } else {
-                        // All other types are never instances of a class.
-                        if (!this.isPositiveTest()) {
-                            remainingTypes.push(t);
-                        }
-                    }
-                });
-
-                return finalizeFilteredTypeList(remainingTypes);
-            }
-        }
-
-        // Return the original type.
-        return type;
-    }
-}
-
 // Provides a way to indicate that all subsequent type constraints
 // associated with this expression should not take effect.
 export class TombstoneTypeConstraint extends TypeConstraint {
@@ -290,11 +133,13 @@ export class TombstoneTypeConstraint extends TypeConstraint {
 export class AssignmentTypeConstraint extends TypeConstraint {
     private _isConditional: boolean;
     private _type: Type;
+    private _generateTombstone: boolean;
 
-    constructor(node: ExpressionNode, type: Type) {
+    constructor(node: ExpressionNode, type: Type, generateTombstone: boolean) {
         super(node, true);
         this._type = type;
         this._isConditional = false;
+        this._generateTombstone = generateTombstone;
     }
 
     makeConditional() {
@@ -314,7 +159,10 @@ export class AssignmentTypeConstraint extends TypeConstraint {
     }
 
     convertToTombstone(): TombstoneTypeConstraint | undefined {
-        return new TombstoneTypeConstraint(this.getExpression());
+        if (this._generateTombstone) {
+            return new TombstoneTypeConstraint(this.getExpression());
+        }
+        return undefined;
     }
 }
 
@@ -339,8 +187,11 @@ export class TypeConstraintBuilder {
                 if (testExpression.rightExpression instanceof ConstantNode &&
                         testExpression.rightExpression.token.keywordType === KeywordType.None) {
 
-                    const trueConstraint = new IsNoneTypeConstraint(testExpression.leftExpression, true);
-                    const falseConstraint = new IsNoneTypeConstraint(testExpression.leftExpression, false);
+                    const originalType = typeEvaluator(testExpression.leftExpression);
+                    const positiveType = this._transformTypeForIsNoneExpression(originalType, true);
+                    const negativeType = this._transformTypeForIsNoneExpression(originalType, false);
+                    const trueConstraint = new AssignmentTypeConstraint(testExpression.leftExpression, positiveType, false);
+                    const falseConstraint = new AssignmentTypeConstraint(testExpression.leftExpression, negativeType, false);
                     const isPositive = testExpression.operator === OperatorType.Is;
 
                     results.ifConstraints.push(isPositive ? trueConstraint : falseConstraint);
@@ -404,9 +255,13 @@ export class TypeConstraintBuilder {
             }
         } else if (testExpression instanceof NameNode ||
                 testExpression instanceof MemberAccessExpressionNode) {
+
             if (TypeConstraint.isSupportedExpression(testExpression)) {
-                const trueConstraint = new TruthyTypeConstraint(testExpression, true);
-                const falseConstraint = new TruthyTypeConstraint(testExpression, false);
+                const originalType = typeEvaluator(testExpression);
+                const positiveType = this._transformTypeForTruthyExpression(originalType, true);
+                const negativeType = this._transformTypeForTruthyExpression(originalType, false);
+                const trueConstraint = new AssignmentTypeConstraint(testExpression, positiveType, false);
+                const falseConstraint = new AssignmentTypeConstraint(testExpression, negativeType, false);
                 return {
                     ifConstraints: [trueConstraint],
                     elseConstraints: [falseConstraint]
@@ -427,8 +282,11 @@ export class TypeConstraintBuilder {
                     const classType = typeEvaluator(arg1Expr);
 
                     if (classType instanceof ClassType) {
-                        const trueConstraint = new IsInstanceTypeConstraint(arg0Expr, [classType], true);
-                        const falseConstraint = new IsInstanceTypeConstraint(arg0Expr, [classType], false);
+                        const originalType = typeEvaluator(arg0Expr);
+                        const positiveType = this._transformTypeForIsInstanceExpression(originalType, [classType], true);
+                        const negativeType = this._transformTypeForIsInstanceExpression(originalType, [classType], false);
+                        const trueConstraint = new AssignmentTypeConstraint(arg0Expr, positiveType, false);
+                        const falseConstraint = new AssignmentTypeConstraint(arg0Expr, negativeType, false);
                         return {
                             ifConstraints: [trueConstraint],
                             elseConstraints: [falseConstraint]
@@ -446,9 +304,138 @@ export class TypeConstraintBuilder {
             assignmentType: Type): AssignmentTypeConstraint | undefined {
 
         if (targetNode instanceof TypeAnnotationExpressionNode) {
-            return new AssignmentTypeConstraint(targetNode.valueExpression, assignmentType);
+            return new AssignmentTypeConstraint(targetNode.valueExpression, assignmentType, true);
         }
 
-        return new AssignmentTypeConstraint(targetNode, assignmentType);
+        return new AssignmentTypeConstraint(targetNode, assignmentType, true);
+    }
+
+    // Represents a simple check for truthiness. It eliminates the
+    // possibility of "None" for a type.
+    private static _transformTypeForTruthyExpression(type: Type, isPositiveTest: boolean): Type {
+        if (type.isAny()) {
+            return type;
+        }
+
+        let types: Type[];
+        if (type instanceof UnionType) {
+            types = type.getTypes();
+        } else {
+            types = [type];
+        }
+
+        if (isPositiveTest) {
+            types = types.filter(t => TypeUtils.canBeTruthy(t));
+        } else {
+            types = types.filter(t => TypeUtils.canBeFalsy(t));
+        }
+
+        return TypeUtils.combineTypes(types);
+    }
+
+    // Represents an "is" or "is not" None check.
+    private static _transformTypeForIsNoneExpression(type: Type, isPositiveTest: boolean): Type {
+        if (type instanceof UnionType) {
+            let remainingTypes = type.getTypes().filter(t => {
+                if (t.isAny()) {
+                    // We need to assume that "Any" is always an instance and not an instance,
+                    // so it matches regardless of whether the test is positive or negative.
+                    return true;
+                }
+
+                // See if it's a match for None.
+                return (t instanceof NoneType) === isPositiveTest;
+            });
+
+            return TypeUtils.combineTypes(remainingTypes);
+        } else if (type instanceof NoneType) {
+            if (!isPositiveTest) {
+                // Use a "Never" type (which is a special form
+                // of None) to indicate that the condition will
+                // always evaluate to false.
+                return NeverType.create();
+            }
+        }
+
+        return type;
+    }
+
+    // Represents an "isinstance" check, potentially constraining a
+    // union type.
+    private static _transformTypeForIsInstanceExpression(type: Type, classTypeList: ClassType[],
+            isPositiveTest: boolean): Type {
+
+        // Filters the varType by the parameters of the isinstance
+        // and returns the list of types the varType could be after
+        // applying the filter.
+        const filterType = (varType: ClassType): ObjectType[] => {
+            let filteredTypes: ClassType[] = [];
+
+            let foundSuperclass = false;
+            for (let filterType of classTypeList) {
+                const filterIsSuperclass = varType.isDerivedFrom(filterType);
+                const filterIsSubclass = filterType.isDerivedFrom(varType);
+
+                if (filterIsSuperclass) {
+                    foundSuperclass = true;
+                }
+
+                if (isPositiveTest) {
+                    if (filterIsSuperclass) {
+                        // If the variable type is a subclass of the isinstance
+                        // filter, we haven't learned anything new about the
+                        // variable type.
+                        filteredTypes.push(varType);
+                    } else if (filterIsSubclass) {
+                        // If the variable type is a superclass of the isinstance
+                        // filter, we can narrow the type to the subclass.
+                        filteredTypes.push(filterType);
+                    }
+                }
+            }
+
+            // In the negative case, if one or more of the filters
+            // always match the type (i.e. they are an exact match or
+            // a superclass of the type), then there's nothing left after
+            // the filter is applied. If we didn't find any superclass
+            // match, then the original variable type survives the filter.
+            if (!isPositiveTest && !foundSuperclass) {
+                filteredTypes.push(varType);
+            }
+
+            return filteredTypes.map(t => new ObjectType(t));
+        };
+
+        const finalizeFilteredTypeList = (types: Type[]): Type => {
+            return TypeUtils.combineTypes(types);
+        };
+
+        if (type instanceof ObjectType) {
+            let filteredType = filterType(type.getClassType());
+            return finalizeFilteredTypeList(filteredType);
+        } else if (type instanceof UnionType) {
+            let remainingTypes: Type[] = [];
+
+            type.getTypes().forEach(t => {
+                if (t.isAny()) {
+                    // Any types always remain for both positive and negative
+                    // checks because we can't say anything about them.
+                    remainingTypes.push(t);
+                } else if (t instanceof ObjectType) {
+                    remainingTypes = remainingTypes.concat(
+                        filterType(t.getClassType()));
+                } else {
+                    // All other types are never instances of a class.
+                    if (!isPositiveTest) {
+                        remainingTypes.push(t);
+                    }
+                }
+            });
+
+            return finalizeFilteredTypeList(remainingTypes);
+        }
+
+        // Return the original type.
+        return type;
     }
 }
