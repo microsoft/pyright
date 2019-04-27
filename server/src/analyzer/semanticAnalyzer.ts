@@ -457,6 +457,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             const exceptScope = this._enterTemporaryScope(() => {
                 this.walk(exceptNode);
             });
+
             if (!exceptScope.getAlwaysRaises()) {
                 allPathsRaise = false;
             }
@@ -466,7 +467,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         if (node.elseSuite) {
             let elseScope = this._enterTemporaryScope(() => {
                 this.walk(node.elseSuite!);
-            }, true);
+            });
+
+            this._currentScope.mergeSymbolTable(elseScope);
+
             if (!elseScope.getAlwaysRaises()) {
                 allPathsRaise = false;
             }

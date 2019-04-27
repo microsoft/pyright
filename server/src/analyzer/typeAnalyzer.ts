@@ -829,7 +829,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let exceptScope = this._enterTemporaryScope(() => {
                 this.walk(exceptNode);
             }, true);
+
             this._mergeToCurrentScope(exceptScope);
+
             if (!exceptScope.getAlwaysRaises()) {
                 allPathsRaise = false;
             }
@@ -838,7 +840,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (node.elseSuite) {
             let elseScope = this._enterTemporaryScope(() => {
                 this.walk(node.elseSuite!);
-            }, true);
+            });
+
             if (!elseScope.getAlwaysRaises()) {
                 allPathsRaise = false;
             }
