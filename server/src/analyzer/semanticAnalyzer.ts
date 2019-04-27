@@ -741,9 +741,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
     private _handleIfWhileCommon(testExpression: ExpressionNode, ifWhileSuite: SuiteNode,
             elseSuite: SuiteNode | IfNode | undefined) {
-        let ifScope: Scope | undefined;
-        let elseScope: Scope | undefined;
-        let isUnconditional = false;
 
         this.walk(testExpression);
 
@@ -754,25 +751,26 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         // Push a temporary scope so we can track
         // which variables have been assigned to conditionally.
-        ifScope = this._enterTemporaryScope(() => {
+        const ifScope = this._enterTemporaryScope(() => {
             this.walk(ifWhileSuite);
         }, true, constExprValue === false);
 
         // Now handle the else statement if it's present. If there
         // are chained "else if" statements, they'll be handled
         // recursively here.
-        if (elseSuite) {
-            elseScope = this._enterTemporaryScope(() => {
+        const elseScope = this._enterTemporaryScope(() => {
+            if (elseSuite) {
                 this.walk(elseSuite);
-            }, true, constExprValue === true);
-        }
+            }
+        }, true, constExprValue === true);
 
+        let isUnconditional = false;
         if (constExprValue !== undefined) {
             isUnconditional = true;
             if (constExprValue) {
-                elseScope = undefined;
+                ifScope.setUnconditional();
             } else {
-                ifScope = undefined;
+                elseScope.setUnconditional();
             }
         }
 
@@ -786,32 +784,24 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (ifScope && ifScope.getAlwaysReturnsOrRaises()) {
-            ifScope = undefined;
+        if (ifScope.getAlwaysReturnsOrRaises()) {
+            elseScope.setUnconditional();
             isUnconditional = true;
         }
 
-        if (elseScope && elseScope.getAlwaysReturnsOrRaises()) {
-            elseScope = undefined;
+        if (elseScope.getAlwaysReturnsOrRaises()) {
+            ifScope.setUnconditional();
             isUnconditional = true;
         }
 
         // Figure out how to combine the scopes.
-        if (ifScope && elseScope) {
-            // If both an "if" and an "else" scope exist, combine the names from both scopes.
+        if (!isUnconditional) {
+            // If both an "if" and an "else" scope are conditional, combine the two scopes.
             ifScope.combineConditionalSymbolTable(elseScope);
             this._currentScope.mergeSymbolTable(ifScope);
-        } else if (ifScope) {
-            // If there's only an "if" scope executed, mark all of its contents as conditional.
-            if (!isUnconditional) {
-                ifScope.markAllSymbolsConditional();
-            }
+        } else if (!ifScope.isConditional()) {
             this._currentScope.mergeSymbolTable(ifScope);
-        } else if (elseScope) {
-            // If there's only an "else" scope executed, mark all of its contents as conditional.
-            if (!isUnconditional) {
-                elseScope.markAllSymbolsConditional();
-            }
+        } else if (!elseScope.isConditional()) {
             this._currentScope.mergeSymbolTable(elseScope);
         }
 

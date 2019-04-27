@@ -136,6 +136,12 @@ export class Scope {
         this._isConditional = true;
     }
 
+    setUnconditional() {
+        // Only temporary scopes can be conditional.
+        assert(this._scopeType === ScopeType.Temporary);
+        this._isConditional = false;
+    }
+
     isConditional() {
         return this._isConditional;
     }
@@ -195,16 +201,6 @@ export class Scope {
         symbol.addDeclaration(declaration);
     }
 
-    // Marks all of the types associated with symbols in this
-    // scope as "conditional".
-    markAllSymbolsConditional() {
-        assert(this._isConditional);
-
-        this._symbolTable.forEach(symbol => {
-            symbol.isConditional = true;
-        });
-    }
-
     // Merges a specified temporary scope into another scope (which is
     // assumed to be its parent or a direct ancestor). Returns true if
     // a scope was modified in a meaningful way.
@@ -215,7 +211,7 @@ export class Scope {
 
         for (let name of scopeToMerge._symbolTable.getKeys()) {
             let symbolToMerge = scopeToMerge._symbolTable.get(name)!;
-            let mergeConditional = !!symbolToMerge.isConditional;
+            let mergeConditional = scopeToMerge.isConditional() || !!symbolToMerge.isConditional;
             let targetScope: Scope;
 
             if (this._scopeType === ScopeType.Temporary) {
@@ -363,6 +359,9 @@ export class Scope {
 
         this._returnType.addSources(scope._returnType);
         this._yieldType.addSources(scope._yieldType);
+
+        // Now that we've combined the two, this scope is no longer conditional.
+        this._isConditional = false;
     }
 
     mergeReturnType(scopeToMerge: Scope): boolean {
