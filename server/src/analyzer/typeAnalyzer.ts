@@ -2103,15 +2103,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _mergeToCurrentScope(firstScopeToMerge: Scope, secondScopeToMerge?: Scope) {
+        let scopeToMerge = firstScopeToMerge;
         if (secondScopeToMerge) {
-            firstScopeToMerge.combineConditionalSymbolTable(secondScopeToMerge);
+            scopeToMerge = Scope.combineConditionalScopes(firstScopeToMerge, secondScopeToMerge);
         }
 
-        if (this._currentScope.mergeSymbolTable(firstScopeToMerge)) {
+        if (this._currentScope.mergeSymbolTable(scopeToMerge)) {
             this._setAnalysisChanged();
         }
 
-        this._mergeReturnAndYieldTypeToCurrentScope(firstScopeToMerge);
+        this._mergeReturnAndYieldTypeToCurrentScope(scopeToMerge);
     }
 
     private _mergeReturnAndYieldTypeToCurrentScope(scopeToMerge: Scope) {

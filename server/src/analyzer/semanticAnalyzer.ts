@@ -817,8 +817,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // Figure out how to combine the scopes.
         if (!isUnconditional) {
             // If both an "if" and an "else" scope are conditional, combine the two scopes.
-            ifScope.combineConditionalSymbolTable(elseScope);
-            this._currentScope.mergeSymbolTable(ifScope);
+            const combinedScope = Scope.combineConditionalScopes(ifScope, elseScope);
+            this._currentScope.mergeSymbolTable(combinedScope);
         } else if (!ifScope.isConditional()) {
             this._currentScope.mergeSymbolTable(ifScope);
         } else if (!elseScope.isConditional()) {

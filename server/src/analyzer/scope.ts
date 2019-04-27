@@ -301,62 +301,91 @@ export class Scope {
 
     // Combines a conditional scope with another conditional scope --
     // for example, an "if" scope with an "else" scope.
-    combineConditionalSymbolTable(scope: Scope) {
-        assert(scope._isConditional && this._isConditional);
+    static combineConditionalScopes(scope1: Scope, scope2: Scope): Scope {
+        assert(scope1._isConditional && scope2._isConditional);
+        assert(scope1._scopeType === ScopeType.Temporary && scope2._scopeType === ScopeType.Temporary);
+        assert(!scope1._alwaysReturns && !scope2._alwaysReturns);
+        assert(!scope1._alwaysRaises && !scope2._alwaysRaises);
+        assert(scope1._parent === scope2._parent);
+
+        const combinedScope = new Scope(ScopeType.Temporary, scope1.getParent());
 
         // Handle names that are in the second scope that are also in the first
         // scope or are unique to the second scope.
-        scope._symbolTable.forEach((sourceSymbol, name) => {
-            const targetSymbol = this._symbolTable.get(name);
+        scope2._symbolTable.forEach((scope2Symbol, name) => {
+            const scope1Symbol = scope1._symbolTable.get(name);
 
-            if (targetSymbol) {
-                this.setSymbolCurrentType(name,
-                    TypeUtils.combineTypes([targetSymbol.currentType, sourceSymbol.currentType]),
-                    sourceSymbol.inferredType.getPrimarySourceId());
+            if (scope1Symbol) {
+                const combinedSymbol = combinedScope.addUnboundSymbol(name);
+                combinedSymbol.setCurrentType(
+                    TypeUtils.combineTypes([scope1Symbol.currentType, scope2Symbol.currentType]),
+                    scope2Symbol.inferredType.getPrimarySourceId());
 
-                if (sourceSymbol.declarations) {
-                    sourceSymbol.declarations.forEach(decl => {
-                        this.addSymbolDeclaration(name, decl);
+                if (scope1Symbol.declarations) {
+                    scope1Symbol.declarations.forEach(decl => {
+                        combinedSymbol.addDeclaration(decl);
                     });
                 }
 
-                if (sourceSymbol.isConditional) {
-                    targetSymbol.isConditional = true;
+                if (scope2Symbol.declarations) {
+                    scope2Symbol.declarations.forEach(decl => {
+                        combinedSymbol.addDeclaration(decl);
+                    });
+                }
+
+                if (scope1Symbol.isConditional || scope2Symbol.isConditional) {
+                    combinedSymbol.isConditional = true;
                 }
             } else {
-                let newSymbol = new Symbol(sourceSymbol.currentType,
-                    sourceSymbol.inferredType.getPrimarySourceId());
-                if (sourceSymbol.declarations) {
-                    sourceSymbol.declarations.forEach(decl => {
+                const newSymbol = new Symbol(scope2Symbol.currentType,
+                    scope2Symbol.inferredType.getPrimarySourceId());
+                if (scope2Symbol.declarations) {
+                    scope2Symbol.declarations.forEach(decl => {
                         newSymbol.addDeclaration(decl);
                     });
                 }
                 newSymbol.isConditional = true;
-                this._symbolTable.set(name, newSymbol);
+                combinedScope._symbolTable.set(name, newSymbol);
             }
         });
 
         // Handle names that are only in the first scope.
-        this._symbolTable.forEach((symbol, name) => {
-            if (!scope._symbolTable.get(name)) {
-                symbol.isConditional = true;
+        scope1._symbolTable.forEach((scope1Symbol, name) => {
+            if (!scope2._symbolTable.get(name)) {
+                const newSymbol = new Symbol(scope1Symbol.currentType,
+                    scope1Symbol.inferredType.getPrimarySourceId());
+                if (scope1Symbol.declarations) {
+                    scope1Symbol.declarations.forEach(decl => {
+                        newSymbol.addDeclaration(decl);
+                    });
+                }
+                newSymbol.isConditional = true;
+                combinedScope._symbolTable.set(name, newSymbol);
             }
         });
 
         // Combine any tombstone type constraints from the two scopes.
         // The other type constraints aren't needed and can be ignored.
-        scope.getTypeConstraints().forEach(constraint => {
+        scope1.getTypeConstraints().forEach(constraint => {
             const tombstone = constraint.convertToTombstone();
             if (tombstone) {
-                this.addTypeConstraint(tombstone, false);
+                combinedScope.addTypeConstraint(tombstone);
+            }
+        });
+        scope2.getTypeConstraints().forEach(constraint => {
+            const tombstone = constraint.convertToTombstone();
+            if (tombstone) {
+                combinedScope.addTypeConstraint(tombstone);
             }
         });
 
-        this._returnType.addSources(scope._returnType);
-        this._yieldType.addSources(scope._yieldType);
+        combinedScope._returnType.addSources(scope1._returnType);
+        combinedScope._returnType.addSources(scope2._returnType);
 
-        // Now that we've combined the two, this scope is no longer conditional.
-        this._isConditional = false;
+        combinedScope._yieldType.addSources(scope1._yieldType);
+        combinedScope._yieldType.addSources(scope2._yieldType);
+
+        return combinedScope;
     }
 
     mergeReturnType(scopeToMerge: Scope): boolean {
