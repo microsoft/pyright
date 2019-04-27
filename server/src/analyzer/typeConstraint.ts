@@ -30,25 +30,37 @@ export interface ConditionalTypeConstraintResults {
     elseConstraints: TypeConstraint[];
 }
 
-export abstract class TypeConstraint {
+export class TypeConstraint {
     // The expression this type constraint applies to.
     private _expression: ExpressionNode;
 
-    // Should constraint assume "truthiness" (positive test) or
-    // "falsiness" (negative test)?
-    private _isPositiveTest: boolean;
+    // Resulting type if the expression matches.
+    private _type: Type;
 
-    constructor(expression: ExpressionNode, isPositiveTest: boolean) {
+    // Transform this into a "tombstone" that blocks subsequent
+    // constraints?
+    private _generateTombstone: boolean;
+
+    // Indiciates that the type should be applied conditionally.
+    private _isConditional: boolean;
+
+    // Is this a tombstone?
+    private _isTombstone: boolean;
+
+    constructor(expression: ExpressionNode, type: Type, generateTombstone: boolean) {
         this._expression = expression;
-        this._isPositiveTest = isPositiveTest;
+        this._type = type;
+        this._generateTombstone = generateTombstone;
+        this._isConditional = false;
+        this._isTombstone = false;
     }
 
     getExpression() {
         return this._expression;
     }
 
-    isPositiveTest() {
-        return this._isPositiveTest;
+    makeConditional() {
+        this._isConditional = true;
     }
 
     // Should this type constraint prevent any other type constraints
@@ -56,11 +68,36 @@ export abstract class TypeConstraint {
     // This is needed to invalidate constraint logic when an expression
     // is reassigned a new value (and hence a new type).
     blockSubsequentContraints(node: ExpressionNode) {
+        if (this._isTombstone) {
+            return this.doesExpressionMatch(node);
+        }
         return false;
     }
 
-    convertToTombstone(): TombstoneTypeConstraint | undefined {
+    convertToTombstone(): TypeConstraint | undefined {
+        if (this._isTombstone) {
+            return this;
+        } else if (this._generateTombstone) {
+            this._isTombstone = true;
+            return this;
+        }
         return undefined;
+    }
+
+    applyToType(node: ExpressionNode, type: Type): Type {
+        if (this._isTombstone) {
+            return type;
+        }
+
+        if (this.doesExpressionMatch(node)) {
+            if (this._isConditional) {
+                let types = [this._type, type];
+                return TypeUtils.combineTypes(types);
+            }
+            return this._type;
+        }
+
+        return type;
     }
 
     // Determines whether the expression is one that the type constraint
@@ -102,68 +139,6 @@ export abstract class TypeConstraint {
 
         return false;
     }
-
-    abstract applyToType(node: ExpressionNode, type: Type): Type;
-}
-
-// Provides a way to indicate that all subsequent type constraints
-// associated with this expression should not take effect.
-export class TombstoneTypeConstraint extends TypeConstraint {
-    constructor(node: ExpressionNode) {
-        super(node, true);
-    }
-
-    blockSubsequentContraints(node: ExpressionNode) {
-        return this.doesExpressionMatch(node);
-    }
-
-    applyToType(node: ExpressionNode, type: Type): Type {
-        return type;
-    }
-
-    convertToTombstone(): TombstoneTypeConstraint | undefined {
-        return this;
-    }
-}
-
-// Represents an assignment within a scope to a value of a particular
-// type. This overrides the general inferred type for that expression.
-// This is especially useful for globla and instance/class variables
-// whose inferred types are unions of all assigned types.
-export class AssignmentTypeConstraint extends TypeConstraint {
-    private _isConditional: boolean;
-    private _type: Type;
-    private _generateTombstone: boolean;
-
-    constructor(node: ExpressionNode, type: Type, generateTombstone: boolean) {
-        super(node, true);
-        this._type = type;
-        this._isConditional = false;
-        this._generateTombstone = generateTombstone;
-    }
-
-    makeConditional() {
-        this._isConditional = true;
-    }
-
-    applyToType(node: ExpressionNode, type: Type): Type {
-        if (this.doesExpressionMatch(node)) {
-            if (this._isConditional) {
-                let types = [this._type, type];
-                return TypeUtils.combineTypes(types);
-            }
-            return this._type;
-        }
-
-        return type;
-    }
-
-    convertToTombstone(): TombstoneTypeConstraint | undefined {
-        if (this._generateTombstone) {
-            return new TombstoneTypeConstraint(this.getExpression());
-        }
-        return undefined;
-    }
 }
 
 export class TypeConstraintBuilder {
@@ -190,8 +165,8 @@ export class TypeConstraintBuilder {
                     const originalType = typeEvaluator(testExpression.leftExpression);
                     const positiveType = this._transformTypeForIsNoneExpression(originalType, true);
                     const negativeType = this._transformTypeForIsNoneExpression(originalType, false);
-                    const trueConstraint = new AssignmentTypeConstraint(testExpression.leftExpression, positiveType, false);
-                    const falseConstraint = new AssignmentTypeConstraint(testExpression.leftExpression, negativeType, false);
+                    const trueConstraint = new TypeConstraint(testExpression.leftExpression, positiveType, false);
+                    const falseConstraint = new TypeConstraint(testExpression.leftExpression, negativeType, false);
                     const isPositive = testExpression.operator === OperatorType.Is;
 
                     results.ifConstraints.push(isPositive ? trueConstraint : falseConstraint);
@@ -260,8 +235,8 @@ export class TypeConstraintBuilder {
                 const originalType = typeEvaluator(testExpression);
                 const positiveType = this._transformTypeForTruthyExpression(originalType, true);
                 const negativeType = this._transformTypeForTruthyExpression(originalType, false);
-                const trueConstraint = new AssignmentTypeConstraint(testExpression, positiveType, false);
-                const falseConstraint = new AssignmentTypeConstraint(testExpression, negativeType, false);
+                const trueConstraint = new TypeConstraint(testExpression, positiveType, false);
+                const falseConstraint = new TypeConstraint(testExpression, negativeType, false);
                 return {
                     ifConstraints: [trueConstraint],
                     elseConstraints: [falseConstraint]
@@ -285,8 +260,8 @@ export class TypeConstraintBuilder {
                         const originalType = typeEvaluator(arg0Expr);
                         const positiveType = this._transformTypeForIsInstanceExpression(originalType, [classType], true);
                         const negativeType = this._transformTypeForIsInstanceExpression(originalType, [classType], false);
-                        const trueConstraint = new AssignmentTypeConstraint(arg0Expr, positiveType, false);
-                        const falseConstraint = new AssignmentTypeConstraint(arg0Expr, negativeType, false);
+                        const trueConstraint = new TypeConstraint(arg0Expr, positiveType, false);
+                        const falseConstraint = new TypeConstraint(arg0Expr, negativeType, false);
                         return {
                             ifConstraints: [trueConstraint],
                             elseConstraints: [falseConstraint]
@@ -301,13 +276,13 @@ export class TypeConstraintBuilder {
 
     // Builds a type constraint that applies the specified type to an expression.
     static buildTypeConstraintForAssignment(targetNode: ExpressionNode,
-            assignmentType: Type): AssignmentTypeConstraint | undefined {
+            assignmentType: Type): TypeConstraint | undefined {
 
         if (targetNode instanceof TypeAnnotationExpressionNode) {
-            return new AssignmentTypeConstraint(targetNode.valueExpression, assignmentType, true);
+            return new TypeConstraint(targetNode.valueExpression, assignmentType, true);
         }
 
-        return new AssignmentTypeConstraint(targetNode, assignmentType, true);
+        return new TypeConstraint(targetNode, assignmentType, true);
     }
 
     // Represents a simple check for truthiness. It eliminates the
