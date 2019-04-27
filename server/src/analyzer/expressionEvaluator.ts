@@ -69,7 +69,8 @@ export enum EvaluatorFlags {
 
 interface EvaluatorUsage {
     method: 'get' | 'set' | 'del';
-    typeToSet?: Type;
+    setType?: Type;
+    setErrorNode?: ExpressionNode;
 }
 
 export enum MemberAccessFlags {
@@ -701,7 +702,7 @@ export class ExpressionEvaluator {
             }
 
             this._addError(
-                `Cannot ${ operationName } member '${ memberName }' to type '${ baseType.asString() }'`,
+                `Cannot ${ operationName } member '${ memberName }' on type '${ baseType.asString() }'`,
                 node.memberName);
             type = UnknownType.create();
         }
@@ -783,11 +784,14 @@ export class ExpressionEvaluator {
                             setterFunctionType = TypeUtils.stripFirstParameter(setterFunctionType);
 
                             // Validate that we can call the setter with the specified type.
-                            assert(usage.typeToSet !== undefined);
+                            assert(usage.setType !== undefined && usage.setErrorNode !== undefined);
                             const argList: FunctionArgument[] = [];
-                            argList.push({ argumentCategory: ArgumentCategory.Simple, type: usage.typeToSet! });
-                            return this._validateFunctionArguments(errorNode,
+                            argList.push({ argumentCategory: ArgumentCategory.Simple, type: usage.setType! });
+                            this._validateFunctionArguments(usage.setErrorNode || errorNode,
                                 argList, setterFunctionType, new TypeVarMap());
+
+                            // The return type isn't imporant here.
+                            return NoneType.create();
                         }
 
                         return undefined;

@@ -1049,7 +1049,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // TODO - determine resulting type of operation
 
         // Report any errors with assigning to this type.
-        this._evaluateExpressionForAssignment(node.leftExpression, exprType);
+        this._evaluateExpressionForAssignment(node.leftExpression, exprType,
+            node.rightExpression);
 
         return true;
     }
@@ -2196,9 +2197,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.ConvertEllipsisToAny);
     }
 
-    private _evaluateExpressionForAssignment(node: ExpressionNode, type: Type) {
+    private _evaluateExpressionForAssignment(node: ExpressionNode, type: Type, errorNode: ExpressionNode) {
         let evaluator = this._createEvaluator();
-        evaluator.getType(node, { method: 'set', typeToSet: type }, EvaluatorFlags.None);
+        evaluator.getType(node, { method: 'set', setType: type, setErrorNode: errorNode }, EvaluatorFlags.None);
     }
 
     private _evaluateExpressionForDeletion(node: ExpressionNode): Type {
@@ -2333,7 +2334,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         // Report any errors with assigning to this type.
-        this._evaluateExpressionForAssignment(target, type);
+        this._evaluateExpressionForAssignment(target, type, srcExpr);
     }
 
     private _bindMultiPartModuleNameToType(nameParts: NameNode[], type: ModuleType,
