@@ -16,9 +16,9 @@ import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { isBinary, isDecimal, isHex, isIdentifierChar, isIdentifierStartChar, isOctal } from './characters';
 import { CharacterStream } from './characterStream';
-import { DedentToken, IdentifierToken, IndentToken, KeywordToken, KeywordType,
-    NewLineToken, NewLineType, NumberToken, OperatorFlags, OperatorToken, OperatorType,
-    StringToken, StringTokenFlags, Token, TokenType } from './tokenizerTypes';
+import { Comment, DedentToken, IdentifierToken, IndentToken, KeywordToken,
+    KeywordType, NewLineToken, NewLineType, NumberToken, OperatorFlags, OperatorToken,
+    OperatorType, StringToken, StringTokenFlags, Token, TokenType } from './tokenizerTypes';
 
 const _keywords: { [key: string]: KeywordType } = {
     'and': KeywordType.And,
@@ -122,6 +122,7 @@ export class Tokenizer {
     private _parenDepth = 0;
     private _lineRanges: TextRange[] = [];
     private _indentAmounts: number[] = [];
+    private _comments: Comment[] | undefined;
 
     tokenize(text: string, start?: number, length?: number): TokenizerOutput {
         if (start === undefined) {
@@ -155,14 +156,14 @@ export class Tokenizer {
 
         // Insert an implied new line to make parsing easier.
         if (this._tokens.length === 0 || this._tokens[this._tokens.length - 1].type !== TokenType.NewLine) {
-            this._tokens.push(new NewLineToken(this._cs.position, 0, NewLineType.Implied));
+            this._tokens.push(new NewLineToken(this._cs.position, 0, NewLineType.Implied, this._getComments()));
         }
 
         // Insert any implied dedent tokens.
         this._setIndent(0);
 
         // Add a final end-of-stream token to make parsing easier.
-        this._tokens.push(new Token(TokenType.EndOfStream, this._cs.position, 0));
+        this._tokens.push(new Token(TokenType.EndOfStream, this._cs.position, 0, this._getComments()));
 
         // Add the final line range.
         this._addLineRange();
@@ -258,50 +259,59 @@ export class Tokenizer {
 
             case Char.OpenParenthesis:
                 this._parenDepth++;
-                this._tokens.push(new Token(TokenType.OpenParenthesis, this._cs.position, 1));
+                this._tokens.push(new Token(TokenType.OpenParenthesis,
+                    this._cs.position, 1, this._getComments()));
                 break;
 
             case Char.CloseParenthesis:
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
-                this._tokens.push(new Token(TokenType.CloseParenthesis, this._cs.position, 1));
+                this._tokens.push(new Token(TokenType.CloseParenthesis,
+                    this._cs.position, 1, this._getComments()));
                 break;
 
             case Char.OpenBracket:
                 this._parenDepth++;
-                this._tokens.push(new Token(TokenType.OpenBracket, this._cs.position, 1));
+                this._tokens.push(new Token(TokenType.OpenBracket,
+                    this._cs.position, 1, this._getComments()));
                 break;
 
             case Char.CloseBracket:
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
-                this._tokens.push(new Token(TokenType.CloseBracket, this._cs.position, 1));
+                this._tokens.push(new Token(TokenType.CloseBracket,
+                    this._cs.position, 1, this._getComments()));
                 break;
 
             case Char.OpenBrace:
                 this._parenDepth++;
-                this._tokens.push(new Token(TokenType.OpenCurlyBrace, this._cs.position, 1));
+                this._tokens.push(new Token(TokenType.OpenCurlyBrace,
+                    this._cs.position, 1, this._getComments()));
                 break;
 
             case Char.CloseBrace:
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
-                this._tokens.push(new Token(TokenType.CloseCurlyBrace, this._cs.position, 1));
+                this._tokens.push(new Token(TokenType.CloseCurlyBrace,
+                    this._cs.position, 1, this._getComments()));
                 break;
 
             case Char.Comma:
-                this._tokens.push(new Token(TokenType.Comma, this._cs.position, 1));
+                this._tokens.push(new Token(TokenType.Comma,
+                    this._cs.position, 1, this._getComments()));
                 break;
 
             case Char.Semicolon:
-                this._tokens.push(new Token(TokenType.Semicolon, this._cs.position, 1));
+                this._tokens.push(new Token(TokenType.Semicolon,
+                    this._cs.position, 1, this._getComments()));
                 break;
 
             case Char.Colon:
-                this._tokens.push(new Token(TokenType.Colon, this._cs.position, 1));
+                this._tokens.push(new Token(TokenType.Colon,
+                    this._cs.position, 1, this._getComments()));
                 break;
 
             default:
@@ -313,11 +323,13 @@ export class Tokenizer {
 
                 if (this._cs.currentChar === Char.Period) {
                     if (this._cs.nextChar === Char.Period && this._cs.lookAhead(2) === Char.Period) {
-                        this._tokens.push(new Token(TokenType.Ellipsis, this._cs.position, 3));
+                        this._tokens.push(new Token(TokenType.Ellipsis,
+                            this._cs.position, 3, this._getComments()));
                         this._cs.advance(3);
                         return true;
                     }
-                    this._tokens.push(new Token(TokenType.Dot, this._cs.position, 1));
+                    this._tokens.push(new Token(TokenType.Dot,
+                        this._cs.position, 1, this._getComments()));
                     break;
                 }
 
@@ -345,7 +357,8 @@ export class Tokenizer {
             // New lines are ignored within parentheses.
             // We'll also avoid adding multiple newlines in a row to simplify parsing.
             if (this._tokens.length === 0 || this._tokens[this._tokens.length - 1].type !== TokenType.NewLine) {
-                this._tokens.push(new NewLineToken(this._cs.position, length, newLineType));
+                this._tokens.push(new NewLineToken(this._cs.position,
+                    length, newLineType, this._getComments()));
             }
         }
         this._cs.advance(length);
@@ -397,12 +410,14 @@ export class Tokenizer {
         if (this._indentAmounts.length === 0) {
             if (spaceCount > 0) {
                 this._indentAmounts.push(spaceCount);
-                this._tokens.push(new IndentToken(this._cs.position, 0, spaceCount));
+                this._tokens.push(new IndentToken(this._cs.position, 0,
+                    spaceCount, this._getComments()));
             }
         } else {
             if (this._indentAmounts[this._indentAmounts.length - 1] < spaceCount) {
                 this._indentAmounts.push(spaceCount);
-                this._tokens.push(new IndentToken(this._cs.position, 0, spaceCount));
+                this._tokens.push(new IndentToken(this._cs.position, 0,
+                    spaceCount, this._getComments()));
             } else {
                 // The Python spec says that dedent amounts need to match the indent
                 // amount exactly. An error is generated at runtime if it doesn't.
@@ -422,7 +437,7 @@ export class Tokenizer {
                     let actualDedentAmount = index < dedentPoints.length - 1 ?
                         dedentAmount : spaceCount;
                     this._tokens.push(new DedentToken(this._cs.position, 0, actualDedentAmount,
-                        matchesIndent));
+                        matchesIndent, this._getComments()));
                 });
             }
         }
@@ -439,9 +454,11 @@ export class Tokenizer {
         if (this._cs.position > start) {
             const value = this._cs.getText().substr(start, this._cs.position - start);
             if (_keywords[value] !== undefined) {
-                this._tokens.push(new KeywordToken(start, this._cs.position - start, _keywords[value]));
+                this._tokens.push(new KeywordToken(start, this._cs.position - start,
+                    _keywords[value], this._getComments()));
             } else {
-                this._tokens.push(new IdentifierToken(start, this._cs.position - start, value));
+                this._tokens.push(new IdentifierToken(start, this._cs.position - start,
+                    value, this._getComments()));
             }
             return true;
         }
@@ -498,7 +515,7 @@ export class Tokenizer {
                 const text = this._cs.getText().substr(start, this._cs.position - start);
                 const value = parseInt(text.substr(leadingChars).replace(/_/g, ''), radix);
                 if (!isNaN(value)) {
-                    this._tokens.push(new NumberToken(start, text.length, value, true));
+                    this._tokens.push(new NumberToken(start, text.length, value, true, this._getComments()));
                     return true;
                 }
             }
@@ -531,7 +548,7 @@ export class Tokenizer {
             const text = this._cs.getText().substr(start, this._cs.position - start);
             const value = parseInt(text.replace(/_/g, ''), 10);
             if (!isNaN(value)) {
-                this._tokens.push(new NumberToken(start, text.length, value, true));
+                this._tokens.push(new NumberToken(start, text.length, value, true, this._getComments()));
                 return true;
             }
         }
@@ -544,7 +561,8 @@ export class Tokenizer {
                 const text = this._cs.getText().substr(start, this._cs.position - start);
                 const value = parseFloat(text);
                 if (!isNaN(value)) {
-                    this._tokens.push(new NumberToken(start, this._cs.position - start, value, false));
+                    this._tokens.push(new NumberToken(start, this._cs.position - start, value,
+                        false, this._getComments()));
                     return true;
                 }
             }
@@ -605,7 +623,7 @@ export class Tokenizer {
 
             case Char.Hyphen:
                 if (nextChar === Char.Greater) {
-                    this._tokens.push(new Token(TokenType.Arrow, this._cs.position, 2));
+                    this._tokens.push(new Token(TokenType.Arrow, this._cs.position, 2, this._getComments()));
                     this._cs.advance(2);
                     return true;
                 }
@@ -662,7 +680,7 @@ export class Tokenizer {
             default:
                 return false;
         }
-        this._tokens.push(new OperatorToken(this._cs.position, length, operatorType));
+        this._tokens.push(new OperatorToken(this._cs.position, length, operatorType, this._getComments()));
         this._cs.advance(length);
         return length > 0;
     }
@@ -672,14 +690,31 @@ export class Tokenizer {
         this._cs.skipToWhitespace();
         const length = this._cs.position - start;
         if (length > 0) {
-            this._tokens.push(new Token(TokenType.Invalid, start, length));
+            this._tokens.push(new Token(TokenType.Invalid, start, length, this._getComments()));
             return true;
         }
         return false;
     }
 
+    private _getComments(): Comment[] | undefined {
+        const prevComments = this._comments;
+        this._comments = undefined;
+        return prevComments;
+    }
+
     private _handleComment(): void {
+        const start = this._cs.position + 1;
         this._cs.skipToEol();
+
+        const length = this._cs.position - start;
+        const value = this._cs.getText().substr(start, length);
+        const comment = new Comment(start, length, value);
+
+        if (this._comments) {
+            this._comments.push(comment);
+        } else {
+            this._comments = [comment];
+        }
     }
 
     private _getStringPrefixLength(): number {
@@ -771,7 +806,7 @@ export class Tokenizer {
         let end = this._cs.position;
 
         this._tokens.push(new StringToken(start, end - start, stringLiteralInfo.flags,
-            stringLiteralInfo.value, stringLiteralInfo.invalidEscapeOffsets));
+            stringLiteralInfo.value, stringLiteralInfo.invalidEscapeOffsets, this._getComments()));
     }
 
     private _skipToEndOfStringLiteral(flags: StringTokenFlags, startPosition: number): StringScannerOutput {

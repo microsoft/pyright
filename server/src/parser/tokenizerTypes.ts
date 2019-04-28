@@ -159,20 +159,37 @@ export enum StringTokenFlags {
     UnrecognizedEscape = 0x4000
 }
 
+export class Comment extends TextRange {
+    readonly value: string;
+
+    constructor(start: number, length: number, value: string) {
+        super(start, length);
+        this.value = value;
+    }
+}
+
 export class Token extends TextRange implements Token {
     readonly type: TokenType;
 
-    constructor(type: TokenType, start: number, length: number) {
+    // Comments prior to the token.
+    readonly comments?: Comment[];
+
+    constructor(type: TokenType, start: number, length: number,
+            comments: Comment[] | undefined) {
+
         super(start, length);
         this.type = type;
+        this.comments = comments;
     }
 }
 
 export class IndentToken extends Token {
     readonly indentAmount: number;
 
-    constructor(start: number, length: number, indentAmount: number) {
-        super(TokenType.Indent, start, length);
+    constructor(start: number, length: number, indentAmount: number,
+            comments: Comment[] | undefined) {
+
+        super(TokenType.Indent, start, length, comments);
         this.indentAmount = indentAmount;
     }
 }
@@ -181,8 +198,10 @@ export class DedentToken extends Token {
     readonly indentAmount: number;
     readonly matchesIndent: boolean;
 
-    constructor(start: number, length: number, indentAmount: number, matchesIndent: boolean) {
-        super(TokenType.Dedent, start, length);
+    constructor(start: number, length: number, indentAmount: number,
+            matchesIndent: boolean, comments: Comment[] | undefined) {
+
+        super(TokenType.Dedent, start, length, comments);
         this.indentAmount = indentAmount;
         this.matchesIndent = matchesIndent;
     }
@@ -191,8 +210,10 @@ export class DedentToken extends Token {
 export class NewLineToken extends Token {
     readonly newLineType: NewLineType;
 
-    constructor(start: number, length: number, newLineType: NewLineType) {
-        super(TokenType.NewLine, start, length);
+    constructor(start: number, length: number, newLineType: NewLineType,
+            comments: Comment[] | undefined) {
+
+        super(TokenType.NewLine, start, length, comments);
         this.newLineType = newLineType;
     }
 }
@@ -200,8 +221,10 @@ export class NewLineToken extends Token {
 export class KeywordToken extends Token {
     readonly keywordType: KeywordType;
 
-    constructor(start: number, length: number, keywordType: KeywordType) {
-        super(TokenType.Keyword, start, length);
+    constructor(start: number, length: number, keywordType: KeywordType,
+            comments: Comment[] | undefined) {
+
+        super(TokenType.Keyword, start, length, comments);
         this.keywordType = keywordType;
     }
 }
@@ -212,9 +235,9 @@ export class StringToken extends Token {
     readonly invalidEscapeOffsets: number[] | undefined;
 
     constructor(start: number, length: number, flags: StringTokenFlags, value: string,
-            invalidEscapeOffsets: number[] | undefined) {
+            invalidEscapeOffsets: number[] | undefined, comments: Comment[] | undefined) {
 
-        super(TokenType.String, start, length);
+        super(TokenType.String, start, length, comments);
         this.flags = flags;
         this.value = value;
         this.invalidEscapeOffsets = invalidEscapeOffsets;
@@ -225,8 +248,10 @@ export class NumberToken extends Token {
     readonly value: number;
     readonly isInteger: boolean;
 
-    constructor(start: number, length: number, value: number, isInteger: boolean) {
-        super(TokenType.Number, start, length);
+    constructor(start: number, length: number, value: number, isInteger: boolean,
+            comments: Comment[] | undefined) {
+
+        super(TokenType.Number, start, length, comments);
         this.value = value;
         this.isInteger = isInteger;
     }
@@ -235,8 +260,10 @@ export class NumberToken extends Token {
 export class OperatorToken extends Token {
     readonly operatorType: OperatorType;
 
-    constructor(start: number, length: number, operatorType: OperatorType) {
-        super(TokenType.Operator, start, length);
+    constructor(start: number, length: number, operatorType: OperatorType,
+            comments: Comment[] | undefined) {
+
+        super(TokenType.Operator, start, length, comments);
         this.operatorType = operatorType;
     }
 }
@@ -244,8 +271,10 @@ export class OperatorToken extends Token {
 export class IdentifierToken extends Token {
     readonly value: string;
 
-    constructor(start: number, length: number, value: string) {
-        super(TokenType.Identifier, start, length);
+    constructor(start: number, length: number, value: string,
+            comments: Comment[] | undefined) {
+
+        super(TokenType.Identifier, start, length, comments);
         this.value = value;
     }
 }

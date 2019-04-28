@@ -1017,3 +1017,24 @@ test('Lines1', () => {
     const resultsCrLf = t.tokenize(sampleTextCrLf);
     assert.equal(resultsCrLf.lines.count, 14);
 });
+
+test('Comments1', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('# hello\n# good bye\n\n\n""" test """ # another\n\n\npass');
+    assert.equal(results.tokens.count, 4 + _implicitTokenCount);
+
+    const token0 = results.tokens.getItemAt(0);
+    assert.equal(token0.type, TokenType.NewLine);
+    assert.equal(token0.comments!.length, 1);
+    assert.equal(token0.comments![0].value, ' hello');
+
+    const token1 = results.tokens.getItemAt(1);
+    assert.equal(token1.type, TokenType.String);
+    assert.equal(token1.comments!.length, 1);
+    assert.equal(token1.comments![0].value, ' good bye');
+
+    const token2 = results.tokens.getItemAt(2);
+    assert.equal(token2.type, TokenType.NewLine);
+    assert.equal(token2.comments!.length, 1);
+    assert.equal(token2.comments![0].value, ' another');
+});
