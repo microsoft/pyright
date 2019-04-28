@@ -1405,12 +1405,14 @@ export class ExpressionEvaluator {
         let paramIndex = 0;
         while (argIndex < positionalArgCount) {
             if (paramIndex >= positionalParamCount) {
-                let adjustedCount = positionalParamCount;
-                this._addError(
-                    `Expected ${ adjustedCount } positional ` +
-                    `${ adjustedCount === 1 ? 'argument' : 'arguments' }`,
-                    argList[argIndex].valueExpression || errorNode);
-                reportedArgError = true;
+                if (argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
+                    let adjustedCount = positionalParamCount;
+                    this._addError(
+                        `Expected ${ adjustedCount } positional ` +
+                        `${ adjustedCount === 1 ? 'argument' : 'arguments' }`,
+                        argList[argIndex].valueExpression || errorNode);
+                    reportedArgError = true;
+                }
                 break;
             }
 
