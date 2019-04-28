@@ -6,6 +6,8 @@ If no venvPath is specified, Pyright falls back to the paths found in the defaul
 
 The Pyright configuration file supports “execution environment” definitions, each of which can define additional paths. These are searched in addition to the venv or PYTHONPATH directories.
 
+If Pyright is reporting import resolution errors, additional diagnostic information may help you determine why. If you are using the command-line version, try adding the “--verbose” switch. If you are using the VS Code extension, look at the “Output” window (View -> Output) and choose the “Pyright” view from the popup menu.
+
 
 ## Importance of Type Stub Files
 
