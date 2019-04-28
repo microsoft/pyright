@@ -1903,12 +1903,14 @@ export class ExpressionEvaluator {
         // rightExpression won't be evaluated at runtime unless the
         // leftExpression evaluates to true.
         let typeConstraints: ConditionalTypeConstraintResults | undefined;
-        if (node.operator === OperatorType.And) {
+        let useIfConstraint = true;
+        if (node.operator === OperatorType.And || node.operator === OperatorType.Or) {
             typeConstraints = this._buildTypeConstraints(node.leftExpression);
+            useIfConstraint = node.operator === OperatorType.And;
         }
 
         let rightType: Type = UnknownType.create();
-        this._useExpressionTypeConstraint(typeConstraints, true, () => {
+        this._useExpressionTypeConstraint(typeConstraints, useIfConstraint, () => {
             rightType = this.getType(node.rightExpression);
         });
 
