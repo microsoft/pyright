@@ -249,7 +249,7 @@ export class AnalyzerService {
                     this._console.log(
                         `venv ${ configOptions.defaultVenv } subdirectory not found ` +
                         `in venv path ${ configOptions.venvPath }.`);
-                } else if (PythonPathUtils.findPythonSearchPaths(configOptions) === undefined) {
+                } else if (PythonPathUtils.findPythonSearchPaths(configOptions, undefined, this._console) === undefined) {
                     this._console.log(
                         `site-packages directory cannot be located for venvPath ` +
                         `${ configOptions.venvPath } and venv ${ configOptions.defaultVenv }.`);

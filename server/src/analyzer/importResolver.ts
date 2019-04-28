@@ -11,6 +11,7 @@
 import * as fs from 'fs';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ConsoleInterface } from '../common/console';
 import { combinePaths, getDirectoryPath, getFileSystemEntries, isDirectory, isFile,
     stripFileExtension, stripTrailingDirectorySeparator } from '../common/pathUtils';
 import { is3x, versionToString } from '../common/pythonVersion';
@@ -37,13 +38,13 @@ export class ImportResolver {
 
     // Resolves the import and returns the path if it exists, otherwise
     // returns undefined.
-    resolveImport(moduleDescriptor: ImportedModuleDescriptor): ImportResult {
+    resolveImport(moduleDescriptor: ImportedModuleDescriptor, consoleInterface: ConsoleInterface): ImportResult {
         let importName = this._formatImportName(moduleDescriptor);
 
         // Find the site packages for the configured virtual environment.
         if (this._cachedPythonSearchPaths === undefined) {
             this._cachedPythonSearchPaths = PythonPathUtils.findPythonSearchPaths(
-                this._configOptions, this._executionEnvironment);
+                this._configOptions, this._executionEnvironment, consoleInterface);
         }
 
         // First check for a typeshed file.

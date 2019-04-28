@@ -11,6 +11,7 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ConsoleInterface } from '../common/console';
 import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
     getFileSystemEntries, isDirectory, normalizePath } from '../common/pathUtils';
 
@@ -35,8 +36,8 @@ export class PythonPathUtils {
         return combinePaths(typeshedPath, isStdLib ? 'stdlib' : 'third_party');
     }
 
-    static findPythonSearchPaths(configOptions: ConfigOptions, execEnv?: ExecutionEnvironment):
-            string[] | undefined {
+    static findPythonSearchPaths(configOptions: ConfigOptions, execEnv: ExecutionEnvironment | undefined,
+            consoleInterface: ConsoleInterface): string[] | undefined {
 
         let venvPath: string | undefined;
         if (execEnv && execEnv.venv) {
@@ -71,10 +72,12 @@ export class PythonPathUtils {
         }
 
         // Fall back on the python interpreter.
-        return this.getPythonPathFromPythonInterpreter(configOptions.pythonPath);
+        return this.getPythonPathFromPythonInterpreter(configOptions.pythonPath, consoleInterface);
     }
 
-    static getPythonPathFromPythonInterpreter(interpreterPath?: string): string[] {
+    static getPythonPathFromPythonInterpreter(interpreterPath: string | undefined,
+            consoleInterface: ConsoleInterface): string[] {
+
         const searchKey = interpreterPath || '';
 
         // If we've seen this request before, return the cached results.
@@ -100,25 +103,33 @@ export class PythonPathUtils {
             execOutput = execOutput.trim();
             if (execOutput.startsWith('[') && execOutput.endsWith(']')) {
                 execOutput = execOutput.substr(1, execOutput.length - 2);
-            }
 
-            const execSplit = execOutput.split(',');
+                const execSplit = execOutput.split(',');
 
-            for (let execSplitEntry of execSplit) {
-                execSplitEntry = execSplitEntry.trim();
-                if (execSplitEntry.length >= 2 && execSplitEntry.startsWith('\'') &&
-                        execSplitEntry.endsWith('\'')) {
-                    execSplitEntry = execSplitEntry.substr(1, execSplitEntry.length - 2);
-                }
+                for (let execSplitEntry of execSplit) {
+                    execSplitEntry = execSplitEntry.trim();
+                    if (execSplitEntry.length >= 2 && execSplitEntry.startsWith('\'') &&
+                            execSplitEntry.endsWith('\'')) {
+                        execSplitEntry = execSplitEntry.substr(1, execSplitEntry.length - 2);
+                    }
 
-                if (execSplitEntry) {
-                    const normalizedPath = normalizePath(execSplitEntry);
-                    // Make sure the path exists and is a directory. We don't currenlty
-                    // support zip files and other formats.
-                    if (fs.existsSync(normalizedPath) && isDirectory(normalizedPath)) {
-                        pythonPaths.push(normalizedPath);
+                    if (execSplitEntry) {
+                        const normalizedPath = normalizePath(execSplitEntry);
+                        // Make sure the path exists and is a directory. We don't currently
+                        // support zip files and other formats.
+                        if (fs.existsSync(normalizedPath) && isDirectory(normalizedPath)) {
+                            pythonPaths.push(normalizedPath);
+                        }
                     }
                 }
+
+                if (pythonPaths.length === 0) {
+                    consoleInterface.error(`Attempted to get python import paths from python interpreter but ` +
+                        `found no valid directories`);
+                }
+            } else {
+                consoleInterface.error(`Attempted to get python import paths from python interpreter but ` +
+                    `could not parse output: '${ execOutput }'`);
             }
         } catch {
             pythonPaths = [];
