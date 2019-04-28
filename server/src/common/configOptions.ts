@@ -73,6 +73,9 @@ export class ConfigOptions {
     // if they are included in the transitive closure of included files.
     ignore: string[] = [];
 
+    // Emit verbose information to console?
+    verboseOutput: boolean;
+
     //---------------------------------------------------------------
     // Diagnostics Settings
 

@@ -310,7 +310,7 @@ export class Program {
         }
 
         if (fileToParse.sourceFile.parse(options)) {
-            this._updateSourceFileImports(fileToParse);
+            this._updateSourceFileImports(fileToParse, options);
         }
     }
 
@@ -715,15 +715,17 @@ export class Program {
         return false;
     }
 
-    private _updateSourceFileImports(sourceFileInfo: SourceFileInfo): SourceFileInfo[] {
-        let filesAdded: SourceFileInfo[] = [];
+    private _updateSourceFileImports(sourceFileInfo: SourceFileInfo,
+            options: ConfigOptions): SourceFileInfo[] {
+
+        const filesAdded: SourceFileInfo[] = [];
 
         // Get the new list of imports and see if it changed from the last
         // list of imports for this file.
-        let imports = sourceFileInfo.sourceFile.getImports();
+        const imports = sourceFileInfo.sourceFile.getImports();
 
         // Create a map of unique imports, since imports can appear more than once.
-        let newImportPathMap: { [name: string]: boolean } =  {};
+        const newImportPathMap: { [name: string]: boolean } =  {};
         imports.forEach(importResult => {
             if (importResult.importFound) {
                 // Don't explore any third-party files unless they're type stub files.
@@ -731,7 +733,7 @@ export class Program {
                     // Namespace packages have no __init__.py file, so the resolved
                     // path points to a directory.
                     if (!importResult.isNamespacePackage && importResult.resolvedPaths.length > 0) {
-                        let filePath = importResult.resolvedPaths[
+                        const filePath = importResult.resolvedPaths[
                             importResult.resolvedPaths.length - 1];
                         newImportPathMap[filePath] = !!importResult.isTypeshedFile;
                     }
@@ -740,12 +742,22 @@ export class Program {
                         newImportPathMap[implicitImport.path] = !!importResult.isTypeshedFile;
                     });
                 }
+            } else if (options.verboseOutput) {
+                if (!sourceFileInfo.isTypeshedFile || options.reportTypeshedErrors) {
+                    this._console.log(`Could not import '${ importResult.importName }' ` +
+                        `in file '${ sourceFileInfo.sourceFile.getFilePath() }'`);
+                    if (importResult.importFailureInfo) {
+                        importResult.importFailureInfo.forEach(diag => {
+                            this._console.log(`  ${ diag }`);
+                        });
+                    }
+                }
             }
         });
 
-        let updatedImportMap: { [name: string]: SourceFileInfo } = {};
+        const updatedImportMap: { [name: string]: SourceFileInfo } = {};
         sourceFileInfo.imports.forEach(importInfo => {
-            let oldFilePath = importInfo.sourceFile.getFilePath();
+            const oldFilePath = importInfo.sourceFile.getFilePath();
 
             // A previous import was removed.
             if (newImportPathMap[oldFilePath] === undefined) {

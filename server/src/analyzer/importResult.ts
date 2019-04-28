@@ -26,6 +26,10 @@ export interface ImportResult {
     // True if import was resolved to a module or file.
     importFound: boolean;
 
+    // If importFound is false, may contain strings that help
+    // diagnose the import resolution failure.
+    importFailureInfo?: string[];
+
     // Type of import (built-in, local, third-party).
     importType: ImportType;
 

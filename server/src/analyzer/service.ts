@@ -232,6 +232,10 @@ export class AnalyzerService {
             }
         }
 
+        if (commandLineOptions.verboseOutput) {
+           configOptions.verboseOutput = true;
+        }
+
         // Do some sanity checks on the specified settings and report missing
         // or inconsistent information.
         if (configOptions.venvPath) {
@@ -245,14 +249,26 @@ export class AnalyzerService {
                     `venvPath must be used in conjunction with venv setting, which was omitted.`);
             } else {
                 const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.defaultVenv);
+
                 if (!fs.existsSync(fullVenvPath) || !isDirectory(fullVenvPath)) {
                     this._console.log(
                         `venv ${ configOptions.defaultVenv } subdirectory not found ` +
                         `in venv path ${ configOptions.venvPath }.`);
-                } else if (PythonPathUtils.findPythonSearchPaths(configOptions, undefined, this._console) === undefined) {
-                    this._console.log(
-                        `site-packages directory cannot be located for venvPath ` +
-                        `${ configOptions.venvPath } and venv ${ configOptions.defaultVenv }.`);
+                } else {
+                    const importFailureInfo: string[] = [];
+                    if (PythonPathUtils.findPythonSearchPaths(configOptions, undefined,
+                            importFailureInfo) === undefined) {
+
+                        this._console.log(
+                            `site-packages directory cannot be located for venvPath ` +
+                            `${ configOptions.venvPath } and venv ${ configOptions.defaultVenv }.`);
+
+                        if (configOptions.verboseOutput) {
+                            importFailureInfo.forEach(diag => {
+                                this._console.log(`  ${ diag }`);
+                            });
+                        }
+                    }
                 }
             }
         } else {

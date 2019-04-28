@@ -597,7 +597,7 @@ export class SourceFile {
             leadingDots: 0,
             nameParts: ['builtins'],
             importedSymbols: undefined
-        }, this._console);
+        });
 
         // Avoid importing builtins from the builtins.pyi file itself.
         if (builtinsImportResult.resolvedPaths.length === 0 ||
@@ -612,7 +612,7 @@ export class SourceFile {
             leadingDots: 0,
             nameParts: ['typing'],
             importedSymbols: undefined
-        }, this._console);
+        });
 
         // Avoid importing typing from the typing.pyi file itself.
         let typingModulePath: string | undefined;
@@ -627,7 +627,7 @@ export class SourceFile {
                 leadingDots: moduleImport.leadingDots,
                 nameParts: moduleImport.nameParts,
                 importedSymbols: moduleImport.importedSymbols
-            }, this._console);
+            });
             imports.push(importResult);
 
             // Associate the import results with the module import

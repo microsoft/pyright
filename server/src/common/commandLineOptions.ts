@@ -40,6 +40,9 @@ export class CommandLineOptions {
     // Absolute execution root (current working directory).
     executionRoot: string;
 
+    // Emit verbose information to console?
+    verboseOutput?: boolean;
+
     // Indicates that the settings came from VS Code rather than
     // from the command-line. Useful for providing clearer error
     // messages.

@@ -169,6 +169,7 @@ _connection.onCompletion(params => {
 function updateOptionsAndRestartService(settings?: Settings) {
     let commandLineOptions = new CommandLineOptions(_rootPath, true);
     commandLineOptions.watch = true;
+    commandLineOptions.verboseOutput = true;
 
     if (settings && settings.python) {
         if (settings.python.venvPath) {

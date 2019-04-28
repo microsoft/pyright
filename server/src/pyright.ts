@@ -38,6 +38,7 @@ function processArgs() {
         { name: 'stats' },
         { name: 'typeshed-path', alias: 't', type: String },
         { name: 'venv-path', alias: 'v', type: String },
+        { name: 'verbose', type: Boolean },
         { name: 'watch', alias: 'w', type: Boolean }
     ];
 
@@ -74,6 +75,8 @@ function processArgs() {
     if (args['typeshed-path']) {
         options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshed-path']));
     }
+
+    options.verboseOutput = args.verbose !== undefined;
 
     let watch = args.watch !== undefined;
     options.watch = watch;

@@ -37,7 +37,9 @@ export class PythonPathUtils {
     }
 
     static findPythonSearchPaths(configOptions: ConfigOptions, execEnv: ExecutionEnvironment | undefined,
-            consoleInterface: ConsoleInterface): string[] | undefined {
+            importFailureInfo: string[]): string[] | undefined {
+
+        importFailureInfo.push('Finding python search paths');
 
         let venvPath: string | undefined;
         if (execEnv && execEnv.venv) {
@@ -54,7 +56,10 @@ export class PythonPathUtils {
             let libPath = combinePaths(venvPath, 'lib');
             let sitePackagesPath = combinePaths(libPath, 'site-packages');
             if (fs.existsSync(sitePackagesPath)) {
+                importFailureInfo.push(`Found path '${ sitePackagesPath }'`);
                 return [sitePackagesPath];
+            } else {
+                importFailureInfo.push(`Did not find '${ sitePackagesPath }', so looking for python subdirectory`);
             }
 
             // We didn't find a site-packages directory directly in the lib
@@ -65,18 +70,21 @@ export class PythonPathUtils {
                 if (dirName.startsWith('python')) {
                     let dirPath = combinePaths(libPath, dirName, 'site-packages');
                     if (fs.existsSync(dirPath)) {
+                        importFailureInfo.push(`Found path '${ dirPath }'`);
                         return [dirPath];
                     }
                 }
             }
         }
 
+        importFailureInfo.push(`Did not find site-packages. Falling back on python interpreter.`);
+
         // Fall back on the python interpreter.
-        return this.getPythonPathFromPythonInterpreter(configOptions.pythonPath, consoleInterface);
+        return this.getPythonPathFromPythonInterpreter(configOptions.pythonPath, importFailureInfo);
     }
 
     static getPythonPathFromPythonInterpreter(interpreterPath: string | undefined,
-            consoleInterface: ConsoleInterface): string[] {
+            importFailureInfo: string[]): string[] {
 
         const searchKey = interpreterPath || '';
 
@@ -92,9 +100,11 @@ export class PythonPathUtils {
             let execOutput: string;
 
             if (interpreterPath) {
+                importFailureInfo.push(`Executing interpreter at '${ interpreterPath }'`);
                 execOutput = child_process.execFileSync(
                     interpreterPath, commandLineArgs, { encoding: 'utf8' });
             } else {
+                importFailureInfo.push(`Executing python interpreter`);
                 execOutput = child_process.execFileSync(
                     'python', commandLineArgs, { encoding: 'utf8' });
             }
@@ -124,18 +134,20 @@ export class PythonPathUtils {
                 }
 
                 if (pythonPaths.length === 0) {
-                    consoleInterface.error(`Attempted to get python import paths from python interpreter but ` +
-                        `found no valid directories`);
+                    importFailureInfo.push(`Found no valid directories`);
                 }
             } else {
-                consoleInterface.error(`Attempted to get python import paths from python interpreter but ` +
-                    `could not parse output: '${ execOutput }'`);
+                importFailureInfo.push(`Could not parse output: '${ execOutput }'`);
             }
         } catch {
             pythonPaths = [];
         }
 
         cachedSearchPaths[searchKey] = pythonPaths;
+        importFailureInfo.push(`Received ${ pythonPaths.length } paths from interpreter`);
+        pythonPaths.forEach(path => {
+            importFailureInfo.push(`  ${ path }`);
+        });
         return pythonPaths;
     }
 
