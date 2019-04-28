@@ -272,13 +272,20 @@ export class AnalyzerService {
                 }
             }
         } else {
-            const pythonPaths = PythonPathUtils.getPythonPathEnvironmentVariable();
+            const importFailureInfo: string[] = [];
+            const pythonPaths = PythonPathUtils.getPythonPathFromPythonInterpreter(
+                configOptions.pythonPath, importFailureInfo);
             if (pythonPaths.length === 0) {
                 this._console.log(
                     `No venvPath specified, and no search paths found for configured python interpreter.`);
+                if (configOptions.verboseOutput) {
+                    importFailureInfo.forEach(diag => {
+                        this._console.log(`  ${ diag }`);
+                    });
+                }
             } else {
                 this._console.log(
-                    `Using PYTHONPATH directories to resolve imports:`);
+                    `Using python sys.path directories to resolve imports:`);
                 pythonPaths.forEach(path => {
                     this._console.log(`  ${ path }`);
                 });

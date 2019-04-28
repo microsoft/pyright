@@ -11,7 +11,6 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { ConsoleInterface } from '../common/console';
 import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
     getFileSystemEntries, isDirectory, normalizePath } from '../common/pathUtils';
 
@@ -148,29 +147,6 @@ export class PythonPathUtils {
         pythonPaths.forEach(path => {
             importFailureInfo.push(`  ${ path }`);
         });
-        return pythonPaths;
-    }
-
-    static getPythonPathEnvironmentVariable(): string[] {
-        let pythonPaths: string[] = [];
-
-        const rawPythonPath = process.env.PYTHONPATH;
-        if (rawPythonPath) {
-            // Some OSes use semicolon separators, others use colons. We'll support
-            // both here.
-            let separator = rawPythonPath.indexOf(':') >= 0 ? ':' : ';';
-            let pathSplit = rawPythonPath.split(separator);
-            for (let path of pathSplit) {
-                const normalizedPath = normalizePath(path);
-
-                // Make sure the path exists and is a directory. We don't currenlty
-                // support zip files and other formats.
-                if (fs.existsSync(normalizedPath) && isDirectory(normalizedPath)) {
-                    pythonPaths.push(normalizedPath);
-                }
-            }
-        }
-
         return pythonPaths;
     }
 }

@@ -107,7 +107,7 @@ export class ImportResolver {
             }
 
             // Look for the import in the list of third-party packages.
-            if (this._cachedPythonSearchPaths) {
+            if (this._cachedPythonSearchPaths && this._cachedPythonSearchPaths.length > 0) {
                 for (let searchPath of this._cachedPythonSearchPaths) {
                     // Allow partial resolution because some third-party packages
                     // use tricks to populate their package namespaces.
@@ -118,6 +118,8 @@ export class ImportResolver {
                         return thirdPartyImport;
                     }
                 }
+            } else {
+                importFailureInfo.push('No python interpreter search path');
             }
 
             // We weren't able to find an exact match, so return the best
@@ -142,7 +144,7 @@ export class ImportResolver {
     private _findTypeshedPath(moduleDescriptor: ImportedModuleDescriptor, importName: string,
             isStdLib: boolean, importFailureInfo: string[]): ImportResult | undefined {
 
-        importFailureInfo.push('Looking for typeshed path');
+        importFailureInfo.push(`Looking for typeshed ${ isStdLib ? 'stdlib' : 'third_party' } path`);
 
         let typeshedPath = '';
 
