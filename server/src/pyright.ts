@@ -65,6 +65,9 @@ function processArgs() {
     let options = new PyrightCommandLineOptions(process.cwd(), false);
     options.fileSpecs = args.files;
 
+    // Assume any relative paths are relative to the working directory.
+    options.fileSpecs = options.fileSpecs.map(f => combinePaths(process.cwd(), f));
+
     if (args.project) {
         options.configFilePath = combinePaths(process.cwd(), normalizePath(args.project));
     }
