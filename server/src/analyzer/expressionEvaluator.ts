@@ -18,14 +18,13 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     BinaryExpressionNode, CallExpressionNode, ClassNode, ConstantNode,
-    DecoratorNode, DictionaryNode, EllipsisNode, ErrorExpressionNode,
-    ExpressionNode, IndexExpressionNode, IndexItemsNode, LambdaNode,
-    ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode, NumberNode,
-    ParameterCategory, ParseNode, SetNode, SliceExpressionNode,
+    DecoratorNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode,
+    ErrorExpressionNode, ExpressionNode, IndexExpressionNode, IndexItemsNode,
+    LambdaNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
+    NumberNode, ParameterCategory, ParseNode, SetNode, SliceExpressionNode,
     StatementListNode, StringNode, TernaryExpressionNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
-    YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, StringTokenFlags,
     TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -939,7 +938,13 @@ export class ExpressionEvaluator {
         if (indexTypeList.length === 1) {
             indexType = indexTypeList[0];
         } else {
-            indexType = ScopeUtils.getBuiltInObject(this._scope, 'tuple');
+            let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
+            if (builtInTupleType instanceof ClassType) {
+                indexType = TypeUtils.convertClassToObject(
+                    builtInTupleType.cloneForSpecialization(indexTypeList));
+            } else {
+                indexType = UnknownType.create();
+            }
         }
 
         let argList: FunctionArgument[] = [{
@@ -2179,10 +2184,32 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromDictionaryExpression(node: DictionaryNode): TypeResult {
-        let keyType = UnknownType.create();
-        let valueType = UnknownType.create();
+        let keyTypes: Type[] = [];
+        let valueTypes: Type[] = [];
 
-        // TODO - infer key and value types
+        // Infer the key and value types if possible.
+        node.entries.forEach(entryNode => {
+            if (entryNode instanceof DictionaryKeyEntryNode) {
+                keyTypes.push(this._getTypeFromExpression(entryNode.keyExpression).type);
+                valueTypes.push(this._getTypeFromExpression(entryNode.valueExpression).type);
+            } else {
+                keyTypes.push(UnknownType.create());
+                valueTypes.push(UnknownType.create());
+            }
+        });
+
+        let keyType = keyTypes.length > 0 ? TypeUtils.combineTypes(keyTypes) : UnknownType.create();
+        let valueType = valueTypes.length > 0 ? TypeUtils.combineTypes(valueTypes) : UnknownType.create();
+
+        // If the value type is a union, we need to back off
+        // because we can't properly represent the mappings
+        // between different keys and associated value types.
+        // If all the values are the same type, we'll assume
+        // that all values in this dictionary should be the same.
+        if (valueType instanceof UnionType) {
+            valueType = UnknownType.create();
+        }
+
         const type = ScopeUtils.getBuiltInObject(this._scope, 'dict', [keyType, valueType]);
 
         return { type, node };
