@@ -276,19 +276,21 @@ export class AnalyzerService {
             const pythonPaths = PythonPathUtils.getPythonPathFromPythonInterpreter(
                 configOptions.pythonPath, importFailureInfo);
             if (pythonPaths.length === 0) {
-                this._console.log(
-                    `No venvPath specified, and no search paths found for configured python interpreter.`);
                 if (configOptions.verboseOutput) {
+                    this._console.log(
+                        `No venvPath specified, and no search paths found for configured python interpreter.`);
                     importFailureInfo.forEach(diag => {
                         this._console.log(`  ${ diag }`);
                     });
                 }
             } else {
-                this._console.log(
-                    `Using python sys.path directories to resolve imports:`);
-                pythonPaths.forEach(path => {
-                    this._console.log(`  ${ path }`);
-                });
+                if (configOptions.verboseOutput) {
+                    this._console.log(
+                        `Using python sys.path directories to resolve imports:`);
+                    pythonPaths.forEach(path => {
+                        this._console.log(`  ${ path }`);
+                    });
+                }
             }
         }
 
