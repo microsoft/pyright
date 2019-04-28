@@ -245,6 +245,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let functionFlags = FunctionTypeFlags.None;
         if (node.name.nameToken.value === '__new__') {
             functionFlags |= FunctionTypeFlags.StaticMethod;
+            functionFlags |= FunctionTypeFlags.ConstructorMethod;
             functionFlags &= ~FunctionTypeFlags.InstanceMethod;
         }
 

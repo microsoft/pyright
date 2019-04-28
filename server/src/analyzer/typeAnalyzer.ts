@@ -298,7 +298,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 this.walk(param.typeAnnotation);
-            } else if (index === 0 && (functionType.isInstanceMethod() || functionType.isClassMethod())) {
+            } else if (index === 0 && (
+                    functionType.isInstanceMethod() ||
+                    functionType.isClassMethod() ||
+                    functionType.isConstructorMethod())) {
+
                 // Specify type of "self" or "cls" parameter for instance or class methods
                 // if the type is not explicitly provided.
                 if (containingClassType) {
@@ -314,7 +318,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 if (functionType.setParameterType(index, new ObjectType(specializedClassType))) {
                                     this._setAnalysisChanged();
                                 }
-                            } else if (functionType.isClassMethod()) {
+                            } else if (functionType.isClassMethod() || functionType.isConstructorMethod()) {
                                 // For class methods, the cls parameter is allowed to skip the
                                 // abstract class test because the caller is possibly passing
                                 // in a non-abstract subclass.
@@ -327,6 +331,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         }
                     }
                 }
+            } else {
+                // There is no annotation, and we can't infer the type.
+                if (param.name && param.category === ParameterCategory.Simple) {
+                    this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameter,
+                        `Type of '${ param.name.nameToken.value }' is unknown`,
+                        param.name);
+                }
             }
         });
 
@@ -337,11 +348,26 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             this.walk(node.returnTypeAnnotation);
-        } else if (this._fileInfo.isStubFile) {
-            // If a return type annotation is missing in a stub file, assume
-            // it's an "unknown" type. In normal source files, we can infer the
-            // type from the implementation.
-            functionType.setDeclaredReturnType(UnknownType.create());
+        } else {
+            let inferredReturnType: Type = UnknownType.create();
+
+            if (this._fileInfo.isStubFile) {
+                // If a return type annotation is missing in a stub file, assume
+                // it's an "unknown" type. In normal source files, we can infer the
+                // type from the implementation.
+                functionType.setDeclaredReturnType(inferredReturnType);
+            } else {
+                inferredReturnType = functionType.getInferredReturnType().getType();
+            }
+
+            if (inferredReturnType instanceof UnknownType) {
+                this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameter,
+                    `Return type is unknown`, node.name);
+            } else if (TypeUtils.containsUnknown(inferredReturnType)) {
+                this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameter,
+                    `Return type '${ inferredReturnType.asString() }' is partially unknown`,
+                    node.name);
+            }
         }
 
         let functionScope = this._enterScope(node, () => {

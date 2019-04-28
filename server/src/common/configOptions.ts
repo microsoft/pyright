@@ -125,6 +125,9 @@ export class ConfigOptions {
     // Report usage of invalid escape sequences in string literals?
     reportInvalidStringEscapeSequence: DiagnosticLevel = 'warning';
 
+    // Report usage of unknown input or return parameters?
+    reportUnknownParameter: DiagnosticLevel = 'none';
+
     //---------------------------------------------------------------
     // Parsing and Import Resolution Settings
 
@@ -284,6 +287,10 @@ export class ConfigOptions {
         // Read the "reportInvalidStringEscapeSequence" entry.
         this.reportInvalidStringEscapeSequence = this._convertDiagnosticLevel(
             configObj.reportInvalidStringEscapeSequence, 'reportInvalidStringEscapeSequence', 'warning');
+
+        // Read the "reportUnknownParameter" entry.
+        this.reportUnknownParameter = this._convertDiagnosticLevel(
+            configObj.reportUnknownParameter, 'reportUnknownParameter', 'none');
 
         // Read the "venvPath".
         this.venvPath = undefined;

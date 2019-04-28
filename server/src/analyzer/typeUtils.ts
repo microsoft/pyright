@@ -1045,6 +1045,45 @@ export class TypeUtils {
         this._getMembersForClassRecursive(classType, symbolTable, includeInstanceVars);
     }
 
+    static containsUnknown(type: Type, recursionCount = 0): boolean {
+        if (recursionCount > MaxTypeRecursion) {
+            return false;
+        }
+
+        if (type instanceof UnknownType) {
+            return true;
+        }
+
+        if (type instanceof UnionType) {
+            for (const subtype of type.getTypes()) {
+                if (this.containsUnknown(subtype, recursionCount + 1)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (type instanceof ObjectType) {
+            return this.containsUnknown(type.getClassType(), recursionCount + 1);
+        }
+
+        if (type instanceof ClassType) {
+            const typeArgs = type.getTypeArguments();
+            if (typeArgs) {
+                for (const argType of typeArgs) {
+                    if (this.containsUnknown(argType, recursionCount + 1)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
     private static _getMembersForClassRecursive(classType: ClassType,
             symbolTable: SymbolTable, includeInstanceVars: boolean,
             recursionCount = 0) {

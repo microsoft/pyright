@@ -619,10 +619,11 @@ export interface FunctionParameter {
 export enum FunctionTypeFlags {
     None = 0,
     InstanceMethod = 1,
-    ClassMethod = 2,
-    StaticMethod = 4,
-    AbstractMethod = 8,
-    DisableDefaultChecks = 16
+    ConstructorMethod = 2,
+    ClassMethod = 4,
+    StaticMethod = 8,
+    AbstractMethod = 16,
+    DisableDefaultChecks = 32
 }
 
 interface FunctionDetails {
@@ -709,6 +710,10 @@ export class FunctionType extends Type {
 
     setIsInstanceMethod() {
         this._functionDetails.flags |= FunctionTypeFlags.InstanceMethod;
+    }
+
+    isConstructorMethod(): boolean {
+        return (this._functionDetails.flags & FunctionTypeFlags.ConstructorMethod) !== 0;
     }
 
     isStaticMethod(): boolean {
