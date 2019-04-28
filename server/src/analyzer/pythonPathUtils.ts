@@ -53,30 +53,45 @@ export class PythonPathUtils {
 
         if (venvPath) {
             let libPath = combinePaths(venvPath, 'lib');
-            let sitePackagesPath = combinePaths(libPath, 'site-packages');
-            if (fs.existsSync(sitePackagesPath)) {
-                importFailureInfo.push(`Found path '${ sitePackagesPath }'`);
-                return [sitePackagesPath];
+            if (fs.existsSync(libPath)) {
+                importFailureInfo.push(`Found path '${ libPath }'; looking for site-packages`);
             } else {
-                importFailureInfo.push(`Did not find '${ sitePackagesPath }', so looking for python subdirectory`);
+                importFailureInfo.push(`Did not find '${ libPath }'; trying 'Lib' instead`);
+                libPath = combinePaths(venvPath, 'Lib');
+                if (fs.existsSync(libPath)) {
+                    importFailureInfo.push(`Found path '${ libPath }'; looking for site-packages`);
+                } else {
+                    importFailureInfo.push(`Did not find '${ libPath }'`);
+                    libPath = '';
+                }
             }
 
-            // We didn't find a site-packages directory directly in the lib
-            // directory. Scan for a "python*" directory instead.
-            let entries = getFileSystemEntries(libPath);
-            for (let i = 0; i < entries.directories.length; i++) {
-                let dirName = entries.directories[i];
-                if (dirName.startsWith('python')) {
-                    let dirPath = combinePaths(libPath, dirName, 'site-packages');
-                    if (fs.existsSync(dirPath)) {
-                        importFailureInfo.push(`Found path '${ dirPath }'`);
-                        return [dirPath];
+            if (libPath) {
+                let sitePackagesPath = combinePaths(libPath, 'site-packages');
+                if (fs.existsSync(sitePackagesPath)) {
+                    importFailureInfo.push(`Found path '${ sitePackagesPath }'`);
+                    return [sitePackagesPath];
+                } else {
+                    importFailureInfo.push(`Did not find '${ sitePackagesPath }', so looking for python subdirectory`);
+                }
+
+                // We didn't find a site-packages directory directly in the lib
+                // directory. Scan for a "python*" directory instead.
+                let entries = getFileSystemEntries(libPath);
+                for (let i = 0; i < entries.directories.length; i++) {
+                    let dirName = entries.directories[i];
+                    if (dirName.startsWith('python')) {
+                        let dirPath = combinePaths(libPath, dirName, 'site-packages');
+                        if (fs.existsSync(dirPath)) {
+                            importFailureInfo.push(`Found path '${ dirPath }'`);
+                            return [dirPath];
+                        }
                     }
                 }
             }
-        }
 
-        importFailureInfo.push(`Did not find site-packages. Falling back on python interpreter.`);
+            importFailureInfo.push(`Did not find site-packages. Falling back on python interpreter.`);
+        }
 
         // Fall back on the python interpreter.
         return this.getPythonPathFromPythonInterpreter(configOptions.pythonPath, importFailureInfo);
