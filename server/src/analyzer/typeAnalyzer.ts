@@ -861,6 +861,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 allPathsRaise = false;
             }
             this._mergeToCurrentScope(elseScope);
+        } else {
+            allPathsRaise = false;
         }
 
         // If we can't prove that exceptions will propagate beyond
