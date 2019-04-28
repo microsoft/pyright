@@ -95,6 +95,7 @@ export class TestUtils {
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(filePath),
             configOptions,
+            useStrictMode: false,
             lines: parseResults.lines,
             filePath,
             isStubFile: filePath.endsWith('.pyi'),

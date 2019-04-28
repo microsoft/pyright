@@ -26,6 +26,7 @@ import { TestWalker } from '../tests/testWalker';
 import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
+import { CommentUtils, FileLevelDirectives } from './commentUtils';
 import { CompletionProvider } from './completionProvider';
 import { DefinitionProvider } from './definitionProvider';
 import { HoverProvider } from './hoverProvider';
@@ -54,6 +55,7 @@ export interface AnalysisJob {
     nextPhaseToRun: AnalysisPhase;
     parseTreeNeedsCleaning: boolean;
     parseResults?: ParseResults;
+    fileLevelDirectives?: FileLevelDirectives;
 
     parseDiagnostics: Diagnostic[];
     semanticAnalysisDiagnostics: Diagnostic[];
@@ -375,6 +377,9 @@ export class SourceFile {
             [this._analysisJob.imports, this._analysisJob.builtinsImport, this._analysisJob.typingModulePath] =
                 this._resolveImports(walker.getImportedModules(), configOptions, execEnvironment);
             this._analysisJob.parseDiagnostics = diagSink.diagnostics;
+
+            this._analysisJob.fileLevelDirectives = CommentUtils.getFileLevelDirectives(
+                this._analysisJob.parseResults.tokens);
         } catch (e) {
             let message: string;
             if (e instanceof Error) {
@@ -564,6 +569,8 @@ export class SourceFile {
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
             configOptions,
+            useStrictMode: !!this._analysisJob.fileLevelDirectives &&
+                this._analysisJob.fileLevelDirectives.useStrictMode,
             lines: this._analysisJob.parseResults!.lines,
             filePath: this._filePath,
             isStubFile: this._isStubFile,

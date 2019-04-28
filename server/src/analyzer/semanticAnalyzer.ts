@@ -171,8 +171,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let sawMetaclass = false;
         let nonMetaclassBaseClassCount = 0;
         let evaluator = new ExpressionEvaluator(this._currentScope,
-            this._fileInfo.configOptions, this._fileInfo.executionEnvironment,
-            this._fileInfo.diagnosticSink);
+            this._fileInfo.configOptions, this._fileInfo.useStrictMode,
+            this._fileInfo.executionEnvironment, this._fileInfo.diagnosticSink);
         node.arguments.forEach(arg => {
             let argType: Type;
 
@@ -855,7 +855,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
-        if (diagLevel === 'error') {
+        if (diagLevel === 'error' || this._fileInfo.useStrictMode) {
             this._addError(message, textRange);
         } else if (diagLevel === 'warning') {
             this._addWarning(message, textRange);

@@ -110,6 +110,7 @@ export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) =>
 export class ExpressionEvaluator {
     private _scope: Scope;
     private _configOptions: ConfigOptions;
+    private _useStrictMode: boolean;
     private _executionEnvironment: ExecutionEnvironment;
     private _expressionTypeConstraints: TypeConstraint[] = [];
     private _diagnosticSink?: TextRangeDiagnosticSink;
@@ -117,12 +118,13 @@ export class ExpressionEvaluator {
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
 
     constructor(scope: Scope, configOptions: ConfigOptions,
-            executionEnvironment: ExecutionEnvironment,
+            useStrictMode: boolean, executionEnvironment: ExecutionEnvironment,
             diagnosticSink?: TextRangeDiagnosticSink,
             readTypeCallback?: ReadTypeFromNodeCacheCallback,
             writeTypeCallback?: WriteTypeToNodeCacheCallback) {
         this._scope = scope;
         this._configOptions = configOptions;
+        this._useStrictMode = useStrictMode;
         this._executionEnvironment = executionEnvironment;
         this._diagnosticSink = diagnosticSink;
         this._readTypeFromCache = readTypeCallback;
@@ -2745,7 +2747,7 @@ export class ExpressionEvaluator {
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
-        if (diagLevel === 'error') {
+        if (diagLevel === 'error' || this._useStrictMode) {
             this._addError(message, textRange);
         } else if (diagLevel === 'warning') {
             this._addWarning(message, textRange);

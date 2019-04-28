@@ -171,15 +171,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
 
-            if (this._fileInfo.configOptions.reportUntypedBaseClass !== 'none') {
-                if (argType instanceof UnknownType ||
-                        argType instanceof UnionType && argType.getTypes().some(t => t instanceof UnknownType)) {
+            if (argType instanceof UnknownType ||
+                    argType instanceof UnionType && argType.getTypes().some(t => t instanceof UnknownType)) {
 
-                    this._addDiagnostic(
-                        this._fileInfo.configOptions.reportUntypedBaseClass,
-                        `Base class type is unknown, obscuring type of derived class`,
-                        arg);
-                }
+                this._addDiagnostic(
+                    this._fileInfo.configOptions.reportUntypedBaseClass,
+                    `Base class type is unknown, obscuring type of derived class`,
+                    arg);
             }
 
             if (classType.updateBaseClassType(index, argType)) {
@@ -1467,7 +1465,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _conditionallyReportPrivateUsage(node: NameNode) {
-        if (this._fileInfo.configOptions.reportPrivateUsage === 'none') {
+        if (this._fileInfo.configOptions.reportPrivateUsage === 'none' &&
+                !this._fileInfo.useStrictMode) {
+
             return;
         }
 
@@ -2633,7 +2633,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
-        if (diagLevel === 'error') {
+        if (diagLevel === 'error' || this._fileInfo.useStrictMode) {
             this._addError(message, textRange);
         } else if (diagLevel === 'warning') {
             this._addWarning(message, textRange);
@@ -2661,7 +2661,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return new ExpressionEvaluator(this._currentScope,
-            this._fileInfo.configOptions,
+            this._fileInfo.configOptions, this._fileInfo.useStrictMode,
             this._fileInfo.executionEnvironment,
             diagSink, node => this._readTypeFromNodeCache(node),
             (node, type) => {
