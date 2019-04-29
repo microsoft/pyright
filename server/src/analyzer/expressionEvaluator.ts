@@ -237,7 +237,7 @@ export class ExpressionEvaluator {
                 this._configOptions.reportOptionalIterable,
                 `Object of type 'None' cannot be used as iterable value`,
                 errorNode);
-            type = type.removeOptional();
+            type = TypeUtils.removeNoneFromUnion(type);
         }
 
         return TypeUtils.doForSubtypes(type, subtype => {
@@ -1871,7 +1871,7 @@ export class ExpressionEvaluator {
                     `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                     `supported for 'None' type`,
                     node.expression);
-                exprType = (exprType as UnionType).removeOptional();
+                exprType = TypeUtils.removeNoneFromUnion(exprType);
             }
         }
 
@@ -1967,7 +1967,7 @@ export class ExpressionEvaluator {
                         `supported for 'None' type`,
                         node.leftExpression);
                 }
-                leftType = (leftType as UnionType).removeOptional();
+                leftType = TypeUtils.removeNoneFromUnion(leftType);
             }
 
             if (TypeUtils.isOptionalType(rightType)) {
@@ -1980,7 +1980,7 @@ export class ExpressionEvaluator {
                         `supported for 'None' type`,
                         node.rightExpression);
                 }
-                rightType = (rightType as UnionType).removeOptional();
+                rightType = TypeUtils.removeNoneFromUnion(rightType);
             }
         }
 
@@ -2231,9 +2231,16 @@ export class ExpressionEvaluator {
         if (type instanceof ClassType) {
             const entryTypes = node.entries.map(entry => this._getTypeFromExpression(entry));
 
-            const listEntryType = entryTypes.length > 0 ?
+            let listEntryType = entryTypes.length > 0 ?
                 TypeUtils.combineTypes(entryTypes.map(e => e.type)) :
                 UnknownType.create();
+
+            // If the list contains only one type, we'll assume the list is
+            // homogeneous. Otherwise, we'll avoid making assumptions about
+            // the list entry type.
+            if (listEntryType instanceof UnionType) {
+                listEntryType = UnknownType.create();
+            }
 
             type = type.cloneForSpecialization([listEntryType]);
 

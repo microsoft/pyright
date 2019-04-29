@@ -144,7 +144,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // on platform type). We'll assume that the conditional logic is correct
             // and strip off the "unbound" union.
             if (argType instanceof UnionType) {
-                argType = argType.removeUnbound();
+                argType = TypeUtils.removeUnboundFromUnion(argType);
             }
 
             if (!argType.isAny() && argType.category !== TypeCategory.Class) {
@@ -677,7 +677,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._fileInfo.configOptions.reportOptionalContextManager,
                     `Object of type 'None' cannot be used with 'with'`,
                     node);
-                exprType = (exprType as UnionType).removeOptional();
+                exprType = TypeUtils.removeNoneFromUnion(exprType);
             }
 
             const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
@@ -1431,12 +1431,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         primaryDecl.category !== SymbolCategory.Parameter) {
                     const effectiveType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
 
-                    if (effectiveType instanceof UnknownType) {
+                    const simplifiedType = TypeUtils.removeUnboundFromUnion(effectiveType);
+                    if (simplifiedType instanceof UnknownType) {
                         this._addDiagnostic(diagLevel,
                             `Inferred type of '${ name }' is unknown`, primaryDecl.node);
-                    } else if (TypeUtils.containsUnknown(effectiveType)) {
+                    } else if (TypeUtils.containsUnknown(simplifiedType)) {
+                        // Sometimes variables contain an "unbound" type if they're
+                        // assigned only within conditional statements. Remove this
+                        // to avoid confusion.
                         this._addDiagnostic(diagLevel,
-                            `Inferred type of '${ name }', '${ effectiveType.asString() }', ` +
+                            `Inferred type of '${ name }', '${ simplifiedType.asString() }', ` +
                             `is partially unknown`, primaryDecl.node);
                     }
                 }
@@ -2306,7 +2310,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // us from ever converging. Detect this rare condition here.
             if (this._analysisVersion > CheckForBeatingUnknownPassCount) {
                 if (oldType && exprType instanceof UnionType) {
-                    let simplifiedExprType = exprType.removeUnknown();
+                    let simplifiedExprType = TypeUtils.removeUnknownFromUnion(exprType);
                     if (oldType.isSame(simplifiedExprType)) {
                         replaceType = false;
                     }

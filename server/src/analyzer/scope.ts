@@ -218,6 +218,13 @@ export class Scope {
                     continue;
                 }
 
+                // This is a hack that's currently required to avoid merging
+                // the synthesized "super" name.
+                // TODO - fix this
+                if (name === 'super') {
+                    continue;
+                }
+
                 // Always merge non-local scopes conditionally.
                 if (scopeWithName.scope !== this) {
                     mergeConditional = true;

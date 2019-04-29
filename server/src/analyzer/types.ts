@@ -421,12 +421,12 @@ export class ClassType extends Type {
     }
 
     isSame(type2: Type, recursionCount = 0): boolean {
-        if (recursionCount > MaxRecursionCount) {
-            return true;
+        if (!super.isSame(type2, recursionCount)) {
+            return false;
         }
 
-        if (!super.isSame(type2, recursionCount + 1)) {
-            return false;
+        if (recursionCount > MaxRecursionCount) {
+            return true;
         }
 
         let classType2 = type2 as ClassType;
@@ -588,12 +588,16 @@ export class ObjectType extends Type {
     }
 
     isSame(type2: Type, recursionCount = 0): boolean {
+        if (!super.isSame(type2, recursionCount)) {
+            return false;
+        }
+
         if (recursionCount > MaxRecursionCount) {
             return true;
         }
 
-        return super.isSame(type2, recursionCount + 1) &&
-            this._classType.isSame((type2 as ObjectType)._classType, recursionCount + 1);
+        const objType = type2 as ObjectType;
+        return this._classType.isSame(objType._classType, recursionCount + 1);
     }
 
     asStringInternal(recursionCount = 0): string {
@@ -874,6 +878,51 @@ export class FunctionType extends Type {
 
         return false;
     }
+
+    isSame(type2: Type, recursionCount = 0): boolean {
+        if (!super.isSame(type2, recursionCount)) {
+            return false;
+        }
+
+        if (recursionCount > MaxRecursionCount) {
+            return true;
+        }
+
+        // Make sure the parameter counts match.
+        const functionType = type2 as FunctionType;
+        if (this._functionDetails.parameters.length !== functionType._functionDetails.parameters.length) {
+            return false;
+        }
+
+        // Make sure the parameter details match.
+        for (let i = 0; i < this._functionDetails.parameters.length; i++) {
+            const param1 = this._functionDetails.parameters[i];
+            const param2 = functionType._functionDetails.parameters[i];
+
+            if (param1.category !== param2.category) {
+                return false;
+            }
+
+            if (param1.name !== param2.name) {
+                return false;
+            }
+
+            const param1Type = this.getEffectiveParameterType(i);
+            const param2Type = functionType.getEffectiveParameterType(i);
+            if (!param1Type.isSame(param2Type, recursionCount + 1)) {
+                return false;
+            }
+        }
+
+        // Make sure the return types match.
+        const return1Type = this.getEffectiveReturnType();
+        const return2Type = functionType.getEffectiveReturnType();
+        if (!return1Type.isSame(return2Type, recursionCount + 1)) {
+            return false;
+        }
+
+        return true;
+    }
 }
 
 export interface OverloadedFunctionEntry {
@@ -1080,39 +1129,6 @@ export class UnionType extends Type {
         }
     }
 
-    // Eliminates any "None" elements from the union.
-    removeOptional(): Type {
-        let simplifiedTypes = this._types.filter(t => t.category !== TypeCategory.None);
-        if (simplifiedTypes.length === 1) {
-            return simplifiedTypes[0];
-        }
-        let newUnion = new UnionType();
-        newUnion.addTypes(simplifiedTypes);
-        return newUnion;
-    }
-
-    // Eliminates any "Unbound" elements from the union.
-    removeUnbound(): Type {
-        let simplifiedTypes = this._types.filter(t => t.category !== TypeCategory.Unbound);
-        if (simplifiedTypes.length === 1) {
-            return simplifiedTypes[0];
-        }
-        let newUnion = new UnionType();
-        newUnion.addTypes(simplifiedTypes);
-        return newUnion;
-    }
-
-    // Eliminates any "Unknown" elements from the union.
-    removeUnknown(): Type {
-        let simplifiedTypes = this._types.filter(t => t.category !== TypeCategory.Unknown);
-        if (simplifiedTypes.length === 1) {
-            return simplifiedTypes[0];
-        }
-        let newUnion = new UnionType();
-        newUnion.addTypes(simplifiedTypes);
-        return newUnion;
-    }
-
     isSame(type2: Type, recursionCount = 0): boolean {
         if (recursionCount > MaxRecursionCount) {
             return true;
@@ -1128,7 +1144,7 @@ export class UnionType extends Type {
 
         // The types do not have a particular order, so we need to
         // do the comparison in an order-independent manner.
-        return this._types.find(t => !type2.containsType(t, recursionCount)) === undefined;
+        return this._types.find(t => !type2.containsType(t, recursionCount + 1)) === undefined;
     }
 
     containsType(type: Type, recursionCount = 0): boolean {
@@ -1138,7 +1154,7 @@ export class UnionType extends Type {
     asStringInternal(recursionCount = 0): string {
         if (this._types.find(t => t.category === TypeCategory.None) !== undefined) {
             const optionalType = recursionCount < MaxRecursionCount ?
-                this.removeOptional().asStringInternal(recursionCount + 1) : '';
+                this._removeOptional().asStringInternal(recursionCount + 1) : '';
             return 'Optional[' + optionalType + ']';
         }
 
@@ -1151,6 +1167,18 @@ export class UnionType extends Type {
     requiresSpecialization(recursionCount = 0) {
         return this._types.find(
             type => type.requiresSpecialization(recursionCount + 1)) !== undefined;
+    }
+
+    // Private version of TypeUtils.removeNoneFromUnion. We need to
+    // define this version to avoid a circular reference.
+    private _removeOptional(): Type {
+        let simplifiedTypes = this._types.filter(t => t.category !== TypeCategory.None);
+        if (simplifiedTypes.length === 1) {
+            return simplifiedTypes[0];
+        }
+        let newUnion = new UnionType();
+        newUnion.addTypes(simplifiedTypes);
+        return newUnion;
     }
 }
 
@@ -1205,11 +1233,7 @@ export class TypeVarType extends Type {
     }
 
     isSame(type2: Type, recursionCount = 0): boolean {
-        if (recursionCount > MaxRecursionCount) {
-            return true;
-        }
-
-        if (!super.isSame(type2, recursionCount + 1)) {
+        if (!super.isSame(type2, recursionCount)) {
             return false;
         }
 

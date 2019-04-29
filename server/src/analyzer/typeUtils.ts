@@ -16,8 +16,8 @@ import { DefaultTypeSourceId } from './inferredType';
 import { Declaration, Symbol, SymbolTable } from './symbol';
 import { AnyType, ClassType, FunctionType,
     InheritanceChain, ModuleType, NeverType, NoneType, ObjectType,
-    OverloadedFunctionType, SpecializedFunctionTypes, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
+    OverloadedFunctionEntry, OverloadedFunctionType, SpecializedFunctionTypes, Type,
+    TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
 
 const MaxTypeRecursion = 20;
 
@@ -495,6 +495,11 @@ export class TypeUtils {
                 recursionLevel + 1);
         }
 
+        if (type instanceof OverloadedFunctionType) {
+            return this._specializeOverloadedFunctionType(type, typeVarMap,
+                recursionLevel + 1);
+        }
+
         return type;
     }
 
@@ -850,12 +855,36 @@ export class TypeUtils {
         return false;
     }
 
-    // If the type is a union, it removes any "unknown" or "any" type
+    // If the type is a union, remove any "unknown" or "any" type
     // from the union, returning only the known types.
     static removeAnyFromUnion(type: Type): Type {
+        return this.removeFromUnion(type, (t: Type) => t.isAny());
+    }
+
+    // If the type is a union, remvoe an "unknown" type from the union,
+    // returning only the known types.
+    static removeUnknownFromUnion(type: Type): Type {
+        return this.removeFromUnion(type, (t: Type) => t.category === TypeCategory.Unknown);
+    }
+
+    // If the type is a union, remvoe an "unbound" type from the union,
+    // returning only the known types.
+    static removeUnboundFromUnion(type: Type): Type {
+        return this.removeFromUnion(type, (t: Type) => t.category === TypeCategory.Unbound);
+    }
+
+    // If the type is a union, remvoe an "None" type from the union,
+    // returning only the known types.
+    static removeNoneFromUnion(type: Type): Type {
+        return this.removeFromUnion(type, (t: Type) => t.category === TypeCategory.None);
+    }
+
+    static removeFromUnion(type: Type, removeFilter: (type: Type) => boolean) {
         if (type instanceof UnionType) {
-            let remainingTypes = type.getTypes().filter(t => !t.isAny());
-            return this.combineTypes(remainingTypes);
+            const remainingTypes = type.getTypes().filter(t => !removeFilter(t));
+            if (remainingTypes.length < type.getTypes().length) {
+                return this.combineTypes(remainingTypes);
+            }
         }
 
         return type;
@@ -1492,6 +1521,28 @@ export class TypeUtils {
         );
 
         return TypeUtils.combineTypes(concreteTypes);
+    }
+
+    private static _specializeOverloadedFunctionType(type: OverloadedFunctionType,
+            typeVarMap: TypeVarMap | undefined, recursionLevel: number): OverloadedFunctionType {
+
+        // Specialize each of the functions in the overload.
+        const overloads = type.getOverloads().map(entry => {
+            const newEntry: OverloadedFunctionEntry = {
+                type: this._specializeFunctionType(entry.type, typeVarMap, recursionLevel),
+                typeSourceId: entry.typeSourceId
+            };
+
+            return newEntry;
+        });
+
+        // Construct a new overload with the specialized function types.
+        const newOverloadType = new OverloadedFunctionType();
+        overloads.forEach(overload => {
+            newOverloadType.addOverload(overload.typeSourceId, overload.type);
+        });
+
+        return newOverloadType;
     }
 
     private static _specializeFunctionType(functionType: FunctionType,
