@@ -303,6 +303,7 @@ test('Strings: single quote escape', () => {
     assert.equal(stringToken.type, TokenType.String);
     assert.equal(stringToken.flags, StringTokenFlags.SingleQuote);
     assert.equal(stringToken.length, 12);
+    assert.equal(stringToken.prefixLength, 0);
     assert.equal(stringToken.value, '\'quoted\'');
 });
 
@@ -341,7 +342,7 @@ test('Strings: single quoted f-string ', () => {
 
     const stringToken = results.tokens.getItemAt(2) as StringToken;
     assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote);
+    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
     assert.equal(stringToken.length, 9);
     assert.equal(stringToken.value, 'quoted');
 });
@@ -358,7 +359,7 @@ test('Strings: double quoted f-string ', () => {
 
     const stringToken = results.tokens.getItemAt(4) as StringToken;
     assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Format);
     assert.equal(stringToken.length, 9);
     assert.equal(stringToken.value, 'quoted');
 });
@@ -372,7 +373,7 @@ test('Strings: single quoted multiline f-string ', () => {
     const stringToken = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken.type, TokenType.String);
     assert.equal(stringToken.flags,
-        StringTokenFlags.SingleQuote | StringTokenFlags.Triplicate);
+        StringTokenFlags.SingleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format);
     assert.equal(stringToken.length, 13);
     assert.equal(stringToken.value, 'quoted');
 });
@@ -385,7 +386,7 @@ test('Strings: double quoted multiline f-string ', () => {
     const stringToken = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken.type, TokenType.String);
     assert.equal(stringToken.flags,
-        StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate);
+        StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format);
     assert.equal(stringToken.length, 14);
     assert.equal(stringToken.value, 'quoted ');
 });
@@ -434,6 +435,7 @@ test('Strings: b/u/r-string', () => {
         StringTokenFlags.Bytes);
     assert.equal(stringToken0.length, 4);
     assert.equal(stringToken0.value, 'b');
+    assert.equal(stringToken0.prefixLength, 1);
 
     const stringToken1 = results.tokens.getItemAt(1) as StringToken;
     assert.equal(stringToken1.type, TokenType.String);
@@ -441,6 +443,7 @@ test('Strings: b/u/r-string', () => {
         StringTokenFlags.SingleQuote | StringTokenFlags.Unicode);
     assert.equal(stringToken1.length, 4);
     assert.equal(stringToken1.value, 'u');
+    assert.equal(stringToken1.prefixLength, 1);
 
     const stringToken2 = results.tokens.getItemAt(2) as StringToken;
     assert.equal(stringToken2.type, TokenType.String);
@@ -448,6 +451,7 @@ test('Strings: b/u/r-string', () => {
         StringTokenFlags.Bytes | StringTokenFlags.Raw);
     assert.equal(stringToken2.length, 6);
     assert.equal(stringToken2.value, 'br');
+    assert.equal(stringToken2.prefixLength, 2);
 
     const stringToken3 = results.tokens.getItemAt(3) as StringToken;
     assert.equal(stringToken3.type, TokenType.String);
@@ -455,6 +459,7 @@ test('Strings: b/u/r-string', () => {
         StringTokenFlags.Unicode | StringTokenFlags.Raw);
     assert.equal(stringToken3.length, 6);
     assert.equal(stringToken3.value, 'ur');
+    assert.equal(stringToken3.prefixLength, 2);
 });
 
 test('Strings: bytes string with non-ASCII', () => {

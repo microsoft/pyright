@@ -2236,7 +2236,8 @@ export class Parser {
         const typeString = match[2];
         const tokenOffset = curToken.end + match[1].length;
         const stringToken = new StringToken(tokenOffset,
-            typeString.length, StringTokenFlags.None, typeString, undefined, undefined);
+            typeString.length, StringTokenFlags.None, typeString, 0,
+            undefined, undefined);
         const stringNode = new StringNode([stringToken]);
 
         let parser = new Parser();
@@ -2267,28 +2268,37 @@ export class Parser {
 
         // If we're parsing a type annotation, parse the contents of the string.
         if (this._isParsingTypeAnnotation) {
+            // Don't allow multiple strings because we have no way of reporting
+            // parse errors that span strings.
             if (stringNode.tokens.length > 1) {
                 this._addError('Type hints cannot span multiple string literals', stringNode);
             } else if (stringNode.tokens[0].flags & StringTokenFlags.Triplicate) {
                 this._addError('Type hints cannot use triple quotes', stringNode);
-            } else if (stringNode.tokens[0].flags &
-                    (StringTokenFlags.Raw | StringTokenFlags.Unicode | StringTokenFlags.Bytes)) {
-                this._addError('Type hints cannot use raw, unicode or byte string literals', stringNode);
-            } else if (stringNode.tokens[0].value.length !== stringNode.tokens[0].length - 2) {
-                this._addError('Type hints cannot contain escape characters', stringNode);
+            } else if (stringNode.tokens[0].flags & StringTokenFlags.Format) {
+                this._addError('Type hints cannot use format string literals', stringNode);
             } else {
-                let stringValue = stringNode.tokens[0].value;
-                let tokenOffset = stringNode.tokens[0].start;
-                let parser = new Parser();
-                let parseResults = parser.parseTextExpression(this._fileContents!,
-                    tokenOffset + 1, stringValue.length, this._parseOptions);
+                const stringValue = stringNode.tokens[0].value;
+                const tokenOffset = stringNode.tokens[0].start;
 
-                parseResults.diagnostics.forEach(diag => {
-                    this._addError(diag.message, stringNode);
-                });
+                // Add one character to the prefix to also include the quote.
+                const prefixLength = stringNode.tokens[0].prefixLength + 1;
 
-                if (parseResults.parseTree) {
-                    stringNode.typeAnnotation = parseResults.parseTree;
+                // Don't allow escape characters because we have no way of mapping
+                // error ranges back to the escaped text.
+                if (stringNode.tokens[0].value.length !== stringNode.tokens[0].length - prefixLength - 1) {
+                    this._addError('Type hints cannot contain escape characters', stringNode);
+                } else {
+                    let parser = new Parser();
+                    let parseResults = parser.parseTextExpression(this._fileContents!,
+                        tokenOffset + prefixLength, stringValue.length, this._parseOptions);
+
+                    parseResults.diagnostics.forEach(diag => {
+                        this._addError(diag.message, stringNode);
+                    });
+
+                    if (parseResults.parseTree) {
+                        stringNode.typeAnnotation = parseResults.parseTree;
+                    }
                 }
             }
         }

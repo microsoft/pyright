@@ -774,6 +774,10 @@ export class Tokenizer {
                 case 'r':
                     flags |= StringTokenFlags.Raw;
                     break;
+
+                case 'f':
+                    flags |= StringTokenFlags.Format;
+                    break;
             }
         }
 
@@ -806,7 +810,8 @@ export class Tokenizer {
         let end = this._cs.position;
 
         this._tokens.push(new StringToken(start, end - start, stringLiteralInfo.flags,
-            stringLiteralInfo.value, stringLiteralInfo.invalidEscapeOffsets, this._getComments()));
+            stringLiteralInfo.value, stringPrefixLength, stringLiteralInfo.invalidEscapeOffsets,
+            this._getComments()));
     }
 
     private _skipToEndOfStringLiteral(flags: StringTokenFlags, startPosition: number): StringScannerOutput {

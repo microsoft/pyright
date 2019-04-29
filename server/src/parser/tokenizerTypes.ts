@@ -152,6 +152,7 @@ export enum StringTokenFlags {
     Raw = 0x8,
     Unicode = 0x10,
     Bytes = 0x20,
+    Format = 0x40,
 
     // Error conditions
     Unterminated = 0x1000,
@@ -234,12 +235,18 @@ export class StringToken extends Token {
     readonly value: string;
     readonly invalidEscapeOffsets: number[] | undefined;
 
+    // Number of characters in token that appear before
+    // the quote marks (e.g. "r" or "UR").
+    readonly prefixLength: number;
+
     constructor(start: number, length: number, flags: StringTokenFlags, value: string,
-            invalidEscapeOffsets: number[] | undefined, comments: Comment[] | undefined) {
+            prefixLength: number, invalidEscapeOffsets: number[] | undefined,
+            comments: Comment[] | undefined) {
 
         super(TokenType.String, start, length, comments);
         this.flags = flags;
         this.value = value;
+        this.prefixLength = prefixLength;
         this.invalidEscapeOffsets = invalidEscapeOffsets;
     }
 }
