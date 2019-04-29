@@ -358,9 +358,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 inferredReturnType = functionType.getInferredReturnType().getType();
             }
 
-            if (inferredReturnType instanceof UnknownType) {
+            // Include Any in this check. If "Any" really is desired, it should
+            // be made explicit through a type annotation.
+            if (inferredReturnType.isAny()) {
                 this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameter,
-                    `Return type is unknown`, node.name);
+                    `Inferred return type is unknown`, node.name);
             } else if (TypeUtils.containsUnknown(inferredReturnType)) {
                 this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameter,
                     `Return type '${ inferredReturnType.asString() }' is partially unknown`,
