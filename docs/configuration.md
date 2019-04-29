@@ -58,7 +58,11 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportInvalidStringEscapeSequence** [boolean or string, optional]: Generate or suppress diagnostics for invalid escape sequences used within string literals. The Python specification indicates that such sequences will generate a syntax error in future versions. The default value for this setting is 'warning'.
 
-**reportUnknownParameter** [boolean or string, optional]: Generate or suppress diagnostics for input or return parameters that have an unknown type. The default value for this setting is 'none'.
+**reportUnknownParameterType** [boolean or string, optional]: Generate or suppress diagnostics for input or return parameters that have an unknown type. The default value for this setting is 'none'.
+
+**reportUnknownVariableType** [boolean or string, optional]: Generate or suppress diagnostics for variables that have an unknown type. The default value for this setting is 'none'.
+
+**reportUnknownMemberType** [boolean or string, optional]: Generate or suppress diagnostics for class or instance variables that have an unknown type. The default value for this setting is 'none'.
 
 
 ## Execution Environment Options

@@ -126,7 +126,13 @@ export class ConfigOptions {
     reportInvalidStringEscapeSequence: DiagnosticLevel = 'warning';
 
     // Report usage of unknown input or return parameters?
-    reportUnknownParameter: DiagnosticLevel = 'none';
+    reportUnknownParameterType: DiagnosticLevel = 'none';
+
+    // Report usage of unknown input or return parameters?
+    reportUnknownVariableType: DiagnosticLevel = 'none';
+
+    // Report usage of unknown input or return parameters?
+    reportUnknownMemberType: DiagnosticLevel = 'none';
 
     //---------------------------------------------------------------
     // Parsing and Import Resolution Settings
@@ -288,9 +294,17 @@ export class ConfigOptions {
         this.reportInvalidStringEscapeSequence = this._convertDiagnosticLevel(
             configObj.reportInvalidStringEscapeSequence, 'reportInvalidStringEscapeSequence', 'warning');
 
-        // Read the "reportUnknownParameter" entry.
-        this.reportUnknownParameter = this._convertDiagnosticLevel(
-            configObj.reportUnknownParameter, 'reportUnknownParameter', 'none');
+        // Read the "reportUnknownParameterType" entry.
+        this.reportUnknownParameterType = this._convertDiagnosticLevel(
+            configObj.reportUnknownParameterType, 'reportUnknownParameterType', 'none');
+
+        // Read the "reportUnknownVariableType" entry.
+        this.reportUnknownVariableType = this._convertDiagnosticLevel(
+            configObj.reportUnknownVariableType, 'reportUnknownVariableType', 'none');
+
+        // Read the "reportUnknownMemberType" entry.
+        this.reportUnknownMemberType = this._convertDiagnosticLevel(
+            configObj.reportUnknownMemberType, 'reportUnknownMemberType', 'none');
 
         // Read the "venvPath".
         this.venvPath = undefined;

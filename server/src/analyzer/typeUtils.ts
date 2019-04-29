@@ -1054,6 +1054,7 @@ export class TypeUtils {
             return true;
         }
 
+        // See if a union contains an unknown type.
         if (type instanceof UnionType) {
             for (const subtype of type.getTypes()) {
                 if (this.containsUnknown(subtype, recursionCount + 1)) {
@@ -1064,6 +1065,7 @@ export class TypeUtils {
             return false;
         }
 
+        // See if an object or class has an unknown type argument.
         if (type instanceof ObjectType) {
             return this.containsUnknown(type.getClassType(), recursionCount + 1);
         }

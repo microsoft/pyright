@@ -151,10 +151,22 @@
       "title": "Controls reporting of invalid escape sequences used within string literals",
       "default": "none"
     },
-    "reportUnknownParameter": {
-      "$id": "#/properties/reportUnknownParameter",
+    "reportUnknownParameterType": {
+      "$id": "#/properties/reportUnknownParameterType",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting input and return parameters whose types are unknown",
+      "default": "none"
+    },
+    "reportUnknownVariableType": {
+      "$id": "#/properties/reportUnknownVariableType",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting local variables whose types are unknown",
+      "default": "none"
+    },
+    "reportUnknownMemberType": {
+      "$id": "#/properties/reportUnknownMemberType",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting class and instance variables whose types are unknown",
       "default": "none"
     },
     "pythonVersion": {

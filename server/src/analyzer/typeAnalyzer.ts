@@ -110,6 +110,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this.walk(this._moduleNode);
 
+        // Validate that global variables have known types.
+        this._reportUnknownSymbolsForCurrentScope(
+            this._fileInfo.configOptions.reportUnknownVariableType);
+
         // If we've already analyzed the file the max number of times,
         // just give up and admit defeat. This should happen only in
         // the case of analyzer bugs.
@@ -238,6 +242,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
+
+        this._reportUnknownMembersForClass(classType);
+
         return false;
     }
 
@@ -332,7 +339,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             } else {
                 // There is no annotation, and we can't infer the type.
                 if (param.name && param.category === ParameterCategory.Simple) {
-                    this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameter,
+                    this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameterType,
                         `Type of '${ param.name.nameToken.value }' is unknown`,
                         param.name);
                 }
@@ -361,16 +368,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Include Any in this check. If "Any" really is desired, it should
             // be made explicit through a type annotation.
             if (inferredReturnType.isAny()) {
-                this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameter,
+                this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameterType,
                     `Inferred return type is unknown`, node.name);
             } else if (TypeUtils.containsUnknown(inferredReturnType)) {
-                this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameter,
+                this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameterType,
                     `Return type '${ inferredReturnType.asString() }' is partially unknown`,
                     node.name);
             }
         }
 
-        let functionScope = this._enterScope(node, () => {
+        const functionScope = this._enterScope(node, () => {
             const parameters = functionType.getParameters();
             assert(parameters.length === node.parameters.length);
 
@@ -446,6 +453,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             this.walk(node.suite);
+
+            this._reportUnknownSymbolsForCurrentScope(
+                this._fileInfo.configOptions.reportUnknownVariableType);
         });
 
         // Validate that the function returns the declared type.
@@ -508,6 +518,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._updateExpressionTypeForNode(node.name, functionType);
 
         this.walkMultiple(node.decorators);
+
         return false;
     }
 
@@ -1385,6 +1396,52 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         return false;
+    }
+
+    private _reportUnknownMembersForClass(classType: ClassType) {
+        // Don't bother if the feature is disabled.
+        const diagLevel = this._fileInfo.configOptions.reportUnknownMemberType;
+
+        // Report issues for both class and instance members.
+        this._reportUnknownSymbols(diagLevel, classType.getClassFields());
+        this._reportUnknownSymbols(diagLevel, classType.getInstanceFields());
+    }
+
+    // Reports any local variables within the current scope that have
+    // unknown or partially-unknown types.
+    private _reportUnknownSymbolsForCurrentScope(diagLevel: DiagnosticLevel) {
+        this._reportUnknownSymbols(diagLevel, this._currentScope.getSymbolTable());
+    }
+
+    private _reportUnknownSymbols(diagLevel: DiagnosticLevel, symbolTable: SymbolTable) {
+        // Don't bother if the feature is disabled.
+        if (diagLevel === 'none' && !this._fileInfo.useStrictMode) {
+            return;
+        }
+
+        symbolTable.forEach((symbol, name) => {
+            if (symbol.declarations && symbol.declarations.length > 0) {
+                const primaryDecl = symbol.declarations[0];
+
+                // Don't generate errors for symbols that are declared
+                // imported from other files. Also, don't report errors
+                // for parameters, since those are covered under a separate
+                // configuration switch.
+                if (primaryDecl.path === this._fileInfo.filePath &&
+                        primaryDecl.category !== SymbolCategory.Parameter) {
+                    const effectiveType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+
+                    if (effectiveType instanceof UnknownType) {
+                        this._addDiagnostic(diagLevel,
+                            `Inferred type of '${ name }' is unknown`, primaryDecl.node);
+                    } else if (TypeUtils.containsUnknown(effectiveType)) {
+                        this._addDiagnostic(diagLevel,
+                            `Inferred type of '${ name }', '${ effectiveType.asString() }', ` +
+                            `is partially unknown`, primaryDecl.node);
+                    }
+                }
+            }
+        });
     }
 
     // Assigns a declared type (as opposed to an inferred type) to an expression
