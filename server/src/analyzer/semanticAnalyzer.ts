@@ -23,19 +23,17 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AssignmentNode, AwaitExpressionNode, ClassNode, ErrorExpressionNode,
+import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
-    ImportAsNode, ImportFromAsNode, LambdaNode, ListComprehensionForNode,
-    ListComprehensionNode, ListNode, MemberAccessExpressionNode,
-    ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParameterNode, RaiseNode,
-    ReturnNode, StringNode, SuiteNode, TryNode, TupleExpressionNode,
+    LambdaNode, ListComprehensionForNode, ListComprehensionNode, ListNode,
+    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
+    RaiseNode, ReturnNode, StringNode, SuiteNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, WhileNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportType } from './importResult';
 import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
@@ -170,23 +168,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         let sawMetaclass = false;
         let nonMetaclassBaseClassCount = 0;
-        let evaluator = new ExpressionEvaluator(this._currentScope,
-            this._fileInfo.configOptions, this._fileInfo.useStrictMode,
-            this._fileInfo.executionEnvironment, this._fileInfo.diagnosticSink);
         node.arguments.forEach(arg => {
-            let argType: Type;
-
-            if (this._fileInfo.isStubFile) {
-                // For stub files, we won't try to evaluate the type at this
-                // time because forward declarations are supported in stub files.
-                argType = UnknownType.create();
-            } else {
-                argType = evaluator.getType(arg.valueExpression,
-                    { method: 'get' }, EvaluatorFlags.None);
-            }
-
             let isMetaclass = false;
-
             if (arg.name) {
                 if (arg.name.nameToken.value === 'metaclass') {
                     if (sawMetaclass) {
@@ -200,7 +183,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 }
             }
 
-            classType.addBaseClass(argType, isMetaclass);
+            classType.addBaseClass(UnknownType.create(), isMetaclass);
 
             if (!isMetaclass) {
                 nonMetaclassBaseClassCount++;
@@ -216,15 +199,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let declaration: Declaration = {
-            category: SymbolCategory.Class,
-            node: node.name,
-            path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
-        };
-
         AnalyzerNodeInfo.setExpressionType(node, classType);
-        AnalyzerNodeInfo.setExpressionType(node.name, classType);
 
         let analyzer = new ClassScopeAnalyzer(node, this._currentScope, classType, this._fileInfo);
         this._queueSubScopeAnalyzer(analyzer);
@@ -234,7 +209,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // any references to the as-yet-undeclared class as an error.
         this._addSymbolToPermanentScope(node.name.nameToken.value, classType,
             AnalyzerNodeInfo.getTypeSourceId(node.name), node.name);
-        this._assignTypeToSymbol(node.name, classType, declaration);
 
         return false;
     }
@@ -296,7 +270,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // decorator processing in this pass.
         this._addSymbolToPermanentScope(node.name.nameToken.value,
             UnknownType.create(), AnalyzerNodeInfo.getTypeSourceId(node.name));
-        this._assignTypeToSymbol(node.name, UnknownType.create(), declaration);
 
         AnalyzerNodeInfo.setExpressionType(node, functionType);
         AnalyzerNodeInfo.setExpressionType(node.name, functionType);
@@ -419,7 +392,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         this._enterTemporaryScope(() => {
             if (node.typeExpression && node.name) {
                 this._addNamedTargetToCurrentScope(node.name);
-                this._assignTypeToSymbol(node.name, UnknownType.create());
             }
 
             exceptScope = this._enterTemporaryScope(() => {
@@ -481,17 +453,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    visitAssignment(node: AssignmentNode): boolean {
-        if (!this._fileInfo.isStubFile) {
-            this.walk(node.rightExpression);
-        }
-
-        this._assignTypeForTargetExpression(node.leftExpression);
-
-        this.walk(node.leftExpression);
-        return false;
-    }
-
     visitMemberAccess(node: MemberAccessExpressionNode) {
         this.walk(node.leftExpression);
 
@@ -536,21 +497,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    visitImportAs(node: ImportAsNode): boolean {
-        if (node.alias || node.module.nameParts.length > 0) {
-            let nameNode = node.alias ? node.alias : node.module.nameParts[0];
-            this._assignTypeToSymbol(nameNode, UnknownType.create());
-        }
-        return true;
-    }
-
-    visitImportFromAs(node: ImportFromAsNode): boolean {
-        let nameNode = node.alias ? node.alias : node.name;
-        this._assignTypeToSymbol(nameNode, UnknownType.create());
-
-        return false;
-    }
-
     visitGlobal(node: GlobalNode): boolean {
         node.nameList.forEach(name => {
             let valueWithScope = this._currentScope.lookUpSymbolRecursive(name.nameToken.value);
@@ -571,22 +517,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
-        // For now, the type is unknown. We'll fill in the type during
-        // the type hint phase.
-        this._assignTypeForTargetExpression(node.valueExpression);
-
-        this.walk(node.valueExpression);
-
-        // If this is not a stub file, make sure the raw type annotation
-        // doesn't reference a type that hasn't yet been declared.
-        if (!this._fileInfo.isStubFile) {
-            this.walk(node.typeAnnotation);
-        }
-
-        return false;
-    }
-
     visitError(node: ErrorExpressionNode) {
         // Don't analyze an error node.
         return false;
@@ -603,16 +533,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         });
     }
 
-    protected _addParametersToScope(parameters: ParameterNode[]) {
-        parameters.forEach(param => {
-            if (param.name) {
-                if (param.name) {
-                    this._assignTypeToSymbol(param.name, UnknownType.create());
-                }
-            }
-        });
-    }
-
     // Analyzes the subscopes that are discovered during the first analysis pass.
     protected _analyzeSubscopesDeferred() {
         for (let subscope of this._subscopesToAnalyze) {
@@ -620,43 +540,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         this._subscopesToAnalyze = [];
-    }
-
-    private _assignTypeForTargetExpression(node: ExpressionNode) {
-        if (node instanceof NameNode) {
-            this._assignTypeToSymbol(node, UnknownType.create());
-        } else if (node instanceof TypeAnnotationExpressionNode) {
-            this._assignTypeForTargetExpression(node.valueExpression);
-        } else if (node instanceof TupleExpressionNode) {
-            node.expressions.forEach(expr => {
-                this._assignTypeForTargetExpression(expr);
-            });
-        } else if (node instanceof ListNode) {
-            node.entries.forEach(expr => {
-                this._assignTypeForTargetExpression(expr);
-            });
-        }
-    }
-
-    protected _assignTypeToSymbol(nameNode: NameNode, type: Type,
-            declaration?: Declaration) {
-
-        const nameValue = nameNode.nameToken.value;
-
-        // Add a new source to the symbol.
-        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
-        if (symbolWithScope) {
-            symbolWithScope.symbol.inferredType.addSource(type,
-                AnalyzerNodeInfo.getTypeSourceId(nameNode));
-
-            // Add the declaration if provided.
-            if (declaration) {
-                symbolWithScope.symbol.addDeclaration(declaration);
-            }
-        } else {
-            // We should never get here!
-            assert.fail('Missing symbol');
-        }
     }
 
     protected _addNamedTargetToCurrentScope(node: ExpressionNode) {
@@ -936,9 +819,6 @@ export class FunctionScopeAnalyzer extends SemanticAnalyzer {
         assert(nameBindings !== undefined);
         this._addNamesToScope(nameBindings!.getLocalNames());
 
-        // Bind the parameters to the local names.
-        this._addParametersToScope(functionNode.parameters);
-
         // Walk the statements that make up the function.
         this.walk(functionNode.suite);
 
@@ -993,9 +873,6 @@ export class LambdaScopeAnalyzer extends SemanticAnalyzer {
         let nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
         this._addNamesToScope(nameBindings!.getLocalNames());
-
-        // Bind the parameters to the local names.
-        this._addParametersToScope(lambdaNode.parameters);
 
         // Walk the expression that make up the lambda body.
         this.walk(lambdaNode.expression);
