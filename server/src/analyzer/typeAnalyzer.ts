@@ -112,6 +112,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this.walk(this._moduleNode);
 
+        // Clear out any type constraints that were collected
+        // during the processing of the scope.
+        this._currentScope.clearTypeConstraints();
+
         // Validate that global variables have known types.
         this._reportUnknownSymbolsForCurrentScope(
             this._fileInfo.configOptions.reportUnknownVariableType);
@@ -1142,13 +1146,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const nameValue = node.nameToken.value;
         const symbolInScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
-        if (symbolInScope && symbolInScope.symbol.declarations) {
-            // For now, always assume it's the first declaration
-            // that applies here. This is correct in all cases except for
-            // possibly properties (getters/setters/deleters) and functions
-            // (@overload).
-            AnalyzerNodeInfo.setDeclaration(node,
-                TypeUtils.getPrimaryDeclarationOfSymbol(symbolInScope.symbol)!);
+        // If there's no declaration assigned to this name node, assign one
+        // for the hover provider.
+        if (!AnalyzerNodeInfo.getDeclaration(node)) {
+            if (symbolInScope && symbolInScope.symbol.declarations) {
+                AnalyzerNodeInfo.setDeclaration(node,
+                    TypeUtils.getPrimaryDeclarationOfSymbol(symbolInScope.symbol)!);
+            }
         }
 
         // Call _getTypeOfExpression so the type is cached in the
@@ -1373,6 +1377,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
 
                     this._assignTypeToNameNode(aliasNode, symbolType, declaration);
+                    this._addAssignmentTypeConstraint(aliasNode, symbolType);
                 });
             }
         } else {
@@ -1389,6 +1394,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
 
                     this._assignTypeToNameNode(aliasNode, symbolType);
+                    this._addAssignmentTypeConstraint(aliasNode, symbolType);
                 });
             }
         }

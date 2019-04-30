@@ -254,6 +254,15 @@ export class TypeConstraintBuilder {
     static buildTypeConstraintForAssignment(targetNode: ExpressionNode,
             assignmentType: Type): TypeConstraint | undefined {
 
+        // Don't transform special built-in types. These involve special processing
+        // in expressionEvaluator, so we don't want to overwrite the results of
+        // that processing with an assignment type constraint. By doing this, it
+        // means that modules can't overwrite the values of special symbols like
+        // Callable and Tuple.
+        if (assignmentType instanceof ClassType && assignmentType.isSpecialBuiltIn()) {
+            return undefined;
+        }
+
         if (targetNode instanceof TypeAnnotationExpressionNode) {
             if (TypeConstraint.isSupportedExpression(targetNode.valueExpression)) {
                 return new TypeConstraint(targetNode.valueExpression, assignmentType);

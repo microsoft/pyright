@@ -11,7 +11,7 @@
 
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
-import { LambdaNode, ModuleNameNode, NameNode, ParseNode } from '../parser/parseNodes';
+import { ModuleNameNode, NameNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportType } from './importResult';
