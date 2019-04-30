@@ -540,17 +540,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         AnalyzerNodeInfo.setDeclaration(param.name, symbol.declarations[0]);
                     }
 
-                    if (param.category === ParameterCategory.Simple) {
-                        let declaration: Declaration | undefined;
-                        declaration = {
-                            category: SymbolCategory.Parameter,
-                            node: param,
-                            path: this._fileInfo.filePath,
-                            range: convertOffsetsToRange(param.start, param.end, this._fileInfo.lines)
-                        };
-                        const paramType = UnknownType.create();
-                        this._assignTypeToNameNode(param.name, paramType, declaration);
-                    }
+                    let declaration: Declaration | undefined;
+                    declaration = {
+                        category: SymbolCategory.Parameter,
+                        node: param,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(param.start, param.end, this._fileInfo.lines)
+                    };
+                    const paramType = UnknownType.create();
+                    this._assignTypeToNameNode(param.name, paramType, declaration);
                 }
 
                 const functionParam: FunctionParameter = {
@@ -605,7 +603,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
             this.walk(node.targetExpression);
             this.walk(node.forSuite);
-        }, !!node.elseSuite, this._currentScope.isNotExecuted(), node);
+        }, !!node.elseSuite, node);
 
         let scopeToMerge = loopScope;
         if (node.elseSuite) {
@@ -1157,13 +1155,37 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // node, allowing it to be accessed for hover and definition
         // information.
         const exprType = this._getTypeOfExpression(node);
-        if (!this._currentScope.isNotExecuted) {
-            if (exprType.isUnbound()) {
-                this._addError(`'${ nameValue }' is not bound`, node.nameToken);
-            } else if (exprType.isPossiblyUnbound()) {
-                this._fileInfo.diagnosticSink.addWarningWithTextRange(
-                    `'${ nameValue }' may be unbound`, node.nameToken);
+        if (exprType.isUnbound()) {
+            let isReallyUnbound = true;
+
+            if (symbolInScope) {
+                // It's possible that the name is unbound in the current scope
+                // at this point in the code but is available in an outer scope.
+                // Like this:
+                // a = 3
+                // def foo():
+                //    b = a  # 'a' is unbound locally but is available in outer scope
+                //    a = None
+                let parentScope = symbolInScope.scope.getParent();
+                if (parentScope) {
+                    const symbolInParentScope = parentScope.lookUpSymbolRecursive(
+                        node.nameToken.value);
+                    if (symbolInParentScope) {
+                        if (!TypeUtils.getEffectiveTypeOfSymbol(symbolInParentScope.symbol).isUnbound()) {
+                            isReallyUnbound = false;
+                        }
+                    }
+                }
             }
+
+            // Don't report unbound error in stub files, which support out-of-order
+            // declarations of classes.
+            if (isReallyUnbound && !this._fileInfo.isStubFile) {
+                this._addError(`'${ node.nameToken.value }' is not bound`, node.nameToken);
+            }
+        } else if (exprType.isPossiblyUnbound()) {
+            this._fileInfo.diagnosticSink.addWarningWithTextRange(
+                `'${ nameValue }' may be unbound`, node.nameToken);
         }
 
         // Determine if we should log information about private usage.
@@ -1383,14 +1405,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 node.valueExpression, typeHintType);
         }
 
-        if (!this._currentScope.isNotExecuted()) {
-            this._declareTypeForExpression(node.valueExpression, typeHintType,
-                node.typeAnnotation);
+        this._declareTypeForExpression(node.valueExpression, typeHintType,
+            node.typeAnnotation);
 
-            if (this._fileInfo.isStubFile) {
-                this._assignTypeToExpression(node.valueExpression, typeHintType,
-                    node.typeAnnotation);
-            }
+        if (this._fileInfo.isStubFile) {
+            this._assignTypeToExpression(node.valueExpression, typeHintType,
+                node.typeAnnotation);
         }
 
         return true;
@@ -1411,20 +1431,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
         node.statements.forEach((statement, index) => {
             this.walk(statement);
 
-            if (!this._currentScope.isNotExecuted()) {
-                if (this._currentScope.getAlwaysRaises() || this._currentScope.getAlwaysReturns()) {
-                    if (!reportedUnreachableCode) {
-                        if (index < node.statements.length - 1) {
-                            // Create a text range that covers the next statement through
-                            // the end of the suite.
-                            const start = node.statements[index + 1].start;
-                            const end = node.statements[node.statements.length - 1].end;
-                            this._addUnusedCode(new TextRange(start, end - start));
-                        }
-
-                        // Note that we already reported this so we don't do it again.
-                        reportedUnreachableCode = true;
+            if (this._currentScope.getAlwaysRaises() || this._currentScope.getAlwaysReturns()) {
+                if (!reportedUnreachableCode) {
+                    if (index < node.statements.length - 1) {
+                        // Create a text range that covers the next statement through
+                        // the end of the suite.
+                        const start = node.statements[index + 1].start;
+                        const end = node.statements[node.statements.length - 1].end;
+                        this._addUnusedCode(new TextRange(start, end - start));
                     }
+
+                    // Note that we already reported this so we don't do it again.
+                    reportedUnreachableCode = true;
                 }
             }
         });
@@ -1947,7 +1965,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (constExprValue !== false) {
                 this.walk(ifWhileSuite);
             }
-        }, true, constExprValue === false, isWhile ? ifWhileSuite : undefined);
+        }, true, isWhile ? ifWhileSuite : undefined);
 
         // Now handle the else statement. If there are chained "elif"
         // statements, they'll be handled recursively here.
@@ -1962,7 +1980,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (elseSuite && constExprValue !== true) {
                 this.walk(elseSuite);
             }
-        }, true, constExprValue === true);
+        }, true);
 
         // Evaluate the expression so the expression type is cached.
         this._getTypeOfExpression(testExpression);
@@ -2459,6 +2477,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 type = UnknownType.create();
                 this._assignTypeToNameNode(target.expression, type, declaration, srcExpr);
             }
+        } else if (target instanceof ListNode) {
+            target.entries.forEach(entry => {
+                this._assignTypeToExpression(entry, UnknownType.create(), srcExpr);
+            });
         } else {
             this._addAssignmentTypeConstraint(target, type);
         }
@@ -2694,7 +2716,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // so the analyzer to take into account type information that is gathered
     // lower in the loop body.
     private _enterTemporaryScope(callback: () => void, isConditional?: boolean,
-            isNotExecuted?: boolean, loopNode?: ParseNode) {
+            loopNode?: ParseNode) {
 
         let tempScope: Scope | undefined;
 
@@ -2718,10 +2740,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const prevScope = this._currentScope;
         if (isConditional) {
             tempScope.setConditional();
-        }
-
-        if (this._currentScope.isNotExecuted() || isNotExecuted) {
-            tempScope.setIsNotExecuted();
         }
 
         this._currentScope = tempScope;
@@ -2763,16 +2781,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _addWarning(message: string, range: TextRange) {
-        if (!this._currentScope.isNotExecuted()) {
-            this._fileInfo.diagnosticSink.addWarningWithTextRange(message, range);
-        }
+        this._fileInfo.diagnosticSink.addWarningWithTextRange(message, range);
     }
 
     private _addError(message: string, textRange: TextRange) {
-        // Don't emit error if the scope is guaranteed not to be executed.
-        if (!this._currentScope.isNotExecuted()) {
-            this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
-        }
+        this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
     }
 
     private _addUnusedCode(textRange: TextRange) {
@@ -2800,12 +2813,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _createEvaluator() {
         let diagSink: TextRangeDiagnosticSink | undefined = this._fileInfo.diagnosticSink;
-
-        // If the current scope isn't executed, create a dummy sink
-        // for any errors that are reported.
-        if (this._currentScope.isNotExecuted()) {
-            diagSink = undefined;
-        }
 
         return new ExpressionEvaluator(this._currentScope,
             this._fileInfo.configOptions, this._fileInfo.useStrictMode,

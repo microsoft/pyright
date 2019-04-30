@@ -349,7 +349,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         this._nestedExceptDepth--;
 
         if (node.elseSuite) {
-            this.walk(node.elseSuite!);
+            this.walk(node.elseSuite);
         }
 
         if (node.finallySuite) {
@@ -514,17 +514,11 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     private _addError(message: string, textRange: TextRange) {
-        // Don't emit error if the scope is guaranteed not to be executed.
-        if (!this._currentScope.isNotExecuted()) {
-            this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
-        }
+        this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
     }
 
     private _addWarning(message: string, textRange: TextRange) {
-        // Don't emit error if the scope is guaranteed not to be executed.
-        if (!this._currentScope.isNotExecuted()) {
-            this._fileInfo.diagnosticSink.addWarningWithTextRange(message, textRange);
-        }
+        this._fileInfo.diagnosticSink.addWarningWithTextRange(message, textRange);
     }
 }
 

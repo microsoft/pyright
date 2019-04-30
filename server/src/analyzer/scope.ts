@@ -57,11 +57,6 @@ export class Scope {
     // construct like while or for.
     private _isLooping = false;
 
-    // Indicates whether the scope is guaranteed not to be
-    // executed because a condition is statically determined
-    // to be always true or false.
-    private _isNotExecuted: boolean;
-
     // Tracks whether the code flow for the scope always returns
     // before exiting the block.
     private _alwaysReturns = false;
@@ -87,7 +82,6 @@ export class Scope {
         this._scopeType = type;
         this._parent = parent;
         this._isConditional = false;
-        this._isNotExecuted = false;
     }
 
     setExportFilter(namesToExport: string[]) {
@@ -139,14 +133,6 @@ export class Scope {
 
     isConditional() {
         return this._isConditional;
-    }
-
-    setIsNotExecuted() {
-        this._isNotExecuted = true;
-    }
-
-    isNotExecuted() {
-        return this._isNotExecuted;
     }
 
     setIsLooping() {
