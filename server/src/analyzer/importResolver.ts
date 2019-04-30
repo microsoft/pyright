@@ -68,6 +68,8 @@ export class ImportResolver {
             let bestResultSoFar: ImportResult | undefined;
 
             // Look for it in the root directory of the execution environment.
+            importFailureInfo.push(`Looking in root directory of execution environment ` +
+                `'${ this._executionEnvironment.root }'`);
             let localImport = this._resolveAbsoluteImport(
                 this._executionEnvironment.root, moduleDescriptor, importName, importFailureInfo);
             if (localImport && localImport.importFound) {
@@ -77,6 +79,7 @@ export class ImportResolver {
 
             for (let i = 0; i < this._executionEnvironment.extraPaths.length; i++) {
                 let extraPath = this._executionEnvironment.extraPaths[i];
+                importFailureInfo.push(`Looking in extraPath '${ extraPath }'`);
                 localImport = this._resolveAbsoluteImport(extraPath, moduleDescriptor,
                     importName, importFailureInfo);
                 if (localImport && localImport.importFound) {
@@ -91,6 +94,7 @@ export class ImportResolver {
 
             // Check for a typings file.
             if (this._configOptions.typingsPath) {
+                importFailureInfo.push(`Looking in typingsPath '${ this._configOptions.typingsPath }'`);
                 let typingsImport = this._resolveAbsoluteImport(
                     this._configOptions.typingsPath, moduleDescriptor, importName, importFailureInfo);
                 if (typingsImport && typingsImport.importFound) {
@@ -99,6 +103,7 @@ export class ImportResolver {
             }
 
             // Check for a typeshed file.
+            importFailureInfo.push(`Looking for typeshed path`);
             let typeshedImport = this._findTypeshedPath(moduleDescriptor, importName,
                 false, importFailureInfo);
             if (typeshedImport) {
@@ -111,11 +116,20 @@ export class ImportResolver {
                 for (let searchPath of this._cachedPythonSearchPaths) {
                     // Allow partial resolution because some third-party packages
                     // use tricks to populate their package namespaces.
+                    importFailureInfo.push(`Looking in python search path '${ searchPath }'`);
                     let thirdPartyImport = this._resolveAbsoluteImport(
                         searchPath, moduleDescriptor, importName, importFailureInfo, true);
                     if (thirdPartyImport) {
                         thirdPartyImport.importType = ImportType.ThirdParty;
-                        return thirdPartyImport;
+
+                        if (thirdPartyImport.importFound) {
+                            return thirdPartyImport;
+                        }
+
+                        if (bestResultSoFar === undefined ||
+                                thirdPartyImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length) {
+                            bestResultSoFar = thirdPartyImport;
+                        }
                     }
                 }
             } else {

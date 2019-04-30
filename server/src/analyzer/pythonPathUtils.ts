@@ -85,6 +85,8 @@ export class PythonPathUtils {
                         if (fs.existsSync(dirPath)) {
                             importFailureInfo.push(`Found path '${ dirPath }'`);
                             return [dirPath];
+                        } else {
+                            importFailureInfo.push(`Path '${ dirPath }' is not a valid directory`);
                         }
                     }
                 }
@@ -143,6 +145,8 @@ export class PythonPathUtils {
                         // support zip files and other formats.
                         if (fs.existsSync(normalizedPath) && isDirectory(normalizedPath)) {
                             pythonPaths.push(normalizedPath);
+                        } else {
+                            importFailureInfo.push(`Skipping '${ normalizedPath }' because it is not a valid directory`);
                         }
                     }
                 }

@@ -278,17 +278,24 @@ export class AnalyzerService {
             if (pythonPaths.length === 0) {
                 if (configOptions.verboseOutput) {
                     this._console.log(
-                        `No venvPath specified, and no search paths found for configured python interpreter.`);
-                    importFailureInfo.forEach(diag => {
-                        this._console.log(`  ${ diag }`);
-                    });
+                        `No search paths found for configured python interpreter.`);
                 }
             } else {
                 if (configOptions.verboseOutput) {
                     this._console.log(
-                        `Using python sys.path directories to resolve imports:`);
+                        `Search paths found for configured python interpreter:`);
                     pythonPaths.forEach(path => {
                         this._console.log(`  ${ path }`);
+                    });
+                }
+            }
+
+            if (configOptions.verboseOutput) {
+                if (importFailureInfo.length > 0) {
+                    this._console.log(
+                        `When attempting to get search paths from python interpreter:`);
+                    importFailureInfo.forEach(diag => {
+                        this._console.log(`  ${ diag }`);
                     });
                 }
             }
