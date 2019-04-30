@@ -20,16 +20,12 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
-    ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
-    LambdaNode, ListComprehensionForNode, ListComprehensionNode, ListNode,
-    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
-    RaiseNode, ReturnNode, StringNode, SuiteNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, WhileNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+import { AwaitExpressionNode, ClassNode, ErrorExpressionNode, ExpressionNode,
+    FunctionNode, GlobalNode, IfNode, LambdaNode, ModuleNameNode, ModuleNode,
+    NameNode, NonlocalNode, RaiseNode, StringNode, SuiteNode, TryNode, WhileNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -42,7 +38,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, SymbolCategory } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, Type, UnknownType } from './types';
+    FunctionTypeFlags, ModuleType, Type, UnboundType, UnknownType } from './types';
 
 type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;
 
@@ -427,7 +423,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             // Don't overwrite the implicit bound names that have already
             // been added to the scope.
             if (!this._currentScope.lookUpSymbol(name)) {
-                this._currentScope.addUnboundSymbol(name);
+                this._currentScope.addSymbol(name);
             }
         });
     }
@@ -452,7 +448,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let symbol = permanentScope.lookUpSymbol(nameValue);
 
         if (!symbol) {
-            symbol = this._currentScope.addUnboundSymbol(nameValue);
+            symbol = this._currentScope.addSymbol(nameValue);
         } else if (warnIfDuplicateNode) {
             if (symbol.inferredType.getSourceCount() > 0) {
                 this._fileInfo.diagnosticSink.addWarningWithTextRange(

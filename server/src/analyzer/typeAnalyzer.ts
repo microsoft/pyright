@@ -18,16 +18,14 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
-    BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode, ConstantNode, DecoratorNode,
-    DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode, ForNode,
+    BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode, ConstantNode,
+    DecoratorNode, DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode, ForNode,
     FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode,
     LambdaNode, ListComprehensionForNode, ListComprehensionNode, ListNode,
     MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParseNode,
-    RaiseNode, ReturnNode, SliceExpressionNode, StringNode,
-    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
-    WithNode,
-    YieldExpressionNode,
+    RaiseNode, ReturnNode, SliceExpressionNode, StringNode, SuiteNode,
+    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -44,8 +42,7 @@ import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
-    PropertyType, Type, TypeCategory, TypeVarType, UnboundType,
-    UnionType,
+    PropertyType, Type, TypeCategory, TypeVarType, UnboundType, UnionType,
     UnknownType } from './types';
 import { ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
@@ -842,7 +839,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (node.typeExpression && node.name) {
-            this._addNamedTargetToCurrentScope(node.name);
             let exceptionType = this._getTypeOfExpression(node.typeExpression);
 
             // If more than one type was specified for the exception, we'll receive
@@ -864,6 +860,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 path: this._fileInfo.filePath,
                 range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
             };
+            this._addNamedTargetToCurrentScope(node.name);
             this._assignTypeToNameNode(node.name, exceptionType, declaration);
             this._updateExpressionTypeForNode(node.name, exceptionType);
         }
@@ -2497,7 +2494,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _addNamedTargetToCurrentScope(node: ExpressionNode) {
         if (node instanceof NameNode) {
-            this._currentScope.addUnboundSymbol(node.nameToken.value);
+            this._currentScope.addSymbol(node.nameToken.value);
         } else if (node instanceof TypeAnnotationExpressionNode) {
             this._addNamedTargetToCurrentScope(node.valueExpression);
         } else if (node instanceof TupleExpressionNode) {
@@ -2604,7 +2601,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         assert(permanentScope.getType() !== ScopeType.Temporary);
 
         if (!permanentScope.lookUpSymbol(name)) {
-            permanentScope.addUnboundSymbol(name);
+            permanentScope.addSymbol(name);
         }
     }
 

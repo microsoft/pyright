@@ -147,8 +147,8 @@ export class Scope {
         return this._lookUpSymbolRecursiveInternal(name, false, false);
     }
 
-    // Adds a new (unbound) symbol to the scope.
-    addUnboundSymbol(name: string): Symbol {
+    // Adds a new untyped symbol to the scope.
+    addSymbol(name: string): Symbol {
         let symbol = new Symbol();
         this._symbolTable.set(name, symbol);
         return symbol;
