@@ -2713,6 +2713,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (tempScope) {
                 tempScope.setParent(this._currentScope);
+                tempScope.clearAlwaysRaises();
+                tempScope.clearAlwaysReturns();
             } else {
                 tempScope = new Scope(ScopeType.Temporary, this._currentScope);
 
@@ -2745,6 +2747,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let newScope = AnalyzerNodeInfo.getScope(node);
         assert(newScope !== undefined);
         this._currentScope = newScope!;
+
+        // Clear the raises/returns flags in case this wasn't our
+        // first time analyzing this scope.
+        this._currentScope.clearAlwaysRaises();
+        this._currentScope.clearAlwaysReturns();
 
         // Enter a new temporary scope so we don't pollute the
         // namespace of the permanent scope. For example, if code

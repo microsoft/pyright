@@ -229,6 +229,10 @@ export class Scope {
         this._alwaysReturns = true;
     }
 
+    clearAlwaysReturns() {
+        this._alwaysReturns = false;
+    }
+
     getAlwaysReturns() {
         return this._alwaysReturns;
     }
