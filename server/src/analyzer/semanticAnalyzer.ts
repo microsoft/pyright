@@ -36,9 +36,8 @@ import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
-import { Declaration, SymbolCategory } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, Type, UnboundType, UnknownType } from './types';
+    FunctionTypeFlags, ModuleType, Type, UnknownType } from './types';
 
 type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;
 

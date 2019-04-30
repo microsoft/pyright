@@ -113,10 +113,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // during the processing of the scope.
         this._currentScope.clearTypeConstraints();
 
-        // Validate that global variables have known types.
-        this._reportUnknownSymbolsForCurrentScope(
-            this._fileInfo.configOptions.reportUnknownVariableType);
-
         // If we've already analyzed the file the max number of times,
         // just give up and admit defeat. This should happen only in
         // the case of analyzer bugs.
@@ -242,11 +238,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._assignTypeToNameNode(node.name, decoratedType, declaration);
 
         this._validateClassMethods(classType);
+        this._updateExpressionTypeForNode(node.name, classType);
 
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
-
-        this._reportUnknownMembersForClass(classType);
 
         return false;
     }
@@ -457,9 +452,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             this.walk(node.suite);
-
-            this._reportUnknownSymbolsForCurrentScope(
-                this._fileInfo.configOptions.reportUnknownVariableType);
         });
 
         // Validate that the function returns the declared type.
@@ -1453,54 +1445,27 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    private _reportUnknownMembersForClass(classType: ClassType) {
-        // Don't bother if the feature is disabled.
-        const diagLevel = this._fileInfo.configOptions.reportUnknownMemberType;
+    private _reportPossibleUnknownAssignment(diagLevel: DiagnosticLevel, target: NameNode,
+            type: Type, srcExpr: ExpressionNode) {
 
-        // Report issues for both class and instance members.
-        this._reportUnknownSymbols(diagLevel, classType.getClassFields());
-        this._reportUnknownSymbols(diagLevel, classType.getInstanceFields());
-    }
-
-    // Reports any local variables within the current scope that have
-    // unknown or partially-unknown types.
-    private _reportUnknownSymbolsForCurrentScope(diagLevel: DiagnosticLevel) {
-        this._reportUnknownSymbols(diagLevel, this._currentScope.getSymbolTable());
-    }
-
-    private _reportUnknownSymbols(diagLevel: DiagnosticLevel, symbolTable: SymbolTable) {
         // Don't bother if the feature is disabled.
         if (diagLevel === 'none' && !this._fileInfo.useStrictMode) {
             return;
         }
 
-        symbolTable.forEach((symbol, name) => {
-            if (symbol.declarations && symbol.declarations.length > 0) {
-                const primaryDecl = symbol.declarations[0];
-
-                // Don't generate errors for symbols that are declared
-                // imported from other files. Also, don't report errors
-                // for parameters, since those are covered under a separate
-                // configuration switch.
-                if (primaryDecl.path === this._fileInfo.filePath &&
-                        primaryDecl.category !== SymbolCategory.Parameter) {
-                    const effectiveType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
-
-                    const simplifiedType = TypeUtils.removeUnboundFromUnion(effectiveType);
-                    if (simplifiedType instanceof UnknownType) {
-                        this._addDiagnostic(diagLevel,
-                            `Inferred type of '${ name }' is unknown`, primaryDecl.node);
-                    } else if (TypeUtils.containsUnknown(simplifiedType)) {
-                        // Sometimes variables contain an "unbound" type if they're
-                        // assigned only within conditional statements. Remove this
-                        // to avoid confusion.
-                        this._addDiagnostic(diagLevel,
-                            `Inferred type of '${ name }', '${ simplifiedType.asString() }', ` +
-                            `is partially unknown`, primaryDecl.node);
-                    }
-                }
-            }
-        });
+        const nameValue = target.nameToken.value;
+        const simplifiedType = TypeUtils.removeUnboundFromUnion(type);
+        if (simplifiedType instanceof UnknownType) {
+            this._addDiagnostic(diagLevel,
+                `Inferred type of '${ nameValue }' is unknown`, srcExpr);
+        } else if (TypeUtils.containsUnknown(simplifiedType)) {
+            // Sometimes variables contain an "unbound" type if they're
+            // assigned only within conditional statements. Remove this
+            // to avoid confusion.
+            this._addDiagnostic(diagLevel,
+                `Inferred type of '${ nameValue }', '${ simplifiedType.asString() }', ` +
+                `is partially unknown`, srcExpr);
+        }
     }
 
     // Assigns a declared type (as opposed to an inferred type) to an expression
@@ -2149,7 +2114,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // If typeAnnotationNode is provided, assumes that the specified
     // type is declared (rather than inferred).
     private _assignTypeToMemberVariable(node: MemberAccessExpressionNode, typeOfExpr: Type,
-            isInstanceMember: boolean, typeAnnotationNode?: ExpressionNode, srcExprNode?: ExpressionNode) {
+            isInstanceMember: boolean, typeAnnotationNode?: ExpressionNode,
+            srcExprNode?: ExpressionNode) {
 
         let classDef = ParseTreeUtils.getEnclosingClass(node);
         if (!classDef) {
@@ -2201,6 +2167,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         this._setAnalysisChanged();
                     }
 
+                    if (srcExprNode) {
+                        this._reportPossibleUnknownAssignment(
+                            this._fileInfo.configOptions.reportUnknownMemberType,
+                            node.memberName, typeOfExpr, srcExprNode);
+                    }
+
                     this._addDeclarationToSymbol(symbol, createDeclaration(), node);
                     AnalyzerNodeInfo.setDeclaration(node.memberName,
                         TypeUtils.getPrimaryDeclarationOfSymbol(symbol)!);
@@ -2235,6 +2207,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 newSymbol.addDeclaration(createDeclaration());
                 memberFields.set(memberName, newSymbol);
                 this._setAnalysisChanged();
+
+                if (srcExprNode) {
+                    this._reportPossibleUnknownAssignment(
+                        this._fileInfo.configOptions.reportUnknownMemberType,
+                        node.memberName, typeOfExpr, srcExprNode);
+                }
 
                 AnalyzerNodeInfo.setDeclaration(node.memberName,
                     TypeUtils.getPrimaryDeclarationOfSymbol(newSymbol)!);
@@ -2395,6 +2373,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
             };
 
+            this._reportPossibleUnknownAssignment(
+                this._fileInfo.configOptions.reportUnknownVariableType,
+                target, type, srcExpr);
+
             this._assignTypeToNameNode(target, type, declaration, srcExpr);
             this._addAssignmentTypeConstraint(target, type);
         } else if (target instanceof MemberAccessExpressionNode) {
@@ -2411,11 +2393,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression, false);
                         if (typeOfLeftExpr instanceof ObjectType) {
                             if (typeOfLeftExpr.getClassType().isSameGenericClass(classType)) {
-                                this._assignTypeToMemberVariable(target, type, true);
+                                this._assignTypeToMemberVariable(target, type, true,
+                                    undefined, srcExpr);
                             }
                         } else if (typeOfLeftExpr instanceof ClassType) {
                             if (typeOfLeftExpr.isSameGenericClass(classType)) {
-                                this._assignTypeToMemberVariable(target, type, false);
+                                this._assignTypeToMemberVariable(target, type, false,
+                                    undefined, srcExpr);
                             }
                         }
                     }
