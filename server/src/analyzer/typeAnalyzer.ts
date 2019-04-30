@@ -401,7 +401,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // so we convert them to a concrete type (or unknown if there
                     // are is no bound or contraints).
                     const specializedParamType = TypeUtils.specializeType(param.type, undefined);
-                    this._bindNameToType(param.name, specializedParamType, typeSourceId, declaration);
+                    this._addTypeSourceToName(param.name, specializedParamType, typeSourceId, declaration);
 
                     // TODO - handle varg or kwarg parameter types
 
@@ -452,7 +452,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 this._addSymbolToPermanentScope('super');
-                this._bindNameToType('super', superType, DefaultTypeSourceId);
+                this._addTypeSourceToName('super', superType, DefaultTypeSourceId);
             }
 
             this.walk(node.suite);
@@ -1191,7 +1191,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
 
-                this._bindNameToType(expr.nameToken.value, UnboundType.create(),
+                this._addTypeSourceToName(expr.nameToken.value, UnboundType.create(),
                     AnalyzerNodeInfo.getTypeSourceId(expr));
             }
         });
@@ -1281,7 +1281,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const moduleFields = moduleType.getFields();
                     moduleFields.forEach((boundValue, fieldName) => {
                         this._addSymbolToPermanentScope(fieldName);
-                        this._bindNameToType(fieldName, boundValue.inferredType.getType(),
+                        this._addTypeSourceToName(fieldName, boundValue.inferredType.getType(),
                             AnalyzerNodeInfo.getTypeSourceId(node),
                             boundValue.declarations ? boundValue.declarations[0] : undefined);
                     });
@@ -1291,7 +1291,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
                         if (moduleType) {
                             this._addSymbolToPermanentScope(implicitImport.name);
-                            this._bindNameToType(implicitImport.name, moduleType,
+                            this._addTypeSourceToName(implicitImport.name, moduleType,
                                 AnalyzerNodeInfo.getTypeSourceId(node));
                         }
                     });
@@ -2244,7 +2244,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _mergeToCurrentScope(scopeToMerge: Scope) {
-        this._currentScope.mergeSymbolTable(scopeToMerge);
+        this._currentScope.mergeScope(scopeToMerge);
         this._mergeReturnAndYieldTypeToCurrentScope(scopeToMerge);
     }
 
@@ -2561,7 +2561,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        this._bindNameToType(nameValue, type, AnalyzerNodeInfo.getTypeSourceId(nameNode), declaration);
+        this._addTypeSourceToName(nameValue, type,
+            AnalyzerNodeInfo.getTypeSourceId(nameNode), declaration);
 
         if (declaration) {
             AnalyzerNodeInfo.setDeclaration(nameNode, declaration);
@@ -2579,7 +2580,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _bindNameToType(name: string, type: Type, typeSourceId: TypeSourceId,
+    private _addTypeSourceToName(name: string, type: Type, typeSourceId: TypeSourceId,
             declaration?: Declaration) {
 
         const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name);

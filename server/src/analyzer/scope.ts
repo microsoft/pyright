@@ -178,7 +178,7 @@ export class Scope {
     // Merges a specified temporary scope into another scope (which is
     // assumed to be its parent or a direct ancestor). Returns true if
     // a scope was modified in a meaningful way.
-    mergeSymbolTable(scopeToMerge: Scope) {
+    mergeScope(scopeToMerge: Scope) {
         assert(scopeToMerge.getType() === ScopeType.Temporary);
 
         // If the scope we're merging isn't conditional, transfer

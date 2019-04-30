@@ -29,7 +29,7 @@ import { AssignmentNode, AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     ListComprehensionNode, ListNode, MemberAccessExpressionNode,
     ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParameterNode, RaiseNode,
     ReturnNode, StringNode, SuiteNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, WhileNode, WithNode, YieldExpressionNode,
+    TypeAnnotationExpressionNode, WhileNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -427,7 +427,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             });
         });
 
-        this._currentScope.mergeSymbolTable(exceptScope!);
+        this._currentScope.mergeScope(exceptScope!);
 
         return false;
     }
@@ -459,7 +459,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 this.walk(node.elseSuite!);
             });
 
-            this._currentScope.mergeSymbolTable(elseScope);
+            this._currentScope.mergeScope(elseScope);
 
             if (!elseScope.getAlwaysRaises()) {
                 allPathsRaise = false;
@@ -788,11 +788,11 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         if (!isUnconditional) {
             // If both an "if" and an "else" scope are conditional, combine the two scopes.
             const combinedScope = Scope.combineConditionalScopes(ifScope, elseScope);
-            this._currentScope.mergeSymbolTable(combinedScope);
+            this._currentScope.mergeScope(combinedScope);
         } else if (!ifScope.isConditional()) {
-            this._currentScope.mergeSymbolTable(ifScope);
+            this._currentScope.mergeScope(ifScope);
         } else if (!elseScope.isConditional()) {
-            this._currentScope.mergeSymbolTable(elseScope);
+            this._currentScope.mergeScope(elseScope);
         }
 
         return false;
