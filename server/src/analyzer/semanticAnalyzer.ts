@@ -259,13 +259,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let declaration: Declaration = {
-            category: containingClass ? SymbolCategory.Method : SymbolCategory.Function,
-            node: node.name,
-            path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
-        };
-
         // Use an unknown type for now since we don't do any
         // decorator processing in this pass.
         this._addSymbolToPermanentScope(node.name.nameToken.value,
@@ -321,41 +314,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitFor(node: ForNode): boolean {
-        this.walk(node.iterableExpression);
-
-        this.walk(node.targetExpression);
-        this.walk(node.forSuite);
-
-        if (node.elseSuite) {
-            this.walk(node.elseSuite);
-        }
-
-        return false;
-    }
-
-    visitListComprehension(node: ListComprehensionNode): boolean {
-        // We need to "execute" the comprehension clauses first, even
-        // though they appear afterward in the syntax. We'll do so
-        // within a temporary scope so we can throw away the target
-        // when complete.
-        this._enterTemporaryScope(() => {
-            node.comprehensions.forEach(compr => {
-                if (compr instanceof ListComprehensionForNode) {
-                    this.walk(compr.iterableExpression);
-
-                    this._addNamedTargetToCurrentScope(compr.targetExpression);
-                } else {
-                    this.walk(compr.testExpression);
-                }
-            });
-
-            this.walk(node.baseExpression);
-        });
-
-        return false;
-    }
-
     visitIf(node: IfNode): boolean {
         this._handleIfWhileCommon(node.testExpression, node.ifSuite, node.elseSuite);
         return false;
@@ -364,11 +322,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     visitWhile(node: WhileNode): boolean {
         this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite);
         return false;
-    }
-
-    visitReturn(node: ReturnNode): boolean {
-        this._currentScope.setAlwaysReturns();
-        return true;
     }
 
     visitRaise(node: RaiseNode): boolean {
@@ -383,80 +336,26 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitExcept(node: ExceptNode): boolean {
-        if (node.typeExpression) {
-            this.walk(node.typeExpression);
-        }
-
-        let exceptScope: Scope | undefined;
-        this._enterTemporaryScope(() => {
-            if (node.typeExpression && node.name) {
-                this._addNamedTargetToCurrentScope(node.name);
-            }
-
-            exceptScope = this._enterTemporaryScope(() => {
-                this.walk(node.exceptSuite);
-            });
-        });
-
-        this._currentScope.mergeScope(exceptScope!);
-
-        return false;
-    }
-
     visitTry(node: TryNode): boolean {
-        let alwaysRaisesBeforeTry = this._currentScope.getAlwaysRaises();
-
         this.walk(node.trySuite);
-
-        let allPathsRaise = true;
 
         // Wrap the except clauses in a conditional scope
         // so we can throw away any names that are bound
         // in this scope.
         this._nestedExceptDepth++;
         node.exceptClauses.forEach(exceptNode => {
-            const exceptScope = this._enterTemporaryScope(() => {
-                this.walk(exceptNode);
-            });
-
-            if (!exceptScope.getAlwaysRaises()) {
-                allPathsRaise = false;
-            }
+            this.walk(exceptNode);
         });
         this._nestedExceptDepth--;
 
         if (node.elseSuite) {
-            let elseScope = this._enterTemporaryScope(() => {
-                this.walk(node.elseSuite!);
-            });
-
-            this._currentScope.mergeScope(elseScope);
-
-            if (!elseScope.getAlwaysRaises()) {
-                allPathsRaise = false;
-            }
-        }
-
-        // If we can't prove that exceptions will propagate beyond
-        // the try/catch block. clear the "alwyas raises" condition.
-        if (alwaysRaisesBeforeTry || allPathsRaise) {
-            this._currentScope.setAlwaysRaises();
-        } else {
-            this._currentScope.clearAlwaysRaises();
+            this.walk(node.elseSuite!);
         }
 
         if (node.finallySuite) {
             this.walk(node.finallySuite);
         }
 
-        return false;
-    }
-
-    visitMemberAccess(node: MemberAccessExpressionNode) {
-        this.walk(node.leftExpression);
-
-        // Don't walk the member name.
         return false;
     }
 
@@ -542,22 +441,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         this._subscopesToAnalyze = [];
     }
 
-    protected _addNamedTargetToCurrentScope(node: ExpressionNode) {
-        if (node instanceof NameNode) {
-            this._currentScope.addUnboundSymbol(node.nameToken.value);
-        } else if (node instanceof TypeAnnotationExpressionNode) {
-            this._addNamedTargetToCurrentScope(node.valueExpression);
-        } else if (node instanceof TupleExpressionNode) {
-            node.expressions.forEach(expr => {
-                this._addNamedTargetToCurrentScope(expr);
-            });
-        } else if (node instanceof ListNode) {
-            node.entries.forEach(expr => {
-                this._addNamedTargetToCurrentScope(expr);
-            });
-        }
-    }
-
     // Finds the nearest permanent scope (as opposed to temporary scope) and
     // adds a new symbol with the specified name if it doesn't already exist.
     protected _addSymbolToPermanentScope(nameValue: string, type: Type,
@@ -578,24 +461,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         symbol.inferredType.addSource(type, typeSourceId);
-    }
-
-    protected _enterTemporaryScope(callback: () => void, isConditional?: boolean,
-            isNotExecuted?: boolean) {
-        let prevScope = this._currentScope;
-        let newScope = new Scope(ScopeType.Temporary, prevScope);
-        if (isConditional) {
-            newScope.setConditional();
-        }
-        if (this._currentScope.isNotExecuted() || isNotExecuted) {
-            newScope.setIsNotExecuted();
-        }
-        this._currentScope = newScope;
-
-        callback();
-
-        this._currentScope = prevScope;
-        return newScope;
     }
 
     private _validateYieldUsage(node: YieldExpressionNode | YieldFromExpressionNode) {
@@ -620,62 +485,16 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let constExprValue = ExpressionUtils.evaluateConstantExpression(
             testExpression, this._fileInfo.executionEnvironment);
 
-        // Push a temporary scope so we can track
         // which variables have been assigned to conditionally.
-        const ifScope = this._enterTemporaryScope(() => {
-            if (constExprValue !== false) {
-                this.walk(ifWhileSuite);
-            }
-        }, true, constExprValue === false);
+        if (constExprValue !== false) {
+            this.walk(ifWhileSuite);
+        }
 
         // Now handle the else statement if it's present. If there
         // are chained "else if" statements, they'll be handled
         // recursively here.
-        const elseScope = this._enterTemporaryScope(() => {
-            if (elseSuite && constExprValue !== true) {
-                this.walk(elseSuite);
-            }
-        }, true, constExprValue === true);
-
-        let isUnconditional = false;
-        if (constExprValue !== undefined) {
-            isUnconditional = true;
-            if (constExprValue) {
-                ifScope.setUnconditional();
-            } else {
-                elseScope.setUnconditional();
-            }
-        }
-
-        if (ifScope && ifScope.getAlwaysReturnsOrRaises() && elseScope && elseScope.getAlwaysReturnsOrRaises()) {
-            // If both an if and else clause are executed but they both return or raise an exception,
-            // mark the current scope as always returning or raising an exception.
-            if (ifScope.getAlwaysRaises() && elseScope.getAlwaysRaises()) {
-                this._currentScope.setAlwaysRaises();
-            } else {
-                this._currentScope.setAlwaysReturns();
-            }
-        }
-
-        if (ifScope.getAlwaysReturnsOrRaises()) {
-            elseScope.setUnconditional();
-            isUnconditional = true;
-        }
-
-        if (elseScope.getAlwaysReturnsOrRaises()) {
-            ifScope.setUnconditional();
-            isUnconditional = true;
-        }
-
-        // Figure out how to combine the scopes.
-        if (!isUnconditional) {
-            // If both an "if" and an "else" scope are conditional, combine the two scopes.
-            const combinedScope = Scope.combineConditionalScopes(ifScope, elseScope);
-            this._currentScope.mergeScope(combinedScope);
-        } else if (!ifScope.isConditional()) {
-            this._currentScope.mergeScope(ifScope);
-        } else if (!elseScope.isConditional()) {
-            this._currentScope.mergeScope(elseScope);
+        if (elseSuite && constExprValue !== true) {
+            this.walk(elseSuite);
         }
 
         return false;
