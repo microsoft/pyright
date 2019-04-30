@@ -387,25 +387,28 @@ export class TypeAnalyzer extends ParseTreeWalker {
             parameters.forEach((param, index) => {
                 const paramNode = node.parameters[index];
                 if (param.name) {
-                    if (param.category === ParameterCategory.Simple) {
-                        let declaration: Declaration | undefined;
-                        declaration = {
-                            category: SymbolCategory.Parameter,
-                            node: paramNode,
-                            path: this._fileInfo.filePath,
-                            range: convertOffsetsToRange(paramNode.start, paramNode.end, this._fileInfo.lines)
-                        };
-                        assert(paramNode !== undefined && paramNode.name !== undefined);
-                        let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(paramNode.name!);
+                    let declaration: Declaration | undefined;
+                    declaration = {
+                        category: SymbolCategory.Parameter,
+                        node: paramNode,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(paramNode.start, paramNode.end, this._fileInfo.lines)
+                    };
+                    assert(paramNode !== undefined && paramNode.name !== undefined);
+                    let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(paramNode.name!);
 
-                        // If the type contains type variables, specialize them now
-                        // so we convert them to a concrete type (or unknown if there
-                        // are is no bound or contraints).
-                        const specializedParamType = TypeUtils.specializeType(param.type, undefined);
-                        this._bindNameToType(param.name, specializedParamType, typeSourceId, declaration);
-                    } else {
-                        // TODO - need to handle non-simple parameter categories.
-                    }
+                    // If the type contains type variables, specialize them now
+                    // so we convert them to a concrete type (or unknown if there
+                    // are is no bound or contraints).
+                    const specializedParamType = TypeUtils.specializeType(param.type, undefined);
+                    this._bindNameToType(param.name, specializedParamType, typeSourceId, declaration);
+
+                    // TODO - handle varg or kwarg parameter types
+
+                    // Add an implicit assignment type constraint. This is needed in
+                    // case the parameter is reassigned later in the function with
+                    // a different type.
+                    this._addAssignmentTypeConstraint(paramNode.name!, specializedParamType);
                 }
             });
 
@@ -718,7 +721,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             });
 
             if (item.target) {
-                this._addNamedTargetToCurrentScope(item.target);
                 this._assignTypeToExpression(item.target, scopedType, item.target);
                 this.walk(item.target);
             }
@@ -1338,7 +1340,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     this._updateExpressionTypeForNode(importAs.name, symbolType);
                     if (importAs.alias) {
-                        this._updateExpressionTypeForNode(importAs.name, symbolType);
+                        this._updateExpressionTypeForNode(importAs.alias, symbolType);
                     }
 
                     if (declaration) {
@@ -1698,7 +1700,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
         } else {
-            if (inferredReturnType.removeSource(DefaultTypeSourceId)) {
+            if (inferredReturnType.removeSource(AnalyzerNodeInfo.getTypeSourceId(node))) {
                 this._setAnalysisChanged();
             }
         }

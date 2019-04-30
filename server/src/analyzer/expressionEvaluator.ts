@@ -2609,15 +2609,14 @@ export class ExpressionEvaluator {
 
     private _applyScopeTypeConstraintRecursive(node: ExpressionNode, type: Type,
             scope = this._scope): Type {
-        // If we've hit a permanent scope, don't recurse any further.
-        if (scope.getType() !== ScopeType.Temporary) {
-            return type;
-        }
 
-        // Recursively allow the parent scopes to apply their type constraints.
-        const parentScope = scope.getParent();
-        if (parentScope) {
-            type = this._applyScopeTypeConstraintRecursive(node, type, parentScope);
+        // If we've hit a permanent scope, don't recurse any further.
+        if (scope.getType() === ScopeType.Temporary) {
+            // Recursively allow the parent scopes to apply their type constraints.
+            const parentScope = scope.getParent();
+            if (parentScope) {
+                type = this._applyScopeTypeConstraintRecursive(node, type, parentScope);
+            }
         }
 
         // Apply the constraints within the current scope. Stop if one of

@@ -393,21 +393,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    visitWith(node: WithNode): boolean {
-        node.withItems.forEach(item => {
-            this.walk(item.expression);
-        });
-
-        node.withItems.forEach(item => {
-            if (item.target) {
-                this._addNamedTargetToCurrentScope(item.target);
-            }
-        });
-
-        this.walk(node.suite);
-        return false;
-    }
-
     visitReturn(node: ReturnNode): boolean {
         this._currentScope.setAlwaysReturns();
         return true;
