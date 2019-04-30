@@ -90,10 +90,6 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     visitImportFrom(node: ImportFromNode): boolean {
-        if (node.imports.length === 0) {
-            this._currentNameBindings.addWildcard();
-        }
-
         this._importedModules.push({
             nameNode: node.module,
             leadingDots: node.module.leadingDots,
@@ -239,7 +235,9 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     private _addPossibleTupleNamedTarget(node: ExpressionNode) {
-        if (node instanceof TupleExpressionNode) {
+        if (node instanceof NameNode) {
+            this._addName(node.nameToken.value);
+        } else if (node instanceof TupleExpressionNode) {
             node.expressions.forEach(expr => {
                 this._addPossibleTupleNamedTarget(expr);
             });
@@ -249,19 +247,13 @@ export class PostParseWalker extends ParseTreeWalker {
             });
         } else if (node instanceof TypeAnnotationExpressionNode) {
             this._addPossibleTupleNamedTarget(node.valueExpression);
-        } else if (node instanceof UnpackExpressionNode) {
-            if (node.expression instanceof NameNode) {
-                let name = node.expression.nameToken;
-                this._addName(name.value);
-            }
-        } else if (node instanceof NameNode) {
-            let name = node.nameToken;
-            this._addName(name.value);
         }
     }
 
     private _addName(name: string) {
-        let scopeType = this._currentNameBindings.lookUpName(name);
+        // Has this name already been added to the current scope? If not,
+        // add it with the appropriate binding type.
+        const scopeType = this._currentNameBindings.lookUpName(name);
         if (scopeType === undefined) {
             this._currentNameBindings.addName(name, this._currentBindingType);
         }

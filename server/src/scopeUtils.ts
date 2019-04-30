@@ -12,6 +12,7 @@ import * as assert from 'assert';
 
 import { Scope, ScopeType } from './analyzer/scope';
 import { ClassType, ObjectType, Type, UnknownType } from './analyzer/types';
+import { TypeUtils } from './analyzer/typeUtils';
 
 export class ScopeUtils {
     static getBuiltInType(currentScope: Scope, name: string): Type {
@@ -24,7 +25,7 @@ export class ScopeUtils {
 
         let nameType = builtInScope.lookUpSymbol(name);
         if (nameType) {
-            return nameType.currentType;
+            return TypeUtils.getEffectiveTypeOfSymbol(nameType);
         }
 
         return UnknownType.create();
@@ -49,7 +50,7 @@ export class ScopeUtils {
     static getPermanentScope(scope: Scope): Scope {
         let curScope: Scope | undefined = scope;
         while (curScope) {
-            if (curScope.getType() === ScopeType.Temporary) {
+            if (curScope.getType() !== ScopeType.Temporary) {
                 return curScope;
             }
 

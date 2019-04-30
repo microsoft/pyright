@@ -13,12 +13,11 @@
 
 import * as assert from 'assert';
 
-import { DefaultTypeSourceId, InferredType, TypeSourceId } from './inferredType';
+import { InferredType } from './inferredType';
 import { Declaration, Symbol, SymbolTable } from './symbol';
 import { TypeConstraint } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
-import { Type, UnboundType } from './types';
-import { TypeUtils } from './typeUtils';
+import { UnknownType } from './types';
 
 export enum ScopeType {
     // Temporary scopes are used temporarily during analysis
@@ -76,8 +75,8 @@ export class Scope {
     private _breaksFromLoop = false;
 
     // Inferred return and yield types for the scope.
-    private _returnType = new InferredType();
-    private _yieldType = new InferredType();
+    private _returnType = new InferredType(UnknownType.create());
+    private _yieldType = new InferredType(UnknownType.create());
 
     // Active type constraints for this scope -- used for conditional
     // scopes where the condition constrains the types of certain
@@ -162,32 +161,11 @@ export class Scope {
         return this._lookUpSymbolRecursiveInternal(name, false, false);
     }
 
-    lookUpSymbolFromPermanentScope(name: string): SymbolWithScope | undefined {
-        // If this is a temporary scope, recurse until we get to a
-        // permanent scope.
-        if (this._scopeType === ScopeType.Temporary) {
-            return this._parent!.lookUpSymbolFromPermanentScope(name);
-        }
-
-        return this.lookUpSymbolRecursive(name);
-    }
-
     // Adds a new (unbound) symbol to the scope.
     addUnboundSymbol(name: string): Symbol {
-        let symbol = new Symbol(UnboundType.create(), DefaultTypeSourceId);
+        let symbol = new Symbol();
         this._symbolTable.set(name, symbol);
         return symbol;
-    }
-
-    // Binds a type to an existing name in the scope.
-    setSymbolCurrentType(name: string, type: Type, typeSourceId: TypeSourceId): boolean {
-        const symbol = this._symbolTable.get(name);
-        if (symbol) {
-            return symbol.setCurrentType(type, typeSourceId);
-        } else {
-            this._symbolTable.set(name, new Symbol(type, typeSourceId));
-            return true;
-        }
     }
 
     addSymbolDeclaration(name: string, declaration: Declaration) {
@@ -200,81 +178,8 @@ export class Scope {
     // Merges a specified temporary scope into another scope (which is
     // assumed to be its parent or a direct ancestor). Returns true if
     // a scope was modified in a meaningful way.
-    mergeSymbolTable(scopeToMerge: Scope): boolean {
+    mergeSymbolTable(scopeToMerge: Scope) {
         assert(scopeToMerge.getType() === ScopeType.Temporary);
-
-        let modifiedType = false;
-
-        for (let name of scopeToMerge._symbolTable.getKeys()) {
-            let symbolToMerge = scopeToMerge._symbolTable.get(name)!;
-            let mergeConditional = scopeToMerge.isConditional() || !!symbolToMerge.isConditional;
-            let targetScope: Scope;
-
-            if (this._scopeType === ScopeType.Temporary) {
-                targetScope = this;
-            } else {
-                let scopeWithName = this.lookUpSymbolRecursive(name);
-                if (!scopeWithName) {
-                    continue;
-                }
-
-                // This is a hack that's currently required to avoid merging
-                // the synthesized "super" name.
-                // TODO - fix this
-                if (name === 'super') {
-                    continue;
-                }
-
-                // Always merge non-local scopes conditionally.
-                if (scopeWithName.scope !== this) {
-                    mergeConditional = true;
-                }
-                targetScope = scopeWithName.scope;
-            }
-
-            // Determine the merged type. In the non-conditional case, we simply use the
-            // new type. In the conditional case, we may need to combine two types.
-            let newType = symbolToMerge.currentType;
-            let markTypeConditional = false;
-            if (mergeConditional) {
-                if (targetScope._isConditional) {
-                    // If the target scope is conditional and we don't know the
-                    // existing type to merge, mark the entry as "conditional" so it
-                    // is properly merged later.
-                    const targetSymbol = targetScope._symbolTable.get(name);
-                    if (targetSymbol) {
-                        newType = TypeUtils.combineTypes([newType, targetSymbol.currentType]);
-                    } else {
-                        markTypeConditional = true;
-                    }
-                } else {
-                    let existingBinding = targetScope.lookUpSymbolRecursive(name);
-                    if (existingBinding) {
-                        newType = TypeUtils.combineTypes([newType, existingBinding.symbol.currentType]);
-                    }
-                }
-            }
-
-            // Update the current type.
-            if (targetScope.setSymbolCurrentType(name, newType,
-                    symbolToMerge.inferredType.getPrimarySourceId())) {
-                if (targetScope.getType() !== ScopeType.Temporary) {
-                    modifiedType = true;
-                }
-            }
-
-            // Merge the declarations.
-            if (symbolToMerge.declarations) {
-                symbolToMerge.declarations.forEach(decl => {
-                    targetScope.addSymbolDeclaration(name, decl);
-                });
-            }
-
-            // Update the "conditional" flag if requested.
-            if (markTypeConditional) {
-                targetScope._symbolTable.get(name)!.isConditional = true;
-            }
-        }
 
         // If the scope we're merging isn't conditional, transfer
         // the return and raises flags.
@@ -298,8 +203,6 @@ export class Scope {
         const typeConstraints = TypeConstraintUtils.dedupeTypeConstraints(
             scopeToMerge.getTypeConstraints(), scopeToMerge.isConditional());
         this.addTypeConstraints(typeConstraints);
-
-        return modifiedType;
     }
 
     // Combines a conditional scope with another conditional scope --
@@ -312,60 +215,6 @@ export class Scope {
         assert(scope1._parent === scope2._parent);
 
         const combinedScope = new Scope(ScopeType.Temporary, scope1.getParent());
-
-        // Handle names that are in the second scope that are also in the first
-        // scope or are unique to the second scope.
-        scope2._symbolTable.forEach((scope2Symbol, name) => {
-            const scope1Symbol = scope1._symbolTable.get(name);
-
-            if (scope1Symbol) {
-                const combinedSymbol = combinedScope.addUnboundSymbol(name);
-                combinedSymbol.setCurrentType(
-                    TypeUtils.combineTypes([scope1Symbol.currentType, scope2Symbol.currentType]),
-                    scope2Symbol.inferredType.getPrimarySourceId());
-
-                if (scope1Symbol.declarations) {
-                    scope1Symbol.declarations.forEach(decl => {
-                        combinedSymbol.addDeclaration(decl);
-                    });
-                }
-
-                if (scope2Symbol.declarations) {
-                    scope2Symbol.declarations.forEach(decl => {
-                        combinedSymbol.addDeclaration(decl);
-                    });
-                }
-
-                if (scope1Symbol.isConditional || scope2Symbol.isConditional) {
-                    combinedSymbol.isConditional = true;
-                }
-            } else {
-                const newSymbol = new Symbol(scope2Symbol.currentType,
-                    scope2Symbol.inferredType.getPrimarySourceId());
-                if (scope2Symbol.declarations) {
-                    scope2Symbol.declarations.forEach(decl => {
-                        newSymbol.addDeclaration(decl);
-                    });
-                }
-                newSymbol.isConditional = true;
-                combinedScope._symbolTable.set(name, newSymbol);
-            }
-        });
-
-        // Handle names that are only in the first scope.
-        scope1._symbolTable.forEach((scope1Symbol, name) => {
-            if (!scope2._symbolTable.get(name)) {
-                const newSymbol = new Symbol(scope1Symbol.currentType,
-                    scope1Symbol.inferredType.getPrimarySourceId());
-                if (scope1Symbol.declarations) {
-                    scope1Symbol.declarations.forEach(decl => {
-                        newSymbol.addDeclaration(decl);
-                    });
-                }
-                newSymbol.isConditional = true;
-                combinedScope._symbolTable.set(name, newSymbol);
-            }
-        });
 
         // Combine type constraints from the two scopes.
         const combinedTypeConstraints = TypeConstraintUtils.combineTypeConstraints(

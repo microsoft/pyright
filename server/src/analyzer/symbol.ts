@@ -13,7 +13,7 @@ import { DiagnosticTextRange } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParseNode } from '../parser/parseNodes';
 import { InferredType, TypeSourceId } from './inferredType';
-import { Type, TypeCategory } from './types';
+import { Type } from './types';
 
 export enum SymbolCategory {
     Variable,
@@ -51,35 +51,15 @@ export class Symbol {
     // properties, and functions (in the case of @overload).
     declarations?: Declaration[];
 
-    // Type currently bound to the name as analyzer progresses through
-    // the code flow. Can be UnboundType.
-    currentType: Type;
-
-    // Indicates that the type is conditionally bound (e.g. inside of an
-    // if statement). Used during analysis to determine how and whether to
-    // merge types. For example, if both parts of an if/else statement
-    // conditionally set a value, the combination of the two is unconditional.
-    // This is used only in temporary scopes.
-    isConditional?: boolean;
-
-    constructor(currentType: Type, typeSourceId: TypeSourceId) {
-        this.currentType = currentType;
-        this.addInferredType(currentType, typeSourceId);
+    static create(type: Type, typeSourceId: TypeSourceId) {
+        const newSymbol = new Symbol();
+        newSymbol.setTypeForSource(type, typeSourceId);
+        return newSymbol;
     }
 
     // Returns true if inferred type changed.
-    setCurrentType(currentType: Type, typeSourceId: TypeSourceId): boolean {
-        this.currentType = currentType;
-        return this.addInferredType(currentType, typeSourceId);
-    }
-
-    // Returns true if inferred type changed.
-    addInferredType(type: Type, typeSourceId: TypeSourceId): boolean {
-        if (type.category !== TypeCategory.Unbound) {
-            return this.inferredType.addSource(type, typeSourceId);
-        }
-
-        return false;
+    setTypeForSource(type: Type, typeSourceId: TypeSourceId): boolean {
+        return this.inferredType.addSource(type, typeSourceId);
     }
 
     addDeclaration(declaration: Declaration) {

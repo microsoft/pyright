@@ -658,8 +658,8 @@ export class FunctionType extends Type {
         this._functionDetails = {
             flags,
             parameters: [],
-            inferredReturnType: new InferredType(),
-            inferredYieldType: new InferredType()
+            inferredReturnType: new InferredType(UnknownType.create()),
+            inferredYieldType: new InferredType(UnknownType.create())
         };
     }
 

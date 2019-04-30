@@ -376,8 +376,8 @@ export class ExpressionEvaluator {
             }
         });
 
-        classType.getClassFields().set('__init__', new Symbol(initType, DefaultTypeSourceId));
-        classType.getClassFields().set('__new__', new Symbol(newType, DefaultTypeSourceId));
+        classType.getClassFields().set('__init__', Symbol.create(initType, DefaultTypeSourceId));
+        classType.getClassFields().set('__new__', Symbol.create(newType, DefaultTypeSourceId));
     }
 
     private _getReturnTypeFromGenerator(type: Type): Type | undefined {
@@ -552,19 +552,7 @@ export class ExpressionEvaluator {
 
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
-
-            let declaration = symbol.declarations ? symbol.declarations[0] : undefined;
-
-            if (declaration && declaration.declaredType) {
-                // Was there a defined type hint?
-                type = declaration.declaredType;
-            } else if (declaration && declaration.category !== SymbolCategory.Variable) {
-                // If this is a non-variable type (e.g. a class, function, method), we
-                // can assume that it's not going to be modified outside the local scope.
-                type = symbol.currentType;
-            } else {
-                type = symbol.inferredType.getType();
-            }
+            type = TypeUtils.getEffectiveTypeOfSymbol(symbol);
         }
 
         if (!type) {
@@ -638,7 +626,7 @@ export class ExpressionEvaluator {
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
             if (memberInfo) {
-                type = memberInfo.currentType;
+                type = TypeUtils.getEffectiveTypeOfSymbol(memberInfo);
             } else {
                 this._addError(`'${ memberName }' is not a known member of module`, node.memberName);
                 type = UnknownType.create();
@@ -1120,8 +1108,11 @@ export class ExpressionEvaluator {
                 }
             } else {
                 const exprString = ParseTreeUtils.printExpression(errorNode);
+                const diagAddendum = new DiagnosticAddendum();
+                const argTypes = argList.map(t => t.type.asString());
+                diagAddendum.addMessage(`Argument types: (${ argTypes.join(', ') })`);
                 this._addError(
-                    `No overloads for '${ exprString }' match parameters`,
+                    `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
                     errorNode);
                 type = UnknownType.create();
             }
@@ -1662,7 +1653,7 @@ export class ExpressionEvaluator {
         }
 
         const classFields = classType.getClassFields();
-        classFields.set('__class__', new Symbol(classType, DefaultTypeSourceId));
+        classFields.set('__class__', Symbol.create(classType, DefaultTypeSourceId));
         const instanceFields = classType.getInstanceFields();
 
         let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
@@ -1705,8 +1696,7 @@ export class ExpressionEvaluator {
                                 };
 
                                 constructorType.addParameter(paramInfo);
-
-                                instanceFields.set(entryName, new Symbol(entryType, DefaultTypeSourceId));
+                                instanceFields.set(entryName, Symbol.create(entryType, DefaultTypeSourceId));
                             }
                         });
                     } else if (entriesArg.valueExpression instanceof ListNode) {
@@ -1770,7 +1760,7 @@ export class ExpressionEvaluator {
 
                             constructorType.addParameter(paramInfo);
 
-                            instanceFields.set(entryName, new Symbol(entryType, DefaultTypeSourceId));
+                            instanceFields.set(entryName, Symbol.create(entryType, DefaultTypeSourceId));
                         });
                     } else {
                         // A dynamic expression was used, so we can't evaluate
@@ -1784,18 +1774,18 @@ export class ExpressionEvaluator {
                 TypeUtils.addDefaultFunctionParameters(constructorType);
             }
 
-            classFields.set('__new__', new Symbol(constructorType, DefaultTypeSourceId));
+            classFields.set('__new__', Symbol.create(constructorType, DefaultTypeSourceId));
 
             let keysItemType = new FunctionType(FunctionTypeFlags.None);
             keysItemType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'list',
                 [ScopeUtils.getBuiltInObject(this._scope, 'str')]));
-            classFields.set('keys', new Symbol(keysItemType, DefaultTypeSourceId));
-            classFields.set('items', new Symbol(keysItemType, DefaultTypeSourceId));
+            classFields.set('keys', Symbol.create(keysItemType, DefaultTypeSourceId));
+            classFields.set('items', Symbol.create(keysItemType, DefaultTypeSourceId));
 
             let lenType = new FunctionType(FunctionTypeFlags.InstanceMethod);
             lenType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'int'));
             lenType.addParameter(selfParameter);
-            classFields.set('__len__', new Symbol(lenType, DefaultTypeSourceId));
+            classFields.set('__len__', Symbol.create(lenType, DefaultTypeSourceId));
 
             if (addGenericGetAttribute) {
                 let getAttribType = new FunctionType(FunctionTypeFlags.InstanceMethod);
@@ -1806,7 +1796,7 @@ export class ExpressionEvaluator {
                     name: 'name',
                     type: ScopeUtils.getBuiltInObject(this._scope, 'str')
                 });
-                classFields.set('__getattribute__', new Symbol(getAttribType, DefaultTypeSourceId));
+                classFields.set('__getattribute__', Symbol.create(getAttribType, DefaultTypeSourceId));
             }
         }
 

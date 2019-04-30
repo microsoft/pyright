@@ -23,14 +23,14 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AssignmentNode, AwaitExpressionNode, ClassNode, DelNode, ErrorExpressionNode,
+import { AssignmentNode, AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
-    ImportAsNode, ImportFromAsNode, LambdaNode,
-    ListComprehensionForNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
+    ImportAsNode, ImportFromAsNode, LambdaNode, ListComprehensionForNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode,
     ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParameterNode, RaiseNode,
-    ReturnNode, StringNode, SuiteNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, UnpackExpressionNode, WhileNode,
-    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    ReturnNode, StringNode, SuiteNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, WhileNode, WithNode, YieldExpressionNode,
+    YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -38,13 +38,13 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportType } from './importResult';
-import { DefaultTypeSourceId } from './inferredType';
+import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, SymbolCategory } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, Type, UnboundType, UnknownType } from './types';
+    FunctionTypeFlags, ModuleType, Type, UnknownType } from './types';
 
 type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;
 
@@ -231,8 +231,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         // Don't bind the name of the class until after we've done the
         // first pass of its scope analysis. This guarantees that we'll flag
-        // any references to the as-yet-undecleared class as an error.
-        this._bindNameNodeToType(node.name, classType, true, declaration);
+        // any references to the as-yet-undeclared class as an error.
+        this._addSymbolToPermanentScope(node.name.nameToken.value, classType,
+            AnalyzerNodeInfo.getTypeSourceId(node.name), node.name);
+        this._assignTypeToSymbol(node.name, classType, declaration);
 
         return false;
     }
@@ -289,7 +291,12 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
         };
-        this._bindNameNodeToType(node.name, UnknownType.create(), false, declaration);
+
+        // Use an unknown type for now since we don't do any
+        // decorator processing in this pass.
+        this._addSymbolToPermanentScope(node.name.nameToken.value,
+            UnknownType.create(), AnalyzerNodeInfo.getTypeSourceId(node.name));
+        this._assignTypeToSymbol(node.name, UnknownType.create(), declaration);
 
         AnalyzerNodeInfo.setExpressionType(node, functionType);
         AnalyzerNodeInfo.setExpressionType(node.name, functionType);
@@ -344,9 +351,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     visitFor(node: ForNode): boolean {
         this.walk(node.iterableExpression);
 
-        // Populate the new scope with target parameters.
-        this._addNamedTarget(node.targetExpression);
-
         this.walk(node.targetExpression);
         this.walk(node.forSuite);
 
@@ -367,7 +371,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 if (compr instanceof ListComprehensionForNode) {
                     this.walk(compr.iterableExpression);
 
-                    this._addNamedTarget(compr.targetExpression);
+                    this._addNamedTargetToCurrentScope(compr.targetExpression);
                 } else {
                     this.walk(compr.testExpression);
                 }
@@ -396,7 +400,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         node.withItems.forEach(item => {
             if (item.target) {
-                this._addNamedTarget(item.target);
+                this._addNamedTargetToCurrentScope(item.target);
             }
         });
 
@@ -429,8 +433,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let exceptScope: Scope | undefined;
         this._enterTemporaryScope(() => {
             if (node.typeExpression && node.name) {
-                this._currentScope.addUnboundSymbol(node.name.nameToken.value);
-                this._bindNameNodeToType(node.name, UnknownType.create());
+                this._addNamedTargetToCurrentScope(node.name);
+                this._assignTypeToSymbol(node.name, UnknownType.create());
             }
 
             exceptScope = this._enterTemporaryScope(() => {
@@ -497,7 +501,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             this.walk(node.rightExpression);
         }
 
-        this._addNamedTarget(node.leftExpression);
+        this._assignTypeForTargetExpression(node.leftExpression);
 
         this.walk(node.leftExpression);
         return false;
@@ -515,44 +519,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
             this._addError(`'await' allowed only within async function`, node);
-        }
-
-        return true;
-    }
-
-    visitName(node: NameNode): boolean {
-        let valueWithScope = this._currentScope.lookUpSymbolRecursive(node.nameToken.value);
-
-        if (!valueWithScope) {
-            // This will be reported by the type analyzer. Avoid double reporting it.
-            // this._addError(`'${ node.nameToken.value }' is not defined`, node.nameToken);
-        } else {
-            if (valueWithScope.symbol.currentType.isUnbound()) {
-                // It's possible that the name is unbound in the current scope
-                // at this point in the code but is available in an outer scope.
-                // Like this:
-                // a = 3
-                // def foo():
-                //    b = a  # 'a' is unbound locally but is available in outer scope
-                //    a = None
-                let isReallyUnbound = true;
-                let parentScope = valueWithScope.scope.getParent();
-                if (parentScope) {
-                    valueWithScope = parentScope.lookUpSymbolRecursive(node.nameToken.value);
-                    if (valueWithScope && !valueWithScope.symbol.currentType.isUnbound()) {
-                        isReallyUnbound = false;
-                    }
-                }
-
-                // Don't report unbound error in stub files, which support out-of-order
-                // declarations of classes.
-                if (isReallyUnbound && !this._fileInfo.isStubFile) {
-                    this._addError(`'${ node.nameToken.value }' is not bound`, node.nameToken);
-                }
-            } else if (valueWithScope.symbol.currentType.isPossiblyUnbound()) {
-                this._fileInfo.diagnosticSink.addWarningWithTextRange(
-                    `'${ node.nameToken.value }' may be unbound`, node.nameToken);
-            }
         }
 
         return true;
@@ -588,14 +554,14 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     visitImportAs(node: ImportAsNode): boolean {
         if (node.alias || node.module.nameParts.length > 0) {
             let nameNode = node.alias ? node.alias : node.module.nameParts[0];
-            this._bindNameNodeToType(nameNode, UnknownType.create(), !!node.alias);
+            this._assignTypeToSymbol(nameNode, UnknownType.create());
         }
         return true;
     }
 
     visitImportFromAs(node: ImportFromAsNode): boolean {
         let nameNode = node.alias ? node.alias : node.name;
-        this._bindNameNodeToType(nameNode, UnknownType.create(), !!node.alias);
+        this._assignTypeToSymbol(nameNode, UnknownType.create());
 
         return false;
     }
@@ -620,36 +586,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitDel(node: DelNode): boolean {
-        this.walkMultiple(node.expressions);
-
-        node.expressions.forEach(expr => {
-            if (expr instanceof NameNode) {
-                let symbolWithScope = this._currentScope.lookUpSymbolRecursive(expr.nameToken.value);
-                if (symbolWithScope) {
-                    if (symbolWithScope.symbol.declarations) {
-                        const category = symbolWithScope.symbol.declarations[0].category;
-                        if (category === SymbolCategory.Function || category === SymbolCategory.Method) {
-                            this._addError('Del should not be applied to function', expr);
-                        } else if (category === SymbolCategory.Class) {
-                            this._addError('Del should not be applied to class', expr);
-                        } else if (category === SymbolCategory.Parameter) {
-                            this._addError('Del should not be applied to parameter', expr);
-                        }
-                    }
-                }
-
-                this._bindNameNodeToType(expr, UnboundType.create());
-            }
-        });
-
-        return false;
-    }
-
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
         // For now, the type is unknown. We'll fill in the type during
         // the type hint phase.
-        this._addNamedTarget(node.valueExpression);
+        this._assignTypeForTargetExpression(node.valueExpression);
 
         this.walk(node.valueExpression);
 
@@ -682,7 +622,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         parameters.forEach(param => {
             if (param.name) {
                 if (param.name) {
-                    this._bindNameNodeToType(param.name, UnknownType.create(), false);
+                    this._assignTypeToSymbol(param.name, UnknownType.create());
                 }
             }
         });
@@ -697,37 +637,79 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         this._subscopesToAnalyze = [];
     }
 
-    protected _bindNameNodeToType(nameNode: NameNode, type: Type, warnIfDuplicate = false,
-            declaration?: Declaration) {
-        const nameValue = nameNode.nameToken.value;
-
-        if (!this._currentScope.lookUpSymbol(nameValue)) {
-            this._currentScope.addUnboundSymbol(nameValue);
-        }
-
-        if (warnIfDuplicate) {
-            let currentBinding = this._currentScope.lookUpSymbol(nameValue);
-            if (!currentBinding || !(currentBinding.currentType instanceof UnboundType)) {
-                this._fileInfo.diagnosticSink.addWarningWithTextRange(
-                    `'${ nameValue }' is already defined`, nameNode);
-            }
-        }
-
-        this._currentScope.setSymbolCurrentType(nameValue, type,
-            AnalyzerNodeInfo.getTypeSourceId(nameNode));
-        if (declaration) {
-            this._currentScope.addSymbolDeclaration(nameValue, declaration);
+    private _assignTypeForTargetExpression(node: ExpressionNode) {
+        if (node instanceof NameNode) {
+            this._assignTypeToSymbol(node, UnknownType.create());
+        } else if (node instanceof TypeAnnotationExpressionNode) {
+            this._assignTypeForTargetExpression(node.valueExpression);
+        } else if (node instanceof TupleExpressionNode) {
+            node.expressions.forEach(expr => {
+                this._assignTypeForTargetExpression(expr);
+            });
+        } else if (node instanceof ListNode) {
+            node.entries.forEach(expr => {
+                this._assignTypeForTargetExpression(expr);
+            });
         }
     }
 
-    // This is a variant of _bindNameNodeToType that takes a raw name. It should be
-    // used only for implicit name binding.
-    protected _bindNameToType(nameValue: string, type: Type) {
-        if (!this._currentScope.lookUpSymbol(nameValue)) {
-            this._currentScope.addUnboundSymbol(nameValue);
+    protected _assignTypeToSymbol(nameNode: NameNode, type: Type,
+            declaration?: Declaration) {
+
+        const nameValue = nameNode.nameToken.value;
+
+        // Add a new source to the symbol.
+        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
+        if (symbolWithScope) {
+            symbolWithScope.symbol.inferredType.addSource(type,
+                AnalyzerNodeInfo.getTypeSourceId(nameNode));
+
+            // Add the declaration if provided.
+            if (declaration) {
+                symbolWithScope.symbol.addDeclaration(declaration);
+            }
+        } else {
+            // We should never get here!
+            assert.fail('Missing symbol');
+        }
+    }
+
+    protected _addNamedTargetToCurrentScope(node: ExpressionNode) {
+        if (node instanceof NameNode) {
+            this._currentScope.addUnboundSymbol(node.nameToken.value);
+        } else if (node instanceof TypeAnnotationExpressionNode) {
+            this._addNamedTargetToCurrentScope(node.valueExpression);
+        } else if (node instanceof TupleExpressionNode) {
+            node.expressions.forEach(expr => {
+                this._addNamedTargetToCurrentScope(expr);
+            });
+        } else if (node instanceof ListNode) {
+            node.entries.forEach(expr => {
+                this._addNamedTargetToCurrentScope(expr);
+            });
+        }
+    }
+
+    // Finds the nearest permanent scope (as opposed to temporary scope) and
+    // adds a new symbol with the specified name if it doesn't already exist.
+    protected _addSymbolToPermanentScope(nameValue: string, type: Type,
+            typeSourceId: TypeSourceId, warnIfDuplicateNode?: NameNode) {
+
+        const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
+        assert(permanentScope.getType() !== ScopeType.Temporary);
+
+        let symbol = permanentScope.lookUpSymbol(nameValue);
+
+        if (!symbol) {
+            symbol = this._currentScope.addUnboundSymbol(nameValue);
+        } else if (warnIfDuplicateNode) {
+            if (symbol.inferredType.getSourceCount() > 0) {
+                this._fileInfo.diagnosticSink.addWarningWithTextRange(
+                    `'${ nameValue }' is already defined`, warnIfDuplicateNode);
+            }
         }
 
-        this._currentScope.setSymbolCurrentType(nameValue, type, DefaultTypeSourceId);
+        symbol.inferredType.addSource(type, typeSourceId);
     }
 
     protected _enterTemporaryScope(callback: () => void, isConditional?: boolean,
@@ -773,14 +755,16 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // Push a temporary scope so we can track
         // which variables have been assigned to conditionally.
         const ifScope = this._enterTemporaryScope(() => {
-            this.walk(ifWhileSuite);
+            if (constExprValue !== false) {
+                this.walk(ifWhileSuite);
+            }
         }, true, constExprValue === false);
 
         // Now handle the else statement if it's present. If there
         // are chained "else if" statements, they'll be handled
         // recursively here.
         const elseScope = this._enterTemporaryScope(() => {
-            if (elseSuite) {
+            if (elseSuite && constExprValue !== true) {
                 this.walk(elseSuite);
             }
         }, true, constExprValue === true);
@@ -832,26 +816,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     private _queueSubScopeAnalyzer(analyzer: SemanticAnalyzer) {
         analyzer.analyzeImmediate();
         this._subscopesToAnalyze.push(analyzer);
-    }
-
-    // Returns true if the node was handled by this method, false if it was
-    // of an unhandled type.
-    private _addNamedTarget(node: ExpressionNode) {
-        if (node instanceof NameNode) {
-            this._bindNameNodeToType(node, UnknownType.create());
-        } else if (node instanceof TypeAnnotationExpressionNode) {
-            this._addNamedTarget(node.valueExpression);
-        } else if (node instanceof TupleExpressionNode) {
-            node.expressions.forEach(expr => {
-                this._addNamedTarget(expr);
-            });
-        } else if (node instanceof ListNode) {
-            node.entries.forEach(expr => {
-                this._addNamedTarget(expr);
-            });
-        } else if (node instanceof UnpackExpressionNode && node.expression instanceof NameNode) {
-            this._bindNameNodeToType(node.expression, UnknownType.create());
-        }
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
@@ -907,13 +871,20 @@ export class ModuleScopeAnalyzer extends SemanticAnalyzer {
 
     private _bindImplicitNames() {
         // List taken from https://docs.python.org/3/reference/import.html#__name__
-        this._bindNameToType('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._bindNameToType('__loader__', AnyType.create());
-        this._bindNameToType('__package__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._bindNameToType('__spec__', AnyType.create());
-        this._bindNameToType('__path__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._bindNameToType('__file__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._bindNameToType('__cached__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToPermanentScope('__name__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__loader__',
+            AnyType.create(), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__package__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__spec__',
+            AnyType.create(), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__path__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__file__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__cached__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
     }
 }
 
@@ -934,12 +905,7 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
         // Analyze the suite.
         let classNode = this._scopedNode as ClassNode;
 
-        // Create a temporary scope so we can track modifications to
-        // non-local names.
-        let suiteScope = this._enterTemporaryScope(() => {
-            this.walk(classNode.suite);
-        });
-        this._currentScope.mergeSymbolTable(suiteScope);
+        this.walk(classNode.suite);
 
         // Record the class fields for this class.
         this._classType.setClassFields(this._currentScope.getSymbolTable());
@@ -953,10 +919,14 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
     private _bindImplicitNames() {
         let classType = AnalyzerNodeInfo.getExpressionType(this._scopedNode);
         assert(classType instanceof ClassType);
-        this._bindNameToType('__class__', classType!);
-        this._bindNameToType('__dict__', AnyType.create());
-        this._bindNameToType('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._bindNameToType('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToPermanentScope('__class__',
+            classType!, DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__dict__',
+            AnyType.create(), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__doc__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__name__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
     }
 }
 
@@ -984,13 +954,8 @@ export class FunctionScopeAnalyzer extends SemanticAnalyzer {
         // Bind the parameters to the local names.
         this._addParametersToScope(functionNode.parameters);
 
-        // Create a temporary scope so we can track modifications to
-        // non-local names.
-        let suiteScope = this._enterTemporaryScope(() => {
-            // Walk the statements that make up the function.
-            this.walk(functionNode.suite);
-        });
-        this._currentScope.mergeSymbolTable(suiteScope);
+        // Walk the statements that make up the function.
+        this.walk(functionNode.suite);
 
         // Analyze any sub-scopes that were discovered during the earlier pass.
         this._analyzeSubscopesDeferred();
@@ -998,19 +963,30 @@ export class FunctionScopeAnalyzer extends SemanticAnalyzer {
 
     private _bindImplicitNames() {
         // List taken from https://docs.python.org/3/reference/datamodel.html
-        this._bindNameToType('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._bindNameToType('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToPermanentScope('__doc__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__name__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
         if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
-            this._bindNameToType('__qualname__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addSymbolToPermanentScope('__qualname__',
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
         }
-        this._bindNameToType('__module__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._bindNameToType('__defaults__', AnyType.create());
-        this._bindNameToType('__code__', AnyType.create());
-        this._bindNameToType('__globals__', AnyType.create());
-        this._bindNameToType('__dict__', AnyType.create());
-        this._bindNameToType('__closure__', AnyType.create());
-        this._bindNameToType('__annotations__', AnyType.create());
-        this._bindNameToType('__kwdefaults__', AnyType.create());
+        this._addSymbolToPermanentScope('__module__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__defaults__',
+            AnyType.create(), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__code__',
+            AnyType.create(), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__globals__',
+            AnyType.create(), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__dict__',
+            AnyType.create(), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__closure__',
+            AnyType.create(), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__annotations__',
+            AnyType.create(), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__kwdefaults__',
+            AnyType.create(), DefaultTypeSourceId);
     }
 }
 
@@ -1036,13 +1012,8 @@ export class LambdaScopeAnalyzer extends SemanticAnalyzer {
         // Bind the parameters to the local names.
         this._addParametersToScope(lambdaNode.parameters);
 
-        // Create a temporary scope so we can track modifications to
-        // non-local names.
-        let suiteScope = this._enterTemporaryScope(() => {
-            // Walk the expression that make up the lambda body.
-            this.walk(lambdaNode.expression);
-        });
-        this._currentScope.mergeSymbolTable(suiteScope);
+        // Walk the expression that make up the lambda body.
+        this.walk(lambdaNode.expression);
 
         // Analyze any sub-scopes that were discovered during the earlier pass.
         this._analyzeSubscopesDeferred();

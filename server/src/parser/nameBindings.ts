@@ -33,7 +33,6 @@ export enum NameBindingType {
 export class NameBindings {
     private _bindingType: NameBindingType;
     private _names = new StringMap<NameBindingType>();
-    private _hasWildcardImport = false;
 
     constructor(bindingType: NameBindingType) {
         this._bindingType = bindingType;
@@ -47,10 +46,6 @@ export class NameBindings {
         const entry = this._names.get(name);
         if (entry) {
             return entry;
-        }
-
-        if (this._hasWildcardImport) {
-            return NameBindingType.Local;
         }
 
         return undefined;
@@ -87,11 +82,6 @@ export class NameBindings {
         // analysis and we can generate a diagnostic.
         this._names.set(name, NameBindingType.Inconsistent);
         return false;
-    }
-
-    // Adds a wildcard (from a "from X import *" statement).
-    addWildcard() {
-        this._hasWildcardImport = true;
     }
 
     // Returns all of the names with a specified binding type.

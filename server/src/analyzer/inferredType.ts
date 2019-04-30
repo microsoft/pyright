@@ -10,7 +10,7 @@
 * analysis proceeds.
 */
 
-import { ClassType, ObjectType, Type, UnknownType } from './types';
+import { ClassType, ObjectType, Type, UnboundType } from './types';
 import { TypeUtils } from './typeUtils';
 
 // A type can be inferred from multiple sources. Each sources
@@ -28,12 +28,18 @@ export const DefaultTypeSourceId: TypeSourceId = 0;
 
 export class InferredType {
     private _sources: InferredTypeSource[] = [];
-    private _combinedType: Type = UnknownType.create();
+    private _defaultType: Type;
+    private _combinedType: Type;
 
     // Some inferred types need to be wrapped in another
     // class. For example, the inferred yield type needs to
     // be wrapped in an Iterable[].
     private _genericClassWrapper: ClassType | undefined;
+
+    constructor(defaultType?: Type) {
+        this._defaultType = defaultType || UnboundType.create();
+        this._combinedType = this._defaultType;
+    }
 
     setGenericClassWrapper(classType: ClassType) {
         this._genericClassWrapper = classType;
@@ -49,12 +55,8 @@ export class InferredType {
         return new ObjectType(specializedClass);
     }
 
-    getPrimarySourceId() {
-        if (this._sources.length > 0) {
-            return this._sources[0].sourceId;
-        }
-
-        return DefaultTypeSourceId;
+    getSources() {
+        return this._sources;
     }
 
     getSourceCount() {
@@ -112,7 +114,7 @@ export class InferredType {
         }
 
         if (!newCombinedType) {
-            newCombinedType = UnknownType.create();
+            newCombinedType = this._defaultType;
         }
 
         if (!newCombinedType.isSame(this._combinedType)) {

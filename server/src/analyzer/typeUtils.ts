@@ -625,7 +625,7 @@ export class TypeUtils {
             // The class derives from an unknown type, so all bets are off
             // when trying to find a member. Return an unknown symbol.
             return {
-                symbol: new Symbol(UnknownType.create(), DefaultTypeSourceId),
+                symbol: Symbol.create(UnknownType.create(), DefaultTypeSourceId),
                 isInstanceMember: false,
                 classType: UnknownType.create(),
                 symbolType: UnknownType.create()
