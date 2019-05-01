@@ -59,3 +59,11 @@ def generator5() -> Iterator[ClassA]:
     # assignable to ClassA.
     yield ClassB()
 
+
+def generate():
+    for i in range(2):
+        yield i
+s = generate()
+
+# Verify that a call to a Generator method succeeds
+s.close()

@@ -363,7 +363,14 @@ export class ClassType extends Type {
         // to match all of the type parameters. It's possible in early phases of
         // analysis for there to be more type args than parameters because the parameters
         // have not yet been filled in for forward-declared classes.
-        assert(this.isSpecialBuiltIn() || typeArgs.length >= this.getTypeParameters().length);
+        if (!this.isSpecialBuiltIn()) {
+            if (typeArgs.length < this.getTypeParameters().length) {
+                while (typeArgs.length < this.getTypeParameters().length) {
+                    // Fill in any remaining type parameters with Any.
+                    typeArgs.push(AnyType.create());
+                }
+            }
+        }
 
         this._typeArguments = typeArgs;
     }

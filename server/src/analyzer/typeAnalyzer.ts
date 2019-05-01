@@ -641,7 +641,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             });
 
-            this.walk(node.baseExpression);
+            this.walk(node.expression);
         });
 
         return false;
@@ -787,7 +787,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitYield(node: YieldExpressionNode) {
         let yieldType = this._getTypeOfExpression(node.expression);
-        let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
+        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
         this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
         // Wrap the yield type in an Iterator.
@@ -1591,7 +1591,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const returnType = functionType.getEffectiveReturnType();
 
         let awaitableReturnType: Type;
-        let awaitableType = this._getTypingType('Awaitable');
+        const evaluator = this._createEvaluator();
+        let awaitableType = evaluator.getTypingType('Awaitable');
 
         if (awaitableType instanceof ClassType) {
             awaitableReturnType = new ObjectType(awaitableType.cloneForSpecialization(
@@ -1606,30 +1607,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         awaitableFunctionType.setDeclaredReturnType(awaitableReturnType);
 
         return awaitableFunctionType;
-    }
-
-    private _getTypingType(symbolName: string): Type | undefined {
-        const typingImportPath = this._fileInfo.typingModulePath;
-        if (!typingImportPath) {
-            return undefined;
-        }
-
-        const typingParseInfo = this._fileInfo.importMap[typingImportPath];
-        if (!typingParseInfo) {
-            return undefined;
-        }
-
-        const moduleType = AnalyzerNodeInfo.getExpressionType(typingParseInfo.parseTree);
-        if (!(moduleType instanceof ModuleType)) {
-            return undefined;
-        }
-
-        const symbol = moduleType.getFields().get(symbolName);
-        if (!symbol) {
-            return undefined;
-        }
-
-        return TypeUtils.getEffectiveTypeOfSymbol(symbol);
     }
 
     private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType,
@@ -1649,11 +1626,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let inferredYieldType = functionType.getInferredYieldType();
 
-        // Inferred yield types need to be wrapped in an Iterator to
+        // Inferred yield types need to be wrapped in a Generator to
         // produce the final result.
-        let iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
-        if (iteratorType instanceof ClassType) {
-            inferredYieldType.setGenericClassWrapper(iteratorType);
+        const evaluator = this._createEvaluator();
+        const generatorType = evaluator.getTypingType('Generator');
+        if (generatorType instanceof ClassType) {
+            inferredYieldType.setGenericClassWrapper(generatorType);
         }
 
         if (inferredYieldType.addSources(functionScope.getYieldType())) {
@@ -2809,9 +2787,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let diagSink: TextRangeDiagnosticSink | undefined = this._fileInfo.diagnosticSink;
 
         return new ExpressionEvaluator(this._currentScope,
-            this._fileInfo.configOptions, this._fileInfo.useStrictMode,
-            this._fileInfo.executionEnvironment,
-            diagSink, node => this._readTypeFromNodeCache(node),
+            this._fileInfo, diagSink, node => this._readTypeFromNodeCache(node),
             (node, type) => {
                 this._updateExpressionTypeForNode(node, type);
             });

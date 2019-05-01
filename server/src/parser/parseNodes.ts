@@ -591,16 +591,16 @@ export class CallExpressionNode extends ExpressionNode {
 
 export class ListComprehensionNode<T extends ParseNode = ExpressionNode> extends ExpressionNode {
     readonly nodeType = ParseNodeType.ListComprehension;
-    baseExpression: T;
+    expression: T;
     comprehensions: ListComprehensionIterNode[] = [];
 
-    constructor(baseExpression: T) {
-        super(baseExpression);
-        this.baseExpression = baseExpression;
+    constructor(expression: T) {
+        super(expression);
+        this.expression = expression;
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return [this.baseExpression, this.comprehensions];
+        return [this.expression, this.comprehensions];
     }
 }
 

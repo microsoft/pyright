@@ -371,3 +371,9 @@ test('ForLoops1', () => {
 
     validateResults(analysisResults, 2);
 });
+
+test('ListComprehension1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['listComprehension1.py']);
+
+    validateResults(analysisResults, 0);
+});

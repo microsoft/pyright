@@ -10,7 +10,7 @@
 
 import * as assert from 'assert';
 
-import { ConfigOptions, DiagnosticLevel, ExecutionEnvironment } from '../common/configOptions';
+import { DiagnosticLevel } from '../common/configOptions';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { PythonVersion } from '../common/pythonVersion';
@@ -18,21 +18,22 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     BinaryExpressionNode, CallExpressionNode, ClassNode, ConstantNode,
-    DecoratorNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode,
-    ErrorExpressionNode, ExpressionNode, IndexExpressionNode, IndexItemsNode,
-    LambdaNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
-    NumberNode, ParameterCategory, ParseNode, SetNode, SliceExpressionNode,
-    StatementListNode, StringNode, TernaryExpressionNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    DecoratorNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode,
+    EllipsisNode, ErrorExpressionNode, ExpressionNode, IndexExpressionNode,
+    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode, ListNode,
+    MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory, ParseNode,
+    SetNode, SliceExpressionNode, StatementListNode, StringNode,
+    TernaryExpressionNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnaryExpressionNode, UnpackExpressionNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, StringTokenFlags,
     TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
+import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
-import { Symbol, SymbolCategory } from './symbol';
+import { Symbol } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
@@ -109,23 +110,18 @@ export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) =>
 
 export class ExpressionEvaluator {
     private _scope: Scope;
-    private _configOptions: ConfigOptions;
-    private _useStrictMode: boolean;
-    private _executionEnvironment: ExecutionEnvironment;
+    private readonly _fileInfo: AnalyzerFileInfo;
     private _expressionTypeConstraints: TypeConstraint[] = [];
     private _diagnosticSink?: TextRangeDiagnosticSink;
     private _readTypeFromCache?: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
 
-    constructor(scope: Scope, configOptions: ConfigOptions,
-            useStrictMode: boolean, executionEnvironment: ExecutionEnvironment,
+    constructor(scope: Scope, fileInfo: AnalyzerFileInfo,
             diagnosticSink?: TextRangeDiagnosticSink,
             readTypeCallback?: ReadTypeFromNodeCacheCallback,
             writeTypeCallback?: WriteTypeToNodeCacheCallback) {
         this._scope = scope;
-        this._configOptions = configOptions;
-        this._useStrictMode = useStrictMode;
-        this._executionEnvironment = executionEnvironment;
+        this._fileInfo = fileInfo;
         this._diagnosticSink = diagnosticSink;
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
@@ -234,7 +230,7 @@ export class ExpressionEvaluator {
 
         if (type instanceof UnionType && type.getTypes().some(t => t instanceof NoneType)) {
             this._addDiagnostic(
-                this._configOptions.reportOptionalIterable,
+                this._fileInfo.configOptions.reportOptionalIterable,
                 `Object of type 'None' cannot be used as iterable value`,
                 errorNode);
             type = TypeUtils.removeNoneFromUnion(type);
@@ -344,7 +340,7 @@ export class ExpressionEvaluator {
 
                         // Python 3.7 enforces the convention that data fields within
                         // a data class cannot being with "_".
-                        if (this._executionEnvironment.pythonVersion >= PythonVersion.V37) {
+                        if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V37) {
                             if (variableName[0] === '_') {
                                 this._addError(`Data field name cannot start with _`, variableNameNode);
                             }
@@ -378,6 +374,30 @@ export class ExpressionEvaluator {
 
         classType.getClassFields().set('__init__', Symbol.create(initType, DefaultTypeSourceId));
         classType.getClassFields().set('__new__', Symbol.create(newType, DefaultTypeSourceId));
+    }
+
+    getTypingType(symbolName: string): Type | undefined {
+        const typingImportPath = this._fileInfo.typingModulePath;
+        if (!typingImportPath) {
+            return undefined;
+        }
+
+        const typingParseInfo = this._fileInfo.importMap[typingImportPath];
+        if (!typingParseInfo) {
+            return undefined;
+        }
+
+        const moduleType = AnalyzerNodeInfo.getExpressionType(typingParseInfo.parseTree);
+        if (!(moduleType instanceof ModuleType)) {
+            return undefined;
+        }
+
+        const symbol = moduleType.getFields().get(symbolName);
+        if (!symbol) {
+            return undefined;
+        }
+
+        return TypeUtils.getEffectiveTypeOfSymbol(symbol);
     }
 
     private _getReturnTypeFromGenerator(type: Type): Type | undefined {
@@ -636,7 +656,7 @@ export class ExpressionEvaluator {
             baseType.getTypes().forEach(typeEntry => {
                 if (typeEntry instanceof NoneType) {
                     this._addDiagnostic(
-                        this._configOptions.reportOptionalMemberAccess,
+                        this._fileInfo.configOptions.reportOptionalMemberAccess,
                         `'${ memberName }' is not a known member of 'None'`, node.memberName);
                 } else {
                     let typeResult = this._getTypeFromMemberAccessExpressionWithBaseType(node,
@@ -880,7 +900,7 @@ export class ExpressionEvaluator {
                 return this._getTypeFromIndexedObject(node, subtype, usage);
             } else if (subtype instanceof NoneType) {
                 this._addDiagnostic(
-                    this._configOptions.reportOptionalSubscript,
+                    this._fileInfo.configOptions.reportOptionalSubscript,
                     `Optional of type 'None' cannot be subscripted`,
                     node.baseExpression);
 
@@ -1142,7 +1162,7 @@ export class ExpressionEvaluator {
             callType.getTypes().forEach(typeEntry => {
                 if (typeEntry instanceof NoneType) {
                     this._addDiagnostic(
-                        this._configOptions.reportOptionalCall,
+                        this._fileInfo.configOptions.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
                         errorNode);
                 } else {
@@ -1312,7 +1332,7 @@ export class ExpressionEvaluator {
             for (let type of callType.getTypes()) {
                 if (type instanceof NoneType) {
                     this._addDiagnostic(
-                        this._configOptions.reportOptionalCall,
+                        this._fileInfo.configOptions.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
                         errorNode);
                 } else {
@@ -1857,7 +1877,7 @@ export class ExpressionEvaluator {
         if (node.operator !== OperatorType.Not) {
             if (TypeUtils.isOptionalType(exprType)) {
                 this._addDiagnostic(
-                    this._configOptions.reportOptionalOperand,
+                    this._fileInfo.configOptions.reportOptionalOperand,
                     `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                     `supported for 'None' type`,
                     node.expression);
@@ -1952,7 +1972,7 @@ export class ExpressionEvaluator {
                 // None is a valid operand for these operators.
                 if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
                     this._addDiagnostic(
-                        this._configOptions.reportOptionalOperand,
+                        this._fileInfo.configOptions.reportOptionalOperand,
                         `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                         `supported for 'None' type`,
                         node.leftExpression);
@@ -1965,7 +1985,7 @@ export class ExpressionEvaluator {
                 // None is a valid operand for these operators.
                 if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
                     this._addDiagnostic(
-                        this._configOptions.reportOptionalOperand,
+                        this._fileInfo.configOptions.reportOptionalOperand,
                         `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                         `supported for 'None' type`,
                         node.rightExpression);
@@ -2184,25 +2204,23 @@ export class ExpressionEvaluator {
         // Infer the key and value types if possible.
         node.entries.forEach(entryNode => {
             if (entryNode instanceof DictionaryKeyEntryNode) {
-                keyTypes.push(this._getTypeFromExpression(entryNode.keyExpression).type);
-                valueTypes.push(this._getTypeFromExpression(entryNode.valueExpression).type);
+                keyTypes.push(this.getType(entryNode.keyExpression));
+                valueTypes.push(this.getType(entryNode.valueExpression));
             } else {
                 keyTypes.push(UnknownType.create());
                 valueTypes.push(UnknownType.create());
             }
         });
 
-        let keyType = keyTypes.length > 0 ? TypeUtils.combineTypes(keyTypes) : UnknownType.create();
-        let valueType = valueTypes.length > 0 ? TypeUtils.combineTypes(valueTypes) : UnknownType.create();
+        const keyType = keyTypes.length > 0 ? TypeUtils.combineTypes(keyTypes) : UnknownType.create();
 
-        // If the value type is a union, we need to back off
+        // If the value type differs, we need to back off
         // because we can't properly represent the mappings
         // between different keys and associated value types.
         // If all the values are the same type, we'll assume
         // that all values in this dictionary should be the same.
-        if (valueType instanceof UnionType) {
-            valueType = UnknownType.create();
-        }
+        const valueType = valueTypes.length > 0 && TypeUtils.areTypesSame(valueTypes) ?
+            valueTypes[0] : UnknownType.create();
 
         const type = ScopeUtils.getBuiltInObject(this._scope, 'dict', [keyType, valueType]);
 
@@ -2210,26 +2228,23 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromListExpression(node: ListNode, usage: EvaluatorUsage): TypeResult {
-        let listTypes: TypeResult[] = [];
-        node.entries.forEach(expr => {
-            listTypes.push(this._getTypeFromExpression(expr, usage));
-        });
-
         let type = ScopeUtils.getBuiltInType(this._scope, 'list');
 
         let convertedType: Type;
         if (type instanceof ClassType) {
-            const entryTypes = node.entries.map(entry => this._getTypeFromExpression(entry));
+            let listEntryType: Type;
 
-            let listEntryType = entryTypes.length > 0 ?
-                TypeUtils.combineTypes(entryTypes.map(e => e.type)) :
-                UnknownType.create();
+            if (node.entries.length === 1 && node.entries[0] instanceof ListComprehensionNode) {
+                listEntryType = this._getElementTypeFromListComprehensionExpression(
+                    node.entries[0] as ListComprehensionNode<ExpressionNode>);
+            } else {
+                const entryTypes = node.entries.map(entry => this.getType(entry));
 
-            // If the list contains only one type, we'll assume the list is
-            // homogeneous. Otherwise, we'll avoid making assumptions about
-            // the list entry type.
-            if (listEntryType instanceof UnionType) {
-                listEntryType = UnknownType.create();
+                // If the list contains only one type, we'll assume the list is
+                // homogeneous. Otherwise, we'll avoid making assumptions about
+                // the list entry type.
+                listEntryType = entryTypes.length > 0 && TypeUtils.areTypesSame(entryTypes) ?
+                    entryTypes[0] : UnknownType.create();
             }
 
             type = type.cloneForSpecialization([listEntryType]);
@@ -2310,13 +2325,77 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
+    private _getTypeFromListComprehensionExpression(node: ListComprehensionNode): TypeResult {
+        const elementType = this._getElementTypeFromListComprehensionExpression(node);
+
+        let type = UnknownType.create();
+        const builtInIteratorType = this.getTypingType('Generator');
+
+        if (builtInIteratorType instanceof ClassType) {
+            type = new ObjectType(builtInIteratorType.cloneForSpecialization(
+                [elementType]));
+        }
+
+        return { type, node };
+    }
+
     // Returns the type of one entry returned by the list comprehension,
     // as opposed to the entire list.
-    private _getTypeFromListComprehensionExpression(node: ListComprehensionNode): TypeResult {
-        let type = UnknownType.create();
+    private _getElementTypeFromListComprehensionExpression(node: ListComprehensionNode): Type {
+        // Create a temporary scope since list comprehension target
+        // variables are private to the list comprehension expression.
+        const prevScope = this._scope;
+        this._scope = new Scope(ScopeType.Temporary, this._scope);
 
-        // TODO - need to implement
-        return { type, node };
+        // There are some variants that we may not understand. If so,
+        // we will set this flag and fall back on Unkown.
+        let understoodType = true;
+
+        // "Execute" the list comprehensions from start to finish.
+        for (let i = 0; i < node.comprehensions.length; i++) {
+            const comprehension = node.comprehensions[i];
+
+            // Skip any ListComprehensionIfNode since it doesn't affect the type.
+            if (comprehension instanceof ListComprehensionForNode) {
+                const iterableType = this.getType(comprehension.iterableExpression);
+                const itemType = this.getTypeFromIterable(iterableType, !!comprehension.isAsync,
+                    comprehension.iterableExpression);
+
+                const targetExpr = comprehension.targetExpression;
+
+                if (targetExpr instanceof NameNode) {
+                    const symbol = this._scope.addSymbol(targetExpr.nameToken.value);
+                    symbol.setTypeForSource(itemType, AnalyzerNodeInfo.getTypeSourceId(targetExpr));
+                } else {
+                    // TODO - need to implement
+                    understoodType = false;
+                    break;
+                }
+            }
+        }
+
+        let type = UnknownType.create();
+        if (understoodType) {
+            if (node.expression instanceof DictionaryKeyEntryNode) {
+                // Create a tuple with the key/value types.
+                const keyType = this.getType(node.expression.keyExpression);
+                const valueType = this.getType(node.expression.valueExpression);
+                const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
+
+                if (builtInTupleType instanceof ClassType) {
+                    type = TypeUtils.convertClassToObject(
+                        builtInTupleType.cloneForSpecialization([keyType, valueType]));
+                }
+            } else if (node.expression instanceof DictionaryExpandEntryNode) {
+                // TODO - need to implement
+            } else if (node.expression instanceof ExpressionNode) {
+                type = this.getType(node.expression);
+            }
+        }
+
+        this._scope = prevScope;
+
+        return type;
     }
 
     private _getTypeFromSliceExpression(node: SliceExpressionNode): TypeResult {
@@ -2743,7 +2822,7 @@ export class ExpressionEvaluator {
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
-        if (diagLevel === 'error' || this._useStrictMode) {
+        if (diagLevel === 'error' || this._fileInfo.useStrictMode) {
             this._addError(message, textRange);
         } else if (diagLevel === 'warning') {
             this._addWarning(message, textRange);

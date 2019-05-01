@@ -102,6 +102,21 @@ export class TypeUtils {
         return resultingType;
     }
 
+    // Determines if all of the types in the array are the same.
+    static areTypesSame(types: Type[]): boolean {
+        if (types.length < 2) {
+            return true;
+        }
+
+        for (let i = 1; i < types.length; i++) {
+            if (!types[0].isSame(types[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // Determines if the source type can be assigned to the dest type.
     // If typeVarMap is provided, type variables within the destType are
     // matched against existing type variables in the map. If a type variable
