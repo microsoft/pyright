@@ -47,6 +47,8 @@ export class TextRangeCollection<T extends TextRange> {
         return this._items[index];
     }
 
+    // Returns the nearest item prior to the position.
+    // The position may not be contained within the item.
     getItemAtPosition(position: number): number {
         if (this.count === 0) {
             return -1;
@@ -75,7 +77,7 @@ export class TextRangeCollection<T extends TextRange> {
                 min = mid + 1;
             }
         }
-        return -1;
+        return min;
     }
 
     getItemContaining(position: number): number {
