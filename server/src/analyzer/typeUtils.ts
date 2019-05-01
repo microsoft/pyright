@@ -1391,8 +1391,9 @@ export class TypeUtils {
                                     ` but got ${ srcTypeArgs.length }`);
                             return false;
                         }
+
+                        return true;
                     }
-                    return true;
                 }
 
                 // If there are no type parameters on this class, we're done.
