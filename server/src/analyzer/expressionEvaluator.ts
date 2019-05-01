@@ -20,12 +20,12 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     BinaryExpressionNode, CallExpressionNode, ClassNode, ConstantNode,
     DecoratorNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode,
     EllipsisNode, ErrorExpressionNode, ExpressionNode, IndexExpressionNode,
-    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode, ListNode,
-    MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory, ParseNode,
-    SetNode, SliceExpressionNode, StatementListNode, StringNode,
-    TernaryExpressionNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, UnpackExpressionNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode,
+    ListNode, MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory,
+    ParseNode, SetNode, SliceExpressionNode, StatementListNode,
+    StringNode, TernaryExpressionNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, StringTokenFlags,
     TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -1709,7 +1709,8 @@ export class ExpressionEvaluator {
                 AnalyzerNodeInfo.getTypeSourceId(errorNode));
 
             AnalyzerNodeInfo.setExpressionType(errorNode, classType);
-            classType.addBaseClass(ScopeUtils.getBuiltInType(this._scope, 'NamedTuple'), false);
+            const builtInNamedTuple = this.getTypingType('NamedTuple') || UnknownType.create();
+            classType.addBaseClass(builtInNamedTuple, false);
         }
 
         const classFields = classType.getClassFields();
@@ -1718,7 +1719,7 @@ export class ExpressionEvaluator {
 
         let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
         if (builtInTupleType instanceof ClassType) {
-            let constructorType = new FunctionType(FunctionTypeFlags.StaticMethod);
+            const constructorType = new FunctionType(FunctionTypeFlags.StaticMethod);
             constructorType.setDeclaredReturnType(new ObjectType(classType));
             constructorType.addParameter({
                 category: ParameterCategory.Simple,
@@ -1834,7 +1835,16 @@ export class ExpressionEvaluator {
                 TypeUtils.addDefaultFunctionParameters(constructorType);
             }
 
+            // Always use generic parameters for __init__. The __new__ method
+            // will handle propery type checking. We may need to disable default
+            // parameter processing for __new__ (see setDefaultParameterCheckDisabled),
+            // and we don't want to do it for __init__ as well.
+            const initType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+            initType.addParameter(selfParameter);
+            TypeUtils.addDefaultFunctionParameters(initType);
+
             classFields.set('__new__', Symbol.create(constructorType, DefaultTypeSourceId));
+            classFields.set('__init__', Symbol.create(initType, DefaultTypeSourceId));
 
             let keysItemType = new FunctionType(FunctionTypeFlags.None);
             keysItemType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'list',
@@ -2390,11 +2400,12 @@ export class ExpressionEvaluator {
         // we will set this flag and fall back on Unkown.
         let understoodType = true;
 
+        let expressionTypeConstraints: ConditionalTypeConstraintResults | undefined;
+
         // "Execute" the list comprehensions from start to finish.
         for (let i = 0; i < node.comprehensions.length; i++) {
             const comprehension = node.comprehensions[i];
 
-            // Skip any ListComprehensionIfNode since it doesn't affect the type.
             if (comprehension instanceof ListComprehensionForNode) {
                 const iterableType = this.getType(comprehension.iterableExpression);
                 const itemType = this.getTypeFromIterable(iterableType, !!comprehension.isAsync,
@@ -2410,15 +2421,33 @@ export class ExpressionEvaluator {
                     understoodType = false;
                     break;
                 }
+            } else if (comprehension instanceof ListComprehensionIfNode) {
+                // Use the if node (if present) to create a type constraint.
+                expressionTypeConstraints = TypeConstraintBuilder.buildTypeConstraintsForConditional(
+                    comprehension.testExpression, expr => this.getType(expr));
             }
         }
+
+        // Create a lambda function that applies the type constraints
+        // (if found) to the specified type.
+        const applyConstraints = (node: ExpressionNode, type: Type) => {
+            if (expressionTypeConstraints) {
+                for (const constraint of expressionTypeConstraints.ifConstraints) {
+                    type = constraint.applyToType(node, type);
+                }
+            }
+
+            return type;
+        };
 
         let type = UnknownType.create();
         if (understoodType) {
             if (node.expression instanceof DictionaryKeyEntryNode) {
                 // Create a tuple with the key/value types.
-                const keyType = this.getType(node.expression.keyExpression);
-                const valueType = this.getType(node.expression.valueExpression);
+                const keyType = applyConstraints(node.expression.keyExpression,
+                    this.getType(node.expression.keyExpression));
+                const valueType = applyConstraints(node.expression.valueExpression,
+                    this.getType(node.expression.valueExpression));
                 const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
 
                 if (builtInTupleType instanceof ClassType) {
@@ -2428,7 +2457,7 @@ export class ExpressionEvaluator {
             } else if (node.expression instanceof DictionaryExpandEntryNode) {
                 // TODO - need to implement
             } else if (node.expression instanceof ExpressionNode) {
-                type = this.getType(node.expression);
+                type = applyConstraints(node.expression, this.getType(node.expression));
             }
         }
 
