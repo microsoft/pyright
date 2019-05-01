@@ -971,8 +971,32 @@ export class ExpressionEvaluator {
         let indexType: Type;
         if (indexTypeList.length === 1) {
             indexType = indexTypeList[0];
+
+            // Handle the special case where the object is a Tuple and
+            // the index is a constant number. In such case, we can determine
+            // the exact type by indexing into the tuple type array.
+            const baseTypeClass = baseType.getClassType();
+
+            if (baseTypeClass instanceof ClassType &&
+                    baseTypeClass.isBuiltIn() &&
+                    baseTypeClass.getClassName() === 'Tuple' &&
+                    baseTypeClass.getTypeArguments()) {
+
+                if (node.items.items[0] instanceof NumberNode) {
+                    const numberToken = (node.items.items[0] as NumberNode).token;
+                    const baseClassTypeArgs = baseTypeClass.getTypeArguments()!;
+
+                    if (numberToken.isInteger && numberToken.value >= 0 &&
+                            numberToken.value < baseClassTypeArgs.length) {
+
+                        return baseClassTypeArgs[numberToken.value];
+                    }
+                }
+            }
         } else {
-            let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
+            // Handle the case where the index expression is a tuple. This
+            // isn't used in most cases, but it is supported by the language.
+            const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
             if (builtInTupleType instanceof ClassType) {
                 indexType = TypeUtils.convertClassToObject(
                     builtInTupleType.cloneForSpecialization(indexTypeList));
