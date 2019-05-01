@@ -2400,7 +2400,7 @@ export class ExpressionEvaluator {
         // we will set this flag and fall back on Unkown.
         let understoodType = true;
 
-        let expressionTypeConstraints: ConditionalTypeConstraintResults | undefined;
+        let typeConstraints: ConditionalTypeConstraintResults | undefined;
 
         // "Execute" the list comprehensions from start to finish.
         for (let i = 0; i < node.comprehensions.length; i++) {
@@ -2423,43 +2423,31 @@ export class ExpressionEvaluator {
                 }
             } else if (comprehension instanceof ListComprehensionIfNode) {
                 // Use the if node (if present) to create a type constraint.
-                expressionTypeConstraints = TypeConstraintBuilder.buildTypeConstraintsForConditional(
+                typeConstraints = TypeConstraintBuilder.buildTypeConstraintsForConditional(
                     comprehension.testExpression, expr => this.getType(expr));
             }
         }
 
-        // Create a lambda function that applies the type constraints
-        // (if found) to the specified type.
-        const applyConstraints = (node: ExpressionNode, type: Type) => {
-            if (expressionTypeConstraints) {
-                for (const constraint of expressionTypeConstraints.ifConstraints) {
-                    type = constraint.applyToType(node, type);
-                }
-            }
-
-            return type;
-        };
-
         let type = UnknownType.create();
-        if (understoodType) {
-            if (node.expression instanceof DictionaryKeyEntryNode) {
-                // Create a tuple with the key/value types.
-                const keyType = applyConstraints(node.expression.keyExpression,
-                    this.getType(node.expression.keyExpression));
-                const valueType = applyConstraints(node.expression.valueExpression,
-                    this.getType(node.expression.valueExpression));
-                const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
+        this._useExpressionTypeConstraint(typeConstraints, true, () => {
+            if (understoodType) {
+                if (node.expression instanceof DictionaryKeyEntryNode) {
+                    // Create a tuple with the key/value types.
+                    const keyType = this.getType(node.expression.keyExpression);
+                    const valueType = this.getType(node.expression.valueExpression);
+                    const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
 
-                if (builtInTupleType instanceof ClassType) {
-                    type = TypeUtils.convertClassToObject(
-                        builtInTupleType.cloneForSpecialization([keyType, valueType]));
+                    if (builtInTupleType instanceof ClassType) {
+                        type = TypeUtils.convertClassToObject(
+                            builtInTupleType.cloneForSpecialization([keyType, valueType]));
+                    }
+                } else if (node.expression instanceof DictionaryExpandEntryNode) {
+                    // TODO - need to implement
+                } else if (node.expression instanceof ExpressionNode) {
+                    type = this.getType(node.expression);
                 }
-            } else if (node.expression instanceof DictionaryExpandEntryNode) {
-                // TODO - need to implement
-            } else if (node.expression instanceof ExpressionNode) {
-                type = applyConstraints(node.expression, this.getType(node.expression));
             }
-        }
+        });
 
         this._scope = prevScope;
 
