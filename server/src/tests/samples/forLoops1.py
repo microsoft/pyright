@@ -45,3 +45,14 @@ for d in [b for b in list1]:
 for e in [b async for b in iter1]:
     requires_int(e)
 
+
+class ClassWithGetItem(object):
+    def __getitem__(self, item) -> str:
+        return 'hello'
+
+def testGetItemIterator() -> str:
+    objWithGetItem = ClassWithGetItem()
+    for f in objWithGetItem:
+        return f
+    return 'none'
+

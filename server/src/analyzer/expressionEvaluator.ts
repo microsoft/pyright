@@ -224,9 +224,12 @@ export class ExpressionEvaluator {
     }
 
     // Validates that the type is iterable and returns the iterated type.
-    getTypeFromIterable(type: Type, isAsync: boolean, errorNode: ParseNode): Type {
+    getTypeFromIterable(type: Type, isAsync: boolean, errorNode: ParseNode,
+            supportGetItem: boolean): Type {
+
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         const nextMethodName = isAsync ? '__anext__' : '__next__';
+        const getItemMethodName = supportGetItem ? '__getitem__' : '';
 
         if (type instanceof UnionType && type.getTypes().some(t => t instanceof NoneType)) {
             this._addDiagnostic(
@@ -246,6 +249,16 @@ export class ExpressionEvaluator {
                 const iterReturnType = this._getSpecializedReturnType(
                     subtype, iterMethodName);
                 if (!iterReturnType) {
+                    // There was no __iter__. See if we can fall back to
+                    // the __getitem__ method instead.
+                    if (getItemMethodName) {
+                        const getItemReturnType = this._getSpecializedReturnType(
+                            subtype, getItemMethodName);
+                        if (getItemReturnType) {
+                            return getItemReturnType;
+                        }
+                    }
+
                     diag.addMessage(`'${ iterMethodName }' method not defined`);
                 } else {
                     if (iterReturnType.isAny()) {
@@ -2359,7 +2372,7 @@ export class ExpressionEvaluator {
             if (comprehension instanceof ListComprehensionForNode) {
                 const iterableType = this.getType(comprehension.iterableExpression);
                 const itemType = this.getTypeFromIterable(iterableType, !!comprehension.isAsync,
-                    comprehension.iterableExpression);
+                    comprehension.iterableExpression, false);
 
                 const targetExpr = comprehension.targetExpression;
 

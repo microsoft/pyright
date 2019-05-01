@@ -587,7 +587,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const iteratorType = this._getTypeOfExpression(node.iterableExpression);
         const evaluator = this._createEvaluator();
         const iteratedType = evaluator.getTypeFromIterable(
-            iteratorType, !!node.isAsync, node.iterableExpression);
+            iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
 
         // Assume that the for loop scope is unconditional unless there's
         // an "else" statement, in which case we'll assume that they are both
@@ -631,7 +631,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const iteratorType = this._getTypeOfExpression(compr.iterableExpression);
                     const evaluator = this._createEvaluator();
                     const iteratedType = evaluator.getTypeFromIterable(
-                        iteratorType, !!compr.isAsync, compr.iterableExpression);
+                        iteratorType, !!compr.isAsync, compr.iterableExpression, false);
 
                     this._addNamedTargetToCurrentScope(compr.targetExpression);
                     this._assignTypeToExpression(compr.targetExpression, iteratedType, compr.targetExpression);
