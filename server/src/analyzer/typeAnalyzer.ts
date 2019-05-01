@@ -685,7 +685,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (subtype instanceof ObjectType) {
                     let evaluator = this._createEvaluator();
                     let memberType = evaluator.getTypeFromObjectMember(item.expression,
-                        enterMethodName, { method: 'get' }, subtype);
+                        subtype, enterMethodName, { method: 'get' });
 
                     if (memberType) {
                         let memberReturnType: Type;
