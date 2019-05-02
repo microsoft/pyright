@@ -2425,6 +2425,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             ` but got ${ entryCount }`,
                         target);
                 }
+            } else {
+                // The assigned expression isn't a tuple, so it had better
+                // be some iterable type.
+                const evaluator = this._createEvaluator();
+                const iterableType = evaluator.getTypeFromIterable(type, false, srcExpr, false);
+                target.expressions.forEach(expr => {
+                    this._assignTypeToExpression(expr, iterableType, srcExpr);
+                });
+                assignedTypes = true;
             }
 
             if (!assignedTypes) {
