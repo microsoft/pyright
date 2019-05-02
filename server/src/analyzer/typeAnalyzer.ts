@@ -1275,6 +1275,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._bindMultiPartModuleNameToType(node.module.nameParts,
                         moduleType, moduleDeclaration);
                 }
+            } else {
+                // We were unable to resolve the import. Bind the names (or alias)
+                // to an unknown type.
+                const symbolType = UnknownType.create();
+                const nameNode = node.module.nameParts.length > 0 ? node.module.nameParts[0] : undefined;
+                const aliasNode = node.alias || nameNode;
+
+                if (node.alias && nameNode) {
+                    this._updateExpressionTypeForNode(nameNode, symbolType);
+                }
+
+                if (aliasNode) {
+                    this._assignTypeToNameNode(aliasNode, symbolType);
+                    this._updateExpressionTypeForNode(aliasNode, symbolType);
+                }
             }
         }
 
@@ -1375,7 +1390,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (node.imports.length !== 0) {
                 node.imports.forEach(importAs => {
                     const aliasNode = importAs.alias || importAs.name;
-                    let symbolType = UnknownType.create();
+                    const symbolType = UnknownType.create();
 
                     this._updateExpressionTypeForNode(importAs.name, symbolType);
                     if (importAs.alias) {

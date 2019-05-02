@@ -22,10 +22,10 @@ import * as assert from 'assert';
 import { DiagnosticLevel } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AwaitExpressionNode, ClassNode, ErrorExpressionNode, ExpressionNode,
-    FunctionNode, GlobalNode, IfNode, LambdaNode, ModuleNameNode, ModuleNode,
-    NameNode, NonlocalNode, RaiseNode, StringNode, SuiteNode, TryNode, WhileNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { AwaitExpressionNode, ClassNode, DelNode, ErrorExpressionNode,
+    ExpressionNode, FunctionNode, GlobalNode, IfNode, LambdaNode, ModuleNameNode,
+    ModuleNode, NameNode, NonlocalNode, RaiseNode, StringNode, SuiteNode, TryNode,
+    WhileNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
