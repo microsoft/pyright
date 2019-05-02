@@ -375,5 +375,5 @@ test('ForLoops1', () => {
 test('ListComprehension1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['listComprehension1.py']);
 
-    validateResults(analysisResults, 0);
+    validateResults(analysisResults, 1);
 });
