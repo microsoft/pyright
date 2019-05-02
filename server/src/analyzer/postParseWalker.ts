@@ -16,10 +16,11 @@
 
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { NameBindings, NameBindingType } from '../parser/nameBindings';
-import { AssignmentNode, ClassNode, ExpressionNode, ForNode,
-    FunctionNode, GlobalNode, ImportAsNode, ImportFromAsNode, ImportFromNode,
-    LambdaNode, ListNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
-    ParseNode, TupleExpressionNode, TypeAnnotationExpressionNode, UnpackExpressionNode,
+import { AssignmentNode, ClassNode, DelNode, ExpressionNode,
+    ForNode, FunctionNode, GlobalNode, ImportAsNode, ImportFromAsNode,
+    ImportFromNode, LambdaNode, ListNode, ModuleNameNode, ModuleNode, NameNode,
+    NonlocalNode, ParseNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode,
     WithNode } from '../parser/parseNodes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -191,6 +192,13 @@ export class PostParseWalker extends ParseTreeWalker {
 
     visitAssignment(node: AssignmentNode) {
         this._addPossibleTupleNamedTarget(node.leftExpression);
+        return true;
+    }
+
+    visitDel(node: DelNode) {
+        node.expressions.forEach(expr => {
+            this._addPossibleTupleNamedTarget(expr);
+        });
         return true;
     }
 
