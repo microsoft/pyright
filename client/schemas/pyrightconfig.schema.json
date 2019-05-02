@@ -139,6 +139,12 @@
       "title": "Controls reporting of a base class of an unknown type, which obscures most type checking for the class",
       "default": "none"
     },
+    "reportUntypedNamedTuple": {
+      "$id": "#/properties/reportUntypedNamedTuple",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of a named tuple definition that does not contain type information",
+      "default": "none"
+    },
     "reportPrivateUsage": {
       "$id": "#/properties/reportPrivateUsage",
       "$ref": "#/definitions/diagnostic",

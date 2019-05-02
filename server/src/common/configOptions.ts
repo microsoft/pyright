@@ -118,6 +118,9 @@ export class ConfigOptions {
     // Report untyped base class that obscure the class type?
     reportUntypedBaseClass: DiagnosticLevel = 'none';
 
+    // Report use of untyped namedtuple factory method?
+    reportUntypedNamedTuple: DiagnosticLevel = 'none';
+
     // Report usage of private variables and functions outside of
     // the owning class or module?
     reportPrivateUsage: DiagnosticLevel = 'none';
@@ -285,6 +288,10 @@ export class ConfigOptions {
         // Read the "reportUntypedBaseClass" entry.
         this.reportUntypedBaseClass = this._convertDiagnosticLevel(
             configObj.reportUntypedBaseClass, 'reportUntypedBaseClass', 'none');
+
+        // Read the "reportUntypedNamedTuple" entry.
+        this.reportUntypedNamedTuple = this._convertDiagnosticLevel(
+            configObj.reportUntypedNamedTuple, 'reportUntypedNamedTuple', 'none');
 
         // Read the "reportPrivateUsage" entry.
         this.reportPrivateUsage = this._convertDiagnosticLevel(

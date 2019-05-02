@@ -1155,6 +1155,10 @@ export class ExpressionEvaluator {
             // The stdlib collections/__init__.pyi stub file defines namedtuple
             // as a function rather than a class, so we need to check for it here.
             if (callType.getBuiltInName() === 'namedtuple') {
+                this._addDiagnostic(
+                    this._fileInfo.configOptions.reportUntypedNamedTuple,
+                    `'namedtuple' provides no types for tuple entries. Use 'NamedTuple' instead.`,
+                    errorNode);
                 type = this._createNamedTupleType(errorNode, argList, false, cachedCallType);
             } else {
                 type = this._validateCallArguments(errorNode, argList, callType, new TypeVarMap());

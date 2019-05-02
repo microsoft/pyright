@@ -54,6 +54,8 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportUntypedBaseClass** [boolean or string, optional]: Generate or suppress diagnostics for base classes whose type cannot be determined statically. These obscure the class type, defeating many type analysis features. The default value for this setting is 'none'.
 
+**reportUntypedNamedTuple** [boolean or string, optional]: Generate or suppress diagnostics when “namedtuple” is used rather than “NamedTuple”. The former contains no type information, whereas the latter does. The default value for this setting is 'none'.
+
 **reportPrivateUsage** [boolean or string, optional]: Generate or suppress diagnostics for uses of private variables or functions outside of the class or module that declares them. Private variables and functions, by convention, are named starting with a single underscoe (“_”) character. The default value for this setting is 'none'.
 
 **reportInvalidStringEscapeSequence** [boolean or string, optional]: Generate or suppress diagnostics for invalid escape sequences used within string literals. The Python specification indicates that such sequences will generate a syntax error in future versions. The default value for this setting is 'warning'.
