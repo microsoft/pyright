@@ -13,7 +13,6 @@ import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
 import { DiagnosticAddendum } from '../common/diagnostic';
-import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
@@ -1177,8 +1176,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._addError(`'${ node.nameToken.value }' is not bound`, node.nameToken);
             }
         } else if (exprType.isPossiblyUnbound()) {
-            this._fileInfo.diagnosticSink.addWarningWithTextRange(
-                `'${ nameValue }' may be unbound`, node.nameToken);
+            this._addWarning(`'${ nameValue }' may be unbound`, node.nameToken);
         }
 
         // Determine if we should log information about private usage.
@@ -2399,48 +2397,56 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
         } else if (target instanceof TupleExpressionNode) {
-            let assignedTypes = false;
+            // Initialize the array of target types, one for each target.
+            const targetTypes: Type[][] = new Array(target.expressions.length);
+            for (let i = 0; i < target.expressions.length; i++) {
+                targetTypes[i] = [];
+            }
 
-            const tupleType = TypeUtils.getSpecializedTupleType(type);
-            if (tupleType && tupleType.getTypeArguments()) {
-                const entryTypes = tupleType.getTypeArguments()!;
-                let entryCount = entryTypes.length;
-                const allowsMoreEntries = entryCount > 0 &&
-                    entryTypes[entryCount - 1] instanceof AnyType &&
-                    (entryTypes[entryCount - 1] as AnyType).isEllipsis();
-                if (allowsMoreEntries) {
-                    entryCount--;
-                }
+            TypeUtils.doForSubtypes(type, subtype => {
+                // Is this subtype a tuple?
+                const tupleType = TypeUtils.getSpecializedTupleType(subtype);
+                if (tupleType && tupleType.getTypeArguments()) {
+                    const entryTypes = tupleType.getTypeArguments()!;
+                    let entryCount = entryTypes.length;
+                    const allowsMoreEntries = entryCount > 0 &&
+                        entryTypes[entryCount - 1] instanceof AnyType &&
+                        (entryTypes[entryCount - 1] as AnyType).isEllipsis();
+                    if (allowsMoreEntries) {
+                        entryCount--;
+                    }
 
-                if (target.expressions.length === entryCount ||
-                        (allowsMoreEntries && target.expressions.length >= entryCount)) {
-                    target.expressions.forEach((expr, index) => {
-                        const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
-                        this._assignTypeToExpression(expr, entryType, srcExpr);
-                    });
-                    assignedTypes = true;
+                    if (target.expressions.length === entryCount ||
+                            (allowsMoreEntries && target.expressions.length >= entryCount)) {
+                        target.expressions.forEach((expr, index) => {
+                            const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
+                            targetTypes[index].push(entryType);
+                        });
+                    } else {
+                        this._addError(
+                            `Tuple size mismatch: expected ${ target.expressions.length }` +
+                                ` but got ${ entryCount }`,
+                            target);
+                    }
                 } else {
-                    this._addError(
-                        `Tuple size mismatch: expected ${ target.expressions.length }` +
-                            ` but got ${ entryCount }`,
-                        target);
+                    // The assigned expression isn't a tuple, so it had better
+                    // be some iterable type.
+                    const evaluator = this._createEvaluator();
+                    const iterableType = evaluator.getTypeFromIterable(subtype, false, srcExpr, false);
+                    target.expressions.forEach((expr, index) => {
+                        targetTypes[index].push(iterableType);
+                    });
                 }
-            } else {
-                // The assigned expression isn't a tuple, so it had better
-                // be some iterable type.
-                const evaluator = this._createEvaluator();
-                const iterableType = evaluator.getTypeFromIterable(type, false, srcExpr, false);
-                target.expressions.forEach(expr => {
-                    this._assignTypeToExpression(expr, iterableType, srcExpr);
-                });
-                assignedTypes = true;
-            }
 
-            if (!assignedTypes) {
-                target.expressions.forEach(expr => {
-                    this._assignTypeToExpression(expr, UnknownType.create(), srcExpr);
-                });
-            }
+                // We need to return something to satisfy doForSubtypes.
+                return undefined;
+            });
+
+            target.expressions.forEach((expr, index) => {
+                const typeList = targetTypes[index];
+                const targetType = typeList.length === 0 ? UnknownType.create() : TypeUtils.combineTypes(typeList);
+                this._assignTypeToExpression(expr, targetType, srcExpr);
+            });
         } else if (target instanceof TypeAnnotationExpressionNode) {
             const typeHintType = this._getTypeOfAnnotation(target.typeAnnotation);
             const diagAddendum = new DiagnosticAddendum();
@@ -2808,10 +2814,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _createEvaluator() {
-        let diagSink: TextRangeDiagnosticSink | undefined = this._fileInfo.diagnosticSink;
-
         return new ExpressionEvaluator(this._currentScope,
-            this._fileInfo, diagSink, node => this._readTypeFromNodeCache(node),
+            this._fileInfo, this._fileInfo.diagnosticSink, node => this._readTypeFromNodeCache(node),
             (node, type) => {
                 this._updateExpressionTypeForNode(node, type);
             });
