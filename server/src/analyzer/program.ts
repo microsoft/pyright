@@ -386,6 +386,9 @@ export class Program {
                         break;
                     } else {
                         didAnalysisChange = true;
+                        if (timeElapsedCallback()) {
+                            break;
+                        }
                     }
                 }
 

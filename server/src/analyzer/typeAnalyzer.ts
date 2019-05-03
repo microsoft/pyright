@@ -58,7 +58,7 @@ interface AliasMapEntry {
 // At some point, we'll cut off the analysis passes and assume
 // we're making no forward progress. This should happen only
 // on the case of bugs in the analyzer.
-const MaxAnalysisPassCount = 100;
+const MaxAnalysisPassCount = 20;
 
 // There are rare circumstances where we can get into a "beating
 // pattern" where one variable is assigned to another in one pass
