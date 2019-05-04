@@ -2558,12 +2558,24 @@ export class ExpressionEvaluator {
     }
 
     // Creates a ClassVar type.
-    private _createClassVarType(typeArgs: TypeResult[] | undefined): Type {
-        if (typeArgs && typeArgs.length > 1) {
+    private _createClassVarType(errorNode: ExpressionNode, typeArgs: TypeResult[] | undefined): Type {
+        if (!typeArgs || typeArgs.length === 0) {
+            this._addError(`Expected a type parameter after ClassVar`, errorNode);
+            return UnknownType.create();
+        } else if (typeArgs.length > 1) {
             this._addError(`Expected only one type parameter after ClassVar`, typeArgs[1].node);
+            return UnknownType.create();
         }
 
-        let type = (!typeArgs || typeArgs.length === 0) ? AnyType.create() : typeArgs[0].type;
+        const type = typeArgs[0].type;
+
+        if (type instanceof ClassType) {
+            if (type.isGeneric()) {
+                this._addError(`ClassVar cannot contain generic type variables`, typeArgs[1].node);
+                return UnknownType.create();
+            }
+        }
+
         return TypeUtils.convertClassToObject(type);
     }
 
@@ -2793,9 +2805,7 @@ export class ExpressionEvaluator {
                 }
 
                 case 'ClassVar': {
-                    // TODO - need to handle class vars. For now, we treat them
-                    // like any other type.
-                    return this._createClassVarType(typeArgs);
+                    return this._createClassVarType(errorNode, typeArgs);
                 }
 
                 case 'Deque':
