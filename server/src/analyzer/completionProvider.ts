@@ -266,9 +266,9 @@ export class CompletionProvider {
 
                 // Determine the kind.
                 let itemKind: CompletionItemKind = CompletionItemKind.Variable;
-                if (item.declarations) {
-                    itemKind = this._convertSymbolCategoryToItemKind(
-                        item.declarations[0].category);
+                const declarations = item.getDeclarations();
+                if (declarations.length > 0) {
+                    itemKind = this._convertSymbolCategoryToItemKind(declarations[0].category);
                 }
                 completionItem.kind = itemKind;
                 completionList.items.push(completionItem);

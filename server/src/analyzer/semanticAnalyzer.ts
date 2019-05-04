@@ -22,9 +22,9 @@ import * as assert from 'assert';
 import { DiagnosticLevel } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AwaitExpressionNode, ClassNode, DelNode, ErrorExpressionNode,
+import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     ExpressionNode, FunctionNode, GlobalNode, IfNode, LambdaNode, ModuleNameNode,
-    ModuleNode, NameNode, NonlocalNode, RaiseNode, StringNode, SuiteNode, TryNode,
+    ModuleNode, NonlocalNode, RaiseNode, StringNode, SuiteNode, TryNode,
     WhileNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -32,7 +32,7 @@ import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportType } from './importResult';
-import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
+import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
@@ -186,10 +186,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         });
 
         if (nonMetaclassBaseClassCount === 0) {
-            let objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
+            const objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
             // Make sure we don't have 'object' derive from itself. Infinite
             // recursion will result.
-            if (objectType !== classType) {
+            if (!classType.isBuiltIn() || classType.getClassName() !== 'object') {
                 classType.addBaseClass(objectType, false);
             }
         }
@@ -199,18 +199,16 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let analyzer = new ClassScopeAnalyzer(node, this._currentScope, classType, this._fileInfo);
         this._queueSubScopeAnalyzer(analyzer);
 
-        // Don't bind the name of the class until after we've done the
-        // first pass of its scope analysis. This guarantees that we'll flag
-        // any references to the as-yet-undeclared class as an error.
+        // Add the class symbol. We do this in the semantic analyzer to speed
+        // up overall analysis times. Without this, the type analyzer needs
+        // to do more passes to resolve classes.
         this._addSymbolToPermanentScope(node.name.nameToken.value, classType,
-            AnalyzerNodeInfo.getTypeSourceId(node.name), node.name);
+            AnalyzerNodeInfo.getTypeSourceId(node.name));
 
         return false;
     }
 
     visitFunction(node: FunctionNode): boolean {
-        const containingClass = ParseTreeUtils.getEnclosingClass(node, true);
-
         // The "__new__" magic method is not an instance method.
         // It acts as a static method instead.
         let functionFlags = FunctionTypeFlags.None;
@@ -253,11 +251,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 this.walk(node.returnTypeAnnotation);
             }
         }
-
-        // Use an unknown type for now since we don't do any
-        // decorator processing in this pass.
-        this._addSymbolToPermanentScope(node.name.nameToken.value,
-            UnknownType.create(), AnalyzerNodeInfo.getTypeSourceId(node.name));
 
         AnalyzerNodeInfo.setExpressionType(node, functionType);
         AnalyzerNodeInfo.setExpressionType(node.name, functionType);
@@ -422,7 +415,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             // Don't overwrite the implicit bound names that have already
             // been added to the scope.
             if (!this._currentScope.lookUpSymbol(name)) {
-                this._currentScope.addSymbol(name);
+                this._currentScope.addSymbol(name, true);
             }
         });
     }
@@ -439,7 +432,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     // Finds the nearest permanent scope (as opposed to temporary scope) and
     // adds a new symbol with the specified name if it doesn't already exist.
     protected _addSymbolToPermanentScope(nameValue: string, type: Type,
-            typeSourceId: TypeSourceId, warnIfDuplicateNode?: NameNode) {
+            typeSourceId = DefaultTypeSourceId) {
 
         const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
         assert(permanentScope.getType() !== ScopeType.Temporary);
@@ -447,15 +440,13 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let symbol = permanentScope.lookUpSymbol(nameValue);
 
         if (!symbol) {
-            symbol = this._currentScope.addSymbol(nameValue);
-        } else if (warnIfDuplicateNode) {
-            if (symbol.inferredType.getSourceCount() > 0) {
-                this._fileInfo.diagnosticSink.addWarningWithTextRange(
-                    `'${ nameValue }' is already defined`, warnIfDuplicateNode);
-            }
+            // Add the symbol. Assume that symbols with a default type source ID
+            // are "implicit" symbols added to the scope. These are not initially unbound.
+            symbol = this._currentScope.addSymbol(nameValue,
+                typeSourceId !== DefaultTypeSourceId);
         }
 
-        symbol.inferredType.addSource(type, typeSourceId);
+        symbol.setInferredTypeForSource(type, typeSourceId);
     }
 
     private _validateYieldUsage(node: YieldExpressionNode | YieldFromExpressionNode) {
@@ -548,19 +539,14 @@ export class ModuleScopeAnalyzer extends SemanticAnalyzer {
     private _bindImplicitNames() {
         // List taken from https://docs.python.org/3/reference/import.html#__name__
         this._addSymbolToPermanentScope('__name__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__loader__',
-            AnyType.create(), DefaultTypeSourceId);
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToPermanentScope('__loader__', AnyType.create());
         this._addSymbolToPermanentScope('__package__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__spec__',
-            AnyType.create(), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__path__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__file__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__cached__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToPermanentScope('__spec__', AnyType.create());
+        this._addSymbolToPermanentScope('__path__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToPermanentScope('__file__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToPermanentScope('__cached__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
     }
 }
 
@@ -595,14 +581,10 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
     private _bindImplicitNames() {
         let classType = AnalyzerNodeInfo.getExpressionType(this._scopedNode);
         assert(classType instanceof ClassType);
-        this._addSymbolToPermanentScope('__class__',
-            classType!, DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__dict__',
-            AnyType.create(), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__doc__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__name__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__class__', classType!);
+        this._addSymbolToPermanentScope('__dict__', AnyType.create());
+        this._addSymbolToPermanentScope('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToPermanentScope('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
     }
 }
 
@@ -636,30 +618,19 @@ export class FunctionScopeAnalyzer extends SemanticAnalyzer {
 
     private _bindImplicitNames() {
         // List taken from https://docs.python.org/3/reference/datamodel.html
-        this._addSymbolToPermanentScope('__doc__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__name__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToPermanentScope('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
-            this._addSymbolToPermanentScope('__qualname__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
+            this._addSymbolToPermanentScope('__qualname__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         }
-        this._addSymbolToPermanentScope('__module__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__defaults__',
-            AnyType.create(), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__code__',
-            AnyType.create(), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__globals__',
-            AnyType.create(), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__dict__',
-            AnyType.create(), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__closure__',
-            AnyType.create(), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__annotations__',
-            AnyType.create(), DefaultTypeSourceId);
-        this._addSymbolToPermanentScope('__kwdefaults__',
-            AnyType.create(), DefaultTypeSourceId);
+        this._addSymbolToPermanentScope('__module__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToPermanentScope('__defaults__', AnyType.create());
+        this._addSymbolToPermanentScope('__code__', AnyType.create());
+        this._addSymbolToPermanentScope('__globals__', AnyType.create());
+        this._addSymbolToPermanentScope('__dict__', AnyType.create());
+        this._addSymbolToPermanentScope('__closure__', AnyType.create());
+        this._addSymbolToPermanentScope('__annotations__', AnyType.create());
+        this._addSymbolToPermanentScope('__kwdefaults__', AnyType.create());
     }
 }
 

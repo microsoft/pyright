@@ -687,7 +687,7 @@ export class TypeUtils {
             // The class derives from an unknown type, so all bets are off
             // when trying to find a member. Return an unknown symbol.
             return {
-                symbol: Symbol.create(UnknownType.create(), DefaultTypeSourceId),
+                symbol: Symbol.createWithType(UnknownType.create(), DefaultTypeSourceId),
                 isInstanceMember: false,
                 classType: UnknownType.create(),
                 symbolType: UnknownType.create()
@@ -704,12 +704,13 @@ export class TypeUtils {
             return declaredType;
         }
 
-        return symbol.inferredType.getType();
+        return symbol.getInferredType();
     }
 
     static getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
-        if (symbol.declarations) {
-            const declWithDeclaredType = symbol.declarations.find(decl => decl.declaredType !== undefined);
+        const declarations = symbol.getDeclarations();
+        if (declarations.length > 0) {
+            const declWithDeclaredType = declarations.find(decl => decl.declaredType !== undefined);
             if (declWithDeclaredType) {
                 return declWithDeclaredType.declaredType;
             }
@@ -721,14 +722,14 @@ export class TypeUtils {
     // Returns the first declaration with a declared type. If no such
     // declaration exists, returns the first declaration.
     static getPrimaryDeclarationOfSymbol(symbol: Symbol): Declaration | undefined {
-        if (symbol.declarations) {
-            const declWithDeclaredType = symbol.declarations.find(
-                decl => decl.declaredType !== undefined);
+        const declarations = symbol.getDeclarations();
+        if (declarations.length > 0) {
+            const declWithDeclaredType = declarations.find(decl => decl.declaredType !== undefined);
             if (declWithDeclaredType) {
                 return declWithDeclaredType;
             }
 
-            return symbol.declarations[0];
+            return declarations[0];
         }
 
         return undefined;
@@ -1461,33 +1462,33 @@ export class TypeUtils {
                 // Validate that the type arguments match.
                 const srcTypeArgs = curSrcType.getTypeArguments();
                 if (srcTypeArgs) {
-                    assert(srcType.isSpecialBuiltIn() || srcTypeArgs.length === ancestorTypeArgs.length);
+                    if (srcType.isSpecialBuiltIn() || srcTypeArgs.length === ancestorTypeArgs.length) {
+                        for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
+                            const srcTypeArg = srcTypeArgs[srcArgIndex];
 
-                    for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
-                        const srcTypeArg = srcTypeArgs[srcArgIndex];
+                            // In most cases, the ancestor type param count should match, but
+                            // there are a few special cases where this isn't true (e.g. assigning
+                            // a Tuple[X, Y, Z] to a tuple[W]).
+                            const ancestorArgIndex = srcArgIndex >= ancestorTypeParams.length ?
+                                    ancestorTypeParams.length - 1 : srcArgIndex;
+                            const typeParam = ancestorTypeParams[ancestorArgIndex];
+                            const ancestorTypeArg = ancestorTypeArgs[ancestorArgIndex];
 
-                        // In most cases, the ancestor type param count should match, but
-                        // there are a few special cases where this isn't true (e.g. assigning
-                        // a Tuple[X, Y, Z] to a tuple[W]).
-                        const ancestorArgIndex = srcArgIndex >= ancestorTypeParams.length ?
-                                ancestorTypeParams.length - 1 : srcArgIndex;
-                        const typeParam = ancestorTypeParams[ancestorArgIndex];
-                        const ancestorTypeArg = ancestorTypeArgs[ancestorArgIndex];
-
-                        if (typeParam.isCovariant()) {
-                            if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
-                                    diag.createAddendum(), undefined, true, recursionCount + 1)) {
-                                return false;
-                            }
-                        } else if (typeParam.isContravariant()) {
-                            if (!this.canAssignType(srcTypeArg, ancestorTypeArg,
-                                    diag.createAddendum(), undefined, true, recursionCount + 1)) {
-                                return false;
-                            }
-                        } else {
-                            if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
-                                    diag.createAddendum(), undefined, false, recursionCount + 1)) {
-                                return false;
+                            if (typeParam.isCovariant()) {
+                                if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
+                                        diag.createAddendum(), undefined, true, recursionCount + 1)) {
+                                    return false;
+                                }
+                            } else if (typeParam.isContravariant()) {
+                                if (!this.canAssignType(srcTypeArg, ancestorTypeArg,
+                                        diag.createAddendum(), undefined, true, recursionCount + 1)) {
+                                    return false;
+                                }
+                            } else {
+                                if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
+                                        diag.createAddendum(), undefined, false, recursionCount + 1)) {
+                                    return false;
+                                }
                             }
                         }
                     }

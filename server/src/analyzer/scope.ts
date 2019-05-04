@@ -70,8 +70,8 @@ export class Scope {
     private _breaksFromLoop = false;
 
     // Inferred return and yield types for the scope.
-    private _returnType = new InferredType(UnknownType.create());
-    private _yieldType = new InferredType(UnknownType.create());
+    private _returnType = new InferredType();
+    private _yieldType = new InferredType();
 
     // Active type constraints for this scope -- used for conditional
     // scopes where the condition constrains the types of certain
@@ -148,8 +148,8 @@ export class Scope {
     }
 
     // Adds a new untyped symbol to the scope.
-    addSymbol(name: string): Symbol {
-        let symbol = new Symbol();
+    addSymbol(name: string, isInitiallyUnbound: boolean): Symbol {
+        let symbol = new Symbol(isInitiallyUnbound);
         this._symbolTable.set(name, symbol);
         return symbol;
     }

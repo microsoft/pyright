@@ -20,9 +20,9 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     BinaryExpressionNode, CallExpressionNode, ClassNode, ConstantNode,
     DecoratorNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode,
     EllipsisNode, ErrorExpressionNode, ExpressionNode, IndexExpressionNode,
-    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode,
-    ListNode, MemberAccessExpressionNode, NameNode, NumberNode, ParameterCategory,
-    ParseNode, SetNode, SliceExpressionNode, StatementListNode,
+    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode, NumberNode,
+    ParameterCategory, ParseNode, SetNode, SliceExpressionNode, StatementListNode,
     StringNode, TernaryExpressionNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
@@ -402,8 +402,8 @@ export class ExpressionEvaluator {
             }
         });
 
-        classType.getClassFields().set('__init__', Symbol.create(initType, DefaultTypeSourceId));
-        classType.getClassFields().set('__new__', Symbol.create(newType, DefaultTypeSourceId));
+        classType.getClassFields().set('__init__', Symbol.createWithType(initType, DefaultTypeSourceId));
+        classType.getClassFields().set('__new__', Symbol.createWithType(newType, DefaultTypeSourceId));
     }
 
     getTypingType(symbolName: string): Type | undefined {
@@ -1711,9 +1711,7 @@ export class ExpressionEvaluator {
         // Use the cached class type and update it if this isn't the first
         // analysis path. If this is the first pass, allocate a new ClassType.
         let classType = cachedCallType as ClassType;
-        if (classType) {
-            assert(classType instanceof ClassType);
-        } else {
+        if (!(classType instanceof ClassType)) {
             classType = new ClassType(className, ClassTypeFlags.None,
                 AnalyzerNodeInfo.getTypeSourceId(errorNode));
 
@@ -1723,7 +1721,7 @@ export class ExpressionEvaluator {
         }
 
         const classFields = classType.getClassFields();
-        classFields.set('__class__', Symbol.create(classType, DefaultTypeSourceId));
+        classFields.set('__class__', Symbol.createWithType(classType, DefaultTypeSourceId));
         const instanceFields = classType.getInstanceFields();
 
         let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
@@ -1766,7 +1764,7 @@ export class ExpressionEvaluator {
                                 };
 
                                 constructorType.addParameter(paramInfo);
-                                instanceFields.set(entryName, Symbol.create(entryType, DefaultTypeSourceId));
+                                instanceFields.set(entryName, Symbol.createWithType(entryType, DefaultTypeSourceId));
                             }
                         });
                     } else if (entriesArg.valueExpression instanceof ListNode) {
@@ -1830,7 +1828,7 @@ export class ExpressionEvaluator {
 
                             constructorType.addParameter(paramInfo);
 
-                            instanceFields.set(entryName, Symbol.create(entryType, DefaultTypeSourceId));
+                            instanceFields.set(entryName, Symbol.createWithType(entryType, DefaultTypeSourceId));
                         });
                     } else {
                         // A dynamic expression was used, so we can't evaluate
@@ -1852,19 +1850,19 @@ export class ExpressionEvaluator {
             initType.addParameter(selfParameter);
             TypeUtils.addDefaultFunctionParameters(initType);
 
-            classFields.set('__new__', Symbol.create(constructorType, DefaultTypeSourceId));
-            classFields.set('__init__', Symbol.create(initType, DefaultTypeSourceId));
+            classFields.set('__new__', Symbol.createWithType(constructorType, DefaultTypeSourceId));
+            classFields.set('__init__', Symbol.createWithType(initType, DefaultTypeSourceId));
 
             let keysItemType = new FunctionType(FunctionTypeFlags.None);
             keysItemType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'list',
                 [ScopeUtils.getBuiltInObject(this._scope, 'str')]));
-            classFields.set('keys', Symbol.create(keysItemType, DefaultTypeSourceId));
-            classFields.set('items', Symbol.create(keysItemType, DefaultTypeSourceId));
+            classFields.set('keys', Symbol.createWithType(keysItemType, DefaultTypeSourceId));
+            classFields.set('items', Symbol.createWithType(keysItemType, DefaultTypeSourceId));
 
             let lenType = new FunctionType(FunctionTypeFlags.InstanceMethod);
             lenType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'int'));
             lenType.addParameter(selfParameter);
-            classFields.set('__len__', Symbol.create(lenType, DefaultTypeSourceId));
+            classFields.set('__len__', Symbol.createWithType(lenType, DefaultTypeSourceId));
 
             if (addGenericGetAttribute) {
                 let getAttribType = new FunctionType(FunctionTypeFlags.InstanceMethod);
@@ -1875,7 +1873,7 @@ export class ExpressionEvaluator {
                     name: 'name',
                     type: ScopeUtils.getBuiltInObject(this._scope, 'str')
                 });
-                classFields.set('__getattribute__', Symbol.create(getAttribType, DefaultTypeSourceId));
+                classFields.set('__getattribute__', Symbol.createWithType(getAttribType, DefaultTypeSourceId));
             }
         }
 
@@ -2415,8 +2413,8 @@ export class ExpressionEvaluator {
                 const targetExpr = comprehension.targetExpression;
 
                 if (targetExpr instanceof NameNode) {
-                    const symbol = this._scope.addSymbol(targetExpr.nameToken.value);
-                    symbol.setTypeForSource(itemType, AnalyzerNodeInfo.getTypeSourceId(targetExpr));
+                    const symbol = this._scope.addSymbol(targetExpr.nameToken.value, false);
+                    symbol.setInferredTypeForSource(itemType, AnalyzerNodeInfo.getTypeSourceId(targetExpr));
                 } else {
                     // TODO - need to implement
                     understoodType = false;

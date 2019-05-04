@@ -63,7 +63,7 @@ export enum TypeCategory {
 
 export type LiteralValue = number | boolean | string;
 
-const MaxRecursionCount = 20;
+const MaxRecursionCount = 16;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
@@ -685,8 +685,8 @@ export class FunctionType extends Type {
         this._functionDetails = {
             flags,
             parameters: [],
-            inferredReturnType: new InferredType(UnknownType.create()),
-            inferredYieldType: new InferredType(UnknownType.create())
+            inferredReturnType: new InferredType(),
+            inferredYieldType: new InferredType()
         };
     }
 

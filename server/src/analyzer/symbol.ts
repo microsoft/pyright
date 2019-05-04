@@ -43,44 +43,72 @@ export interface Declaration {
 
 export class Symbol {
     // Inferred type of the symbol.
-    inferredType: InferredType = new InferredType();
+    private _inferredType: InferredType = new InferredType();
 
     // Information about the node that declared the value -
     // i.e. where the editor will take the user if "show definition"
     // is selected. Multiple declarations can exist for variables,
     // properties, and functions (in the case of @overload).
-    declarations?: Declaration[];
+    private _declarations?: Declaration[];
 
-    static create(type: Type, typeSourceId: TypeSourceId) {
-        const newSymbol = new Symbol();
-        newSymbol.setTypeForSource(type, typeSourceId);
+    // Indicates that the symbol is initially unbound and can
+    // later be unbound through a delete operation.
+    private _isInitiallyUnbound: boolean;
+
+    constructor(isInitiallyUnbound: boolean) {
+        this._isInitiallyUnbound = isInitiallyUnbound;
+    }
+
+    static createWithType(type: Type, typeSourceId: TypeSourceId) {
+        const newSymbol = new Symbol(true);
+        newSymbol.setInferredTypeForSource(type, typeSourceId);
         return newSymbol;
     }
 
+    isInitiallyUnbound() {
+        return this._isInitiallyUnbound;
+    }
+
     // Returns true if inferred type changed.
-    setTypeForSource(type: Type, typeSourceId: TypeSourceId): boolean {
-        return this.inferredType.addSource(type, typeSourceId);
+    setInferredTypeForSource(type: Type, typeSourceId: TypeSourceId): boolean {
+        return this._inferredType.addSource(type, typeSourceId);
+    }
+
+    getInferredType() {
+        return this._inferredType.getType();
     }
 
     addDeclaration(declaration: Declaration) {
-        if (this.declarations) {
+        if (this._declarations) {
             // See if this node was already identified as a declaration. If so,
             // replace it. Otherwise, add it as a new declaration to the end of
             // the list.
-            let declIndex = this.declarations.findIndex(decl => decl.node === declaration.node);
+            let declIndex = this._declarations.findIndex(decl => decl.node === declaration.node);
             if (declIndex >= 0) {
                 // This declaration has already been added. Update the declared
                 // type if it's available. The other fields in the declaration
                 // should be the same from one analysis pass to the next.
                 if (declaration.declaredType) {
-                    this.declarations[declIndex].declaredType = declaration.declaredType;
+                    this._declarations[declIndex].declaredType = declaration.declaredType;
                 }
             } else {
-                this.declarations.push(declaration);
+                this._declarations.push(declaration);
             }
         } else {
-            this.declarations = [declaration];
+            this._declarations = [declaration];
         }
+    }
+
+    getDeclarationCount() {
+        return this._declarations ? this._declarations.length : 0;
+    }
+
+    hasDeclarations() {
+        return this.getDeclarationCount() > 0;
+    }
+
+    getDeclarations() {
+        return this._declarations ? this._declarations : [];
     }
 }
 
