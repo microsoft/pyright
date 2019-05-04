@@ -396,14 +396,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // so we convert them to a concrete type (or unknown if there
                     // are is no bound or contraints).
                     const specializedParamType = TypeUtils.specializeType(param.type, undefined);
-                    this._addTypeSourceToName(param.name, specializedParamType, typeSourceId, declaration);
-
-                    // TODO - handle varg or kwarg parameter types
+                    const variadicParamType = this._getVariadicParamType(param.category, specializedParamType);
+                    this._addTypeSourceToName(param.name, variadicParamType, typeSourceId, declaration);
 
                     // Add an implicit assignment type constraint. This is needed in
                     // case the parameter is reassigned later in the function with
                     // a different type.
-                    this._addAssignmentTypeConstraint(paramNode.name!, specializedParamType);
+                    this._addAssignmentTypeConstraint(paramNode.name!, variadicParamType);
                 }
             });
 
@@ -1460,6 +1459,30 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         return false;
+    }
+
+    // Transforms the parameter type based on its category. If it's a simple parameter,
+    // no transform is applied. If it's a var-arg or keword-arg parameter, the type
+    // is wrapped in a List or Dict.
+    private _getVariadicParamType(paramCategory: ParameterCategory, type: Type): Type {
+        if (paramCategory === ParameterCategory.VarArgList) {
+            const listType = ScopeUtils.getBuiltInType(this._currentScope, 'List');
+            if (listType instanceof ClassType) {
+                type = new ObjectType(listType.cloneForSpecialization([type]));
+            } else {
+                type = UnknownType.create();
+            }
+        } else if (paramCategory === ParameterCategory.VarArgDictionary) {
+            const dictType = ScopeUtils.getBuiltInType(this._currentScope, 'Dict');
+            const strType = ScopeUtils.getBuiltInObject(this._currentScope, 'str');
+            if (dictType instanceof ClassType && strType instanceof ObjectType) {
+                type = new ObjectType(dictType.cloneForSpecialization([strType, type]));
+            } else {
+                type = UnknownType.create();
+            }
+        }
+
+        return type;
     }
 
     private _reportPossibleUnknownAssignment(diagLevel: DiagnosticLevel, target: NameNode,
