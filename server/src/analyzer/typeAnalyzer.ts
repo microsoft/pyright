@@ -1125,6 +1125,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitString(node: StringNode): boolean {
         if (node.typeAnnotation) {
+            if (AnalyzerNodeInfo.getIgnoreTypeAnnotation(node)) {
+                return false;
+            }
+
             this._getTypeOfExpression(node.typeAnnotation);
         }
         return true;

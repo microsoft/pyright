@@ -38,9 +38,9 @@ import { Symbol } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, NeverType, NoneType, ObjectType,
-    OverloadedFunctionType, PropertyType, Type, TypeVarMap, TypeVarType,
-    UnionType, UnknownType } from './types';
+    FunctionTypeFlags, LiteralValue, ModuleType, NeverType, NoneType,
+    ObjectType, OverloadedFunctionType, PropertyType, Type, TypeVarMap,
+    TypeVarType, UnionType, UnknownType } from './types';
 import { ClassMember, ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
 interface TypeResult {
@@ -353,15 +353,15 @@ export class ExpressionEvaluator {
                             variableNameNode = statement.leftExpression.valueExpression;
                         }
 
-                        variableType = this.getType(statement.rightExpression,
-                            { method: 'get' }, EvaluatorFlags.None);
+                        variableType = TypeUtils.stripLiteralValue(
+                            this.getType(statement.rightExpression, { method: 'get' }));
                         hasDefaultValue = true;
                     } else if (statement instanceof TypeAnnotationExpressionNode) {
                         if (statement.valueExpression instanceof NameNode) {
                             variableNameNode = statement.valueExpression;
                             variableType = TypeUtils.convertClassToObject(
                                 this.getType(statement.typeAnnotation, { method: 'get' },
-                                EvaluatorFlags.ConvertEllipsisToAny));
+                                    EvaluatorFlags.ConvertEllipsisToAny));
                         }
                     }
 
@@ -504,12 +504,12 @@ export class ExpressionEvaluator {
             }
 
             let isBytes = (node.tokens[0].flags & StringTokenFlags.Bytes) !== 0;
-            typeResult = this._getBuiltInTypeFromLiteralExpression(node,
-                isBytes ? 'bytes' : 'str');
+            typeResult = { node, type: this._cloneBuiltinTypeWithLiteral(
+                isBytes ? 'bytes' : 'str', node.getValue()) };
         } else if (node instanceof NumberNode) {
             this._reportUsageErrorForReadOnly(node, usage);
-            typeResult = this._getBuiltInTypeFromLiteralExpression(node,
-                node.token.isInteger ? 'int' : 'float');
+            typeResult = { node, type: this._cloneBuiltinTypeWithLiteral(
+                node.token.isInteger ? 'int' : 'float', node.token.value) };
         } else if (node instanceof EllipsisNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             const convertToAny = (flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0;
@@ -914,8 +914,13 @@ export class ExpressionEvaluator {
             if (subtype.isAny()) {
                 return subtype;
             } else if (subtype instanceof ClassType) {
-                let typeArgs = this._getTypeArgs(node.items);
-                return this._createSpecializeClassType(subtype, typeArgs, node.items);
+                // We need to special-case Literal types.
+                if (subtype.isSpecialBuiltIn() && subtype.getClassName() === 'Literal') {
+                    return this._createLiteralType(node);
+                } else {
+                    let typeArgs = this._getTypeArgs(node.items);
+                    return this._createSpecializeClassType(subtype, typeArgs, node.items);
+                }
             } else if (subtype instanceof FunctionType) {
                 // TODO - need to implement. This is used in cases where
                 // a generic Callable is used as a function parameter.
@@ -1051,7 +1056,7 @@ export class ExpressionEvaluator {
 
     private _getTypeFromTupleExpression(node: TupleExpressionNode, usage: EvaluatorUsage): TypeResult {
         const entryTypes = node.expressions.map(
-            expr => this.getType(expr, usage)
+            expr => TypeUtils.stripLiteralValue(this.getType(expr, usage))
         );
 
         let type = UnknownType.create();
@@ -1900,9 +1905,9 @@ export class ExpressionEvaluator {
                 // versions of 'bool'.
                 if (type instanceof ObjectType) {
                     if (node.token.keywordType === KeywordType.True) {
-                        type = type.cloneAsTruthy();
+                        type = type.cloneWithLiteral(true);
                     } else if (node.token.keywordType === KeywordType.False) {
-                        type = type.cloneAsFalsy();
+                        type = type.cloneWithLiteral(false);
                     }
                 }
             }
@@ -2225,18 +2230,6 @@ export class ExpressionEvaluator {
         });
     }
 
-    private _getBuiltInTypeFromLiteralExpression(node: ExpressionNode,
-            typeName: string): TypeResult | undefined {
-
-        let type = ScopeUtils.getBuiltInObject(this._scope, typeName);
-
-        if (!type) {
-            return undefined;
-        }
-
-        return { type, node };
-    }
-
     private _getTypeFromSetExpression(node: SetNode): TypeResult {
         const entryTypes = node.entries.map(expr => this._getTypeFromExpression(expr));
 
@@ -2257,8 +2250,10 @@ export class ExpressionEvaluator {
         // Infer the key and value types if possible.
         node.entries.forEach(entryNode => {
             if (entryNode instanceof DictionaryKeyEntryNode) {
-                keyTypes.push(this.getType(entryNode.keyExpression));
-                valueTypes.push(this.getType(entryNode.valueExpression));
+                keyTypes.push(TypeUtils.stripLiteralValue(
+                    this.getType(entryNode.keyExpression)));
+                valueTypes.push(TypeUtils.stripLiteralValue(
+                    this.getType(entryNode.valueExpression)));
             } else {
                 keyTypes.push(UnknownType.create());
                 valueTypes.push(UnknownType.create());
@@ -2291,7 +2286,8 @@ export class ExpressionEvaluator {
                 listEntryType = this._getElementTypeFromListComprehensionExpression(
                     node.entries[0] as ListComprehensionNode<ExpressionNode>);
             } else {
-                const entryTypes = node.entries.map(entry => this.getType(entry));
+                const entryTypes = node.entries.map(
+                    entry => TypeUtils.stripLiteralValue(this.getType(entry)));
 
                 // If the list contains only one type, we'll assume the list is
                 // homogeneous. Otherwise, we'll avoid making assumptions about
@@ -2411,7 +2407,8 @@ export class ExpressionEvaluator {
             const comprehension = node.comprehensions[i];
 
             if (comprehension instanceof ListComprehensionForNode) {
-                const iterableType = this.getType(comprehension.iterableExpression);
+                const iterableType = TypeUtils.stripLiteralValue(
+                    this.getType(comprehension.iterableExpression));
                 const itemType = this.getTypeFromIterable(iterableType, !!comprehension.isAsync,
                     comprehension.iterableExpression, false);
 
@@ -2428,7 +2425,8 @@ export class ExpressionEvaluator {
             } else if (comprehension instanceof ListComprehensionIfNode) {
                 // Use the if node (if present) to create a type constraint.
                 typeConstraints = TypeConstraintBuilder.buildTypeConstraintsForConditional(
-                    comprehension.testExpression, expr => this.getType(expr));
+                    comprehension.testExpression, expr => TypeUtils.stripLiteralValue(
+                        this.getType(expr)));
             }
         }
 
@@ -2437,8 +2435,10 @@ export class ExpressionEvaluator {
             if (understoodType) {
                 if (node.expression instanceof DictionaryKeyEntryNode) {
                     // Create a tuple with the key/value types.
-                    const keyType = this.getType(node.expression.keyExpression);
-                    const valueType = this.getType(node.expression.valueExpression);
+                    const keyType = TypeUtils.stripLiteralValue(
+                        this.getType(node.expression.keyExpression));
+                    const valueType = TypeUtils.stripLiteralValue(
+                        this.getType(node.expression.valueExpression));
                     const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
 
                     if (builtInTupleType instanceof ClassType) {
@@ -2448,7 +2448,7 @@ export class ExpressionEvaluator {
                 } else if (node.expression instanceof DictionaryExpandEntryNode) {
                     // TODO - need to implement
                 } else if (node.expression instanceof ExpressionNode) {
-                    type = this.getType(node.expression);
+                    type = TypeUtils.stripLiteralValue(this.getType(node.expression));
                 }
             }
         });
@@ -2462,7 +2462,7 @@ export class ExpressionEvaluator {
         const intObject = ScopeUtils.getBuiltInObject(this._scope, 'int');
 
         const validateIndexType = (indexExpr: ExpressionNode) => {
-            const exprType = this.getType(indexExpr);
+            const exprType = TypeUtils.stripLiteralValue(this.getType(indexExpr));
 
             let diag = new DiagnosticAddendum();
             if (!TypeUtils.canAssignType(intObject, exprType, diag)) {
@@ -2555,6 +2555,66 @@ export class ExpressionEvaluator {
         return TypeUtils.combineTypes([
             TypeUtils.convertClassToObject(typeArgs[0].type),
             NoneType.create()]);
+    }
+
+    private _cloneBuiltinTypeWithLiteral(builtInName: string, value: LiteralValue): Type {
+        let type = ScopeUtils.getBuiltInObject(this._scope, builtInName);
+        if (type instanceof ObjectType) {
+            type = type.cloneWithLiteral(value);
+        }
+
+        return type;
+    }
+
+    // Creates a type that represents a Literal. This is not an officially-supported
+    // feature of Python but is instead a mypy extension described here:
+    // https://mypy.readthedocs.io/en/latest/literal_types.html
+    private _createLiteralType(node: IndexExpressionNode): Type {
+        if (node.items.items.length === 0) {
+            this._addError(`Expected a type parameter after Literal`, node.baseExpression);
+            return UnknownType.create();
+        }
+
+        // As per the specification, we support int, bool, str, and bytes literals.
+        const literalTypes: Type[] = [];
+
+        for (let item of node.items.items) {
+            let type: Type | undefined;
+
+            if (item instanceof StringNode) {
+                // Note that the contents of the string should not be treated
+                // as a type annotation, as they normally are for quoted type
+                // arguments.
+                AnalyzerNodeInfo.setIgnoreTypeAnnotation(item);
+
+                const isBytes = (item.tokens[0].flags & StringTokenFlags.Bytes) !== 0;
+                if (isBytes) {
+                    type = this._cloneBuiltinTypeWithLiteral('bytes', item.getValue());
+                } else {
+                    type = this._cloneBuiltinTypeWithLiteral('str', item.getValue());
+                }
+            } else if (item instanceof NumberNode) {
+                if (item.token.isInteger) {
+                    type = this._cloneBuiltinTypeWithLiteral('int', item.token.value);
+                }
+            } else if (item instanceof ConstantNode) {
+                if (item.token.keywordType === KeywordType.True) {
+                    type = this._cloneBuiltinTypeWithLiteral('bool', true);
+                } else if (item.token.keywordType === KeywordType.False) {
+                    type = this._cloneBuiltinTypeWithLiteral('bool', false);
+                }
+            }
+
+            if (!type) {
+                this._addError(`Type arguments for Literal must be an int, bool, str, or bytes value`,
+                    item);
+                type = UnknownType.create();
+            }
+
+            literalTypes.push(type);
+        }
+
+        return TypeUtils.convertClassToObject(TypeUtils.combineTypes(literalTypes));
     }
 
     // Creates a ClassVar type.

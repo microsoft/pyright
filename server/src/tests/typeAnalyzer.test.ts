@@ -377,3 +377,9 @@ test('ListComprehension1', () => {
 
     validateResults(analysisResults, 1);
 });
+
+test('Literals1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals1.py']);
+
+    validateResults(analysisResults, 6);
+});

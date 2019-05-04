@@ -61,6 +61,8 @@ export enum TypeCategory {
     TypeVar
 }
 
+export type LiteralValue = number | boolean | string;
+
 const MaxRecursionCount = 20;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
@@ -561,11 +563,9 @@ export class ObjectType extends Type {
 
     private _classType: ClassType;
 
-    // Some objects (e.g. "bool") can be truthy or falsy.
-    // During analysis, we may determine that a type is explicitly
-    // truthy or explicitly falsy. If unknown, this field is
-    // undefined. If known, it is set.
-    private _truthyOrFalsy?: boolean;
+    // Some types can be further constrained to have
+    // literal types (e.g. true or 'string' or 3).
+    private _literalValue?: LiteralValue;
 
     constructor(classType: ClassType) {
         super();
@@ -574,24 +574,18 @@ export class ObjectType extends Type {
         this._classType = classType;
     }
 
-    cloneAsTruthy(): ObjectType {
+    cloneWithLiteral(value: LiteralValue): ObjectType {
         let newType = new ObjectType(this._classType);
-        newType._truthyOrFalsy = true;
+        newType._literalValue = value;
         return newType;
     }
 
-    cloneAsFalsy(): ObjectType {
-        let newType = new ObjectType(this._classType);
-        newType._truthyOrFalsy = false;
-        return newType;
+    getLiteralValue(): LiteralValue | undefined {
+        return this._literalValue;
     }
 
     getClassType() {
         return this._classType;
-    }
-
-    getTruthyOrFalsy(): boolean | undefined {
-        return this._truthyOrFalsy;
     }
 
     isSame(type2: Type, recursionCount = 0): boolean {
@@ -604,11 +598,37 @@ export class ObjectType extends Type {
         }
 
         const objType = type2 as ObjectType;
+
+        if (this._literalValue !== objType._literalValue) {
+            return false;
+        }
+
         return this._classType.isSame(objType._classType, recursionCount + 1);
     }
 
     asStringInternal(recursionCount = 0): string {
+        if (this._literalValue) {
+            return this.literalAsString();
+        }
+
         return this._classType.getObjectName(recursionCount + 1);
+    }
+
+    literalAsString(): string {
+        if (this._literalValue === undefined) {
+            return '';
+        }
+
+        let literalStr: string;
+        if (typeof(this._literalValue) === 'string') {
+            literalStr = `'${ this._literalValue.toString() }'`;
+        } else if (typeof(this._literalValue) === 'boolean') {
+            literalStr = this._literalValue ? 'True' : 'False';
+        } else {
+            literalStr = this._literalValue.toString();
+        }
+
+        return `Literal[${ literalStr }]`;
     }
 
     requiresSpecialization(recursionCount = 0) {

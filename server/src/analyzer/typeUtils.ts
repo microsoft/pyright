@@ -117,6 +117,32 @@ export class TypeUtils {
         return true;
     }
 
+    // Determines whether the dest type is the same as the source type with
+    // the possible exception that the source type has a literal value when
+    // the dest does not.
+    static isSameWithoutLiteralValue(destType: Type, srcType: Type): boolean {
+        // If it's the same with literals, great.
+        if (destType.isSame(srcType)) {
+            return true;
+        }
+
+        if (srcType instanceof ObjectType && srcType.getLiteralValue() !== undefined) {
+            // Strip the literal.
+            srcType = new ObjectType(srcType.getClassType());
+            return destType.isSame(srcType);
+        }
+
+        return false;
+    }
+
+    static stripLiteralValue(type: Type): Type {
+        if (type instanceof ObjectType && type.getLiteralValue() !== undefined) {
+            return new ObjectType(type.getClassType());
+        }
+
+        return type;
+    }
+
     // Determines if the source type can be assigned to the dest type.
     // If typeVarMap is provided, type variables within the destType are
     // matched against existing type variables in the map. If a type variable
@@ -143,7 +169,9 @@ export class TypeUtils {
                         typeVarMap, allowSubclasses, recursionCount + 1);
                 }
 
-                typeVarMap.set(destType.getName(), srcType);
+                // Assign the type to the type var. Strip any literal value first, since
+                // type matching never uses literals.
+                typeVarMap.set(destType.getName(), this.stripLiteralValue(srcType));
             }
 
             return this.canAssignToTypeVar(destType, srcType, diag);
@@ -231,8 +259,24 @@ export class TypeUtils {
             const destClassType = destType.getClassType();
 
             if (srcType instanceof ObjectType) {
-                return this._canAssignClass(destClassType, srcType.getClassType(),
-                    diag, typeVarMap, allowSubclasses, recursionCount + 1);
+                const destLiteral = destType.getLiteralValue();
+                if (destLiteral !== undefined) {
+                    const srcLiteral = srcType.getLiteralValue();
+                    if (srcLiteral !== destLiteral) {
+                        diag.addMessage(`'${ srcType.literalAsString() }' cannot be assigned to ` +
+                            `'${ destType.literalAsString() }'.`);
+
+                        return false;
+                    }
+                }
+
+                if (!this._canAssignClass(destClassType, srcType.getClassType(),
+                        diag, typeVarMap, allowSubclasses, recursionCount + 1)) {
+
+                    return false;
+                }
+
+                return true;
             }
         }
 
@@ -373,10 +417,13 @@ export class TypeUtils {
             if (constraint.isAny()) {
                 return true;
             } else if (effectiveSrcType instanceof UnionType) {
-                if (effectiveSrcType.getTypes().find(t => constraint.isSame(t))) {
+                // Does it match at least one of the constraints?
+                if (effectiveSrcType.getTypes().find(
+                        t => TypeUtils.isSameWithoutLiteralValue(constraint, t))) {
+
                     return true;
                 }
-            } else if (constraint.isSame(effectiveSrcType)) {
+            } else if (TypeUtils.isSameWithoutLiteralValue(constraint, effectiveSrcType)) {
                 return true;
             }
         }
@@ -912,7 +959,7 @@ export class TypeUtils {
     static removeFalsinessFromType(type: Type): Type {
         return this.doForSubtypes(type, subtype => {
             if (subtype instanceof ObjectType) {
-                const truthyOrFalsy = subtype.getTruthyOrFalsy();
+                const truthyOrFalsy = subtype.getLiteralValue();
                 if (truthyOrFalsy !== undefined) {
                     // If the object is already definitely truthy,
                     // it's fine to include.
@@ -923,7 +970,7 @@ export class TypeUtils {
                     // If the object is potentially falsy, mark it
                     // as definitely truthy here.
                     if (this.canBeFalsy(subtype)) {
-                        return subtype.cloneAsTruthy();
+                        return subtype.cloneWithLiteral(true);
                     }
                 }
             } else if (this.canBeTruthy(subtype)) {
@@ -942,7 +989,7 @@ export class TypeUtils {
     static removeTruthinessFromType(type: Type): Type {
         return this.doForSubtypes(type, subtype => {
             if (subtype instanceof ObjectType) {
-                const truthyOrFalsy = subtype.getTruthyOrFalsy();
+                const truthyOrFalsy = subtype.getLiteralValue();
                 if (truthyOrFalsy !== undefined) {
                     // If the object is already definitely falsy,
                     // it's fine to include.
@@ -953,7 +1000,7 @@ export class TypeUtils {
                     // If the object is potentially truthy, mark it
                     // as definitely falsy here.
                     if (this.canBeTruthy(subtype)) {
-                        return subtype.cloneAsFalsy();
+                        return subtype.cloneWithLiteral(false);
                     }
                 }
             } else if (this.canBeFalsy(subtype)) {

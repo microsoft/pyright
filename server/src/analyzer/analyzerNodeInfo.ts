@@ -11,7 +11,7 @@
 */
 
 import { NameBindings } from '../parser/nameBindings';
-import { ParseNode } from '../parser/parseNodes';
+import { ParseNode, StringNode } from '../parser/parseNodes';
 import { ImportResult } from './importResult';
 import { TypeSourceId } from './inferredType';
 import { Scope } from './scope';
@@ -59,6 +59,10 @@ export class AnalyzerNodeInfo {
     // parse tree. for NameNode's.
     _typeSourceId?: TypeSourceId;
 
+    // Ignore the type annotation string for this node. Used to handle
+    // type arguments for "Literal".
+    _ignoreTypeAnnotation?: boolean;
+
     //---------------------------------------------------------------
 
     // Cleans out all fields that are added by the analyzer phases
@@ -71,6 +75,7 @@ export class AnalyzerNodeInfo {
         delete analyzerNode._expressionTypeVersion;
         delete analyzerNode._declaration;
         delete analyzerNode._typeSourceId;
+        delete analyzerNode._ignoreTypeAnnotation;
     }
 
     static getNameBindings(node: ParseNode): NameBindings | undefined {
@@ -140,5 +145,15 @@ export class AnalyzerNodeInfo {
         }
 
         return analyzerNode._typeSourceId;
+    }
+
+    static setIgnoreTypeAnnotation(node: StringNode) {
+        const analyzerNode = node as AnalyzerNodeInfo;
+        analyzerNode._ignoreTypeAnnotation = true;
+    }
+
+    static getIgnoreTypeAnnotation(node: StringNode) {
+        const analyzerNode = node as AnalyzerNodeInfo;
+        return !!analyzerNode._ignoreTypeAnnotation;
     }
 }
