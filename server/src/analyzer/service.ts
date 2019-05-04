@@ -244,10 +244,7 @@ export class AnalyzerService {
                     `venvPath ${ configOptions.venvPath } is not a valid directory.`);
             }
 
-            if (!configOptions.defaultVenv) {
-                this._console.log(
-                    `venvPath must be used in conjunction with venv setting, which was omitted.`);
-            } else {
+            if (configOptions.defaultVenv) {
                 const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.defaultVenv);
 
                 if (!fs.existsSync(fullVenvPath) || !isDirectory(fullVenvPath)) {
