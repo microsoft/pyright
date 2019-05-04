@@ -12,8 +12,9 @@
 * None within that scope.
 */
 
-import { BinaryExpressionNode, CallExpressionNode, ConstantNode, ExpressionNode,
-    MemberAccessExpressionNode, NameNode, TypeAnnotationExpressionNode,
+import { ArgumentCategory, BinaryExpressionNode, CallExpressionNode, ConstantNode,
+    ExpressionNode, MemberAccessExpressionNode, NameNode,
+    TypeAnnotationExpressionNode,
     UnaryExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { ClassType, NeverType, NoneType, ObjectType, Type, UnionType } from './types';
@@ -129,10 +130,11 @@ export class TypeConstraintBuilder {
                 elseConstraints: []
             };
 
-            // Look for "X is None" or "X is not None". These are commonly-used
-            // patterns used in control flow.
             if (testExpression.operator === OperatorType.Is ||
                     testExpression.operator === OperatorType.IsNot) {
+
+                // Look for "X is None" or "X is not None". These are commonly-used
+                // patterns used in control flow.
                 if (TypeConstraint.isSupportedExpression(testExpression.leftExpression)) {
                     if (testExpression.rightExpression instanceof ConstantNode &&
                             testExpression.rightExpression.token.keywordType === KeywordType.None) {
@@ -148,6 +150,32 @@ export class TypeConstraintBuilder {
                         results.elseConstraints.push(isPositive ? falseConstraint : trueConstraint);
 
                         return results;
+                    }
+                }
+
+                // Look for "type(X) is Y" or "type(X) is not Y".
+                if (testExpression.leftExpression instanceof CallExpressionNode) {
+                    const callType = typeEvaluator(testExpression.leftExpression.leftExpression);
+                    if (callType instanceof ClassType && callType.isBuiltIn() &&
+                            callType.getClassName() === 'type' &&
+                            testExpression.leftExpression.arguments.length === 1 &&
+                            testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
+
+                        const argExpression = testExpression.leftExpression.arguments[0].valueExpression;
+                        const classType = typeEvaluator(testExpression.rightExpression);
+                        if (classType instanceof ClassType) {
+                            const originalType = typeEvaluator(argExpression);
+                            const positiveType = this._transformTypeForIsTypeExpression(originalType, classType, true);
+                            const negativeType = this._transformTypeForIsTypeExpression(originalType, classType, false);
+                            const trueConstraint = new TypeConstraint(argExpression, positiveType);
+                            const falseConstraint = new TypeConstraint(argExpression, negativeType);
+                            const isPositive = testExpression.operator === OperatorType.Is;
+
+                            results.ifConstraints.push(isPositive ? trueConstraint : falseConstraint);
+                            results.elseConstraints.push(isPositive ? falseConstraint : trueConstraint);
+
+                            return results;
+                        }
                     }
                 }
             } else if (testExpression.operator === OperatorType.And) {
@@ -301,7 +329,7 @@ export class TypeConstraintBuilder {
         return TypeUtils.combineTypes(types);
     }
 
-    // Represents an "is" or "is not" None check.
+    // Represents an "is" or "is not" None test.
     private static _transformTypeForIsNoneExpression(type: Type, isPositiveTest: boolean): Type {
         if (type instanceof UnionType) {
             let remainingTypes = type.getTypes().filter(t => {
@@ -326,6 +354,26 @@ export class TypeConstraintBuilder {
         }
 
         return type;
+    }
+
+    // Represents a "type(X) is Y" or "type(X) is not Y" test.
+    private static _transformTypeForIsTypeExpression(type: Type, classType: ClassType,
+            isPositiveTest: boolean): Type {
+
+        return TypeUtils.doForSubtypes(type, subtype => {
+            if (subtype instanceof ObjectType) {
+                const matches = subtype.getClassType().isSameGenericClass(classType);
+                if (isPositiveTest) {
+                    return matches ? subtype : undefined;
+                } else {
+                    return matches ? undefined : subtype;
+                }
+            } else if (subtype instanceof NoneType) {
+                return isPositiveTest ? undefined : subtype;
+            }
+
+            return subtype;
+        });
     }
 
     // Represents an "isinstance" check, potentially constraining a
