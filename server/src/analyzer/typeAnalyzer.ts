@@ -390,19 +390,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         range: convertOffsetsToRange(paramNode.start, paramNode.end, this._fileInfo.lines)
                     };
                     assert(paramNode !== undefined && paramNode.name !== undefined);
-                    let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(paramNode.name!);
 
                     // If the type contains type variables, specialize them now
                     // so we convert them to a concrete type (or unknown if there
                     // are is no bound or contraints).
                     const specializedParamType = TypeUtils.specializeType(param.type, undefined);
                     const variadicParamType = this._getVariadicParamType(param.category, specializedParamType);
-                    this._addTypeSourceToName(param.name, variadicParamType, typeSourceId, declaration);
-
-                    // Add an implicit assignment type constraint. This is needed in
-                    // case the parameter is reassigned later in the function with
-                    // a different type.
-                    this._addAssignmentTypeConstraint(paramNode.name!, variadicParamType);
+                    this._addTypeSourceToNameNode(paramNode.name!, variadicParamType, declaration);
                 }
             });
 
@@ -1207,8 +1201,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
 
-                this._addTypeSourceToName(expr.nameToken.value, UnboundType.create(),
-                    AnalyzerNodeInfo.getTypeSourceId(expr));
+                this._addTypeSourceToNameNode(expr, UnboundType.create());
             }
         });
 
@@ -1382,7 +1375,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
 
                     this._assignTypeToNameNode(aliasNode, symbolType, declaration);
-                    this._addAssignmentTypeConstraint(aliasNode, symbolType);
                 });
             }
         } else {
@@ -1399,7 +1391,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
 
                     this._assignTypeToNameNode(aliasNode, symbolType);
-                    this._addAssignmentTypeConstraint(aliasNode, symbolType);
                 });
             }
         }
@@ -2121,8 +2112,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _addAssignmentTypeConstraint(node: ExpressionNode, assignmentType: Type) {
+        // Don't propagate an "unbound" type to the target.
+        const typeWithoutUnbound = TypeUtils.removeUnboundFromUnion(assignmentType);
         const typeConstraint = TypeConstraintBuilder.buildTypeConstraintForAssignment(
-            node, assignmentType);
+            node, typeWithoutUnbound);
+
         if (typeConstraint) {
             this._currentScope.addTypeConstraint(typeConstraint);
         }
@@ -2396,7 +2390,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 target, type, srcExpr);
 
             this._assignTypeToNameNode(target, type, declaration, srcExpr);
-            this._addAssignmentTypeConstraint(target, type);
         } else if (target instanceof MemberAccessExpressionNode) {
             let targetNode = target.leftExpression;
 
@@ -2503,8 +2496,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             target.entries.forEach(entry => {
                 this._assignTypeToExpression(entry, UnknownType.create(), srcExpr);
             });
-        } else {
-            this._addAssignmentTypeConstraint(target, type);
         }
 
         // Report any errors with assigning to this type.
@@ -2605,8 +2596,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        this._addTypeSourceToName(nameValue, type,
-            AnalyzerNodeInfo.getTypeSourceId(nameNode), declaration);
+        this._addTypeSourceToNameNode(nameNode, type, declaration);
 
         if (declaration) {
             AnalyzerNodeInfo.setDeclaration(nameNode, declaration);
@@ -2622,6 +2612,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (!permanentScope.lookUpSymbol(name)) {
             permanentScope.addSymbol(name);
         }
+    }
+
+    private _addTypeSourceToNameNode(node: NameNode, type: Type, declaration?: Declaration) {
+        this._addTypeSourceToName(node.nameToken.value, type,
+            AnalyzerNodeInfo.getTypeSourceId(node), declaration);
+
+        this._addAssignmentTypeConstraint(node, type);
     }
 
     private _addTypeSourceToName(name: string, type: Type, typeSourceId: TypeSourceId,
