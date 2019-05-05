@@ -62,6 +62,30 @@ export class TypeUtils {
         return false;
     }
 
+    // When a variable with a declared type is assigned and the declared
+    // type is a union, we may be able to further constrain the type.
+    static constrainDeclaredTypeBasedOnAssignedType(declaredType: Type, assignedType: Type): Type {
+        if (declaredType instanceof UnionType) {
+            const diagAddendum = new DiagnosticAddendum();
+
+            return this.doForSubtypes(declaredType, subtype => {
+                if (assignedType instanceof UnionType) {
+                    if (!assignedType.getTypes().some(t => this.canAssignType(subtype, t, diagAddendum))) {
+                        return undefined;
+                    } else {
+                        return subtype;
+                    }
+                } else if (!this.canAssignType(subtype, assignedType, diagAddendum)) {
+                    return undefined;
+                } else {
+                    return subtype;
+                }
+            });
+        }
+
+        return declaredType;
+    }
+
     // Calls a callback for each subtype and combines the results
     // into a final type.
     static doForSubtypes(type: Type, callback: (type: Type) => (Type | undefined)): Type {
