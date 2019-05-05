@@ -638,7 +638,7 @@ export class ExpressionEvaluator {
             // can skip this check in type stub files because they are not
             // "executed" and support forward references.
             if (!symbolWithScope.isBeyondExecutionScope && !this._isUnboundCheckSuppressed &&
-                    !this._fileInfo.isStubFile) {
+                    !this._fileInfo.isStubFile && symbol.isInitiallyUnbound()) {
 
                 // Apply type constraints to see if the unbound type is eliminated.
                 const initialType = TypeUtils.getInitialTypeOfSymbol(symbol);
