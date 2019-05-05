@@ -1115,7 +1115,10 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromCallExpression(node: CallExpressionNode, flags: EvaluatorFlags): TypeResult {
-        const baseTypeResult = this._getTypeFromExpression(node.leftExpression);
+        // Evaluate the left-hand side but don't specialize it yet because we
+        // may need to specialize based on the arguments.
+        const baseTypeResult = this._getTypeFromExpression(node.leftExpression,
+            { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
 
         const argList = node.arguments.map(arg => {
             return {
