@@ -1461,12 +1461,12 @@ export class ExpressionEvaluator {
         const typeParams = type.getParameters();
 
         // The last parameter might be a var arg dictionary. If so, strip it off.
-        let hasVarArgDictParam = typeParams.find(
-                param => param.category === ParameterCategory.VarArgDictionary) !== undefined;
+        const varArgDictParam = typeParams.find(
+                param => param.category === ParameterCategory.VarArgDictionary);
         let reportedArgError = false;
 
         // Build a map of parameters by name.
-        let paramMap = new StringMap<ParamAssignmentInfo>();
+        const paramMap = new StringMap<ParamAssignmentInfo>();
         typeParams.forEach(param => {
             if (param.name) {
                 paramMap.set(param.name, {
@@ -1527,14 +1527,26 @@ export class ExpressionEvaluator {
                 break;
             }
 
-            if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
-                // Consume the remaining positional args.
-                argIndex = positionalArgCount;
-            } else if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
+            const paramType = type.getEffectiveParameterType(paramIndex);
+            if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                 // Assume the unpacked list fills the remaining positional args.
+                if (argList[argIndex].valueExpression) {
+                    const listElementType = this.getTypeFromIterable(argList[argIndex].type, false,
+                        argList[argIndex].valueExpression!, false);
+
+                    if (!this._validateArgType(paramType, listElementType,
+                            argList[argIndex].valueExpression || errorNode, typeVarMap)) {
+                        reportedArgError = true;
+                    }
+                }
                 break;
+            } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
+                if (!this._validateArgType(paramType, argList[argIndex].type,
+                        argList[argIndex].valueExpression || errorNode, typeVarMap)) {
+                    reportedArgError = true;
+                }
+                argIndex++;
             } else {
-                let paramType = type.getEffectiveParameterType(paramIndex);
                 if (!this._validateArgType(paramType, argList[argIndex].type,
                         argList[argIndex].valueExpression || errorNode, typeVarMap)) {
                     reportedArgError = true;
@@ -1547,9 +1559,8 @@ export class ExpressionEvaluator {
                 }
 
                 argIndex++;
+                paramIndex++;
             }
-
-            paramIndex++;
         }
 
         if (!reportedArgError) {
@@ -1586,7 +1597,12 @@ export class ExpressionEvaluator {
                                     reportedArgError = true;
                                 }
                             }
-                        } else if (!hasVarArgDictParam) {
+                        } else if (varArgDictParam) {
+                            if (!this._validateArgType(varArgDictParam.type, argList[argIndex].type,
+                                    argList[argIndex].valueExpression || errorNode, typeVarMap)) {
+                                reportedArgError = true;
+                            }
+                        } else {
                             this._addError(
                                 `No parameter named '${ paramName.nameToken.value }'`, paramName);
                             reportedArgError = true;
