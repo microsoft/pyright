@@ -136,8 +136,14 @@ export class TypeUtils {
     }
 
     static stripLiteralValue(type: Type): Type {
-        if (type instanceof ObjectType && type.getLiteralValue() !== undefined) {
-            return new ObjectType(type.getClassType());
+        if (type instanceof ObjectType) {
+            if (type.getLiteralValue() !== undefined) {
+                return new ObjectType(type.getClassType());
+            }
+        } else if (type instanceof UnionType) {
+            return this.doForSubtypes(type, subtype => {
+                return this.stripLiteralValue(subtype);
+            });
         }
 
         return type;
@@ -159,19 +165,21 @@ export class TypeUtils {
         // TypeVar that we are attempting to match.
         if (destType instanceof TypeVarType) {
             if (typeVarMap) {
+                // Strip any literal value first, since type matching never uses literals.
+                const noLiteralSrcType = this.stripLiteralValue(srcType);
+
                 const existingTypeVarMapping = typeVarMap.get(destType.getName());
                 if (existingTypeVarMapping) {
-                    if (existingTypeVarMapping === srcType) {
+                    if (existingTypeVarMapping === noLiteralSrcType) {
                         return true;
                     }
 
-                    return this.canAssignType(existingTypeVarMapping, srcType, diag.createAddendum(),
+                    return this.canAssignType(existingTypeVarMapping, noLiteralSrcType, diag.createAddendum(),
                         typeVarMap, allowSubclasses, recursionCount + 1);
                 }
 
-                // Assign the type to the type var. Strip any literal value first, since
-                // type matching never uses literals.
-                typeVarMap.set(destType.getName(), this.stripLiteralValue(srcType));
+                // Assign the type to the type var.
+                typeVarMap.set(destType.getName(), noLiteralSrcType);
             }
 
             return this.canAssignToTypeVar(destType, srcType, diag);
