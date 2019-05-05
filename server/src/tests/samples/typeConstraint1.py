@@ -7,8 +7,10 @@ class Foo:
     def bar(self):
         return
 
-a: Optional[Foo] = None
-b: Optional[Foo] = None
+maybe = True
+
+a = None if maybe else Foo()
+b = None if maybe else Foo()
 
 if not a or not b:
     a.bar()
