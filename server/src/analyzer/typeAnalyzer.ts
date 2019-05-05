@@ -581,29 +581,35 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const iteratedType = evaluator.getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
 
-        // Assume that the for loop scope is unconditional unless there's
-        // an "else" statement, in which case we'll assume that they are both
-        // conditional.
         const loopScope = this._enterTemporaryScope(() => {
             this._assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
             this.walk(node.targetExpression);
             this.walk(node.forSuite);
-        }, !!node.elseSuite, node);
+        }, true, node);
 
-        let scopeToMerge = loopScope;
-        if (node.elseSuite) {
-            const elseScope = this._enterTemporaryScope(() => {
-                this.walk(node.elseSuite!);
-            }, true);
-
-            if (!elseScope.getAlwaysReturnsOrRaises() && !loopScope.getAlwaysReturnsOrRaises()) {
-                scopeToMerge = Scope.combineConditionalScopes(loopScope, elseScope);
-            } else if (loopScope.getAlwaysReturnsOrRaises()) {
-                scopeToMerge = elseScope;
+        const elseScope = this._enterTemporaryScope(() => {
+            if (node.elseSuite) {
+                this.walk(node.elseSuite);
             }
-        }
+        }, true);
 
-        if (!scopeToMerge.getAlwaysReturnsOrRaises()) {
+        if (loopScope.getAlwaysReturnsOrRaises() && elseScope.getAlwaysReturnsOrRaises()) {
+            // If both an loop and else clauses are executed but they both return or
+            // raise an exception, mark the current scope as always returning or
+            // raising an exception.
+            if (loopScope.getAlwaysRaises() && elseScope.getAlwaysRaises()) {
+                this._currentScope.setAlwaysRaises();
+            } else {
+                this._currentScope.setAlwaysReturns();
+            }
+        } else if (loopScope.getAlwaysReturnsOrRaises()) {
+            elseScope.setUnconditional();
+            this._mergeToCurrentScope(elseScope);
+        } else if (elseScope.getAlwaysReturnsOrRaises()) {
+            loopScope.setUnconditional();
+            this._mergeToCurrentScope(loopScope);
+        } else if (!loopScope.getAlwaysReturnsOrRaises() && !elseScope.getAlwaysReturnsOrRaises()) {
+            const scopeToMerge = Scope.combineConditionalScopes(loopScope, elseScope);
             this._mergeToCurrentScope(scopeToMerge);
         }
 
