@@ -632,7 +632,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         iteratorType, !!compr.isAsync, compr.iterableExpression, false);
 
                     this._addNamedTargetToCurrentScope(compr.targetExpression);
-                    this._assignTypeToExpression(compr.targetExpression, iteratedType, compr.targetExpression);
+                    this._assignTypeToExpression(compr.targetExpression, iteratedType, compr.iterableExpression);
                     this.walk(compr.targetExpression);
                 } else {
                     this.walk(compr.testExpression);
@@ -2438,10 +2438,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     if (target.expressions.length === entryCount ||
                             (allowsMoreEntries && target.expressions.length >= entryCount)) {
-                        target.expressions.forEach((expr, index) => {
+                        for (let index = 0; index < target.expressions.length; index++) {
                             const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
                             targetTypes[index].push(entryType);
-                        });
+                        }
                     } else {
                         this._addError(
                             `Tuple size mismatch: expected ${ target.expressions.length }` +
@@ -2453,9 +2453,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // be some iterable type.
                     const evaluator = this._createEvaluator();
                     const iterableType = evaluator.getTypeFromIterable(subtype, false, srcExpr, false);
-                    target.expressions.forEach((expr, index) => {
+                    for (let index = 0; index < target.expressions.length; index++) {
                         targetTypes[index].push(iterableType);
-                    });
+                    }
                 }
 
                 // We need to return something to satisfy doForSubtypes.

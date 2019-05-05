@@ -2485,6 +2485,66 @@ export class ExpressionEvaluator {
                 if (targetExpr instanceof NameNode) {
                     const symbol = this._scope.addSymbol(targetExpr.nameToken.value, false);
                     symbol.setInferredTypeForSource(itemType, AnalyzerNodeInfo.getTypeSourceId(targetExpr));
+                    const tc = TypeConstraintBuilder.buildTypeConstraintForAssignment(targetExpr, itemType);
+                    if (tc) {
+                        this._scope.addTypeConstraint(tc);
+                    }
+
+                } else if (targetExpr instanceof TupleExpressionNode) {
+                    // Initialize the array of target types, one for each target.
+                    const targetTypes: Type[][] = new Array(targetExpr.expressions.length);
+                    for (let i = 0; i < targetExpr.expressions.length; i++) {
+                        targetTypes[i] = [];
+                    }
+
+                    TypeUtils.doForSubtypes(itemType, subtype => {
+                        // Is this subtype a tuple?
+                        const tupleType = TypeUtils.getSpecializedTupleType(subtype);
+                        if (tupleType && tupleType.getTypeArguments()) {
+                            const entryTypes = tupleType.getTypeArguments()!;
+                            let entryCount = entryTypes.length;
+                            const allowsMoreEntries = entryCount > 0 &&
+                                entryTypes[entryCount - 1] instanceof AnyType &&
+                                (entryTypes[entryCount - 1] as AnyType).isEllipsis();
+                            if (allowsMoreEntries) {
+                                entryCount--;
+                            }
+
+                            if (targetExpr.expressions.length === entryCount ||
+                                    (allowsMoreEntries && targetExpr.expressions.length >= entryCount)) {
+                                for (let index = 0; index < targetExpr.expressions.length; index++) {
+                                    const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
+                                    targetTypes[index].push(entryType);
+                                }
+                            }
+                        } else {
+                            // The assigned expression isn't a tuple, so it had better
+                            // be some iterable type.
+                            const iterableType = this.getTypeFromIterable(subtype, false,
+                                comprehension.iterableExpression, false);
+                            for (let index = 0; index < targetExpr.expressions.length; index++) {
+                                targetTypes[index].push(iterableType);
+                            }
+                        }
+
+                        // We need to return something to satisfy doForSubtypes.
+                        return undefined;
+                    });
+
+                    // Assign the resulting types to the individual names in the tuple target expression.
+                    targetExpr.expressions.forEach((expr, index) => {
+                        const typeList = targetTypes[index];
+                        const targetType = typeList.length === 0 ? UnknownType.create() : TypeUtils.combineTypes(typeList);
+
+                        if (expr instanceof NameNode) {
+                            const symbol = this._scope.addSymbol(expr.nameToken.value, false);
+                            symbol.setInferredTypeForSource(targetType, AnalyzerNodeInfo.getTypeSourceId(expr));
+                            const tc = TypeConstraintBuilder.buildTypeConstraintForAssignment(expr, targetType);
+                            if (tc) {
+                                this._scope.addTypeConstraint(tc);
+                            }
+                        }
+                    });
                 } else {
                     // TODO - need to implement
                     understoodType = false;
