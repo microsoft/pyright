@@ -17,7 +17,7 @@ import { ArgumentCategory, BinaryExpressionNode, CallExpressionNode, ConstantNod
     TypeAnnotationExpressionNode,
     UnaryExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { ClassType, NeverType, NoneType, ObjectType, Type, UnionType } from './types';
+import { ClassType, NeverType, NoneType, ObjectType, Type, TypeCategory, UnionType } from './types';
 import { TypeUtils } from './typeUtils';
 
 export interface ConditionalTypeConstraintResults {
@@ -65,6 +65,17 @@ export class TypeConstraint {
 
     applyToType(node: ExpressionNode, type: Type): Type {
         if (this.doesExpressionMatch(node)) {
+            // Don't transform special built-in types. These involve special processing
+            // in expressionEvaluator, so we don't want to overwrite the results of
+            // that processing with an assignment type constraint. By doing this, it
+            // means that modules can't overwrite the values of special symbols like
+            // Callable and Tuple.
+            if (this._type instanceof ClassType && this._type.isSpecialBuiltIn()) {
+                if (type.category !== TypeCategory.Unbound) {
+                    return type;
+                }
+            }
+
             if (this._isConditional) {
                 let types = [this._type, type];
                 return TypeUtils.combineTypes(types);
@@ -281,15 +292,6 @@ export class TypeConstraintBuilder {
     // Builds a type constraint that applies the specified type to an expression.
     static buildTypeConstraintForAssignment(targetNode: ExpressionNode,
             assignmentType: Type): TypeConstraint | undefined {
-
-        // Don't transform special built-in types. These involve special processing
-        // in expressionEvaluator, so we don't want to overwrite the results of
-        // that processing with an assignment type constraint. By doing this, it
-        // means that modules can't overwrite the values of special symbols like
-        // Callable and Tuple.
-        if (assignmentType instanceof ClassType && assignmentType.isSpecialBuiltIn()) {
-            return undefined;
-        }
 
         if (targetNode instanceof TypeAnnotationExpressionNode) {
             if (TypeConstraint.isSupportedExpression(targetNode.valueExpression)) {

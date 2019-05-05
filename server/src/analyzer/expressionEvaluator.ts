@@ -65,7 +65,10 @@ export enum EvaluatorFlags {
     // Normally a generic named type is specialized with "Any"
     // types. This flag indicates that specialization shouldn't take
     // place.
-    DoNotSpecialize = 2
+    DoNotSpecialize = 2,
+
+    // Allow forward references. Don't report unbound errors.
+    AllowForwardReferences = 4
 }
 
 interface EvaluatorUsage {
@@ -116,6 +119,7 @@ export class ExpressionEvaluator {
     private _diagnosticSink?: TextRangeDiagnosticSink;
     private _readTypeFromCache?: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
+    private _isUnboundCheckSuppressed = false;
 
     constructor(scope: Scope, fileInfo: AnalyzerFileInfo,
             diagnosticSink?: TextRangeDiagnosticSink,
@@ -129,8 +133,17 @@ export class ExpressionEvaluator {
     }
 
     getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
-        let typeResult = this._getTypeFromExpression(node, usage, flags);
-        return typeResult.type;
+        let type = UnknownType.create();
+
+        if (flags & EvaluatorFlags.AllowForwardReferences) {
+            this._suppressUnboundChecks(() => {
+                type = this._getTypeFromExpression(node, usage, flags).type;
+            });
+        } else {
+            type = this._getTypeFromExpression(node, usage, flags).type;
+        }
+
+        return type;
     }
 
     getTypeFromDecorator(node: DecoratorNode, functionType: Type): Type {
@@ -500,7 +513,15 @@ export class ExpressionEvaluator {
         } else if (node instanceof StringNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             if (node.typeAnnotation) {
-                return this._getTypeFromExpression(node.typeAnnotation, usage, flags);
+                let typeResult: TypeResult = { node, type: UnknownType.create() };
+
+                // Temporarily suppress checks for unbound variables, since forward
+                // references are allowed within string-based annotations.
+                this._suppressUnboundChecks(() => {
+                    typeResult = this._getTypeFromExpression(node.typeAnnotation!, usage, flags);
+                });
+
+                return typeResult;
             }
 
             let isBytes = (node.tokens[0].flags & StringTokenFlags.Bytes) !== 0;
@@ -592,6 +613,15 @@ export class ExpressionEvaluator {
         return typeResult;
     }
 
+    private _suppressUnboundChecks(callback: () => void) {
+        const wasSupprsesed = this._isUnboundCheckSuppressed;
+        this._isUnboundCheckSuppressed = true;
+
+        callback();
+
+        this._isUnboundCheckSuppressed = wasSupprsesed;
+    }
+
     private _getTypeFromName(node: NameNode, flags: EvaluatorFlags): TypeResult {
         const name = node.nameToken.value;
         let type: Type | undefined;
@@ -603,9 +633,23 @@ export class ExpressionEvaluator {
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
             type = TypeUtils.getEffectiveTypeOfSymbol(symbol);
-        }
 
-        if (!type) {
+            // Determine whether the name is unbound or possibly unbound. We
+            // can skip this check in type stub files because they are not
+            // "executed" and support forward references.
+            if (!symbolWithScope.isBeyondExecutionScope && !this._isUnboundCheckSuppressed &&
+                    !this._fileInfo.isStubFile) {
+
+                // Apply type constraints to see if the unbound type is eliminated.
+                const initialType = TypeUtils.getInitialTypeOfSymbol(symbol);
+                const constrainedType = this._applyTypeConstraint(node, initialType);
+                if (constrainedType.isUnbound()) {
+                    this._addError(`'${ name }' is unbound`, node);
+                } else if (constrainedType.isPossiblyUnbound()) {
+                    this._addError(`'${ name }' is possibly unbound`, node);
+                }
+            }
+        } else {
             this._addError(`'${ name }' is not defined`, node);
             type = UnknownType.create();
         }
@@ -2819,8 +2863,8 @@ export class ExpressionEvaluator {
     private _applyScopeTypeConstraintRecursive(node: ExpressionNode, type: Type,
             scope = this._scope): Type {
 
-        // If we've hit a permanent scope, don't recurse any further.
-        if (scope.getType() === ScopeType.Temporary) {
+        // If we've hit a scope that is independently executable, don't recurse any further.
+        if (!scope.isIndependentlyExecutable()) {
             // Recursively allow the parent scopes to apply their type constraints.
             const parentScope = scope.getParent();
             if (parentScope) {

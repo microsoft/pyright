@@ -516,9 +516,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._enterScope(node, () => {
             node.parameters.forEach(param => {
                 if (param.name) {
-                    // Cache the type for the hover provider.
-                    this._getTypeOfExpression(param.name);
-
                     // Set the declaration on the node for the definition provider.
                     const symbol = this._currentScope.lookUpSymbol(param.name.nameToken.value);
                     if (symbol && symbol.hasDeclarations()) {
@@ -533,7 +530,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         range: convertOffsetsToRange(param.start, param.end, this._fileInfo.lines)
                     };
                     const paramType = UnknownType.create();
-                    this._assignTypeToNameNode(param.name, paramType, declaration);
+                    this._addTypeSourceToNameNode(param.name, paramType, declaration);
+
+                    // Cache the type for the hover provider.
+                    this._getTypeOfExpression(param.name);
                 }
 
                 const functionParam: FunctionParameter = {
@@ -1006,11 +1006,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitString(node: StringNode): boolean {
         if (node.typeAnnotation) {
+            // Should we ignore this type annotation?
             if (AnalyzerNodeInfo.getIgnoreTypeAnnotation(node)) {
                 return false;
             }
 
-            this._getTypeOfExpression(node.typeAnnotation);
+            this._getTypeOfExpression(node.typeAnnotation, true, true);
         }
         return true;
     }
@@ -1026,42 +1027,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 AnalyzerNodeInfo.setDeclaration(node,
                     TypeUtils.getPrimaryDeclarationOfSymbol(symbolInScope.symbol)!);
             }
-        }
-
-        // Call _getTypeOfExpression so the type is cached in the
-        // node, allowing it to be accessed for hover and definition
-        // information.
-        const exprType = this._getTypeOfExpression(node);
-        if (exprType.isUnbound()) {
-            let isReallyUnbound = true;
-
-            if (symbolInScope) {
-                // It's possible that the name is unbound in the current scope
-                // at this point in the code but is available in an outer scope.
-                // Like this:
-                // a = 3
-                // def foo():
-                //    b = a  # 'a' is unbound locally but is available in outer scope
-                //    a = None
-                let parentScope = symbolInScope.scope.getParent();
-                if (parentScope) {
-                    const symbolInParentScope = parentScope.lookUpSymbolRecursive(
-                        node.nameToken.value);
-                    if (symbolInParentScope) {
-                        if (!TypeUtils.getEffectiveTypeOfSymbol(symbolInParentScope.symbol).isUnbound()) {
-                            isReallyUnbound = false;
-                        }
-                    }
-                }
-            }
-
-            // Don't report unbound error in stub files, which support out-of-order
-            // declarations of classes.
-            if (isReallyUnbound && !this._fileInfo.isStubFile) {
-                this._addError(`'${ node.nameToken.value }' is not bound`, node.nameToken);
-            }
-        } else if (exprType.isPossiblyUnbound()) {
-            this._addWarning(`'${ nameValue }' may be unbound`, node.nameToken);
         }
 
         // Determine if we should log information about private usage.
@@ -1213,7 +1178,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const name = importAs.name.nameToken.value;
                     let symbolType: Type | undefined;
                     const aliasNode = importAs.alias || importAs.name;
-                    let declarations: Declaration[] = [];
+                    let declaration: Declaration | undefined;
 
                     // Is the name referring to an implicit import?
                     let implicitImport = importInfo!.implicitImports.find(impImport => impImport.name === name);
@@ -1224,11 +1189,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 this._fileInfo.importMap[implicitImport.path].parseTree) {
 
                             symbolType = moduleType;
-                            const moduleDecl = AnalyzerNodeInfo.getDeclaration(
+                            declaration = AnalyzerNodeInfo.getDeclaration(
                                 this._fileInfo.importMap[implicitImport.path].parseTree);
-                            if (moduleDecl) {
-                                declarations = [moduleDecl];
-                            }
                         }
                     } else {
                         let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
@@ -1238,7 +1200,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             if (symbol) {
                                 symbolType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
                                 if (symbol.hasDeclarations()) {
-                                    declarations = symbol.getDeclarations();
+                                    declaration = symbol.getDeclarations()[0];
                                 }
                             } else {
                                 this._addError(
@@ -1258,15 +1220,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         this._updateExpressionTypeForNode(importAs.alias, symbolType);
                     }
 
-                    if (declarations.length > 0) {
-                        AnalyzerNodeInfo.setDeclaration(importAs.name, declarations[0]);
-                        if (importAs.alias) {
-                            AnalyzerNodeInfo.setDeclaration(importAs.name, declarations[0]);
-                        }
-                    }
+                    this._assignTypeToNameNode(aliasNode, symbolType, declaration);
 
-                    this._assignTypeToNameNode(aliasNode, symbolType,
-                        declarations.length > 0 ? declarations[0] : undefined);
+                    if (declaration && importAs.alias) {
+                        AnalyzerNodeInfo.setDeclaration(importAs.alias, declaration);
+                    }
                 });
             }
         } else {
@@ -2359,12 +2317,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 EvaluatorFlags.None));
     }
 
-    private _getTypeOfExpression(node: ExpressionNode, specialize = true): Type {
-        let evaluator = this._createEvaluator();
-        return evaluator.getType(node, { method: 'get' },
-            specialize ?
-                EvaluatorFlags.ConvertEllipsisToAny :
-                EvaluatorFlags.DoNotSpecialize | EvaluatorFlags.ConvertEllipsisToAny);
+    private _getTypeOfExpression(node: ExpressionNode, specialize = true, allowForwardDecl = false): Type {
+        const evaluator = this._createEvaluator();
+        let flags = EvaluatorFlags.ConvertEllipsisToAny;
+
+        if (specialize) {
+            flags |= EvaluatorFlags.DoNotSpecialize;
+        }
+
+        if (allowForwardDecl) {
+            flags |= EvaluatorFlags.AllowForwardReferences;
+        }
+
+        return evaluator.getType(node, { method: 'get' }, flags);
     }
 
     private _evaluateExpressionForAssignment(node: ExpressionNode, type: Type, errorNode: ExpressionNode) {
@@ -2561,6 +2526,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const targetSymbol = targetSymbolTable.get(name);
             const symbolType = targetSymbol ?
                 TypeUtils.getEffectiveTypeOfSymbol(targetSymbol) : undefined;
+
+            // Assign the first part of the multi-part name to the current scope.
+            if (i === 0 && symbolType) {
+                this._assignTypeToNameNode(nameParts[0], symbolType);
+            }
+
             if (symbolType instanceof ModuleType) {
                 let moduleType = symbolType;
                 const moduleFields = moduleType.getFields();
@@ -2578,9 +2549,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 targetSymbolTable = moduleFields;
             } else if (i === nameParts.length - 1) {
                 targetSymbolTable.set(name, symbol);
-                if (declaration) {
-                    AnalyzerNodeInfo.setDeclaration(nameParts[i], declaration);
-                }
             } else {
                 // Build a "partial module" to contain the references
                 // to the next part of the name.
@@ -2628,6 +2596,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
+    private _addTypeSourceToNameNode(node: NameNode, type: Type, declaration?: Declaration) {
+        this._addTypeSourceToName(node.nameToken.value, type,
+            AnalyzerNodeInfo.getTypeSourceId(node), declaration);
+
+        this._addAssignmentTypeConstraint(node, type);
+    }
+
     // Finds the nearest permanent scope (as opposed to temporary scope) and
     // adds a new symbol with the specified name if it doesn't already exist.
     private _addSymbolToPermanentScope(name: string) {
@@ -2637,13 +2612,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (!permanentScope.lookUpSymbol(name)) {
             permanentScope.addSymbol(name, false);
         }
-    }
-
-    private _addTypeSourceToNameNode(node: NameNode, type: Type, declaration?: Declaration) {
-        this._addTypeSourceToName(node.nameToken.value, type,
-            AnalyzerNodeInfo.getTypeSourceId(node), declaration);
-
-        this._addAssignmentTypeConstraint(node, type);
     }
 
     private _addTypeSourceToName(name: string, type: Type, typeSourceId: TypeSourceId,
@@ -2810,17 +2778,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._currentScope.clearAlwaysRaises();
         this._currentScope.clearAlwaysReturns();
 
-        // Enter a new temporary scope so we don't pollute the
-        // namespace of the permanent scope. For example, if code
-        // within a function assigns a value to a globally-bound
-        // variable, we want to track the type of that variable
-        // within this scope and then combine it back to the
-        // global scope at the end, not add it to the function's
-        // permanent scope.
-        const tempScope = this._enterTemporaryScope(() => {
-            callback();
-        });
-        this._mergeToCurrentScope(tempScope);
+        callback();
 
         // Clear out any type constraints that were collected
         // during the processing of the scope.

@@ -17,22 +17,41 @@ import { InferredType } from './inferredType';
 import { Declaration, Symbol, SymbolTable } from './symbol';
 import { TypeConstraint } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
-import { UnknownType } from './types';
 
 export enum ScopeType {
     // Temporary scopes are used temporarily during analysis
     // to represent conditional blocks.
     Temporary,
 
-    // Local scopes are used for lambdas, functions and classes.
-    Local,
+    // Function scopes are used for lambdas and functions.
+    Function,
 
-    // Global scopes are used for modules.
-    Global,
+    // Class scopes are used for classes.
+    Class,
+
+    // Module scopes are used for modules.
+    Module,
 
     // Built-in scopes are used for all ambient symbols provided
     // by the Python environment.
     BuiltIn
+}
+
+// Provides information for recursive scope lookups.
+export interface SymbolWithScope {
+    // Found symbol
+    symbol: Symbol;
+
+    // Scope in which symbol was found
+    scope: Scope;
+
+    // Indicates that the recursion needed to proceed
+    // to a scope that is beyond the current execution
+    // scope. An execution scope is defined as a function
+    // or a module. Classes are not considered execution
+    // scopes because they are "executed" immediately as
+    // part of the scope in which they are contained.
+    isBeyondExecutionScope: boolean;
 }
 
 export class Scope {
@@ -133,6 +152,14 @@ export class Scope {
 
     isConditional() {
         return this._isConditional;
+    }
+
+    // Independently-executable scopes are those that are executed independently
+    // of their parent scopes. Classes and temporary scopes are executed in the
+    // context of their parent scope, so they don't fit this category.
+    isIndependentlyExecutable(): boolean {
+        return this._scopeType === ScopeType.Module ||
+            this._scopeType === ScopeType.Function;
     }
 
     setIsLooping() {
@@ -280,7 +307,7 @@ export class Scope {
     }
 
     private _lookUpSymbolRecursiveInternal(name: string, isOutsideCallerModule: boolean,
-            isBeyondLocalScope: boolean): SymbolWithScope | undefined {
+            isBeyondExecutionScope: boolean): SymbolWithScope | undefined {
 
         // If we're searching outside of the original caller's module (global) scope,
         // hide any names that are not meant to be visible to importers.
@@ -292,7 +319,7 @@ export class Scope {
         if (symbol) {
             return {
                 symbol,
-                isBeyondLocalScope,
+                isBeyondExecutionScope,
                 scope: this
             };
         }
@@ -301,16 +328,10 @@ export class Scope {
             // If our recursion is about to take us outside the scope of the current
             // module (i.e. into a built-in scope), indicate as such with the second parameter.
             return this._parent._lookUpSymbolRecursiveInternal(name,
-                isOutsideCallerModule || this._scopeType === ScopeType.Global,
-                isBeyondLocalScope || this._scopeType !== ScopeType.Temporary);
+                isOutsideCallerModule || this._scopeType === ScopeType.Module,
+                isBeyondExecutionScope || this.isIndependentlyExecutable());
         }
 
         return undefined;
     }
-}
-
-export interface SymbolWithScope {
-    symbol: Symbol;
-    isBeyondLocalScope: boolean;
-    scope: Scope;
 }

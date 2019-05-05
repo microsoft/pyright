@@ -13,7 +13,7 @@ import { DiagnosticTextRange } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParseNode } from '../parser/parseNodes';
 import { InferredType, TypeSourceId } from './inferredType';
-import { Type } from './types';
+import { Type, UnboundType, UnknownType } from './types';
 
 export enum SymbolCategory {
     Variable,

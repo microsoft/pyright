@@ -83,7 +83,7 @@ test('Builtins1', () => {
 
     for (const builtinName of builtinsSymbolTable.getKeys()) {
         const symbolInfo = moduleScope.lookUpSymbolRecursive(builtinName);
-        if (symbolInfo && symbolInfo.isBeyondLocalScope) {
+        if (symbolInfo && symbolInfo.isBeyondExecutionScope) {
             if (symbolMap.get(builtinName) === undefined) {
                 assert.fail(`${ builtinName } should not be in builtins scope`);
             }
@@ -313,7 +313,7 @@ test('Module1', () => {
 });
 
 test('Ellipsis1', () => {
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.py']);
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.pyi']);
 
     validateResults(analysisResults, 10);
 });

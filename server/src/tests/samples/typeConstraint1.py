@@ -7,8 +7,8 @@ class Foo:
     def bar(self):
         return
 
-a: Optional[Foo]
-b: Optional[Foo]
+a: Optional[Foo] = None
+b: Optional[Foo] = None
 
 if not a or not b:
     a.bar()

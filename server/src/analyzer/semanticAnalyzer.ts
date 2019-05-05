@@ -57,7 +57,9 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     // Used to determine if a naked "raise" statement is allowed.
     private _nestedExceptDepth = 0;
 
-    constructor(node: ScopedNode, parentScope: Scope | undefined, fileInfo: AnalyzerFileInfo) {
+    constructor(node: ScopedNode, scopeType: ScopeType, parentScope: Scope | undefined,
+            fileInfo: AnalyzerFileInfo) {
+
         super();
 
         this._scopedNode = node;
@@ -65,9 +67,6 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         // Allocate a new scope and associate it with the node
         // we've been asked to analyze.
-        let scopeType = parentScope === undefined ? ScopeType.BuiltIn :
-            this._scopedNode instanceof ModuleNode ?
-                ScopeType.Global : ScopeType.Local;
         this._currentScope = new Scope(scopeType, parentScope);
 
         // If this is the built-in scope, we need to hide symbols
@@ -278,7 +277,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     visitLambda(node: LambdaNode): boolean {
-        // Analyze the parameters in the context of the parent's scope
+        // Analyze the parameter defaults in the context of the parent's scope
         // before we add any names from the function's scope.
         node.parameters.forEach(param => {
             if (param.defaultValue) {
@@ -386,8 +385,9 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
     visitGlobal(node: GlobalNode): boolean {
         node.nameList.forEach(name => {
-            let valueWithScope = this._currentScope.lookUpSymbolRecursive(name.nameToken.value);
-            if (!valueWithScope || valueWithScope.scope.getType() !== ScopeType.Global) {
+            const valueWithScope = this._currentScope.lookUpSymbolRecursive(name.nameToken.value);
+
+            if (!valueWithScope || valueWithScope.scope.getType() !== ScopeType.Module) {
                 this._addError(`No binding for global '${ name.nameToken.value }' found`, name);
             }
         });
@@ -396,8 +396,11 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
     visitNonlocal(node: NonlocalNode): boolean {
         node.nameList.forEach(name => {
-            let valueWithScope = this._currentScope.lookUpSymbolRecursive(name.nameToken.value);
-            if (!valueWithScope || valueWithScope.scope.getType() !== ScopeType.Local) {
+            const valueWithScope = this._currentScope.lookUpSymbolRecursive(name.nameToken.value);
+
+            if (!valueWithScope || (valueWithScope.scope.getType() !== ScopeType.Function &&
+                    valueWithScope.scope.getType() !== ScopeType.Class)) {
+
                 this._addError(`No binding for nonlocal '${ name.nameToken.value }' found`, name);
             }
         });
@@ -510,7 +513,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
 export class ModuleScopeAnalyzer extends SemanticAnalyzer {
     constructor(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
-        super(node, fileInfo.builtinsScope, fileInfo);
+        super(node, fileInfo.builtinsScope ? ScopeType.Module : ScopeType.BuiltIn,
+            fileInfo.builtinsScope, fileInfo);
     }
 
     analyze() {
@@ -554,7 +558,7 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
     private _classType: ClassType;
 
     constructor(node: ClassNode, parentScope: Scope, classType: ClassType, fileInfo: AnalyzerFileInfo) {
-        super(node, parentScope, fileInfo);
+        super(node, ScopeType.Class, parentScope, fileInfo);
         this._classType = classType;
     }
 
@@ -590,7 +594,7 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
 
 export class FunctionScopeAnalyzer extends SemanticAnalyzer {
     constructor(node: FunctionNode, parentScope: Scope, fileInfo: AnalyzerFileInfo) {
-        super(node, parentScope, fileInfo);
+        super(node, ScopeType.Function, parentScope, fileInfo);
     }
 
     analyzeImmediate() {
@@ -636,7 +640,7 @@ export class FunctionScopeAnalyzer extends SemanticAnalyzer {
 
 export class LambdaScopeAnalyzer extends SemanticAnalyzer {
     constructor(node: LambdaNode, parentScope: Scope, fileInfo: AnalyzerFileInfo) {
-        super(node, parentScope, fileInfo);
+        super(node, ScopeType.Function, parentScope, fileInfo);
     }
 
     analyzeImmediate() {

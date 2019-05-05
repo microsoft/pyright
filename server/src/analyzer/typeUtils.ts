@@ -17,7 +17,7 @@ import { Declaration, Symbol, SymbolTable } from './symbol';
 import { AnyType, ClassType, FunctionType,
     InheritanceChain, ModuleType, NeverType, NoneType, ObjectType,
     OverloadedFunctionEntry, OverloadedFunctionType, SpecializedFunctionTypes, Type,
-    TypeCategory, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
+    TypeCategory, TypeVarMap, TypeVarType, UnboundType, UnionType, UnknownType } from './types';
 
 const MaxTypeRecursion = 20;
 
@@ -700,11 +700,22 @@ export class TypeUtils {
     static getEffectiveTypeOfSymbol(symbol: Symbol): Type {
         // If there's a declared type, it takes precedence.
         const declaredType = this.getDeclaredTypeOfSymbol(symbol);
+
         if (declaredType) {
             return declaredType;
         }
 
         return symbol.getInferredType();
+    }
+
+    // Returns the initial type of the symbol within scope in which
+    // it is declared. For most symbols, this will be "unbound".
+    static getInitialTypeOfSymbol(symbol: Symbol): Type {
+        if (symbol.isInitiallyUnbound()) {
+            return UnboundType.create();
+        }
+
+        return this.getEffectiveTypeOfSymbol(symbol);
     }
 
     static getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
