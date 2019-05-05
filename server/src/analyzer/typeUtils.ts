@@ -1312,7 +1312,7 @@ export class TypeUtils {
                     undefined, true, recursionCount + 1)) {
                 diag.addMessage(`Parameter ${ paramIndex + 1 } of type ` +
                     `'${ specializedDestParamType.asString() }' cannot be assigned to type ` +
-                    `'${ srcParamType.asString() }'.`);
+                    `'${ srcParamType.asString() }'`);
                 canAssign = false;
             }
         }
