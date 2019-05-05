@@ -1311,8 +1311,8 @@ export class TypeUtils {
             if (!this.canAssignType(srcParamType, specializedDestParamType, diag.createAddendum(),
                     undefined, true, recursionCount + 1)) {
                 diag.addMessage(`Parameter ${ paramIndex + 1 } of type ` +
-                    `'${ specializedDestParamType }' cannot be assigned to type` +
-                    `'${ srcParamType }'.`);
+                    `'${ specializedDestParamType.asString() }' cannot be assigned to type ` +
+                    `'${ srcParamType.asString() }'.`);
                 canAssign = false;
             }
         }
