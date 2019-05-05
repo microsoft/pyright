@@ -75,19 +75,21 @@ export class TypeConstraintUtils {
             assert(inList.length > 0);
 
             let combinedTc = inList[0];
+            let hitUnconditionalTc = !combinedTc.isConditional();
+
             inList.forEach((tc, index) => {
                 if (index > 0) {
                     if (!tc.isConditional()) {
                         combinedTc = tc;
+                        hitUnconditionalTc = true;
                     } else {
                         const types = [combinedTc.getType(), tc.getType()];
                         combinedTc = new TypeConstraint(expression, TypeUtils.combineTypes(types));
-                        combinedTc.setIsConditional();
                     }
                 }
             });
 
-            if (markConditional) {
+            if (markConditional || !hitUnconditionalTc) {
                 combinedTc.setIsConditional();
             }
 
