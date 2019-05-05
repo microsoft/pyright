@@ -607,7 +607,7 @@ export class ObjectType extends Type {
     }
 
     asStringInternal(recursionCount = 0): string {
-        if (this._literalValue) {
+        if (this._literalValue !== undefined) {
             return this.literalAsString();
         }
 
