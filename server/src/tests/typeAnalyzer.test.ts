@@ -163,6 +163,12 @@ test('Function1', () => {
     validateResults(analysisResults, 5);
 });
 
+test('Function2', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['function2.py']);
+
+    validateResults(analysisResults, 6);
+});
+
 test('Annotations1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
 
