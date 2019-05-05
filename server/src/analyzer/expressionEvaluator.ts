@@ -2318,15 +2318,19 @@ export class ExpressionEvaluator {
             }
         });
 
-        const keyType = keyTypes.length > 0 ? TypeUtils.combineTypes(keyTypes) : UnknownType.create();
+        const keyType = keyTypes.length > 0 ? TypeUtils.combineTypes(keyTypes) : AnyType.create();
 
         // If the value type differs, we need to back off
         // because we can't properly represent the mappings
         // between different keys and associated value types.
         // If all the values are the same type, we'll assume
         // that all values in this dictionary should be the same.
-        const valueType = valueTypes.length > 0 && TypeUtils.areTypesSame(valueTypes) ?
-            valueTypes[0] : UnknownType.create();
+        let valueType: Type;
+        if (valueTypes.length > 0) {
+            valueType = TypeUtils.areTypesSame(valueTypes) ? valueTypes[0] : UnknownType.create();
+        } else {
+            valueType = AnyType.create();
+        }
 
         const type = ScopeUtils.getBuiltInObject(this._scope, 'dict', [keyType, valueType]);
 
@@ -2350,8 +2354,11 @@ export class ExpressionEvaluator {
                 // If the list contains only one type, we'll assume the list is
                 // homogeneous. Otherwise, we'll avoid making assumptions about
                 // the list entry type.
-                listEntryType = entryTypes.length > 0 && TypeUtils.areTypesSame(entryTypes) ?
-                    entryTypes[0] : UnknownType.create();
+                if (entryTypes.length > 0) {
+                   listEntryType = TypeUtils.areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
+                } else {
+                    listEntryType = AnyType.create();
+                }
             }
 
             type = type.cloneForSpecialization([listEntryType]);
