@@ -269,18 +269,42 @@ export class TypeConstraintBuilder {
                 const arg1Expr = testExpression.arguments[1].valueExpression;
 
                 if (TypeConstraint.isSupportedExpression(arg0Expr)) {
-                    const classType = typeEvaluator(arg1Expr);
+                    const arg1Type = typeEvaluator(arg1Expr);
 
-                    if (classType instanceof ClassType) {
+                    // Create a shared lambda for creating the actual type constraint.
+                    const createIsInstanceTypeConstraint = (classList: ClassType[]) => {
                         const originalType = typeEvaluator(arg0Expr);
-                        const positiveType = this._transformTypeForIsInstanceExpression(originalType, [classType], true);
-                        const negativeType = this._transformTypeForIsInstanceExpression(originalType, [classType], false);
+                        const positiveType = this._transformTypeForIsInstanceExpression(originalType, classList, true);
+                        const negativeType = this._transformTypeForIsInstanceExpression(originalType, classList, false);
                         const trueConstraint = new TypeConstraint(arg0Expr, positiveType);
                         const falseConstraint = new TypeConstraint(arg0Expr, negativeType);
                         return {
                             ifConstraints: [trueConstraint],
                             elseConstraints: [falseConstraint]
                         };
+                    };
+
+                    if (arg1Type instanceof ClassType) {
+                        return createIsInstanceTypeConstraint([arg1Type]);
+                    } else if (arg1Type instanceof ObjectType) {
+                        // The isinstance call supports a variation where the second
+                        // parameter is a tuple of classes.
+                        const objClass = arg1Type.getClassType();
+                        if (objClass.isBuiltIn() && objClass.getClassName() === 'Tuple' && objClass.getTypeArguments()) {
+                            let foundNonClassType = false;
+                            const classTypeList: ClassType[] = [];
+                            objClass.getTypeArguments()!.forEach(typeArg => {
+                                if (typeArg instanceof ClassType) {
+                                    classTypeList.push(typeArg);
+                                } else {
+                                    foundNonClassType = true;
+                                }
+                            });
+
+                            if (!foundNonClassType) {
+                                return createIsInstanceTypeConstraint(classTypeList);
+                            }
+                        }
                     }
                 }
             }
