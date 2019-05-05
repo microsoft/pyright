@@ -293,7 +293,6 @@ export class Scope {
             return {
                 symbol,
                 isBeyondLocalScope,
-                isOutsideCallerModule,
                 scope: this
             };
         }
@@ -313,6 +312,5 @@ export class Scope {
 export interface SymbolWithScope {
     symbol: Symbol;
     isBeyondLocalScope: boolean;
-    isOutsideCallerModule: boolean;
     scope: Scope;
 }
