@@ -47,3 +47,15 @@ def m3(c: Moo[C]):
 # Type argument 'List[C]' cannot be assigned to type variable '_T1'
 def m4(c: Moo[List[C]]):
     pass
+
+# This should generate an error:
+# TypeVar constraint types can't be generic.
+_T2 = TypeVar('_T2', Iterable[_T1])
+
+# This should generate an error:
+# TypeVar bound types can't be generic.
+_T3 = TypeVar('_T3', bound=Iterable[_T1])
+
+# This should generate an error:
+# TypeVars can't be bound and constrained.
+_T4 = TypeVar('_T4', str, bound=int)

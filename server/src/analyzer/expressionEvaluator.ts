@@ -1691,9 +1691,14 @@ export class ExpressionEvaluator {
                 if (paramName === 'bound') {
                     if (typeVar.getConstraints().length > 0) {
                         this._addError(
-                            `A TypeVar cannot be bounded and constrained`,
+                            `A TypeVar cannot be both bound and constrained`,
                             argList[i].valueExpression || errorNode);
                     } else {
+                        if (argList[i].type.requiresSpecialization()) {
+                            this._addError(
+                                `A TypeVar bound type cannot be generic`,
+                                argList[i].valueExpression || errorNode);
+                        }
                         typeVar.setBoundType(TypeUtils.convertClassToObject(argList[i].type));
                     }
                 } else if (paramName === 'covariant') {
@@ -1726,9 +1731,14 @@ export class ExpressionEvaluator {
             } else {
                 if (typeVar.getBoundType()) {
                     this._addError(
-                        `A TypeVar cannot be bounded and constrained`,
+                        `A TypeVar cannot be both bound and constrained`,
                         argList[i].valueExpression || errorNode);
                 } else {
+                    if (argList[i].type.requiresSpecialization()) {
+                        this._addError(
+                            `A TypeVar constraint type cannot be generic`,
+                            argList[i].valueExpression || errorNode);
+                    }
                     typeVar.addConstraint(TypeUtils.convertClassToObject(argList[i].type));
                 }
             }
@@ -2762,11 +2772,9 @@ export class ExpressionEvaluator {
 
         const type = typeArgs[0].type;
 
-        if (type instanceof ClassType) {
-            if (type.isGeneric()) {
-                this._addError(`ClassVar cannot contain generic type variables`, typeArgs[1].node);
-                return UnknownType.create();
-            }
+        if (type.requiresSpecialization()) {
+            this._addError(`ClassVar cannot contain generic type variables`, typeArgs[1].node);
+            return UnknownType.create();
         }
 
         return TypeUtils.convertClassToObject(type);

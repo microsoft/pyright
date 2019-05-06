@@ -130,7 +130,7 @@ test('ReturnTypes1', () => {
 test('Specialization1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialization1.py']);
 
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 7);
 });
 
 test('Expressions1', () => {
