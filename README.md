@@ -26,7 +26,7 @@ Pyright includes a recent copy of the stdlib type stubs from [Typeshed](https://
 ### Command-line Tool or Visual Studio Code Extension
 Pyright includes both a [command-line tool](/docs/command-line.md) and an [extension for Visual Studio Code](https://github.com/Microsoft/pyright) that implements the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/).
 
-For rich Python editing and debugging cabailities with Visual Studio Code, be sure to also install the official [Microsoft Python extension for Visual Studio Code](https://marketplace.visualstudio.com/itemdetails?itemName=ms-python.python) as Pyright only provides syntax and type checking.
+For rich Python editing and debugging capabilities with Visual Studio Code, be sure to also install the official [Microsoft Python extension for Visual Studio Code](https://marketplace.visualstudio.com/itemdetails?itemName=ms-python.python) as Pyright only provides syntax and type checking.
 
 
 ## Installation
