@@ -2128,6 +2128,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         let destType = srcType;
+        let addTypeConstraintForAssignment = true;
 
         let classType = AnalyzerNodeInfo.getExpressionType(classDef);
         if (classType && classType instanceof ClassType) {
@@ -2182,18 +2183,29 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     AnalyzerNodeInfo.setDeclaration(node.memberName,
                         TypeUtils.getPrimaryDeclarationOfSymbol(symbol)!);
                 } else {
-                    // Handle the case where there is a class variable defined with the same
-                    // name, but there's also now an instance variable introduced. Combine the
-                    // type of the class variable with that of the new instance variable.
-                    if (memberInfo.symbol && !memberInfo.isInstanceMember && isInstanceMember) {
-                        const prevDeclarations = memberInfo.symbol.getDeclarations();
-                        if (prevDeclarations.length > 0) {
-                            inheritedDeclaration = prevDeclarations.find(decl => !!decl.declaredType);
+                    // Is the target a property?
+                    const prevDeclarations = memberInfo.symbol.getDeclarations();
+                    if (prevDeclarations.length > 0 && prevDeclarations[0].declaredType &&
+                            prevDeclarations[0].declaredType instanceof PropertyType) {
+
+                        // Don't add a type constraint because a property getter and
+                        // setter are not guaranteed to use the same type.
+                        addTypeConstraintForAssignment = false;
+
+                    } else {
+                        // Handle the case where there is a class variable defined with the same
+                        // name, but there's also now an instance variable introduced. Combine the
+                        // type of the class variable with that of the new instance variable.
+                        if (!memberInfo.isInstanceMember && isInstanceMember) {
+                            if (prevDeclarations.length > 0) {
+                                inheritedDeclaration = prevDeclarations.find(decl => !!decl.declaredType);
+                            }
+
+                            srcType = TypeUtils.combineTypes([srcType, memberInfo.symbolType]);
                         }
 
-                        srcType = TypeUtils.combineTypes([srcType, memberInfo.symbolType]);
+                        addNewMemberToLocalClass = true;
                     }
-                    addNewMemberToLocalClass = true;
                 }
             } else {
                 // The member name hasn't been seen previously, so add it to the local class.
@@ -2250,7 +2262,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        this._addAssignmentTypeConstraint(node, destType);
+        if (addTypeConstraintForAssignment) {
+            this._addAssignmentTypeConstraint(node, destType);
+        }
     }
 
     private _mergeToCurrentScope(scopeToMerge: Scope) {
