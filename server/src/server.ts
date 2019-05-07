@@ -34,7 +34,6 @@ interface Settings {
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 
-_connection.console.log('Pyright language server starting');
 
 // Create a simple text document manager. The text document manager
 // supports full document sync only.
@@ -57,7 +56,7 @@ _documents.listen(_connection);
 // in the passed params the rootPath of the workspace plus the client capabilities.
 _connection.onInitialize((params): InitializeResult => {
     _rootPath = params.rootPath || '/';
-
+    _connection.console.log(`Pyright language server starting in ${_rootPath}`);
     // Don't allow the analysis engine to go too long without
     // reporting results. This will keep it responsive.
     _analyzerService.setMaxAnalysisDuration({
