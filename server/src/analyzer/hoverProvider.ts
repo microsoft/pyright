@@ -64,7 +64,7 @@ export class HoverProvider {
             return undefined;
         }
 
-        let declaration = AnalyzerNodeInfo.getDeclaration(node);
+        const declaration = AnalyzerNodeInfo.getDeclaration(node);
 
         if (declaration) {
             switch (declaration.category) {
@@ -129,6 +129,16 @@ export class HoverProvider {
     private static _getTypeText(node: ParseNode): string {
         let type = AnalyzerNodeInfo.getExpressionType(node);
         let typeString = '';
+
+        // If there was no type information cached, see if we
+        // can get it from the declaration.
+        if (!type) {
+            const declaration = AnalyzerNodeInfo.getDeclaration(node);
+            if (declaration && declaration.declaredType) {
+                type = declaration.declaredType;
+            }
+        }
+
         if (type) {
             typeString = type.asString();
         }
