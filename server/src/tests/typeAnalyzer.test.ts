@@ -389,3 +389,9 @@ test('Literals1', () => {
 
     validateResults(analysisResults, 6);
 });
+
+test('TypeAlias1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias1.py']);
+
+    validateResults(analysisResults, 0);
+});
