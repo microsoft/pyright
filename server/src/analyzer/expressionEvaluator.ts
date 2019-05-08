@@ -2317,30 +2317,57 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromDictionaryExpression(node: DictionaryNode): TypeResult {
-        let keyTypes: Type[] = [];
-        let valueTypes: Type[] = [];
+        let valueType: Type = AnyType.create();
+        let keyType: Type = AnyType.create();
+
+        const keyTypes: Type[] = [];
+        const valueTypes: Type[] = [];
 
         // Infer the key and value types if possible.
         node.entries.forEach(entryNode => {
+            let addUnknown = true;
+
             if (entryNode instanceof DictionaryKeyEntryNode) {
+
                 keyTypes.push(TypeUtils.stripLiteralValue(
                     this.getType(entryNode.keyExpression)));
                 valueTypes.push(TypeUtils.stripLiteralValue(
                     this.getType(entryNode.valueExpression)));
-            } else {
+                addUnknown = false;
+
+            } else if (entryNode instanceof DictionaryExpandEntryNode) {
+                // TODO - handle DictionaryExpandEntryNode.
+
+            } else if (entryNode instanceof ListComprehensionNode) {
+                const dictEntryType = this._getElementTypeFromListComprehensionExpression(
+                    node.entries[0] as ListComprehensionNode<DictionaryKeyEntryNode>);
+
+                // The result should be a Tuple
+                if (dictEntryType instanceof ObjectType) {
+                    const classType = dictEntryType.getClassType();
+                    if (classType.isBuiltIn() && classType.getClassName() === 'Tuple') {
+                        const typeArgs = classType.getTypeArguments();
+                        if (typeArgs && typeArgs.length === 2) {
+                            keyTypes.push(typeArgs[0]);
+                            valueTypes.push(typeArgs[1]);
+                            addUnknown = false;
+                        }
+                    }
+                }
+            }
+
+            if (addUnknown) {
                 keyTypes.push(UnknownType.create());
                 valueTypes.push(UnknownType.create());
             }
         });
 
-        const keyType = keyTypes.length > 0 ? TypeUtils.combineTypes(keyTypes) : AnyType.create();
+        keyType = keyTypes.length > 0 ? TypeUtils.combineTypes(keyTypes) : AnyType.create();
 
-        // If the value type differs, we need to back off
-        // because we can't properly represent the mappings
-        // between different keys and associated value types.
-        // If all the values are the same type, we'll assume
-        // that all values in this dictionary should be the same.
-        let valueType: Type;
+        // If the value type differs, we need to back off because we can't
+        // properly represent the mappings between different keys and associated
+        // value types. If all the values are the same type, we'll assume that
+        // all values in this dictionary should be the same.
         if (valueTypes.length > 0) {
             valueType = TypeUtils.areTypesSame(valueTypes) ? valueTypes[0] : UnknownType.create();
         } else {
@@ -2353,38 +2380,26 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromListExpression(node: ListNode, usage: EvaluatorUsage): TypeResult {
-        let type = ScopeUtils.getBuiltInType(this._scope, 'list');
+        let listEntryType: Type = AnyType.create();
 
-        let convertedType: Type;
-        if (type instanceof ClassType) {
-            let listEntryType: Type;
-
-            if (node.entries.length === 1 && node.entries[0] instanceof ListComprehensionNode) {
-                listEntryType = this._getElementTypeFromListComprehensionExpression(
-                    node.entries[0] as ListComprehensionNode<ExpressionNode>);
-            } else {
-                const entryTypes = node.entries.map(
-                    entry => TypeUtils.stripLiteralValue(this.getType(entry)));
-
-                // If the list contains only one type, we'll assume the list is
-                // homogeneous. Otherwise, we'll avoid making assumptions about
-                // the list entry type.
-                if (entryTypes.length > 0) {
-                   listEntryType = TypeUtils.areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
-                } else {
-                    listEntryType = AnyType.create();
-                }
-            }
-
-            type = type.cloneForSpecialization([listEntryType]);
-
-            // List literals are always objects, not classes.
-            convertedType = TypeUtils.convertClassToObject(type);
+        if (node.entries.length === 1 && node.entries[0] instanceof ListComprehensionNode) {
+            listEntryType = this._getElementTypeFromListComprehensionExpression(
+                node.entries[0] as ListComprehensionNode<ExpressionNode>);
         } else {
-            convertedType = UnknownType.create();
+            const entryTypes = node.entries.map(
+                entry => TypeUtils.stripLiteralValue(this.getType(entry)));
+
+            // If the list contains only one type, we'll assume the list is
+            // homogeneous. Otherwise, we'll avoid making assumptions about
+            // the list entry type.
+            if (entryTypes.length > 0) {
+                listEntryType = TypeUtils.areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
+            }
         }
 
-        return { type: convertedType, node };
+        const type = ScopeUtils.getBuiltInObject(this._scope, 'list', [listEntryType]);
+
+        return { type, node };
     }
 
     private _getTypeFromTernaryExpression(node: TernaryExpressionNode, flags: EvaluatorFlags): TypeResult {
@@ -2584,12 +2599,9 @@ export class ExpressionEvaluator {
                         this.getType(node.expression.keyExpression));
                     const valueType = TypeUtils.stripLiteralValue(
                         this.getType(node.expression.valueExpression));
-                    const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
 
-                    if (builtInTupleType instanceof ClassType) {
-                        type = TypeUtils.convertClassToObject(
-                            builtInTupleType.cloneForSpecialization([keyType, valueType]));
-                    }
+                    type = ScopeUtils.getBuiltInObject(
+                        this._scope, 'Tuple', [keyType, valueType]);
                 } else if (node.expression instanceof DictionaryExpandEntryNode) {
                     // TODO - need to implement
                 } else if (node.expression instanceof ExpressionNode) {

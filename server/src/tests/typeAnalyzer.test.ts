@@ -395,3 +395,9 @@ test('TypeAlias1', () => {
 
     validateResults(analysisResults, 0);
 });
+
+test('Dictionary1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dictionary1.py']);
+
+    validateResults(analysisResults, 2);
+});
