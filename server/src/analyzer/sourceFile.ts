@@ -413,13 +413,13 @@ export class SourceFile {
         return true;
     }
 
-    getDefinitionForPosition(position: DiagnosticTextPosition): DocumentTextRange | undefined {
+    getDefinitionsForPosition(position: DiagnosticTextPosition): DocumentTextRange[] | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
             return undefined;
         }
 
-        return DefinitionProvider.getDefinitionForPosition(
+        return DefinitionProvider.getDefinitionsForPosition(
                 this._analysisJob.parseResults, position);
     }
 

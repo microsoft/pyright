@@ -53,7 +53,7 @@ export class AnalyzerNodeInfo {
 
     // Information to resolve definition and hover requests from
     // language service interface; used for NamedNode's.
-    _declaration?: Declaration;
+    _declarations?: Declaration[];
 
     // "Type source ID", a number that is unique per node within a
     // parse tree. for NameNode's.
@@ -73,7 +73,7 @@ export class AnalyzerNodeInfo {
         delete analyzerNode._scope;
         delete analyzerNode._expressionType;
         delete analyzerNode._expressionTypeVersion;
-        delete analyzerNode._declaration;
+        delete analyzerNode._declarations;
         delete analyzerNode._typeSourceId;
         delete analyzerNode._ignoreTypeAnnotation;
     }
@@ -108,14 +108,14 @@ export class AnalyzerNodeInfo {
         analyzerNode._importInfo = importInfo;
     }
 
-    static getDeclaration(node: ParseNode): Declaration | undefined {
+    static getDeclarations(node: ParseNode): Declaration[] | undefined {
         const analyzerNode = node as AnalyzerNodeInfo;
-        return analyzerNode._declaration;
+        return analyzerNode._declarations;
     }
 
-    static setDeclaration(node: ParseNode, declaration: Declaration) {
+    static setDeclarations(node: ParseNode, declarations: Declaration[]) {
         const analyzerNode = node as AnalyzerNodeInfo;
-        analyzerNode._declaration = declaration;
+        analyzerNode._declarations = declarations;
     }
 
     static getExpressionType(node: ParseNode): Type | undefined {

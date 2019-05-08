@@ -129,11 +129,12 @@ _connection.onDefinition(params => {
         column: params.position.character
     };
 
-    let location = _analyzerService.getDefinitionForPosition(filePath, position);
-    if (!location) {
+    let locations = _analyzerService.getDefinitionForPosition(filePath, position);
+    if (!locations) {
         return undefined;
     }
-    return Location.create(_convertPathToUri(location.path), _convertRange(location.range));
+    return locations.map(loc =>
+        Location.create(_convertPathToUri(loc.path), _convertRange(loc.range)));
 });
 
 _connection.onHover(params => {

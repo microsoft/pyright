@@ -64,9 +64,11 @@ export class HoverProvider {
             return undefined;
         }
 
-        const declaration = AnalyzerNodeInfo.getDeclaration(node);
+        const declarations = AnalyzerNodeInfo.getDeclarations(node);
 
-        if (declaration) {
+        if (declarations && declarations.length > 0) {
+            const declaration = declarations[0];
+
             switch (declaration.category) {
                 case SymbolCategory.Variable: {
                     if (node instanceof NameNode) {
@@ -133,9 +135,12 @@ export class HoverProvider {
         // If there was no type information cached, see if we
         // can get it from the declaration.
         if (!type) {
-            const declaration = AnalyzerNodeInfo.getDeclaration(node);
-            if (declaration && declaration.declaredType) {
-                type = declaration.declaredType;
+            const declarations = AnalyzerNodeInfo.getDeclarations(node);
+            if (declarations && declarations.length > 0) {
+                const declaration = declarations[0];
+                if (declaration.declaredType) {
+                    type = declaration.declaredType;
+                }
             }
         }
 

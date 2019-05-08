@@ -22,8 +22,8 @@ const _startOfFilePosition: DiagnosticTextPosition = { line: 0, column: 0 };
 const _startOfFileRange: DiagnosticTextRange = { start: _startOfFilePosition, end: _startOfFilePosition };
 
 export class DefinitionProvider {
-    static getDefinitionForPosition(parseResults: ParseResults,
-            position: DiagnosticTextPosition): DocumentTextRange | undefined {
+    static getDefinitionsForPosition(parseResults: ParseResults,
+            position: DiagnosticTextPosition): DocumentTextRange[] | undefined {
 
         let offset = convertPositionToOffset(position, parseResults.lines);
         if (offset === undefined) {
@@ -63,18 +63,20 @@ export class DefinitionProvider {
                 return undefined;
             }
 
-            return {
+            return [{
                 path,
                 range: _startOfFileRange
-            };
+            }];
         }
 
-        let declaration = AnalyzerNodeInfo.getDeclaration(node);
-        if (declaration) {
-            return {
-                path: declaration.path,
-                range: declaration.range
-            };
+        let declarations = AnalyzerNodeInfo.getDeclarations(node);
+        if (declarations) {
+            return declarations.map(decl => {
+                return {
+                    path: decl.path,
+                    range: decl.range
+                };
+            });
         }
 
         return undefined;

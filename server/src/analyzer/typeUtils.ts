@@ -762,17 +762,17 @@ export class TypeUtils {
         return undefined;
     }
 
-    // Returns the first declaration with a declared type. If no such
-    // declaration exists, returns the first declaration.
-    static getPrimaryDeclarationOfSymbol(symbol: Symbol): Declaration | undefined {
+    // Returns the "primary" declarations for a symbol. Type declarations are
+    // preferred. If no such declaration exists, inferred declarations are returned.
+    static getPrimaryDeclarationsForSymbol(symbol: Symbol): Declaration[] | undefined {
         const declarations = symbol.getDeclarations();
         if (declarations.length > 0) {
-            const declWithDeclaredType = declarations.find(decl => decl.declaredType !== undefined);
-            if (declWithDeclaredType) {
-                return declWithDeclaredType;
+            const declsWithDeclaredType = declarations.filter(decl => decl.declaredType !== undefined);
+            if (declsWithDeclaredType.length > 0) {
+                return declsWithDeclaredType;
             }
 
-            return declarations[0];
+            return declarations;
         }
 
         return undefined;
@@ -1383,9 +1383,9 @@ export class TypeUtils {
                     diag.addMessage(`'${ name }' is not present`);
                     missingNames.push(name);
                 } else {
-                    const primaryDecl = this.getPrimaryDeclarationOfSymbol(symbol);
-                    if (primaryDecl && primaryDecl.declaredType) {
-                        let destMemberType = primaryDecl.declaredType;
+                    const primaryDecls = this.getPrimaryDeclarationsForSymbol(symbol);
+                    if (primaryDecls && primaryDecls.length > 0 && primaryDecls[0].declaredType) {
+                        let destMemberType = primaryDecls[0].declaredType;
                         destMemberType = this.specializeType(destMemberType, destClassTypeVarMap);
                         let srcMemberType = memberInfo.symbolType;
 

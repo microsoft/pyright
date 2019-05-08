@@ -98,8 +98,8 @@ export class AnalyzerService {
     }
 
     getDefinitionForPosition(filePath: string, position: DiagnosticTextPosition):
-            DocumentTextRange | undefined {
-        return this._program.getDefinitionForPosition(filePath, position);
+            DocumentTextRange[] | undefined {
+        return this._program.getDefinitionsForPosition(filePath, position);
     }
 
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):

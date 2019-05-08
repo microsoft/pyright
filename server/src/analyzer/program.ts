@@ -584,14 +584,14 @@ export class Program {
         return fileDiagnostics;
     }
 
-    getDefinitionForPosition(filePath: string, position: DiagnosticTextPosition):
-            DocumentTextRange | undefined {
+    getDefinitionsForPosition(filePath: string, position: DiagnosticTextPosition):
+            DocumentTextRange[] | undefined {
         let sourceFile = this.getSourceFile(filePath);
         if (!sourceFile) {
             return undefined;
         }
 
-        return sourceFile.getDefinitionForPosition(position);
+        return sourceFile.getDefinitionsForPosition(position);
     }
 
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):

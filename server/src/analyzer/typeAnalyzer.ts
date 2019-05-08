@@ -104,7 +104,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } }
         };
 
-        AnalyzerNodeInfo.setDeclaration(this._moduleNode, declaration);
+        AnalyzerNodeInfo.setDeclarations(this._moduleNode, [declaration]);
 
         this.walk(this._moduleNode);
 
@@ -519,7 +519,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // Set the declaration on the node for the definition provider.
                     const symbol = this._currentScope.lookUpSymbol(param.name.nameToken.value);
                     if (symbol && symbol.hasDeclarations()) {
-                        AnalyzerNodeInfo.setDeclaration(param.name, symbol.getDeclarations()[0]);
+                        AnalyzerNodeInfo.setDeclarations(param.name, symbol.getDeclarations());
                     }
 
                     let declaration: Declaration | undefined;
@@ -1029,10 +1029,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // If there's no declaration assigned to this name node, assign one
         // for the hover provider.
-        if (!AnalyzerNodeInfo.getDeclaration(node)) {
+        if (!AnalyzerNodeInfo.getDeclarations(node)) {
             if (symbolInScope && symbolInScope.symbol.hasDeclarations()) {
-                AnalyzerNodeInfo.setDeclaration(node,
-                    TypeUtils.getPrimaryDeclarationOfSymbol(symbolInScope.symbol)!);
+                AnalyzerNodeInfo.setDeclarations(node,
+                    TypeUtils.getPrimaryDeclarationsForSymbol(symbolInScope.symbol)!);
             }
         }
 
@@ -1118,8 +1118,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (this._fileInfo.importMap[resolvedPath] &&
                         this._fileInfo.importMap[resolvedPath].parseTree) {
 
-                    moduleDeclaration = AnalyzerNodeInfo.getDeclaration(
+                    const moduleDeclarations = AnalyzerNodeInfo.getDeclarations(
                         this._fileInfo.importMap[resolvedPath].parseTree);
+                    if (moduleDeclarations && moduleDeclarations.length > 0) {
+                        moduleDeclaration = moduleDeclarations[0];
+                    }
                 }
 
                 if (node.alias) {
@@ -1196,8 +1199,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 this._fileInfo.importMap[implicitImport.path].parseTree) {
 
                             symbolType = moduleType;
-                            declaration = AnalyzerNodeInfo.getDeclaration(
+                            const declarations = AnalyzerNodeInfo.getDeclarations(
                                 this._fileInfo.importMap[implicitImport.path].parseTree);
+                            if (declarations && declarations.length > 0) {
+                                declaration = declarations[0];
+                            }
                         }
                     } else {
                         let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
@@ -1230,7 +1236,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._assignTypeToNameNode(aliasNode, symbolType, declaration);
 
                     if (declaration && importAs.alias) {
-                        AnalyzerNodeInfo.setDeclaration(importAs.alias, declaration);
+                        AnalyzerNodeInfo.setDeclarations(importAs.alias, [declaration]);
                     }
                 });
             }
@@ -1512,7 +1518,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (symbolWithScope && symbolWithScope.symbol) {
                 this._addDeclarationToSymbol(symbolWithScope.symbol, declaration, target);
             }
-            AnalyzerNodeInfo.setDeclaration(target, declaration);
+            AnalyzerNodeInfo.setDeclarations(target, [declaration]);
             declarationHandled = true;
         } else if (target instanceof MemberAccessExpressionNode) {
             let targetNode = target.leftExpression;
@@ -1585,17 +1591,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return;
         }
 
-        const declaration = AnalyzerNodeInfo.getDeclaration(node);
-        if (!declaration || node === declaration.node) {
+        const declarations = AnalyzerNodeInfo.getDeclarations(node);
+        const primaryDeclaration = declarations && declarations.length > 0 ?
+            declarations[0] : undefined;
+        if (!primaryDeclaration || primaryDeclaration.node === node) {
             return;
         }
 
-        let classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(declaration.node);
+        let classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(
+            primaryDeclaration.node);
 
         // If this is the name of a class, find the module or class that contains it rather
         // than using constraining the use of the class name within the class itself.
-        if (declaration.node.parent &&
-                declaration.node.parent === classOrModuleNode &&
+        if (primaryDeclaration.node.parent &&
+                primaryDeclaration.node.parent === classOrModuleNode &&
                 classOrModuleNode instanceof ClassNode) {
 
             classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(classOrModuleNode);
@@ -2180,8 +2189,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
 
                     this._addDeclarationToSymbol(symbol, createDeclaration(), node);
-                    AnalyzerNodeInfo.setDeclaration(node.memberName,
-                        TypeUtils.getPrimaryDeclarationOfSymbol(symbol)!);
+                    AnalyzerNodeInfo.setDeclarations(node.memberName,
+                        TypeUtils.getPrimaryDeclarationsForSymbol(symbol)!);
                 } else {
                     // Is the target a property?
                     const prevDeclarations = memberInfo.symbol.getDeclarations();
@@ -2231,8 +2240,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         node.memberName, srcType, srcExprNode);
                 }
 
-                AnalyzerNodeInfo.setDeclaration(node.memberName,
-                    TypeUtils.getPrimaryDeclarationOfSymbol(newSymbol)!);
+                AnalyzerNodeInfo.setDeclarations(node.memberName,
+                    TypeUtils.getPrimaryDeclarationsForSymbol(newSymbol)!);
             }
 
             // Look up the member info again, now that we've potentially added a declared type.
@@ -2600,9 +2609,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
         if (symbolWithScope) {
-            const primaryDecl = TypeUtils.getPrimaryDeclarationOfSymbol(symbolWithScope.symbol);
-            if (primaryDecl) {
-                declaredType = primaryDecl.declaredType!;
+            const primaryDecls = TypeUtils.getPrimaryDeclarationsForSymbol(symbolWithScope.symbol);
+            if (primaryDecls) {
+                declaredType = primaryDecls[0].declaredType!;
             }
         } else {
             // We should never get here.
@@ -2627,7 +2636,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._addTypeSourceToNameNode(nameNode, destType, declaration);
 
         if (declaration) {
-            AnalyzerNodeInfo.setDeclaration(nameNode, declaration);
+            AnalyzerNodeInfo.setDeclarations(nameNode, [declaration]);
         }
     }
 
@@ -2728,22 +2737,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 baseType.getClassType(), memberNameValue);
             if (classMemberInfo) {
                 if (classMemberInfo.symbol && classMemberInfo.symbol.hasDeclarations()) {
-                    AnalyzerNodeInfo.setDeclaration(memberName,
-                        TypeUtils.getPrimaryDeclarationOfSymbol(classMemberInfo.symbol)!);
+                    AnalyzerNodeInfo.setDeclarations(memberName,
+                        TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!);
                 }
             }
         } else if (baseType instanceof ModuleType) {
             let moduleMemberInfo = baseType.getFields().get(memberNameValue);
             if (moduleMemberInfo && moduleMemberInfo.hasDeclarations()) {
-                AnalyzerNodeInfo.setDeclaration(memberName,
-                    TypeUtils.getPrimaryDeclarationOfSymbol(moduleMemberInfo)!);
+                AnalyzerNodeInfo.setDeclarations(memberName,
+                    TypeUtils.getPrimaryDeclarationsForSymbol(moduleMemberInfo)!);
             }
         } else if (baseType instanceof ClassType) {
             let classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue,
                 ClassMemberLookupFlags.SkipInstanceVariables);
             if (classMemberInfo && classMemberInfo.symbol && classMemberInfo.symbol.hasDeclarations()) {
-                AnalyzerNodeInfo.setDeclaration(memberName,
-                    TypeUtils.getPrimaryDeclarationOfSymbol(classMemberInfo.symbol)!);
+                AnalyzerNodeInfo.setDeclarations(memberName,
+                    TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!);
             }
         } else if (baseType instanceof UnionType) {
             for (let t of baseType.getTypes()) {
