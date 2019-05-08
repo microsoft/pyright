@@ -381,13 +381,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Add the parameters to the scope and bind their types.
             parameters.forEach((param, index) => {
                 const paramNode = node.parameters[index];
-                if (param.name) {
+                if (paramNode.name) {
                     let declaration: Declaration | undefined;
                     declaration = {
                         category: SymbolCategory.Parameter,
                         node: paramNode,
                         path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(paramNode.start, paramNode.end, this._fileInfo.lines)
+                        range: convertOffsetsToRange(paramNode.start, paramNode.end, this._fileInfo.lines),
+                        declaredType: paramNode.typeAnnotation ? param.type : undefined
                     };
                     assert(paramNode !== undefined && paramNode.name !== undefined);
 
@@ -396,16 +397,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // are is no bound or contraints).
                     const specializedParamType = TypeUtils.specializeType(param.type, undefined);
                     const variadicParamType = this._getVariadicParamType(param.category, specializedParamType);
-                    this._addTypeSourceToNameNode(paramNode.name!, variadicParamType, declaration);
-                }
-            });
+                    this._addTypeSourceToNameNode(paramNode.name, variadicParamType, declaration);
 
-            node.parameters.forEach(param => {
-                // Cache the type for the hover provider. Don't walk
-                // the default value because it needs to be evaluated
-                // outside of this scope.
-                if (param.name) {
-                    this.walk(param.name);
+                    // Cache the type for the hover provider. Don't walk
+                    // the default value because it needs to be evaluated
+                    // outside of this scope.
+                    this.walk(paramNode.name);
                 }
             });
 
