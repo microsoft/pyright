@@ -17,6 +17,7 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportType } from './importResult';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { SymbolCategory } from './symbol';
+import { UnknownType } from './types';
 
 export class HoverProvider {
     static getHoverForPosition(parseResults: ParseResults,
@@ -121,7 +122,8 @@ export class HoverProvider {
         // If we had no declaration, see if we can provide a minimal tooltip.
         if (node instanceof NameNode) {
             if (node instanceof NameNode) {
-                return '```\n' + node.nameToken.value + ' : Unknown```';
+                return '```\n' + node.nameToken.value  +
+                            this._getTypeText(node) + '```';
             }
         }
 
@@ -130,7 +132,6 @@ export class HoverProvider {
 
     private static _getTypeText(node: ParseNode): string {
         let type = AnalyzerNodeInfo.getExpressionType(node);
-        let typeString = '';
 
         // If there was no type information cached, see if we
         // can get it from the declaration.
@@ -144,10 +145,11 @@ export class HoverProvider {
             }
         }
 
-        if (type) {
-            typeString = type.asString();
+        // If we still couldn't find a type, use Unknown.
+        if (!type) {
+            type = UnknownType.create();
         }
 
-        return ': ' + typeString;
+        return ': ' + type.asString();
     }
 }
