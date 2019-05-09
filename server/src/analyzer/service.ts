@@ -149,7 +149,7 @@ export class AnalyzerService {
             // will be used. In this case, all file specs are assumed to be
             // relative to the current working directory.
             if (commandLineOptions.configFilePath) {
-                this._console.log('Project can not be mixed with source files on a command line.');
+                this._console.log('Project cannot be mixed with source files on a command line.');
             }
         } else if (commandLineOptions.configFilePath) {
             // If the config file path was specified, determine whether it's
@@ -184,8 +184,13 @@ export class AnalyzerService {
 
         let configOptions = new ConfigOptions(projectRoot);
 
-        if (commandLineOptions.fileSpecs) {
+        if (commandLineOptions.fileSpecs.length > 0) {
             configOptions.include.push(...commandLineOptions.fileSpecs);
+        } else if (configFilePath === undefined) {
+            // If no config file was found and there are no explicit include
+            // paths specified, assume the caller wants to analyze everything
+            // under the execution root path.
+            configOptions.include.push(commandLineOptions.executionRoot);
         }
 
         this._configFilePath = configFilePath;
@@ -374,7 +379,7 @@ export class AnalyzerService {
 
         timingStats.findFilesTime.timeOperation(() => {
             let matchedFiles = this._matchFiles(this._configOptions.include,
-                this._configOptions.exclude, this._executionRootPath);
+                this._configOptions.exclude);
 
             for (const file of matchedFiles) {
                 fileMap[file] = file;
@@ -405,7 +410,7 @@ export class AnalyzerService {
         return !!excludePaths.find(excl => path.startsWith(excl));
     }
 
-    private _matchFiles(include: string[], exclude: string[], basePath: string): string[] {
+    private _matchFiles(include: string[], exclude: string[]): string[] {
         let results: string[] = [];
 
         let visitDirectory = (absolutePath: string) => {
