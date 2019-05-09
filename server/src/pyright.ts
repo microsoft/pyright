@@ -144,6 +144,7 @@ function printUsage() {
         '  --stats                          Print detailed performance stats\n' +
         '  -t,--typeshed-path DIRECTORY     Use typeshed type stubs at this location\n' +
         '  -v,--venv-path DIRECTORY         Directory that contains virtual environments\n' +
+        '  --verbose                        Emit verbose diagnostics\n' +
         '  --version                        Print Pyright version\n' +
         '  -w,--watch                       Continue to run and watch for changes\n'
     );
