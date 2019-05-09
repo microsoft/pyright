@@ -388,7 +388,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         node: paramNode,
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(paramNode.start, paramNode.end, this._fileInfo.lines),
-                        declaredType: paramNode.typeAnnotation ? param.type : undefined
+                        declaredType: paramNode.typeAnnotation ?
+                            TypeUtils.specializeType(param.type, undefined) :
+                            undefined
                     };
                     assert(paramNode !== undefined && paramNode.name !== undefined);
 
