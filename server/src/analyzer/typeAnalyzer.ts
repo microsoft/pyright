@@ -2732,35 +2732,43 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _setDefinitionForMemberName(baseType: Type, memberName: NameNode): void {
+        const declarations = this._getDeclarationsForMemberName(baseType, memberName);
+        if (declarations.length > 0) {
+            AnalyzerNodeInfo.setDeclarations(memberName, declarations);
+        }
+    }
+
+    private _getDeclarationsForMemberName(baseType: Type, memberName: NameNode): Declaration[] {
         const memberNameValue = memberName.nameToken.value;
+        let declarations: Declaration[] = [];
 
         if (baseType instanceof ObjectType) {
             let classMemberInfo = TypeUtils.lookUpClassMember(
                 baseType.getClassType(), memberNameValue);
             if (classMemberInfo) {
                 if (classMemberInfo.symbol && classMemberInfo.symbol.hasDeclarations()) {
-                    AnalyzerNodeInfo.setDeclarations(memberName,
-                        TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!);
+                    declarations = TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!;
                 }
             }
         } else if (baseType instanceof ModuleType) {
             let moduleMemberInfo = baseType.getFields().get(memberNameValue);
             if (moduleMemberInfo && moduleMemberInfo.hasDeclarations()) {
-                AnalyzerNodeInfo.setDeclarations(memberName,
-                    TypeUtils.getPrimaryDeclarationsForSymbol(moduleMemberInfo)!);
+                declarations = TypeUtils.getPrimaryDeclarationsForSymbol(moduleMemberInfo)!;
             }
         } else if (baseType instanceof ClassType) {
             let classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue,
                 ClassMemberLookupFlags.SkipInstanceVariables);
             if (classMemberInfo && classMemberInfo.symbol && classMemberInfo.symbol.hasDeclarations()) {
-                AnalyzerNodeInfo.setDeclarations(memberName,
-                    TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!);
+                declarations = TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!;
             }
         } else if (baseType instanceof UnionType) {
             for (let t of baseType.getTypes()) {
-                this._setDefinitionForMemberName(t, memberName);
+                declarations = declarations.concat(
+                    this._getDeclarationsForMemberName(t, memberName));
             }
         }
+
+        return declarations;
     }
 
     private _buildConditionalTypeConstraints(node: ExpressionNode) {
