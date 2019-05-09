@@ -16,7 +16,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions,
 	TransportKind } from 'vscode-languageclient';
 import { ProgressReporting } from './progress';
 
-const clientMap = new Map<string, LanguageClient>();
+const clients = new Map<string, LanguageClient>();
 
 export function activate(context: ExtensionContext) {
 	const outputChannel: OutputChannel = Window.createOutputChannel('pyright');
@@ -35,19 +35,8 @@ export function activate(context: ExtensionContext) {
 			return;
 		}
 
-		let folder = Workspace.getWorkspaceFolder(document.uri);
-		let clientKey: string;
-
-		// If this document isn't found within any workspaces, we'll
-		// still analyze it using a default workspace.
-		if (folder) {
-			clientKey = folder.uri.toString();
-		} else {
-			clientKey = '/';
-		}
-
-		// Have we already created a client for this workspace?
-		if (clientMap.has(clientKey)) {
+		const folder = Workspace.getWorkspaceFolder(document.uri);
+		if (!folder || clients.has(folder.uri.toString())) {
 			return;
 		}
 
@@ -57,7 +46,8 @@ export function activate(context: ExtensionContext) {
 			// Register the server for python source files.
 			documentSelector: [{
 				scheme: 'file',
-				language: 'python'
+				language: 'python',
+				pattern:  `${folder.uri.fsPath}/**/*`
 			}],
 			synchronize: {
 				// Synchronize the setting section to the server.
@@ -78,7 +68,7 @@ export function activate(context: ExtensionContext) {
 		const progressReporting = new ProgressReporting(languageClient);
 		context.subscriptions.push(progressReporting);
 
-		clientMap.set(clientKey, languageClient);
+		clients.set(folder.uri.toString(), languageClient);
 	};
 
 	Workspace.onDidOpenTextDocument(detectDoc);
@@ -86,10 +76,10 @@ export function activate(context: ExtensionContext) {
 
 	Workspace.onDidChangeWorkspaceFolders((event) => {
 		for (let folder of event.removed) {
-			const client = clientMap.get(folder.uri.toString());
+			const client = clients.get(folder.uri.toString());
 
 			if (client) {
-				clientMap.delete(folder.uri.toString());
+				clients.delete(folder.uri.toString());
 				client.stop();
 			}
 		}
@@ -99,7 +89,7 @@ export function activate(context: ExtensionContext) {
 export function deactivate(): Thenable<void> {
 	const promises: Thenable<void>[] = [];
 
-	for (let client of clientMap.values()) {
+	for (let client of clients.values()) {
 		promises.push(client.stop());
 	}
 
