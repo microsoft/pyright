@@ -39,6 +39,7 @@ function processArgs() {
         { name: 'typeshed-path', alias: 't', type: String },
         { name: 'venv-path', alias: 'v', type: String },
         { name: 'verbose', type: Boolean },
+        { name: 'version', type: Boolean },
         { name: 'watch', alias: 'w', type: Boolean }
     ];
 
@@ -62,6 +63,10 @@ function processArgs() {
         return;
     }
 
+    if (args.version !== undefined) {
+        printVersion();
+        return;
+    }
     let options = new PyrightCommandLineOptions(process.cwd(), false);
 
     // Assume any relative paths are relative to the working directory.
@@ -138,8 +143,13 @@ function printUsage() {
         '  --stats                          Print detailed performance stats\n' +
         '  -t,--typeshed-path DIRECTORY     Use typeshed type stubs at this location\n' +
         '  -v,--venv-path DIRECTORY         Directory that contains virtual environments\n' +
+        '  --version                        Print Pyright version\n' +
         '  -w,--watch                       Continue to run and watch for changes\n'
     );
+}
+
+function printVersion() {
+    console.log( 'Pyright ' + String(require('package.json').version));
 }
 
 function reportDiagnostics(fileDiagnostics: FileDiagnostics[]): number {
