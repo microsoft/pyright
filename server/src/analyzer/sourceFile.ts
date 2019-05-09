@@ -630,7 +630,7 @@ export class SourceFile {
         }
 
         for (const moduleImport of moduleImports) {
-            let importResult = resolver.resolveImport({
+            const importResult = resolver.resolveImport({
                 leadingDots: moduleImport.leadingDots,
                 nameParts: moduleImport.nameParts,
                 importedSymbols: moduleImport.importedSymbols

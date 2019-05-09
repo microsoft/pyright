@@ -1153,15 +1153,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitImportFrom(node: ImportFromNode): boolean {
-        let importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
+        const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
         if (importInfo && importInfo.importFound) {
-            let resolvedPath = importInfo.resolvedPaths.length > 0 ?
+            const resolvedPath = importInfo.resolvedPaths.length > 0 ?
                 importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
 
             // Empty list implies "import *"
             if (node.imports.length === 0) {
-                let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
+                const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
                 if (moduleType) {
                     // Import the fields in the current permanent scope.
                     const moduleFields = moduleType.getFields();
@@ -1185,12 +1185,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             } else {
                 node.imports.forEach(importAs => {
                     const name = importAs.name.nameToken.value;
-                    let symbolType: Type | undefined;
                     const aliasNode = importAs.alias || importAs.name;
+                    let symbolType: Type | undefined;
                     let declaration: Declaration | undefined;
 
                     // Is the name referring to an implicit import?
-                    let implicitImport = importInfo!.implicitImports.find(impImport => impImport.name === name);
+                    let implicitImport = importInfo.implicitImports.find(impImport => impImport.name === name);
                     if (implicitImport) {
                         let moduleType = this._getModuleTypeForImportPath(importInfo, implicitImport.path);
                         if (moduleType &&
@@ -1205,15 +1205,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             }
                         }
                     } else {
-                        let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
+                        const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
                         if (moduleType) {
                             const moduleFields = moduleType.getFields();
                             const symbol = moduleFields.get(name);
-                            if (symbol) {
+
+                            // For imports of the form "from . import X", the symbol
+                            // will have no declarations.
+                            if (symbol && symbol.hasDeclarations()) {
                                 symbolType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
-                                if (symbol.hasDeclarations()) {
-                                    declaration = symbol.getDeclarations()[0];
-                                }
+                                declaration = symbol.getDeclarations()[0];
                             } else {
                                 this._addError(
                                     `'${ importAs.name.nameToken.value }' is unknown import symbol`,
@@ -1235,7 +1236,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._assignTypeToNameNode(aliasNode, symbolType, declaration);
 
                     if (declaration && importAs.alias) {
-                        AnalyzerNodeInfo.setDeclarations(importAs.alias, [declaration]);
+                        // If there was an alias, add the declaration the original
+                        // name node as well.
+                        AnalyzerNodeInfo.setDeclarations(importAs.name, [declaration]);
                     }
                 });
             }
