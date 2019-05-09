@@ -67,7 +67,8 @@ function processArgs() {
         printVersion();
         return;
     }
-    let options = new PyrightCommandLineOptions(process.cwd(), false);
+
+    const options = new PyrightCommandLineOptions(process.cwd(), false);
 
     // Assume any relative paths are relative to the working directory.
     if (args.files && Array.isArray(args.files)) {
@@ -149,7 +150,8 @@ function printUsage() {
 }
 
 function printVersion() {
-    console.log( 'Pyright ' + String(require('package.json').version));
+    const version = require('package.json').version;
+    console.log(`${ toolName } ${ version.toString() }`);
 }
 
 function reportDiagnostics(fileDiagnostics: FileDiagnostics[]): number {
