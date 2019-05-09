@@ -58,7 +58,10 @@ interface AliasMapEntry {
 // At some point, we'll cut off the analysis passes and assume
 // we're making no forward progress. This should happen only
 // on the case of bugs in the analyzer.
-const MaxAnalysisPassCount = 20;
+// The number is somewhat arbitrary. It needs to be at least
+// 21 or so to handle all of the import cycles in the stdlib
+// files.
+const MaxAnalysisPassCount = 25;
 
 // There are rare circumstances where we can get into a "beating
 // pattern" where one variable is assigned to another in one pass
