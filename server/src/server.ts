@@ -117,7 +117,7 @@ _documents.onDidChangeContent(change => {
 });
 
 _connection.onDidChangeConfiguration(change => {
-    _connection.console.log(`Received updated settings.`);
+    _connection.console.log(`Received updated settings`);
     updateOptionsAndRestartService(change.settings);
 });
 
