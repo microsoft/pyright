@@ -2931,10 +2931,11 @@ export class ExpressionEvaluator {
         }
 
         // Fill in any missing type arguments with Any.
-        let typeArgTypes = typeArgs ? typeArgs.map(
+        const typeArgTypes = typeArgs ? typeArgs.map(
             t => TypeUtils.convertClassToObject(t.type)) : [];
-        while (typeArgTypes.length < classType.getTypeParameters().length) {
-            typeArgTypes.push(AnyType.create());
+        const typeParams = classType.getTypeParameters();
+        for (let i = typeArgTypes.length; i < typeParams.length; i++) {
+            typeArgTypes.push(TypeUtils.specializeTypeVarType(typeParams[i]));
         }
 
         typeArgTypes.forEach((typeArgType, index) => {
