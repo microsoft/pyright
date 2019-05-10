@@ -56,6 +56,10 @@ export class ExpressionUtils {
 
                 return false;
             }
+        } else if (node instanceof NameNode) {
+            if (node.nameToken.value === 'TYPE_CHECKING') {
+                return true;
+            }
         }
 
         return undefined;
