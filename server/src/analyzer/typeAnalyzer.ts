@@ -2567,6 +2567,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         for (let i = 0; i < nameParts.length; i++) {
             let name = nameParts[i].nameToken.value;
 
+            // If it's the first item in the list, create a type constraint.
+            if (i === 0) {
+                this._addAssignmentTypeConstraint(nameParts[i], type);
+            }
+
             const targetSymbol = targetSymbolTable.get(name);
             const symbolType = targetSymbol ?
                 TypeUtils.getEffectiveTypeOfSymbol(targetSymbol) : undefined;
