@@ -39,6 +39,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { TypeConstraintBuilder } from './typeConstraint';
+import { TypeConstraintUtils } from './typeConstraintUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
     PropertyType, Type, TypeCategory, TypeVarType, UnboundType, UnionType,
@@ -2808,6 +2809,26 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // Mark the new scope as looping so we track any breaks within the scope.
                 tempScope.setIsLooping();
                 AnalyzerNodeInfo.setScope(loopNode, tempScope);
+            }
+
+            // If we previously analyzed this loop, determine whether we should
+            // keep the existing type constraints or start from scratch.
+            if (this._didAnalysisChange) {
+                // The analysis changed prior to getting to the loop. We need
+                // to reset the type constraints in the loop to prevent an
+                // "Unknown" value from persisting in the loop.
+                tempScope.clearTypeConstraints();
+            } else {
+                const typeConstraints = tempScope.getTypeConstraints();
+
+                // Dedupe the previous type constraints and make them conditional
+                // so the incoming types are combined conditionally with the end-of-loop
+                // types.
+                const conditionalTCs = TypeConstraintUtils.dedupeTypeConstraints(typeConstraints, true);
+
+                // Add the deduped conditionals back to the loop scope.
+                tempScope.clearTypeConstraints();
+                tempScope.addTypeConstraints(conditionalTCs);
             }
         } else {
             tempScope = new Scope(ScopeType.Temporary, this._currentScope);
