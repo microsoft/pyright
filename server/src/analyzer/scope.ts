@@ -241,6 +241,8 @@ export class Scope {
         combinedScope._yieldType.addSources(scope1._yieldType);
         combinedScope._yieldType.addSources(scope2._yieldType);
 
+        combinedScope._breaksFromLoop = scope1._breaksFromLoop || scope2._breaksFromLoop;
+
         return combinedScope;
     }
 
