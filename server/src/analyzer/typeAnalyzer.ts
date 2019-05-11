@@ -38,6 +38,7 @@ import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
+import { SymbolUtils } from './symbolUtils';
 import { TypeConstraintBuilder } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
@@ -245,6 +246,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
+
+        this._conditionallyReportUnusedName(node.name, true);
 
         return false;
     }
@@ -509,6 +512,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._updateExpressionTypeForNode(node.name, functionType);
 
         this.walkMultiple(node.decorators);
+
+        this._conditionallyReportUnusedName(node.name, true);
 
         return false;
     }
@@ -827,40 +832,37 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitExcept(node: ExceptNode): boolean {
+        let exceptionType: Type;
         if (node.typeExpression) {
-            this.walk(node.typeExpression);
-        }
+            exceptionType = this._getTypeOfExpression(node.typeExpression);
 
-        if (node.typeExpression && node.name) {
-            let exceptionType = this._getTypeOfExpression(node.typeExpression);
+            if (node.name) {
+                // If more than one type was specified for the exception, we'll receive
+                // a specialized tuple object here.
+                const tupleType = TypeUtils.getSpecializedTupleType(exceptionType);
+                if (tupleType && tupleType.getTypeArguments()) {
+                    const entryTypes = tupleType.getTypeArguments()!.map(t => {
+                        return this._validateExceptionType(t, node.typeExpression!);
+                    });
+                    exceptionType = TypeUtils.combineTypes(entryTypes);
+                } else if (exceptionType instanceof ClassType) {
+                    exceptionType = this._validateExceptionType(
+                        exceptionType, node.typeExpression);
+                }
 
-            // If more than one type was specified for the exception, we'll receive
-            // a specialized tuple object here.
-            const tupleType = TypeUtils.getSpecializedTupleType(exceptionType);
-            if (tupleType && tupleType.getTypeArguments()) {
-                const entryTypes = tupleType.getTypeArguments()!.map(t => {
-                    return this._validateExceptionType(t, node.typeExpression!);
-                });
-                exceptionType = TypeUtils.combineTypes(entryTypes);
-            } else if (exceptionType instanceof ClassType) {
-                exceptionType = this._validateExceptionType(
-                    exceptionType, node.typeExpression);
+                let declaration: Declaration = {
+                    category: SymbolCategory.Variable,
+                    node: node.name,
+                    path: this._fileInfo.filePath,
+                    range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
+                };
+                this._addNamedTargetToCurrentScope(node.name);
+                this._assignTypeToNameNode(node.name, exceptionType, declaration);
+                this._updateExpressionTypeForNode(node.name, exceptionType);
             }
-
-            let declaration: Declaration = {
-                category: SymbolCategory.Variable,
-                node: node.name,
-                path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
-            };
-            this._addNamedTargetToCurrentScope(node.name);
-            this._assignTypeToNameNode(node.name, exceptionType, declaration);
-            this._updateExpressionTypeForNode(node.name, exceptionType);
         }
 
-        this.walk(node.exceptSuite);
-
-        return false;
+        return true;
     }
 
     visitTry(node: TryNode): boolean {
@@ -1042,6 +1044,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Determine if we should log information about private usage.
         this._conditionallyReportPrivateUsage(node);
 
+        // Determine if we should log information about an unused name.
+        this._conditionallyReportUnusedName(node);
+
         return true;
     }
 
@@ -1074,10 +1079,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitMemberAccess(node: MemberAccessExpressionNode) {
         this._getTypeOfExpression(node);
 
-        this._setDefinitionForMemberName(
-            this._getTypeOfExpression(node.leftExpression), node.memberName);
-
-        this._conditionallyReportPrivateUsage(node.memberName);
+        const leftExprType = this._getTypeOfExpression(node.leftExpression);
+        this._setDefinitionForMemberName(leftExprType, node.memberName);
 
         // Walk the leftExpression but not the memberName.
         this.walk(node.leftExpression);
@@ -1131,6 +1134,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (node.alias) {
                     this._assignTypeToNameNode(node.alias, moduleType, moduleDeclaration);
                     this._updateExpressionTypeForNode(node.alias, moduleType);
+
+                    this._conditionallyReportUnusedName(node.alias);
                 } else {
                     this._bindMultiPartModuleNameToType(node.module.nameParts,
                         moduleType, moduleDeclaration);
@@ -1149,6 +1154,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (aliasNode) {
                     this._assignTypeToNameNode(aliasNode, symbolType);
                     this._updateExpressionTypeForNode(aliasNode, symbolType);
+
+                    this._conditionallyReportUnusedName(aliasNode);
                 }
             }
         }
@@ -1244,6 +1251,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         // name node as well.
                         AnalyzerNodeInfo.setDeclarations(importAs.name, [declaration]);
                     }
+
+                    this._conditionallyReportUnusedName(aliasNode);
                 });
             }
         } else {
@@ -1260,6 +1269,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
 
                     this._assignTypeToNameNode(aliasNode, symbolType);
+                    this._conditionallyReportUnusedName(aliasNode);
                 });
             }
         }
@@ -1583,6 +1593,27 @@ export class TypeAnalyzer extends ParseTreeWalker {
         symbol.addDeclaration(declaration);
     }
 
+    private _conditionallyReportUnusedName(node: NameNode, reportPrivateOnly = false) {
+        const nameValue = node.nameToken.value;
+
+        if (reportPrivateOnly && !SymbolUtils.isPrivateName(nameValue)) {
+            return;
+        }
+
+        if (SymbolUtils.isDunderName(nameValue)) {
+            return;
+        }
+
+        if (this._fileInfo.isStubFile) {
+            return;
+        }
+
+        const symbolInScope = this._currentScope.lookUpSymbolRecursive(nameValue);
+        if (symbolInScope && !symbolInScope.symbol.isAccessed()) {
+            this._addUnusedSymbol(node);
+        }
+    }
+
     private _conditionallyReportPrivateUsage(node: NameNode) {
         if (this._fileInfo.configOptions.reportPrivateUsage === 'none' &&
                 !this._fileInfo.useStrictMode) {
@@ -1593,7 +1624,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const nameValue = node.nameToken.value;
 
         // Is it a private name?
-        if (!nameValue.startsWith('_') || nameValue.startsWith('__')) {
+        if (!SymbolUtils.isPrivateName(nameValue)) {
             return;
         }
 
@@ -1742,7 +1773,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _validateOveriddenMathods(classType: ClassType) {
         classType.getClassFields().forEach((symbol, name) => {
             // Don't check magic functions.
-            if (!(name.startsWith('__') && name.endsWith('__'))) {
+            if (!SymbolUtils.isDunderName(name)) {
                 const typeOfSymbol = TypeUtils.getEffectiveTypeOfSymbol(symbol);
                 if (typeOfSymbol instanceof FunctionType) {
                     const baseClassAndSymbol = TypeUtils.getSymbolFromBaseClasses(classType, name);
@@ -2250,6 +2281,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 inheritedDeclaration = prevDeclarations.find(decl => !!decl.declaredType);
                             }
 
+                            // The class variable is accessed in this case.
+                            memberInfo.symbol.setIsAcccessed();
                             srcType = TypeUtils.combineTypes([srcType, memberInfo.symbolType]);
                         }
 
@@ -2577,7 +2610,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _addNamedTargetToCurrentScope(node: ExpressionNode) {
         if (node instanceof NameNode) {
-            this._currentScope.addSymbol(node.nameToken.value, true);
+            const symbol = this._currentScope.addSymbol(node.nameToken.value, true);
+
+            // Mark the symbol as accessed. These symbols are not persisted
+            // between analysis passes, so we never have an opportunity to
+            // mark them as accessed.
+            symbol.setIsAcccessed();
         } else if (node instanceof TypeAnnotationExpressionNode) {
             this._addNamedTargetToCurrentScope(node.valueExpression);
         } else if (node instanceof TupleExpressionNode) {
@@ -2602,18 +2640,29 @@ export class TypeAnalyzer extends ParseTreeWalker {
         for (let i = 0; i < nameParts.length; i++) {
             let name = nameParts[i].nameToken.value;
 
-            // If it's the first item in the list, create a type constraint.
-            if (i === 0) {
-                this._addAssignmentTypeConstraint(nameParts[i], type);
-            }
-
             const targetSymbol = targetSymbolTable.get(name);
             const symbolType = targetSymbol ?
                 TypeUtils.getEffectiveTypeOfSymbol(targetSymbol) : undefined;
 
-            // Assign the first part of the multi-part name to the current scope.
-            if (i === 0 && symbolType) {
-                this._assignTypeToNameNode(nameParts[0], symbolType);
+            if (i === 0) {
+                // If it's the first item in the list, create a type constraint.
+                this._addAssignmentTypeConstraint(nameParts[i], type);
+
+                // Assign the first part of the multi-part name to the current scope.
+                if (symbolType) {
+                    this._assignTypeToNameNode(nameParts[0], symbolType);
+                }
+
+                // Is this module ever accessed?
+                if (targetSymbol && !targetSymbol.isAccessed()) {
+                    const multipartName = nameParts.map(np => np.nameToken.value).join('.');
+                    const textRange = new TextRange(nameParts[0].start, nameParts[0].length);
+                    if (nameParts.length > 1) {
+                        textRange.extend(nameParts[nameParts.length - 1]);
+                    }
+                    this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+                        `'${ multipartName }' is not accessed`, textRange);
+                }
             }
 
             if (symbolType instanceof ModuleType) {
@@ -2698,8 +2747,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
         assert(permanentScope.getType() !== ScopeType.Temporary);
 
-        if (!permanentScope.lookUpSymbol(name)) {
-            permanentScope.addSymbol(name, false);
+        let symbol = permanentScope.lookUpSymbol(name);
+        if (!symbol) {
+            symbol = permanentScope.addSymbol(name, false);
+        }
+
+        // Variables that are defined within a module or a class
+        // are considered public by default. Don't flag them
+        // "not access" unless the name indicates that it's private.
+        const scopeType = permanentScope.getType();
+        if (scopeType === ScopeType.Class || scopeType === ScopeType.Module) {
+            if (!SymbolUtils.isPrivateName(name)) {
+                symbol.setIsAcccessed();
+            }
         }
     }
 
@@ -2789,20 +2849,24 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let classMemberInfo = TypeUtils.lookUpClassMember(
                 baseType.getClassType(), memberNameValue);
             if (classMemberInfo) {
-                if (classMemberInfo.symbol && classMemberInfo.symbol.hasDeclarations()) {
+                if (classMemberInfo.symbol.hasDeclarations()) {
                     declarations = TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!;
                 }
             }
         } else if (baseType instanceof ModuleType) {
             let moduleMemberInfo = baseType.getFields().get(memberNameValue);
-            if (moduleMemberInfo && moduleMemberInfo.hasDeclarations()) {
-                declarations = TypeUtils.getPrimaryDeclarationsForSymbol(moduleMemberInfo)!;
+            if (moduleMemberInfo) {
+                if (moduleMemberInfo.hasDeclarations()) {
+                    declarations = TypeUtils.getPrimaryDeclarationsForSymbol(moduleMemberInfo)!;
+                }
             }
         } else if (baseType instanceof ClassType) {
             let classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue,
                 ClassMemberLookupFlags.SkipInstanceVariables);
-            if (classMemberInfo && classMemberInfo.symbol && classMemberInfo.symbol.hasDeclarations()) {
-                declarations = TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!;
+            if (classMemberInfo) {
+                if (classMemberInfo.symbol.hasDeclarations()) {
+                    declarations = TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!;
+                }
             }
         } else if (baseType instanceof UnionType) {
             for (let t of baseType.getTypes()) {
@@ -2916,6 +2980,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _addUnusedCode(textRange: TextRange) {
         this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange('Code is unreachable', textRange);
+    }
+
+    private _addUnusedSymbol(nameNode: NameNode) {
+        this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+            `'${ nameNode.nameToken.value }' is not accessed`, nameNode);
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {

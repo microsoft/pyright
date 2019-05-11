@@ -13,7 +13,7 @@ import { DiagnosticTextRange } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParseNode } from '../parser/parseNodes';
 import { InferredType, TypeSourceId } from './inferredType';
-import { Type, UnboundType, UnknownType } from './types';
+import { Type } from './types';
 
 export enum SymbolCategory {
     Variable,
@@ -55,6 +55,10 @@ export class Symbol {
     // later be unbound through a delete operation.
     private _isInitiallyUnbound: boolean;
 
+    // Indicates that someone read the value of the symbol at
+    // some point. This is used for unused symbol detection.
+    private _isAccessed = false;
+
     constructor(isInitiallyUnbound: boolean) {
         this._isInitiallyUnbound = isInitiallyUnbound;
     }
@@ -67,6 +71,14 @@ export class Symbol {
 
     isInitiallyUnbound() {
         return this._isInitiallyUnbound;
+    }
+
+    setIsAcccessed() {
+        this._isAccessed = true;
+    }
+
+    isAccessed() {
+        return this._isAccessed;
     }
 
     // Returns true if inferred type changed.

@@ -497,7 +497,7 @@ export class ExpressionEvaluator {
         let typeResult: TypeResult | undefined;
 
         if (node instanceof NameNode) {
-            typeResult = this._getTypeFromName(node, flags);
+            typeResult = this._getTypeFromName(node, usage, flags);
         } else if (node instanceof MemberAccessExpressionNode) {
             typeResult = this._getTypeFromMemberAccessExpression(node, usage, flags);
         } else if (node instanceof IndexExpressionNode) {
@@ -622,7 +622,9 @@ export class ExpressionEvaluator {
         this._isUnboundCheckSuppressed = wasSupprsesed;
     }
 
-    private _getTypeFromName(node: NameNode, flags: EvaluatorFlags): TypeResult {
+    private _getTypeFromName(node: NameNode, usage: EvaluatorUsage,
+            flags: EvaluatorFlags): TypeResult {
+
         const name = node.nameToken.value;
         let type: Type | undefined;
 
@@ -648,6 +650,10 @@ export class ExpressionEvaluator {
                 } else if (constrainedType.isPossiblyUnbound()) {
                     this._addError(`'${ name }' is possibly unbound`, node);
                 }
+            }
+
+            if (usage.method === 'get') {
+                symbol.setIsAcccessed();
             }
         } else {
             this._addError(`'${ name }' is not defined`, node);
@@ -851,6 +857,10 @@ export class ExpressionEvaluator {
 
         if (memberInfo) {
             let type = memberInfo.symbolType;
+
+            if (usage.method === 'get') {
+                memberInfo.symbol.setIsAcccessed();
+            }
 
             if (!(flags & MemberAccessFlags.SkipGetCheck)) {
                 if (type instanceof PropertyType) {
@@ -2486,6 +2496,12 @@ export class ExpressionEvaluator {
     private _assignTypeToNameNode(targetExpr: NameNode, type: Type) {
         const symbol = this._scope.addSymbol(targetExpr.nameToken.value, false);
         symbol.setInferredTypeForSource(type, AnalyzerNodeInfo.getTypeSourceId(targetExpr));
+
+        // Mark the symbol as accessed. These symbols are not persisted
+        // between analysis passes, so we never have an opportunity to
+        // mark them as accessed.
+        symbol.setIsAcccessed();
+
         const typeConstraint = TypeConstraintBuilder.buildTypeConstraintForAssignment(targetExpr, type);
         if (typeConstraint) {
             this._scope.addTypeConstraint(typeConstraint);
