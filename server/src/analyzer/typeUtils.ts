@@ -116,14 +116,46 @@ export class TypeUtils {
             return NeverType.create();
         }
 
-        let resultingType = types[0];
-        types.forEach((t, index) => {
+        // Handle the common case where there is only one type.
+        if (types.length === 1) {
+            return types[0];
+        }
+
+        // Expand all union types.
+        let expandedTypes: Type[] = [];
+        for (let type of types) {
+            if (type instanceof UnionType) {
+                expandedTypes = expandedTypes.concat(type.getTypes());
+            } else {
+                expandedTypes.push(type);
+            }
+        }
+
+        // Sort all of the literal types to the end.
+        expandedTypes = expandedTypes.sort((type1, type2) => {
+            if (type1 instanceof ObjectType && type1.getLiteralValue() !== undefined) {
+                return 1;
+            } else if (type2 instanceof ObjectType && type2.getLiteralValue() !== undefined) {
+                return -1;
+            }
+            return 0;
+        });
+
+        let resultingTypes = [expandedTypes[0]];
+        expandedTypes.forEach((t, index) => {
             if (index > 0) {
-                resultingType = this._combineTwoTypes(resultingType, t);
+                this._addTypeIfUnique(resultingTypes, t);
             }
         });
 
-        return resultingType;
+        if (resultingTypes.length === 1) {
+            return resultingTypes[0];
+        }
+
+        const unionType = new UnionType();
+        unionType.addTypes(resultingTypes);
+
+        return unionType;
     }
 
     // Determines if all of the types in the array are the same.
@@ -295,8 +327,8 @@ export class TypeUtils {
                 if (destLiteral !== undefined) {
                     const srcLiteral = srcType.getLiteralValue();
                     if (srcLiteral !== destLiteral) {
-                        diag.addMessage(`'${ srcType.literalAsString() }' cannot be assigned to ` +
-                            `'${ destType.literalAsString() }'.`);
+                        diag.addMessage(`'${ srcLiteral ? srcType.literalAsString() : srcType.asString() }' ` +
+                        ` cannot be assigned to '${ destType.literalAsString() }'.`);
 
                         return false;
                     }
@@ -1699,25 +1731,24 @@ export class TypeUtils {
         return undefined;
     }
 
-    private static _combineTwoTypes(type1: Type, type2: Type): Type {
-        if (type1.isSame(type2)) {
-            return type1;
+    private static _addTypeIfUnique(types: Type[], typeToAdd: Type) {
+        for (let type of types) {
+            // Does this type already exist in the types array?
+            if (type.isSame(typeToAdd)) {
+                return;
+            }
+
+            // If the typeToAdd is a literal value and there's already
+            // a non-literal type that matches, don't add the literal value.
+            if (type instanceof ObjectType && typeToAdd instanceof ObjectType) {
+                if (this.isSameWithoutLiteralValue(type, typeToAdd)) {
+                    if (type.getLiteralValue() === undefined) {
+                        return;
+                    }
+                }
+            }
         }
 
-        let unionType = new UnionType();
-
-        if (type1 instanceof UnionType) {
-            unionType.addTypes(type1.getTypes());
-        } else {
-            unionType.addTypes([type1]);
-        }
-
-        if (type2 instanceof UnionType) {
-            unionType.addTypes(type2.getTypes());
-        } else {
-            unionType.addTypes([type2]);
-        }
-
-        return unionType;
+        types.push(typeToAdd);
     }
 }

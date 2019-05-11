@@ -102,17 +102,13 @@ export class InferredType {
     }
 
     private _recomputeCombinedType(): boolean {
+        const sourceTypes = this._sources.map(source => source.type);
         let newCombinedType: Type | undefined;
-        for (let source of this._sources) {
-            if (!newCombinedType) {
-                newCombinedType = source.type;
-            } else {
-                newCombinedType = TypeUtils.combineTypes([newCombinedType, source.type]);
-            }
-        }
 
-        if (!newCombinedType) {
+        if (sourceTypes.length === 0) {
             newCombinedType = UnknownType.create();
+        } else {
+            newCombinedType = TypeUtils.combineTypes(sourceTypes);
         }
 
         if (!newCombinedType.isSame(this._combinedType)) {

@@ -1138,21 +1138,11 @@ export class UnionType extends Type {
         return this._types.find(t => t.isPossiblyUnbound()) !== undefined;
     }
 
-    addType(type1: Type) {
-        assert(type1.category !== TypeCategory.Union);
-        assert(type1.category !== TypeCategory.Never);
-
-        this._types.push(type1);
-    }
-
     addTypes(types: Type[]) {
-        // Add any types that are unique to the union.
         for (let newType of types) {
             assert(newType.category !== TypeCategory.Union);
             assert(newType.category !== TypeCategory.Never);
-            if (!this._types.find(t => t.isSame(newType))) {
-                this._types.push(newType);
-            }
+            this._types.push(newType);
         }
     }
 
@@ -1199,11 +1189,11 @@ export class UnionType extends Type {
     // Private version of TypeUtils.removeNoneFromUnion. We need to
     // define this version to avoid a circular reference.
     private _removeOptional(): Type {
-        let simplifiedTypes = this._types.filter(t => t.category !== TypeCategory.None);
+        const simplifiedTypes = this._types.filter(t => t.category !== TypeCategory.None);
         if (simplifiedTypes.length === 1) {
             return simplifiedTypes[0];
         }
-        let newUnion = new UnionType();
+        const newUnion = new UnionType();
         newUnion.addTypes(simplifiedTypes);
         return newUnion;
     }
