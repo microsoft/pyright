@@ -13,6 +13,7 @@ import * as assert from 'assert';
 import { DiagnosticLevel } from '../common/configOptions';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
+import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
@@ -34,7 +35,7 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
-import { Symbol } from './symbol';
+import { Declaration, Symbol, SymbolCategory } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
@@ -1849,7 +1850,23 @@ export class ExpressionEvaluator {
                                 };
 
                                 constructorType.addParameter(paramInfo);
-                                instanceFields.set(entryName, Symbol.createWithType(entryType, DefaultTypeSourceId));
+                                const newSymbol = Symbol.createWithType(entryType, DefaultTypeSourceId);
+
+                                // We need to associate the declaration with a parse node.
+                                // In this case it's just part of a string literal value.
+                                // The definition provider won't necessarily take the
+                                // user to the exact spot in the string, but it's close enough.
+                                const stringNode = entriesArg.valueExpression!;
+                                const declaration: Declaration = {
+                                    category: SymbolCategory.Variable,
+                                    node: stringNode,
+                                    path: this._fileInfo.filePath,
+                                    declaredType: entryType,
+                                    range: convertOffsetsToRange(
+                                        stringNode.start, stringNode.end, this._fileInfo.lines)
+                                };
+                                newSymbol.addDeclaration(declaration);
+                                instanceFields.set(entryName, newSymbol);
                             }
                         });
                     } else if (entriesArg.valueExpression instanceof ListNode) {
@@ -1913,7 +1930,19 @@ export class ExpressionEvaluator {
 
                             constructorType.addParameter(paramInfo);
 
-                            instanceFields.set(entryName, Symbol.createWithType(entryType, DefaultTypeSourceId));
+                            const newSymbol = Symbol.createWithType(entryType, DefaultTypeSourceId);
+                            if (entryNameNode) {
+                                const declaration: Declaration = {
+                                    category: SymbolCategory.Variable,
+                                    node: entryNameNode,
+                                    path: this._fileInfo.filePath,
+                                    declaredType: entryType,
+                                    range: convertOffsetsToRange(
+                                        entryNameNode.start, entryNameNode.end, this._fileInfo.lines)
+                                };
+                                newSymbol.addDeclaration(declaration);
+                            }
+                            instanceFields.set(entryName, newSymbol);
                         });
                     } else {
                         // A dynamic expression was used, so we can't evaluate
