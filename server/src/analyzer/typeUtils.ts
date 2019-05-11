@@ -53,6 +53,11 @@ export enum ClassMemberLookupFlags {
     DeclaredTypesOnly = 0x04
 }
 
+export interface SymbolWithClass {
+    class: ClassType;
+    symbol: Symbol;
+}
+
 export class TypeUtils {
     static isOptionalType(type: Type): boolean {
         if (type instanceof UnionType) {
@@ -203,6 +208,61 @@ export class TypeUtils {
         }
 
         return type;
+    }
+
+    static canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType,
+            diag: DiagnosticAddendum): boolean {
+
+        // If we're overriding a non-method, don't report any error.
+        if (!(baseMethod instanceof FunctionType)) {
+            return true;
+        }
+
+        let canOverride = true;
+        const baseParams = baseMethod.getParameters();
+        const overrideParams = baseMethod.getParameters();
+
+        if (baseParams.length !== overrideParams.length) {
+            diag.addMessage(`Parameter count mismatch: base method has ` +
+                `${ baseParams.length }, but override has ${ overrideParams.length }`);
+        }
+
+        const paramCount = Math.min(baseParams.length, overrideParams.length);
+        for (let i = 0; i < paramCount; i++) {
+            const baseParam = baseParams[i];
+            const overrideParam = overrideParams[i];
+
+            if (baseParam.name !== overrideParam.name) {
+                diag.addMessage(`Parameter ${ i + 1 } name mismatch: ` +
+                    `base parameter is named '${ baseParam.name || '*' }, ` +
+                    `override parameter is named '${ overrideParam.name || '*' }'`);
+                canOverride = false;
+            } else {
+                const baseParamType = baseMethod.getEffectiveParameterType(i);
+                const overrideParamType = overrideMethod.getEffectiveParameterType(i);
+
+                if (!this.canAssignType(baseParamType, overrideParamType,
+                    diag.createAddendum())) {
+
+                    diag.addMessage(`Parameter ${ i + 1 } type mismatch: ` +
+                        `base method parameter is type '${ baseParamType.asString() }, ` +
+                        `override is type '${ overrideParamType.asString() }'`);
+                    canOverride = false;
+                }
+            }
+        }
+
+        const baseReturnType = baseMethod.getEffectiveReturnType();
+        const overrideReturnType = overrideMethod.getEffectiveReturnType();
+        if (!this.canAssignType(baseReturnType, overrideReturnType, diag.createAddendum())) {
+            diag.addMessage(`Return type mismatch: ` +
+                `base method returns type '${ baseReturnType.asString() }, ` +
+                `override is type '${ overrideReturnType.asString() }'`);
+
+            canOverride = false;
+        }
+
+        return canOverride;
     }
 
     // Determines if the source type can be assigned to the dest type.
@@ -1085,6 +1145,40 @@ export class TypeUtils {
 
             return undefined;
         });
+    }
+
+    // Looks up the specified symbol name within the base classes
+    // of a specified class.
+    static getSymbolFromBaseClasses(classType: ClassType, name: string,
+            recursionCount = 0): SymbolWithClass | undefined {
+
+        // TODO - use proper MRO order rather than naive depth-first.
+        if (recursionCount > MaxTypeRecursion) {
+            return undefined;
+        }
+
+        for (let baseClass of classType.getBaseClasses()) {
+            if (baseClass.type instanceof ClassType) {
+                const classFields = baseClass.type.getClassFields();
+                let symbol = classFields.get(name);
+                if (symbol) {
+                    return {
+                        class: baseClass.type,
+                        symbol
+                    };
+                }
+
+                const symbolWithClass = this.getSymbolFromBaseClasses(baseClass.type,
+                    name, recursionCount + 1);
+                if (symbolWithClass) {
+                    return symbolWithClass;
+                }
+            } else {
+                return undefined;
+            }
+        }
+
+        return undefined;
     }
 
     static doesClassHaveAbstractMethods(classType: ClassType) {

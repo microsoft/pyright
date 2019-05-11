@@ -125,6 +125,10 @@ export class ConfigOptions {
     // the owning class or module?
     reportPrivateUsage: DiagnosticLevel = 'none';
 
+    // Report usage of method override that is incomatlble with
+    // the base class method of the same name?
+    reportIncompatibleMethodOverride: DiagnosticLevel = 'none';
+
     // Report usage of invalid escape sequences in string literals?
     reportInvalidStringEscapeSequence: DiagnosticLevel = 'warning';
 
@@ -296,6 +300,10 @@ export class ConfigOptions {
         // Read the "reportPrivateUsage" entry.
         this.reportPrivateUsage = this._convertDiagnosticLevel(
             configObj.reportPrivateUsage, 'reportPrivateUsage', 'none');
+
+        // Read the "reportIncompatibleMethodOverride" entry.
+        this.reportIncompatibleMethodOverride = this._convertDiagnosticLevel(
+            configObj.reportIncompatibleMethodOverride, 'reportIncompatibleMethodOverride', 'none');
 
         // Read the "reportInvalidStringEscapeSequence" entry.
         this.reportInvalidStringEscapeSequence = this._convertDiagnosticLevel(

@@ -58,6 +58,8 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportPrivateUsage** [boolean or string, optional]: Generate or suppress diagnostics for uses of private variables or functions outside of the class or module that declares them. Private variables and functions, by convention, are named starting with a single underscoe (“_”) character. The default value for this setting is 'none'.
 
+**reportIncompatibleMethodOverride** [boolean or string, optional]: Generate or suppress diagnostics for methods that override a method of the same name in a base class in an incompatible manner (different number of parameters, different parameter tyeps, or a different return type). The default value for this setting is 'none'.
+
 **reportInvalidStringEscapeSequence** [boolean or string, optional]: Generate or suppress diagnostics for invalid escape sequences used within string literals. The Python specification indicates that such sequences will generate a syntax error in future versions. The default value for this setting is 'warning'.
 
 **reportUnknownParameterType** [boolean or string, optional]: Generate or suppress diagnostics for input or return parameters that have an unknown type. The default value for this setting is 'none'.

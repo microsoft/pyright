@@ -1726,6 +1726,40 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (TypeUtils.doesClassHaveAbstractMethods(classType)) {
             classType.setIsAbstractClass();
         }
+
+        // Skip the overridden method check for stub files. Many of the built-in
+        // typeshed stub files trigger this diagnostic.
+        if (!this._fileInfo.isStubFile) {
+            // Skip this check (which is somewhat expensive) if it is disabled.
+            if (this._fileInfo.configOptions.reportIncompatibleMethodOverride !== 'none' ||
+                    this._fileInfo.useStrictMode) {
+
+                this._validateOveriddenMathods(classType);
+            }
+        }
+    }
+
+    private _validateOveriddenMathods(classType: ClassType) {
+        classType.getClassFields().forEach((symbol, name) => {
+            // Don't check magic functions.
+            if (!(name.startsWith('__') && name.endsWith('__'))) {
+                const typeOfSymbol = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+                if (typeOfSymbol instanceof FunctionType) {
+                    const baseClassAndSymbol = TypeUtils.getSymbolFromBaseClasses(classType, name);
+                    if (baseClassAndSymbol) {
+                        const typeOfBaseClassMethod = TypeUtils.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
+                        let diagAddendum = new DiagnosticAddendum();
+                        if (!TypeUtils.canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol, diagAddendum)) {
+                            const declarations = symbol.getDeclarations();
+                            const errorNode = declarations[0].node;
+                            this._addDiagnostic(this._fileInfo.configOptions.reportIncompatibleMethodOverride,
+                                `Method '${ name }' overrides class '${ baseClassAndSymbol.class.getClassName() }' ` +
+                                    `in an incompatible manner` + diagAddendum.getString(), errorNode);
+                        }
+                    }
+                }
+            }
+        });
     }
 
     private _applyClassDecorator(inputClassType: Type, originalClassType: ClassType,
