@@ -1624,7 +1624,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const symbolInScope = this._currentScope.lookUpSymbolRecursive(nameValue);
         if (symbolInScope && !symbolInScope.symbol.isAccessed()) {
-            this._addUnusedSymbol(node);
+            this._addUnusedName(node);
         }
     }
 
@@ -3025,7 +3025,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange('Code is unreachable', textRange);
     }
 
-    private _addUnusedSymbol(nameNode: NameNode) {
+    private _addUnusedName(nameNode: NameNode) {
         this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
             `'${ nameNode.nameToken.value }' is not accessed`, nameNode);
     }
