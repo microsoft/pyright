@@ -7,6 +7,9 @@
 * Static methods that apply to symbols or symbol names.
 */
 
+const _constantRegEx = /^[A-Z0-9_]+$/;
+const _underscoreOnlyRegEx = /^[_]+$/;
+
 export class SymbolUtils {
     // Private symbol names start with a single underscore.
     static isPrivateName(name: string) {
@@ -20,5 +23,10 @@ export class SymbolUtils {
         return name.length > 4 &&
             name.startsWith('__') &&
             name.endsWith('__');
+    }
+
+    // Constants are all-caps with possible numbers and underscores.
+    static isConstantName(name: string) {
+        return !!name.match(_constantRegEx) && !name.match(_underscoreOnlyRegEx);
     }
 }

@@ -2217,10 +2217,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             // A local helper function that creates a new declaration.
             let createDeclaration = () => {
-                let declaration: Declaration = {
+                const declaration: Declaration = {
                     category: srcType instanceof FunctionType ?
                         SymbolCategory.Method : SymbolCategory.Variable,
                     node: node.memberName,
+                    isConstant: SymbolUtils.isConstantName(node.memberName.nameToken.value),
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.memberName.start, node.memberName.end, this._fileInfo.lines)
                 };
@@ -2260,8 +2261,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
 
                     this._addDeclarationToSymbol(symbol, createDeclaration(), node);
-                    AnalyzerNodeInfo.setDeclarations(node.memberName,
-                        TypeUtils.getPrimaryDeclarationsForSymbol(symbol)!);
+                    const primaryDecls = TypeUtils.getPrimaryDeclarationsForSymbol(symbol)!;
+                    AnalyzerNodeInfo.setDeclarations(node.memberName, primaryDecls);
+
+                    // Check for an attempt to overwrite a constant member variable.
+                    const primaryDecl = primaryDecls ? primaryDecls[0] : undefined;
+                    if (primaryDecl && primaryDecl.isConstant && srcExprNode) {
+                        if (node.memberName !== primaryDecl.node) {
+                            this._addDiagnostic(this._fileInfo.configOptions.reportConstantRedefinition,
+                                `'${ node.memberName.nameToken.value }' is constant and cannot be redefined`,
+                                node.memberName);
+                        }
+                    }
                 } else {
                     // Is the target a property?
                     const prevDeclarations = memberInfo.symbol.getDeclarations();
@@ -2484,6 +2495,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const declaration: Declaration = {
                 category: SymbolCategory.Variable,
                 node: target,
+                isConstant: SymbolUtils.isConstantName(name.value),
                 path: this._fileInfo.filePath,
                 range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
             };
@@ -2588,10 +2600,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._assignTypeToExpression(target.valueExpression, destType, srcExpr);
         } else if (target instanceof UnpackExpressionNode) {
             if (target.expression instanceof NameNode) {
-                let name = target.expression.nameToken;
-                let declaration: Declaration = {
+                const name = target.expression.nameToken;
+                const declaration: Declaration = {
                     category: SymbolCategory.Variable,
                     node: target.expression,
+                    isConstant: SymbolUtils.isConstantName(name.value),
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
                 };
@@ -2700,12 +2713,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Determine if there's a declared type for this symbol.
         let declaredType: Type | undefined = declaration ? declaration.declaredType : undefined;
+        let primaryDecl: Declaration | undefined;
 
         const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
         if (symbolWithScope) {
             const primaryDecls = TypeUtils.getPrimaryDeclarationsForSymbol(symbolWithScope.symbol);
             if (primaryDecls) {
                 declaredType = primaryDecls[0].declaredType!;
+                primaryDecl = primaryDecls[0];
             }
         } else {
             // We should never get here.
@@ -2724,6 +2739,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
             } else {
                 // Constrain the resulting type to match the declared type.
                 destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(declaredType, srcType);
+            }
+        }
+
+        if (primaryDecl && primaryDecl.isConstant && srcExpressionNode) {
+            if (nameNode !== primaryDecl.node) {
+                this._addDiagnostic(this._fileInfo.configOptions.reportConstantRedefinition,
+                    `'${ nameValue }' is constant and cannot be redefined`,
+                    nameNode);
             }
         }
 

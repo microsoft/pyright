@@ -35,6 +35,10 @@ export interface Declaration {
     // Declared type (if specified) of the symbol.
     declaredType?: Type;
 
+    // Is the declaration considered "constant" (i.e.
+    // reassignment is not permitted)?
+    isConstant?: boolean;
+
     // The file and range within that file that
     // contains the declaration.
     path: string;

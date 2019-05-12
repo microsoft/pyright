@@ -125,6 +125,9 @@ export class ConfigOptions {
     // the owning class or module?
     reportPrivateUsage: DiagnosticLevel = 'none';
 
+    // Report attempts to redefine variables that are in all-caps.
+    reportConstantRedefinition: DiagnosticLevel = 'none';
+
     // Report usage of method override that is incomatlble with
     // the base class method of the same name?
     reportIncompatibleMethodOverride: DiagnosticLevel = 'none';
@@ -300,6 +303,10 @@ export class ConfigOptions {
         // Read the "reportPrivateUsage" entry.
         this.reportPrivateUsage = this._convertDiagnosticLevel(
             configObj.reportPrivateUsage, 'reportPrivateUsage', 'none');
+
+        // Read the "reportConstantRedefinition" entry.
+        this.reportConstantRedefinition = this._convertDiagnosticLevel(
+            configObj.reportConstantRedefinition, 'reportConstantRedefinition', 'none');
 
         // Read the "reportIncompatibleMethodOverride" entry.
         this.reportIncompatibleMethodOverride = this._convertDiagnosticLevel(
