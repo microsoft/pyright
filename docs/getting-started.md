@@ -10,3 +10,5 @@ Here is a typical progression:
 5. Check in your custom type stub files and configure pyright to run as part of your continuous integration (CI) environment to keep the project “type clean”.
 6. Incrementally add type annotations to your code files. The annotations that provide most value are on function input parameters, instance variables, and return parameters (in that order). Note that annotation of variables (instance, class and local) requires Python 3.6 or newer.
 7. Enable stricter type checking options like "reportOptionalSubscript", "reportOptionalMemberAccess", "reportOptionalCall", and "reportUntypedFunctionDecorator".
+8. On a file-by-file basis, enable all type checking options by adding the comment `“# pyright: strict` somewhere in the file.
+
