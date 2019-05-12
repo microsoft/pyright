@@ -2,7 +2,7 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "Type checker for the Python language",
-    "version": "1.0.26",
+    "version": "1.0.27",
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
