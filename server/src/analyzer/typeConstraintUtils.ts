@@ -11,6 +11,7 @@ import * as assert from 'assert';
 
 import { ExpressionNode } from '../parser/parseNodes';
 import { TypeConstraint } from './typeConstraint';
+import { Type } from './types';
 import { TypeUtils } from './typeUtils';
 
 export class TypeConstraintUtils {
@@ -19,42 +20,48 @@ export class TypeConstraintUtils {
     // that are common, it combines the two. For expressions that are
     // unique, it marks them as conditional.
 
-    static combineTypeConstraints(tcList1: TypeConstraint[], tcList2: TypeConstraint[]): TypeConstraint[] {
-        // Start by deduping the two lists.
-        let dedupedList1 = this.dedupeTypeConstraints(tcList1);
-        let dedupedList2 = this.dedupeTypeConstraints(tcList2);
-
+    static combineTypeConstraints(tcLists: TypeConstraint[][]): TypeConstraint[] {
         const combinedList: TypeConstraint[] = [];
 
-        for (const tc of dedupedList1) {
-            const expression = tc.getExpression();
-            const [inList, outList] = this._splitList(dedupedList2, expression);
-            assert(inList.length <= 1);
+        // Start by deduping the lists.
+        let dedupedLists = tcLists.map(tcList => this.dedupeTypeConstraints(tcList));
 
-            if (inList.length > 0) {
-                const types = [inList[0].getType(), tc.getType()];
-                const combinedTc = new TypeConstraint(expression, TypeUtils.combineTypes(types));
+        for (let listIndex = 0; listIndex < tcLists.length; listIndex++) {
+            while (dedupedLists[listIndex].length > 0) {
+                const tc = dedupedLists[listIndex][0];
+                const expression = tc.getExpression();
+                const typesToCombine: Type[] = [];
+                let isConditional = false;
 
-                // If either of the two contributing TCs was conditional, the
-                // resulting TC is as well.
-                if (inList[0].isConditional() || tc.isConditional()) {
+                const splits = dedupedLists.map(list => this._splitList(list, expression));
+                for (let splitIndex = 0; splitIndex < splits.length; splitIndex++) {
+                    // Write back the remaining list (those that don't target this expression).
+                    dedupedLists[splitIndex] = splits[splitIndex][1];
+
+                    // Since the lists were deduped, we should have found at most one
+                    // TC that matched this expression. Get its type.
+                    assert(splits[splitIndex][0].length <= 1);
+                    if (splits[splitIndex][0].length > 0) {
+                        typesToCombine.push(splits[splitIndex][0][0].getType());
+                        if (splits[splitIndex][0][0].isConditional()) {
+                            isConditional = true;
+                        }
+                    } else {
+                        // If one of the lists didn't contribute a type for this
+                        // expression, mark it conditional.
+                        isConditional = true;
+                    }
+                }
+
+                const combinedTc = new TypeConstraint(expression,
+                    TypeUtils.combineTypes(typesToCombine));
+
+                if (isConditional) {
                     combinedTc.setIsConditional();
                 }
 
                 combinedList.push(combinedTc);
-            } else {
-                tc.setIsConditional();
-                combinedList.push(tc);
             }
-
-            dedupedList2 = outList;
-        }
-
-        // Handle the remaining items on the second list that were not
-        // also found on the first list.
-        for (const tc of dedupedList2) {
-            tc.setIsConditional();
-            combinedList.push(tc);
         }
 
         return combinedList;

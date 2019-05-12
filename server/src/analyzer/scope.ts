@@ -218,30 +218,34 @@ export class Scope {
         this.addTypeConstraints(typeConstraints);
     }
 
-    // Combines a conditional scope with another conditional scope --
-    // for example, an "if" scope with an "else" scope.
-    static combineConditionalScopes(scope1: Scope, scope2: Scope): Scope {
-        assert(scope1._isConditional && scope2._isConditional);
-        assert(scope1._scopeType === ScopeType.Temporary && scope2._scopeType === ScopeType.Temporary);
-        assert(!scope1._alwaysReturns && !scope2._alwaysReturns);
-        assert(!scope1._alwaysRaises && !scope2._alwaysRaises);
-        assert(scope1._parent === scope2._parent);
+    // Combines multiple conditional scopes -- for example, an "if" scope
+    // with an "else" scope.
+    static combineConditionalScopes(scopes: Scope[]): Scope {
+        assert(scopes.length > 1);
 
-        const combinedScope = new Scope(ScopeType.Temporary, scope1.getParent());
+        const parentScope = scopes[0]._parent;
+        for (let scope of scopes) {
+            assert(scope._isConditional);
+            assert(scope._scopeType === ScopeType.Temporary);
+            assert(scope._parent === parentScope);
+        }
 
-        // Combine type constraints from the two scopes.
+        const combinedScope = new Scope(ScopeType.Temporary, parentScope);
+
+        // Combine type constraints from the scopes.
+        const contributingTypeConstraints = scopes.filter(s => !s.getAlwaysReturnsOrRaises());
         const combinedTypeConstraints = TypeConstraintUtils.combineTypeConstraints(
-            scope1.getTypeConstraints(), scope2.getTypeConstraints());
+            contributingTypeConstraints.map(s => s.getTypeConstraints()));
         combinedScope.addTypeConstraints(combinedTypeConstraints);
 
         // Combine the return and yield types.
-        combinedScope._returnType.addSources(scope1._returnType);
-        combinedScope._returnType.addSources(scope2._returnType);
-
-        combinedScope._yieldType.addSources(scope1._yieldType);
-        combinedScope._yieldType.addSources(scope2._yieldType);
-
-        combinedScope._breaksFromLoop = scope1._breaksFromLoop || scope2._breaksFromLoop;
+        for (let scope of scopes) {
+            combinedScope._returnType.addSources(scope._returnType);
+            combinedScope._yieldType.addSources(scope._yieldType);
+            if (scope._breaksFromLoop) {
+                combinedScope._breaksFromLoop = true;
+            }
+        }
 
         return combinedScope;
     }

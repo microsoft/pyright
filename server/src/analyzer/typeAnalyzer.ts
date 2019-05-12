@@ -617,7 +617,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             loopScope.setUnconditional();
             this._mergeToCurrentScope(loopScope);
         } else if (!loopScope.getAlwaysReturnsOrRaises() && !elseScope.getAlwaysReturnsOrRaises()) {
-            const scopeToMerge = Scope.combineConditionalScopes(loopScope, elseScope);
+            const scopeToMerge = Scope.combineConditionalScopes([loopScope, elseScope]);
             this._mergeToCurrentScope(scopeToMerge);
         }
 
@@ -872,36 +872,49 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let allPathsRaise = true;
 
+        let conditionalScopesToMerge: Scope[] = [];
+
         // Wrap the except clauses in a conditional scope
         // so we can throw away any names that are bound
         // in this scope.
         node.exceptClauses.forEach(exceptNode => {
-            let exceptScope = this._enterTemporaryScope(() => {
+            const exceptScope = this._enterTemporaryScope(() => {
                 this.walk(exceptNode);
-            }, true);
+            });
 
-            this._mergeToCurrentScope(exceptScope);
+            conditionalScopesToMerge.push(exceptScope);
 
             if (!exceptScope.getAlwaysRaises()) {
                 allPathsRaise = false;
             }
         });
 
-        if (node.elseSuite) {
-            let elseScope = this._enterTemporaryScope(() => {
-                this.walk(node.elseSuite!);
-            });
-
-            if (!elseScope.getAlwaysRaises()) {
-                allPathsRaise = false;
+        const elseScope = this._enterTemporaryScope(() => {
+            if (node.elseSuite) {
+                this.walk(node.elseSuite);
             }
-            this._mergeToCurrentScope(elseScope);
-        } else {
+        });
+
+        conditionalScopesToMerge.push(elseScope);
+
+        if (!elseScope.getAlwaysRaises()) {
             allPathsRaise = false;
         }
 
+        if (conditionalScopesToMerge.length > 1) {
+            // Mark the multiple scopes as conditional and merge them.
+            for (const scope of conditionalScopesToMerge) {
+                scope.setConditional();
+            }
+            this._mergeToCurrentScope(Scope.combineConditionalScopes(conditionalScopesToMerge));
+        } else if (conditionalScopesToMerge.length === 1) {
+            // We have only one scope that's contributing, so no need
+            // to mark it as conditional.
+            this._mergeToCurrentScope(conditionalScopesToMerge[0]);
+        }
+
         // If we can't prove that exceptions will propagate beyond
-        // the try/catch block. clear the "alwyas raises" condition.
+        // the try/catch block. clear the "always raises" condition.
         if (alwaysRaisesBeforeTry || allPathsRaise) {
             this._currentScope.setAlwaysRaises();
         } else {
@@ -2063,7 +2076,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Figure out how to combine the scopes.
         if (ifContributions && elseContributions) {
             // If both an "if" and an "else" scope exist, combine the names from both scopes.
-            const combinedScope = Scope.combineConditionalScopes(ifContributions, elseContributions);
+            const combinedScope = Scope.combineConditionalScopes(
+                [ifContributions, elseContributions]);
             this._mergeToCurrentScope(combinedScope);
         } else if (ifContributions) {
             // If there's only an "if" scope executed, merge its contents.
