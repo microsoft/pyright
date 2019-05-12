@@ -278,7 +278,7 @@ test('Constant1', () => {
     validateResults(analysisResults, 0);
 
     // Turn on errors.
-    configOptions.reportPrivateUsage = 'error';
+    configOptions.reportConstantRedefinition = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['constant1.py'], configOptions);
     validateResults(analysisResults, 5);
 });

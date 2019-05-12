@@ -1081,6 +1081,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const leftExprType = this._getTypeOfExpression(node.leftExpression);
         this._setDefinitionForMemberName(leftExprType, node.memberName);
+        this._conditionallyReportPrivateUsage(node.memberName);
 
         // Walk the leftExpression but not the memberName.
         this.walk(node.leftExpression);
@@ -1625,6 +1626,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Is it a private name?
         if (!SymbolUtils.isPrivateName(nameValue)) {
+            return;
+        }
+
+        // Ignore privates in type stubs.
+        if (this._fileInfo.isStubFile) {
             return;
         }
 

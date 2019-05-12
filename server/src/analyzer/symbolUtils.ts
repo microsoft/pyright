@@ -13,7 +13,7 @@ const _underscoreOnlyRegEx = /^[_]+$/;
 export class SymbolUtils {
     // Private symbol names start with a single underscore.
     static isPrivateName(name: string) {
-        return name.length > 2 &&
+        return name.length > 1 &&
             name.startsWith('_') &&
             !name.startsWith('__');
     }
