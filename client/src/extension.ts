@@ -50,3 +50,11 @@ export function activate(context: ExtensionContext) {
 	const progressReporting = new ProgressReporting(languageClient);
 	context.subscriptions.push(progressReporting);
 }
+
+export function deactivate() {
+	// Return undefined rather than a promise to indicate
+	// that deactivation is done synchronously. We don't have
+	// anything to do here.
+	return undefined;
+}
+
