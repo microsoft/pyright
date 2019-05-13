@@ -267,11 +267,19 @@ _connection.onDidCloseTextDocument(params => {
 
 function _convertUriToPath(uriString: string): string {
     const uri = VSCodeUri.parse(uriString);
-    return uri.path;
+    let convertedPath = normalizePath(uri.path);
+
+    // If this is a DOS-style path with a drive letter, remove
+    // the leading slash.
+    if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
+        convertedPath = convertedPath.substr(1);
+    }
+
+    return convertedPath;
 }
 
 function _convertPathToUri(path: string): string {
-    return VSCodeUri.from({scheme: 'file', path }).toString();
+    return VSCodeUri.file(path).toString();
 }
 
 // Listen on the connection
