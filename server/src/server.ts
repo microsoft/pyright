@@ -9,6 +9,7 @@ import {
     IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter,
     Location, MarkupContent, Position, Range, TextDocuments
 } from 'vscode-languageserver';
+import VSCodeUri from 'vscode-uri';
 
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
@@ -264,24 +265,13 @@ _connection.onDidCloseTextDocument(params => {
     _analyzerService.setFileClosed(filePath);
 });
 
-function _convertUriToPath(uri: string): string {
-    const fileScheme = 'file://';
-    if (uri.startsWith(fileScheme)) {
-        return uri.substr(fileScheme.length);
-    }
-
-    return uri;
+function _convertUriToPath(uriString: string): string {
+    const uri = VSCodeUri.parse(uriString);
+    return uri.path;
 }
 
 function _convertPathToUri(path: string): string {
-    let pathName = path.replace(/\\/g, '/');
-
-    // Windows drive letter must be prefixed with a slash.
-    if (pathName[0] !== '/') {
-        pathName = '/' + pathName;
-    }
-
-    return 'file://' + pathName;
+    return VSCodeUri.from({scheme: 'file', path }).toString();
 }
 
 // Listen on the connection
