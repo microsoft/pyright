@@ -47,7 +47,7 @@ test('Builtins1', () => {
         'UnicodeDecodeError', 'UnicodeEncodeError', 'UnicodeError', 'UnicodeTranslateError',
         'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning', 'ZeroDivisionError',
         '__import__', '__loader__', '__name__',
-        '__package__', '__spec__', 'abs', 'all', 'any', 'ascii', 'bin', 'bool',
+        '__package__', '__spec__', 'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'breakpoint',
         'bytearray', 'bytes', 'callable', 'chr', 'classmethod', 'compile', 'complex',
         'copyright', 'credits', 'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval',
         'exec', 'exit', 'filter', 'float', 'format', 'frozenset', 'getattr', 'globals',
