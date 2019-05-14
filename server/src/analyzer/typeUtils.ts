@@ -220,7 +220,7 @@ export class TypeUtils {
 
         let canOverride = true;
         const baseParams = baseMethod.getParameters();
-        const overrideParams = baseMethod.getParameters();
+        const overrideParams = overrideMethod.getParameters();
 
         if (baseParams.length !== overrideParams.length) {
             diag.addMessage(`Parameter count mismatch: base method has ` +
@@ -1540,7 +1540,7 @@ export class TypeUtils {
             assert(inheritanceChain.length > 0);
 
             return this._canAssignClassWithTypeArgs(srcType, inheritanceChain,
-                diag, recursionCount + 1);
+                diag, typeVarMap, recursionCount + 1);
         }
 
         // Special-case int-to-float conversion.
@@ -1558,7 +1558,7 @@ export class TypeUtils {
     // specified inheritance chain, taking into account its type arguments.
     private static _canAssignClassWithTypeArgs(srcType: ClassType,
             inheritanceChain: InheritanceChain, diag: DiagnosticAddendum,
-            recursionCount: number): boolean {
+            typeVarMap: TypeVarMap | undefined, recursionCount: number): boolean {
 
         let curSrcType = srcType;
 
@@ -1597,7 +1597,7 @@ export class TypeUtils {
                                 (destAllowsMoreArgs && srcTypeArgs.length >= destArgCount)) {
                             for (let i = 0; i < destArgCount; i++) {
                                 if (!this.canAssignType(ancestorTypeArgs[i], srcTypeArgs[i],
-                                        diag.createAddendum(), undefined, undefined, recursionCount + 1)) {
+                                        diag.createAddendum(), typeVarMap, undefined, recursionCount + 1)) {
                                     diag.addMessage(`Tuple entry ${ i + 1 } is incorrect type`);
                                     return false;
                                 }
@@ -1645,17 +1645,17 @@ export class TypeUtils {
 
                             if (typeParam.isCovariant()) {
                                 if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
-                                        diag.createAddendum(), undefined, true, recursionCount + 1)) {
+                                        diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
                                     return false;
                                 }
                             } else if (typeParam.isContravariant()) {
                                 if (!this.canAssignType(srcTypeArg, ancestorTypeArg,
-                                        diag.createAddendum(), undefined, true, recursionCount + 1)) {
+                                        diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
                                     return false;
                                 }
                             } else {
                                 if (!this.canAssignType(ancestorTypeArg, srcTypeArg,
-                                        diag.createAddendum(), undefined, false, recursionCount + 1)) {
+                                        diag.createAddendum(), typeVarMap, false, recursionCount + 1)) {
                                     return false;
                                 }
                             }
