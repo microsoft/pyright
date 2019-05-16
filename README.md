@@ -32,7 +32,9 @@ For rich Python editing and debugging capabilities with Visual Studio Code, be s
 ## Installation
 You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
 
-The latest version of the command-line tool can be installed with npm. To install it globally:
+The latest version of the command-line tool can be installed with npm, which is part of node. If you don't have a recent version of node on your system, install that first from [nodejs.org](nodejs.org). 
+
+To install pyright globally:
 `npm install -g pyright`
 
 On MacOS or Linux, sudo is required to install globally:
