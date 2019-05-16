@@ -61,6 +61,18 @@
       ],
       "pattern": "^(.*)$"
     },
+    "strictListInference": {
+      "$id": "#/properties/strictListInference",
+      "type": "boolean",
+      "title": "Infer strict types for list expressions",
+      "default": "false"
+    },
+    "strictDictionaryInference": {
+      "$id": "#/properties/strictDictionaryInference",
+      "type": "boolean",
+      "title": "Infer strict types for dictionary expressions",
+      "default": "false"
+    },
     "reportTypeshedErrors": {
       "$id": "#/properties/reportTypeshedErrors",
       "$ref": "#/definitions/diagnostic",

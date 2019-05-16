@@ -79,6 +79,12 @@ export class ConfigOptions {
     //---------------------------------------------------------------
     // Diagnostics Settings
 
+    // Use strict inference rules for list expressions?
+    strictListInference = false;
+
+    // Use strict inference rules for dictionary expressions?
+    strictDictionaryInference = false;
+
     // Report diagnostics in typeshed files?
     reportTypeshedErrors: DiagnosticLevel = 'none';
 
@@ -243,6 +249,14 @@ export class ConfigOptions {
                 });
             }
         }
+
+        // Use strict inference rules for list expressions?
+        this.strictListInference = this._convertBoolean(
+            configObj.strictListInference, 'strictListInference', false);
+
+        // Use strict inference rules for dictionary expressions?
+        this.strictDictionaryInference = this._convertBoolean(
+            configObj.strictDictionaryInference, 'strictDictionaryInference', false);
 
         // Read the "reportTypeshedErrors" entry.
         this.reportTypeshedErrors = this._convertDiagnosticLevel(
@@ -417,6 +431,17 @@ export class ConfigOptions {
             absolutePath = ensureTrailingDirectorySeparator(absolutePath);
         }
         return absolutePath;
+    }
+
+    private _convertBoolean(value: any, fieldName: string, defaultValue: boolean): boolean {
+        if (value === undefined) {
+            return defaultValue;
+        } else if (typeof value === 'boolean') {
+            return value ? true : false;
+        }
+
+        console.log(`Config "${ fieldName }" entry must be true or false.`);
+        return defaultValue;
     }
 
     private _convertDiagnosticLevel(value: any, fieldName: string,
