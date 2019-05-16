@@ -320,14 +320,20 @@ export class TypeUtils {
         }
 
         if (srcType instanceof UnionType) {
-            // For union sources, all of the types need to be assignable to the dest.
-            const incompatibleType = srcType.getTypes().find(
-                t => !this.canAssignType(destType, t, diag.createAddendum(), typeVarMap,
-                    allowSubclasses, recursionCount + 1));
+            let isIncompatible = false;
 
-            if (incompatibleType) {
-                diag.addMessage(`Type '${ incompatibleType.asString() }' cannot be assigned to ` +
-                    `type '${ destType.asString() }'.`);
+            // For union sources, all of the types need to be assignable to the dest.
+            srcType.getTypes().forEach(t => {
+                if (!this.canAssignType(destType, t, diag.createAddendum(), typeVarMap,
+                        allowSubclasses, recursionCount + 1)) {
+
+                    diag.addMessage(`Type '${ t.asString() }' cannot be assigned to ` +
+                        `type '${ destType.asString() }'`);
+                    isIncompatible = true;
+                }
+            });
+
+            if (isIncompatible) {
                 return false;
             }
 
@@ -388,7 +394,7 @@ export class TypeUtils {
                     const srcLiteral = srcType.getLiteralValue();
                     if (srcLiteral !== destLiteral) {
                         diag.addMessage(`'${ srcLiteral ? srcType.literalAsString() : srcType.asString() }' ` +
-                        ` cannot be assigned to '${ destType.literalAsString() }'.`);
+                        ` cannot be assigned to '${ destType.literalAsString() }'`);
 
                         return false;
                     }
