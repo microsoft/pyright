@@ -30,6 +30,12 @@ enum ExitStatus {
     FatalError = 2
 }
 
+interface DiagnosticResult {
+    errorCount: number;
+    warningCount: number;
+    diagnosticCount: number;
+}
+
 function processArgs() {
     const optionDefinitions: OptionDefinition[] = [
         { name: 'files', type: String, multiple: true, defaultOption: true },
@@ -101,9 +107,10 @@ function processArgs() {
             process.exit(ExitStatus.FatalError);
         }
 
-        let diagnosticCount = 0;
+        let errorCount = 0;
         if (results.diagnostics.length > 0) {
-            diagnosticCount = reportDiagnostics(results.diagnostics);
+            const report = reportDiagnostics(results.diagnostics);
+            errorCount += report.errorCount;
         }
 
         if (!watch) {
@@ -119,7 +126,7 @@ function processArgs() {
 
         if (!watch) {
             process.exit(
-                diagnosticCount > 0 ?
+                errorCount > 0 ?
                 ExitStatus.DiagnosticsReported :
                 ExitStatus.Success);
         }
@@ -155,7 +162,7 @@ function printVersion() {
     console.log(`${ toolName } ${ version.toString() }`);
 }
 
-function reportDiagnostics(fileDiagnostics: FileDiagnostics[]): number {
+function reportDiagnostics(fileDiagnostics: FileDiagnostics[]): DiagnosticResult {
     let errorCount = 0;
     let warningCount = 0;
 
@@ -191,7 +198,11 @@ function reportDiagnostics(fileDiagnostics: FileDiagnostics[]): number {
         `${ errorCount.toString() } ${ errorCount === 1 ? 'error' : 'errors' }, ` +
         `${ warningCount.toString() } ${ warningCount === 1 ? 'warning' : 'warnings' } `);
 
-    return errorCount + warningCount;
+    return {
+        errorCount,
+        warningCount,
+        diagnosticCount: errorCount + warningCount
+    };
 }
 
 processArgs();
