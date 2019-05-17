@@ -269,6 +269,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         node.parameters.forEach((param, index) => {
             let annotatedType: Type | undefined;
+            let defaultValueType: Type | undefined;
+
+            if (param.defaultValue) {
+                defaultValueType = this._getTypeOfExpression(param.defaultValue);
+                this.walk(param.defaultValue);
+            }
+
             if (param.typeAnnotation) {
                 annotatedType = this._getTypeOfAnnotation(param.typeAnnotation);
 
@@ -283,27 +290,23 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
 
-                if (functionType.setParameterType(index, annotatedType)) {
-                    this._setAnalysisChanged();
+                // If there was both a type annotation and a default value, verify
+                // that the default value matches the annotation.
+                if (param.defaultValue && defaultValueType) {
+                    const concreteAnnotatedType = TypeUtils.specializeType(annotatedType, undefined);
+                    const diagAddendum = new DiagnosticAddendum();
+
+                    if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum, undefined)) {
+                        this._addError(
+                            `Value of type '${ defaultValueType.asString() }' cannot` +
+                                ` be assiged to parameter of type '${ annotatedType.asString() }'` +
+                                diagAddendum.getString(),
+                            param.defaultValue);
+                    }
                 }
 
-                if (param.defaultValue) {
-                    // Verify that the default value matches the type annotation.
-                    let defaultValueType = this._getTypeOfExpression(param.defaultValue);
-                    if (annotatedType) {
-                        const concreteAnnotatedType = TypeUtils.specializeType(annotatedType, undefined);
-                        const diagAddendum = new DiagnosticAddendum();
-
-                        if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum, undefined)) {
-                            this._addError(
-                                `Value of type '${ defaultValueType.asString() }' cannot` +
-                                    ` be assiged to parameter of type '${ annotatedType.asString() }'` +
-                                    diagAddendum.getString(),
-                                param.defaultValue);
-                        }
-                    }
-
-                    this.walk(param.defaultValue);
+                if (functionType.setParameterType(index, annotatedType)) {
+                    this._setAnalysisChanged();
                 }
 
                 this.walk(param.typeAnnotation);

@@ -192,9 +192,12 @@ export class Program {
         return this._removeUnneededFiles();
     }
 
-    markAllFilesDirty() {
+    markAllFilesDirty(evenIfContentsAreSame: boolean) {
         this._sourceFileList.forEach(sourceFileInfo => {
-            sourceFileInfo.sourceFile.markDirty();
+            if (evenIfContentsAreSame ||
+                    sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
+                sourceFileInfo.sourceFile.markDirty();
+            }
         });
     }
 

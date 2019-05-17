@@ -389,13 +389,18 @@ export class AnalyzerService {
         return Object.keys(fileMap);
     }
 
-    private _updateTrackedFileList() {
+    // If markFilesDirtyUnconditionally is true, we need to reparse
+    // and reanalyze all files in the program. If false, we will
+    // reparse and reanalyze only those files whose on-disk contents
+    // have changed. Unconditional dirtying is needed in the case where
+    // configuration options have changed.
+    private _updateTrackedFileList(markFilesDirtyUnconditionally: boolean) {
         this._console.log(`Searching for source files`);
         let fileList = this._getFileNamesFromFileSpecs();
 
         let fileDiagnostics = this._program.setTrackedFiles(fileList);
         this._reportDiagnosticsForRemovedFiles(fileDiagnostics);
-        this._program.markAllFilesDirty();
+        this._program.markAllFilesDirty(markFilesDirtyUnconditionally);
         if (fileList.length === 0) {
             this._console.log(`No source files found.`);
         } else {
@@ -550,7 +555,7 @@ export class AnalyzerService {
 
     private _applyConfigOptions() {
         this._updateSourceFileWatchers();
-        this._updateTrackedFileList();
+        this._updateTrackedFileList(true);
         this._scheduleReanalysis(false);
     }
 
@@ -572,7 +577,7 @@ export class AnalyzerService {
         // Schedule a new timer.
         this._analyzeTimer = setTimeout(() => {
             if (this._requireTrackedFileUpdate) {
-                this._updateTrackedFileList();
+                this._updateTrackedFileList(false);
             }
 
             let moreToAnalyze = this._reanalyze();

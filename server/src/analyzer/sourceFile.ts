@@ -124,6 +124,10 @@ export class SourceFile {
     // change, this is incremented.
     private _fileContentsVersion = 0;
 
+    // Length and hash of the file the last time it was read from disk.
+    private _lastFileContentLength: number | undefined = undefined;
+    private _lastFileContentHash: number | undefined = undefined;
+
     // Client's version of the file. Null implies that contents
     // need to be read from disk.
     private _clientVersion: number | null = null;
@@ -231,6 +235,36 @@ export class SourceFile {
         return this._analysisJob.builtinsImport;
     }
 
+    // Indicates whether the contents of the file have changed since
+    // the last analysis was performed.
+    didContentsChangeOnDisk(): boolean {
+        // If this is an open file any content changes will be
+        // provided through the editor. We can assume contents
+        // didn't change without us knowing about them.
+        if (this._clientVersion !== null) {
+            return false;
+        }
+
+        // Read in the latest file contents and see if the hash matches
+        // that of the previous contents.
+        try {
+            // Read the file's contents.
+            const fileContents = fs.readFileSync(this._filePath, { encoding: 'utf8' });
+
+            if (fileContents.length !== this._lastFileContentLength) {
+                return true;
+            }
+
+            if (this._hashString(fileContents) !== this._lastFileContentHash) {
+                return true;
+            }
+        } catch (error) {
+            return true;
+        }
+
+        return false;
+    }
+
     markDirty(): void {
         this._fileContentsVersion++;
         this._analysisJob.isTypeAnalysisFinalized = false;
@@ -333,6 +367,10 @@ export class SourceFile {
                 timingStats.readFileTime.timeOperation(() => {
                     // Read the file's contents.
                     fileContents = fs.readFileSync(this._filePath, { encoding: 'utf8' });
+
+                    // Remember the length and hash for comparison purposes.
+                    this._lastFileContentLength = fileContents.length;
+                    this._lastFileContentHash = this._hashString(fileContents);
                 });
             } catch (error) {
                 diagSink.addError(`Source file could not be read`);
@@ -556,6 +594,16 @@ export class SourceFile {
             this._analysisJob.typeAnalysisLastPassDiagnostics;
         this._analysisJob.typeAnalysisLastPassDiagnostics = [];
         this._diagnosticVersion++;
+    }
+
+    // This is a simple, non-cryptographic hash function for text.
+    private _hashString(contents: string) {
+        let hash = 0;
+
+        for (let i = 0; i < contents.length; i++) {
+            hash = (hash << 5) - hash + contents.charCodeAt(i++) | 0;
+        }
+        return hash;
     }
 
     private _buildFileInfo(configOptions: ConfigOptions, importMap?: ImportMap, builtinsScope?: Scope) {
