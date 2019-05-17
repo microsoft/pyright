@@ -193,10 +193,17 @@ export class Program {
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean) {
+        let markDirtyMap: { [path: string]: boolean } = {};
+
         this._sourceFileList.forEach(sourceFileInfo => {
-            if (evenIfContentsAreSame ||
-                    sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
+            if (evenIfContentsAreSame) {
                 sourceFileInfo.sourceFile.markDirty();
+            } else if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
+                sourceFileInfo.sourceFile.markDirty();
+
+                // Mark any files that depend on this file as dirty
+                // also. This will retrigger analysis of these other files.
+                this._markFileDirtyRecursive(sourceFileInfo, markDirtyMap);
             }
         });
     }
