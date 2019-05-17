@@ -25,8 +25,8 @@ import { combinePaths, normalizePath } from './common/pathUtils';
 const toolName = 'pyright';
 
 enum ExitStatus {
-    Success = 0,
-    DiagnosticsReported = 1,
+    NoErrors = 0,
+    ErrorsReported = 1,
     FatalError = 2
 }
 
@@ -127,8 +127,8 @@ function processArgs() {
         if (!watch) {
             process.exit(
                 errorCount > 0 ?
-                ExitStatus.DiagnosticsReported :
-                ExitStatus.Success);
+                ExitStatus.ErrorsReported :
+                ExitStatus.NoErrors);
         }
     });
 
