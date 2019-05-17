@@ -2150,19 +2150,6 @@ export class ExpressionEvaluator {
                 }
                 leftType = TypeUtils.removeNoneFromUnion(leftType);
             }
-
-            if (TypeUtils.isOptionalType(rightType)) {
-                // Skip the optional error reporting for == and !=, since
-                // None is a valid operand for these operators.
-                if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
-                    this._addDiagnostic(
-                        this._fileInfo.configOptions.reportOptionalOperand,
-                        `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
-                        `supported for 'None' type`,
-                        node.rightExpression);
-                }
-                rightType = TypeUtils.removeNoneFromUnion(rightType);
-            }
         }
 
         if (arithmeticOperatorMap[node.operator]) {
