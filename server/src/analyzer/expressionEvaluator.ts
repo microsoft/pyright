@@ -2150,6 +2150,11 @@ export class ExpressionEvaluator {
                 }
                 leftType = TypeUtils.removeNoneFromUnion(leftType);
             }
+
+            // None is a valid operand for == and != even if the type stub says otherwise.
+            if (node.operator === OperatorType.Equals || node.operator === OperatorType.NotEquals) {
+                rightType = TypeUtils.removeNoneFromUnion(rightType);
+            }
         }
 
         if (arithmeticOperatorMap[node.operator]) {
