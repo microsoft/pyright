@@ -244,7 +244,7 @@ test('Optional1', () => {
     configOptions.reportOptionalContextManager = 'warning';
     configOptions.reportOptionalOperand = 'warning';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    validateResults(analysisResults, 0, 8);
+    validateResults(analysisResults, 0, 7);
 
     // Turn on errors.
     configOptions.reportOptionalSubscript = 'error';
@@ -254,7 +254,7 @@ test('Optional1', () => {
     configOptions.reportOptionalContextManager = 'error';
     configOptions.reportOptionalOperand = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
-    validateResults(analysisResults, 8);
+    validateResults(analysisResults, 7);
 });
 
 test('Private1', () => {
