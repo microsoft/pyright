@@ -55,7 +55,7 @@ export class AnalyzerService {
         this._console = console || new StandardConsole();
         this._program = new Program(this._console);
         this._configOptions = new ConfigOptions(process.cwd());
-        this._executionRootPath = '/';
+        this._executionRootPath = '';
     }
 
     setCompletionCallback(callback: AnalysisCompleteCallback | undefined): void {
@@ -186,11 +186,13 @@ export class AnalyzerService {
 
         if (commandLineOptions.fileSpecs.length > 0) {
             configOptions.include.push(...commandLineOptions.fileSpecs);
-        } else if (configFilePath === undefined) {
+        } else if (!configFilePath) {
             // If no config file was found and there are no explicit include
             // paths specified, assume the caller wants to analyze everything
             // under the execution root path.
-            configOptions.include.push(commandLineOptions.executionRoot);
+            if (commandLineOptions.executionRoot) {
+                configOptions.include.push(commandLineOptions.executionRoot);
+            }
         }
 
         this._configFilePath = configFilePath;
@@ -201,6 +203,12 @@ export class AnalyzerService {
             let configJsonObj = this._parseConfigFile(configFilePath);
             if (configJsonObj) {
                 configOptions.initializeFromJson(configJsonObj, this._console);
+
+                // If no include paths were provided, assume that all files within
+                // the project should be included.
+                if (configOptions.include.length === 0) {
+                    configOptions.include.push('.');
+                }
             }
             this._updateConfigFileWatcher();
         }

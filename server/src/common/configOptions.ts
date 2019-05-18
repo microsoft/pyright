@@ -7,9 +7,10 @@
 * Class that holds the configuration options for the analyzer.
 */
 
+import { isAbsolute } from 'path';
+
 import { ConsoleInterface } from './console';
-import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
-    normalizePath } from './pathUtils';
+import { combinePaths, ensureTrailingDirectorySeparator, normalizePath } from './pathUtils';
 import { LatestStablePythonVersion, PythonVersion, versionFromString } from './pythonVersion';
 
 export class ExecutionEnvironment {
@@ -209,8 +210,10 @@ export class ConfigOptions {
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
                         console.log(`Index ${ index } of "include" array should be a string.`);
+                    } else if (isAbsolute(fileSpec)) {
+                        console.log(`Ignoring path "${ fileSpec }" in "include" array because it is not relative.`);
                     } else {
-                        this.include.push(this._normalizeFileSpec(fileSpec));
+                        this.include.push(this._normalizeRelativeFileSpec(fileSpec));
                     }
                 });
             }
@@ -226,8 +229,10 @@ export class ConfigOptions {
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
                         console.log(`Index ${ index } of "exclude" array should be a string.`);
+                    } else if (isAbsolute(fileSpec)) {
+                        console.log(`Ignoring path "${ fileSpec }" in "exclude" array because it is not relative.`);
                     } else {
-                        this.exclude.push(this._normalizeFileSpec(fileSpec));
+                        this.exclude.push(this._normalizeRelativeFileSpec(fileSpec));
                     }
                 });
             }
@@ -243,8 +248,10 @@ export class ConfigOptions {
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
                         console.log(`Index ${ index } of "ignore" array should be a string.`);
+                    } else if (isAbsolute(fileSpec)) {
+                        console.log(`Ignoring path "${ fileSpec }" in "ignore" array because it is not relative.`);
                     } else {
-                        this.ignore.push(this._normalizeFileSpec(fileSpec));
+                        this.ignore.push(this._normalizeRelativeFileSpec(fileSpec));
                     }
                 });
             }
@@ -425,7 +432,7 @@ export class ConfigOptions {
         }
     }
 
-    private _normalizeFileSpec(fileSpec: string): string {
+    private _normalizeRelativeFileSpec(fileSpec: string): string {
         let absolutePath = normalizePath(combinePaths(this.projectRoot, fileSpec));
         if (!absolutePath.endsWith('.py') && !absolutePath.endsWith('.pyi')) {
             absolutePath = ensureTrailingDirectorySeparator(absolutePath);

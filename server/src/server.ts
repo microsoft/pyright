@@ -45,7 +45,7 @@ let _documents: TextDocuments = new TextDocuments();
 let _analyzerService: AnalyzerService = new AnalyzerService(_connection.console);
 
 // Root path of the workspace.
-let _rootPath = '/';
+let _rootPath = '';
 
 // Tracks whether we're currently displaying progress.
 let _isDisplayingProgress = false;
@@ -57,7 +57,7 @@ _documents.listen(_connection);
 // After the server has started the client sends an initialize request. The server receives
 // in the passed params the rootPath of the workspace plus the client capabilities.
 _connection.onInitialize((params): InitializeResult => {
-    _rootPath = params.rootPath || '/';
+    _rootPath = params.rootPath || '';
 
     // Don't allow the analysis engine to go too long without
     // reporting results. This will keep it responsive.
