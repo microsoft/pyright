@@ -680,7 +680,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._addDiagnostic(
                     this._fileInfo.configOptions.reportOptionalContextManager,
                     `Object of type 'None' cannot be used with 'with'`,
-                    node);
+                    item.expression);
                 exprType = TypeUtils.removeNoneFromUnion(exprType);
             }
 
