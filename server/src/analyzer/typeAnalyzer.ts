@@ -2844,7 +2844,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // If the node is within a class that derives from the metaclass
     // "EnumMeta", we need to treat assignments differently.
     private _getEnclosingEnumClassInfo(node: ParseNode): EnumClassInfo | undefined {
-        let enclosingClassNode = ParseTreeUtils.getEnclosingClass(node);
+        let enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         if (enclosingClassNode) {
             const enumClass = AnalyzerNodeInfo.getExpressionType(enclosingClassNode) as ClassType;
             assert(enumClass instanceof ClassType);
