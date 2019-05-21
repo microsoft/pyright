@@ -874,6 +874,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this.walk(node.trySuite);
 
         let allPathsRaise = true;
+        let allPathsRaiseOrReturn = true;
 
         let conditionalScopesToMerge: Scope[] = [];
 
@@ -890,6 +891,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (!exceptScope.getAlwaysRaises()) {
                 allPathsRaise = false;
             }
+
+            if (!exceptScope.getAlwaysReturnsOrRaises()) {
+                allPathsRaiseOrReturn = false;
+            }
         });
 
         const elseScope = this._enterTemporaryScope(() => {
@@ -902,6 +907,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (!elseScope.getAlwaysRaises()) {
             allPathsRaise = false;
+        }
+
+        if (!elseScope.getAlwaysReturnsOrRaises()) {
+            allPathsRaiseOrReturn = false;
         }
 
         if (conditionalScopesToMerge.length > 1) {
@@ -922,6 +931,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._currentScope.setAlwaysRaises();
         } else {
             this._currentScope.clearAlwaysRaises();
+
+            if (allPathsRaiseOrReturn) {
+                this._currentScope.setAlwaysReturns();
+            }
         }
 
         if (node.finallySuite) {

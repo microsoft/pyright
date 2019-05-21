@@ -14,4 +14,18 @@ def func1():
     raise
 
 
+def foo(x, y) -> bool:
+    try:
+        z = x / y
+    except Exception as e:
+        return False
+    except:
+        raise Exception()
+    else:
+        return True
+
+    # This should not generate an error
+    # because this code is unreachable.
+    return 'hello'
+
 
