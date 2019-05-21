@@ -183,11 +183,42 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
     return diagSettings;
 }
 
+export function getDefaultDiagnosticSettings(): DiagnosticSettings {
+    const diagSettings: DiagnosticSettings = {
+        strictListInference: false,
+        strictDictionaryInference: false,
+        reportTypeshedErrors: 'none',
+        reportMissingImports: 'error',
+        reportMissingTypeStubs: 'none',
+        reportImportCycles: 'none',
+        reportOptionalSubscript: 'none',
+        reportOptionalMemberAccess: 'none',
+        reportOptionalCall: 'none',
+        reportOptionalIterable: 'none',
+        reportOptionalContextManager: 'none',
+        reportOptionalOperand: 'none',
+        reportUntypedFunctionDecorator: 'none',
+        reportUntypedClassDecorator: 'none',
+        reportUntypedBaseClass: 'none',
+        reportUntypedNamedTuple: 'none',
+        reportPrivateUsage: 'none',
+        reportConstantRedefinition: 'none',
+        reportIncompatibleMethodOverride: 'none',
+        reportInvalidStringEscapeSequence: 'warning',
+        reportUnknownParameterType: 'none',
+        reportUnknownVariableType: 'none',
+        reportUnknownMemberType: 'none'
+    };
+
+    return diagSettings;
+}
+
 // Internal configuration options. These are derived from a combination
 // of the command line and from a JSON-based config file.
 export class ConfigOptions {
     constructor(projectRoot: string) {
         this.projectRoot = projectRoot;
+        this.diagnosticSettings = getDefaultDiagnosticSettings();
     }
 
     // Absolute directory of project. All relative paths in the config
@@ -331,98 +362,123 @@ export class ConfigOptions {
             }
         }
 
+        const defaultSettings = getDefaultDiagnosticSettings();
+
         this.diagnosticSettings = {
             // Use strict inference rules for list expressions?
             strictListInference: this._convertBoolean(
-                configObj.strictListInference, 'strictListInference', false),
+                configObj.strictListInference, 'strictListInference',
+                defaultSettings.strictListInference),
 
             // Use strict inference rules for dictionary expressions?
             strictDictionaryInference: this._convertBoolean(
-                configObj.strictDictionaryInference, 'strictDictionaryInference', false),
+                configObj.strictDictionaryInference, 'strictDictionaryInference',
+                defaultSettings.strictDictionaryInference),
 
             // Read the "reportTypeshedErrors" entry.
             reportTypeshedErrors: this._convertDiagnosticLevel(
-                configObj.reportTypeshedErrors, 'reportTypeshedErrors', 'none'),
+                configObj.reportTypeshedErrors, 'reportTypeshedErrors',
+                defaultSettings.reportTypeshedErrors),
 
             // Read the "reportMissingImports" entry.
             reportMissingImports: this._convertDiagnosticLevel(
-                configObj.reportMissingImports, 'reportMissingImports', 'error'),
+                configObj.reportMissingImports, 'reportMissingImports',
+                defaultSettings.reportMissingImports),
 
             // Read the "reportMissingTypeStubs" entry.
             reportMissingTypeStubs: this._convertDiagnosticLevel(
-                configObj.reportMissingTypeStubs, 'reportMissingTypeStubs', 'none'),
+                configObj.reportMissingTypeStubs, 'reportMissingTypeStubs',
+                defaultSettings.reportMissingTypeStubs),
 
             // Read the "reportImportCycles" entry.
             reportImportCycles: this._convertDiagnosticLevel(
-                configObj.reportImportCycles, 'reportImportCycles', 'none'),
+                configObj.reportImportCycles, 'reportImportCycles',
+                defaultSettings.reportImportCycles),
 
             // Read the "reportOptionalSubscript" entry.
             reportOptionalSubscript: this._convertDiagnosticLevel(
-                configObj.reportOptionalSubscript, 'reportOptionalSubscript', 'none'),
+                configObj.reportOptionalSubscript, 'reportOptionalSubscript',
+                defaultSettings.reportOptionalSubscript),
 
             // Read the "reportOptionalMemberAccess" entry.
             reportOptionalMemberAccess: this._convertDiagnosticLevel(
-                configObj.reportOptionalMemberAccess, 'reportOptionalMemberAccess', 'none'),
+                configObj.reportOptionalMemberAccess, 'reportOptionalMemberAccess',
+                defaultSettings.reportOptionalMemberAccess),
 
             // Read the "reportOptionalCall" entry.
             reportOptionalCall: this._convertDiagnosticLevel(
-                configObj.reportOptionalCall, 'reportOptionalCall', 'none'),
+                configObj.reportOptionalCall, 'reportOptionalCall',
+                defaultSettings.reportOptionalCall),
 
             // Read the "reportOptionalIterable" entry.
             reportOptionalIterable: this._convertDiagnosticLevel(
-                configObj.reportOptionalIterable, 'reportOptionalIterable', 'none'),
+                configObj.reportOptionalIterable, 'reportOptionalIterable',
+                defaultSettings.reportOptionalIterable),
 
             // Read the "reportOptionalContextManager" entry.
             reportOptionalContextManager: this._convertDiagnosticLevel(
-                configObj.reportOptionalContextManager, 'reportOptionalContextManager', 'none'),
+                configObj.reportOptionalContextManager, 'reportOptionalContextManager',
+                defaultSettings.reportOptionalContextManager),
 
             // Read the "reportOptionalOperand" entry.
             reportOptionalOperand: this._convertDiagnosticLevel(
-                configObj.reportOptionalOperand, 'reportOptionalOperand', 'none'),
+                configObj.reportOptionalOperand, 'reportOptionalOperand',
+                defaultSettings.reportOptionalOperand),
 
             // Read the "reportUntypedFunctionDecorator" entry.
             reportUntypedFunctionDecorator: this._convertDiagnosticLevel(
-                configObj.reportUntypedFunctionDecorator, 'reportUntypedFunctionDecorator', 'none'),
+                configObj.reportUntypedFunctionDecorator, 'reportUntypedFunctionDecorator',
+                defaultSettings.reportUntypedFunctionDecorator),
 
             // Read the "reportUntypedClassDecorator" entry.
             reportUntypedClassDecorator: this._convertDiagnosticLevel(
-                configObj.reportUntypedClassDecorator, 'reportUntypedClassDecorator', 'none'),
+                configObj.reportUntypedClassDecorator, 'reportUntypedClassDecorator',
+                defaultSettings.reportUntypedClassDecorator),
 
             // Read the "reportUntypedBaseClass" entry.
             reportUntypedBaseClass: this._convertDiagnosticLevel(
-                configObj.reportUntypedBaseClass, 'reportUntypedBaseClass', 'none'),
+                configObj.reportUntypedBaseClass, 'reportUntypedBaseClass',
+                defaultSettings.reportUntypedBaseClass),
 
             // Read the "reportUntypedNamedTuple" entry.
             reportUntypedNamedTuple: this._convertDiagnosticLevel(
-                configObj.reportUntypedNamedTuple, 'reportUntypedNamedTuple', 'none'),
+                configObj.reportUntypedNamedTuple, 'reportUntypedNamedTuple',
+                defaultSettings.reportUntypedNamedTuple),
 
             // Read the "reportPrivateUsage" entry.
             reportPrivateUsage: this._convertDiagnosticLevel(
-                configObj.reportPrivateUsage, 'reportPrivateUsage', 'none'),
+                configObj.reportPrivateUsage, 'reportPrivateUsage',
+                defaultSettings.reportPrivateUsage),
 
             // Read the "reportConstantRedefinition" entry.
             reportConstantRedefinition: this._convertDiagnosticLevel(
-                configObj.reportConstantRedefinition, 'reportConstantRedefinition', 'none'),
+                configObj.reportConstantRedefinition, 'reportConstantRedefinition',
+                defaultSettings.reportConstantRedefinition),
 
             // Read the "reportIncompatibleMethodOverride" entry.
             reportIncompatibleMethodOverride: this._convertDiagnosticLevel(
-                configObj.reportIncompatibleMethodOverride, 'reportIncompatibleMethodOverride', 'none'),
+                configObj.reportIncompatibleMethodOverride, 'reportIncompatibleMethodOverride',
+                defaultSettings.reportIncompatibleMethodOverride),
 
             // Read the "reportInvalidStringEscapeSequence" entry.
             reportInvalidStringEscapeSequence: this._convertDiagnosticLevel(
-                configObj.reportInvalidStringEscapeSequence, 'reportInvalidStringEscapeSequence', 'warning'),
+                configObj.reportInvalidStringEscapeSequence, 'reportInvalidStringEscapeSequence',
+                defaultSettings.reportInvalidStringEscapeSequence),
 
             // Read the "reportUnknownParameterType" entry.
             reportUnknownParameterType: this._convertDiagnosticLevel(
-                configObj.reportUnknownParameterType, 'reportUnknownParameterType', 'none'),
+                configObj.reportUnknownParameterType, 'reportUnknownParameterType',
+                defaultSettings.reportUnknownParameterType),
 
             // Read the "reportUnknownVariableType" entry.
             reportUnknownVariableType: this._convertDiagnosticLevel(
-                configObj.reportUnknownVariableType, 'reportUnknownVariableType', 'none'),
+                configObj.reportUnknownVariableType, 'reportUnknownVariableType',
+                defaultSettings.reportUnknownVariableType),
 
             // Read the "reportUnknownMemberType" entry.
             reportUnknownMemberType: this._convertDiagnosticLevel(
-                configObj.reportUnknownMemberType, 'reportUnknownMemberType', 'none')
+                configObj.reportUnknownMemberType, 'reportUnknownMemberType',
+                defaultSettings.reportUnknownMemberType)
         };
 
         // Read the "venvPath".

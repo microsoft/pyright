@@ -11,11 +11,11 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import { CompletionList } from 'vscode-languageserver';
 
-import { cloneDiagnosticSettings, ConfigOptions, DiagnosticSettings,
-    ExecutionEnvironment,
+import { ConfigOptions, DiagnosticSettings, ExecutionEnvironment, getDefaultDiagnosticSettings,
     getStrictDiagnosticSettings } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
+import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
+    DocumentTextRange } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { getFileName } from '../common/pathUtils';
 import { TextRange } from '../common/textRange';
@@ -112,7 +112,7 @@ export class SourceFile {
         typeAnalysisLastPassDiagnostics: [],
         typeAnalysisFinalDiagnostics: [],
 
-        diagnosticSettings: getStrictDiagnosticSettings(),
+        diagnosticSettings: getDefaultDiagnosticSettings(),
 
         circularDependencies: [],
 
