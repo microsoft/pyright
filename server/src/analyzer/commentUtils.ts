@@ -8,18 +8,16 @@
 * or other directives from them.
 */
 
+import { cloneDiagnosticSettings, DiagnosticLevel, DiagnosticSettings,
+    getBooleanDiagnosticSettings, getDiagLevelSettings, getStrictDiagnosticSettings } from '../common/configOptions';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Token } from '../parser/tokenizerTypes';
 
-export interface FileLevelDirectives {
-    useStrictMode: boolean;
-}
-
 export class CommentUtils {
-    static getFileLevelDirectives(tokens: TextRangeCollection<Token>): FileLevelDirectives {
-        let directives: FileLevelDirectives = {
-            useStrictMode: false
-        };
+    static getFileLevelDirectives(tokens: TextRangeCollection<Token>,
+            defaultSettings: DiagnosticSettings): DiagnosticSettings {
+
+        let settings = cloneDiagnosticSettings(defaultSettings);
 
         for (let i = 0; i < tokens.count; i++) {
             const token = tokens.getItemAt(i);
@@ -27,19 +25,79 @@ export class CommentUtils {
                 for (const comment of token.comments) {
                     const value = comment.value.trim();
 
-                    // Is this a pyright-specific comment?
-                    const pyrightPrefix = 'pyright:';
-                    if (value.startsWith(pyrightPrefix)) {
-                        const operand = value.substr(pyrightPrefix.length).trim();
-
-                        if (operand === 'strict') {
-                            directives.useStrictMode = true;
-                        }
-                    }
+                    settings = this._parsePyrightComment(value, settings);
                 }
             }
         }
 
-        return directives;
+        return settings;
+    }
+
+    private static _parsePyrightComment(commentValue: string, settings: DiagnosticSettings) {
+        // Is this a pyright-specific comment?
+        const pyrightPrefix = 'pyright:';
+        if (commentValue.startsWith(pyrightPrefix)) {
+            const operands = commentValue.substr(pyrightPrefix.length).trim();
+            const operandList = operands.split(',').map(s => s.trim());
+
+            // If it contains a "strict" operand, replace the existing
+            // diagnostic settings with their strict counterparts.
+            if (operandList.some(s => s === 'strict')) {
+                settings = getStrictDiagnosticSettings();
+            }
+
+            for (let operand of operandList) {
+                settings = this._parsePyrightOperand(operand, settings);
+            }
+        }
+
+        return settings;
+    }
+
+    private static _parsePyrightOperand(operand: string, settings: DiagnosticSettings) {
+        const operandSplit = operand.split('=').map(s => s.trim());
+        if (operandSplit.length !== 2) {
+            return settings;
+        }
+
+        const settingName = operandSplit[0];
+        const boolSettings = getBooleanDiagnosticSettings();
+        const diagLevelSettings = getDiagLevelSettings();
+
+        if (diagLevelSettings.find(s => s === settingName)) {
+            const diagLevelValue = this._parseDiagLevel(operandSplit[1]);
+            if (diagLevelValue !== undefined) {
+                (settings as any)[settingName] = diagLevelValue;
+            }
+        } else if (boolSettings.find(s => s === settingName)) {
+            const boolValue = this._parseBoolSetting(operandSplit[1]);
+            if (boolValue !== undefined) {
+                (settings as any)[settingName] = boolValue;
+            }
+        }
+
+        return settings;
+    }
+
+    private static _parseDiagLevel(value: string): DiagnosticLevel | undefined {
+        if (value === 'false' || value === 'none') {
+            return 'none';
+        } else if (value === 'warning') {
+            return 'warning';
+        } else if (value === 'true' || value === 'error') {
+            return 'error';
+        }
+
+        return undefined;
+    }
+
+    private static _parseBoolSetting(value: string): boolean | undefined {
+        if (value === 'false') {
+            return false;
+        } else if (value === 'true') {
+            return true;
+        }
+
+        return undefined;
     }
 }

@@ -182,7 +182,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     argType instanceof UnionType && argType.getTypes().some(t => t instanceof UnknownType)) {
 
                 this._addDiagnostic(
-                    this._fileInfo.configOptions.reportUntypedBaseClass,
+                    this._fileInfo.diagnosticSettings.reportUntypedBaseClass,
                     `Base class type is unknown, obscuring type of derived class`,
                     arg);
             }
@@ -218,7 +218,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     this._addDiagnostic(
-                        this._fileInfo.configOptions.reportUntypedClassDecorator,
+                        this._fileInfo.diagnosticSettings.reportUntypedClassDecorator,
                         `Untyped class declarator obscures type of class`,
                         node.decorators[i].leftExpression);
 
@@ -346,7 +346,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             } else {
                 // There is no annotation, and we can't infer the type.
                 if (param.name) {
-                    this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameterType,
+                    this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                         `Type of '${ param.name.nameToken.value }' is unknown`,
                         param.name);
                 }
@@ -375,10 +375,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Include Any in this check. If "Any" really is desired, it should
             // be made explicit through a type annotation.
             if (inferredReturnType.isAny()) {
-                this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameterType,
+                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                     `Inferred return type is unknown`, node.name);
             } else if (TypeUtils.containsUnknown(inferredReturnType)) {
-                this._addDiagnostic(this._fileInfo.configOptions.reportUnknownParameterType,
+                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                     `Return type '${ inferredReturnType.asString() }' is partially unknown`,
                     node.name);
             }
@@ -475,7 +475,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     this._addDiagnostic(
-                        this._fileInfo.configOptions.reportUntypedFunctionDecorator,
+                        this._fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
                         `Untyped function declarator obscures type of function`,
                         node.decorators[i].leftExpression);
 
@@ -678,7 +678,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (TypeUtils.isOptionalType(exprType)) {
                 this._addDiagnostic(
-                    this._fileInfo.configOptions.reportOptionalContextManager,
+                    this._fileInfo.diagnosticSettings.reportOptionalContextManager,
                     `Object of type 'None' cannot be used with 'with'`,
                     item.expression);
                 exprType = TypeUtils.removeNoneFromUnion(exprType);
@@ -1524,7 +1524,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             type: Type, srcExpr: ExpressionNode) {
 
         // Don't bother if the feature is disabled.
-        if (diagLevel === 'none' && !this._fileInfo.useStrictMode) {
+        if (diagLevel === 'none') {
             return;
         }
 
@@ -1645,8 +1645,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _conditionallyReportPrivateUsage(node: NameNode) {
-        if (this._fileInfo.configOptions.reportPrivateUsage === 'none' &&
-                !this._fileInfo.useStrictMode) {
+        if (this._fileInfo.diagnosticSettings.reportPrivateUsage === 'none') {
 
             return;
         }
@@ -1686,7 +1685,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const scopeName = classOrModuleNode instanceof ClassNode ?
                 'class' : 'module';
 
-            this._addDiagnostic(this._fileInfo.configOptions.reportPrivateUsage,
+            this._addDiagnostic(this._fileInfo.diagnosticSettings.reportPrivateUsage,
                 `'${ nameValue }' is private and used outside of its owning ${ scopeName }`,
                 node);
         }
@@ -1797,8 +1796,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // typeshed stub files trigger this diagnostic.
         if (!this._fileInfo.isStubFile) {
             // Skip this check (which is somewhat expensive) if it is disabled.
-            if (this._fileInfo.configOptions.reportIncompatibleMethodOverride !== 'none' ||
-                    this._fileInfo.useStrictMode) {
+            if (this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride !== 'none') {
 
                 this._validateOveriddenMathods(classType);
             }
@@ -1818,7 +1816,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         if (!TypeUtils.canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol, diagAddendum)) {
                             const declarations = symbol.getDeclarations();
                             const errorNode = declarations[0].node;
-                            this._addDiagnostic(this._fileInfo.configOptions.reportIncompatibleMethodOverride,
+                            this._addDiagnostic(this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
                                 `Method '${ name }' overrides class '${ baseClassAndSymbol.class.getClassName() }' ` +
                                     `in an incompatible manner` + diagAddendum.getString(), errorNode);
                         }
@@ -2292,7 +2290,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     if (srcExprNode) {
                         this._reportPossibleUnknownAssignment(
-                            this._fileInfo.configOptions.reportUnknownMemberType,
+                            this._fileInfo.diagnosticSettings.reportUnknownMemberType,
                             node.memberName, srcType, srcExprNode);
                     }
 
@@ -2304,7 +2302,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const primaryDecl = primaryDecls ? primaryDecls[0] : undefined;
                     if (primaryDecl && primaryDecl.isConstant && srcExprNode) {
                         if (node.memberName !== primaryDecl.node) {
-                            this._addDiagnostic(this._fileInfo.configOptions.reportConstantRedefinition,
+                            this._addDiagnostic(this._fileInfo.diagnosticSettings.reportConstantRedefinition,
                                 `'${ node.memberName.nameToken.value }' is constant and cannot be redefined`,
                                 node.memberName);
                         }
@@ -2356,7 +2354,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                 if (srcExprNode) {
                     this._reportPossibleUnknownAssignment(
-                        this._fileInfo.configOptions.reportUnknownMemberType,
+                        this._fileInfo.diagnosticSettings.reportUnknownMemberType,
                         node.memberName, srcType, srcExprNode);
                 }
 
@@ -2537,7 +2535,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             };
 
             this._reportPossibleUnknownAssignment(
-                this._fileInfo.configOptions.reportUnknownVariableType,
+                this._fileInfo.diagnosticSettings.reportUnknownVariableType,
                 target, srcType, srcExpr);
 
             this._assignTypeToNameNode(target, srcType, declaration, srcExpr);
@@ -2780,7 +2778,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (primaryDecl && primaryDecl.isConstant && srcExpressionNode) {
             if (nameNode !== primaryDecl.node) {
-                this._addDiagnostic(this._fileInfo.configOptions.reportConstantRedefinition,
+                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportConstantRedefinition,
                     `'${ nameValue }' is constant and cannot be redefined`,
                     nameNode);
             }
@@ -3047,7 +3045,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
-        if (diagLevel === 'error' || this._fileInfo.useStrictMode) {
+        if (diagLevel === 'error') {
             this._addError(message, textRange);
         } else if (diagLevel === 'warning') {
             this._addWarning(message, textRange);

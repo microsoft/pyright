@@ -7,7 +7,7 @@
 * Input type common to multiple analyzer passes.
 */
 
-import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ConfigOptions, DiagnosticSettings, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextRange } from '../common/textRange';
@@ -24,8 +24,9 @@ export interface AnalyzerFileInfo {
     typingModulePath?: string;
     diagnosticSink: TextRangeDiagnosticSink;
     executionEnvironment: ExecutionEnvironment;
-    configOptions: ConfigOptions;
-    useStrictMode: boolean;
+    // configOptions: ConfigOptions;
+    diagnosticSettings: DiagnosticSettings;
+    // useStrictMode: boolean;
     lines: TextRangeCollection<TextRange>;
     filePath: string;
     isStubFile: boolean;

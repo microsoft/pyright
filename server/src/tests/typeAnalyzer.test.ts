@@ -237,22 +237,22 @@ test('Optional1', () => {
     validateResults(analysisResults, 0);
 
     // Turn on warnings.
-    configOptions.reportOptionalSubscript = 'warning';
-    configOptions.reportOptionalMemberAccess = 'warning';
-    configOptions.reportOptionalCall = 'warning';
-    configOptions.reportOptionalIterable = 'warning';
-    configOptions.reportOptionalContextManager = 'warning';
-    configOptions.reportOptionalOperand = 'warning';
+    configOptions.diagnosticSettings.reportOptionalSubscript = 'warning';
+    configOptions.diagnosticSettings.reportOptionalMemberAccess = 'warning';
+    configOptions.diagnosticSettings.reportOptionalCall = 'warning';
+    configOptions.diagnosticSettings.reportOptionalIterable = 'warning';
+    configOptions.diagnosticSettings.reportOptionalContextManager = 'warning';
+    configOptions.diagnosticSettings.reportOptionalOperand = 'warning';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
     validateResults(analysisResults, 0, 7);
 
     // Turn on errors.
-    configOptions.reportOptionalSubscript = 'error';
-    configOptions.reportOptionalMemberAccess = 'error';
-    configOptions.reportOptionalCall = 'error';
-    configOptions.reportOptionalIterable = 'error';
-    configOptions.reportOptionalContextManager = 'error';
-    configOptions.reportOptionalOperand = 'error';
+    configOptions.diagnosticSettings.reportOptionalSubscript = 'error';
+    configOptions.diagnosticSettings.reportOptionalMemberAccess = 'error';
+    configOptions.diagnosticSettings.reportOptionalCall = 'error';
+    configOptions.diagnosticSettings.reportOptionalIterable = 'error';
+    configOptions.diagnosticSettings.reportOptionalContextManager = 'error';
+    configOptions.diagnosticSettings.reportOptionalOperand = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
     validateResults(analysisResults, 7);
 });
@@ -265,7 +265,7 @@ test('Private1', () => {
     validateResults(analysisResults, 0);
 
     // Turn on errors.
-    configOptions.reportPrivateUsage = 'error';
+    configOptions.diagnosticSettings.reportPrivateUsage = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['private1.py'], configOptions);
     validateResults(analysisResults, 3);
 });
@@ -278,7 +278,7 @@ test('Constant1', () => {
     validateResults(analysisResults, 0);
 
     // Turn on errors.
-    configOptions.reportConstantRedefinition = 'error';
+    configOptions.diagnosticSettings.reportConstantRedefinition = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['constant1.py'], configOptions);
     validateResults(analysisResults, 5);
 });

@@ -127,11 +127,11 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         assert(importResult !== undefined);
         if (importResult) {
             if (!importResult.importFound) {
-                this._addDiagnostic(this._fileInfo.configOptions.reportMissingImports,
+                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportMissingImports,
                     `Import '${ importResult.importName }' could not be resolved`, node);
             } else if (importResult.importType === ImportType.ThirdParty) {
                 if (!importResult.isStubFile) {
-                    this._addDiagnostic(this._fileInfo.configOptions.reportMissingTypeStubs,
+                    this._addDiagnostic(this._fileInfo.diagnosticSettings.reportMissingTypeStubs,
                         `Stub file not found for '${ importResult.importName }'`, node);
                 }
             }
@@ -370,7 +370,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 if (stringToken.invalidEscapeOffsets) {
                     stringToken.invalidEscapeOffsets.forEach(offset => {
                         const textRange = new TextRange(stringToken.start + offset, 1);
-                        this._addDiagnostic(this._fileInfo.configOptions.reportInvalidStringEscapeSequence,
+                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportInvalidStringEscapeSequence,
                             'Unsupported escape sequence in string literal', textRange);
                     });
                 }
@@ -495,7 +495,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
-        if (diagLevel === 'error' || this._fileInfo.useStrictMode) {
+        if (diagLevel === 'error') {
             this._addError(message, textRange);
         } else if (diagLevel === 'warning') {
             this._addWarning(message, textRange);

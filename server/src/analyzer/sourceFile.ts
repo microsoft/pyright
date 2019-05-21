@@ -11,7 +11,9 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import { CompletionList } from 'vscode-languageserver';
 
-import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { cloneDiagnosticSettings, ConfigOptions, DiagnosticSettings,
+    ExecutionEnvironment,
+    getStrictDiagnosticSettings } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
@@ -26,7 +28,7 @@ import { TestWalker } from '../tests/testWalker';
 import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
-import { CommentUtils, FileLevelDirectives } from './commentUtils';
+import { CommentUtils } from './commentUtils';
 import { CompletionProvider } from './completionProvider';
 import { DefinitionProvider } from './definitionProvider';
 import { HoverProvider } from './hoverProvider';
@@ -55,12 +57,13 @@ export interface AnalysisJob {
     nextPhaseToRun: AnalysisPhase;
     parseTreeNeedsCleaning: boolean;
     parseResults?: ParseResults;
-    fileLevelDirectives?: FileLevelDirectives;
 
     parseDiagnostics: Diagnostic[];
     semanticAnalysisDiagnostics: Diagnostic[];
     typeAnalysisLastPassDiagnostics: Diagnostic[];
     typeAnalysisFinalDiagnostics: Diagnostic[];
+
+    diagnosticSettings: DiagnosticSettings;
 
     circularDependencies: CircularDependency[];
     hitMaxImportDepth?: number;
@@ -108,6 +111,8 @@ export class SourceFile {
         semanticAnalysisDiagnostics: [],
         typeAnalysisLastPassDiagnostics: [],
         typeAnalysisFinalDiagnostics: [],
+
+        diagnosticSettings: getStrictDiagnosticSettings(),
 
         circularDependencies: [],
 
@@ -189,8 +194,8 @@ export class SourceFile {
             this._analysisJob.semanticAnalysisDiagnostics,
             this._analysisJob.typeAnalysisFinalDiagnostics);
 
-        if (options.reportImportCycles !== 'none' && this._analysisJob.circularDependencies.length > 0) {
-            const category = options.reportImportCycles === 'warning' ?
+        if (options.diagnosticSettings.reportImportCycles !== 'none' && this._analysisJob.circularDependencies.length > 0) {
+            const category = options.diagnosticSettings.reportImportCycles === 'warning' ?
                 DiagnosticCategory.Warning : DiagnosticCategory.Error;
 
             this._analysisJob.circularDependencies.forEach(cirDep => {
@@ -205,9 +210,9 @@ export class SourceFile {
         }
 
         if (this._isTypeshedStubFile) {
-            if (options.reportTypeshedErrors === 'none') {
+            if (options.diagnosticSettings.reportTypeshedErrors === 'none') {
                 return undefined;
-            } else if (options.reportTypeshedErrors === 'warning') {
+            } else if (options.diagnosticSettings.reportTypeshedErrors === 'warning') {
                 // Convert all the errors to warnings.
                 diagList = diagList.map(diag => {
                     if (diag.category === DiagnosticCategory.Error) {
@@ -416,8 +421,8 @@ export class SourceFile {
                 this._resolveImports(walker.getImportedModules(), configOptions, execEnvironment);
             this._analysisJob.parseDiagnostics = diagSink.diagnostics;
 
-            this._analysisJob.fileLevelDirectives = CommentUtils.getFileLevelDirectives(
-                this._analysisJob.parseResults.tokens);
+            this._analysisJob.diagnosticSettings = CommentUtils.getFileLevelDirectives(
+                this._analysisJob.parseResults.tokens, configOptions.diagnosticSettings);
         } catch (e) {
             let message: string;
             if (e instanceof Error) {
@@ -616,9 +621,7 @@ export class SourceFile {
             typingModulePath: this._analysisJob.typingModulePath,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
-            configOptions,
-            useStrictMode: !!this._analysisJob.fileLevelDirectives &&
-                this._analysisJob.fileLevelDirectives.useStrictMode,
+            diagnosticSettings: this._analysisJob.diagnosticSettings,
             lines: this._analysisJob.parseResults!.lines,
             filePath: this._filePath,
             isStubFile: this._isStubFile,

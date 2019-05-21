@@ -264,7 +264,7 @@ export class ExpressionEvaluator {
 
         if (type instanceof UnionType && type.getTypes().some(t => t instanceof NoneType)) {
             this._addDiagnostic(
-                this._fileInfo.configOptions.reportOptionalIterable,
+                this._fileInfo.diagnosticSettings.reportOptionalIterable,
                 `Object of type 'None' cannot be used as iterable value`,
                 errorNode);
             type = TypeUtils.removeNoneFromUnion(type);
@@ -733,7 +733,7 @@ export class ExpressionEvaluator {
             baseType.getTypes().forEach(typeEntry => {
                 if (typeEntry instanceof NoneType) {
                     this._addDiagnostic(
-                        this._fileInfo.configOptions.reportOptionalMemberAccess,
+                        this._fileInfo.diagnosticSettings.reportOptionalMemberAccess,
                         `'${ memberName }' is not a known member of 'None'`, node.memberName);
                 } else {
                     let typeResult = this._getTypeFromMemberAccessExpressionWithBaseType(node,
@@ -986,7 +986,7 @@ export class ExpressionEvaluator {
                 return this._getTypeFromIndexedObject(node, subtype, usage);
             } else if (subtype instanceof NoneType) {
                 this._addDiagnostic(
-                    this._fileInfo.configOptions.reportOptionalSubscript,
+                    this._fileInfo.diagnosticSettings.reportOptionalSubscript,
                     `Optional of type 'None' cannot be subscripted`,
                     node.baseExpression);
 
@@ -1221,7 +1221,7 @@ export class ExpressionEvaluator {
             // as a function rather than a class, so we need to check for it here.
             if (callType.getBuiltInName() === 'namedtuple') {
                 this._addDiagnostic(
-                    this._fileInfo.configOptions.reportUntypedNamedTuple,
+                    this._fileInfo.diagnosticSettings.reportUntypedNamedTuple,
                     `'namedtuple' provides no types for tuple entries. Use 'NamedTuple' instead.`,
                     errorNode);
                 type = this._createNamedTupleType(errorNode, argList, false, cachedCallType);
@@ -1273,7 +1273,7 @@ export class ExpressionEvaluator {
             callType.getTypes().forEach(typeEntry => {
                 if (typeEntry instanceof NoneType) {
                     this._addDiagnostic(
-                        this._fileInfo.configOptions.reportOptionalCall,
+                        this._fileInfo.diagnosticSettings.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
                         errorNode);
                 } else {
@@ -1441,7 +1441,7 @@ export class ExpressionEvaluator {
             for (let type of callType.getTypes()) {
                 if (type instanceof NoneType) {
                     this._addDiagnostic(
-                        this._fileInfo.configOptions.reportOptionalCall,
+                        this._fileInfo.diagnosticSettings.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
                         errorNode);
                 } else {
@@ -2055,7 +2055,7 @@ export class ExpressionEvaluator {
         if (node.operator !== OperatorType.Not) {
             if (TypeUtils.isOptionalType(exprType)) {
                 this._addDiagnostic(
-                    this._fileInfo.configOptions.reportOptionalOperand,
+                    this._fileInfo.diagnosticSettings.reportOptionalOperand,
                     `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                     `supported for 'None' type`,
                     node.expression);
@@ -2150,7 +2150,7 @@ export class ExpressionEvaluator {
                 // None is a valid operand for these operators.
                 if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
                     this._addDiagnostic(
-                        this._fileInfo.configOptions.reportOptionalOperand,
+                        this._fileInfo.diagnosticSettings.reportOptionalOperand,
                         `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                         `supported for 'None' type`,
                         node.leftExpression);
@@ -2408,7 +2408,7 @@ export class ExpressionEvaluator {
         // are the same type, we'll assume that all values in this dictionary should
         // be the same.
         if (valueTypes.length > 0) {
-            if (this._fileInfo.configOptions.strictDictionaryInference || this._fileInfo.useStrictMode) {
+            if (this._fileInfo.diagnosticSettings.strictDictionaryInference) {
                 valueType = TypeUtils.combineTypes(valueTypes);
             } else {
                 valueType = TypeUtils.areTypesSame(valueTypes) ? valueTypes[0] : UnknownType.create();
@@ -2433,7 +2433,7 @@ export class ExpressionEvaluator {
                 entry => TypeUtils.stripLiteralValue(this.getType(entry)));
 
             if (entryTypes.length > 0) {
-                if (this._fileInfo.configOptions.strictListInference || this._fileInfo.useStrictMode) {
+                if (this._fileInfo.diagnosticSettings.strictListInference) {
                     listEntryType = TypeUtils.combineTypes(entryTypes);
                 } else {
                     // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
@@ -3159,7 +3159,7 @@ export class ExpressionEvaluator {
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
-        if (diagLevel === 'error' || this._fileInfo.useStrictMode) {
+        if (diagLevel === 'error') {
             this._addError(message, textRange);
         } else if (diagLevel === 'warning') {
             this._addWarning(message, textRange);

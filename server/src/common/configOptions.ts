@@ -40,6 +40,149 @@ export class ExecutionEnvironment {
 
 export type DiagnosticLevel = 'none' | 'warning' | 'error';
 
+export interface DiagnosticSettings {
+    // Use strict inference rules for list expressions?
+    strictListInference: boolean;
+
+    // Use strict inference rules for dictionary expressions?
+    strictDictionaryInference: boolean;
+
+    // Report diagnostics in typeshed files?
+    reportTypeshedErrors: DiagnosticLevel;
+
+    // Report missing imports?
+    reportMissingImports: DiagnosticLevel;
+
+    // Report missing type stub files?
+    reportMissingTypeStubs: DiagnosticLevel;
+
+    // Report cycles in import graph?
+    reportImportCycles: DiagnosticLevel;
+
+    // Report attempts to subscript (index) an Optional type?
+    reportOptionalSubscript: DiagnosticLevel;
+
+    // Report attempts to access members on a Optional type?
+    reportOptionalMemberAccess: DiagnosticLevel;
+
+    // Report attempts to call a Optional type?
+    reportOptionalCall: DiagnosticLevel;
+
+    // Report attempts to use an Optional type as an iterable?
+    reportOptionalIterable: DiagnosticLevel;
+
+    // Report attempts to use an Optional type in a "with" statement?
+    reportOptionalContextManager: DiagnosticLevel;
+
+    // Report attempts to use an Optional type in a binary or unary operation.
+    reportOptionalOperand: DiagnosticLevel;
+
+    // Report untyped function decorators that obscure the function type?
+    reportUntypedFunctionDecorator: DiagnosticLevel;
+
+    // Report untyped class decorators that obscure the class type?
+    reportUntypedClassDecorator: DiagnosticLevel;
+
+    // Report untyped base class that obscure the class type?
+    reportUntypedBaseClass: DiagnosticLevel;
+
+    // Report use of untyped namedtuple factory method?
+    reportUntypedNamedTuple: DiagnosticLevel;
+
+    // Report usage of private variables and functions outside of
+    // the owning class or module?
+    reportPrivateUsage: DiagnosticLevel;
+
+    // Report attempts to redefine variables that are in all-caps.
+    reportConstantRedefinition: DiagnosticLevel;
+
+    // Report usage of method override that is incomatlble with
+    // the base class method of the same name?
+    reportIncompatibleMethodOverride: DiagnosticLevel;
+
+    // Report usage of invalid escape sequences in string literals?
+    reportInvalidStringEscapeSequence: DiagnosticLevel;
+
+    // Report usage of unknown input or return parameters?
+    reportUnknownParameterType: DiagnosticLevel;
+
+    // Report usage of unknown input or return parameters?
+    reportUnknownVariableType: DiagnosticLevel;
+
+    // Report usage of unknown input or return parameters?
+    reportUnknownMemberType: DiagnosticLevel;
+}
+
+export function cloneDiagnosticSettings(
+        diagSettings: DiagnosticSettings): DiagnosticSettings {
+
+    // Create a shallow copy of the existing object.
+    return Object.assign({}, diagSettings);
+}
+
+export function getBooleanDiagnosticSettings() {
+    return [
+        'strictListInference',
+        'strictDictionaryInference'
+    ];
+}
+
+export function getDiagLevelSettings() {
+    return [
+        'reportTypeshedErrors',
+        'reportMissingImports',
+        'reportMissingTypeStubs',
+        'reportImportCycles',
+        'reportOptionalSubscript',
+        'reportOptionalMemberAccess',
+        'reportOptionalCall',
+        'reportOptionalIterable',
+        'reportOptionalContextManager',
+        'reportOptionalOperand',
+        'reportUntypedFunctionDecorator',
+        'reportUntypedClassDecorator',
+        'reportUntypedBaseClass',
+        'reportUntypedNamedTuple',
+        'reportPrivateUsage',
+        'reportConstantRedefinition',
+        'reportIncompatibleMethodOverride',
+        'reportInvalidStringEscapeSequence',
+        'reportUnknownParameterType',
+        'reportUnknownVariableType',
+        'reportUnknownMemberType'
+    ];
+}
+
+export function getStrictDiagnosticSettings(): DiagnosticSettings {
+    const diagSettings: DiagnosticSettings = {
+        strictListInference: true,
+        strictDictionaryInference: true,
+        reportTypeshedErrors: 'error',
+        reportMissingImports: 'error',
+        reportMissingTypeStubs: 'error',
+        reportImportCycles: 'error',
+        reportOptionalSubscript: 'error',
+        reportOptionalMemberAccess: 'error',
+        reportOptionalCall: 'error',
+        reportOptionalIterable: 'error',
+        reportOptionalContextManager: 'error',
+        reportOptionalOperand: 'error',
+        reportUntypedFunctionDecorator: 'error',
+        reportUntypedClassDecorator: 'error',
+        reportUntypedBaseClass: 'error',
+        reportUntypedNamedTuple: 'error',
+        reportPrivateUsage: 'error',
+        reportConstantRedefinition: 'error',
+        reportIncompatibleMethodOverride: 'error',
+        reportInvalidStringEscapeSequence: 'error',
+        reportUnknownParameterType: 'error',
+        reportUnknownVariableType: 'error',
+        reportUnknownMemberType: 'error'
+    };
+
+    return diagSettings;
+}
+
 // Internal configuration options. These are derived from a combination
 // of the command line and from a JSON-based config file.
 export class ConfigOptions {
@@ -80,76 +223,7 @@ export class ConfigOptions {
     //---------------------------------------------------------------
     // Diagnostics Settings
 
-    // Use strict inference rules for list expressions?
-    strictListInference = false;
-
-    // Use strict inference rules for dictionary expressions?
-    strictDictionaryInference = false;
-
-    // Report diagnostics in typeshed files?
-    reportTypeshedErrors: DiagnosticLevel = 'none';
-
-    // Report missing imports?
-    reportMissingImports: DiagnosticLevel = 'error';
-
-    // Report missing type stub files?
-    reportMissingTypeStubs: DiagnosticLevel = 'none';
-
-    // Report cycles in import graph?
-    reportImportCycles: DiagnosticLevel = 'none';
-
-    // Report attempts to subscript (index) an Optional type?
-    reportOptionalSubscript: DiagnosticLevel = 'none';
-
-    // Report attempts to access members on a Optional type?
-    reportOptionalMemberAccess: DiagnosticLevel = 'none';
-
-    // Report attempts to call a Optional type?
-    reportOptionalCall: DiagnosticLevel = 'none';
-
-    // Report attempts to use an Optional type as an iterable?
-    reportOptionalIterable: DiagnosticLevel = 'none';
-
-    // Report attempts to use an Optional type in a "with" statement?
-    reportOptionalContextManager: DiagnosticLevel = 'none';
-
-    // Report attempts to use an Optional type in a binary or unary operation.
-    reportOptionalOperand: DiagnosticLevel = 'none';
-
-    // Report untyped function decorators that obscure the function type?
-    reportUntypedFunctionDecorator: DiagnosticLevel = 'none';
-
-    // Report untyped class decorators that obscure the class type?
-    reportUntypedClassDecorator: DiagnosticLevel = 'none';
-
-    // Report untyped base class that obscure the class type?
-    reportUntypedBaseClass: DiagnosticLevel = 'none';
-
-    // Report use of untyped namedtuple factory method?
-    reportUntypedNamedTuple: DiagnosticLevel = 'none';
-
-    // Report usage of private variables and functions outside of
-    // the owning class or module?
-    reportPrivateUsage: DiagnosticLevel = 'none';
-
-    // Report attempts to redefine variables that are in all-caps.
-    reportConstantRedefinition: DiagnosticLevel = 'none';
-
-    // Report usage of method override that is incomatlble with
-    // the base class method of the same name?
-    reportIncompatibleMethodOverride: DiagnosticLevel = 'none';
-
-    // Report usage of invalid escape sequences in string literals?
-    reportInvalidStringEscapeSequence: DiagnosticLevel = 'warning';
-
-    // Report usage of unknown input or return parameters?
-    reportUnknownParameterType: DiagnosticLevel = 'none';
-
-    // Report usage of unknown input or return parameters?
-    reportUnknownVariableType: DiagnosticLevel = 'none';
-
-    // Report usage of unknown input or return parameters?
-    reportUnknownMemberType: DiagnosticLevel = 'none';
+    diagnosticSettings: DiagnosticSettings;
 
     //---------------------------------------------------------------
     // Parsing and Import Resolution Settings
@@ -257,97 +331,99 @@ export class ConfigOptions {
             }
         }
 
-        // Use strict inference rules for list expressions?
-        this.strictListInference = this._convertBoolean(
-            configObj.strictListInference, 'strictListInference', false);
+        this.diagnosticSettings = {
+            // Use strict inference rules for list expressions?
+            strictListInference: this._convertBoolean(
+                configObj.strictListInference, 'strictListInference', false),
 
-        // Use strict inference rules for dictionary expressions?
-        this.strictDictionaryInference = this._convertBoolean(
-            configObj.strictDictionaryInference, 'strictDictionaryInference', false);
+            // Use strict inference rules for dictionary expressions?
+            strictDictionaryInference: this._convertBoolean(
+                configObj.strictDictionaryInference, 'strictDictionaryInference', false),
 
-        // Read the "reportTypeshedErrors" entry.
-        this.reportTypeshedErrors = this._convertDiagnosticLevel(
-            configObj.reportTypeshedErrors, 'reportTypeshedErrors', 'none');
+            // Read the "reportTypeshedErrors" entry.
+            reportTypeshedErrors: this._convertDiagnosticLevel(
+                configObj.reportTypeshedErrors, 'reportTypeshedErrors', 'none'),
 
-        // Read the "reportMissingImports" entry.
-        this.reportMissingImports = this._convertDiagnosticLevel(
-            configObj.reportMissingImports, 'reportMissingImports', 'error');
+            // Read the "reportMissingImports" entry.
+            reportMissingImports: this._convertDiagnosticLevel(
+                configObj.reportMissingImports, 'reportMissingImports', 'error'),
 
-        // Read the "reportMissingTypeStubs" entry.
-        this.reportMissingTypeStubs = this._convertDiagnosticLevel(
-            configObj.reportMissingTypeStubs, 'reportMissingTypeStubs', 'none');
+            // Read the "reportMissingTypeStubs" entry.
+            reportMissingTypeStubs: this._convertDiagnosticLevel(
+                configObj.reportMissingTypeStubs, 'reportMissingTypeStubs', 'none'),
 
-        // Read the "reportImportCycles" entry.
-        this.reportImportCycles = this._convertDiagnosticLevel(
-            configObj.reportImportCycles, 'reportImportCycles', 'none');
+            // Read the "reportImportCycles" entry.
+            reportImportCycles: this._convertDiagnosticLevel(
+                configObj.reportImportCycles, 'reportImportCycles', 'none'),
 
-        // Read the "reportOptionalSubscript" entry.
-        this.reportOptionalSubscript = this._convertDiagnosticLevel(
-            configObj.reportOptionalSubscript, 'reportOptionalSubscript', 'none');
+            // Read the "reportOptionalSubscript" entry.
+            reportOptionalSubscript: this._convertDiagnosticLevel(
+                configObj.reportOptionalSubscript, 'reportOptionalSubscript', 'none'),
 
-        // Read the "reportOptionalMemberAccess" entry.
-        this.reportOptionalMemberAccess = this._convertDiagnosticLevel(
-            configObj.reportOptionalMemberAccess, 'reportOptionalMemberAccess', 'none');
+            // Read the "reportOptionalMemberAccess" entry.
+            reportOptionalMemberAccess: this._convertDiagnosticLevel(
+                configObj.reportOptionalMemberAccess, 'reportOptionalMemberAccess', 'none'),
 
-        // Read the "reportOptionalCall" entry.
-        this.reportOptionalCall = this._convertDiagnosticLevel(
-            configObj.reportOptionalCall, 'reportOptionalCall', 'none');
+            // Read the "reportOptionalCall" entry.
+            reportOptionalCall: this._convertDiagnosticLevel(
+                configObj.reportOptionalCall, 'reportOptionalCall', 'none'),
 
-        // Read the "reportOptionalIterable" entry.
-        this.reportOptionalIterable = this._convertDiagnosticLevel(
-            configObj.reportOptionalIterable, 'reportOptionalIterable', 'none');
+            // Read the "reportOptionalIterable" entry.
+            reportOptionalIterable: this._convertDiagnosticLevel(
+                configObj.reportOptionalIterable, 'reportOptionalIterable', 'none'),
 
-        // Read the "reportOptionalContextManager" entry.
-        this.reportOptionalContextManager = this._convertDiagnosticLevel(
-            configObj.reportOptionalContextManager, 'reportOptionalContextManager', 'none');
+            // Read the "reportOptionalContextManager" entry.
+            reportOptionalContextManager: this._convertDiagnosticLevel(
+                configObj.reportOptionalContextManager, 'reportOptionalContextManager', 'none'),
 
-        // Read the "reportOptionalOperand" entry.
-        this.reportOptionalOperand = this._convertDiagnosticLevel(
-            configObj.reportOptionalOperand, 'reportOptionalOperand', 'none');
+            // Read the "reportOptionalOperand" entry.
+            reportOptionalOperand: this._convertDiagnosticLevel(
+                configObj.reportOptionalOperand, 'reportOptionalOperand', 'none'),
 
-        // Read the "reportUntypedFunctionDecorator" entry.
-        this.reportUntypedFunctionDecorator = this._convertDiagnosticLevel(
-            configObj.reportUntypedFunctionDecorator, 'reportUntypedFunctionDecorator', 'none');
+            // Read the "reportUntypedFunctionDecorator" entry.
+            reportUntypedFunctionDecorator: this._convertDiagnosticLevel(
+                configObj.reportUntypedFunctionDecorator, 'reportUntypedFunctionDecorator', 'none'),
 
-        // Read the "reportUntypedClassDecorator" entry.
-        this.reportUntypedClassDecorator = this._convertDiagnosticLevel(
-            configObj.reportUntypedClassDecorator, 'reportUntypedClassDecorator', 'none');
+            // Read the "reportUntypedClassDecorator" entry.
+            reportUntypedClassDecorator: this._convertDiagnosticLevel(
+                configObj.reportUntypedClassDecorator, 'reportUntypedClassDecorator', 'none'),
 
-        // Read the "reportUntypedBaseClass" entry.
-        this.reportUntypedBaseClass = this._convertDiagnosticLevel(
-            configObj.reportUntypedBaseClass, 'reportUntypedBaseClass', 'none');
+            // Read the "reportUntypedBaseClass" entry.
+            reportUntypedBaseClass: this._convertDiagnosticLevel(
+                configObj.reportUntypedBaseClass, 'reportUntypedBaseClass', 'none'),
 
-        // Read the "reportUntypedNamedTuple" entry.
-        this.reportUntypedNamedTuple = this._convertDiagnosticLevel(
-            configObj.reportUntypedNamedTuple, 'reportUntypedNamedTuple', 'none');
+            // Read the "reportUntypedNamedTuple" entry.
+            reportUntypedNamedTuple: this._convertDiagnosticLevel(
+                configObj.reportUntypedNamedTuple, 'reportUntypedNamedTuple', 'none'),
 
-        // Read the "reportPrivateUsage" entry.
-        this.reportPrivateUsage = this._convertDiagnosticLevel(
-            configObj.reportPrivateUsage, 'reportPrivateUsage', 'none');
+            // Read the "reportPrivateUsage" entry.
+            reportPrivateUsage: this._convertDiagnosticLevel(
+                configObj.reportPrivateUsage, 'reportPrivateUsage', 'none'),
 
-        // Read the "reportConstantRedefinition" entry.
-        this.reportConstantRedefinition = this._convertDiagnosticLevel(
-            configObj.reportConstantRedefinition, 'reportConstantRedefinition', 'none');
+            // Read the "reportConstantRedefinition" entry.
+            reportConstantRedefinition: this._convertDiagnosticLevel(
+                configObj.reportConstantRedefinition, 'reportConstantRedefinition', 'none'),
 
-        // Read the "reportIncompatibleMethodOverride" entry.
-        this.reportIncompatibleMethodOverride = this._convertDiagnosticLevel(
-            configObj.reportIncompatibleMethodOverride, 'reportIncompatibleMethodOverride', 'none');
+            // Read the "reportIncompatibleMethodOverride" entry.
+            reportIncompatibleMethodOverride: this._convertDiagnosticLevel(
+                configObj.reportIncompatibleMethodOverride, 'reportIncompatibleMethodOverride', 'none'),
 
-        // Read the "reportInvalidStringEscapeSequence" entry.
-        this.reportInvalidStringEscapeSequence = this._convertDiagnosticLevel(
-            configObj.reportInvalidStringEscapeSequence, 'reportInvalidStringEscapeSequence', 'warning');
+            // Read the "reportInvalidStringEscapeSequence" entry.
+            reportInvalidStringEscapeSequence: this._convertDiagnosticLevel(
+                configObj.reportInvalidStringEscapeSequence, 'reportInvalidStringEscapeSequence', 'warning'),
 
-        // Read the "reportUnknownParameterType" entry.
-        this.reportUnknownParameterType = this._convertDiagnosticLevel(
-            configObj.reportUnknownParameterType, 'reportUnknownParameterType', 'none');
+            // Read the "reportUnknownParameterType" entry.
+            reportUnknownParameterType: this._convertDiagnosticLevel(
+                configObj.reportUnknownParameterType, 'reportUnknownParameterType', 'none'),
 
-        // Read the "reportUnknownVariableType" entry.
-        this.reportUnknownVariableType = this._convertDiagnosticLevel(
-            configObj.reportUnknownVariableType, 'reportUnknownVariableType', 'none');
+            // Read the "reportUnknownVariableType" entry.
+            reportUnknownVariableType: this._convertDiagnosticLevel(
+                configObj.reportUnknownVariableType, 'reportUnknownVariableType', 'none'),
 
-        // Read the "reportUnknownMemberType" entry.
-        this.reportUnknownMemberType = this._convertDiagnosticLevel(
-            configObj.reportUnknownMemberType, 'reportUnknownMemberType', 'none');
+            // Read the "reportUnknownMemberType" entry.
+            reportUnknownMemberType: this._convertDiagnosticLevel(
+                configObj.reportUnknownMemberType, 'reportUnknownMemberType', 'none')
+        };
 
         // Read the "venvPath".
         this.venvPath = undefined;

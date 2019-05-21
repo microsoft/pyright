@@ -15,7 +15,7 @@ import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import { PostParseWalker } from '../analyzer/postParseWalker';
 import { Program } from '../analyzer/program';
 import { ModuleScopeAnalyzer } from '../analyzer/semanticAnalyzer';
-import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
@@ -94,8 +94,7 @@ export class TestUtils {
             builtinsScope: undefined,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(filePath),
-            configOptions,
-            useStrictMode: false,
+            diagnosticSettings: cloneDiagnosticSettings(configOptions.diagnosticSettings),
             lines: parseResults.lines,
             filePath,
             isStubFile: filePath.endsWith('.pyi'),

@@ -431,7 +431,7 @@ export class Program {
         Object.keys(closureMap).forEach(filePath => {
             assert(!this._sourceFileMap[filePath].sourceFile.isAnalysisFinalized());
 
-            if (options.reportImportCycles !== 'none') {
+            if (options.diagnosticSettings.reportImportCycles !== 'none') {
                 this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
             }
 
@@ -756,7 +756,7 @@ export class Program {
                     });
                 }
             } else if (options.verboseOutput) {
-                if (!sourceFileInfo.isTypeshedFile || options.reportTypeshedErrors) {
+                if (!sourceFileInfo.isTypeshedFile || options.diagnosticSettings.reportTypeshedErrors) {
                     this._console.log(`Could not import '${ importResult.importName }' ` +
                         `in file '${ sourceFileInfo.sourceFile.getFilePath() }'`);
                     if (importResult.importFailureInfo) {
