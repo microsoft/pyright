@@ -18,3 +18,15 @@ Strict typing controls (where all supported type-checking switches generate erro
 # pyright: strict
 ```
 
+Individual configuration settings can also be overridden on a per-file basis and combined with “strict” typing. For example, if you want to enable all type checks except for “reportPrivateUsage”, you could add the following comment:
+
+```
+# pyright: strict, reportPrivateUsage=false
+```
+
+Diagnostic levels are also supported.
+
+```
+# pyright: reportPrivateUsage=warning, reportOptionalCall=error
+```
+
