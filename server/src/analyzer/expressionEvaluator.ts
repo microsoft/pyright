@@ -1551,20 +1551,23 @@ export class ExpressionEvaluator {
                         argList[argIndex].valueExpression!, false);
 
                     if (!this._validateArgType(paramType, listElementType,
-                            argList[argIndex].valueExpression || errorNode, typeVarMap)) {
+                            argList[argIndex].valueExpression || errorNode, typeVarMap,
+                            typeParams[paramIndex].name)) {
                         reportedArgError = true;
                     }
                 }
                 break;
             } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
                 if (!this._validateArgType(paramType, argList[argIndex].type,
-                        argList[argIndex].valueExpression || errorNode, typeVarMap)) {
+                        argList[argIndex].valueExpression || errorNode, typeVarMap,
+                        typeParams[paramIndex].name)) {
                     reportedArgError = true;
                 }
                 argIndex++;
             } else {
                 if (!this._validateArgType(paramType, argList[argIndex].type,
-                        argList[argIndex].valueExpression || errorNode, typeVarMap)) {
+                        argList[argIndex].valueExpression || errorNode, typeVarMap,
+                        typeParams[paramIndex].name)) {
                     reportedArgError = true;
                 }
 
@@ -1609,13 +1612,15 @@ export class ExpressionEvaluator {
                                 assert(paramInfoIndex >= 0);
                                 const paramType = type.getEffectiveParameterType(paramInfoIndex);
                                 if (!this._validateArgType(paramType, argList[argIndex].type,
-                                        argList[argIndex].valueExpression || errorNode, typeVarMap)) {
+                                        argList[argIndex].valueExpression || errorNode, typeVarMap,
+                                        paramNameValue)) {
                                     reportedArgError = true;
                                 }
                             }
                         } else if (varArgDictParam) {
                             if (!this._validateArgType(varArgDictParam.type, argList[argIndex].type,
-                                    argList[argIndex].valueExpression || errorNode, typeVarMap)) {
+                                    argList[argIndex].valueExpression || errorNode, typeVarMap,
+                                    paramNameValue)) {
                                 reportedArgError = true;
                             }
                         } else {
@@ -1656,13 +1661,15 @@ export class ExpressionEvaluator {
     }
 
     private _validateArgType(paramType: Type, argType: Type, errorNode: ExpressionNode,
-            typeVarMap: TypeVarMap): boolean {
+            typeVarMap: TypeVarMap, paramName?: string): boolean {
 
         const diag = new DiagnosticAddendum();
         if (!TypeUtils.canAssignType(paramType, argType, diag.createAddendum(), typeVarMap)) {
+            const optionalParamName = paramName ? `'${ paramName }' ` : '';
             this._addError(
                 `Argument of type '${ argType.asString() }'` +
-                    ` cannot be assigned to parameter of type '${ paramType.asString() }'` +
+                    ` cannot be assigned to parameter ${ optionalParamName }` +
+                    `of type '${ paramType.asString() }'` +
                     diag.getString(),
                 errorNode);
             return false;
