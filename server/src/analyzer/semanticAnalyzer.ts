@@ -163,6 +163,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let sawMetaclass = false;
         let nonMetaclassBaseClassCount = 0;
         node.arguments.forEach(arg => {
+            let isKeywordArg = false;
             let isMetaclass = false;
             if (arg.name) {
                 if (arg.name.nameToken.value === 'metaclass') {
@@ -172,15 +173,18 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                     isMetaclass = true;
                     sawMetaclass = true;
                 } else {
-                    this._addError(`Named parameter '${ arg.name.nameToken.value }' ` +
-                        `not supported for classes`, arg);
+                    // Other named parameters are ignored here; they are passed
+                    // directly to the metaclass.
+                    isKeywordArg = true;
                 }
             }
 
-            classType.addBaseClass(UnknownType.create(), isMetaclass);
+            if (!isKeywordArg) {
+                classType.addBaseClass(UnknownType.create(), isMetaclass);
 
-            if (!isMetaclass) {
-                nonMetaclassBaseClassCount++;
+                if (!isMetaclass) {
+                    nonMetaclassBaseClassCount++;
+                }
             }
         });
 

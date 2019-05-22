@@ -141,60 +141,63 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let typeParameters: TypeVarType[] = [];
 
         node.arguments.forEach((arg, index) => {
-            let argType = this._getTypeOfExpression(arg.valueExpression);
+            // Ignore keyword parameters other than metaclass.
+            if (!arg.name || arg.name.nameToken.value === 'metaclass') {
+                let argType = this._getTypeOfExpression(arg.valueExpression);
 
-            // In some stub files, classes are conditionally defined (e.g. based
-            // on platform type). We'll assume that the conditional logic is correct
-            // and strip off the "unbound" union.
-            if (argType instanceof UnionType) {
-                argType = TypeUtils.removeUnboundFromUnion(argType);
-            }
-
-            if (!argType.isAny() && argType.category !== TypeCategory.Class) {
-                this._addError(`Argument to class must be a base class`, arg);
-                argType = UnknownType.create();
-            }
-
-            if (argType instanceof ClassType) {
-                if (argType.isBuiltIn() && argType.getClassName() === 'Protocol') {
-                    if (!this._fileInfo.isStubFile && this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37) {
-                        this._addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
-                    }
+                // In some stub files, classes are conditionally defined (e.g. based
+                // on platform type). We'll assume that the conditional logic is correct
+                // and strip off the "unbound" union.
+                if (argType instanceof UnionType) {
+                    argType = TypeUtils.removeUnboundFromUnion(argType);
                 }
 
-                // If the class directly derives from NamedTuple (in Python 3.6 or
-                // newer), it's considered a dataclass.
-                if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
-                    if (argType.isBuiltIn() && argType.getClassName() === 'NamedTuple') {
-                        classType.setIsDataClass();
-                    }
-                }
-
-                // Validate that the class isn't deriving from itself, creating a
-                // circular dependency.
-                if (TypeUtils.derivesFromClassRecursive(argType, classType)) {
-                    this._addError(`Class cannot derive from itself`, arg);
+                if (!argType.isAny() && argType.category !== TypeCategory.Class) {
+                    this._addError(`Argument to class must be a base class`, arg);
                     argType = UnknownType.create();
                 }
+
+                if (argType instanceof ClassType) {
+                    if (argType.isBuiltIn() && argType.getClassName() === 'Protocol') {
+                        if (!this._fileInfo.isStubFile && this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37) {
+                            this._addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
+                        }
+                    }
+
+                    // If the class directly derives from NamedTuple (in Python 3.6 or
+                    // newer), it's considered a dataclass.
+                    if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
+                        if (argType.isBuiltIn() && argType.getClassName() === 'NamedTuple') {
+                            classType.setIsDataClass();
+                        }
+                    }
+
+                    // Validate that the class isn't deriving from itself, creating a
+                    // circular dependency.
+                    if (TypeUtils.derivesFromClassRecursive(argType, classType)) {
+                        this._addError(`Class cannot derive from itself`, arg);
+                        argType = UnknownType.create();
+                    }
+                }
+
+                if (argType instanceof UnknownType ||
+                        argType instanceof UnionType && argType.getTypes().some(t => t instanceof UnknownType)) {
+
+                    this._addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUntypedBaseClass,
+                        `Base class type is unknown, obscuring type of derived class`,
+                        arg);
+                }
+
+                if (classType.updateBaseClassType(index, argType)) {
+                    this._setAnalysisChanged();
+                }
+
+                // TODO - validate that we are not adding type parameters that
+                // are unique type vars but have conflicting names.
+                TypeUtils.addTypeVarsToListIfUnique(typeParameters,
+                    TypeUtils.getTypeVarArgumentsRecursive(argType));
             }
-
-            if (argType instanceof UnknownType ||
-                    argType instanceof UnionType && argType.getTypes().some(t => t instanceof UnknownType)) {
-
-                this._addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUntypedBaseClass,
-                    `Base class type is unknown, obscuring type of derived class`,
-                    arg);
-            }
-
-            if (classType.updateBaseClassType(index, argType)) {
-                this._setAnalysisChanged();
-            }
-
-            // TODO - validate that we are not adding type parameters that
-            // are unique type vars but have conflicting names.
-            TypeUtils.addTypeVarsToListIfUnique(typeParameters,
-                TypeUtils.getTypeVarArgumentsRecursive(argType));
         });
 
         // Update the type parameters for the class.

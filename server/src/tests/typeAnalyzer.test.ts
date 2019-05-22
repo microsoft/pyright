@@ -414,3 +414,9 @@ test('Dictionary1', () => {
 
     validateResults(analysisResults, 2);
 });
+
+test('Classes1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes1.py']);
+
+    validateResults(analysisResults, 1);
+});
