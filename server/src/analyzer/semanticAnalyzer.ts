@@ -593,6 +593,9 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
         this._addSymbolToPermanentScope('__dict__', AnyType.create());
         this._addSymbolToPermanentScope('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         this._addSymbolToPermanentScope('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
+            this._addSymbolToPermanentScope('__qualname__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        }
     }
 }
 
