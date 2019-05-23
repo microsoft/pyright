@@ -45,7 +45,7 @@ Pyright attempts to infer the types of global (module-level) variables, class va
 
 Pyright supports type constraints (sometimes called “path constraints”) to track assumptions that apply within certain paths of code flow. For example, consider the following code:
 ```python
-def (a: Optional[Union[str, List[str]]) -> None:
+def (a: Optional[Union[str, List[str]]):
     if isinstance(a, str):
         log(a)
     elif a:
@@ -58,7 +58,7 @@ In this example, the type checker knows that parameter a is either None, str, or
 
 If the type constraint logic exhausts all possible subtypes, it can be assumed that a code path will never be taken. For example, consider the following:
 ```python
-def (a: Union[Foo, Bar]) -> None:
+def (a: Union[Foo, Bar]):
     if isinstance(a, Foo):
         # a must be type Foo
         a.do_something_1()
@@ -66,9 +66,9 @@ def (a: Union[Foo, Bar]) -> None:
         # a must be type Bar
         a.do_something_2()
     else:
-        # This code is unreachable
+        # This code is unreachable, so type is "Never"
         a.do_something_3()
 ```
 
-In this case, the type of parameter “a” is initial “Union[Foo, Bar]”. Within the “if” clause, the type constraint logic will conclude that it must be of type “Foo”. Within the “elif” clause, it must be of type “Bar”. What type is it within the “else” clause? The type constraint system has eliminated all possible subtypes, so it gives it the type “Never”. This is generally indicates that there’s a logic error in the code because there’s way that code block will ever be executed.
+In this case, the type of parameter “a” is initially “Union[Foo, Bar]”. Within the “if” clause, the type constraint logic will conclude that it must be of type “Foo”. Within the “elif” clause, it must be of type “Bar”. What type is it within the “else” clause? The type constraint system has eliminated all possible subtypes, so it gives it the type “Never”. This is generally indicates that there’s a logic error in the code because there’s way that code block will ever be executed.
 
