@@ -59,6 +59,18 @@ export interface DiagnosticSettings {
     // Report cycles in import graph?
     reportImportCycles: DiagnosticLevel;
 
+    // Report imported symbol that is not accessed?
+    reportUnusedImport: DiagnosticLevel;
+
+    // Report private class that is not accessed?
+    reportUnusedClass: DiagnosticLevel;
+
+    // Report private function or method that is not accessed?
+    reportUnusedFunction: DiagnosticLevel;
+
+    // Report variable that is not accessed?
+    reportUnusedVariable: DiagnosticLevel;
+
     // Report attempts to subscript (index) an Optional type?
     reportOptionalSubscript: DiagnosticLevel;
 
@@ -133,6 +145,10 @@ export function getDiagLevelSettings() {
         'reportMissingImports',
         'reportMissingTypeStubs',
         'reportImportCycles',
+        'reportUnusedImport',
+        'reportUnusedClass',
+        'reportUnusedFunction',
+        'reportUnusedVariable',
         'reportOptionalSubscript',
         'reportOptionalMemberAccess',
         'reportOptionalCall',
@@ -161,6 +177,10 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportMissingImports: 'error',
         reportMissingTypeStubs: 'error',
         reportImportCycles: 'error',
+        reportUnusedImport: 'error',
+        reportUnusedClass: 'error',
+        reportUnusedFunction: 'error',
+        reportUnusedVariable: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
@@ -191,6 +211,10 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportMissingImports: 'error',
         reportMissingTypeStubs: 'none',
         reportImportCycles: 'none',
+        reportUnusedImport: 'none',
+        reportUnusedClass: 'none',
+        reportUnusedFunction: 'none',
+        reportUnusedVariable: 'none',
         reportOptionalSubscript: 'none',
         reportOptionalMemberAccess: 'none',
         reportOptionalCall: 'none',
@@ -384,6 +408,26 @@ export class ConfigOptions {
             reportMissingImports: this._convertDiagnosticLevel(
                 configObj.reportMissingImports, 'reportMissingImports',
                 defaultSettings.reportMissingImports),
+
+            // Read the "reportUnusedImport" entry.
+            reportUnusedImport: this._convertDiagnosticLevel(
+                configObj.reportUnusedImport, 'reportUnusedImport',
+                defaultSettings.reportUnusedImport),
+
+            // Read the "reportUnusedClass" entry.
+            reportUnusedClass: this._convertDiagnosticLevel(
+                configObj.reportUnusedClass, 'reportUnusedClass',
+                defaultSettings.reportUnusedClass),
+
+            // Read the "reportUnusedFunction" entry.
+            reportUnusedFunction: this._convertDiagnosticLevel(
+                configObj.reportUnusedFunction, 'reportUnusedFunction',
+                defaultSettings.reportUnusedFunction),
+
+            // Read the "reportUnusedVariable" entry.
+            reportUnusedVariable: this._convertDiagnosticLevel(
+                configObj.reportUnusedVariable, 'reportUnusedVariable',
+                defaultSettings.reportUnusedVariable),
 
             // Read the "reportMissingTypeStubs" entry.
             reportMissingTypeStubs: this._convertDiagnosticLevel(

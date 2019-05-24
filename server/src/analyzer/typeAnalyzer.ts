@@ -250,7 +250,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
 
-        this._conditionallyReportUnusedName(node.name, true);
+        this._conditionallyReportUnusedName(node.name, true,
+            this._fileInfo.diagnosticSettings.reportUnusedClass,
+            `Class '${ node.name.nameToken.value }' is not accessed`);
 
         return false;
     }
@@ -519,7 +521,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this.walkMultiple(node.decorators);
 
-        this._conditionallyReportUnusedName(node.name, true);
+        this._conditionallyReportUnusedName(node.name, true,
+            this._fileInfo.diagnosticSettings.reportUnusedFunction,
+            `Function '${ node.name.nameToken.value }' is not accessed`);
 
         return false;
     }
@@ -1063,21 +1067,31 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitName(node: NameNode) {
         const nameValue = node.nameToken.value;
         const symbolInScope = this._currentScope.lookUpSymbolRecursive(nameValue);
+        let declarations: Declaration[] | undefined;
 
         // If there's no declaration assigned to this name node, assign one
         // for the hover provider.
-        if (!AnalyzerNodeInfo.getDeclarations(node)) {
+        declarations = AnalyzerNodeInfo.getDeclarations(node);
+        if (!declarations) {
             if (symbolInScope && symbolInScope.symbol.hasDeclarations()) {
-                AnalyzerNodeInfo.setDeclarations(node,
-                    TypeUtils.getPrimaryDeclarationsForSymbol(symbolInScope.symbol)!);
+                declarations = TypeUtils.getPrimaryDeclarationsForSymbol(symbolInScope.symbol)!;
+                AnalyzerNodeInfo.setDeclarations(node, declarations);
             }
         }
 
         // Determine if we should log information about private usage.
         this._conditionallyReportPrivateUsage(node);
 
-        // Determine if we should log information about an unused name.
-        this._conditionallyReportUnusedName(node);
+        let unaccessedDiagLevel: DiagnosticLevel = 'none';
+        if (symbolInScope && declarations) {
+            // Determine if we should log information about an unused name.
+            if (declarations[0].category === SymbolCategory.Variable) {
+                unaccessedDiagLevel = this._fileInfo.diagnosticSettings.reportUnusedVariable;
+            }
+        }
+
+        this._conditionallyReportUnusedName(node, false, unaccessedDiagLevel,
+            `Variable '${ node.nameToken.value }' is not accessed`);
 
         return true;
     }
@@ -1168,7 +1182,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._assignTypeToNameNode(node.alias, moduleType, moduleDeclaration);
                     this._updateExpressionTypeForNode(node.alias, moduleType);
 
-                    this._conditionallyReportUnusedName(node.alias);
+                    this._conditionallyReportUnusedName(node.alias, false,
+                        this._fileInfo.diagnosticSettings.reportUnusedImport,
+                        `Import '${ node.alias.nameToken.value }' is not accessed`);
                 } else {
                     this._bindMultiPartModuleNameToType(node.module.nameParts,
                         moduleType, moduleDeclaration);
@@ -1188,7 +1204,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._assignTypeToNameNode(aliasNode, symbolType);
                     this._updateExpressionTypeForNode(aliasNode, symbolType);
 
-                    this._conditionallyReportUnusedName(aliasNode);
+                    this._conditionallyReportUnusedName(aliasNode, false,
+                        this._fileInfo.diagnosticSettings.reportUnusedImport,
+                        `Import '${ aliasNode.nameToken.value }' is not accessed`);
                 }
             }
         }
@@ -1285,7 +1303,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         AnalyzerNodeInfo.setDeclarations(importAs.name, [declaration]);
                     }
 
-                    this._conditionallyReportUnusedName(aliasNode);
+                    this._conditionallyReportUnusedName(aliasNode, false,
+                        this._fileInfo.diagnosticSettings.reportUnusedImport,
+                        `Import '${ aliasNode.nameToken.value }' is not accessed`);
                 });
             }
         } else {
@@ -1302,7 +1322,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
 
                     this._assignTypeToNameNode(aliasNode, symbolType);
-                    this._conditionallyReportUnusedName(aliasNode);
+                    this._conditionallyReportUnusedName(aliasNode, false,
+                        this._fileInfo.diagnosticSettings.reportUnusedImport,
+                        `Import '${ aliasNode.nameToken.value }' is not accessed`);
                 });
             }
         }
@@ -1626,8 +1648,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
         symbol.addDeclaration(declaration);
     }
 
-    private _conditionallyReportUnusedName(node: NameNode, reportPrivateOnly = false) {
+    private _conditionallyReportUnusedName(node: NameNode, reportPrivateOnly: boolean,
+            diagLevel: DiagnosticLevel, message: string) {
+
         const nameValue = node.nameToken.value;
+
+        // A name of "_" means "I know this symbol isn't used", so
+        // don't report it as unused.
+        if (nameValue === '_') {
+            return;
+        }
 
         if (reportPrivateOnly && !SymbolUtils.isPrivateName(nameValue)) {
             return;
@@ -1644,6 +1674,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const symbolInScope = this._currentScope.lookUpSymbolRecursive(nameValue);
         if (symbolInScope && !symbolInScope.symbol.isAccessed()) {
             this._addUnusedName(node);
+
+            this._addDiagnostic(diagLevel, message, node);
         }
     }
 
@@ -2712,6 +2744,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                     this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
                         `'${ multipartName }' is not accessed`, textRange);
+
+                    this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnusedImport,
+                        `Import '${ multipartName }' is not accessed`, textRange);
                 }
             }
 

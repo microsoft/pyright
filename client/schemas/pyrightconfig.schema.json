@@ -97,6 +97,30 @@
       "title": "Controls reporting of module imports that create cycles in import graph",
       "default": "none"
     },
+    "reportUnusedImport": {
+      "$id": "#/properties/reportUnusedImport",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of imported symbols that are not referenced within the source file",
+      "default": "none"
+    },
+    "reportUnusedClass": {
+      "$id": "#/properties/reportUnusedClass",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of private classes that are not accessed",
+      "default": "none"
+    },
+    "reportUnusedFunction": {
+      "$id": "#/properties/reportUnusedFunction",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of private functions or methods that are not accessed",
+      "default": "none"
+    },
+    "reportUnusedVariable": {
+      "$id": "#/properties/reportUnusedVariable",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of local variables that are not accessed",
+      "default": "none"
+    },
     "reportOptionalSubscript": {
       "$id": "#/properties/reportOptionalSubscript",
       "$ref": "#/definitions/diagnostic",
