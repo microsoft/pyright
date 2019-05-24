@@ -723,6 +723,9 @@ export class ExpressionEvaluator {
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
             if (memberInfo) {
+                if (usage.method === 'get') {
+                    memberInfo.setIsAcccessed();
+                }
                 type = TypeUtils.getEffectiveTypeOfSymbol(memberInfo);
             } else {
                 this._addError(`'${ memberName }' is not a known member of module`, node.memberName);

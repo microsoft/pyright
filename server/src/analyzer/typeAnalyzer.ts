@@ -1162,7 +1162,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                             let newSymbol = Symbol.createWithType(implicitModuleType, DefaultTypeSourceId);
                             newSymbol.addDeclaration(declaration);
-                            moduleFields.set(implicitImport.name, newSymbol);
+                            if (!moduleFields.get(implicitImport.name)) {
+                                moduleFields.set(implicitImport.name, newSymbol);
+                            }
                         }
                     }
                 });
@@ -2734,7 +2736,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (symbolType) {
                     this._assignTypeToNameNode(nameParts[0], symbolType);
                 }
+            }
 
+            // If this is the last element, determine if it's accessed.
+            if (i === nameParts.length - 1) {
                 // Is this module ever accessed?
                 if (targetSymbol && !targetSymbol.isAccessed()) {
                     const multipartName = nameParts.map(np => np.nameToken.value).join('.');
@@ -2761,7 +2766,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     moduleFields.getKeys().forEach(name => {
                         type.getFields().set(name, moduleFields.get(name)!);
                     });
-                    targetSymbolTable.set(name, symbol);
+                    if (!targetSymbolTable.get(name)) {
+                        targetSymbolTable.set(name, symbol);
+                    }
                 }
 
                 targetSymbolTable = moduleFields;
