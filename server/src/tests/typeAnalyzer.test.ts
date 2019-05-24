@@ -426,4 +426,3 @@ test('Enums1', () => {
 
     validateResults(analysisResults, 3);
 });
-
