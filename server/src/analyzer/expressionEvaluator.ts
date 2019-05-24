@@ -513,7 +513,7 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromConstantExpression(node);
         } else if (node instanceof StringNode) {
             this._reportUsageErrorForReadOnly(node, usage);
-            if (node.typeAnnotation) {
+            if (node.typeAnnotation && !AnalyzerNodeInfo.getIgnoreTypeAnnotation(node)) {
                 let typeResult: TypeResult = { node, type: UnknownType.create() };
 
                 // Temporarily suppress checks for unbound variables, since forward
@@ -989,6 +989,12 @@ export class ExpressionEvaluator {
 
                 return UnknownType.create();
             }
+        });
+
+        // In case we didn't walk the list items above, do so now.
+        // If we have, this information will be cached.
+        node.items.items.forEach(item => {
+            this._getTypeFromExpression(item);
         });
 
         return { type, node };
