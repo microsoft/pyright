@@ -62,7 +62,7 @@ _connection.onInitialize((params): InitializeResult => {
     // Don't allow the analysis engine to go too long without
     // reporting results. This will keep it responsive.
     _analyzerService.setMaxAnalysisDuration({
-        openFilesTimeInMs: 50,
+        openFilesTimeInMs: 100,
         noOpenFilesTimeInMs: 500
     });
 

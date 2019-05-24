@@ -583,6 +583,12 @@ export class AnalyzerService {
         // Remove any existing analysis timer.
         this._clearReanalysisTimer();
 
+        // We choose a small non-zero value here. If this value
+        // is too small (like zero), the VS Code extension becomes
+        // unresponsive during heavy analysis. If this number is too
+        // large, analysis takes longer.
+        const timeToNextAnalysisInMs = 5;
+
         // Schedule a new timer.
         this._analyzeTimer = setTimeout(() => {
             if (this._requireTrackedFileUpdate) {
@@ -595,7 +601,7 @@ export class AnalyzerService {
             if (moreToAnalyze) {
                 this._scheduleReanalysis(false);
             }
-        }, 0);
+        }, timeToNextAnalysisInMs);
     }
 
     // Performs analysis for a while (up to this._maxAnalysisTimeInMs) before
