@@ -207,7 +207,8 @@ export class AnalyzerService {
                 // If no include paths were provided, assume that all files within
                 // the project should be included.
                 if (configOptions.include.length === 0) {
-                    configOptions.include.push('.');
+                    this._console.log(`No include entries specified; assuming ${ configFilePath }`);
+                    configOptions.include.push(getDirectoryPath(configFilePath));
                 }
             }
             this._updateConfigFileWatcher();

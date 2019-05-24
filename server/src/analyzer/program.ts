@@ -147,7 +147,7 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        let sourceFile = new SourceFile(filePath, false, this._console);
+        const sourceFile = new SourceFile(filePath, false, this._console);
         sourceFileInfo = {
             sourceFile,
             isTracked: true,
@@ -164,7 +164,7 @@ export class Program {
     setFileOpened(filePath: string, version: number | null, contents: string) {
         let sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
-            let sourceFile = new SourceFile(filePath, false, this._console);
+            const sourceFile = new SourceFile(filePath, false, this._console);
             sourceFileInfo = {
                 sourceFile,
                 isTracked: false,
@@ -183,7 +183,7 @@ export class Program {
     }
 
     setFileClosed(filePath: string): FileDiagnostics[] {
-        let sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap[filePath];
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
             sourceFileInfo.sourceFile.setClientVersion(null, '');
@@ -193,7 +193,7 @@ export class Program {
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean) {
-        let markDirtyMap: { [path: string]: boolean } = {};
+        const markDirtyMap: { [path: string]: boolean } = {};
 
         this._sourceFileList.forEach(sourceFileInfo => {
             if (evenIfContentsAreSame) {

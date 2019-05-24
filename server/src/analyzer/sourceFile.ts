@@ -11,8 +11,8 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import { CompletionList } from 'vscode-languageserver';
 
-import { ConfigOptions, DiagnosticSettings, ExecutionEnvironment, getDefaultDiagnosticSettings,
-    getStrictDiagnosticSettings } from '../common/configOptions';
+import { ConfigOptions, DiagnosticSettings, ExecutionEnvironment,
+    getDefaultDiagnosticSettings } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
     DocumentTextRange } from '../common/diagnostic';
