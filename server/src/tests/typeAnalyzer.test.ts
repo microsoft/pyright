@@ -420,3 +420,10 @@ test('Classes1', () => {
 
     validateResults(analysisResults, 1);
 });
+
+test('Enums1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums1.py']);
+
+    validateResults(analysisResults, 3);
+});
+

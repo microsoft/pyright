@@ -47,11 +47,6 @@ import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     UnknownType } from './types';
 import { ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
-interface EnumClassInfo {
-    enumClass: ClassType;
-    valueType: Type;
-}
-
 interface AliasMapEntry {
     alias: string;
     module: 'builtins' | 'collections';
@@ -2887,11 +2882,44 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _transformTypeForPossibleEnumClass(node: NameNode, typeOfExpr: Type): Type {
-        let enumClassInfo = this._getEnclosingEnumClassInfo(node);
+        let enumClass = this._getEnclosingEnumClassInfo(node);
 
-        if (enumClassInfo) {
+        if (enumClass) {
+            const valueMember = TypeUtils.lookUpClassMember(enumClass, 'value',
+                ClassMemberLookupFlags.SkipInstanceVariables);
+
+            let valueSymbol: Symbol;
+            let inferType = false;
+
+            // If this is derived from 'Enum', we will infer the value type.
+            if (valueMember) {
+                // If the custom enum class has its own value member,
+                // infer the type.
+                if (valueMember.classType === enumClass) {
+                    inferType = true;
+                    valueSymbol = valueMember.symbol;
+                } else if (valueMember.classType instanceof ClassType &&
+                        valueMember.classType.isBuiltIn() &&
+                        valueMember.classType.getClassName() === 'Enum') {
+                    // For the Enum base class, the declared type of "value"
+                    // is Any. We will infer the type in this case.
+                    inferType = true;
+                    valueSymbol = new Symbol(false);
+                    enumClass.getClassFields().set('value', valueSymbol);
+                } else {
+                    // Handle other built-in enum classes like "IntEnum".
+                    valueSymbol = valueMember.symbol;
+                }
+
+                if (inferType) {
+                    valueSymbol.setInferredTypeForSource(
+                        TypeUtils.stripLiteralValue(typeOfExpr),
+                        AnalyzerNodeInfo.getTypeSourceId(node));
+                }
+            }
+
             // The type of each enumerated item is an instance of the enum class.
-            return new ObjectType(enumClassInfo.enumClass);
+            return new ObjectType(enumClass);
         }
 
         return typeOfExpr;
@@ -2899,7 +2927,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     // If the node is within a class that derives from the metaclass
     // "EnumMeta", we need to treat assignments differently.
-    private _getEnclosingEnumClassInfo(node: ParseNode): EnumClassInfo | undefined {
+    private _getEnclosingEnumClassInfo(node: ParseNode): ClassType | undefined {
         let enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         if (enclosingClassNode) {
             const enumClass = AnalyzerNodeInfo.getExpressionType(enclosingClassNode) as ClassType;
@@ -2915,21 +2943,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
 
-            let metaclass = TypeUtils.getMetaclass(enumClass);
-            if (metaclass && metaclass instanceof ClassType && metaclass.getClassName() === 'EnumMeta') {
-                let valueMember = TypeUtils.lookUpClassMember(enumClass, 'value',
-                    ClassMemberLookupFlags.SkipInstanceVariables);
-                let valueType: Type;
-                if (valueMember) {
-                    valueType = valueMember.symbolType;
-                } else {
-                    valueType = UnknownType.create();
-                }
-
-                return {
-                    enumClass: enumClass,
-                    valueType
-                };
+            if (TypeUtils.isEnumClass(enumClass)) {
+                return enumClass;
             }
         }
 

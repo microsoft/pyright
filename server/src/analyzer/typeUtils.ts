@@ -1363,6 +1363,14 @@ export class TypeUtils {
         return false;
     }
 
+    static isEnumClass(classType: ClassType): boolean {
+        // Does the class have an "EnumMeta" metaclass?
+        const metaclass = TypeUtils.getMetaclass(classType);
+
+        return metaclass instanceof ClassType &&
+            metaclass.getClassName() === 'EnumMeta';
+    }
+
     private static _getMembersForClassRecursive(classType: ClassType,
             symbolTable: SymbolTable, includeInstanceVars: boolean,
             recursionCount = 0) {

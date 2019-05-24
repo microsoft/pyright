@@ -159,7 +159,8 @@ export class SourceFile {
         if (this._isStubFile) {
             if (this._filePath.endsWith('/collections/__init__.pyi') ||
                     fileName === 'dataclasses.pyi' ||
-                    fileName === 'abc.pyi') {
+                    fileName === 'abc.pyi' ||
+                    fileName === 'enum.pyi') {
 
                 this._isBuiltInStubFile = true;
             }

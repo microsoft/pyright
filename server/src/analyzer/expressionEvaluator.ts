@@ -965,9 +965,14 @@ export class ExpressionEvaluator {
             if (subtype.isAny()) {
                 return subtype;
             } else if (subtype instanceof ClassType) {
-                // We need to special-case Literal types.
                 if (subtype.isSpecialBuiltIn() && subtype.getClassName() === 'Literal') {
+                    // Special-case Literal types.
                     return this._createLiteralType(node);
+                } else if (TypeUtils.isEnumClass(subtype)) {
+                    // Special-case Enum types.
+                    // TODO - validate that there's only one index entry
+                    // that is a str type.
+                    return Object(subtype);
                 } else {
                     let typeArgs = this._getTypeArgs(node.items);
                     return this._createSpecializeClassType(subtype, typeArgs, node.items);
@@ -1183,6 +1188,9 @@ export class ExpressionEvaluator {
                 } else if (className === 'Protocol' || className === 'Generic' ||
                         className === 'Callable' || className === 'Type') {
                     this._addError(`'${ className }' cannot be instantiated directly`, errorNode);
+                } else if (className === 'Enum' || className === 'IntEnum' ||
+                        className === 'Flag' || className === 'IntFlag') {
+                    type = this._createEnumType(errorNode, callType, argList, cachedCallType);
                 }
             } else if (callType.isAbstractClass()) {
                 // If the class is abstract, it can't be instantiated.
@@ -1782,6 +1790,77 @@ export class ExpressionEvaluator {
         return false;
     }
 
+    // Creates a new custom enum class with named values.
+    private _createEnumType(errorNode: ExpressionNode, enumClass: ClassType,
+            argList: FunctionArgument[], cachedCallType?: Type): ClassType {
+
+        let className = 'enum';
+        if (argList.length === 0) {
+            this._addError('Expected enum class name as first parameter', errorNode);
+        } else {
+            const nameArg = argList[0];
+            if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
+                this._addError('Expected enum class name as first parameter',
+                    argList[0].valueExpression || errorNode);
+            } else if (nameArg.valueExpression instanceof StringNode) {
+                className = nameArg.valueExpression.getValue();
+            }
+        }
+
+        // Use the cached class type and update it if this isn't the first
+        // analysis path. If this is the first pass, allocate a new ClassType.
+        let classType = cachedCallType as ClassType;
+        if (!(classType instanceof ClassType)) {
+            classType = new ClassType(className, ClassTypeFlags.None,
+                AnalyzerNodeInfo.getTypeSourceId(errorNode));
+
+            AnalyzerNodeInfo.setExpressionType(errorNode, classType);
+            classType.addBaseClass(enumClass, false);
+        }
+
+        const classFields = classType.getClassFields();
+        classFields.set('__class__', Symbol.createWithType(classType, DefaultTypeSourceId));
+
+        if (argList.length < 2) {
+            this._addError('Expected enum item string as second parameter', errorNode);
+        } else {
+            const entriesArg = argList[1];
+            if (entriesArg.argumentCategory !== ArgumentCategory.Simple ||
+                    !(entriesArg.valueExpression instanceof StringNode)) {
+
+                this._addError('Expected enum item string as second parameter', errorNode);
+            } else {
+                let entries = entriesArg.valueExpression.getValue().split(' ');
+                entries.forEach(entryName => {
+                    entryName = entryName.trim();
+                    if (entryName) {
+                        let entryType = UnknownType.create();
+
+                        const newSymbol = Symbol.createWithType(entryType, DefaultTypeSourceId);
+
+                        // We need to associate the declaration with a parse node.
+                        // In this case it's just part of a string literal value.
+                        // The definition provider won't necessarily take the
+                        // user to the exact spot in the string, but it's close enough.
+                        const stringNode = entriesArg.valueExpression!;
+                        const declaration: Declaration = {
+                            category: SymbolCategory.Variable,
+                            node: stringNode,
+                            path: this._fileInfo.filePath,
+                            declaredType: entryType,
+                            range: convertOffsetsToRange(
+                                stringNode.start, stringNode.end, this._fileInfo.lines)
+                        };
+                        newSymbol.addDeclaration(declaration);
+                        classFields.set(entryName, newSymbol);
+                    }
+                });
+            }
+        }
+
+        return classType;
+    }
+
     // Creates a new custom tuple factory class with named values.
     // Supports both typed and untyped variants.
     private _createNamedTupleType(errorNode: ExpressionNode, argList: FunctionArgument[],
@@ -1836,8 +1915,7 @@ export class ExpressionEvaluator {
             let addGenericGetAttribute = false;
 
             if (argList.length < 2) {
-                this._addError('Expected named tuple entry list as second parameter',
-                    errorNode);
+                this._addError('Expected named tuple entry list as second parameter', errorNode);
                 addGenericGetAttribute = true;
             } else {
                 const entriesArg = argList[1];
