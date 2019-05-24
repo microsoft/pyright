@@ -43,14 +43,17 @@ export enum ClassMemberLookupFlags {
     // is performed.
     SkipBaseClasses = 0x01,
 
+    // Skip the 'object' base class in particular.
+    SkipObjectBaseClass = 0x02,
+
     // By default, both class and instance variables are searched.
     // If this flag is set, the instance variables are skipped.
-    SkipInstanceVariables = 0x02,
+    SkipInstanceVariables = 0x04,
 
     // By default, the first symbol is returned even if it has only
     // an inferred type associated with it. If this flag is set,
     // the search looks only for symbols with declared types.
-    DeclaredTypesOnly = 0x04
+    DeclaredTypesOnly = 0x08
 }
 
 export interface SymbolWithClass {
@@ -762,6 +765,13 @@ export class TypeUtils {
 
         if (classType instanceof ClassType) {
             // TODO - Switch to true MRO. For now, use naive depth-first search.
+
+            // Should we ignore members on the 'object' base class?
+            if (flags & ClassMemberLookupFlags.SkipObjectBaseClass) {
+                if (classType.isBuiltIn() && classType.getClassName() === 'object') {
+                    return undefined;
+                }
+            }
 
             // Look in the instance fields first if requested.
             if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {

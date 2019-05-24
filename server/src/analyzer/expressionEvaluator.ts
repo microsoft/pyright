@@ -841,20 +841,11 @@ export class ExpressionEvaluator {
         if (flags & MemberAccessFlags.SkipBaseClasses) {
             classLookupFlags |= ClassMemberLookupFlags.SkipBaseClasses;
         }
+        if (flags & MemberAccessFlags.SkipObjectBaseClass) {
+            classLookupFlags |= ClassMemberLookupFlags.SkipObjectBaseClass;
+        }
         let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
             classLookupFlags);
-
-        if (memberInfo) {
-            // Should we ignore members on the 'object' base class?
-            if (flags & MemberAccessFlags.SkipObjectBaseClass) {
-                if (memberInfo.classType instanceof ClassType) {
-                    const classType = memberInfo.classType;
-                    if (classType.isBuiltIn() && classType.getClassName() === 'object') {
-                        memberInfo = undefined;
-                    }
-                }
-            }
-        }
 
         if (memberInfo) {
             let type = memberInfo.symbolType;
