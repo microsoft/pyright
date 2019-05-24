@@ -36,6 +36,7 @@ import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
+import { SymbolUtils } from './symbolUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, Type, UnknownType } from './types';
 
@@ -416,13 +417,18 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    protected _addNamesToScope(namesToAdd: string[]) {
+    protected _addNamesToScope(namesToAdd: string[], markAccessed: boolean) {
         // Add the names for this scope. They are initially unbound.
         namesToAdd.forEach(name => {
             // Don't overwrite the implicit bound names that have already
             // been added to the scope.
-            if (!this._currentScope.lookUpSymbol(name)) {
-                this._currentScope.addSymbol(name, true);
+            let symbol = this._currentScope.lookUpSymbol(name);
+            if (!symbol) {
+                symbol = this._currentScope.addSymbol(name, true);
+            }
+
+            if (markAccessed && !SymbolUtils.isPrivateName(name)) {
+                symbol.setIsAcccessed();
             }
         });
     }
@@ -530,7 +536,7 @@ export class ModuleScopeAnalyzer extends SemanticAnalyzer {
         this._bindImplicitNames();
         let nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
-        this._addNamesToScope(nameBindings!.getGlobalNames());
+        this._addNamesToScope(nameBindings!.getGlobalNames(), true);
 
         this.walkChildren(this._scopedNode);
 
@@ -570,7 +576,7 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
         this._bindImplicitNames();
         let nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
-        this._addNamesToScope(nameBindings!.getLocalNames());
+        this._addNamesToScope(nameBindings!.getLocalNames(), true);
 
         // Analyze the suite.
         let classNode = this._scopedNode as ClassNode;
@@ -618,7 +624,7 @@ export class FunctionScopeAnalyzer extends SemanticAnalyzer {
         // resolution for functions.
         let nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
-        this._addNamesToScope(nameBindings!.getLocalNames());
+        this._addNamesToScope(nameBindings!.getLocalNames(), false);
 
         // Walk the statements that make up the function.
         this.walk(functionNode.suite);
@@ -662,7 +668,7 @@ export class LambdaScopeAnalyzer extends SemanticAnalyzer {
         // resolution for functions.
         let nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
-        this._addNamesToScope(nameBindings!.getLocalNames());
+        this._addNamesToScope(nameBindings!.getLocalNames(), false);
 
         // Walk the expression that make up the lambda body.
         this.walk(lambdaNode.expression);
