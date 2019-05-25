@@ -270,7 +270,9 @@ export class ParseTreeUtils {
         return undefined;
     }
 
-    static getEnclosingClassOrModule(node: ParseNode): ClassNode | ModuleNode | undefined {
+    static getEnclosingClassOrModule(node: ParseNode,
+            stopAtFunction = false): ClassNode | ModuleNode | undefined {
+
         let curNode = node.parent;
         while (curNode) {
             if (curNode instanceof ClassNode) {
@@ -279,6 +281,12 @@ export class ParseTreeUtils {
 
             if (curNode instanceof ModuleNode) {
                 return curNode;
+            }
+
+            if (curNode instanceof FunctionNode) {
+                if (stopAtFunction) {
+                    return undefined;
+                }
             }
 
             curNode = curNode.parent;

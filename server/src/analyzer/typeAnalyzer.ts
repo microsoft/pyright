@@ -981,6 +981,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 node.leftExpression, effectiveType);
         }
 
+        // Class and global variables should always be marked as accessed.
+        if (ParseTreeUtils.getEnclosingClassOrModule(node, true)) {
+            this._markExpressionAccessed(node.leftExpression);
+        }
+
         this._assignTypeToExpression(node.leftExpression, effectiveType, node.rightExpression);
 
         return true;
@@ -1336,6 +1341,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (node.valueExpression instanceof NameNode) {
             typeHintType = this._transformTypeForPossibleEnumClass(
                 node.valueExpression, typeHintType);
+        }
+
+        // Class and global variables should always be marked as accessed.
+        if (ParseTreeUtils.getEnclosingClassOrModule(node, true)) {
+            this._markExpressionAccessed(node.valueExpression);
         }
 
         this._declareTypeForExpression(node.valueExpression, typeHintType,
@@ -2551,6 +2561,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 AnalyzerNodeInfo.setExpressionType(node, exprType);
 
                 this._setAnalysisChanged();
+            }
+        }
+    }
+
+    private _markExpressionAccessed(target: ExpressionNode) {
+        if (target instanceof NameNode) {
+            const nameValue = target.nameToken.value;
+            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
+
+            if (symbolWithScope) {
+                symbolWithScope.symbol.setIsAcccessed();
             }
         }
     }
