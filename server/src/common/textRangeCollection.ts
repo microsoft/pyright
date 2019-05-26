@@ -56,7 +56,7 @@ export class TextRangeCollection<T extends TextRange> {
         if (position < this.start) {
             return -1;
         }
-        if (position >= this.end) {
+        if (position > this.end) {
             return -1;
         }
 
