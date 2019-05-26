@@ -111,7 +111,7 @@ export class AnalyzerService {
             CompletionList | undefined {
 
         return this._program.getCompletionsForPosition(filePath, position,
-            this._configOptions, this._maxAnalysisTime);
+            this._configOptions);
     }
 
     printStats() {

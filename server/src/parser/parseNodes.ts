@@ -903,6 +903,9 @@ export class ModuleNameNode extends ParseNode {
     leadingDots = 0;
     nameParts: NameNode[] = [];
 
+    // This is an error condition used only for type completion.
+    hasTrailingDot?: boolean;
+
     getChildren(): RecursiveParseNodeArray {
         return undefined;
     }

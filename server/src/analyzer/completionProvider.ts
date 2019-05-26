@@ -10,12 +10,14 @@
 
 import { CompletionItem, CompletionItemKind, CompletionList } from 'vscode-languageserver';
 
+import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode, MemberAccessExpressionNode,
-    ModuleNode, ParseNode, StringNode, SuiteNode } from '../parser/parseNodes';
+    ModuleNameNode, ModuleNode, ParseNode, StringNode, SuiteNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { SymbolCategory, SymbolTable } from './symbol';
 import { ClassType, ModuleType, ObjectType } from './types';
@@ -63,7 +65,8 @@ const _keywords: string[] = [
 
 export class CompletionProvider {
     static getCompletionsForPosition(parseResults: ParseResults, fileContents: string,
-            position: DiagnosticTextPosition): CompletionList | undefined {
+            position: DiagnosticTextPosition, filePath: string, configOptions: ConfigOptions):
+                CompletionList | undefined {
 
         let offset = convertPositionToOffset(position, parseResults.lines);
         if (offset === undefined) {
@@ -123,6 +126,10 @@ export class CompletionProvider {
             // Don't offer completions inside of a string node.
             if (curNode instanceof StringNode) {
                 return undefined;
+            }
+
+            if (curNode instanceof ModuleNameNode) {
+                return this._getImportModuleCompletions(curNode, filePath, configOptions);
             }
 
             if (curNode instanceof ErrorExpressionNode) {
@@ -216,7 +223,7 @@ export class CompletionProvider {
     private static _getExpressionCompletions(parseNode: ParseNode,
             priorWord: string): CompletionList | undefined {
 
-        let completionList = CompletionList.create();
+        const completionList = CompletionList.create();
 
         // Add symbols.
         this._addSymbols(parseNode, priorWord, completionList);
@@ -294,5 +301,29 @@ export class CompletionProvider {
             case SymbolCategory.Module:
                 return CompletionItemKind.Module;
         }
+    }
+
+    private static _getImportModuleCompletions(node: ModuleNameNode,
+            filePath: string, configOptions: ConfigOptions): CompletionList {
+
+        const execEnvironment = configOptions.findExecEnvironment(filePath);
+        const resolver = new ImportResolver(filePath, configOptions, execEnvironment);
+        const moduleDescriptor: ImportedModuleDescriptor = {
+            leadingDots: node.leadingDots,
+            hasTrailingDot: node.hasTrailingDot,
+            nameParts: node.nameParts.map(part => part.nameToken.value),
+            importedSymbols: []
+        };
+
+        const completions = resolver.getCompletionSuggestions(moduleDescriptor);
+
+        const completionList = CompletionList.create();
+        completions.forEach(completionName => {
+            const completionItem = CompletionItem.create(completionName);
+            completionItem.kind = CompletionItemKind.Module;
+            completionList.items.push(completionItem);
+        });
+
+        return completionList;
     }
 }

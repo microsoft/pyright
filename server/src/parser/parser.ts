@@ -37,7 +37,8 @@ import { ArgumentCategory, ArgumentNode, AssertNode,
     SetNode, SliceExpressionNode, StatementListNode, StatementNode,
     StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
-    WhileNode, WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
+    WhileNode, WithItemNode, WithNode, YieldExpressionNode,
+    YieldFromExpressionNode } from './parseNodes';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
     NumberToken, OperatorToken, OperatorType, StringToken,
@@ -1013,6 +1014,7 @@ export class Parser {
             if (!identifier) {
                 if (!allowJustDots || moduleNameNode.leadingDots === 0) {
                     this._addError('Expected module name', this._peekToken());
+                    moduleNameNode.hasTrailingDot = true;
                 }
                 break;
             }
@@ -1020,9 +1022,13 @@ export class Parser {
             moduleNameNode.nameParts.push(new NameNode(identifier));
             moduleNameNode.extend(identifier);
 
+            const nextToken = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.Dot)) {
                 break;
             }
+
+            // Extend the module name to include the dot.
+            moduleNameNode.extend(nextToken);
         }
 
         return moduleNameNode;

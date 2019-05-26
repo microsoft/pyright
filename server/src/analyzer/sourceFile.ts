@@ -366,7 +366,7 @@ export class SourceFile {
             return false;
         }
 
-        let diagSink = new DiagnosticSink();
+        const diagSink = new DiagnosticSink();
         let fileContents = this._fileContents;
         if (this._clientVersion === null) {
             try {
@@ -386,9 +386,9 @@ export class SourceFile {
 
         // Use the configuration options to determine the environment in which
         // this source file will be executed.
-        let execEnvironment = configOptions.findExecEnvironment(this._filePath);
+        const execEnvironment = configOptions.findExecEnvironment(this._filePath);
 
-        let parseOptions = new ParseOptions();
+        const parseOptions = new ParseOptions();
         if (this._filePath.endsWith('pyi')) {
             parseOptions.isStubFile = true;
         }
@@ -477,7 +477,9 @@ export class SourceFile {
                 this._analysisJob.parseResults, position);
     }
 
-    getCompletionsForPosition(position: DiagnosticTextPosition): CompletionList | undefined {
+    getCompletionsForPosition(position: DiagnosticTextPosition,
+            configOptions: ConfigOptions): CompletionList | undefined {
+
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
             return undefined;
@@ -490,7 +492,8 @@ export class SourceFile {
         }
 
         return CompletionProvider.getCompletionsForPosition(
-                this._analysisJob.parseResults, this._fileContents, position);
+                this._analysisJob.parseResults, this._fileContents, position,
+                this._filePath, configOptions);
     }
 
     getAnalysisPassCount() {
@@ -614,9 +617,9 @@ export class SourceFile {
 
     private _buildFileInfo(configOptions: ConfigOptions, importMap?: ImportMap, builtinsScope?: Scope) {
         assert(this._analysisJob.parseResults !== undefined);
-        let analysisDiagnostics = new TextRangeDiagnosticSink(this._analysisJob.parseResults!.lines);
+        const analysisDiagnostics = new TextRangeDiagnosticSink(this._analysisJob.parseResults!.lines);
 
-        let fileInfo: AnalyzerFileInfo = {
+        const fileInfo: AnalyzerFileInfo = {
             importMap: importMap || {},
             builtinsScope,
             typingModulePath: this._analysisJob.typingModulePath,
@@ -647,9 +650,9 @@ export class SourceFile {
     private _resolveImports(moduleImports: ModuleImport[],
             configOptions: ConfigOptions, execEnv: ExecutionEnvironment):
             [ImportResult[], ImportResult?, string?] {
-        let imports: ImportResult[] = [];
 
-        let resolver = new ImportResolver(this._filePath, configOptions, execEnv);
+        const imports: ImportResult[] = [];
+        const resolver = new ImportResolver(this._filePath, configOptions, execEnv);
 
         // Always include an implicit import of the builtins module.
         let builtinsImportResult: ImportResult | undefined = resolver.resolveImport({
@@ -667,7 +670,7 @@ export class SourceFile {
         }
 
         // Always include an implicit import of the typing module.
-        let typingImportResult: ImportResult | undefined = resolver.resolveImport({
+        const typingImportResult: ImportResult | undefined = resolver.resolveImport({
             leadingDots: 0,
             nameParts: ['typing'],
             importedSymbols: undefined

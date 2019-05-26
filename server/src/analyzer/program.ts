@@ -24,6 +24,7 @@ import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
 
 const MaxImportDepth = 256;
+const MaxAnalysisTimeForCompletions = 1000;
 
 export interface SourceFileInfo {
     sourceFile: SourceFile;
@@ -615,25 +616,25 @@ export class Program {
     }
 
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
-        options: ConfigOptions, maxTime?: MaxAnalysisTime):
-            CompletionList | undefined {
+        options: ConfigOptions): CompletionList | undefined {
 
-        let sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
             return undefined;
         }
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-            this._analyzeFile(sourceFileInfo, options, maxTime);
+            this._analyzeFile(sourceFileInfo, options, {
+                openFilesTimeInMs: MaxAnalysisTimeForCompletions,
+                noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+            });
 
             // If we ran out of time before completing the type analysis,
-            // bail on the completions.
-            if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-                return undefined;
-            }
+            // do our best.
         }
 
-        return sourceFileInfo.sourceFile.getCompletionsForPosition(position);
+        return sourceFileInfo.sourceFile.getCompletionsForPosition(
+            position, options);
     }
 
     // Returns a list of empty file diagnostic entries for the files
