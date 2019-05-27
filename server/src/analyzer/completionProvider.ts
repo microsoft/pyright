@@ -8,20 +8,27 @@
 * a list of zero or more text completions that apply in the context.
 */
 
-import { CompletionItem, CompletionItemKind, CompletionList } from 'vscode-languageserver';
+import * as assert from 'assert';
+import { CompletionItem, CompletionItemKind,
+    CompletionList } from 'vscode-languageserver';
 
-import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
-import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode, MemberAccessExpressionNode,
-    ModuleNameNode, ModuleNode, ParseNode, StringNode, SuiteNode } from '../parser/parseNodes';
+import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode,
+    ImportFromAsNode, ImportFromNode, MemberAccessExpressionNode,
+    ModuleNameNode, ModuleNode, NameNode, ParseNode,
+    StringNode,
+    SuiteNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { SymbolCategory, SymbolTable } from './symbol';
 import { ClassType, ModuleType, ObjectType } from './types';
 import { TypeUtils } from './typeUtils';
+
 
 const _keywords: string[] = [
     // Expression keywords
@@ -65,8 +72,8 @@ const _keywords: string[] = [
 
 export class CompletionProvider {
     static getCompletionsForPosition(parseResults: ParseResults, fileContents: string,
-            position: DiagnosticTextPosition, filePath: string, configOptions: ConfigOptions):
-                CompletionList | undefined {
+            position: DiagnosticTextPosition, filePath: string, configOptions: ConfigOptions,
+            importMap: ImportMap): CompletionList | undefined {
 
         let offset = convertPositionToOffset(position, parseResults.lines);
         if (offset === undefined) {
@@ -138,6 +145,16 @@ export class CompletionProvider {
 
             if (curNode instanceof MemberAccessExpressionNode) {
                 return this._getMemberAccessCompletions(curNode.leftExpression, priorWord);
+            }
+
+            if (curNode instanceof NameNode) {
+                // Are we within a "from X import Y as Z" statement and
+                // more specifically within the "Y"?
+                if (curNode.parent instanceof ImportFromAsNode &&
+                        curNode.parent.name === curNode) {
+
+                    return this._getImportFromCompletions(curNode, priorWord, importMap);
+                }
             }
 
             if (curNode instanceof ExpressionNode) {
@@ -238,7 +255,54 @@ export class CompletionProvider {
         return completionList;
     }
 
-    private static _findMatchingKeywords(keywordList: string[], partialMatch: string): string[] {
+    private static _getImportFromCompletions(nameNode: NameNode,
+            priorWord: string, importMap: ImportMap): CompletionList | undefined {
+
+        assert(nameNode.parent instanceof ImportFromAsNode);
+        const importFromAsNode = nameNode.parent as ImportFromAsNode;
+        assert(importFromAsNode.parent instanceof ImportFromNode);
+        const importFromNode = importFromAsNode.parent as ImportFromNode;
+
+        // Don't attempt to provide completions for "import * from".
+        if (importFromNode.imports.length === 0) {
+            return undefined;
+        }
+
+        // Access the imported module information, which is hanging
+        // off the ImportFromNode.
+        const importInfo = AnalyzerNodeInfo.getImportInfo(importFromNode.module);
+        if (!importInfo) {
+            return undefined;
+        }
+
+        const completionList = CompletionList.create();
+
+        const resolvedPath = importInfo.resolvedPaths.length > 0 ?
+            importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
+
+        if (importMap[resolvedPath]) {
+            const moduleNode = importMap[resolvedPath].parseTree;
+            if (moduleNode) {
+                const moduleType = AnalyzerNodeInfo.getExpressionType(moduleNode) as ModuleType;
+                if (moduleType) {
+                    const moduleFields = moduleType.getFields();
+                    this._addSymbolsForSymbolTable(moduleFields, priorWord, completionList);
+                }
+            }
+        }
+
+        // Add the implicit imports.
+        importInfo.implicitImports.forEach(implImport => {
+            this._addNameToCompletionList(implImport.name, CompletionItemKind.Module,
+                priorWord, completionList);
+        });
+
+        return completionList;
+    }
+
+    private static _findMatchingKeywords(keywordList: string[],
+            partialMatch: string): string[] {
+
         return keywordList.filter(keyword => {
             if (partialMatch) {
                 return keyword.startsWith(partialMatch);
@@ -268,19 +332,24 @@ export class CompletionProvider {
             priorWord: string, completionList: CompletionList) {
 
         symbolTable.forEach((item, name) => {
-            if (name.startsWith(priorWord)) {
-                let completionItem = CompletionItem.create(name);
-
-                // Determine the kind.
-                let itemKind: CompletionItemKind = CompletionItemKind.Variable;
-                const declarations = item.getDeclarations();
-                if (declarations.length > 0) {
-                    itemKind = this._convertSymbolCategoryToItemKind(declarations[0].category);
-                }
-                completionItem.kind = itemKind;
-                completionList.items.push(completionItem);
+            // Determine the kind.
+            let itemKind: CompletionItemKind = CompletionItemKind.Variable;
+            const declarations = item.getDeclarations();
+            if (declarations.length > 0) {
+                itemKind = this._convertSymbolCategoryToItemKind(declarations[0].category);
             }
+            this._addNameToCompletionList(name, itemKind, priorWord, completionList);
         });
+    }
+
+    private static _addNameToCompletionList(name: string, itemKind: CompletionItemKind,
+            filter: string, completionList: CompletionList) {
+
+        if (name.startsWith(filter)) {
+            const completionItem = CompletionItem.create(name);
+            completionItem.kind = itemKind;
+            completionList.items.push(completionItem);
+        }
     }
 
     private static _convertSymbolCategoryToItemKind(category: SymbolCategory): CompletionItemKind {

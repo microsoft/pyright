@@ -24,7 +24,7 @@ import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
 
 const MaxImportDepth = 256;
-const MaxAnalysisTimeForCompletions = 1000;
+const MaxAnalysisTimeForCompletions = 500;
 
 export interface SourceFileInfo {
     sourceFile: SourceFile;
@@ -348,6 +348,19 @@ export class Program {
         fileToAnalyze.sourceFile.doSemanticAnalysis(options, builtinsScope);
     }
 
+    private _buildImportMap(sourceFileInfo: SourceFileInfo): ImportMap {
+        const importMap: ImportMap = {};
+
+        for (let importedFileInfo of sourceFileInfo.imports) {
+            let parseResults = importedFileInfo.sourceFile.getParseResults();
+            if (parseResults) {
+                importMap[importedFileInfo.sourceFile.getFilePath()] = parseResults;
+            }
+        }
+
+        return importMap;
+    }
+
     private _doFullAnalysis(fileToAnalyze: SourceFileInfo, options: ConfigOptions,
             timeElapsedCallback: () => boolean): boolean {
         // If the file isn't needed because it was eliminated from the
@@ -378,13 +391,7 @@ export class Program {
 
             if (fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
                 // Build the import map for the file.
-                let importMap: ImportMap = {};
-                for (let importedFileInfo of fileToAnalyze.imports) {
-                    let parseResults = importedFileInfo.sourceFile.getParseResults();
-                    if (parseResults) {
-                        importMap[importedFileInfo.sourceFile.getFilePath()] = parseResults;
-                    }
-                }
+                const importMap = this._buildImportMap(fileToAnalyze);
 
                 // Do a type analysis pass and determine if any internal changes occurred
                 // during the pass. If so, continue to analyze until it stops changing and
@@ -629,12 +636,14 @@ export class Program {
                 noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
             });
 
-            // If we ran out of time before completing the type analysis,
-            // do our best.
+            if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+                // If we ran out of time before completing the type
+                // analysis, do our best.
+            }
         }
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
-            position, options);
+            position, options, this._buildImportMap(sourceFileInfo));
     }
 
     // Returns a list of empty file diagnostic entries for the files

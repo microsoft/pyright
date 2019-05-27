@@ -1254,9 +1254,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     let declaration: Declaration | undefined;
 
                     // Is the name referring to an implicit import?
-                    let implicitImport = importInfo.implicitImports.find(impImport => impImport.name === name);
+                    const implicitImport = importInfo.implicitImports.find(impImport => impImport.name === name);
                     if (implicitImport) {
-                        let moduleType = this._getModuleTypeForImportPath(importInfo, implicitImport.path);
+                        const moduleType = this._getModuleTypeForImportPath(importInfo, implicitImport.path);
                         if (moduleType &&
                                 this._fileInfo.importMap[implicitImport.path] &&
                                 this._fileInfo.importMap[implicitImport.path].parseTree) {
@@ -2482,9 +2482,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (this._fileInfo.importMap[path]) {
-            let moduleNode = this._fileInfo.importMap[path].parseTree;
+            const moduleNode = this._fileInfo.importMap[path].parseTree;
             if (moduleNode) {
-                let moduleType = AnalyzerNodeInfo.getExpressionType(moduleNode) as ModuleType;
+                const moduleType = AnalyzerNodeInfo.getExpressionType(moduleNode) as ModuleType;
                 if (moduleType) {
                     return moduleType;
                 }
@@ -2494,12 +2494,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // happens in the case of namespace packages, where an __init__.py
             // is not necessarily present. We'll synthesize a module type in
             // this case.
-            let symbolTable = new SymbolTable();
-            let moduleType = new ModuleType(symbolTable);
+            const symbolTable = new SymbolTable();
+            const moduleType = new ModuleType(symbolTable);
 
             // Add the implicit imports.
             importResult.implicitImports.forEach(implicitImport => {
-                let implicitModuleType = this._getModuleTypeForImportPath(
+                const implicitModuleType = this._getModuleTypeForImportPath(
                     undefined, implicitImport.path);
                 if (implicitModuleType) {
                     symbolTable.set(implicitImport.name, Symbol.createWithType(

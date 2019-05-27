@@ -478,7 +478,7 @@ export class SourceFile {
     }
 
     getCompletionsForPosition(position: DiagnosticTextPosition,
-            configOptions: ConfigOptions): CompletionList | undefined {
+            configOptions: ConfigOptions, importMap: ImportMap): CompletionList | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
@@ -493,7 +493,7 @@ export class SourceFile {
 
         return CompletionProvider.getCompletionsForPosition(
                 this._analysisJob.parseResults, this._fileContents, position,
-                this._filePath, configOptions);
+                this._filePath, configOptions, importMap);
     }
 
     getAnalysisPassCount() {
