@@ -22,6 +22,7 @@ import { CircularDependency } from './circularDependency';
 import { HoverResults } from './hoverProvider';
 import { ImportType } from './importResult';
 import { Scope } from './scope';
+import { SignatureHelpResults } from './signatureHelpProvider';
 import { SourceFile } from './sourceFile';
 
 const MaxImportDepth = 256;
@@ -623,6 +624,29 @@ export class Program {
         }
 
         return sourceFile.getHoverForPosition(position);
+    }
+
+    getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition,
+        options: ConfigOptions): SignatureHelpResults | undefined {
+
+        const sourceFileInfo = this._sourceFileMap[filePath];
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+
+        if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+            this._analyzeFile(sourceFileInfo, options, {
+                openFilesTimeInMs: MaxAnalysisTimeForCompletions,
+                noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+            });
+
+            if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+                // If we ran out of time before completing the type
+                // analysis, do our best.
+            }
+        }
+
+        return sourceFileInfo.sourceFile.getSignatureHelpForPosition(position);
     }
 
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,

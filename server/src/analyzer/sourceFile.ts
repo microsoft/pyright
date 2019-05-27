@@ -38,6 +38,7 @@ import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { ModuleImport, PostParseWalker } from './postParseWalker';
 import { Scope } from './scope';
 import { ModuleScopeAnalyzer } from './semanticAnalyzer';
+import { SignatureHelpProvider, SignatureHelpResults } from './signatureHelpProvider';
 import { TypeAnalyzer } from './typeAnalyzer';
 
 const MaxImportCyclesPerFile = 4;
@@ -475,6 +476,22 @@ export class SourceFile {
 
         return HoverProvider.getHoverForPosition(
                 this._analysisJob.parseResults, position);
+    }
+
+    getSignatureHelpForPosition(position: DiagnosticTextPosition): SignatureHelpResults | undefined {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._analysisJob.parseResults) {
+            return undefined;
+        }
+
+        // This command should be called only for open files, in which
+        // case we should have the file contents already loaded.
+        if (this._fileContents === undefined) {
+            return undefined;
+        }
+
+        return SignatureHelpProvider.getSignatureHelpForPosition(
+                this._analysisJob.parseResults, this._fileContents, position);
     }
 
     getCompletionsForPosition(position: DiagnosticTextPosition,

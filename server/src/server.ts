@@ -7,7 +7,7 @@
 import {
     createConnection, Diagnostic, DiagnosticSeverity, DiagnosticTag,
     IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter,
-    Location, MarkupContent, Position, Range, TextDocuments
+    Location, MarkupContent, ParameterInformation, Position, Range, SignatureInformation, TextDocuments
 } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
 
@@ -103,6 +103,9 @@ _connection.onInitialize((params): InitializeResult => {
             hoverProvider: true,
             completionProvider: {
                 triggerCharacters: ['.']
+            },
+            signatureHelpProvider: {
+                triggerCharacters: ['(', ',', ')']
             }
         }
     };
@@ -164,6 +167,39 @@ _connection.onHover(params => {
     return {
         contents: markedStrings,
         range: _convertRange(hoverResults.range)
+    };
+});
+
+_connection.onSignatureHelp(params => {
+    const filePath = _convertUriToPath(params.textDocument.uri);
+
+    const position: DiagnosticTextPosition = {
+        line: params.position.line,
+        column: params.position.character
+    };
+
+    const signatureHelpResults = _analyzerService.getSignatureHelpForPosition(
+        filePath, position);
+    if (!signatureHelpResults) {
+        return undefined;
+    }
+
+    return {
+        signatures: signatureHelpResults.signatures.map(sig => {
+            let paramInfo: ParameterInformation[] = [];
+            if (sig.parameters) {
+                paramInfo = sig.parameters.map(param => {
+                    return ParameterInformation.create(
+                        [param.startOffset, param.endOffset], param.documentation);
+                });
+            }
+            return SignatureInformation.create(sig.label, sig.documentation,
+                ...paramInfo);
+        }),
+        activeSignature: signatureHelpResults.activeSignature !== undefined ?
+            signatureHelpResults.activeSignature : null,
+        activeParameter: signatureHelpResults.activeParameter !== undefined ?
+            signatureHelpResults.activeParameter : null
     };
 });
 

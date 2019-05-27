@@ -22,6 +22,7 @@ import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from './hoverProvider';
 import { MaxAnalysisTime, Program } from './program';
 import { PythonPathUtils } from './pythonPathUtils';
+import { SignatureHelpResults } from './signatureHelpProvider';
 
 const _defaultConfigFileName = 'pyrightconfig.json';
 
@@ -108,6 +109,13 @@ export class AnalyzerService {
             HoverResults | undefined {
 
         return this._program.getHoverForPosition(filePath, position);
+    }
+
+    getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition):
+            SignatureHelpResults | undefined {
+
+        return this._program.getSignatureHelpForPosition(filePath, position,
+            this._configOptions);
     }
 
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition):
