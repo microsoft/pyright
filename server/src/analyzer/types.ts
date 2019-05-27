@@ -859,7 +859,12 @@ export class FunctionType extends Type {
     }
 
     asStringInternal(recursionCount = 0): string {
-        let paramTypeString = this._functionDetails.parameters.map((param, index) => {
+        const parts = this.asStringParts(recursionCount);
+        return `(${ parts[0].join(', ') }) -> ${ parts[1] }`;
+    }
+
+    asStringParts(recursionCount = 0): [string[], string] {
+        const paramTypeStrings = this._functionDetails.parameters.map((param, index) => {
             let paramString = '';
             if (param.category === ParameterCategory.VarArgList) {
                 paramString += '*';
@@ -878,14 +883,12 @@ export class FunctionType extends Type {
                 paramString += ': ' + paramTypeString;
             }
             return paramString;
-        }).join(', ');
+        });
 
-        let returnTypeString = 'Any';
         const returnType = this.getEffectiveReturnType();
-        returnTypeString = recursionCount < MaxRecursionCount ?
+        const returnTypeString = recursionCount < MaxRecursionCount ?
             returnType.asStringInternal(recursionCount + 1) : '';
-
-        return `(${ paramTypeString }) -> ${ returnTypeString }`;
+        return [paramTypeStrings, returnTypeString];
     }
 
     requiresSpecialization(recursionCount = 0) {

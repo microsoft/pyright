@@ -84,8 +84,8 @@ export class CompletionProvider {
         // See if we can get to a "better" node by backing up a few columns.
         // A "better" node is defined as one that's deeper than the current
         // node.
-        let initialNode = node;
-        let initialDepth = node ? ParseTreeUtils.getNodeDepth(node) : 0;
+        const initialNode = node;
+        const initialDepth = node ? ParseTreeUtils.getNodeDepth(node) : 0;
         let curOffset = offset;
         while (curOffset >= 0) {
             curOffset--;

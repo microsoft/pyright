@@ -1612,16 +1612,23 @@ export class Parser {
 
             // Is it a function call?
             if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
-                let argList = this._parseArgList();
-                let callNode = new CallExpressionNode(atomExpression);
+                const argList = this._parseArgList();
+                const callNode = new CallExpressionNode(atomExpression);
                 callNode.arguments = argList;
                 callNode.extend(argList);
 
-                let nextToken = this._peekToken();
+                const nextToken = this._peekToken();
                 if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                    return this._handleExpressionParseError(
-                        ErrorExpressionCategory.MissingCallCloseParen,
-                        'Expected ")"', callNode);
+                    this._addError('Expected ")"', this._peekToken());
+
+                    // Consume the remainder of tokens on the line for error
+                    // recovery.
+                    this._consumeTokensUntilType(TokenType.NewLine);
+
+                    // Extend the node's range to include the rest of the line.
+                    // This helps the signatureHelpProvider.
+                    callNode.extend(this._peekToken());
+                    return callNode;
                 } else {
                     callNode.extend(nextToken);
                 }
@@ -1629,15 +1636,15 @@ export class Parser {
                 atomExpression = callNode;
             } else if (this._consumeTokenIfType(TokenType.OpenBracket)) {
                 // Is it an index operator?
-                let indexExpr = this._parseSubscriptList();
+                const indexExpr = this._parseSubscriptList();
                 let expressions = [indexExpr];
                 if (indexExpr instanceof TupleExpressionNode) {
                     expressions = indexExpr.expressions;
                 }
 
-                let closingToken = this._peekToken();
-                let indexItemsNode = new IndexItemsNode(nextToken, closingToken, expressions);
-                let indexNode = new IndexExpressionNode(atomExpression, indexItemsNode);
+                const closingToken = this._peekToken();
+                const indexItemsNode = new IndexItemsNode(nextToken, closingToken, expressions);
+                const indexNode = new IndexExpressionNode(atomExpression, indexItemsNode);
                 indexNode.extend(indexNode);
 
                 if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
@@ -1649,7 +1656,7 @@ export class Parser {
                 atomExpression = indexNode;
             } else if (this._consumeTokenIfType(TokenType.Dot)) {
                 // Is it a member access?
-                let memberName = this._getTokenIfIdentifier();
+                const memberName = this._getTokenIfIdentifier();
                 if (!memberName) {
                     return this._handleExpressionParseError(
                         ErrorExpressionCategory.MissingMemberAccessName,
