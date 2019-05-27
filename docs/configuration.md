@@ -103,6 +103,7 @@ The following settings can be specified for each execution environment.
 Pyright will import the following settings set through VS Code. These override the values provided in the configuration file.
 
 **python.venvPath**: Same as the **venvPath** setting described above.
+
 **python.analysis.typeshedPaths**: An array of typeshed paths to search. Pyright supports only one such path. If provided in the VS Code setting, the first entry overrides the **typeshedPath** configuration file entry described above.
 
 
