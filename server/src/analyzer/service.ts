@@ -19,6 +19,7 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { combinePaths, forEachAncestorDirectory, getDirectoryPath, getFileSystemEntries,
     isDirectory, isFile, normalizePath } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
+import { HoverResults } from './hoverProvider';
 import { MaxAnalysisTime, Program } from './program';
 import { PythonPathUtils } from './pythonPathUtils';
 
@@ -99,11 +100,13 @@ export class AnalyzerService {
 
     getDefinitionForPosition(filePath: string, position: DiagnosticTextPosition):
             DocumentTextRange[] | undefined {
+
         return this._program.getDefinitionsForPosition(filePath, position);
     }
 
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
-            string | undefined {
+            HoverResults | undefined {
+
         return this._program.getHoverForPosition(filePath, position);
     }
 

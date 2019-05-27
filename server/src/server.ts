@@ -123,14 +123,14 @@ _connection.onDidChangeConfiguration(change => {
 });
 
 _connection.onDefinition(params => {
-    let filePath = _convertUriToPath(params.textDocument.uri);
+    const filePath = _convertUriToPath(params.textDocument.uri);
 
-    let position: DiagnosticTextPosition = {
+    const position: DiagnosticTextPosition = {
         line: params.position.line,
         column: params.position.character
     };
 
-    let locations = _analyzerService.getDefinitionForPosition(filePath, position);
+    const locations = _analyzerService.getDefinitionForPosition(filePath, position);
     if (!locations) {
         return undefined;
     }
@@ -139,22 +139,32 @@ _connection.onDefinition(params => {
 });
 
 _connection.onHover(params => {
-    let filePath = _convertUriToPath(params.textDocument.uri);
+    const filePath = _convertUriToPath(params.textDocument.uri);
 
-    let position: DiagnosticTextPosition = {
+    const position: DiagnosticTextPosition = {
         line: params.position.line,
         column: params.position.character
     };
 
-    let hoverMarkdown = _analyzerService.getHoverForPosition(filePath, position);
-    if (!hoverMarkdown) {
+    const hoverResults = _analyzerService.getHoverForPosition(filePath, position);
+    if (!hoverResults) {
         return undefined;
     }
-    let markupContent: MarkupContent = {
-        kind: 'markdown',
-        value: hoverMarkdown
+
+    const markedStrings = hoverResults.parts.map(part => {
+        if (part.python) {
+            return {
+                language: 'python',
+                value: part.text
+            };
+        }
+        return part.text;
+    });
+
+    return {
+        contents: markedStrings,
+        range: _convertRange(hoverResults.range)
     };
-    return { contents: markupContent };
 });
 
 _connection.onCompletion(params => {

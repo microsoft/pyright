@@ -31,7 +31,7 @@ import { CircularDependency } from './circularDependency';
 import { CommentUtils } from './commentUtils';
 import { CompletionProvider } from './completionProvider';
 import { DefinitionProvider } from './definitionProvider';
-import { HoverProvider } from './hoverProvider';
+import { HoverProvider, HoverResults } from './hoverProvider';
 import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
@@ -467,7 +467,7 @@ export class SourceFile {
                 this._analysisJob.parseResults, position);
     }
 
-    getHoverForPosition(position: DiagnosticTextPosition): string | undefined {
+    getHoverForPosition(position: DiagnosticTextPosition): HoverResults | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
             return undefined;

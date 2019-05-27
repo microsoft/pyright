@@ -9,8 +9,8 @@
 * position within a smart editor.
 */
 
-import { DiagnosticTextPosition } from '../common/diagnostic';
-import { convertPositionToOffset } from '../common/positionUtils';
+import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
+import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { ModuleNameNode, NameNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -19,9 +19,19 @@ import { ParseTreeUtils } from './parseTreeUtils';
 import { SymbolCategory } from './symbol';
 import { UnknownType } from './types';
 
+export interface HoverTextPart {
+    python?: boolean;
+    text: string;
+}
+
+export interface HoverResults {
+    parts: HoverTextPart[];
+    range: DiagnosticTextRange;
+}
+
 export class HoverProvider {
     static getHoverForPosition(parseResults: ParseResults,
-            position: DiagnosticTextPosition): string | undefined {
+            position: DiagnosticTextPosition): HoverResults | undefined {
 
         let offset = convertPositionToOffset(position, parseResults.lines);
         if (offset === undefined) {
@@ -32,6 +42,14 @@ export class HoverProvider {
         if (node === undefined) {
             return undefined;
         }
+
+        const results: HoverResults = {
+            parts: [],
+            range: {
+                start: convertOffsetToPosition(node.start, parseResults.lines),
+                end: convertOffsetToPosition(node.end, parseResults.lines)
+            }
+        };
 
         if (node instanceof ModuleNameNode) {
             // If this is an imported module name, try to map the position
@@ -54,12 +72,14 @@ export class HoverProvider {
             }
 
             if (importInfo.resolvedPaths[pathOffset]) {
-                let typeStubWarning = '';
+                this._addResultsPart(results, '(module) "' + importInfo.resolvedPaths[pathOffset] + '"', true);
+
                 if (importInfo.importType === ImportType.ThirdParty && !importInfo.isStubFile) {
-                    typeStubWarning = '\nNo type stub found for this module. Imported symbol types are unknown.';
+                    this._addResultsPart(results,
+                        'No type stub found for this module. Imported symbol types are unknown.');
                 }
 
-                return '```\n(module) "' + importInfo.resolvedPaths[pathOffset] + '"```' + typeStubWarning;
+                return results;
             }
 
             return undefined;
@@ -73,46 +93,52 @@ export class HoverProvider {
             switch (declaration.category) {
                 case SymbolCategory.Variable: {
                     if (node instanceof NameNode) {
-                        return '```\n(variable) ' + node.nameToken.value +
-                            this._getTypeText(node) + '```';
+                        this._addResultsPart(results, '(variable) ' + node.nameToken.value +
+                            this._getTypeText(node), true);
+                        return results;
                     }
                     break;
                 }
 
                 case SymbolCategory.Parameter: {
                     if (node instanceof NameNode) {
-                        return '```\n(parameter) ' + node.nameToken.value +
-                            this._getTypeText(node) + '```';
+                        this._addResultsPart(results, '(parameter) ' + node.nameToken.value +
+                            this._getTypeText(node), true);
+                        return results;
                     }
                     break;
                 }
 
                 case SymbolCategory.Class: {
                     if (node instanceof NameNode) {
-                        return '```\n(class) ' + this._getTypeText(node) + '```';
+                        this._addResultsPart(results, '(class) ' + this._getTypeText(node), true);
+                        return results;
                     }
                     break;
                 }
 
                 case SymbolCategory.Function: {
                     if (node instanceof NameNode) {
-                        return '```\n(function) ' + node.nameToken.value +
-                            this._getTypeText(node) + '\n```';
+                        this._addResultsPart(results, '(function) ' + node.nameToken.value +
+                            this._getTypeText(node), true);
+                        return results;
                     }
                     break;
                 }
 
                 case SymbolCategory.Method: {
                     if (node instanceof NameNode) {
-                        return '```\n(method) ' + node.nameToken.value +
-                            this._getTypeText(node) + '```';
+                        this._addResultsPart(results, '(method) ' + node.nameToken.value +
+                            this._getTypeText(node), true);
+                        return results;
                     }
                     break;
                 }
 
                 case SymbolCategory.Module: {
                     if (node instanceof NameNode) {
-                        return '```\n(module) ' + node.nameToken.value + '```';
+                        this._addResultsPart(results, '(module) ' + node.nameToken.value, true);
+                        return results;
                     }
                     break;
                 }
@@ -122,8 +148,8 @@ export class HoverProvider {
         // If we had no declaration, see if we can provide a minimal tooltip.
         if (node instanceof NameNode) {
             if (node instanceof NameNode) {
-                return '```\n' + node.nameToken.value  +
-                            this._getTypeText(node) + '```';
+                this._addResultsPart(results, node.nameToken.value + this._getTypeText(node), true);
+                return results;
             }
         }
 
@@ -151,5 +177,16 @@ export class HoverProvider {
         }
 
         return ': ' + type.asString();
+    }
+
+    private static _addResultsPart(results: HoverResults, text: string, python = false) {
+        results.parts.push({
+            python,
+            text
+        });
+    }
+
+    private static _formatCode(codeString: string): string {
+        return '```\n' + codeString + '\n```\n';
     }
 }

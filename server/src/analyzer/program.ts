@@ -19,6 +19,7 @@ import { Duration } from '../common/timing';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
+import { HoverResults } from './hoverProvider';
 import { ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
@@ -604,7 +605,8 @@ export class Program {
 
     getDefinitionsForPosition(filePath: string, position: DiagnosticTextPosition):
             DocumentTextRange[] | undefined {
-        let sourceFile = this.getSourceFile(filePath);
+
+        const sourceFile = this.getSourceFile(filePath);
         if (!sourceFile) {
             return undefined;
         }
@@ -613,8 +615,9 @@ export class Program {
     }
 
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
-            string | undefined {
-        let sourceFile = this.getSourceFile(filePath);
+            HoverResults | undefined {
+
+        const sourceFile = this.getSourceFile(filePath);
         if (!sourceFile) {
             return undefined;
         }

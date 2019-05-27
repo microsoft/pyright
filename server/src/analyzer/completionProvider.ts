@@ -29,7 +29,6 @@ import { SymbolCategory, SymbolTable } from './symbol';
 import { ClassType, ModuleType, ObjectType } from './types';
 import { TypeUtils } from './typeUtils';
 
-
 const _keywords: string[] = [
     // Expression keywords
     'True',
