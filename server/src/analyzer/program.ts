@@ -615,6 +615,49 @@ export class Program {
         return sourceFile.getDefinitionsForPosition(position);
     }
 
+    getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
+            options: ConfigOptions, includeDeclaration: boolean):
+                DocumentTextRange[] | undefined {
+
+        const sourceFileInfo = this._sourceFileMap[filePath];
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+
+        if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+            this._analyzeFile(sourceFileInfo, options, {
+                openFilesTimeInMs: MaxAnalysisTimeForCompletions,
+                noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+            });
+        }
+
+        const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
+            position, includeDeclaration);
+
+        if (!referencesResult) {
+            return undefined;
+        }
+
+        // Do we need to do a global search as well?
+        if (referencesResult.requiresGlobalSearch) {
+            for (let curSourceFileInfo of this._sourceFileList) {
+                if (curSourceFileInfo !== sourceFileInfo) {
+                    if (curSourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+                        this._analyzeFile(curSourceFileInfo, options, {
+                            openFilesTimeInMs: MaxAnalysisTimeForCompletions,
+                            noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+                        });
+                    }
+
+                    curSourceFileInfo.sourceFile.addReferences(referencesResult,
+                        includeDeclaration);
+                }
+            }
+        }
+
+        return referencesResult.locations;
+    }
+
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
             HoverResults | undefined {
 
@@ -628,7 +671,7 @@ export class Program {
     }
 
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition,
-        options: ConfigOptions): SignatureHelpResults | undefined {
+            options: ConfigOptions): SignatureHelpResults | undefined {
 
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
@@ -640,11 +683,6 @@ export class Program {
                 openFilesTimeInMs: MaxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
             });
-
-            if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-                // If we ran out of time before completing the type
-                // analysis, do our best.
-            }
         }
 
         return sourceFileInfo.sourceFile.getSignatureHelpForPosition(position);

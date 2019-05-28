@@ -105,6 +105,13 @@ export class AnalyzerService {
         return this._program.getDefinitionsForPosition(filePath, position);
     }
 
+    getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
+            includeDeclaration: boolean): DocumentTextRange[] | undefined {
+
+        return this._program.getReferencesForPosition(filePath, position,
+            this._configOptions, includeDeclaration);
+    }
+
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
             HoverResults | undefined {
 

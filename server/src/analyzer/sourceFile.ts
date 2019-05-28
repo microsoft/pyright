@@ -36,6 +36,7 @@ import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { ModuleImport, PostParseWalker } from './postParseWalker';
+import { ReferencesProvider, ReferencesResult } from './referencesProvider';
 import { Scope } from './scope';
 import { ModuleScopeAnalyzer } from './semanticAnalyzer';
 import { SignatureHelpProvider, SignatureHelpResults } from './signatureHelpProvider';
@@ -468,6 +469,28 @@ export class SourceFile {
                 this._analysisJob.parseResults, position);
     }
 
+    getReferencesForPosition(position: DiagnosticTextPosition, includeDeclaration: boolean):
+            ReferencesResult | undefined {
+
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._analysisJob.parseResults) {
+            return undefined;
+        }
+
+        return ReferencesProvider.getReferencesForPosition(
+            this._analysisJob.parseResults, this._filePath, position, includeDeclaration);
+    }
+
+    addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean): void {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._analysisJob.parseResults) {
+            return;
+        }
+
+        ReferencesProvider.addReferences(
+            this._analysisJob.parseResults, this._filePath, referencesResult, includeDeclaration);
+    }
+
     getHoverForPosition(position: DiagnosticTextPosition, importMap: ImportMap): HoverResults | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
@@ -475,7 +498,7 @@ export class SourceFile {
         }
 
         return HoverProvider.getHoverForPosition(
-                this._analysisJob.parseResults, position, importMap);
+            this._analysisJob.parseResults, position, importMap);
     }
 
     getSignatureHelpForPosition(position: DiagnosticTextPosition): SignatureHelpResults | undefined {
@@ -491,7 +514,7 @@ export class SourceFile {
         }
 
         return SignatureHelpProvider.getSignatureHelpForPosition(
-                this._analysisJob.parseResults, this._fileContents, position);
+            this._analysisJob.parseResults, this._fileContents, position);
     }
 
     getCompletionsForPosition(position: DiagnosticTextPosition,
@@ -509,8 +532,8 @@ export class SourceFile {
         }
 
         return CompletionProvider.getCompletionsForPosition(
-                this._analysisJob.parseResults, this._fileContents, position,
-                this._filePath, configOptions, importMap);
+            this._analysisJob.parseResults, this._fileContents, position,
+            this._filePath, configOptions, importMap);
     }
 
     getAnalysisPassCount() {

@@ -100,6 +100,7 @@ _connection.onInitialize((params): InitializeResult => {
             // sync mode (as opposed to incremental).
             textDocumentSync: _documents.syncKind,
             definitionProvider: true,
+            referencesProvider: true,
             hoverProvider: true,
             completionProvider: {
                 triggerCharacters: ['.']
@@ -134,6 +135,23 @@ _connection.onDefinition(params => {
     };
 
     const locations = _analyzerService.getDefinitionForPosition(filePath, position);
+    if (!locations) {
+        return undefined;
+    }
+    return locations.map(loc =>
+        Location.create(_convertPathToUri(loc.path), _convertRange(loc.range)));
+});
+
+_connection.onReferences(params => {
+    const filePath = _convertUriToPath(params.textDocument.uri);
+
+    const position: DiagnosticTextPosition = {
+        line: params.position.line,
+        column: params.position.character
+    };
+
+    const locations = _analyzerService.getReferencesForPosition(filePath, position,
+            params.context.includeDeclaration);
     if (!locations) {
         return undefined;
     }

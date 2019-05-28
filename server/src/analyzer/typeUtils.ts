@@ -870,8 +870,8 @@ export class TypeUtils {
         return undefined;
     }
 
-    // Returns the "primary" declarations for a symbol. Type declarations are
-    // preferred. If no such declaration exists, inferred declarations are returned.
+    // Returns the "primary" declarations for a symbol. Explicit declarations are
+    // preferred. If no explicit declaration exists, inferred declarations are returned.
     static getPrimaryDeclarationsForSymbol(symbol: Symbol): Declaration[] | undefined {
         const declarations = symbol.getDeclarations();
         if (declarations.length > 0) {
