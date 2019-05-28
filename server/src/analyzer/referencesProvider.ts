@@ -15,7 +15,7 @@ import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
-import { Declaration, SymbolCategory } from './symbol';
+import { Declaration, Symbol, SymbolCategory } from './symbol';
 
 export interface ReferencesResult {
     requiresGlobalSearch: boolean;
@@ -66,7 +66,8 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     }
 
     private _resultsContainsDeclaration(declaration: Declaration) {
-        return this._referencesResult.declarations.some(decl => decl === declaration);
+        return this._referencesResult.declarations.some(decl =>
+            Symbol.areDeclarationsEqual(decl, declaration));
     }
 }
 

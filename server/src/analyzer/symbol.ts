@@ -73,6 +73,12 @@ export class Symbol {
         return newSymbol;
     }
 
+    static areDeclarationsEqual(decl1: Declaration, decl2: Declaration) {
+        return decl1.category === decl2.category &&
+            decl1.node === decl2.node &&
+            decl1.path === decl2.path;
+    }
+
     isInitiallyUnbound() {
         return this._isInitiallyUnbound;
     }
