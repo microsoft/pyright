@@ -468,14 +468,14 @@ export class SourceFile {
                 this._analysisJob.parseResults, position);
     }
 
-    getHoverForPosition(position: DiagnosticTextPosition): HoverResults | undefined {
+    getHoverForPosition(position: DiagnosticTextPosition, importMap: ImportMap): HoverResults | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
             return undefined;
         }
 
         return HoverProvider.getHoverForPosition(
-                this._analysisJob.parseResults, position);
+                this._analysisJob.parseResults, position, importMap);
     }
 
     getSignatureHelpForPosition(position: DiagnosticTextPosition): SignatureHelpResults | undefined {

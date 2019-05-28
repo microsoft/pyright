@@ -618,12 +618,13 @@ export class Program {
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
             HoverResults | undefined {
 
-        const sourceFile = this.getSourceFile(filePath);
-        if (!sourceFile) {
+        const sourceFileInfo = this._sourceFileMap[filePath];
+        if (!sourceFileInfo) {
             return undefined;
         }
 
-        return sourceFile.getHoverForPosition(position);
+        return sourceFileInfo.sourceFile.getHoverForPosition(position,
+            this._buildImportMap(sourceFileInfo));
     }
 
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition,

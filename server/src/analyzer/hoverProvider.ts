@@ -13,6 +13,7 @@ import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnosti
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { ModuleNameNode, NameNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportType } from './importResult';
 import { ParseTreeUtils } from './parseTreeUtils';
@@ -31,8 +32,8 @@ export interface HoverResults {
 }
 
 export class HoverProvider {
-    static getHoverForPosition(parseResults: ParseResults,
-            position: DiagnosticTextPosition): HoverResults | undefined {
+    static getHoverForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
+            importMap: ImportMap): HoverResults | undefined {
 
         let offset = convertPositionToOffset(position, parseResults.lines);
         if (offset === undefined) {
@@ -73,14 +74,25 @@ export class HoverProvider {
             }
 
             if (importInfo.resolvedPaths[pathOffset]) {
-                this._addResultsPart(results, '(module) "' + importInfo.resolvedPaths[pathOffset] + '"', true);
+                const resolvedPath = importInfo.resolvedPaths[pathOffset];
+                this._addResultsPart(results, '(module) "' + resolvedPath + '"', true);
 
                 if (importInfo.importType === ImportType.ThirdParty && !importInfo.isStubFile) {
                     this._addResultsPart(results,
                         'No type stub found for this module. Imported symbol types are unknown.');
                 }
 
-                this._addDocumentationPart(results, node);
+                // If the module has been resolved and already analyzed,
+                // we can add the docString for it as well.
+                if (importMap[resolvedPath]) {
+                    const moduleNode = importMap[resolvedPath].parseTree;
+                    if (moduleNode) {
+                        const moduleType = AnalyzerNodeInfo.getExpressionType(moduleNode) as ModuleType;
+                        if (moduleType) {
+                            this._addDocumentationPartForType(results, moduleType);
+                        }
+                    }
+                }
 
                 return results;
             }
@@ -204,7 +216,12 @@ export class HoverProvider {
 
     private static _addDocumentationPart(results: HoverResults, node: ParseNode) {
         const type = this._getTypeFromNode(node);
+        if (type) {
+            this._addDocumentationPartForType(results, type);
+        }
+    }
 
+    private static _addDocumentationPartForType(results: HoverResults, type: Type) {
         if (type instanceof ModuleType) {
             const docString = type.getDocString();
             if (docString) {

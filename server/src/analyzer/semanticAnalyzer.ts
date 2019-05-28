@@ -24,8 +24,9 @@ import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     ExpressionNode, FunctionNode, GlobalNode, IfNode, LambdaNode, ModuleNameNode,
-    ModuleNode, NonlocalNode, RaiseNode, StatementListNode, StringNode, SuiteNode,
-    TryNode, WhileNode, YieldExpressionNode,
+    ModuleNode, NonlocalNode, RaiseNode, StatementListNode, StatementNode, StringNode,
+    SuiteNode, TryNode, WhileNode,
+    YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -154,7 +155,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         let classType = new ClassType(node.name.nameToken.value, classFlags,
-            AnalyzerNodeInfo.getTypeSourceId(node), this._getDocString(node.suite));
+            AnalyzerNodeInfo.getTypeSourceId(node),
+            this._getDocString(node.suite.statements));
 
         // Don't walk the arguments for stub files because of forward
         // declarations.
@@ -223,7 +225,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             functionFlags &= ~FunctionTypeFlags.InstanceMethod;
         }
 
-        let functionType = new FunctionType(functionFlags, this._getDocString(node.suite));
+        let functionType = new FunctionType(functionFlags,
+            this._getDocString(node.suite.statements));
 
         this.walkMultiple(node.decorators);
         node.parameters.forEach(param => {
@@ -459,19 +462,19 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         symbol.setInferredTypeForSource(type, typeSourceId);
     }
 
-    private _getDocString(suiteNode: SuiteNode): string | undefined {
+    protected _getDocString(statemetns: StatementNode[]): string | undefined {
         // See if the first statement in the suite is a triple-quote string.
-        if (suiteNode.statements.length === 0) {
+        if (statemetns.length === 0) {
             return undefined;
         }
 
-        if (!(suiteNode.statements[0] instanceof StatementListNode)) {
+        if (!(statemetns[0] instanceof StatementListNode)) {
             return undefined;
         }
 
         // If the first statement in the suite isn't a StringNode,
         // assume there is no docString.
-        const statementList = suiteNode.statements[0] as StatementListNode;
+        const statementList = statemetns[0] as StatementListNode;
         if (statementList.statements.length === 0 || !(statementList.statements[0] instanceof StringNode)) {
             return undefined;
         }
@@ -566,7 +569,8 @@ export class ModuleScopeAnalyzer extends SemanticAnalyzer {
         this.walkChildren(this._scopedNode);
 
         // Associate the module's scope with the module type.
-        let moduleType = new ModuleType(this._currentScope.getSymbolTable());
+        const moduleType = new ModuleType(this._currentScope.getSymbolTable(),
+            this._getDocString((this._scopedNode as ModuleNode).statements));
         AnalyzerNodeInfo.setExpressionType(this._scopedNode, moduleType);
     }
 
