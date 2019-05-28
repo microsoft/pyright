@@ -17,7 +17,8 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportType } from './importResult';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { SymbolCategory } from './symbol';
-import { UnknownType } from './types';
+import { ClassType, FunctionType, ModuleType, OverloadedFunctionType,
+    Type, UnknownType } from './types';
 
 export interface HoverTextPart {
     python?: boolean;
@@ -79,6 +80,8 @@ export class HoverProvider {
                         'No type stub found for this module. Imported symbol types are unknown.');
                 }
 
+                this._addDocumentationPart(results, node);
+
                 return results;
             }
 
@@ -95,6 +98,7 @@ export class HoverProvider {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(variable) ' + node.nameToken.value +
                             this._getTypeText(node), true);
+                        this._addDocumentationPart(results, node);
                         return results;
                     }
                     break;
@@ -104,6 +108,7 @@ export class HoverProvider {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(parameter) ' + node.nameToken.value +
                             this._getTypeText(node), true);
+                        this._addDocumentationPart(results, node);
                         return results;
                     }
                     break;
@@ -112,6 +117,7 @@ export class HoverProvider {
                 case SymbolCategory.Class: {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(class) ' + this._getTypeText(node), true);
+                        this._addDocumentationPart(results, node);
                         return results;
                     }
                     break;
@@ -121,6 +127,7 @@ export class HoverProvider {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(function) ' + node.nameToken.value +
                             this._getTypeText(node), true);
+                        this._addDocumentationPart(results, node);
                         return results;
                     }
                     break;
@@ -130,6 +137,7 @@ export class HoverProvider {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(method) ' + node.nameToken.value +
                             this._getTypeText(node), true);
+                        this._addDocumentationPart(results, node);
                         return results;
                     }
                     break;
@@ -138,6 +146,7 @@ export class HoverProvider {
                 case SymbolCategory.Module: {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(module) ' + node.nameToken.value, true);
+                        this._addDocumentationPart(results, node);
                         return results;
                     }
                     break;
@@ -149,6 +158,7 @@ export class HoverProvider {
         if (node instanceof NameNode) {
             if (node instanceof NameNode) {
                 this._addResultsPart(results, node.nameToken.value + this._getTypeText(node), true);
+                this._addDocumentationPart(results, node);
                 return results;
             }
         }
@@ -156,27 +166,68 @@ export class HoverProvider {
         return undefined;
     }
 
-    private static _getTypeText(node: ParseNode): string {
+    private static _getTypeFromNode(node: ParseNode): Type | undefined {
         let type = AnalyzerNodeInfo.getExpressionType(node);
 
         // If there was no type information cached, see if we
         // can get it from the declaration.
         if (!type) {
-            const declarations = AnalyzerNodeInfo.getDeclarations(node);
-            if (declarations && declarations.length > 0) {
-                const declaration = declarations[0];
-                if (declaration.declaredType) {
-                    type = declaration.declaredType;
-                }
+            const declTypes = this._getTypesFromDeclarations(node);
+            if (declTypes) {
+                type = declTypes[0];
             }
         }
 
-        // If we still couldn't find a type, use Unknown.
-        if (!type) {
-            type = UnknownType.create();
+        return type;
+    }
+
+    private static _getTypesFromDeclarations(node: ParseNode): Type[] | undefined {
+        const declarations = AnalyzerNodeInfo.getDeclarations(node);
+        if (declarations && declarations.length > 0) {
+            const types: Type[] = [];
+            declarations.forEach(decl => {
+                if (decl.declaredType) {
+                    types.push(decl.declaredType);
+                }
+            });
+
+            return types.length > 0 ? types : undefined;
         }
 
+        return undefined;
+    }
+
+    private static _getTypeText(node: ParseNode): string {
+        const type = this._getTypeFromNode(node) || UnknownType.create();
         return ': ' + type.asString();
+    }
+
+    private static _addDocumentationPart(results: HoverResults, node: ParseNode) {
+        const type = this._getTypeFromNode(node);
+
+        if (type instanceof ModuleType) {
+            const docString = type.getDocString();
+            if (docString) {
+                this._addResultsPart(results, docString);
+            }
+        } else if (type instanceof ClassType) {
+            const docString = type.getDocString();
+            if (docString) {
+                this._addResultsPart(results, docString);
+            }
+        } else if (type instanceof FunctionType) {
+            const docString = type.getDocString();
+            if (docString) {
+                this._addResultsPart(results, docString);
+            }
+        } else if (type instanceof OverloadedFunctionType) {
+            type.getOverloads().forEach(overload => {
+                const docString = overload.type.getDocString();
+                if (docString) {
+                    this._addResultsPart(results, docString);
+                }
+            });
+        }
     }
 
     private static _addResultsPart(results: HoverResults, text: string, python = false) {
@@ -184,9 +235,5 @@ export class HoverProvider {
             python,
             text
         });
-    }
-
-    private static _formatCode(codeString: string): string {
-        return '```\n' + codeString + '\n```\n';
     }
 }

@@ -24,19 +24,20 @@ import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     ExpressionNode, FunctionNode, GlobalNode, IfNode, LambdaNode, ModuleNameNode,
-    ModuleNode, NonlocalNode, RaiseNode, StringNode, SuiteNode, TryNode,
-    WhileNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    ModuleNode, NonlocalNode, RaiseNode, StatementListNode, StringNode, SuiteNode,
+    TryNode, WhileNode, YieldExpressionNode,
+    YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { DocStringUtils } from './docStringUtils';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportType } from './importResult';
 import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
-import { SymbolUtils } from './symbolUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, Type, UnknownType } from './types';
 
@@ -153,7 +154,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         let classType = new ClassType(node.name.nameToken.value, classFlags,
-            AnalyzerNodeInfo.getTypeSourceId(node));
+            AnalyzerNodeInfo.getTypeSourceId(node), this._getDocString(node.suite));
 
         // Don't walk the arguments for stub files because of forward
         // declarations.
@@ -222,7 +223,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             functionFlags &= ~FunctionTypeFlags.InstanceMethod;
         }
 
-        let functionType = new FunctionType(functionFlags);
+        let functionType = new FunctionType(functionFlags, this._getDocString(node.suite));
 
         this.walkMultiple(node.decorators);
         node.parameters.forEach(param => {
@@ -456,6 +457,34 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         symbol.setInferredTypeForSource(type, typeSourceId);
+    }
+
+    private _getDocString(suiteNode: SuiteNode): string | undefined {
+        // See if the first statement in the suite is a triple-quote string.
+        if (suiteNode.statements.length === 0) {
+            return undefined;
+        }
+
+        if (!(suiteNode.statements[0] instanceof StatementListNode)) {
+            return undefined;
+        }
+
+        // If the first statement in the suite isn't a StringNode,
+        // assume there is no docString.
+        const statementList = suiteNode.statements[0] as StatementListNode;
+        if (statementList.statements.length === 0 || !(statementList.statements[0] instanceof StringNode)) {
+            return undefined;
+        }
+
+        const docStringNode = statementList.statements[0] as StringNode;
+        const docStringToken = docStringNode.tokens[0];
+
+        // Ignore f-strings.
+        if ((docStringToken.flags & StringTokenFlags.Format) !== 0) {
+            return undefined;
+        }
+
+        return DocStringUtils.decodeDocString(docStringToken.value);
     }
 
     private _validateYieldUsage(node: YieldExpressionNode | YieldFromExpressionNode) {

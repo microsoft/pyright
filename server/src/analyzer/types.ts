@@ -153,20 +153,26 @@ export class UnknownType extends Type {
 export class ModuleType extends Type {
     category = TypeCategory.Module;
     private _fields: SymbolTable;
+    private _docString?: string;
 
     // A partial module is one that is not fully initialized
     // but contains only the symbols that have been imported
     // in a multi-part import (e.g. import a.b.c).
     private _isPartialModule = false;
 
-    constructor(symbolTable: SymbolTable) {
+    constructor(symbolTable: SymbolTable, docString?: string) {
         super();
 
         this._fields = symbolTable;
+        this._docString = docString;
     }
 
     getFields() {
         return this._fields;
+    }
+
+    getDocString() {
+        return this._docString;
     }
 
     setIsPartialModule() {
@@ -214,6 +220,7 @@ interface ClassDetails {
     instanceFields: SymbolTable;
     typeParameters: TypeVarType[];
     isAbstractClass: boolean;
+    docString?: string;
 }
 
 export class ClassType extends Type {
@@ -229,7 +236,7 @@ export class ClassType extends Type {
 
     private _skipAbstractClassTest = false;
 
-    constructor(name: string, flags: ClassTypeFlags, typeSourceId: TypeSourceId) {
+    constructor(name: string, flags: ClassTypeFlags, typeSourceId: TypeSourceId, docString?: string) {
         super();
 
         this._classDetails = {
@@ -240,7 +247,8 @@ export class ClassType extends Type {
             classFields: new SymbolTable(),
             instanceFields: new SymbolTable(),
             typeParameters: [],
-            isAbstractClass: false
+            isAbstractClass: false,
+            docString
         };
     }
 
@@ -331,6 +339,10 @@ export class ClassType extends Type {
 
     getAliasClass() {
         return this._classDetails.aliasClass;
+    }
+
+    getDocString() {
+        return this._classDetails.docString;
     }
 
     addBaseClass(type: Type, isMetaclass: boolean) {
@@ -664,6 +676,7 @@ interface FunctionDetails {
     inferredReturnType: InferredType;
     inferredYieldType: InferredType;
     builtInName?: string;
+    docString?: string;
 }
 
 export interface SpecializedFunctionTypes {
@@ -680,20 +693,22 @@ export class FunctionType extends Type {
     // variables replaced by a concrete type).
     private _specializedTypes?: SpecializedFunctionTypes;
 
-    constructor(flags: FunctionTypeFlags) {
+    constructor(flags: FunctionTypeFlags, docString?: string) {
         super();
         this._functionDetails = {
             flags,
             parameters: [],
             inferredReturnType: new InferredType(),
-            inferredYieldType: new InferredType()
+            inferredYieldType: new InferredType(),
+            docString
         };
     }
 
     // Creates a deep copy of the function type, including a fresh
     // version of _functionDetails.
     clone(deleteFirstParam = false): FunctionType {
-        let newFunction = new FunctionType(this._functionDetails.flags);
+        const newFunction = new FunctionType(this._functionDetails.flags,
+            this._functionDetails.docString);
         const startParam = deleteFirstParam ? 1 : 0;
 
         newFunction._functionDetails = {
@@ -702,7 +717,8 @@ export class FunctionType extends Type {
             declaredReturnType: this._functionDetails.declaredReturnType,
             inferredReturnType: this._functionDetails.inferredReturnType,
             inferredYieldType: this._functionDetails.inferredYieldType,
-            builtInName: this._functionDetails.builtInName
+            builtInName: this._functionDetails.builtInName,
+            docString: this._functionDetails.docString
         };
 
         // If we strip off the first parameter, this is no longer an
@@ -726,7 +742,8 @@ export class FunctionType extends Type {
     // specialized types. The clone shares the _functionDetails
     // with the object being cloned.
     cloneForSpecialization(specializedTypes: SpecializedFunctionTypes): FunctionType {
-        let newFunction = new FunctionType(this._functionDetails.flags);
+        const newFunction = new FunctionType(this._functionDetails.flags,
+            this._functionDetails.docString);
         newFunction._functionDetails = this._functionDetails;
 
         assert(specializedTypes.parameterTypes.length === this._functionDetails.parameters.length);
@@ -777,6 +794,10 @@ export class FunctionType extends Type {
 
     setBuiltInName(name: string) {
         this._functionDetails.builtInName = name;
+    }
+
+    getDocString() {
+        return this._functionDetails.docString;
     }
 
     getParameters() {
