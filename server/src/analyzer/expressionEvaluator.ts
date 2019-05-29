@@ -270,6 +270,54 @@ export class ExpressionEvaluator {
             type = TypeUtils.removeNoneFromUnion(type);
         }
 
+        const getIteratorReturnType = (objType: ObjectType, metaclass: ClassType | undefined,
+                diag: DiagnosticAddendum): Type | undefined => {
+
+            const iterReturnType = metaclass ?
+                this._getSpecializedReturnTypeForMetaclassMethod(metaclass,
+                    objType.getClassType(), iterMethodName) :
+                this._getSpecializedReturnType(objType, iterMethodName);
+            if (!iterReturnType) {
+                // There was no __iter__. See if we can fall back to
+                // the __getitem__ method instead.
+                if (getItemMethodName) {
+                    const getItemReturnType = this._getSpecializedReturnType(
+                        objType, getItemMethodName);
+                    if (getItemReturnType) {
+                        return getItemReturnType;
+                    }
+                }
+
+                diag.addMessage(`'${ iterMethodName }' method not defined`);
+            } else {
+                if (iterReturnType.isAny()) {
+                    return UnknownType.create();
+                }
+
+                if (iterReturnType instanceof ObjectType) {
+                    const nextReturnType = this._getSpecializedReturnType(
+                        iterReturnType, nextMethodName);
+
+                    if (!nextReturnType) {
+                        diag.addMessage(`'${ nextMethodName }' method not defined on type ` +
+                            `'${ iterReturnType.asString() }'`);
+                    } else {
+                        if (!isAsync) {
+                            return nextReturnType;
+                        }
+
+                        // If it's an async iteration, there's an implicit
+                        // 'await' operator applied.
+                        return this.getTypeFromAwaitable(nextReturnType, errorNode);
+                    }
+                } else {
+                    diag.addMessage(`'${ iterMethodName }' method does not return an object`);
+                }
+            }
+
+            return undefined;
+        };
+
         return TypeUtils.doForSubtypes(type, subtype => {
             if (subtype.isAny()) {
                 return UnknownType.create();
@@ -277,48 +325,23 @@ export class ExpressionEvaluator {
 
             let diag = new DiagnosticAddendum();
             if (subtype instanceof ObjectType) {
-                const iterReturnType = this._getSpecializedReturnType(
-                    subtype, iterMethodName);
-                if (!iterReturnType) {
-                    // There was no __iter__. See if we can fall back to
-                    // the __getitem__ method instead.
-                    if (getItemMethodName) {
-                        const getItemReturnType = this._getSpecializedReturnType(
-                            subtype, getItemMethodName);
-                        if (getItemReturnType) {
-                            return getItemReturnType;
+                const returnType = getIteratorReturnType(subtype, undefined, diag);
+                if (returnType) {
+                    return returnType;
+                }
+            } else if (subtype instanceof ClassType) {
+                // Handle the case where the class itself is iterable.
+                // This is true for classes that derive from Enum, for example.
+                const metaclassType = TypeUtils.getMetaclass(subtype);
+                if (metaclassType) {
+                    if (metaclassType instanceof ClassType) {
+                        const returnType = getIteratorReturnType(
+                            new ObjectType(subtype), metaclassType, diag);
+                        if (returnType) {
+                            return returnType;
                         }
-                    }
-
-                    diag.addMessage(`'${ iterMethodName }' method not defined`);
-                } else {
-                    if (iterReturnType.isAny()) {
-                        return UnknownType.create();
-                    }
-
-                    if (iterReturnType instanceof ObjectType) {
-                        const nextReturnType = this._getSpecializedReturnType(
-                            iterReturnType, nextMethodName);
-
-                        if (!nextReturnType) {
-                            diag.addMessage(`'${ nextMethodName }' method not defined on type ` +
-                                `'${ iterReturnType.asString() }'`);
-                        } else {
-                            if (!isAsync) {
-                                return nextReturnType;
-                            }
-
-                            // If it's an async iteration, there's an implicit
-                            // 'await' operator applied.
-                            return this.getTypeFromAwaitable(nextReturnType, errorNode);
-                        }
-                    } else {
-                        diag.addMessage(`'${ iterMethodName }' method does not return an object`);
                     }
                 }
-            } else {
-                // TODO - handle other types including Tuple and ClassType.
-                return UnknownType.create();
             }
 
             this._addError(`'${ subtype.asString() }' is not iterable` + diag.getString(),
@@ -478,6 +501,32 @@ export class ExpressionEvaluator {
         if (classMember.symbolType instanceof FunctionType) {
             let methodType = TypeUtils.bindFunctionToClassOrObject(objType,
                 classMember.symbolType) as FunctionType;
+            return methodType.getEffectiveReturnType();
+        }
+
+        return undefined;
+    }
+
+    // This is similar to _getSpecializedReturnType except that
+    // the method lookup occurs on a metaclass rather than
+    // the object that derives from it.
+    private _getSpecializedReturnTypeForMetaclassMethod(
+            metaclass: ClassType, classType: ClassType, memberName: string) {
+
+        const classMember = TypeUtils.lookUpObjectMember(
+            new ObjectType(metaclass), memberName,
+            ClassMemberLookupFlags.SkipInstanceVariables);
+        if (!classMember) {
+            return undefined;
+        }
+
+        if (classMember.symbolType.isAny()) {
+            return classMember.symbolType;
+        }
+
+        if (classMember.symbolType instanceof FunctionType) {
+            let methodType = TypeUtils.bindFunctionToClassOrObject(
+                classType, classMember.symbolType, true) as FunctionType;
             return methodType.getEffectiveReturnType();
         }
 

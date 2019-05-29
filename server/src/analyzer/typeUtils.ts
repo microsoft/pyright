@@ -712,7 +712,7 @@ export class TypeUtils {
             // first parameter. This is used in cases like constructors.
             if (!baseType) {
                 return TypeUtils.stripFirstParameter(memberType);
-            } else if (memberType.isInstanceMethod()) {
+            } else if (memberType.isInstanceMethod() && !treatAsClassMember) {
                 if (baseType instanceof ObjectType) {
                     return this._partiallySpecializeFunctionForBoundClassOrObject(
                         baseType, memberType);
