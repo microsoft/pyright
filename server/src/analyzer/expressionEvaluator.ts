@@ -1424,6 +1424,14 @@ export class ExpressionEvaluator {
             if (overloadedFunctionType) {
                 returnType = this._validateFunctionArguments(errorNode,
                     argList, overloadedFunctionType, typeVarMap);
+            } else {
+                const exprString = ParseTreeUtils.printExpression(errorNode);
+                const diagAddendum = new DiagnosticAddendum();
+                const argTypes = argList.map(t => t.type.asString());
+                diagAddendum.addMessage(`Argument types: (${ argTypes.join(', ') })`);
+                this._addError(
+                    `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
+                    errorNode);
             }
         } else if (callType instanceof ClassType) {
             if (!callType.isSpecialBuiltIn()) {
