@@ -992,7 +992,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitAssert(node: AssertNode) {
-        const typeConstraints = this._buildConditionalTypeConstraints(node.testExpression);
+        let assertTestExpression = node.testExpression;
+
+        // Did the caller pass an optional assert message as a second parameter?
+        // If so, strip it off and include only the test.
+        if (node.testExpression instanceof TupleExpressionNode) {
+            assertTestExpression = node.testExpression.expressions[0];
+        }
+
+        const typeConstraints = this._buildConditionalTypeConstraints(assertTestExpression);
 
         // Assume that the assert constrains types.
         if (typeConstraints) {
