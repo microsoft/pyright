@@ -2,13 +2,21 @@
 
 from typing import Union
 
+condition = True
+
 def foo(a: Union[str, int]) -> int:
 
-    if True:
+    if condition:
         # This should generate an error because
         # a could be a str.
         return a
 
     assert isinstance(a, int)
 
+    return a
+
+
+def foo(a: Union[str, int]) -> int:
+    # Test the form of "assert" that includes a message string.
+    assert isinstance(a, int), "Message"
     return a
