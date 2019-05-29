@@ -232,6 +232,27 @@ _connection.onCompletion(params => {
     return _analyzerService.getCompletionsForPosition(filePath, position);
 });
 
+_connection.onDidOpenTextDocument(params => {
+    let filePath = _convertUriToPath(params.textDocument.uri);
+    _analyzerService.setFileOpened(
+        filePath,
+        params.textDocument.version,
+        params.textDocument.text);
+});
+
+_connection.onDidChangeTextDocument(params => {
+    let filePath = _convertUriToPath(params.textDocument.uri);
+    _analyzerService.updateOpenFileContents(
+        filePath,
+        params.textDocument.version,
+        params.contentChanges[0].text);
+});
+
+_connection.onDidCloseTextDocument(params => {
+    let filePath = _convertUriToPath(params.textDocument.uri);
+    _analyzerService.setFileClosed(filePath);
+});
+
 function updateOptionsAndRestartService(settings?: Settings) {
     let commandLineOptions = new CommandLineOptions(_rootPath, true);
     commandLineOptions.watch = true;
@@ -307,27 +328,6 @@ function _convertPosition(position?: DiagnosticTextPosition): Position {
     }
     return Position.create(position.line, position.column);
 }
-
-_connection.onDidOpenTextDocument(params => {
-    let filePath = _convertUriToPath(params.textDocument.uri);
-    _analyzerService.setFileOpened(
-        filePath,
-        params.textDocument.version,
-        params.textDocument.text);
-});
-
-_connection.onDidChangeTextDocument(params => {
-    let filePath = _convertUriToPath(params.textDocument.uri);
-    _analyzerService.updateOpenFileContents(
-        filePath,
-        params.textDocument.version,
-        params.contentChanges[0].text);
-});
-
-_connection.onDidCloseTextDocument(params => {
-    let filePath = _convertUriToPath(params.textDocument.uri);
-    _analyzerService.setFileClosed(filePath);
-});
 
 function _convertUriToPath(uriString: string): string {
     const uri = VSCodeUri.parse(uriString);
