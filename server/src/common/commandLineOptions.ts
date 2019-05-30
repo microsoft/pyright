@@ -11,9 +11,9 @@
 
 // Some options can be specified by command line.
 export class CommandLineOptions {
-    constructor(executionRoot: string, fromVsCodeSettings: boolean) {
+    constructor(executionRoot: string, fromVsCodeExtension: boolean) {
         this.executionRoot = executionRoot;
-        this.fromVsCodeSettings = fromVsCodeSettings;
+        this.fromVsCodeExtension = fromVsCodeExtension;
     }
 
     // A list of file specs to include in the analysis. Can contain
@@ -46,5 +46,5 @@ export class CommandLineOptions {
     // Indicates that the settings came from VS Code rather than
     // from the command-line. Useful for providing clearer error
     // messages.
-    fromVsCodeSettings: boolean;
+    fromVsCodeExtension: boolean;
 }

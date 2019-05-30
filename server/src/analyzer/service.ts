@@ -206,9 +206,10 @@ export class AnalyzerService {
             configOptions.include.push(...commandLineOptions.fileSpecs);
         } else if (!configFilePath) {
             // If no config file was found and there are no explicit include
-            // paths specified, assume the caller wants to analyze everything
-            // under the execution root path.
-            if (commandLineOptions.executionRoot) {
+            // paths specified and this is the command-line version of the tool
+            // (versus the VS Code extension), assume the caller wants to analyze
+            // everything under the execution root path.
+            if (commandLineOptions.executionRoot && !commandLineOptions.fromVsCodeExtension) {
                 configOptions.include.push(commandLineOptions.executionRoot);
             }
         }
@@ -233,7 +234,7 @@ export class AnalyzerService {
         }
 
         const reportDuplicateSetting = (settingName: string) => {
-            const settingSource = commandLineOptions.fromVsCodeSettings ?
+            const settingSource = commandLineOptions.fromVsCodeExtension ?
                 'the VS Code settings' : 'a command-line option';
             this._console.log(
                 `The ${ settingName } has been specified in both the config file and ` +
