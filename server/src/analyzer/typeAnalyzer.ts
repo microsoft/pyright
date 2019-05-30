@@ -830,6 +830,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitRaise(node: RaiseNode): boolean {
+        if (node.typeExpression) {
+            this._markExpressionAccessed(node.typeExpression);
+        }
+
         if (!this._currentScope.getAlwaysReturns()) {
             this._currentScope.setAlwaysRaises();
         }
