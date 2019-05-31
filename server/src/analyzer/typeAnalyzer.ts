@@ -834,6 +834,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._markExpressionAccessed(node.typeExpression);
         }
 
+        if (node.valueExpression) {
+            const exceptionType = this._getTypeOfExpression(node.valueExpression);
+            // TODO - validate that it's an exception type.
+        }
+
         if (!this._currentScope.getAlwaysReturns()) {
             this._currentScope.setAlwaysRaises();
         }
