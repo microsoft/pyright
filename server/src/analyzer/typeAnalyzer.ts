@@ -267,6 +267,50 @@ export class TypeAnalyzer extends ParseTreeWalker {
             functionType.setBuiltInName(node.name.nameToken.value);
         }
 
+        let asyncType = functionType;
+        if (node.isAsync) {
+            asyncType = this._createAwaitableFunction(functionType);
+        }
+
+        // Apply all of the decorators in reverse order.
+        let decoratedType: Type = asyncType;
+        let foundUnknown = decoratedType instanceof UnknownType;
+        for (let i = node.decorators.length - 1; i >= 0; i--) {
+            const decorator = node.decorators[i];
+
+            decoratedType = this._applyFunctionDecorator(decoratedType,
+                functionType, decorator, node);
+            if (decoratedType instanceof UnknownType) {
+                // Report this error only on the first unknown type.
+                if (!foundUnknown) {
+                    this._addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
+                        `Untyped function declarator obscures type of function`,
+                        node.decorators[i].leftExpression);
+
+                    foundUnknown = true;
+                }
+            }
+        }
+
+        // Mark the class as abstract if it contains at least one abstract method.
+        if (functionType.isAbstractMethod() && containingClassType) {
+            containingClassType.setIsAbstractClass();
+        }
+
+        if (containingClassNode) {
+            if (!functionType.isClassMethod() && !functionType.isStaticMethod()) {
+                // Mark the function as an instance method.
+                functionType.setIsInstanceMethod();
+
+                // If there's a separate async version, mark it as an instance
+                // method as well.
+                if (functionType !== asyncType) {
+                    asyncType.setIsInstanceMethod();
+                }
+            }
+        }
+
         node.parameters.forEach((param, index) => {
             let annotatedType: Type | undefined;
             let defaultValueType: Type | undefined;
@@ -458,37 +502,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Validate that the function returns the declared type.
         this._validateFunctionReturn(node, functionType, functionScope);
 
-        let asyncType = functionType;
-        if (node.isAsync) {
-            asyncType = this._createAwaitableFunction(functionType);
-        }
-
-        // Apply all of the decorators in reverse order.
-        let decoratedType: Type = asyncType;
-        let foundUnknown = decoratedType instanceof UnknownType;
-        for (let i = node.decorators.length - 1; i >= 0; i--) {
-            const decorator = node.decorators[i];
-
-            decoratedType = this._applyFunctionDecorator(decoratedType,
-                functionType, decorator, node);
-            if (decoratedType instanceof UnknownType) {
-                // Report this error only on the first unknown type.
-                if (!foundUnknown) {
-                    this._addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
-                        `Untyped function declarator obscures type of function`,
-                        node.decorators[i].leftExpression);
-
-                    foundUnknown = true;
-                }
-            }
-        }
-
-        // Mark the class as abstract if it contains at least one abstract method.
-        if (functionType.isAbstractMethod() && containingClassType) {
-            containingClassType.setIsAbstractClass();
-        }
-
         let declaration: Declaration = {
             category: containingClassNode ? SymbolCategory.Method : SymbolCategory.Function,
             node: node.name,
@@ -499,16 +512,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._assignTypeToNameNode(node.name, decoratedType, declaration);
 
         if (containingClassNode) {
-            if (!functionType.isClassMethod() && !functionType.isStaticMethod()) {
-                // Mark the function as an instance method.
-                functionType.setIsInstanceMethod();
-
-                // If there's a separate async version, mark it as an instance
-                // method as well.
-                if (functionType !== asyncType) {
-                    asyncType.setIsInstanceMethod();
-                }
-            }
             this._validateMethod(node, functionType);
         }
 
