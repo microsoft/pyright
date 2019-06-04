@@ -601,7 +601,7 @@ export class SourceFile {
 
         try {
             // Perform static type analysis.
-            let typeAnalyzer = new TypeAnalyzer(this._analysisJob.parseResults!.parseTree,
+            const typeAnalyzer = new TypeAnalyzer(this._analysisJob.parseResults!.parseTree,
                 fileInfo, this._analysisJob.typeAnalysisPassNumber);
             this._analysisJob.typeAnalysisPassNumber++;
 

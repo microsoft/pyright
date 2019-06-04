@@ -2561,12 +2561,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _evaluateExpressionForDeletion(node: ExpressionNode): Type {
-        let evaluator = this._createEvaluator();
+        const evaluator = this._createEvaluator();
         return evaluator.getType(node, { method: 'del' }, EvaluatorFlags.None);
     }
 
     private _updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
-        let oldType = AnalyzerNodeInfo.getExpressionType(node);
+        const oldType = AnalyzerNodeInfo.getExpressionType(node);
         AnalyzerNodeInfo.setExpressionTypeVersion(node, this._analysisVersion);
 
         if (!oldType || !oldType.isSame(exprType)) {
@@ -2577,7 +2577,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // us from ever converging. Detect this rare condition here.
             if (this._analysisVersion > CheckForBeatingUnknownPassCount) {
                 if (oldType && exprType instanceof UnionType) {
-                    let simplifiedExprType = TypeUtils.removeUnknownFromUnion(exprType);
+                    const simplifiedExprType = TypeUtils.removeUnknownFromUnion(exprType);
                     if (oldType.isSame(simplifiedExprType)) {
                         replaceType = false;
                     }
@@ -2585,9 +2585,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (replaceType) {
-                AnalyzerNodeInfo.setExpressionType(node, exprType);
-
                 this._setAnalysisChanged();
+                AnalyzerNodeInfo.setExpressionType(node, exprType);
             }
         }
     }
@@ -2758,6 +2757,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _bindMultiPartModuleNameToType(nameParts: NameNode[], type: ModuleType,
             declaration?: Declaration): void {
+
+        // The target symbol table will change as we progress through
+        // the multi-part name. Start with the current scope's symbol
+        // table, which should include the first part of the name.
         let targetSymbolTable = this._currentScope.getSymbolTable();
         let symbol = Symbol.createWithType(type, DefaultTypeSourceId);
         if (declaration) {
@@ -2765,20 +2768,46 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         for (let i = 0; i < nameParts.length; i++) {
-            let name = nameParts[i].nameToken.value;
-
+            const name = nameParts[i].nameToken.value;
             const targetSymbol = targetSymbolTable.get(name);
-            const symbolType = targetSymbol ?
+            let symbolType = targetSymbol ?
                 TypeUtils.getEffectiveTypeOfSymbol(targetSymbol) : undefined;
 
-            if (i === 0) {
-                // If it's the first item in the list, create a type constraint.
-                this._addAssignmentTypeConstraint(nameParts[i], type);
+            if (symbolType instanceof ModuleType) {
+                const moduleFields = symbolType.getFields();
 
-                // Assign the first part of the multi-part name to the current scope.
-                if (symbolType) {
-                    this._assignTypeToNameNode(nameParts[0], symbolType);
+                // Are we replacing a partial module?
+                if (i === nameParts.length - 1 && symbolType.isPartialModule) {
+                    // Combine the names in the existing partial module into
+                    // the new module's symbol table.
+                    moduleFields.getKeys().forEach(name => {
+                        type.getFields().set(name, moduleFields.get(name)!);
+                    });
+
+                    if (!targetSymbolTable.get(name)) {
+                        targetSymbolTable.set(name, symbol);
+                    }
+
+                    symbolType = type;
                 }
+
+                targetSymbolTable = moduleFields;
+            } else if (i === nameParts.length - 1) {
+                targetSymbolTable.set(name, symbol);
+                symbolType = type;
+            } else {
+                // Build a "partial module" to contain the references
+                // to the next part of the name.
+                const newPartialModule = new ModuleType(new SymbolTable());
+                newPartialModule.setIsPartialModule();
+                targetSymbolTable.set(name, Symbol.createWithType(newPartialModule, DefaultTypeSourceId));
+                targetSymbolTable = newPartialModule.getFields();
+                symbolType = newPartialModule;
+            }
+
+            if (i === 0) {
+                // Assign the first part of the multi-part name to the current scope.
+                this._assignTypeToNameNode(nameParts[0], symbolType);
             }
 
             // If this is the last element, determine if it's accessed.
@@ -2796,34 +2825,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnusedImport,
                         `Import '${ multipartName }' is not accessed`, textRange);
                 }
-            }
-
-            if (symbolType instanceof ModuleType) {
-                let moduleType = symbolType;
-                const moduleFields = moduleType.getFields();
-
-                // Are we replacing a partial module?
-                if (i === nameParts.length - 1 && moduleType.isPartialModule) {
-                    // Combine the names in the existing partial module into
-                    // the new module's symbol table.
-                    moduleFields.getKeys().forEach(name => {
-                        type.getFields().set(name, moduleFields.get(name)!);
-                    });
-                    if (!targetSymbolTable.get(name)) {
-                        targetSymbolTable.set(name, symbol);
-                    }
-                }
-
-                targetSymbolTable = moduleFields;
-            } else if (i === nameParts.length - 1) {
-                targetSymbolTable.set(name, symbol);
-            } else {
-                // Build a "partial module" to contain the references
-                // to the next part of the name.
-                let newPartialModule = new ModuleType(new SymbolTable());
-                newPartialModule.setIsPartialModule();
-                targetSymbolTable.set(name, Symbol.createWithType(newPartialModule, DefaultTypeSourceId));
-                targetSymbolTable = newPartialModule.getFields();
             }
         }
     }
