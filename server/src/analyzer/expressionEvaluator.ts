@@ -1196,18 +1196,13 @@ export class ExpressionEvaluator {
             };
         });
 
-        // This is a hack to make named tuples work correctly. We don't want
-        // to create a new ClassType for every analysis pass. Instead, we'll
-        // use the cached version and update it after the first pass.
-        const cachedExpressionType = AnalyzerNodeInfo.getExpressionType(node);
-
         return this._getTypeFromCallExpressionWithBaseType(
-            node.leftExpression, argList, baseTypeResult, flags, cachedExpressionType);
+            node, argList, baseTypeResult, flags, node);
     }
 
     private _getTypeFromCallExpressionWithBaseType(errorNode: ExpressionNode,
             argList: FunctionArgument[], baseTypeResult: TypeResult,
-            flags: EvaluatorFlags, cachedCallType?: Type): TypeResult {
+            flags: EvaluatorFlags, cachedExpressionNode?: ExpressionNode): TypeResult {
 
         let type: Type | undefined;
         const callType = baseTypeResult.type;
@@ -1233,13 +1228,15 @@ export class ExpressionEvaluator {
                 } else if (className === 'TypeVar') {
                     type = this._createTypeVarType(errorNode, argList);
                 } else if (className === 'NamedTuple') {
-                    type = this._createNamedTupleType(errorNode, argList, true, cachedCallType);
+                    type = this._createNamedTupleType(errorNode, argList, true,
+                        cachedExpressionNode);
                 } else if (className === 'Protocol' || className === 'Generic' ||
                         className === 'Callable' || className === 'Type') {
                     this._addError(`'${ className }' cannot be instantiated directly`, errorNode);
                 } else if (className === 'Enum' || className === 'IntEnum' ||
                         className === 'Flag' || className === 'IntFlag') {
-                    type = this._createEnumType(errorNode, callType, argList, cachedCallType);
+                    type = this._createEnumType(errorNode, callType, argList,
+                        cachedExpressionNode);
                 }
             } else if (callType.isAbstractClass()) {
                 // If the class is abstract, it can't be instantiated.
@@ -1281,7 +1278,8 @@ export class ExpressionEvaluator {
                     this._fileInfo.diagnosticSettings.reportUntypedNamedTuple,
                     `'namedtuple' provides no types for tuple entries. Use 'NamedTuple' instead.`,
                     errorNode);
-                type = this._createNamedTupleType(errorNode, argList, false, cachedCallType);
+                type = this._createNamedTupleType(errorNode, argList, false,
+                    cachedExpressionNode);
             } else {
                 type = this._validateCallArguments(errorNode, argList, callType, new TypeVarMap());
                 if (!type) {
@@ -1341,7 +1339,7 @@ export class ExpressionEvaluator {
                             type: typeEntry,
                             node: baseTypeResult.node
                         },
-                        EvaluatorFlags.None, cachedCallType);
+                        EvaluatorFlags.None, cachedExpressionNode);
                     if (typeResult) {
                         returnTypes.push(typeResult.type);
                     }
@@ -1849,7 +1847,7 @@ export class ExpressionEvaluator {
 
     // Creates a new custom enum class with named values.
     private _createEnumType(errorNode: ExpressionNode, enumClass: ClassType,
-            argList: FunctionArgument[], cachedCallType?: Type): ClassType {
+            argList: FunctionArgument[], cachedExpressionNode?: ExpressionNode): ClassType {
 
         let className = 'enum';
         if (argList.length === 0) {
@@ -1863,6 +1861,13 @@ export class ExpressionEvaluator {
                 className = nameArg.valueExpression.getValue();
             }
         }
+
+        // This is a hack to make enum classes work correctly. We don't want
+        // to create a new ClassType for every analysis pass. Instead, we'll
+        // use the cached version and update it after the first pass.
+        const cachedCallType = cachedExpressionNode ?
+            AnalyzerNodeInfo.getExpressionType(cachedExpressionNode) :
+            undefined;
 
         // Use the cached class type and update it if this isn't the first
         // analysis path. If this is the first pass, allocate a new ClassType.
@@ -1921,7 +1926,7 @@ export class ExpressionEvaluator {
     // Creates a new custom tuple factory class with named values.
     // Supports both typed and untyped variants.
     private _createNamedTupleType(errorNode: ExpressionNode, argList: FunctionArgument[],
-            includesTypes: boolean, cachedCallType?: Type): ClassType {
+            includesTypes: boolean, cachedExpressionNode?: ExpressionNode): ClassType {
 
         let className = 'namedtuple';
         if (argList.length === 0) {
@@ -1936,6 +1941,13 @@ export class ExpressionEvaluator {
                 className = nameArg.valueExpression.getValue();
             }
         }
+
+        // This is a hack to make named tuples work correctly. We don't want
+        // to create a new ClassType for every analysis pass. Instead, we'll
+        // use the cached version and update it after the first pass.
+        const cachedCallType = cachedExpressionNode ?
+            AnalyzerNodeInfo.getExpressionType(cachedExpressionNode) :
+            undefined;
 
         // Use the cached class type and update it if this isn't the first
         // analysis path. If this is the first pass, allocate a new ClassType.
