@@ -23,9 +23,9 @@
         "package": "npm run install:all && npm run build && cd client && npx vsce package && cd .."
     },
     "devDependencies": {
-        "@types/mocha": "^5.2.5",
-        "@types/node": "^11.10.5",
-        "typescript": "^3.2.2"
+        "@types/mocha": "^5.2.7",
+        "@types/node": "^11.13.13",
+        "typescript": "^3.5.1"
     },
     "main": "index.js",
     "bin": {

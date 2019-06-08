@@ -18,28 +18,28 @@
         "test": "jest"
     },
     "dependencies": {
-        "assert": "^1.4.1",
+        "assert": "^1.5.0",
         "chalk": "^2.4.2",
         "command-line-args": "^5.1.1",
         "typescript-char": "^0.0.0",
-        "vscode-languageserver": "^5.3.0-next.5",
-        "vscode-uri": "^1.0.6"
+        "vscode-languageserver": "^5.3.0-next.7",
+        "vscode-uri": "^1.0.8"
     },
     "devDependencies": {
         "@types/chalk": "^2.2.0",
         "@types/command-line-args": "^5.0.0",
-        "@types/fs-extra": "^5.0.5",
-        "@types/jest": "^24.0.11",
-        "@types/node": "^11.13.6",
+        "@types/fs-extra": "^5.1.0",
+        "@types/jest": "^24.0.13",
+        "@types/node": "^11.13.13",
         "fs-extra": "^7.0.1",
-        "jest": "^24.7.1",
+        "jest": "^24.8.0",
         "ts-jest": "^24.0.2",
-        "ts-loader": "^5.3.1",
-        "tslint": "^5.16.0",
-        "tslint-microsoft-contrib": "^6.1.1",
-        "typescript": "^3.4.4",
-        "webpack": "^4.30.0",
-        "webpack-cli": "^3.3.0"
+        "ts-loader": "^5.4.5",
+        "tslint": "^5.17.0",
+        "tslint-microsoft-contrib": "^6.2.0",
+        "typescript": "^3.5.1",
+        "webpack": "^4.33.0",
+        "webpack-cli": "^3.3.3"
     },
     "types": "out/main.d.ts",
     "main": "out/main.js"
