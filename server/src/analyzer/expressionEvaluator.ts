@@ -1237,6 +1237,8 @@ export class ExpressionEvaluator {
                         className === 'Flag' || className === 'IntFlag') {
                     type = this._createEnumType(errorNode, callType, argList,
                         cachedExpressionNode);
+                } else if (className === 'auto' && argList.length === 0) {
+                    type = ScopeUtils.getBuiltInObject(this._scope, 'int');
                 }
             } else if (callType.isAbstractClass()) {
                 // If the class is abstract, it can't be instantiated.

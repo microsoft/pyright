@@ -426,3 +426,9 @@ test('Enums1', () => {
 
     validateResults(analysisResults, 3);
 });
+
+test('Enums2', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums2.py']);
+
+    validateResults(analysisResults, 0);
+});
