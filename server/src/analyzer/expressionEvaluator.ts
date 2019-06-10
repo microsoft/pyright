@@ -147,7 +147,7 @@ export class ExpressionEvaluator {
         return type;
     }
 
-    getTypeFromDecorator(node: DecoratorNode, functionType: Type): Type {
+    getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
         const baseTypeResult = this._getTypeFromExpression(
             node.leftExpression, { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
 
@@ -170,7 +170,7 @@ export class ExpressionEvaluator {
 
         const argList = [{
             argumentCategory: ArgumentCategory.Simple,
-            type: functionType
+            type: functionOrClassType
         }];
 
         return this._getTypeFromCallExpressionWithBaseType(
@@ -689,7 +689,8 @@ export class ExpressionEvaluator {
             // Determine whether the name is unbound or possibly unbound. We
             // can skip this check in type stub files because they are not
             // "executed" and support forward references.
-            if (!symbolWithScope.isBeyondExecutionScope && !this._isUnboundCheckSuppressed &&
+            if (!symbolWithScope.isBeyondExecutionScope &&
+                    !this._isUnboundCheckSuppressed &&
                     !this._fileInfo.isStubFile && symbol.isInitiallyUnbound()) {
 
                 // Apply type constraints to see if the unbound type is eliminated.

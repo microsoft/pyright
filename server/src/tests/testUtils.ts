@@ -19,6 +19,7 @@ import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '..
 import { StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
+import StringMap from '../common/stringMap';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { TestWalker } from './testWalker';
 
@@ -91,6 +92,7 @@ export class TestUtils {
 
         const fileInfo: AnalyzerFileInfo = {
             importMap: {},
+            futureImports: new StringMap<boolean>(),
             builtinsScope: undefined,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(filePath),

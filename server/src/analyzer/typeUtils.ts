@@ -764,8 +764,6 @@ export class TypeUtils {
         const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
 
         if (classType instanceof ClassType) {
-            // TODO - Switch to true MRO. For now, use naive depth-first search.
-
             // Should we ignore members on the 'object' base class?
             if (flags & ClassMemberLookupFlags.SkipObjectBaseClass) {
                 if (classType.isBuiltIn() && classType.getClassName() === 'object') {
@@ -1168,7 +1166,6 @@ export class TypeUtils {
     static getSymbolFromBaseClasses(classType: ClassType, name: string,
             recursionCount = 0): SymbolWithClass | undefined {
 
-        // TODO - use proper MRO order rather than naive depth-first.
         if (recursionCount > MaxTypeRecursion) {
             return undefined;
         }

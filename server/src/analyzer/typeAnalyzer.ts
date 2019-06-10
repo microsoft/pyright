@@ -2533,11 +2533,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return undefined;
     }
 
+    private _postponeAnnotationEvaluation() {
+        return this._fileInfo.futureImports.get('annotations') !== undefined ||
+            this._fileInfo.isStubFile;
+    }
+
     private _getTypeOfAnnotation(node: ExpressionNode): Type {
-        let evaluator = this._createEvaluator();
+        const evaluator = this._createEvaluator();
+        const evaluatorFlags =
+            this._postponeAnnotationEvaluation() ?
+            EvaluatorFlags.AllowForwardReferences :
+            EvaluatorFlags.None;
+
         return TypeUtils.convertClassToObject(
-            evaluator.getType(node, { method: 'get' },
-                EvaluatorFlags.None));
+            evaluator.getType(node, { method: 'get' }, evaluatorFlags));
     }
 
     private _getTypeOfExpression(node: ExpressionNode, specialize = true, allowForwardDecl = false): Type {

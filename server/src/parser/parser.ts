@@ -62,6 +62,7 @@ export class ParseOptions {
 
 export interface ParseResults {
     parseTree: ModuleNode;
+    futureImports: StringMap<boolean>;
     tokens: TextRangeCollection<Token>;
     lines: TextRangeCollection<TextRange>;
 }
@@ -81,6 +82,7 @@ export class Parser {
     private _isInLoop = false;
     private _isInFinally = false;
     private _isParsingTypeAnnotation = false;
+    private _futureImportMap = new StringMap<boolean>();
 
     parseSourceFile(fileContents: string, parseOptions: ParseOptions,
             diagSink: DiagnosticSink, cancelToken?: CancelToken): ParseResults {
@@ -117,6 +119,7 @@ export class Parser {
 
         return {
             parseTree: moduleNode,
+            futureImports: this._futureImportMap,
             tokens: this._tokenizerOutput!.tokens,
             lines: this._tokenizerOutput!.lines
         };
@@ -904,10 +907,16 @@ export class Parser {
     // import_as_names: import_as_name (',' import_as_name)* [',']
     // import_as_name: NAME ['as' NAME]
     private _parseFromStatement(): ImportFromNode {
-        let fromToken = this._getKeywordToken(KeywordType.From);
+        const fromToken = this._getKeywordToken(KeywordType.From);
 
-        let modName = this._parseDottedModuleName(true);
-        let importFromNode = new ImportFromNode(fromToken, modName);
+        const modName = this._parseDottedModuleName(true);
+        const importFromNode = new ImportFromNode(fromToken, modName);
+
+        // Handle imports from __future__ specially because they can
+        // change the way we interpret the rest of the file.
+        const isFutureImport = modName.leadingDots === 0 &&
+            modName.nameParts.length === 1 &&
+            modName.nameParts[0].nameToken.value === '__future__';
 
         if (!this._consumeTokenIfKeyword(KeywordType.Import)) {
             this._addError('Expected "import"', this._peekToken());
@@ -936,6 +945,11 @@ export class Parser {
 
                     importFromNode.imports.push(importFromAsNode);
                     importFromNode.extend(importFromAsNode);
+
+                    if (isFutureImport) {
+                        // Add the future import to the map.
+                        this._futureImportMap.set(importName.value, true);
+                    }
 
                     if (!this._consumeTokenIfType(TokenType.Comma)) {
                         break;

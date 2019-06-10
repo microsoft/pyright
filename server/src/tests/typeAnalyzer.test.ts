@@ -181,6 +181,12 @@ test('Annotations2', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Annotations3', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations3.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('AnnotatedVar1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar1.py']);
 

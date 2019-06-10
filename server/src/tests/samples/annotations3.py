@@ -1,5 +1,7 @@
 # This sample tests the handling of type annotations within a
-# python source file (as opposed to a stub file).
+# python source file with the __future__ annotations symbol present.
+
+from __future__ import annotations
 
 from typing import Optional
 

@@ -25,8 +25,7 @@ import { TextRange } from '../common/textRange';
 import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     ExpressionNode, FunctionNode, GlobalNode, IfNode, LambdaNode, ModuleNameNode,
     ModuleNode, NonlocalNode, RaiseNode, StatementListNode, StatementNode, StringNode,
-    SuiteNode, TryNode, WhileNode,
-    YieldExpressionNode,
+    SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -60,6 +59,12 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     // Used to determine if a naked "raise" statement is allowed.
     private _nestedExceptDepth = 0;
 
+    // Indicates whether type annotations are evaluated at runtime
+    // in the order in which they are encountered or whether their
+    // evaluation is postponed. In type stub files, type annotations
+    // are never evaluated at runtime.
+    private _postponeAnnotationEvaluation: boolean;
+
     constructor(node: ScopedNode, scopeType: ScopeType, parentScope: Scope | undefined,
             fileInfo: AnalyzerFileInfo) {
 
@@ -67,6 +72,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         this._scopedNode = node;
         this._fileInfo = fileInfo;
+        this._postponeAnnotationEvaluation = fileInfo.isStubFile ||
+            fileInfo.futureImports.get('annotations') !== undefined;
 
         // Allocate a new scope and associate it with the node
         // we've been asked to analyze.
@@ -245,7 +252,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
             // If this is not a stub file, make sure the raw type annotation
             // doesn't reference a type that hasn't yet been declared.
-            if (!this._fileInfo.isStubFile) {
+            if (!this._postponeAnnotationEvaluation) {
                 if (param.typeAnnotation) {
                     this.walk(param.typeAnnotation);
                 }
@@ -254,7 +261,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         // If this is not a stub file, make sure the raw type annotation
         // doesn't reference a type that hasn't yet been declared.
-        if (!this._fileInfo.isStubFile) {
+        if (!this._postponeAnnotationEvaluation) {
             if (node.returnTypeAnnotation) {
                 this.walk(node.returnTypeAnnotation);
             }
@@ -296,6 +303,15 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         let analyzer = new LambdaScopeAnalyzer(node, this._currentScope, this._fileInfo);
         this._queueSubScopeAnalyzer(analyzer);
+
+        return false;
+    }
+
+    visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
+        this.walk(node.valueExpression);
+        if (!this._postponeAnnotationEvaluation) {
+            this.walk(node.typeAnnotation);
+        }
 
         return false;
     }

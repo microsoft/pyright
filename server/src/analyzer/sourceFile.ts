@@ -18,6 +18,7 @@ import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
     DocumentTextRange } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { getFileName } from '../common/pathUtils';
+import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
@@ -439,6 +440,7 @@ export class SourceFile {
 
             this._analysisJob.parseResults = {
                 parseTree: new ModuleNode(new TextRange(0, 0)),
+                futureImports: new StringMap<boolean>(),
                 tokens: new TextRangeCollection<Token>([]),
                 lines: new TextRangeCollection<TextRange>([])
             };
@@ -661,6 +663,7 @@ export class SourceFile {
 
         const fileInfo: AnalyzerFileInfo = {
             importMap: importMap || {},
+            futureImports: this._analysisJob.parseResults!.futureImports,
             builtinsScope,
             typingModulePath: this._analysisJob.typingModulePath,
             diagnosticSink: analysisDiagnostics,
