@@ -10,7 +10,7 @@
 
 import { ExecutionEnvironment } from '../common/configOptions';
 import { BinaryExpressionNode, ConstantNode, ExpressionNode, IndexExpressionNode,
-    MemberAccessExpressionNode, NameNode, NumberNode, StringNode,
+    MemberAccessExpressionNode, NameNode, NumberNode, StringListNode,
     TupleExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
@@ -40,7 +40,7 @@ export class ExpressionUtils {
                 return this._evaluateNumericBinaryOperation(node.operator,
                     execEnv.pythonVersion / 256, node.rightExpression.token.value);
             } else if (this._isSysPlatformInfoExpression(node.leftExpression) &&
-                    node.rightExpression instanceof StringNode) {
+                    node.rightExpression instanceof StringListNode) {
                 // Handle the special case of "sys.platform != 'X'"
                 let comparisonPlatform = node.rightExpression.getValue();
                 if (execEnv.pythonPlatform !== undefined) {

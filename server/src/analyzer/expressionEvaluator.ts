@@ -24,7 +24,7 @@ import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
     IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
     ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode, NumberNode,
     ParameterCategory, ParseNode, SetNode, SliceExpressionNode, StatementListNode,
-    StringNode, TernaryExpressionNode, TupleExpressionNode,
+    StringListNode, TernaryExpressionNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, StringTokenFlags,
@@ -560,7 +560,7 @@ export class ExpressionEvaluator {
         } else if (node instanceof ConstantNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromConstantExpression(node);
-        } else if (node instanceof StringNode) {
+        } else if (node instanceof StringListNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             if (node.typeAnnotation && !AnalyzerNodeInfo.getIgnoreTypeAnnotation(node)) {
                 let typeResult: TypeResult = { node, type: UnknownType.create() };
@@ -574,7 +574,7 @@ export class ExpressionEvaluator {
                 return typeResult;
             }
 
-            let isBytes = (node.tokens[0].flags & StringTokenFlags.Bytes) !== 0;
+            const isBytes = (node.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
             typeResult = { node, type: this._cloneBuiltinTypeWithLiteral(
                 isBytes ? 'bytes' : 'str', node.getValue()) };
         } else if (node instanceof NumberNode) {
@@ -1752,7 +1752,7 @@ export class ExpressionEvaluator {
         }
 
         let firstArg = argList[0];
-        if (firstArg.valueExpression instanceof StringNode) {
+        if (firstArg.valueExpression instanceof StringListNode) {
             typeVarName = firstArg.valueExpression.getValue();
         } else {
             this._addError('Expected name of type var as first parameter',
@@ -1860,7 +1860,7 @@ export class ExpressionEvaluator {
             if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
                 this._addError('Expected enum class name as first parameter',
                     argList[0].valueExpression || errorNode);
-            } else if (nameArg.valueExpression instanceof StringNode) {
+            } else if (nameArg.valueExpression instanceof StringListNode) {
                 className = nameArg.valueExpression.getValue();
             }
         }
@@ -1891,7 +1891,7 @@ export class ExpressionEvaluator {
         } else {
             const entriesArg = argList[1];
             if (entriesArg.argumentCategory !== ArgumentCategory.Simple ||
-                    !(entriesArg.valueExpression instanceof StringNode)) {
+                    !(entriesArg.valueExpression instanceof StringListNode)) {
 
                 this._addError('Expected enum item string as second parameter', errorNode);
             } else {
@@ -1940,7 +1940,7 @@ export class ExpressionEvaluator {
             if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
                 this._addError('Expected named tuple class name as first parameter',
                     argList[0].valueExpression || errorNode);
-            } else if (nameArg.valueExpression instanceof StringNode) {
+            } else if (nameArg.valueExpression instanceof StringListNode) {
                 className = nameArg.valueExpression.getValue();
             }
         }
@@ -1994,7 +1994,7 @@ export class ExpressionEvaluator {
                 if (entriesArg.argumentCategory !== ArgumentCategory.Simple) {
                     addGenericGetAttribute = true;
                 } else {
-                    if (!includesTypes && entriesArg.valueExpression instanceof StringNode) {
+                    if (!includesTypes && entriesArg.valueExpression instanceof StringListNode) {
                         let entries = entriesArg.valueExpression.getValue().split(' ');
                         entries.forEach(entryName => {
                             entryName = entryName.trim();
@@ -2052,7 +2052,7 @@ export class ExpressionEvaluator {
                                 entryType = UnknownType.create();
                             }
 
-                            if (entryNameNode instanceof StringNode) {
+                            if (entryNameNode instanceof StringListNode) {
                                 entryName = entryNameNode.getValue();
                                 if (!entryName) {
                                     this._addError(
@@ -2939,13 +2939,13 @@ export class ExpressionEvaluator {
         for (let item of node.items.items) {
             let type: Type | undefined;
 
-            if (item instanceof StringNode) {
+            if (item instanceof StringListNode) {
                 // Note that the contents of the string should not be treated
                 // as a type annotation, as they normally are for quoted type
                 // arguments.
                 AnalyzerNodeInfo.setIgnoreTypeAnnotation(item);
 
-                const isBytes = (item.tokens[0].flags & StringTokenFlags.Bytes) !== 0;
+                const isBytes = (item.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
                 if (isBytes) {
                     type = this._cloneBuiltinTypeWithLiteral('bytes', item.getValue());
                 } else {

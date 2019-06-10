@@ -45,6 +45,7 @@ export enum ParseNodeType {
     IndexItems,
     Except,
     For,
+    FormatString,
     Function,
     Global,
     Lambda,
@@ -65,6 +66,7 @@ export enum ParseNodeType {
     Set,
     Slice,
     StatementList,
+    StringList,
     String,
     Suite,
     Ternary,
@@ -762,24 +764,63 @@ export class NumberNode extends ExpressionNode {
 
 export class StringNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.String;
-    tokens: StringToken[];
+    token: StringToken;
+
+    constructor(token: StringToken) {
+        super(token);
+        this.token = token;
+    }
+
+    getChildren(): RecursiveParseNodeArray {
+        return undefined;
+    }
+
+    getValue(): string {
+        return this.token.value;
+    }
+}
+
+export class FormatStringNode extends ExpressionNode {
+    readonly nodeType = ParseNodeType.String;
+    token: StringToken;
+
+    constructor(token: StringToken) {
+        super(token);
+        this.token = token;
+    }
+
+    getChildren(): RecursiveParseNodeArray {
+        return undefined;
+    }
+
+    getValue(): string {
+        return this.token.value;
+    }
+}
+
+export class StringListNode extends ExpressionNode {
+    readonly nodeType = ParseNodeType.StringList;
+    strings: (StringNode | FormatStringNode)[];
 
     // If strings are found within the context of
     // a type annotation, they are further parsed
     // into an expression.
     typeAnnotation?: ExpressionNode;
 
-    constructor(tokens: StringToken[]) {
-        super(tokens[0]);
-        this.tokens = tokens;
+    constructor(strings: (StringNode | FormatStringNode)[]) {
+        super(strings[0]);
+        this.strings = strings;
+        if (strings.length > 1) {
+            this.extend(strings[strings.length - 1]);
+        }
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return this.typeAnnotation ? [this.typeAnnotation] : undefined;
+        return this.strings;
     }
 
     getValue(): string {
-        return this.tokens.map(t => t.value).join('');
+        return this.strings.map(t => t.getValue()).join('');
     }
 }
 

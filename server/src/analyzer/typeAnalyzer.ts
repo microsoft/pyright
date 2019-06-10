@@ -22,7 +22,7 @@ import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode,
     LambdaNode, ListComprehensionForNode, ListComprehensionNode, ListNode,
     MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParseNode,
-    RaiseNode, ReturnNode, SliceExpressionNode, StringNode, SuiteNode,
+    RaiseNode, ReturnNode, SliceExpressionNode, StringListNode, SuiteNode,
     TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
     UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
@@ -1072,7 +1072,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitString(node: StringNode): boolean {
+    visitStringList(node: StringListNode): boolean {
         if (node.typeAnnotation) {
             // Should we ignore this type annotation?
             if (AnalyzerNodeInfo.getIgnoreTypeAnnotation(node)) {
@@ -1081,6 +1081,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             this._getTypeOfExpression(node.typeAnnotation, true, true);
         }
+
         return true;
     }
 

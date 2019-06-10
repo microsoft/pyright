@@ -13,12 +13,12 @@ import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpression
     AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
     ConstantNode, ContinueNode, DecoratorNode, DelNode, DictionaryExpandEntryNode,
     DictionaryKeyEntryNode, DictionaryNode, EllipsisNode, ErrorExpressionNode,
-    ExceptNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
+    ExceptNode, FormatStringNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
     ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode, IndexItemsNode,
     LambdaNode, ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode,
     ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
     NumberNode, ParameterNode, ParseNode, ParseNodeType, PassNode, RaiseNode,
-    ReturnNode, SetNode, SliceExpressionNode, StatementListNode, StringNode,
+    ReturnNode, SetNode, SliceExpressionNode, StatementListNode, StringListNode, StringNode,
     SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
     WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
@@ -132,6 +132,9 @@ export class ParseTreeWalker {
             case ParseNodeType.For:
                 return this.visitFor(node as ForNode);
 
+            case ParseNodeType.FormatString:
+                return this.visitFormatString(node as FormatStringNode);
+
             case ParseNodeType.Function:
                 return this.visitFunction(node as FunctionNode);
 
@@ -194,6 +197,9 @@ export class ParseTreeWalker {
 
             case ParseNodeType.String:
                 return this.visitString(node as StringNode);
+
+            case ParseNodeType.StringList:
+                return this.visitStringList(node as StringListNode);
 
             case ParseNodeType.Suite:
                 return this.visitSuite(node as SuiteNode);
@@ -348,6 +354,10 @@ export class ParseTreeWalker {
         return true;
     }
 
+    visitFormatString(node: FormatStringNode) {
+        return true;
+    }
+
     visitFunction(node: FunctionNode) {
         return true;
     }
@@ -429,6 +439,10 @@ export class ParseTreeWalker {
     }
 
     visitString(node: StringNode) {
+        return true;
+    }
+
+    visitStringList(node: StringListNode) {
         return true;
     }
 

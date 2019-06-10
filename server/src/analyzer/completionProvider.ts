@@ -18,8 +18,7 @@ import { convertPositionToOffset } from '../common/positionUtils';
 import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode,
     ImportFromAsNode, ImportFromNode, MemberAccessExpressionNode,
     ModuleNameNode, ModuleNode, NameNode, ParseNode,
-    StringNode,
-    SuiteNode } from '../parser/parseNodes';
+    StringListNode, SuiteNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -130,7 +129,7 @@ export class CompletionProvider {
         let curNode = errorNode || node;
         while (true) {
             // Don't offer completions inside of a string node.
-            if (curNode instanceof StringNode) {
+            if (curNode instanceof StringListNode) {
                 return undefined;
             }
 

@@ -11,7 +11,7 @@
 */
 
 import { NameBindings } from '../parser/nameBindings';
-import { ParseNode, StringNode } from '../parser/parseNodes';
+import { ParseNode, StringListNode } from '../parser/parseNodes';
 import { ImportResult } from './importResult';
 import { TypeSourceId } from './inferredType';
 import { Scope } from './scope';
@@ -147,12 +147,12 @@ export class AnalyzerNodeInfo {
         return analyzerNode._typeSourceId;
     }
 
-    static setIgnoreTypeAnnotation(node: StringNode) {
+    static setIgnoreTypeAnnotation(node: StringListNode) {
         const analyzerNode = node as AnalyzerNodeInfo;
         analyzerNode._ignoreTypeAnnotation = true;
     }
 
-    static getIgnoreTypeAnnotation(node: StringNode) {
+    static getIgnoreTypeAnnotation(node: StringListNode) {
         const analyzerNode = node as AnalyzerNodeInfo;
         return !!analyzerNode._ignoreTypeAnnotation;
     }

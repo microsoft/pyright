@@ -28,16 +28,16 @@ import { ArgumentCategory, ArgumentNode, AssertNode,
     ConstantNode, ContinueNode, DecoratorNode, DelNode,
     DictionaryEntryNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode,
     DictionaryNode, EllipsisNode, ErrorExpressionCategory, ErrorExpressionNode,
-    ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
-    ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode,
+    ExceptNode, ExpressionNode, FormatStringNode, ForNode, FunctionNode, GlobalNode,
+    IfNode, ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode,
     IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionForNode,
     ListComprehensionIfNode, ListComprehensionIterNode, ListComprehensionNode, ListNode,
     MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode,
     ParameterCategory, ParameterNode, ParseNode, PassNode, RaiseNode, ReturnNode,
     SetNode, SliceExpressionNode, StatementListNode, StatementNode,
-    StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
-    WhileNode, WithItemNode, WithNode, YieldExpressionNode,
+    StringListNode, StringNode, SuiteNode, TernaryExpressionNode, TryNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
+    UnpackExpressionNode, WhileNode, WithItemNode, WithNode, YieldExpressionNode,
     YieldFromExpressionNode } from './parseNodes';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
@@ -1848,7 +1848,7 @@ export class Parser {
         }
 
         if (nextToken.type === TokenType.String) {
-            return this._parseString();
+            return this._parseStringList();
         }
 
         if (nextToken.type === TokenType.OpenParenthesis) {
@@ -2265,7 +2265,7 @@ export class Parser {
         const stringToken = new StringToken(tokenOffset,
             typeString.length, StringTokenFlags.None, typeString, 0,
             undefined, undefined);
-        const stringNode = new StringNode([stringToken]);
+        const stringNode = new StringListNode([new StringNode(stringToken)]);
 
         let parser = new Parser();
         let parseResults = parser.parseTextExpression(this._fileContents!,
@@ -2284,35 +2284,46 @@ export class Parser {
         return stringNode;
     }
 
-    private _parseString(): StringNode {
-        let stringTokenList: StringToken[] = [];
+    private _parseFormatString(token: StringToken): FormatStringNode {
+        // TODO - need to implement
+        return new FormatStringNode(token);
+    }
+
+    private _parseStringList(): StringListNode {
+        const stringList: (StringNode | FormatStringNode)[] = [];
 
         while (this._peekTokenType() === TokenType.String) {
-            stringTokenList.push(this._getNextToken() as StringToken);
+            const stringToken = this._getNextToken() as StringToken;
+            if (stringToken.flags & StringTokenFlags.Format) {
+                stringList.push(this._parseFormatString(stringToken));
+            } else {
+                stringList.push(new StringNode(stringToken));
+            }
         }
 
-        const stringNode = new StringNode(stringTokenList);
+        const stringNode = new StringListNode(stringList);
 
         // If we're parsing a type annotation, parse the contents of the string.
         if (this._isParsingTypeAnnotation) {
             // Don't allow multiple strings because we have no way of reporting
             // parse errors that span strings.
-            if (stringNode.tokens.length > 1) {
+            if (stringNode.strings.length > 1) {
                 this._addError('Type hints cannot span multiple string literals', stringNode);
-            } else if (stringNode.tokens[0].flags & StringTokenFlags.Triplicate) {
+            } else if (stringNode.strings[0].token.flags & StringTokenFlags.Triplicate) {
                 this._addError('Type hints cannot use triple quotes', stringNode);
-            } else if (stringNode.tokens[0].flags & StringTokenFlags.Format) {
-                this._addError('Type hints cannot use format string literals', stringNode);
+            } else if (stringNode.strings[0].token.flags & StringTokenFlags.Format) {
+                this._addError('Type hints cannot use format string literals (f-strings)', stringNode);
             } else {
-                const stringValue = stringNode.tokens[0].value;
-                const tokenOffset = stringNode.tokens[0].start;
+                const stringToken = stringNode.strings[0].token;
+                const stringValue = stringToken.value;
+                const tokenOffset = stringToken.start;
 
                 // Add one character to the prefix to also include the quote.
-                const prefixLength = stringNode.tokens[0].prefixLength + 1;
+                const prefixLength = stringToken.prefixLength + 1;
 
                 // Don't allow escape characters because we have no way of mapping
                 // error ranges back to the escaped text.
-                if (stringNode.tokens[0].value.length !== stringNode.tokens[0].length - prefixLength - 1) {
+                if (stringToken.value.length !== stringToken.length - prefixLength - 1) {
                     this._addError('Type hints cannot contain escape characters', stringNode);
                 } else {
                     let parser = new Parser();

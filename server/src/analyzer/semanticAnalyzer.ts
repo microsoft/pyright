@@ -24,10 +24,10 @@ import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     ExpressionNode, FunctionNode, GlobalNode, IfNode, LambdaNode, ModuleNameNode,
-    ModuleNode, NonlocalNode, RaiseNode, StatementListNode, StatementNode, StringNode,
-    SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
-import { StringTokenFlags } from '../parser/tokenizerTypes';
+    ModuleNode, NonlocalNode, RaiseNode, StatementListNode, StatementNode,
+    StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { StringToken, StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -381,14 +381,29 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitString(node: StringNode): boolean {
-        for (let stringToken of node.tokens) {
+    visitStringList(node: StringListNode): boolean {
+        for (let string of node.strings) {
+            const stringToken = string.token;
             if (stringToken.flags & StringTokenFlags.Unterminated) {
                 this._addError('String literal is unterminated', stringToken);
             }
 
             if (stringToken.flags & StringTokenFlags.NonAsciiInBytes) {
                 this._addError('Non-ASCII character not allowed in bytes string literal', stringToken);
+            }
+
+            if (stringToken.flags & StringTokenFlags.Format) {
+                if (this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V36) {
+                    this._addError('Format string literals (f-strings) require Python 3.6 or newer', stringToken);
+                }
+
+                if (stringToken.flags & StringTokenFlags.Bytes) {
+                    this._addError('Format string literals (f-strings) cannot be binary', stringToken);
+                }
+
+                if (stringToken.flags & StringTokenFlags.Unicode) {
+                    this._addError('Format string literals (f-strings) cannot be unicode', stringToken);
+                }
             }
 
             if (stringToken.flags & StringTokenFlags.UnrecognizedEscape) {
@@ -491,12 +506,13 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // If the first statement in the suite isn't a StringNode,
         // assume there is no docString.
         const statementList = statemetns[0] as StatementListNode;
-        if (statementList.statements.length === 0 || !(statementList.statements[0] instanceof StringNode)) {
+        if (statementList.statements.length === 0 ||
+                !(statementList.statements[0] instanceof StringListNode)) {
             return undefined;
         }
 
-        const docStringNode = statementList.statements[0] as StringNode;
-        const docStringToken = docStringNode.tokens[0];
+        const docStringNode = statementList.statements[0] as StringListNode;
+        const docStringToken = docStringNode.strings[0].token;
 
         // Ignore f-strings.
         if ((docStringToken.flags & StringTokenFlags.Format) !== 0) {
