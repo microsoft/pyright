@@ -46,8 +46,3 @@ class Baz1():
 class Baz2():
     aaa: str
 
-    # This should generate an error because names
-    # beginning with an underscore are not allowed
-    # in data classes.
-    _foo: int
-

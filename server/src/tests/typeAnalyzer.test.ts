@@ -307,12 +307,6 @@ test('DataClass1', () => {
     validateResults(analysisResults, 0);
 });
 
-test('DataClass2', () => {
-    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass2.py']);
-
-    validateResults(analysisResults, 1);
-});
-
 test('DataClass3', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass3.py']);
 
@@ -322,7 +316,7 @@ test('DataClass3', () => {
 test('DataClass4', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass4.py']);
 
-    validateResults(analysisResults, 6);
+    validateResults(analysisResults, 5);
 });
 
 test('AbstractClass1', () => {
