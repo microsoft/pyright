@@ -1402,10 +1402,9 @@ export class Parser {
             return leftExpr;
         }
 
-        if (this._consumeTokenIfKeyword(KeywordType.Or)) {
-            let rightExpr = this._parseOrTest();
-
-            return new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.Or);
+        while (this._consumeTokenIfKeyword(KeywordType.Or)) {
+            const rightExpr = this._parseAndTest();
+            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.Or);
         }
 
         return leftExpr;
@@ -1418,9 +1417,9 @@ export class Parser {
             return leftExpr;
         }
 
-        if (this._consumeTokenIfKeyword(KeywordType.And)) {
-            let rightExpr = this._parseAndTest();
-            return new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.And);
+        while (this._consumeTokenIfKeyword(KeywordType.And)) {
+            const rightExpr = this._parseNotTest();
+            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.And);
         }
 
         return leftExpr;
@@ -1444,32 +1443,36 @@ export class Parser {
             return leftExpr;
         }
 
-        let comparisonOperator: OperatorType | undefined;
+        while (true) {
+            let comparisonOperator: OperatorType | undefined;
 
-        if (Tokenizer.isOperatorComparison(this._peekOperatorType())) {
-            comparisonOperator = this._peekOperatorType();
-            this._getNextToken();
-        } else if (this._consumeTokenIfKeyword(KeywordType.In)) {
-            comparisonOperator = OperatorType.In;
-        } else if (this._consumeTokenIfKeyword(KeywordType.Is)) {
-            if (this._consumeTokenIfKeyword(KeywordType.Not)) {
-                comparisonOperator = OperatorType.IsNot;
-            } else {
-                comparisonOperator = OperatorType.Is;
-            }
-        } else if (this._peekKeywordType() === KeywordType.Not) {
-            let tokenAfterNot = this._peekToken(1);
-            if (tokenAfterNot.type === TokenType.Keyword &&
-                    (tokenAfterNot as KeywordToken).keywordType === KeywordType.In) {
+            if (Tokenizer.isOperatorComparison(this._peekOperatorType())) {
+                comparisonOperator = this._peekOperatorType();
                 this._getNextToken();
-                this._getNextToken();
-                comparisonOperator = OperatorType.NotIn;
+            } else if (this._consumeTokenIfKeyword(KeywordType.In)) {
+                comparisonOperator = OperatorType.In;
+            } else if (this._consumeTokenIfKeyword(KeywordType.Is)) {
+                if (this._consumeTokenIfKeyword(KeywordType.Not)) {
+                    comparisonOperator = OperatorType.IsNot;
+                } else {
+                    comparisonOperator = OperatorType.Is;
+                }
+            } else if (this._peekKeywordType() === KeywordType.Not) {
+                let tokenAfterNot = this._peekToken(1);
+                if (tokenAfterNot.type === TokenType.Keyword &&
+                        (tokenAfterNot as KeywordToken).keywordType === KeywordType.In) {
+                    this._getNextToken();
+                    this._getNextToken();
+                    comparisonOperator = OperatorType.NotIn;
+                }
             }
-        }
 
-        if (comparisonOperator !== undefined) {
-            let rightExpr = this._parseComparison();
-            return new BinaryExpressionNode(leftExpr, rightExpr, comparisonOperator);
+            if (comparisonOperator === undefined) {
+                break;
+            }
+
+            const rightExpr = this._parseBitwiseOrExpression();
+            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, comparisonOperator);
         }
 
         return leftExpr;
@@ -1482,9 +1485,9 @@ export class Parser {
             return leftExpr;
         }
 
-        if (this._consumeTokenIfOperator(OperatorType.BitwiseOr)) {
-            let rightExpr = this._parseBitwiseOrExpression();
-            return new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.BitwiseOr);
+        while (this._consumeTokenIfOperator(OperatorType.BitwiseOr)) {
+            const rightExpr = this._parseBitwiseXorExpression();
+            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.BitwiseOr);
         }
 
         return leftExpr;
@@ -1497,9 +1500,9 @@ export class Parser {
             return leftExpr;
         }
 
-        if (this._consumeTokenIfOperator(OperatorType.BitwiseXor)) {
-            let rightExpr = this._parseBitwiseXorExpression();
-            return new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.BitwiseXor);
+        while (this._consumeTokenIfOperator(OperatorType.BitwiseXor)) {
+            const rightExpr = this._parseBitwiseAndExpression();
+            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.BitwiseXor);
         }
 
         return leftExpr;
@@ -1512,9 +1515,9 @@ export class Parser {
             return leftExpr;
         }
 
-        if (this._consumeTokenIfOperator(OperatorType.BitwiseAnd)) {
-            let rightExpr = this._parseBitwiseAndExpression();
-            return new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.BitwiseAnd);
+        while (this._consumeTokenIfOperator(OperatorType.BitwiseAnd)) {
+            const rightExpr = this._parseShiftExpression();
+            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.BitwiseAnd);
         }
 
         return leftExpr;
@@ -1528,10 +1531,11 @@ export class Parser {
         }
 
         let nextOperator = this._peekOperatorType();
-        if (nextOperator === OperatorType.LeftShift || nextOperator === OperatorType.RightShift) {
+        while (nextOperator === OperatorType.LeftShift || nextOperator === OperatorType.RightShift) {
             this._getNextToken();
-            let rightExpr = this._parseShiftExpression();
-            return new BinaryExpressionNode(leftExpr, rightExpr, nextOperator);
+            const rightExpr = this._parseAirthmeticExpression();
+            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, nextOperator);
+            nextOperator = this._peekOperatorType();
         }
 
         return leftExpr;
@@ -1545,14 +1549,15 @@ export class Parser {
         }
 
         let nextOperator = this._peekOperatorType();
-        if (nextOperator === OperatorType.Add || nextOperator === OperatorType.Subtract) {
+        while (nextOperator === OperatorType.Add || nextOperator === OperatorType.Subtract) {
             this._getNextToken();
-            let rightExpr = this._parseAirthmeticExpression();
+            let rightExpr = this._parseAirthmeticTerm();
             if (rightExpr instanceof ErrorExpressionNode) {
                 return rightExpr;
             }
 
-            return new BinaryExpressionNode(leftExpr, rightExpr, nextOperator);
+            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, nextOperator);
+            nextOperator = this._peekOperatorType();
         }
 
         return leftExpr;
@@ -1566,14 +1571,15 @@ export class Parser {
         }
 
         let nextOperator = this._peekOperatorType();
-        if (nextOperator === OperatorType.Multiply ||
+        while (nextOperator === OperatorType.Multiply ||
                 nextOperator === OperatorType.MatrixMultiply ||
                 nextOperator === OperatorType.Divide ||
                 nextOperator === OperatorType.Mod ||
                 nextOperator === OperatorType.FloorDivide) {
             this._getNextToken();
-            let rightExpr = this._parseAirthmeticTerm();
-            return new BinaryExpressionNode(leftExpr, rightExpr, nextOperator);
+            const rightExpr = this._parseAirthmeticFactor();
+            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, nextOperator);
+            nextOperator = this._peekOperatorType();
         }
 
         return leftExpr;
