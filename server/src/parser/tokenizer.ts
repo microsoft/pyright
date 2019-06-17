@@ -815,7 +815,6 @@ export class Tokenizer {
     private _skipToEndOfStringLiteral(flags: StringTokenFlags): StringScannerOutput {
         const quoteChar = (flags & StringTokenFlags.SingleQuote) ? Char.SingleQuote : Char.DoubleQuote;
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
-        const isRaw = (flags & StringTokenFlags.Raw) !== 0;
         let escapedValue = '';
 
         while (true) {
@@ -833,14 +832,10 @@ export class Tokenizer {
 
                 if (this._cs.getCurrentChar() === Char.CarriageReturn || this._cs.getCurrentChar() === Char.LineFeed) {
                     if (this._cs.getCurrentChar() === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
-                        if (isRaw) {
-                            escapedValue += String.fromCharCode(this._cs.getCurrentChar());
-                        }
+                        escapedValue += String.fromCharCode(this._cs.getCurrentChar());
                         this._cs.moveNext();
                     }
-                    if (isRaw) {
-                        escapedValue += String.fromCharCode(this._cs.getCurrentChar());
-                    }
+                    escapedValue += String.fromCharCode(this._cs.getCurrentChar());
                     this._cs.moveNext();
                     this._addLineRange();
                 } else {
