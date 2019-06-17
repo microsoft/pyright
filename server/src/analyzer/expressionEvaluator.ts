@@ -405,14 +405,6 @@ export class ExpressionEvaluator {
                     if (variableNameNode && variableType) {
                         const variableName = variableNameNode.nameToken.value;
 
-                        // Python 3.7 enforces the convention that data fields within
-                        // a data class cannot being with "_".
-                        if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V37) {
-                            if (variableName[0] === '_') {
-                                this._addError(`Data field name cannot start with _`, variableNameNode);
-                            }
-                        }
-
                         // If we've already seen a variable with a default value defined,
                         // all subsequent variables must also have default values.
                         if (!hasDefaultValue && sawDefaultValue) {
