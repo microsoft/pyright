@@ -15,9 +15,11 @@ import { Token } from '../parser/tokenizerTypes';
 
 export class CommentUtils {
     static getFileLevelDirectives(tokens: TextRangeCollection<Token>,
-            defaultSettings: DiagnosticSettings): DiagnosticSettings {
+            defaultSettings: DiagnosticSettings, useStrict: boolean): DiagnosticSettings {
 
-        let settings = cloneDiagnosticSettings(defaultSettings);
+        let settings = useStrict ?
+            getStrictDiagnosticSettings() :
+            cloneDiagnosticSettings(defaultSettings);
 
         for (let i = 0; i < tokens.count; i++) {
             const token = tokens.getItemAt(i);

@@ -272,6 +272,9 @@ export class ConfigOptions {
     // if they are included in the transitive closure of included files.
     ignore: string[] = [];
 
+    // A list of file sepcs that should be analyzed using "strict" mode.
+    strict: string[] = [];
+
     // Emit verbose information to console?
     verboseOutput: boolean;
 
@@ -381,6 +384,25 @@ export class ConfigOptions {
                         console.log(`Ignoring path "${ fileSpec }" in "ignore" array because it is not relative.`);
                     } else {
                         this.ignore.push(this._normalizeRelativeFileSpec(fileSpec));
+                    }
+                });
+            }
+        }
+
+        // Read the "strict" entry.
+        this.strict = [];
+        if (configObj.strict !== undefined) {
+            if (!Array.isArray(configObj.strict)) {
+                console.log(`Config "strict" entry must contain an array.`);
+            } else {
+                let filesList = configObj.strict as string[];
+                filesList.forEach((fileSpec, index) => {
+                    if (typeof fileSpec !== 'string') {
+                        console.log(`Index ${ index } of "strict" array should be a string.`);
+                    } else if (isAbsolute(fileSpec)) {
+                        console.log(`Ignoring path "${ fileSpec }" in "strict" array because it is not relative.`);
+                    } else {
+                        this.strict.push(this._normalizeRelativeFileSpec(fileSpec));
                     }
                 });
             }

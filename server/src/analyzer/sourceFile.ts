@@ -425,8 +425,13 @@ export class SourceFile {
                 this._resolveImports(walker.getImportedModules(), configOptions, execEnvironment);
             this._analysisJob.parseDiagnostics = diagSink.diagnostics;
 
+            // Is this file in a "strict" path?
+            const useStrict = configOptions.strict.find(
+                strictPath => this._filePath.startsWith(strictPath)) !== undefined;
+
             this._analysisJob.diagnosticSettings = CommentUtils.getFileLevelDirectives(
-                this._analysisJob.parseResults.tokens, configOptions.diagnosticSettings);
+                this._analysisJob.parseResults.tokens, configOptions.diagnosticSettings,
+                useStrict);
         } catch (e) {
             let message: string;
             if (e instanceof Error) {

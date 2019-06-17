@@ -44,6 +44,17 @@
         "pattern": "^(.*)$"
       }
     },
+    "strict": {
+      "$id": "#/properties/strict",
+      "type": "array",
+      "title": "Files and directories that should use 'strict' type checking rules",
+      "items": {
+        "$id": "#/properties/strict/items",
+        "type": "string",
+        "title": "File or directory that should use 'strict' type checking rules",
+        "pattern": "^(.*)$"
+      }
+    },
     "typeshedPath": {
       "$id": "#/properties/typingsPath",
       "type": "string",
