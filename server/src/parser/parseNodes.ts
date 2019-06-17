@@ -765,10 +765,14 @@ export class NumberNode extends ExpressionNode {
 export class StringNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.String;
     token: StringToken;
+    value: string;
+    hasInvalidEscapeSequence: boolean;
 
-    constructor(token: StringToken) {
+    constructor(token: StringToken, unescapedValue: string, hasInvalidEscapeSequence: boolean) {
         super(token);
         this.token = token;
+        this.value = unescapedValue;
+        this.hasInvalidEscapeSequence = hasInvalidEscapeSequence;
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -776,17 +780,21 @@ export class StringNode extends ExpressionNode {
     }
 
     getValue(): string {
-        return this.token.value;
+        return this.value;
     }
 }
 
 export class FormatStringNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.String;
     token: StringToken;
+    value: string;
+    hasInvalidEscapeSequence: boolean;
 
-    constructor(token: StringToken) {
+    constructor(token: StringToken, unescapedValue: string, hasInvalidEscapeSequence: boolean) {
         super(token);
         this.token = token;
+        this.value = unescapedValue;
+        this.hasInvalidEscapeSequence = hasInvalidEscapeSequence;
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -794,7 +802,7 @@ export class FormatStringNode extends ExpressionNode {
     }
 
     getValue(): string {
-        return this.token.value;
+        return this.value;
     }
 }
 

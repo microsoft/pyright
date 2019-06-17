@@ -155,9 +155,7 @@ export enum StringTokenFlags {
     Format = 0x40,
 
     // Error conditions
-    Unterminated = 0x1000,
-    NonAsciiInBytes = 0x2000,
-    UnrecognizedEscape = 0x4000
+    Unterminated = 0x1000
 }
 
 export class Comment extends TextRange {
@@ -232,22 +230,26 @@ export class KeywordToken extends Token {
 
 export class StringToken extends Token {
     readonly flags: StringTokenFlags;
-    readonly value: string;
-    readonly invalidEscapeOffsets: number[] | undefined;
+
+    // Use StringTokenUtils to convert escaped value to unescaped value.
+    readonly escapedValue: string;
 
     // Number of characters in token that appear before
     // the quote marks (e.g. "r" or "UR").
     readonly prefixLength: number;
 
-    constructor(start: number, length: number, flags: StringTokenFlags, value: string,
-            prefixLength: number, invalidEscapeOffsets: number[] | undefined,
-            comments: Comment[] | undefined) {
+    // Number of characters in token that make up the quote
+    // (either 1 or 3).
+    readonly quoteMarkLength: number;
+
+    constructor(start: number, length: number, flags: StringTokenFlags, escapedValue: string,
+            prefixLength: number, comments: Comment[] | undefined) {
 
         super(TokenType.String, start, length, comments);
         this.flags = flags;
-        this.value = value;
+        this.escapedValue = escapedValue;
         this.prefixLength = prefixLength;
-        this.invalidEscapeOffsets = invalidEscapeOffsets;
+        this.quoteMarkLength = (flags & StringTokenFlags.Triplicate) ? 3 : 1;
     }
 }
 

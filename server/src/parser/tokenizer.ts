@@ -110,9 +110,8 @@ export interface TokenizerOutput {
 }
 
 interface StringScannerOutput {
-    value: string;
+    escapedValue: string;
     flags: StringTokenFlags;
-    invalidEscapeOffsets?: number[];
 }
 
 export class Tokenizer {
@@ -805,218 +804,63 @@ export class Tokenizer {
             this._cs.moveNext();
         }
 
-        const stringLiteralInfo = this._skipToEndOfStringLiteral(flags, start);
+        const stringLiteralInfo = this._skipToEndOfStringLiteral(flags);
 
         let end = this._cs.position;
 
         this._tokens.push(new StringToken(start, end - start, stringLiteralInfo.flags,
-            stringLiteralInfo.value, stringPrefixLength, stringLiteralInfo.invalidEscapeOffsets,
-            this._getComments()));
+            stringLiteralInfo.escapedValue, stringPrefixLength, this._getComments()));
     }
 
-    private _skipToEndOfStringLiteral(flags: StringTokenFlags, startPosition: number): StringScannerOutput {
+    private _skipToEndOfStringLiteral(flags: StringTokenFlags): StringScannerOutput {
         const quoteChar = (flags & StringTokenFlags.SingleQuote) ? Char.SingleQuote : Char.DoubleQuote;
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
         const isRaw = (flags & StringTokenFlags.Raw) !== 0;
-        const isBytes = (flags & StringTokenFlags.Bytes) !== 0;
-        let unescapedValue = '';
-        let invalidEscapeOffsets: number[] | undefined;
-
-        const addInvalidEscapeOffset = () => {
-            // Invalid escapes are not reported for raw strings.
-            if ((flags & StringTokenFlags.Raw) === 0) {
-                flags |= StringTokenFlags.UnrecognizedEscape;
-                if (!invalidEscapeOffsets) {
-                    invalidEscapeOffsets = [];
-                }
-                invalidEscapeOffsets.push(this._cs.position - startPosition);
-            }
-        };
-
-        const scanHexEscape = (digitCount: number) => {
-            let foundIllegalHexDigit = false;
-            let hexValue = 0;
-            let localValue = '';
-
-            for (let i = 0; i < digitCount; i++) {
-                const charCode = this._cs.lookAhead(1 + i);
-                if (!this._isHexCharCode(charCode)) {
-                    foundIllegalHexDigit = true;
-                    break;
-                }
-                hexValue = 16 * hexValue + this._getHexDigitValue(charCode);
-            }
-
-            if (foundIllegalHexDigit) {
-                addInvalidEscapeOffset();
-                localValue = '\\' + String.fromCharCode(this._cs.currentChar);
-                this._cs.moveNext();
-            } else {
-                localValue = String.fromCharCode(hexValue);
-                this._cs.advance(1 + digitCount);
-            }
-
-            return localValue;
-        };
+        let escapedValue = '';
 
         while (true) {
             if (this._cs.isEndOfStream()) {
                 // Hit the end of file without a termination.
                 flags |= StringTokenFlags.Unterminated;
-                return { value: unescapedValue, flags, invalidEscapeOffsets };
+                return { escapedValue, flags };
             }
 
             if (this._cs.currentChar === Char.Backslash) {
+                escapedValue += String.fromCharCode(this._cs.currentChar);
+
                 // Move past the escape (backslash) character.
                 this._cs.moveNext();
-                let localValue = '';
 
                 if (this._cs.getCurrentChar() === Char.CarriageReturn || this._cs.getCurrentChar() === Char.LineFeed) {
                     if (this._cs.getCurrentChar() === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
                         if (isRaw) {
-                            localValue += String.fromCharCode(this._cs.currentChar);
+                            escapedValue += String.fromCharCode(this._cs.getCurrentChar());
                         }
                         this._cs.moveNext();
                     }
                     if (isRaw) {
-                        localValue = '\\' + localValue + String.fromCharCode(this._cs.currentChar);
+                        escapedValue += String.fromCharCode(this._cs.getCurrentChar());
                     }
                     this._cs.moveNext();
                     this._addLineRange();
                 } else {
-                    if (isRaw) {
-                        localValue = '\\' + String.fromCharCode(this._cs.currentChar);
-                        this._cs.moveNext();
-                    } else {
-                        switch (this._cs.getCurrentChar()) {
-                            case Char.Backslash:
-                            case Char.SingleQuote:
-                            case Char.DoubleQuote:
-                                localValue = String.fromCharCode(this._cs.currentChar);
-                                this._cs.moveNext();
-                                break;
-
-                            case Char.a:
-                                localValue = '\u0007';
-                                this._cs.moveNext();
-                                break;
-
-                            case Char.b:
-                                localValue = '\b';
-                                this._cs.moveNext();
-                                break;
-
-                            case Char.f:
-                                localValue = '\f';
-                                this._cs.moveNext();
-                                break;
-
-                            case Char.n:
-                                localValue = '\n';
-                                this._cs.moveNext();
-                                break;
-
-                            case Char.r:
-                                localValue = '\r';
-                                this._cs.moveNext();
-                                break;
-
-                            case Char.t:
-                                localValue = '\t';
-                                this._cs.moveNext();
-                                break;
-
-                            case Char.v:
-                                localValue = '\v';
-                                this._cs.moveNext();
-                                break;
-
-                            case Char.x:
-                                localValue = scanHexEscape(2);
-                                break;
-
-                            case Char.N: {
-                                let foundIllegalChar = false;
-                                let charCount = 1;
-                                if (this._cs.lookAhead(charCount) !== Char.OpenBrace) {
-                                    foundIllegalChar = true;
-                                } else {
-                                    charCount++;
-                                    while (true) {
-                                        const lookaheadChar = this._cs.lookAhead(charCount);
-                                        if (lookaheadChar === Char.CloseBrace) {
-                                            break;
-                                        } else if (!this._isAlphaNumericChar(lookaheadChar)) {
-                                            foundIllegalChar = true;
-                                            break;
-                                        } else {
-                                            charCount++;
-                                        }
-                                    }
-                                }
-
-                                if (foundIllegalChar) {
-                                    addInvalidEscapeOffset();
-                                    localValue = '\\' + String.fromCharCode(this._cs.currentChar);
-                                    this._cs.moveNext();
-                                } else {
-                                    // We don't have the Unicode name database handy, so
-                                    // assume that the name is valid and use a '-' as a
-                                    // replacement character.
-                                    localValue = '-';
-                                    this._cs.advance(1 + charCount);
-                                }
-                                break;
-                            }
-
-                            case Char.u:
-                                localValue = scanHexEscape(4);
-                                break;
-
-                            case Char.U:
-                                localValue = scanHexEscape(8);
-                                break;
-
-                            default:
-                                if (this._isOctalCharCode(this._cs.currentChar)) {
-                                    let octalCode = this._cs.currentChar - Char._0;
-                                    this._cs.moveNext();
-                                    if (this._isOctalCharCode(this._cs.currentChar)) {
-                                        octalCode = octalCode * 8 + this._cs.currentChar - Char._0;
-                                        this._cs.moveNext();
-
-                                        if (this._isOctalCharCode(this._cs.currentChar)) {
-                                            octalCode = octalCode * 8 + this._cs.currentChar - Char._0;
-                                            this._cs.moveNext();
-                                        }
-                                    }
-
-                                    localValue = String.fromCharCode(octalCode);
-                                } else {
-                                    localValue = '\\' + String.fromCharCode(this._cs.currentChar);
-                                    addInvalidEscapeOffset();
-                                    this._cs.moveNext();
-                                }
-                                break;
-                        }
-                    }
+                    escapedValue += String.fromCharCode(this._cs.getCurrentChar());
+                    this._cs.moveNext();
                 }
-
-                unescapedValue += localValue;
             } else if (this._cs.currentChar === Char.LineFeed || this._cs.currentChar === Char.CarriageReturn) {
                 if (!isTriplicate) {
                     // Unterminated single-line string
                     flags |= StringTokenFlags.Unterminated;
-                    return { value: unescapedValue, flags, invalidEscapeOffsets };
+                    return { escapedValue, flags };
                 }
 
-                // Skip over the escaped new line (either one or two characters).
+                // Skip over the new line (either one or two characters).
                 if (this._cs.currentChar === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
-                    unescapedValue += String.fromCharCode(this._cs.currentChar);
+                    escapedValue += String.fromCharCode(this._cs.currentChar);
                     this._cs.moveNext();
                 }
 
-                unescapedValue += String.fromCharCode(this._cs.currentChar);
+                escapedValue += String.fromCharCode(this._cs.currentChar);
                 this._cs.moveNext();
                 this._addLineRange();
             } else if (!isTriplicate && this._cs.currentChar === quoteChar) {
@@ -1028,69 +872,12 @@ export class Tokenizer {
                 this._cs.advance(3);
                 break;
             } else {
-                if (isBytes && this._cs.currentChar >= 128) {
-                    flags |= StringTokenFlags.NonAsciiInBytes;
-                }
-
-                unescapedValue += String.fromCharCode(this._cs.currentChar);
-
+                escapedValue += String.fromCharCode(this._cs.currentChar);
                 this._cs.moveNext();
             }
         }
 
-        return { value: unescapedValue, flags, invalidEscapeOffsets };
-    }
-
-    private _isAlphaNumericChar(charCode: number): boolean {
-        if (charCode >= Char._0 && charCode <= Char._9) {
-            return true;
-        }
-
-        if (charCode >= Char.a && charCode <= Char.z) {
-            return true;
-        }
-
-        if (charCode >= Char.A && charCode <= Char.A) {
-            return true;
-        }
-
-        return false;
-    }
-
-    private _isOctalCharCode(charCode: number): boolean {
-        return charCode >= Char._0 && charCode <= Char._7;
-    }
-
-    private _isHexCharCode(charCode: number): boolean {
-        if (charCode >= Char._0 && charCode <= Char._9) {
-            return true;
-        }
-
-        if (charCode >= Char.a && charCode <= Char.f) {
-            return true;
-        }
-
-        if (charCode >= Char.A && charCode <= Char.F) {
-            return true;
-        }
-
-        return false;
-    }
-
-    private _getHexDigitValue(charCode: number): number {
-        if (charCode >= Char._0 && charCode <= Char._9) {
-            return charCode - Char._0;
-        }
-
-        if (charCode >= Char.a && charCode <= Char.f) {
-            return charCode - Char.a + 10;
-        }
-
-        if (charCode >= Char.A && charCode <= Char.F) {
-            return charCode - Char.A + 10;
-        }
-
-        return 0;
+        return { escapedValue, flags };
     }
 
     private _skipFloatingPointCandidate(): boolean {

@@ -27,6 +27,7 @@ import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     ModuleNode, NonlocalNode, RaiseNode, StatementListNode, StatementNode,
     StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { StringTokenUtils } from '../parser/stringTokenUtils';
 import { StringToken, StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -382,38 +383,17 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     visitStringList(node: StringListNode): boolean {
-        for (let string of node.strings) {
-            const stringToken = string.token;
-            if (stringToken.flags & StringTokenFlags.Unterminated) {
-                this._addError('String literal is unterminated', stringToken);
-            }
+        for (let stringNode of node.strings) {
+            if (stringNode.hasInvalidEscapeSequence) {
+                const unescapedResult = StringTokenUtils.getUnescapedString(stringNode.token);
 
-            if (stringToken.flags & StringTokenFlags.NonAsciiInBytes) {
-                this._addError('Non-ASCII character not allowed in bytes string literal', stringToken);
-            }
-
-            if (stringToken.flags & StringTokenFlags.Format) {
-                if (this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V36) {
-                    this._addError('Format string literals (f-strings) require Python 3.6 or newer', stringToken);
-                }
-
-                if (stringToken.flags & StringTokenFlags.Bytes) {
-                    this._addError('Format string literals (f-strings) cannot be binary', stringToken);
-                }
-
-                if (stringToken.flags & StringTokenFlags.Unicode) {
-                    this._addError('Format string literals (f-strings) cannot be unicode', stringToken);
-                }
-            }
-
-            if (stringToken.flags & StringTokenFlags.UnrecognizedEscape) {
-                if (stringToken.invalidEscapeOffsets) {
-                    stringToken.invalidEscapeOffsets.forEach(offset => {
-                        const textRange = new TextRange(stringToken.start + offset, 1);
-                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportInvalidStringEscapeSequence,
-                            'Unsupported escape sequence in string literal', textRange);
-                    });
-                }
+                unescapedResult.invalidEscapeOffsets.forEach(offset => {
+                    const start = stringNode.token.start + stringNode.token.prefixLength +
+                        stringNode.token.quoteMarkLength + offset;
+                    const textRange = new TextRange(start - 1, 2);
+                    this._addDiagnostic(this._fileInfo.diagnosticSettings.reportInvalidStringEscapeSequence,
+                        'Unsupported escape sequence in string literal', textRange);
+                });
             }
         }
 
@@ -519,7 +499,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             return undefined;
         }
 
-        return DocStringUtils.decodeDocString(docStringToken.value);
+        return DocStringUtils.decodeDocString(docStringNode.strings[0].value);
     }
 
     private _validateYieldUsage(node: YieldExpressionNode | YieldFromExpressionNode) {

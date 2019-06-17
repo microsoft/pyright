@@ -39,6 +39,7 @@ import { ArgumentCategory, ArgumentNode, AssertNode,
     TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
     UnpackExpressionNode, WhileNode, WithItemNode, WithNode, YieldExpressionNode,
     YieldFromExpressionNode } from './parseNodes';
+import { StringTokenUtils, UnescapedString } from './stringTokenUtils';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
     NumberToken, OperatorToken, OperatorType, StringToken,
@@ -58,6 +59,7 @@ export class ParseOptions {
 
     isStubFile: boolean;
     pythonVersion: PythonVersion;
+    reportInvalidStringEscapeSequence: boolean;
 }
 
 export interface ParseResults {
@@ -2240,6 +2242,36 @@ export class Parser {
         this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
     }
 
+    private _reportStringTokenErrors(stringToken: StringToken, unescapedResult: UnescapedString) {
+        if (stringToken.flags & StringTokenFlags.Unterminated) {
+            this._addError('String literal is unterminated', stringToken);
+        }
+
+        if (unescapedResult.nonAsciiInBytes) {
+            this._addError('Non-ASCII character not allowed in bytes string literal', stringToken);
+        }
+
+        if (stringToken.flags & StringTokenFlags.Format) {
+            if (this._getLanguageVersion() < PythonVersion.V36) {
+                this._addError('Format string literals (f-strings) require Python 3.6 or newer', stringToken);
+            }
+
+            if (stringToken.flags & StringTokenFlags.Bytes) {
+                this._addError('Format string literals (f-strings) cannot be binary', stringToken);
+            }
+
+            if (stringToken.flags & StringTokenFlags.Unicode) {
+                this._addError('Format string literals (f-strings) cannot be unicode', stringToken);
+            }
+        }
+    }
+
+    private _makeStringNode(stringToken: StringToken): StringNode {
+        const unescapedResult = StringTokenUtils.getUnescapedString(stringToken);
+        this._reportStringTokenErrors(stringToken, unescapedResult);
+        return new StringNode(stringToken, unescapedResult.value, unescapedResult.invalidEscapeOffsets.length > 0);
+    }
+
     private _getTypeAnnotationComment(): ExpressionNode | undefined {
         if (this._tokenIndex === 0) {
             return undefined;
@@ -2263,30 +2295,33 @@ export class Parser {
         const typeString = match[2];
         const tokenOffset = curToken.end + match[1].length;
         const stringToken = new StringToken(tokenOffset,
-            typeString.length, StringTokenFlags.None, typeString, 0,
-            undefined, undefined);
-        const stringNode = new StringListNode([new StringNode(stringToken)]);
+            typeString.length, StringTokenFlags.None, typeString, 0, undefined);
+        const stringNode = this._makeStringNode(stringToken);
+        const stringListNode = new StringListNode([stringNode]);
 
         let parser = new Parser();
         let parseResults = parser.parseTextExpression(this._fileContents!,
             tokenOffset, typeString.length, this._parseOptions);
 
         parseResults.diagnostics.forEach(diag => {
-            this._addError(diag.message, stringNode);
+            this._addError(diag.message, stringListNode);
         });
 
         if (!parseResults.parseTree) {
             return undefined;
         }
 
-        stringNode.typeAnnotation = parseResults.parseTree;
+        stringListNode.typeAnnotation = parseResults.parseTree;
 
-        return stringNode;
+        return stringListNode;
     }
 
-    private _parseFormatString(token: StringToken): FormatStringNode {
+    private _parseFormatString(stringToken: StringToken): FormatStringNode {
+        const unescapedResult = StringTokenUtils.getUnescapedString(stringToken);
+        this._reportStringTokenErrors(stringToken, unescapedResult);
+
         // TODO - need to implement
-        return new FormatStringNode(token);
+        return new FormatStringNode(stringToken, unescapedResult.value, unescapedResult.invalidEscapeOffsets.length > 0);
     }
 
     private _parseStringList(): StringListNode {
@@ -2297,7 +2332,7 @@ export class Parser {
             if (stringToken.flags & StringTokenFlags.Format) {
                 stringList.push(this._parseFormatString(stringToken));
             } else {
-                stringList.push(new StringNode(stringToken));
+                stringList.push(this._makeStringNode(stringToken));
             }
         }
 
@@ -2315,20 +2350,19 @@ export class Parser {
                 this._addError('Type hints cannot use format string literals (f-strings)', stringNode);
             } else {
                 const stringToken = stringNode.strings[0].token;
-                const stringValue = stringToken.value;
+                const stringValue = StringTokenUtils.getUnescapedString(stringNode.strings[0].token);
+                const unescapedString = stringValue.value;
                 const tokenOffset = stringToken.start;
-
-                // Add one character to the prefix to also include the quote.
-                const prefixLength = stringToken.prefixLength + 1;
+                const prefixLength = stringToken.prefixLength + stringToken.quoteMarkLength;
 
                 // Don't allow escape characters because we have no way of mapping
                 // error ranges back to the escaped text.
-                if (stringToken.value.length !== stringToken.length - prefixLength - 1) {
+                if (unescapedString.length !== stringToken.length - prefixLength - stringToken.quoteMarkLength) {
                     this._addError('Type hints cannot contain escape characters', stringNode);
                 } else {
                     let parser = new Parser();
                     let parseResults = parser.parseTextExpression(this._fileContents!,
-                        tokenOffset + prefixLength, stringValue.length, this._parseOptions);
+                        tokenOffset + prefixLength, unescapedString.length, this._parseOptions);
 
                     parseResults.diagnostics.forEach(diag => {
                         this._addError(diag.message, stringNode);
