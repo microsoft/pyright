@@ -789,7 +789,7 @@ export class FormatStringExpression {
 }
 
 export class FormatStringNode extends ExpressionNode {
-    readonly nodeType = ParseNodeType.String;
+    readonly nodeType = ParseNodeType.FormatString;
     token: StringToken;
     value: string;
     hasUnescapeErrors: boolean;

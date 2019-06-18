@@ -18,14 +18,14 @@ import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode, ConstantNode,
-    DecoratorNode, DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode, ForNode,
-    FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode,
-    LambdaNode, ListComprehensionForNode, ListComprehensionNode, ListNode,
-    MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParseNode,
-    RaiseNode, ReturnNode, SliceExpressionNode, StringListNode, SuiteNode,
-    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+    DecoratorNode, DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode, FormatStringNode,
+    ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode,
+    IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode,
+    ListNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
+    ParseNode, RaiseNode, ReturnNode, SliceExpressionNode, StringListNode,
+    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
+    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -1081,6 +1081,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             this._getTypeOfExpression(node.typeAnnotation, true, true);
         }
+
+        return true;
+    }
+
+    visitFormatString(node: FormatStringNode): boolean {
+        node.expressions.forEach(formatExpr => {
+            this._getTypeOfExpression(formatExpr.expression, true, true);
+        });
 
         return true;
     }

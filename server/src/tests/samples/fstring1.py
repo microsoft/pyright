@@ -16,3 +16,9 @@ c = f"hello { 1 "
 
 # Test f-string with double braces.
 d = f"hello {{{1}}}"
+
+# Test f-string with formatting directives.
+e = f"hello { 2 != 3 !r:2 }"
+
+# Test f-string with formatting directives.
+f = f"hello { 2 != 3 :3 }"

@@ -2339,10 +2339,23 @@ export class Parser {
 
         for (let segment of unescapedResult.formatStringSegments) {
             if (segment.isExpression) {
-                let parser = new Parser();
-                let parseResults = parser.parseTextExpression(this._fileContents!,
-                    stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength + segment.offset,
-                    segment.length, this._parseOptions);
+                const parser = new Parser();
+
+                // Determine if we need to truncate the expression because it
+                // contains formatting directives that start with a ! or :.
+                let segmentExprLength = segment.length;
+                const bangIndex = segment.value.search(/\![^=]/);
+                if (bangIndex >= 0) {
+                    segmentExprLength = Math.min(segmentExprLength, bangIndex);
+                }
+                const colonIndex = segment.value.search(/\:/);
+                if (colonIndex >= 0) {
+                    segmentExprLength = Math.min(segmentExprLength, colonIndex);
+                }
+
+                const parseResults = parser.parseTextExpression(this._fileContents!,
+                    stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength +
+                    segment.offset, segmentExprLength, this._parseOptions);
 
                 parseResults.diagnostics.forEach(diag => {
                     const textRangeStart = (diag.range ?
