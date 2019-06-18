@@ -766,13 +766,13 @@ export class StringNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.String;
     token: StringToken;
     value: string;
-    hasInvalidEscapeSequence: boolean;
+    hasUnescapeErrors: boolean;
 
-    constructor(token: StringToken, unescapedValue: string, hasInvalidEscapeSequence: boolean) {
+    constructor(token: StringToken, unescapedValue: string, hasUnescapeErrors: boolean) {
         super(token);
         this.token = token;
         this.value = unescapedValue;
-        this.hasInvalidEscapeSequence = hasInvalidEscapeSequence;
+        this.hasUnescapeErrors = hasUnescapeErrors;
     }
 
     getChildren(): RecursiveParseNodeArray {
@@ -784,21 +784,28 @@ export class StringNode extends ExpressionNode {
     }
 }
 
+export class FormatStringExpression {
+    expression: ExpressionNode;
+}
+
 export class FormatStringNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.String;
     token: StringToken;
     value: string;
-    hasInvalidEscapeSequence: boolean;
+    hasUnescapeErrors: boolean;
+    expressions: FormatStringExpression[];
 
-    constructor(token: StringToken, unescapedValue: string, hasInvalidEscapeSequence: boolean) {
+    constructor(token: StringToken, unescapedValue: string, hasUnescapeErrors: boolean,
+            expressions: FormatStringExpression[]) {
         super(token);
         this.token = token;
         this.value = unescapedValue;
-        this.hasInvalidEscapeSequence = hasInvalidEscapeSequence;
+        this.hasUnescapeErrors = hasUnescapeErrors;
+        this.expressions = expressions;
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return undefined;
+        return this.expressions.map(e => e.expression);
     }
 
     getValue(): string {

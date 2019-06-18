@@ -134,6 +134,8 @@ export class Tokenizer {
             length = text.length;
         } else if (length < 0 || start + length > text.length) {
             throw new Error('Invalid range length');
+        } else if (start + length < text.length) {
+            text = text.substr(0, start + length);
         }
 
         this._cs = new CharacterStream(text);

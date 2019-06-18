@@ -116,9 +116,6 @@ export class TestUtils {
         const execEnvironment = configOptions.findExecEnvironment(filePath);
         const parseResults = this.parseSampleFile(fileName, diagSink, execEnvironment);
 
-        // We assume here that the sample file has no parse errors.
-        assert(diagSink.diagnostics.length === 0);
-
         const fileInfo = this.buildAnalyzerFileInfo(filePath, parseResults, configOptions);
         let scopeAnalyzer = new ModuleScopeAnalyzer(parseResults.parseTree, fileInfo);
         scopeAnalyzer.analyze();

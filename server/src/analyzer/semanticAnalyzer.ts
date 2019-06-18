@@ -27,7 +27,7 @@ import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     ModuleNode, NonlocalNode, RaiseNode, StatementListNode, StatementNode,
     StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
-import { StringTokenUtils } from '../parser/stringTokenUtils';
+import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { StringToken, StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -384,15 +384,30 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
     visitStringList(node: StringListNode): boolean {
         for (let stringNode of node.strings) {
-            if (stringNode.hasInvalidEscapeSequence) {
+            if (stringNode.hasUnescapeErrors) {
                 const unescapedResult = StringTokenUtils.getUnescapedString(stringNode.token);
 
-                unescapedResult.invalidEscapeOffsets.forEach(offset => {
+                unescapedResult.unescapeErrors.forEach(error => {
                     const start = stringNode.token.start + stringNode.token.prefixLength +
-                        stringNode.token.quoteMarkLength + offset;
-                    const textRange = new TextRange(start - 1, 2);
-                    this._addDiagnostic(this._fileInfo.diagnosticSettings.reportInvalidStringEscapeSequence,
-                        'Unsupported escape sequence in string literal', textRange);
+                        stringNode.token.quoteMarkLength + error.offset;
+                    const textRange = new TextRange(start, error.length);
+
+                    if (error.errorType === UnescapeErrorType.InvalidEscapeSequence) {
+                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportInvalidStringEscapeSequence,
+                            'Unsupported escape sequence in string literal', textRange);
+                    } else if (error.errorType === UnescapeErrorType.EscapeWithinFormatExpression) {
+                        this._addError(
+                            'Escape sequence (backslash) not allowed in expression portion of f-string',
+                            textRange);
+                    } else if (error.errorType === UnescapeErrorType.SingleCloseBraceWithinFormatLiteral) {
+                        this._addError(
+                            'Single close brace not allowed within f-string literal; use double close brace',
+                            textRange);
+                    } else if (error.errorType === UnescapeErrorType.UnterminatedFormatExpression) {
+                        this._addError(
+                            'Unterminated expression in f-string; missing close brace',
+                            textRange);
+                    }
                 });
             }
         }

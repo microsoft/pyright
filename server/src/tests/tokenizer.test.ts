@@ -14,7 +14,7 @@ import * as assert from 'assert';
 
 import { TestUtils } from './testUtils';
 
-import { StringTokenUtils } from '../parser/stringTokenUtils';
+import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { Tokenizer } from '../parser/tokenizer';
 import { DedentToken, IdentifierToken, IndentToken, NewLineToken, NewLineType,
     NumberToken, OperatorToken, OperatorType, StringToken,
@@ -392,6 +392,56 @@ test('Strings: double quoted multiline f-string', () => {
     assert.equal(stringToken.escapedValue, 'quoted ');
 });
 
+test('Strings: f-string with single right brace', () => {
+    const t = new Tokenizer();
+    // tslint:disable-next-line:quotemark
+    const results = t.tokenize("f'hello}'");
+    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    const unescapedValue = StringTokenUtils.getUnescapedString(stringToken);
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
+    assert.equal(unescapedValue.formatStringSegments.length, 1);
+    assert.equal(unescapedValue.unescapeErrors.length, 1);
+    assert.equal(unescapedValue.unescapeErrors[0].offset, 5);
+    assert.equal(unescapedValue.unescapeErrors[0].length, 1);
+    assert.equal(unescapedValue.unescapeErrors[0].errorType, UnescapeErrorType.SingleCloseBraceWithinFormatLiteral);
+});
+
+test('Strings: f-string with escape in expression', () => {
+    const t = new Tokenizer();
+    // tslint:disable-next-line:quotemark
+    const results = t.tokenize("f'hello { \\t }'");
+    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    const unescapedValue = StringTokenUtils.getUnescapedString(stringToken);
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
+    assert.equal(unescapedValue.formatStringSegments.length, 2);
+    assert.equal(unescapedValue.unescapeErrors.length, 1);
+    assert.equal(unescapedValue.unescapeErrors[0].offset, 8);
+    assert.equal(unescapedValue.unescapeErrors[0].length, 1);
+    assert.equal(unescapedValue.unescapeErrors[0].errorType, UnescapeErrorType.EscapeWithinFormatExpression);
+});
+
+test('Strings: f-string with unterminated expression', () => {
+    const t = new Tokenizer();
+    // tslint:disable-next-line:quotemark
+    const results = t.tokenize("f'hello { a + b'");
+    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+
+    const stringToken = results.tokens.getItemAt(0) as StringToken;
+    const unescapedValue = StringTokenUtils.getUnescapedString(stringToken);
+    assert.equal(stringToken.type, TokenType.String);
+    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Format);
+    assert.equal(unescapedValue.formatStringSegments.length, 2);
+    assert.equal(unescapedValue.unescapeErrors.length, 1);
+    assert.equal(unescapedValue.unescapeErrors[0].offset, 7);
+    assert.equal(unescapedValue.unescapeErrors[0].errorType, UnescapeErrorType.UnterminatedFormatExpression);
+});
+
 test('Strings: escape at the end of single quoted string', () => {
     const t = new Tokenizer();
     // tslint:disable-next-line:quotemark
@@ -551,9 +601,13 @@ test('Strings: invalid escape characters', () => {
     assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote);
     assert.equal(stringToken.length, 8);
     assert.equal(stringToken.escapedValue, '\\d  \\ ');
-    assert.equal(unescapedValue.invalidEscapeOffsets.length, 2);
-    assert.equal(unescapedValue.invalidEscapeOffsets[0], 1);
-    assert.equal(unescapedValue.invalidEscapeOffsets[1], 5);
+    assert.equal(unescapedValue.unescapeErrors.length, 2);
+    assert.equal(unescapedValue.unescapeErrors[0].offset, 0);
+    assert.equal(unescapedValue.unescapeErrors[0].length, 2);
+    assert.equal(unescapedValue.unescapeErrors[0].errorType, UnescapeErrorType.InvalidEscapeSequence);
+    assert.equal(unescapedValue.unescapeErrors[1].offset, 4);
+    assert.equal(unescapedValue.unescapeErrors[1].length, 2);
+    assert.equal(unescapedValue.unescapeErrors[1].errorType, UnescapeErrorType.InvalidEscapeSequence);
 });
 
 test('Strings: good hex escapes', () => {
@@ -596,7 +650,7 @@ test('Strings: bad hex escapes', () => {
         stringToken0);
     assert.equal(stringToken0.type, TokenType.String);
     assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote);
-    assert.equal(unescapedValue0.invalidEscapeOffsets.length, 1);
+    assert.equal(unescapedValue0.unescapeErrors.length, 1);
     assert.equal(stringToken0.length, 6);
     assert.equal(unescapedValue0.value, '\\x4g');
 
@@ -605,7 +659,7 @@ test('Strings: bad hex escapes', () => {
         stringToken1);
     assert.equal(stringToken1.type, TokenType.String);
     assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote);
-    assert.equal(unescapedValue1.invalidEscapeOffsets.length, 1);
+    assert.equal(unescapedValue1.unescapeErrors.length, 1);
     assert.equal(stringToken1.length, 7);
     assert.equal(unescapedValue1.value, '\\u006');
 
@@ -614,7 +668,7 @@ test('Strings: bad hex escapes', () => {
         stringToken2);
     assert.equal(stringToken2.type, TokenType.String);
     assert.equal(stringToken2.flags, StringTokenFlags.DoubleQuote);
-    assert.equal(unescapedValue2.invalidEscapeOffsets.length, 1);
+    assert.equal(unescapedValue2.unescapeErrors.length, 1);
     assert.equal(stringToken2.length, 12);
     assert.equal(unescapedValue2.value, '\\U0000006m');
 });
@@ -652,7 +706,7 @@ test('Strings: bad name escapes', () => {
     const unescapedValue0 = StringTokenUtils.getUnescapedString(stringToken0);
     assert.equal(stringToken0.type, TokenType.String);
     assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote);
-    assert.equal(unescapedValue0.invalidEscapeOffsets, 1);
+    assert.equal(unescapedValue0.unescapeErrors.length, 1);
     assert.equal(stringToken0.length, 10);
     assert.equal(stringToken0.escapedValue, '\\N{caret');
     assert.equal(unescapedValue0.value, '\\N{caret');
@@ -661,7 +715,7 @@ test('Strings: bad name escapes', () => {
     const unescapedValue1 = StringTokenUtils.getUnescapedString(stringToken1);
     assert.equal(stringToken1.type, TokenType.String);
     assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote);
-    assert.equal(unescapedValue1.invalidEscapeOffsets, 1);
+    assert.equal(unescapedValue1.unescapeErrors.length, 1);
     assert.equal(stringToken1.length, 9);
     assert.equal(stringToken1.escapedValue, '\\N{ A9}');
     assert.equal(unescapedValue1.value, '\\N{ A9}');

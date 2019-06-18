@@ -16,7 +16,7 @@ import * as assert from 'assert';
 import { CancelToken } from '../common/cancelToken';
 import { Diagnostic } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
-import { convertOffsetsToRange } from '../common/positionUtils';
+import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
 import { LatestStablePythonVersion, PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
@@ -28,16 +28,17 @@ import { ArgumentCategory, ArgumentNode, AssertNode,
     ConstantNode, ContinueNode, DecoratorNode, DelNode,
     DictionaryEntryNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode,
     DictionaryNode, EllipsisNode, ErrorExpressionCategory, ErrorExpressionNode,
-    ExceptNode, ExpressionNode, FormatStringNode, ForNode, FunctionNode, GlobalNode,
-    IfNode, ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode,
-    IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionForNode,
-    ListComprehensionIfNode, ListComprehensionIterNode, ListComprehensionNode, ListNode,
-    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, NumberNode,
-    ParameterCategory, ParameterNode, ParseNode, PassNode, RaiseNode, ReturnNode,
-    SetNode, SliceExpressionNode, StatementListNode, StatementNode,
-    StringListNode, StringNode, SuiteNode, TernaryExpressionNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
-    UnpackExpressionNode, WhileNode, WithItemNode, WithNode, YieldExpressionNode,
+    ExceptNode, ExpressionNode, FormatStringExpression, FormatStringNode, ForNode, FunctionNode,
+    GlobalNode, IfNode, ImportAsNode, ImportFromAsNode, ImportFromNode,
+    ImportNode, IndexExpressionNode, IndexItemsNode, LambdaNode,
+    ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionIterNode, ListComprehensionNode,
+    ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
+    NumberNode, ParameterCategory, ParameterNode, ParseNode, PassNode, RaiseNode,
+    ReturnNode, SetNode, SliceExpressionNode, StatementListNode,
+    StatementNode, StringListNode, StringNode, SuiteNode, TernaryExpressionNode,
+    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithItemNode, WithNode,
+    YieldExpressionNode,
     YieldFromExpressionNode } from './parseNodes';
 import { StringTokenUtils, UnescapedString } from './stringTokenUtils';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
@@ -133,6 +134,14 @@ export class Parser {
         this._startNewParse(fileContents, textOffset, textLength, parseOptions, diagSink);
 
         let parseTree = this._parseTestExpression();
+
+        if (this._peekTokenType() === TokenType.NewLine) {
+            this._getNextToken();
+        }
+
+        if (!this._atEof()) {
+            this._addError('Unexpected token at end of expression', this._peekToken());
+        }
 
         return {
             parseTree,
@@ -2275,7 +2284,7 @@ export class Parser {
     private _makeStringNode(stringToken: StringToken): StringNode {
         const unescapedResult = StringTokenUtils.getUnescapedString(stringToken);
         this._reportStringTokenErrors(stringToken, unescapedResult);
-        return new StringNode(stringToken, unescapedResult.value, unescapedResult.invalidEscapeOffsets.length > 0);
+        return new StringNode(stringToken, unescapedResult.value, unescapedResult.unescapeErrors.length > 0);
     }
 
     private _getTypeAnnotationComment(): ExpressionNode | undefined {
@@ -2326,8 +2335,36 @@ export class Parser {
         const unescapedResult = StringTokenUtils.getUnescapedString(stringToken);
         this._reportStringTokenErrors(stringToken, unescapedResult);
 
-        // TODO - need to implement
-        return new FormatStringNode(stringToken, unescapedResult.value, unescapedResult.invalidEscapeOffsets.length > 0);
+        const formatExpressions: FormatStringExpression[] = [];
+
+        for (let segment of unescapedResult.formatStringSegments) {
+            if (segment.isExpression) {
+                let parser = new Parser();
+                let parseResults = parser.parseTextExpression(this._fileContents!,
+                    stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength + segment.offset,
+                    segment.length, this._parseOptions);
+
+                parseResults.diagnostics.forEach(diag => {
+                    const textRangeStart = (diag.range ?
+                        convertPositionToOffset(diag.range.start, this._tokenizerOutput!.lines) :
+                        stringToken.start) || stringToken.start;
+                    const textRangeEnd = (diag.range ?
+                        convertPositionToOffset(diag.range.end, this._tokenizerOutput!.lines) :
+                        stringToken.end) || stringToken.end;
+                    const textRange = new TextRange(textRangeStart, textRangeEnd - textRangeStart);
+                    this._addError(diag.message, textRange);
+                });
+
+                if (parseResults.parseTree) {
+                    formatExpressions.push({
+                        expression: parseResults.parseTree
+                    });
+                }
+            }
+        }
+
+        return new FormatStringNode(stringToken, unescapedResult.value,
+            unescapedResult.unescapeErrors.length > 0, formatExpressions);
     }
 
     private _parseStringList(): StringListNode {
