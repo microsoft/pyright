@@ -1909,10 +1909,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression, false);
 
-        if (decoratorType.isAny()) {
-            return decoratorType;
-        }
-
         // Is this a @dataclass?
         if (decoratorType instanceof OverloadedFunctionType) {
             const overloads = decoratorType.getOverloads();
@@ -1933,10 +1929,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             decoratorNode: DecoratorNode, node: FunctionNode): Type {
 
         const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression, false);
-
-        if (decoratorType.isAny()) {
-            return decoratorType;
-        }
 
         // Special-case the "overload" because it has no definition.
         if (decoratorType instanceof ClassType && decoratorType.getClassName() === 'overload') {
