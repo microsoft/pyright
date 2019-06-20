@@ -484,6 +484,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 });
 
                 if (classType.getBaseClasses().length > 0) {
+                    // TODO - we currently use only the first base class, but we should
+                    // be doing a full MRO search when evaluating super().
                     let baseClass = classType.getBaseClasses()[0];
                     if (baseClass.type instanceof ClassType) {
                         superType.setDeclaredReturnType(new ObjectType(baseClass.type));
