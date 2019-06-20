@@ -2810,14 +2810,15 @@ export class ExpressionEvaluator {
 
     private _getTypeFromSliceExpression(node: SliceExpressionNode): TypeResult {
         const intObject = ScopeUtils.getBuiltInObject(this._scope, 'int');
+        const optionalIntObject = TypeUtils.combineTypes([intObject, NoneType.create()]);
 
         const validateIndexType = (indexExpr: ExpressionNode) => {
             const exprType = TypeUtils.stripLiteralValue(this.getType(indexExpr));
 
             let diag = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(intObject, exprType, diag)) {
+            if (!TypeUtils.canAssignType(optionalIntObject, exprType, diag)) {
                 this._addError(
-                    `Index for slice operation must be an integer value` + diag.getString(),
+                    `Index for slice operation must be an int value or None` + diag.getString(),
                     indexExpr);
             }
         };
