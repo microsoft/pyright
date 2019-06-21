@@ -436,22 +436,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
             parameters.forEach((param, index) => {
                 const paramNode = node.parameters[index];
                 if (paramNode.name) {
+                    const specializedParamType = TypeUtils.specializeType(param.type, undefined);
+
                     let declaration: Declaration | undefined;
                     declaration = {
                         category: SymbolCategory.Parameter,
                         node: paramNode,
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(paramNode.start, paramNode.end, this._fileInfo.lines),
-                        declaredType: paramNode.typeAnnotation ?
-                            TypeUtils.specializeType(param.type, undefined) :
-                            undefined
+                        declaredType: specializedParamType
                     };
                     assert(paramNode !== undefined && paramNode.name !== undefined);
 
                     // If the type contains type variables, specialize them now
                     // so we convert them to a concrete type (or unknown if there
-                    // are is no bound or contraints).
-                    const specializedParamType = TypeUtils.specializeType(param.type, undefined);
+                    // is no bound or contraint).
                     const variadicParamType = this._getVariadicParamType(param.category, specializedParamType);
                     this._addTypeSourceToNameNode(paramNode.name, variadicParamType, declaration);
 
