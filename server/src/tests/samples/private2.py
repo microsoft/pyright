@@ -5,5 +5,7 @@ class _TestClass(object):
 
 class TestClass(object):
     def __init__(self):
-        self._priv1 = 1
+        self.__priv1 = 1
+        self._prot1 = 1
 
+    

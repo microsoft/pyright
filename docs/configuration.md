@@ -70,7 +70,7 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportUntypedNamedTuple** [boolean or string, optional]: Generate or suppress diagnostics when “namedtuple” is used rather than “NamedTuple”. The former contains no type information, whereas the latter does. The default value for this setting is 'none'.
 
-**reportPrivateUsage** [boolean or string, optional]: Generate or suppress diagnostics for uses of private variables or functions outside of the class or module that declares them. Private variables and functions, by convention, are named starting with a single underscoe (“_”) character. The default value for this setting is 'none'.
+**reportPrivateUsage** [boolean or string, optional]: Generate or suppress diagnostics for incorrect usage of private or protected variables or functions. Protected class members begin with a single underscore (“_”) and can be accessed only by subclasses. Private class members begin with a double underscore but do not end in a double underscore and can be accessed only within the declaring class. Variables and functions declared outside of a class are considered private if their names start with either a single or double underscore, and they cannot be accessed outside of the declaring module. The default value for this setting is 'none'.
 
 **reportConstantRedefinition** [boolean or string, optional]: Generate or suppress diagnostics for attempts to redefine variables whose names are all-caps with underscores and numerals. The default value for this setting is 'none'.
 

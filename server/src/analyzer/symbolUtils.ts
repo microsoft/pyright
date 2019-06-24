@@ -11,8 +11,15 @@ const _constantRegEx = /^[A-Z0-9_]+$/;
 const _underscoreOnlyRegEx = /^[_]+$/;
 
 export class SymbolUtils {
-    // Private symbol names start with a single underscore.
+    // Private symbol names start with a double underscore.
     static isPrivateName(name: string) {
+        return name.length > 2 &&
+            name.startsWith('__') &&
+            !name.endsWith('__');
+    }
+
+    // Protected symbol names start with a single underscore.
+    static isProtectedName(name: string) {
         return name.length > 1 &&
             name.startsWith('_') &&
             !name.startsWith('__');

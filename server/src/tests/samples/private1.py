@@ -20,7 +20,7 @@ a = _TestClass()
 b = TestClass()
 
 # This should generate an error
-c = b._priv1
+c = b.__priv1
 
 
 d = Foo()
@@ -31,4 +31,10 @@ e = d._my_var1
 f = _Test
 
 
+class TestSubclass(TestClass):
+    def blah(self):
+        return self._prot1
 
+    def blah2(self):
+        # This should generate an error
+        return self.__priv1

@@ -273,7 +273,7 @@ test('Private1', () => {
     // Turn on errors.
     configOptions.diagnosticSettings.reportPrivateUsage = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['private1.py'], configOptions);
-    validateResults(analysisResults, 3);
+    validateResults(analysisResults, 4);
 });
 
 test('Constant1', () => {

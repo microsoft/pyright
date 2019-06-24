@@ -195,7 +195,7 @@
     "reportPrivateUsage": {
       "$id": "#/properties/reportPrivateUsage",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of private variables and functions used outside of the owning class or module",
+      "title": "Controls reporting of private variables and functions used outside of the owning class or module and usage of protected members outside of subclasses",
       "default": "none"
     },
     "reportConstantRedefinition": {

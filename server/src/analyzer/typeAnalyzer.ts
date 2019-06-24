@@ -36,7 +36,7 @@ import { ImportResult, ImportType } from './importResult';
 import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
-import { Scope, ScopeType } from './scope';
+import { Scope, ScopeType, SymbolWithScope } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { SymbolUtils } from './symbolUtils';
 import { TypeConstraintBuilder } from './typeConstraint';
@@ -1692,6 +1692,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
         symbol.addDeclaration(declaration);
     }
 
+    private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
+        // See if the symbol is private.
+        if (SymbolUtils.isPrivateName(nameValue)) {
+            return true;
+        }
+
+        if (SymbolUtils.isProtectedName(nameValue)) {
+            // Protected names outside of a class scope are considered private.
+            const isClassScope = scopeType === ScopeType.Class;
+            return !isClassScope;
+        }
+
+        return false;
+    }
+
     private _conditionallyReportUnusedName(node: NameNode, reportPrivateOnly: boolean,
             diagLevel: DiagnosticLevel, message: string) {
 
@@ -1700,10 +1715,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // A name of "_" means "I know this symbol isn't used", so
         // don't report it as unused.
         if (nameValue === '_') {
-            return;
-        }
-
-        if (reportPrivateOnly && !SymbolUtils.isPrivateName(nameValue)) {
             return;
         }
 
@@ -1717,27 +1728,34 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const symbolInScope = this._currentScope.lookUpSymbolRecursive(nameValue);
         if (symbolInScope && !symbolInScope.symbol.isAccessed()) {
-            this._addUnusedName(node);
+            if (reportPrivateOnly) {
+                if (!this._isSymbolPrivate(nameValue, symbolInScope.scope.getType())) {
+                    return;
+                }
+            }
 
+            this._addUnusedName(node);
             this._addDiagnostic(diagLevel, message, node);
         }
     }
 
     private _conditionallyReportPrivateUsage(node: NameNode) {
         if (this._fileInfo.diagnosticSettings.reportPrivateUsage === 'none') {
-
-            return;
-        }
-
-        const nameValue = node.nameToken.value;
-
-        // Is it a private name?
-        if (!SymbolUtils.isPrivateName(nameValue)) {
             return;
         }
 
         // Ignore privates in type stubs.
         if (this._fileInfo.isStubFile) {
+            return;
+        }
+
+        const nameValue = node.nameToken.value;
+        const isPrivateName = SymbolUtils.isPrivateName(nameValue);
+        const isProtectedName = SymbolUtils.isProtectedName(nameValue);
+
+        // If it's not a protected or private name, don't bother with
+        // any further checks.
+        if (!isPrivateName && !isProtectedName) {
             return;
         }
 
@@ -1752,7 +1770,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             primaryDeclaration.node);
 
         // If this is the name of a class, find the module or class that contains it rather
-        // than using constraining the use of the class name within the class itself.
+        // than constraining the use of the class name within the class itself.
         if (primaryDeclaration.node.parent &&
                 primaryDeclaration.node.parent === classOrModuleNode &&
                 classOrModuleNode instanceof ClassNode) {
@@ -1760,13 +1778,45 @@ export class TypeAnalyzer extends ParseTreeWalker {
             classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(classOrModuleNode);
         }
 
-        if (classOrModuleNode && !ParseTreeUtils.isNodeContainedWithin(node, classOrModuleNode)) {
-            const scopeName = classOrModuleNode instanceof ClassNode ?
-                'class' : 'module';
+        // If it's a class member, check whether it's a legal protected access.
+        let isProtectedAccess = false;
+        if (classOrModuleNode instanceof ClassNode) {
+            if (isProtectedName) {
+                const declarationClassType = AnalyzerNodeInfo.getExpressionType(classOrModuleNode);
+                if (declarationClassType && declarationClassType instanceof ClassType) {
+                    // Note that the access is to a protected class member.
+                    isProtectedAccess = true;
 
-            this._addDiagnostic(this._fileInfo.diagnosticSettings.reportPrivateUsage,
-                `'${ nameValue }' is private and used outside of its owning ${ scopeName }`,
-                node);
+                    const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node);
+                    if (enclosingClassNode) {
+                        isProtectedAccess = true;
+                        const enclosingClassType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
+
+                        // If the referencing class is a subclass of the declaring class, it's
+                        // allowed to access a protected name.
+                        if (enclosingClassType && enclosingClassType instanceof ClassType) {
+                            if (TypeUtils.derivesFromClassRecursive(enclosingClassType, declarationClassType)) {
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (classOrModuleNode && !ParseTreeUtils.isNodeContainedWithin(node, classOrModuleNode)) {
+            if (isProtectedAccess) {
+                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportPrivateUsage,
+                    `'${ nameValue }' is protected and used outside of a derived class`,
+                    node);
+            } else {
+                const scopeName = classOrModuleNode instanceof ClassNode ?
+                    'class' : 'module';
+
+                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportPrivateUsage,
+                    `'${ nameValue }' is private and used outside of the ${ scopeName } in which it is declared`,
+                    node);
+            }
         }
     }
 
@@ -2914,7 +2964,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // "not access" unless the name indicates that it's private.
         const scopeType = permanentScope.getType();
         if (scopeType === ScopeType.Class || scopeType === ScopeType.Module) {
-            if (!SymbolUtils.isPrivateName(name)) {
+            if (!this._isSymbolPrivate(name, scopeType)) {
                 symbol.setIsAcccessed();
             }
         }
