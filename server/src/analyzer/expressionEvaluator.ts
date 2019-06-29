@@ -294,6 +294,12 @@ export class ExpressionEvaluator {
 
                 diag.addMessage(`'${ iterMethodName }' method not defined`);
             } else {
+                // If the iterator type is expecitly Any,
+                // the iterated type is also Any.
+                if (iterReturnType instanceof AnyType) {
+                    return AnyType.create();
+                }
+
                 if (iterReturnType.isAny()) {
                     return UnknownType.create();
                 }
