@@ -164,8 +164,11 @@ export class ExpressionEvaluator {
                 };
             });
 
+            // Evaluate the decorator, but don't specialize the
+            // return result.
             decoratorCall = this._getTypeFromCallExpressionWithBaseType(
-                node.leftExpression, argList, decoratorCall, EvaluatorFlags.None);
+                node.leftExpression, argList, decoratorCall,
+                EvaluatorFlags.None, undefined, false);
         }
 
         const argList = [{
@@ -174,7 +177,8 @@ export class ExpressionEvaluator {
         }];
 
         return this._getTypeFromCallExpressionWithBaseType(
-            node.leftExpression, argList, decoratorCall, EvaluatorFlags.None).type;
+            node.leftExpression, argList, decoratorCall, EvaluatorFlags.None,
+                undefined, false).type;
     }
 
     // Gets a member type from an object and if it's a function binds
@@ -1195,7 +1199,8 @@ export class ExpressionEvaluator {
 
     private _getTypeFromCallExpressionWithBaseType(errorNode: ExpressionNode,
             argList: FunctionArgument[], baseTypeResult: TypeResult,
-            flags: EvaluatorFlags, cachedExpressionNode?: ExpressionNode): TypeResult {
+            flags: EvaluatorFlags, cachedExpressionNode?: ExpressionNode,
+            specializeReturnType = true): TypeResult {
 
         let type: Type | undefined;
         const callType = baseTypeResult.type;
@@ -1276,7 +1281,8 @@ export class ExpressionEvaluator {
                 type = this._createNamedTupleType(errorNode, argList, false,
                     cachedExpressionNode);
             } else {
-                type = this._validateCallArguments(errorNode, argList, callType, new TypeVarMap());
+                type = this._validateCallArguments(errorNode, argList, callType,
+                    new TypeVarMap(), specializeReturnType);
                 if (!type) {
                     type = UnknownType.create();
                 }
@@ -1286,7 +1292,8 @@ export class ExpressionEvaluator {
             const functionType = this._findOverloadedFunctionType(errorNode, argList, callType);
 
             if (functionType) {
-                type = this._validateCallArguments(errorNode, argList, callType, new TypeVarMap());
+                type = this._validateCallArguments(errorNode, argList, callType,
+                    new TypeVarMap(), specializeReturnType);
                 if (!type) {
                     type = UnknownType.create();
                 }
@@ -1452,7 +1459,8 @@ export class ExpressionEvaluator {
     // specialized type of the return value. If it detects an error along
     // the way, it emits a diagnostic and returns undefined.
     private _validateCallArguments(errorNode: ExpressionNode,
-            argList: FunctionArgument[], callType: Type, typeVarMap: TypeVarMap): Type | undefined {
+            argList: FunctionArgument[], callType: Type, typeVarMap: TypeVarMap,
+            specializeReturnType = true): Type | undefined {
 
         let returnType: Type | undefined;
 
@@ -1517,7 +1525,7 @@ export class ExpressionEvaluator {
         }
 
         // Make the type concrete if it wasn't already specialized.
-        if (returnType) {
+        if (returnType && specializeReturnType) {
             returnType = TypeUtils.specializeType(returnType, undefined);
         }
 
