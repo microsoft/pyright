@@ -519,7 +519,7 @@ export class AnalyzerService {
                             if (!isFile(filePath)) {
                                 filePath = combinePaths(fileSpec, fileName);
                             }
-                            this._console.log(`Received change fs event for path '{ filePath }'`);
+                            this._console.log(`Received change fs event for path '${ filePath }'`);
                             this._program.markFilesDirty([filePath]);
                             this._scheduleReanalysis(false);
                         } else {
