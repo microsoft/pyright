@@ -82,8 +82,8 @@
     },
     "devDependencies": {
         "typescript": "^3.5.2",
-        "vsce": "^1.63.0",
-        "vscode": "^1.1.34"
+        "vsce": "^1.64.0",
+        "vscode": "^1.1.35"
     },
     "dependencies": {
         "vscode-languageclient": "^5.3.0-next.6"
