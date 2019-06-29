@@ -221,7 +221,7 @@ export class ExpressionEvaluator {
     getTypeFromAwaitable(type: Type, errorNode: ParseNode): Type {
         return TypeUtils.doForSubtypes(type, subtype => {
             if (subtype.isAny()) {
-                return UnknownType.create();
+                return subtype;
             }
 
             const generatorReturnType = this._getReturnTypeFromGenerator(subtype);
@@ -234,7 +234,7 @@ export class ExpressionEvaluator {
                     subtype, '__await__');
                 if (awaitReturnType) {
                     if (awaitReturnType.isAny()) {
-                        return UnknownType.create();
+                        return awaitReturnType;
                     }
 
                     if (awaitReturnType instanceof ObjectType) {
@@ -294,14 +294,8 @@ export class ExpressionEvaluator {
 
                 diag.addMessage(`'${ iterMethodName }' method not defined`);
             } else {
-                // If the iterator type is expecitly Any,
-                // the iterated type is also Any.
-                if (iterReturnType instanceof AnyType) {
-                    return AnyType.create();
-                }
-
                 if (iterReturnType.isAny()) {
-                    return UnknownType.create();
+                    return iterReturnType;
                 }
 
                 if (iterReturnType instanceof ObjectType) {
@@ -330,7 +324,7 @@ export class ExpressionEvaluator {
 
         return TypeUtils.doForSubtypes(type, subtype => {
             if (subtype.isAny()) {
-                return UnknownType.create();
+                return subtype;
             }
 
             let diag = new DiagnosticAddendum();
@@ -1358,7 +1352,7 @@ export class ExpressionEvaluator {
                 type = TypeUtils.combineTypes(returnTypes);
             }
         } else if (callType.isAny()) {
-            type = UnknownType.create();
+            type = callType;
         }
 
         if (!type) {
@@ -1471,7 +1465,7 @@ export class ExpressionEvaluator {
         let returnType: Type | undefined;
 
         if (callType.isAny()) {
-            returnType = UnknownType.create();
+            returnType = callType;
         } else if (callType instanceof FunctionType) {
             returnType = this._validateFunctionArguments(errorNode, argList, callType, typeVarMap);
         } else if (callType instanceof OverloadedFunctionType) {
@@ -2322,7 +2316,12 @@ export class ExpressionEvaluator {
 
         if (arithmeticOperatorMap[node.operator]) {
             if (leftType.isAny() || rightType.isAny()) {
-                type = UnknownType.create();
+                // If either type is "Unknown" (versus Any), propagate the Unknown.
+                if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
+                    type = UnknownType.create();
+                } else {
+                    type = AnyType.create();
+                }
             } else {
                 const supportsBuiltInTypes = arithmeticOperatorMap[node.operator][2];
 
@@ -2374,7 +2373,12 @@ export class ExpressionEvaluator {
             }
         } else if (bitwiseOperatorMap[node.operator]) {
             if (leftType.isAny() || rightType.isAny()) {
-                type = UnknownType.create();
+                // If either type is "Unknown" (versus Any), propagate the Unknown.
+                if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
+                    type = UnknownType.create();
+                } else {
+                    type = AnyType.create();
+                }
             } else if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
                 const intType = ScopeUtils.getBuiltInType(this._scope, 'int');
                 const leftIsInt = intType instanceof ClassType &&
@@ -2395,7 +2399,12 @@ export class ExpressionEvaluator {
             }
         } else if (comparisonOperatorMap[node.operator]) {
             if (leftType.isAny() || rightType.isAny()) {
-                type = UnknownType.create();
+                // If either type is "Unknown" (versus Any), propagate the Unknown.
+                if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
+                    type = UnknownType.create();
+                } else {
+                    type = AnyType.create();
+                }
             } else {
                 const magicMethodName = comparisonOperatorMap[node.operator];
 
@@ -2465,7 +2474,7 @@ export class ExpressionEvaluator {
 
         let returnType = TypeUtils.doForSubtypes(objType, subtype => {
             if (subtype.isAny()) {
-                return UnknownType.create();
+                return subtype;
             }
 
             if (subtype instanceof ObjectType) {
