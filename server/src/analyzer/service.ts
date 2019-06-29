@@ -519,9 +519,11 @@ export class AnalyzerService {
                             if (!isFile(filePath)) {
                                 filePath = combinePaths(fileSpec, fileName);
                             }
+                            this._console.log(`Received change fs event for path '{ filePath }'`);
                             this._program.markFilesDirty([filePath]);
                             this._scheduleReanalysis(false);
-                        } else if (event === 'rename') {
+                        } else {
+                            this._console.log(`Received other fs event'`);
                             this._scheduleReanalysis(true);
                         }
                     });
@@ -540,9 +542,7 @@ export class AnalyzerService {
 
         if (this._watchForChanges && this._configFilePath) {
             this._configFileWatcher = fs.watch(this._configFilePath, {}, (event, fileName) => {
-                if (event === 'change') {
-                    this._scheduleReloadConfigFile();
-                }
+                this._scheduleReloadConfigFile();
             });
         }
     }
@@ -610,12 +610,13 @@ export class AnalyzerService {
 
         // Schedule a new timer.
         this._analyzeTimer = setTimeout(() => {
+            this._analyzeTimer = undefined;
+
             if (this._requireTrackedFileUpdate) {
                 this._updateTrackedFileList(false);
             }
 
-            let moreToAnalyze = this._reanalyze();
-            this._analyzeTimer = undefined;
+            const moreToAnalyze = this._reanalyze();
 
             if (moreToAnalyze) {
                 this._scheduleReanalysis(false);
