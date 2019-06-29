@@ -18,9 +18,10 @@ let cachedSearchPaths: { [path: string]: string[] } = {};
 
 export class PythonPathUtils {
     static getTypeShedFallbackPath() {
-        // Assume that the 'typeshed-fallback' directory is up one level
-        // from this javascript file.
-        const moduleDirectory = (global as any).__rootDirectory;
+        // The entry point to the tool should have set the __rootDirectory
+        // global variable to point to the directory that contains the
+        // typeshed-fallback directory.
+        const moduleDirectory = normalizePath((global as any).__rootDirectory);
 
         if (moduleDirectory) {
             return combinePaths(getDirectoryPath(
