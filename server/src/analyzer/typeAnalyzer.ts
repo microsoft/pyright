@@ -1624,6 +1624,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const declaration: Declaration = {
                 category: SymbolCategory.Variable,
                 node: target,
+                isConstant: SymbolUtils.isConstantName(name.value),
                 path: this._fileInfo.filePath,
                 declaredType,
                 range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
