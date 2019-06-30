@@ -84,7 +84,9 @@ export class DiagnosticAddendum {
             childLines.push(...addendum._getLinesRecursive(maxDepth - 1));
         }
 
-        // Prepend indentation for redability.
-        return this._messages.concat(childLines).map(line => ' ' + line);
+        // Prepend indentation for redability. Skip if there are no
+        // messages at this level.
+        const extraSpace = this._messages.length > 0 ? '  ' : '';
+        return this._messages.concat(childLines).map(line => extraSpace + line);
     }
 }

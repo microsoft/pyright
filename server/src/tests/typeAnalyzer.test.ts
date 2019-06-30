@@ -432,3 +432,9 @@ test('Enums2', () => {
 
     validateResults(analysisResults, 0);
 });
+
+test('CallbackPrototype1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackPrototype1.py']);
+
+    validateResults(analysisResults, 3);
+});

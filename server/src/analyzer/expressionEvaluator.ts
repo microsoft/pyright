@@ -14,7 +14,6 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
-import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,

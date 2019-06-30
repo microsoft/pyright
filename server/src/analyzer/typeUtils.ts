@@ -14,10 +14,10 @@ import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DefaultTypeSourceId } from './inferredType';
 import { Declaration, Symbol, SymbolTable } from './symbol';
-import { AnyType, ClassType, FunctionType,
-    InheritanceChain, ModuleType, NeverType, NoneType, ObjectType,
-    OverloadedFunctionEntry, OverloadedFunctionType, SpecializedFunctionTypes, Type,
-    TypeCategory, TypeVarMap, TypeVarType, UnboundType, UnionType, UnknownType } from './types';
+import { AnyType, ClassType, FunctionParameter,
+    FunctionType, InheritanceChain, ModuleType, NeverType, NoneType,
+    ObjectType, OverloadedFunctionEntry, OverloadedFunctionType, SpecializedFunctionTypes,
+    Type, TypeCategory, TypeVarMap, TypeVarType, UnboundType, UnionType, UnknownType } from './types';
 
 const MaxTypeRecursion = 20;
 
@@ -410,6 +410,16 @@ export class TypeUtils {
                 }
 
                 return true;
+            } else if (srcType instanceof FunctionType) {
+                // Is the destination a callback protocol (defined in PEP 544)?
+                const callbackType = this._getCallbackProtocolType(destType);
+                if (callbackType) {
+                    if (!this._canAssignFunction(callbackType, srcType,
+                            diag.createAddendum(), typeVarMap, recursionCount + 1, true)) {
+                        return false;
+                    }
+                    return true;
+                }
             }
         }
 
@@ -448,7 +458,7 @@ export class TypeUtils {
 
             if (srcFunction) {
                 return this._canAssignFunction(destType, srcFunction, diag.createAddendum(),
-                    typeVarMap, recursionCount + 1);
+                    typeVarMap, recursionCount + 1, false);
             }
         }
 
@@ -1425,7 +1435,7 @@ export class TypeUtils {
 
     private static _canAssignFunction(destType: FunctionType, srcType: FunctionType,
             diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined,
-            recursionCount: number): boolean {
+            recursionCount: number, checkNamedParams: boolean): boolean {
 
         let canAssign = true;
 
@@ -1437,6 +1447,7 @@ export class TypeUtils {
         for (let paramIndex = 0; paramIndex < minParamCount; paramIndex++) {
             const srcParam = srcType.getParameters()[paramIndex];
             const destParam = destType.getParameters()[paramIndex];
+            const paramDiag = diag.createAddendum();
 
             // If the dest or source involve var-args, no need to continue matching.
             if (srcParam.category !== ParameterCategory.Simple ||
@@ -1448,33 +1459,86 @@ export class TypeUtils {
             const destParamType = destType.getEffectiveParameterType(paramIndex);
 
             // Call canAssignType once to perform any typeVarMap population.
-            this.canAssignType(destParamType, srcParamType, diag.createAddendum(), typeVarMap,
+            this.canAssignType(destParamType, srcParamType, paramDiag.createAddendum(), typeVarMap,
                     true, recursionCount + 1);
 
             // Make sure we can assign the specialized dest type to the
             // source type.
             const specializedDestParamType = this.specializeType(
                 destParamType, typeVarMap, recursionCount + 1);
-            if (!this.canAssignType(srcParamType, specializedDestParamType, diag.createAddendum(),
+            if (!this.canAssignType(srcParamType, specializedDestParamType, paramDiag.createAddendum(),
                     undefined, true, recursionCount + 1)) {
-                diag.addMessage(`Parameter ${ paramIndex + 1 } of type ` +
+                paramDiag.addMessage(`Parameter ${ paramIndex + 1 } of type ` +
                     `'${ specializedDestParamType.asString() }' cannot be assigned to type ` +
                     `'${ srcParamType.asString() }'`);
                 canAssign = false;
             }
         }
 
-        const srcHasVarArgs = srcType.getParameters().find(
+        const srcParams = srcType.getParameters();
+        const destParams = destType.getParameters();
+
+        const srcHasVarArgs = srcParams.find(
             param => param.category !== ParameterCategory.Simple) !== undefined;
-        const destHasVarArgs = destType.getParameters().find(
+        const destHasVarArgs = destParams.find(
             param => param.category !== ParameterCategory.Simple) !== undefined;
 
-        // We we didn't find a var-arg parameter, the number of dest params
+        if (checkNamedParams) {
+            // Handle matching of named (keyword) parameters.
+            // Build a dictionary of named parameters in the dest.
+            const destParamMap = new StringMap<FunctionParameter>();
+            let destHasNamedParam = false;
+            destParams.forEach(param => {
+                if (destHasNamedParam) {
+                    if (param.name && param.category === ParameterCategory.Simple) {
+                        destParamMap.set(param.name, param);
+                    }
+                } else if (param.category === ParameterCategory.VarArgList) {
+                    destHasNamedParam = true;
+                }
+            });
+
+            let srcHasNamedParam = false;
+            srcParams.forEach(param => {
+                if (srcHasNamedParam) {
+                    if (param.name && param.category === ParameterCategory.Simple) {
+                        const destParam = destParamMap.get(param.name);
+                        const paramDiag = diag.createAddendum();
+                        if (!destParam) {
+                            paramDiag.addMessage(`Named parameter '${ param.name }' is missing in destination`);
+                            canAssign = false;
+                        } else {
+                            const specializedDestParamType = this.specializeType(
+                                destParam.type, typeVarMap, recursionCount + 1);
+                            if (!this.canAssignType(param.type, specializedDestParamType,
+                                    paramDiag.createAddendum(), undefined, true, recursionCount + 1)) {
+                                paramDiag.addMessage(`Named parameter '${ param.name }' of type ` +
+                                    `'${ specializedDestParamType.asString() }' cannot be assigned to type ` +
+                                    `'${ param.type.asString() }'`);
+                                canAssign = false;
+                            }
+                            destParamMap.delete(param.name);
+                        }
+                    }
+                } else if (param.category === ParameterCategory.VarArgList) {
+                    srcHasNamedParam = true;
+                }
+            });
+
+            // See if there are any unmatched named parameters.
+            destParamMap.getKeys().forEach(paramName => {
+                const paramDiag = diag.createAddendum();
+                paramDiag.addMessage(`Named parameter '${ paramName }' is missing in source`);
+                canAssign = false;
+            });
+        }
+
+        // If we didn't find a var-arg parameter, the number of dest params
         // must be enough to provide all of the non-default source params
         // with values. Plus, the number of source params must be enough to
         // accept all of the dest argments.
         if (!srcHasVarArgs && !destHasVarArgs) {
-            let nonDefaultSrcParamCount = srcType.getParameters().filter(
+            const nonDefaultSrcParamCount = srcParams.filter(
                 param => !param.hasDefault).length;
 
             if (destParamCount < nonDefaultSrcParamCount) {
@@ -1687,6 +1751,24 @@ export class TypeUtils {
         }
 
         return true;
+    }
+
+    private static _getCallbackProtocolType(objType: ObjectType): FunctionType | undefined {
+        if (!objType.getClassType().isProtocol()) {
+            return undefined;
+        }
+
+        const callMember = this.lookUpObjectMember(objType, '__call__');
+        if (!callMember) {
+            return undefined;
+        }
+
+        if (callMember.symbolType instanceof FunctionType) {
+            return TypeUtils.bindFunctionToClassOrObject(objType,
+                callMember.symbolType) as FunctionType;
+        }
+
+        return undefined;
     }
 
     // Determines the specialized base class type that srcType derives from.
