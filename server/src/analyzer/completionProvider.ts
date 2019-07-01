@@ -20,6 +20,7 @@ import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode,
     ModuleNameNode, ModuleNode, NameNode, ParseNode,
     StringListNode, SuiteNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { TokenType } from '../parser/tokenizerTypes';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
@@ -108,8 +109,8 @@ export class CompletionProvider {
         const priorWordIndex = priorText.search(/\w+$/);
         const priorWord = priorWordIndex >= 0 ? priorText.substr(priorWordIndex) : '';
 
-        // Don't offer completions if we're within a comment.
-        if (this._isWithinComment(parseResults, offset, priorText)) {
+        // Don't offer completions if we're within a comment or a string.
+        if (this._isWithinCommentOrString(parseResults, offset, priorText)) {
             return undefined;
         }
 
@@ -173,7 +174,7 @@ export class CompletionProvider {
         return undefined;
     }
 
-    private static _isWithinComment(parseResults: ParseResults, offset: number,
+    private static _isWithinCommentOrString(parseResults: ParseResults, offset: number,
             priorText: string): boolean {
 
         const tokenIndex = parseResults.tokens.getItemAtPosition(offset);
@@ -182,6 +183,10 @@ export class CompletionProvider {
         }
 
         const token = parseResults.tokens.getItemAt(tokenIndex);
+
+        if (token.type === TokenType.String) {
+            return true;
+        }
 
         // If we're in the middle of a token, we're not in a comment.
         if (token.end < offset) {
