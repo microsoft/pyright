@@ -316,7 +316,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let defaultValueType: Type | undefined;
 
             if (param.defaultValue) {
-                defaultValueType = this._getTypeOfExpression(param.defaultValue);
+                defaultValueType = this._getTypeOfExpression(param.defaultValue,
+                    EvaluatorFlags.ConvertEllipsisToAny);
                 this.walk(param.defaultValue);
             }
 
@@ -966,7 +967,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return false;
         }
 
-        let srcType = this._getTypeOfExpression(node.rightExpression);
+        // Evaluate the type of the right-hand side.
+        // An assignment of ellipsis means "Any" within a type stub file.
+        let srcType = this._getTypeOfExpression(node.rightExpression,
+            this._fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined);
 
         // If a type declaration was provided, note it here.
         if (node.typeAnnotationComment) {
@@ -1080,7 +1084,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 return false;
             }
 
-            this._getTypeOfExpression(node.typeAnnotation, true, true);
+            this._getTypeOfExpression(node.typeAnnotation,
+                EvaluatorFlags.AllowForwardReferences);
         }
 
         return true;
@@ -1088,7 +1093,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitFormatString(node: FormatStringNode): boolean {
         node.expressions.forEach(formatExpr => {
-            this._getTypeOfExpression(formatExpr.expression, true, true);
+            this._getTypeOfExpression(formatExpr.expression,
+                EvaluatorFlags.AllowForwardReferences);
         });
 
         return true;
@@ -1648,7 +1654,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const classType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
 
                     if (classType && classType instanceof ClassType) {
-                        const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression, false);
+                        const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression);
                         if (typeOfLeftExpr instanceof ObjectType) {
                             if (typeOfLeftExpr.getClassType().isSameGenericClass(classType)) {
                                 this._assignTypeToMemberVariable(target, declaredType, true,
@@ -1959,7 +1965,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _applyClassDecorator(inputClassType: Type, originalClassType: ClassType,
             decoratorNode: DecoratorNode): Type {
 
-        const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression, false);
+        const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression);
 
         // Is this a @dataclass?
         if (decoratorType instanceof OverloadedFunctionType) {
@@ -1980,7 +1986,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _applyFunctionDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
             decoratorNode: DecoratorNode, node: FunctionNode): Type {
 
-        const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression, false);
+        const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression);
 
         // Special-case the "overload" because it has no definition.
         if (decoratorType instanceof ClassType && decoratorType.getClassName() === 'overload') {
@@ -2593,27 +2599,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _getTypeOfAnnotation(node: ExpressionNode): Type {
         const evaluator = this._createEvaluator();
-        const evaluatorFlags =
-            this._postponeAnnotationEvaluation() ?
-            EvaluatorFlags.AllowForwardReferences :
-            EvaluatorFlags.None;
+        let evaluatorFlags = EvaluatorFlags.ConvertEllipsisToAny;
+        if (this._postponeAnnotationEvaluation()) {
+            evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+        }
 
         return TypeUtils.convertClassToObject(
             evaluator.getType(node, { method: 'get' }, evaluatorFlags));
     }
 
-    private _getTypeOfExpression(node: ExpressionNode, specialize = true, allowForwardDecl = false): Type {
+    private _getTypeOfExpression(node: ExpressionNode, flags?: EvaluatorFlags): Type {
         const evaluator = this._createEvaluator();
-        let flags = EvaluatorFlags.ConvertEllipsisToAny;
 
-        if (specialize) {
-            flags |= EvaluatorFlags.DoNotSpecialize;
+        // If the caller didn't specify the flags, use the defaults.
+        if (flags === undefined) {
+            flags = EvaluatorFlags.None;
         }
-
-        if (allowForwardDecl) {
-            flags |= EvaluatorFlags.AllowForwardReferences;
-        }
-
         return evaluator.getType(node, { method: 'get' }, flags);
     }
 
@@ -2691,7 +2692,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const classType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
 
                     if (classType && classType instanceof ClassType) {
-                        const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression, false);
+                        const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression);
                         if (typeOfLeftExpr instanceof ObjectType) {
                             if (typeOfLeftExpr.getClassType().isSameGenericClass(classType)) {
                                 this._assignTypeToMemberVariable(target, srcType, true,
@@ -2720,8 +2721,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const entryTypes = tupleType.getTypeArguments()!;
                     let entryCount = entryTypes.length;
                     const allowsMoreEntries = entryCount > 0 &&
-                        entryTypes[entryCount - 1] instanceof AnyType &&
-                        (entryTypes[entryCount - 1] as AnyType).isEllipsis();
+                        TypeUtils.isEllipsisType(entryTypes[entryCount - 1]);
                     if (allowsMoreEntries) {
                         entryCount--;
                     }

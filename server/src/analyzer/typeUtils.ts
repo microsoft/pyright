@@ -594,6 +594,18 @@ export class TypeUtils {
         return undefined;
     }
 
+    static isEllipsisType(type: Type): boolean {
+        // Ellipses are translated into both a special form of "Any" or
+        // a distinct class depending on the context.
+        if (type instanceof AnyType && type.isEllipsis()) {
+            return true;
+        }
+
+        return (type instanceof ClassType &&
+            type.isBuiltIn() &&
+            type.getClassName() === 'ellipsis');
+    }
+
     static isNoReturnType(type: Type): boolean {
         if (type instanceof ObjectType) {
             const classType = type.getClassType();
@@ -1672,8 +1684,7 @@ export class TypeUtils {
                         const srcTypeArgs = curSrcType.getTypeArguments() || [];
                         let destArgCount = ancestorTypeArgs.length;
                         const destAllowsMoreArgs = destArgCount &&
-                            ancestorTypeArgs[destArgCount - 1] instanceof AnyType &&
-                            (ancestorTypeArgs[destArgCount - 1] as AnyType).isEllipsis();
+                            TypeUtils.isEllipsisType(ancestorTypeArgs[destArgCount - 1]);
                         if (destAllowsMoreArgs) {
                             destArgCount--;
                         }
