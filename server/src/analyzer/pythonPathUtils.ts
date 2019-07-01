@@ -21,9 +21,9 @@ export class PythonPathUtils {
         // The entry point to the tool should have set the __rootDirectory
         // global variable to point to the directory that contains the
         // typeshed-fallback directory.
-        const moduleDirectory = normalizePath((global as any).__rootDirectory);
-
+        let moduleDirectory = (global as any).__rootDirectory;
         if (moduleDirectory) {
+            moduleDirectory = normalizePath(moduleDirectory);
             return combinePaths(getDirectoryPath(
                 ensureTrailingDirectorySeparator(moduleDirectory)),
                 'typeshed-fallback');
