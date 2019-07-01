@@ -74,7 +74,7 @@ export class TextRangeCollection<T extends TextRange> {
             if (position < item.start) {
                 max = mid - 1;
             } else {
-                min = mid;
+                min = mid + 1;
             }
         }
         return min;
