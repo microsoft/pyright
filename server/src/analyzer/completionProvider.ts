@@ -189,7 +189,7 @@ export class CompletionProvider {
         }
 
         // If we're in the middle of a token, we're not in a comment.
-        if (token.end < offset) {
+        if (offset >= token.start && offset < token.end) {
             return false;
         }
 

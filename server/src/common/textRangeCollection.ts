@@ -67,8 +67,12 @@ export class TextRangeCollection<T extends TextRange> {
             const mid = Math.floor(min + (max - min) / 2);
             const item = this._items[mid];
 
-            if (position >= item.start && position < item.end) {
-                return mid;
+            // Is the position past the start of this item but before
+            // the start of the next item? If so, we found our item.
+            if (position >= item.start) {
+                if (mid >= this.count - 1 || position < this._items[mid + 1].start) {
+                    return mid;
+                }
             }
 
             if (position < item.start) {
