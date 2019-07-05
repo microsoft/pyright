@@ -864,7 +864,14 @@ export class ExpressionEvaluator {
             const typeArgs = objectClass.getTypeArguments();
 
             if (typeArgs && typeArgs.length > 0) {
-                const firstTypeArg = typeArgs[0];
+                let firstTypeArg = typeArgs[0];
+
+                // If the type arg is a type var itself, specialize it in
+                // case it's bound or constrained.
+                if (firstTypeArg instanceof TypeVarType) {
+                    firstTypeArg = TypeUtils.specializeTypeVarType(firstTypeArg);
+                }
+
                 if (firstTypeArg instanceof ObjectType) {
                     return firstTypeArg.getClassType();
                 }
@@ -1316,7 +1323,9 @@ export class ExpressionEvaluator {
             // Handle the "Type" object specially.
             const classFromTypeObject = this._getClassFromPotentialTypeObject(callType);
             if (classFromTypeObject) {
-                if (classFromTypeObject instanceof ClassType) {
+                if (classFromTypeObject.isAny()) {
+                    type = classFromTypeObject;
+                } else if (classFromTypeObject instanceof ClassType) {
                     type = this._validateConstructorArguments(errorNode,
                         argList, classFromTypeObject);
                 }
