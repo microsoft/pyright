@@ -1908,6 +1908,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
             }
+        } else if (functionScope.getAlwaysRaises() &&
+                functionScope.getReturnType().getSources().length === 0 &&
+                !functionType.isAbstractMethod()) {
+
+            // If the function always raises and never returns, add
+            // the "NoReturn" type. Skip this for abstract methods which
+            // often are implemented with "raise NotImplementedError()".
+            const noReturnType = evaluator.getTypingType('NoReturn') as ClassType;
+            if (noReturnType && inferredReturnType.addSource(new ObjectType(noReturnType),
+                    AnalyzerNodeInfo.getTypeSourceId(node))) {
+
+                this._setAnalysisChanged();
+            }
         } else {
             if (inferredReturnType.removeSource(AnalyzerNodeInfo.getTypeSourceId(node))) {
                 this._setAnalysisChanged();
