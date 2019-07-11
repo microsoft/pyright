@@ -2521,11 +2521,20 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromSetExpression(node: SetNode): TypeResult {
-        const entryTypes = node.entries.map(expr => this._getTypeFromExpression(expr));
+        const entryTypes: Type[] = [];
 
         // Infer the set type based on the entries.
+        node.entries.forEach(entryNode => {
+            if (entryNode instanceof ListComprehensionNode) {
+                const setEntryType = this._getElementTypeFromListComprehensionExpression(entryNode);
+                entryTypes.push(setEntryType);
+            } else {
+                entryTypes.push(this._getTypeFromExpression(entryNode).type);
+            }
+        });
+
         const inferredEntryType = entryTypes.length > 0 ?
-            TypeUtils.combineTypes(entryTypes.map(e => e.type)) :
+            TypeUtils.combineTypes(entryTypes) :
             UnknownType.create();
 
         let type = ScopeUtils.getBuiltInObject(this._scope, 'set', [inferredEntryType]);
