@@ -885,18 +885,45 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitTry(node: TryNode): boolean {
-        let alwaysRaisesBeforeTry = this._currentScope.getAlwaysRaises();
-
-        this.walk(node.trySuite);
-
-        let allPathsRaise = true;
-        let allPathsRaiseOrReturn = true;
-
         let conditionalScopesToMerge: Scope[] = [];
 
-        // Wrap the except clauses in a conditional scope
-        // so we can throw away any names that are bound
-        // in this scope.
+        const tryScope = this._enterTemporaryScope(() => {
+            this.walk(node.trySuite);
+        });
+
+        let allPathsRaise = tryScope.getAlwaysRaises();
+        let allPathsRaiseOrReturn = tryScope.getAlwaysReturnsOrRaises();
+
+        // Clear the "always raises" and "always returns" flags for the try block
+        // because it may raise an exception before hitting these statements
+        // and cause code execution to resume within an except clause.
+        tryScope.clearAlwaysRaises();
+        tryScope.clearAlwaysReturns();
+
+        // Unconditionally merge the try scope into its parent.
+        this._mergeToCurrentScope(tryScope);
+
+        // Analyze the else scope. This is effectively a continuation of
+        // the try scope, except that it's conditionally executed (only
+        // if there are no exceptions raised in the try scope).
+        const elseScope = this._enterTemporaryScope(() => {
+            if (node.elseSuite) {
+                this.walk(node.elseSuite);
+            }
+        });
+
+        // Consider the try/else path, which is executed if there are no exceptions
+        // raised during execution. Does this path contain any unconditional raise
+        // or return statements?
+        if (elseScope.getAlwaysRaises()) {
+            allPathsRaise = true;
+        }
+        if (elseScope.getAlwaysReturnsOrRaises()) {
+            allPathsRaiseOrReturn = true;
+        }
+        conditionalScopesToMerge.push(elseScope);
+
+        // Now analyze the exception scopes.
         node.exceptClauses.forEach(exceptNode => {
             const exceptScope = this._enterTemporaryScope(() => {
                 this.walk(exceptNode);
@@ -913,22 +940,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         });
 
-        const elseScope = this._enterTemporaryScope(() => {
-            if (node.elseSuite) {
-                this.walk(node.elseSuite);
-            }
-        });
-
-        conditionalScopesToMerge.push(elseScope);
-
-        if (!elseScope.getAlwaysRaises()) {
-            allPathsRaise = false;
-        }
-
-        if (!elseScope.getAlwaysReturnsOrRaises()) {
-            allPathsRaiseOrReturn = false;
-        }
-
         if (conditionalScopesToMerge.length > 1) {
             // Mark the multiple scopes as conditional and merge them.
             for (const scope of conditionalScopesToMerge) {
@@ -941,16 +952,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._mergeToCurrentScope(conditionalScopesToMerge[0]);
         }
 
-        // If we can't prove that exceptions will propagate beyond
-        // the try/catch block. clear the "always raises" condition.
-        if (alwaysRaisesBeforeTry || allPathsRaise) {
+        if (allPathsRaise) {
             this._currentScope.setAlwaysRaises();
-        } else {
-            this._currentScope.clearAlwaysRaises();
-
-            if (allPathsRaiseOrReturn) {
-                this._currentScope.setAlwaysReturns();
-            }
+        } else if (allPathsRaiseOrReturn) {
+            this._currentScope.setAlwaysReturns();
         }
 
         if (node.finallySuite) {
