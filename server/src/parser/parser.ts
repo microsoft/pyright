@@ -2343,15 +2343,7 @@ export class Parser {
 
                 // Determine if we need to truncate the expression because it
                 // contains formatting directives that start with a ! or :.
-                let segmentExprLength = segment.length;
-                const bangIndex = segment.value.search(/\![^=]/);
-                if (bangIndex >= 0) {
-                    segmentExprLength = Math.min(segmentExprLength, bangIndex);
-                }
-                const colonIndex = segment.value.search(/\:/);
-                if (colonIndex >= 0) {
-                    segmentExprLength = Math.min(segmentExprLength, colonIndex);
-                }
+                let segmentExprLength = this._getFormatStringExpressionLength(segment.value);
 
                 const parseResults = parser.parseTextExpression(this._fileContents!,
                     stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength +
@@ -2378,6 +2370,75 @@ export class Parser {
 
         return new FormatStringNode(stringToken, unescapedResult.value,
             unescapedResult.unescapeErrors.length > 0, formatExpressions);
+    }
+
+    private _getFormatStringExpressionLength(segmentValue: string): number {
+        let segmentExprLength = 0;
+
+        // PEP 498 says: Expressions cannot contain ':' or '!' outside of
+        // strings or parentheses, brackets, or braces. The exception is
+        // that the '!=' operator is allowed as a special case.
+        let inSingleQuote = false;
+        let inDoubleQuote = false;
+        let braceCount = 0;
+        let parenCount = 0;
+        let bracketCount = 0;
+
+        while (segmentExprLength < segmentValue.length) {
+            const curChar = segmentValue[segmentExprLength];
+            const ignoreSeparator = inSingleQuote || inDoubleQuote || braceCount > 0 ||
+                parenCount > 0 && bracketCount > 0;
+            const inString = inSingleQuote || inDoubleQuote;
+
+            if (curChar === ':') {
+                if (!ignoreSeparator) {
+                    break;
+                }
+            } else if (curChar === '!') {
+                if (!ignoreSeparator) {
+                    if (segmentExprLength === segmentValue.length - 1 ||
+                            segmentValue[segmentExprLength + 1] !== '!') {
+                        break;
+                    }
+                }
+            } else if (curChar === '\'') {
+                if (!inDoubleQuote) {
+                    inSingleQuote = !inSingleQuote;
+                }
+            } else if (curChar === '"') {
+                if (!inSingleQuote) {
+                    inDoubleQuote = !inDoubleQuote;
+                }
+            } else if (curChar === '(') {
+                if (!inString) {
+                    parenCount++;
+                }
+            } else if (curChar === ')') {
+                if (!inString && parenCount > 0) {
+                    parenCount--;
+                }
+            } else if (curChar === '{') {
+                if (!inString) {
+                    braceCount++;
+                }
+            } else if (curChar === '}') {
+                if (!inString && braceCount > 0) {
+                    braceCount--;
+                }
+            } else if (curChar === '[') {
+                if (!inString) {
+                    bracketCount++;
+                }
+            } else if (curChar === ']') {
+                if (!inString && bracketCount > 0) {
+                    bracketCount--;
+                }
+            }
+
+            segmentExprLength++;
+        }
+
+        return segmentExprLength;
     }
 
     private _parseStringList(): StringListNode {

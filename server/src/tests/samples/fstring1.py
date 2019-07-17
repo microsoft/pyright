@@ -22,3 +22,9 @@ e = f"hello { 2 != 3 !r:2 }"
 
 # Test f-string with formatting directives.
 f = f"hello { 2 != 3 :3 }"
+
+# Test f-string with embedded colon.
+g = f"hello { a[2:3] :3 }"
+
+# Test f-string with embedded bang.
+g = f"hello { b['hello!'] :3 }"
