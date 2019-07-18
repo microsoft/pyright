@@ -7,7 +7,8 @@
 import {
     createConnection, Diagnostic, DiagnosticSeverity, DiagnosticTag,
     IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter,
-    Location, MarkupContent, ParameterInformation, Position, Range, SignatureInformation, TextDocuments
+    Location, ParameterInformation, Position, Range, SignatureInformation,
+    TextDocuments
 } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
 
@@ -16,6 +17,7 @@ import { CommandLineOptions } from './common/commandLineOptions';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory, DiagnosticTextPosition,
     DiagnosticTextRange } from './common/diagnostic';
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
+import StringMap from './common/stringMap';
 
 interface PythonSettings {
     venvPath?: string;
@@ -27,6 +29,12 @@ interface PythonSettings {
 
 interface Settings {
     python: PythonSettings;
+}
+
+interface WorkspaceServiceInstance {
+    workspaceName: string;
+    rootPath: string;
+    serviceInstance: AnalyzerService;
 }
 
 // Stash the base directory into a global variable.
@@ -41,32 +49,31 @@ _connection.console.log('Pyright language server starting');
 // supports full document sync only.
 let _documents: TextDocuments = new TextDocuments();
 
-// Allocate the analyzer service instance.
-let _analyzerService: AnalyzerService = new AnalyzerService(_connection.console);
-
-// Root path of the workspace.
+// Global root path - the basis for all global settings.
 let _rootPath = '';
 
 // Tracks whether we're currently displaying progress.
 let _isDisplayingProgress = false;
 
+let _workspaceMap = new StringMap<WorkspaceServiceInstance>();
+
 // Make the text document manager listen on the connection
 // for open, change and close text document events.
 _documents.listen(_connection);
 
-// After the server has started the client sends an initialize request. The server receives
-// in the passed params the rootPath of the workspace plus the client capabilities.
-_connection.onInitialize((params): InitializeResult => {
-    _rootPath = params.rootPath || '';
+const _defaultWorkspacePath = '<default>';
+
+function _createAnalyzerService(): AnalyzerService {
+    const service = new AnalyzerService(_connection.console);
 
     // Don't allow the analysis engine to go too long without
     // reporting results. This will keep it responsive.
-    _analyzerService.setMaxAnalysisDuration({
+    service.setMaxAnalysisDuration({
         openFilesTimeInMs: 100,
         noOpenFilesTimeInMs: 500
     });
 
-    _analyzerService.setCompletionCallback(results => {
+    service.setCompletionCallback(results => {
         results.diagnostics.forEach(fileDiag => {
             let diagnostics = _convertDiagnostics(fileDiag.diagnostics);
 
@@ -94,6 +101,40 @@ _connection.onInitialize((params): InitializeResult => {
         });
     });
 
+    return service;
+}
+
+// After the server has started the client sends an initialize request. The server receives
+// in the passed params the rootPath of the workspace plus the client capabilities.
+_connection.onInitialize((params): InitializeResult => {
+    _rootPath = params.rootPath || '';
+
+    // Create a service instance for each of the workspace folders.
+    if (params.workspaceFolders) {
+        params.workspaceFolders.forEach(folder => {
+            const path = _convertUriToPath(folder.uri);
+            _workspaceMap.set(path, {
+                workspaceName: folder.name,
+                rootPath: path,
+                serviceInstance: _createAnalyzerService()
+            });
+        });
+    } else if (params.rootPath) {
+        _workspaceMap.set(params.rootPath, {
+            workspaceName: '',
+            rootPath: params.rootPath,
+            serviceInstance: _createAnalyzerService()
+        });
+    }
+
+    // Create a default workspace for files that are outside
+    // of all workspaces.
+    _workspaceMap.set(_defaultWorkspacePath, {
+        workspaceName: '',
+        rootPath: '',
+        serviceInstance: _createAnalyzerService()
+    });
+
     return {
         capabilities: {
             // Tell the client that the server works in FULL text document
@@ -112,12 +153,32 @@ _connection.onInitialize((params): InitializeResult => {
     };
 });
 
+function _getWorkspacesForFile(filePath: string): WorkspaceServiceInstance[] {
+    let instances: WorkspaceServiceInstance[] = [];
+
+    _workspaceMap.forEach(workspace => {
+        if (workspace.rootPath) {
+            if (filePath.startsWith(workspace.rootPath)) {
+                instances.push(workspace);
+            }
+        }
+    });
+
+    if (instances.length === 0) {
+        instances.push(_workspaceMap.get(_defaultWorkspacePath)!);
+    }
+
+    return instances;
+}
+
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 _documents.onDidChangeContent(change => {
     let filePath = _convertUriToPath(change.document.uri);
     _connection.console.log(`File "${ filePath }" changed -- marking dirty`);
-    _analyzerService.markFilesChanged([filePath]);
+    _getWorkspacesForFile(filePath).forEach(workspace => {
+        workspace.serviceInstance.markFilesChanged([filePath]);
+    });
     updateOptionsAndRestartService();
 });
 
@@ -134,7 +195,8 @@ _connection.onDefinition(params => {
         column: params.position.character
     };
 
-    const locations = _analyzerService.getDefinitionForPosition(filePath, position);
+    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const locations = service.getDefinitionForPosition(filePath, position);
     if (!locations) {
         return undefined;
     }
@@ -150,7 +212,8 @@ _connection.onReferences(params => {
         column: params.position.character
     };
 
-    const locations = _analyzerService.getReferencesForPosition(filePath, position,
+    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const locations = service.getReferencesForPosition(filePath, position,
             params.context.includeDeclaration);
     if (!locations) {
         return undefined;
@@ -167,7 +230,8 @@ _connection.onHover(params => {
         column: params.position.character
     };
 
-    const hoverResults = _analyzerService.getHoverForPosition(filePath, position);
+    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const hoverResults = service.getHoverForPosition(filePath, position);
     if (!hoverResults) {
         return undefined;
     }
@@ -196,7 +260,8 @@ _connection.onSignatureHelp(params => {
         column: params.position.character
     };
 
-    const signatureHelpResults = _analyzerService.getSignatureHelpForPosition(
+    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const signatureHelpResults = service.getSignatureHelpForPosition(
         filePath, position);
     if (!signatureHelpResults) {
         return undefined;
@@ -222,67 +287,89 @@ _connection.onSignatureHelp(params => {
 });
 
 _connection.onCompletion(params => {
-    let filePath = _convertUriToPath(params.textDocument.uri);
+    const filePath = _convertUriToPath(params.textDocument.uri);
 
-    let position: DiagnosticTextPosition = {
+    const position: DiagnosticTextPosition = {
         line: params.position.line,
         column: params.position.character
     };
 
-    return _analyzerService.getCompletionsForPosition(filePath, position);
+    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    return service.getCompletionsForPosition(filePath, position);
 });
 
 _connection.onDidOpenTextDocument(params => {
-    let filePath = _convertUriToPath(params.textDocument.uri);
-    _analyzerService.setFileOpened(
+    const filePath = _convertUriToPath(params.textDocument.uri);
+    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    service.setFileOpened(
         filePath,
         params.textDocument.version,
         params.textDocument.text);
 });
 
 _connection.onDidChangeTextDocument(params => {
-    let filePath = _convertUriToPath(params.textDocument.uri);
-    _analyzerService.updateOpenFileContents(
+    const filePath = _convertUriToPath(params.textDocument.uri);
+    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    service.updateOpenFileContents(
         filePath,
         params.textDocument.version,
         params.contentChanges[0].text);
 });
 
 _connection.onDidCloseTextDocument(params => {
-    let filePath = _convertUriToPath(params.textDocument.uri);
-    _analyzerService.setFileClosed(filePath);
+    const filePath = _convertUriToPath(params.textDocument.uri);
+    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    service.setFileClosed(filePath);
 });
 
 function updateOptionsAndRestartService(settings?: Settings) {
-    let commandLineOptions = new CommandLineOptions(_rootPath, true);
-    commandLineOptions.watch = true;
-    commandLineOptions.verboseOutput = true;
+    _workspaceMap.forEach(workspace => {
+        const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
+        commandLineOptions.watch = true;
+        commandLineOptions.verboseOutput = true;
 
-    if (settings && settings.python) {
-        if (settings.python.venvPath) {
-            commandLineOptions.venvPath = combinePaths(_rootPath,
-                normalizePath(_expandPathVariables(settings.python.venvPath)));
+        if (settings && settings.python) {
+            if (settings.python.venvPath) {
+                commandLineOptions.venvPath = combinePaths(workspace.rootPath || _rootPath,
+                    normalizePath(_expandPathVariables(settings.python.venvPath)));
+            }
+
+            if (settings.python.pythonPath) {
+                commandLineOptions.pythonPath = combinePaths(workspace.rootPath || _rootPath,
+                    normalizePath(_expandPathVariables(settings.python.pythonPath)));
+            }
+
+            if (settings.python.analysis &&
+                    settings.python.analysis.typeshedPaths &&
+                    settings.python.analysis.typeshedPaths.length > 0) {
+
+                // Pyright supports only one typeshed path currently, whereas the
+                // official VS Code Python extension supports multiple typeshed paths.
+                // We'll use the first one specified and ignore the rest.
+                commandLineOptions.typeshedPath =
+                    _expandPathVariables(settings.python.analysis.typeshedPaths[0]);
+            }
         }
 
-        if (settings.python.pythonPath) {
-            commandLineOptions.pythonPath = combinePaths(_rootPath,
-                normalizePath(_expandPathVariables(settings.python.pythonPath)));
-        }
-
-        if (settings.python.analysis &&
-                settings.python.analysis.typeshedPaths &&
-                settings.python.analysis.typeshedPaths.length > 0) {
-
-            // Pyright supports only one typeshed path currently, whereas the
-            // official VS Code Python extension supports multiple typeshed paths.
-            // We'll use the first one specified and ignore the rest.
-            commandLineOptions.typeshedPath =
-                _expandPathVariables(settings.python.analysis.typeshedPaths[0]);
-        }
-    }
-
-    _analyzerService.setOptions(commandLineOptions);
+        workspace.serviceInstance.setOptions(commandLineOptions);
+    });
 }
+
+_connection.workspace.onDidChangeWorkspaceFolders(event => {
+    event.removed.forEach(workspace => {
+        const rootPath = _convertUriToPath(workspace.uri);
+        _workspaceMap.delete(rootPath);
+    });
+
+    event.added.forEach(workspace => {
+        const rootPath = _convertUriToPath(workspace.uri);
+        _workspaceMap.set(rootPath, {
+            workspaceName: workspace.name,
+            rootPath: rootPath,
+            serviceInstance: _createAnalyzerService()
+        });
+    });
+});
 
 // Expands certain predefined variables supported within VS Code settings.
 // Ideally, VS Code would provide an API for doing this expansion, but
