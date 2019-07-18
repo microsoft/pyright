@@ -355,18 +355,20 @@ function updateOptionsAndRestartService(settings?: Settings) {
     });
 }
 
-_connection.workspace.onDidChangeWorkspaceFolders(event => {
-    event.removed.forEach(workspace => {
-        const rootPath = _convertUriToPath(workspace.uri);
-        _workspaceMap.delete(rootPath);
-    });
-
-    event.added.forEach(workspace => {
-        const rootPath = _convertUriToPath(workspace.uri);
-        _workspaceMap.set(rootPath, {
-            workspaceName: workspace.name,
-            rootPath: rootPath,
-            serviceInstance: _createAnalyzerService()
+_connection.onInitialized(() => {
+    _connection.workspace.onDidChangeWorkspaceFolders(event => {
+        event.removed.forEach(workspace => {
+            const rootPath = _convertUriToPath(workspace.uri);
+            _workspaceMap.delete(rootPath);
+        });
+    
+        event.added.forEach(workspace => {
+            const rootPath = _convertUriToPath(workspace.uri);
+            _workspaceMap.set(rootPath, {
+                workspaceName: workspace.name,
+                rootPath: rootPath,
+                serviceInstance: _createAnalyzerService()
+            });
         });
     });
 });
