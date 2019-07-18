@@ -2387,7 +2387,7 @@ export class Parser {
         while (segmentExprLength < segmentValue.length) {
             const curChar = segmentValue[segmentExprLength];
             const ignoreSeparator = inSingleQuote || inDoubleQuote || braceCount > 0 ||
-                parenCount > 0 && bracketCount > 0;
+                parenCount > 0 || bracketCount > 0;
             const inString = inSingleQuote || inDoubleQuote;
 
             if (curChar === ':') {
