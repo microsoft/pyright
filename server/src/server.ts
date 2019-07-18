@@ -361,7 +361,7 @@ _connection.onInitialized(() => {
             const rootPath = _convertUriToPath(workspace.uri);
             _workspaceMap.delete(rootPath);
         });
-    
+
         event.added.forEach(workspace => {
             const rootPath = _convertUriToPath(workspace.uri);
             _workspaceMap.set(rootPath, {
