@@ -190,7 +190,7 @@ export class AnalyzerService {
                     }
                 }
             }
-        } else {
+        } else if (projectRoot) {
             configFilePath = this._findConfigFile(projectRoot);
             if (configFilePath) {
                 projectRoot = getDirectoryPath(configFilePath);
