@@ -1139,6 +1139,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitDel(node: DelNode) {
         node.expressions.forEach(expr => {
+            this._markExpressionAccessed(expr);
             this._evaluateExpressionForDeletion(expr);
 
             if (expr instanceof NameNode) {
