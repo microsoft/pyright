@@ -28,12 +28,16 @@ interface PythonSettings {
 }
 
 interface Settings {
+    // If more sections are added to this interface,
+    // make sure to update the sections array in the
+    // updateSettingsForAllWorkspaces method.
     python: PythonSettings;
 }
 
 interface WorkspaceServiceInstance {
     workspaceName: string;
     rootPath: string;
+    rootUri: string;
     serviceInstance: AnalyzerService;
 }
 
@@ -116,6 +120,7 @@ _connection.onInitialize((params): InitializeResult => {
             _workspaceMap.set(path, {
                 workspaceName: folder.name,
                 rootPath: path,
+                rootUri: folder.uri,
                 serviceInstance: _createAnalyzerService()
             });
         });
@@ -123,6 +128,7 @@ _connection.onInitialize((params): InitializeResult => {
         _workspaceMap.set(params.rootPath, {
             workspaceName: '',
             rootPath: params.rootPath,
+            rootUri: '',
             serviceInstance: _createAnalyzerService()
         });
     }
@@ -132,8 +138,12 @@ _connection.onInitialize((params): InitializeResult => {
     _workspaceMap.set(_defaultWorkspacePath, {
         workspaceName: '',
         rootPath: '',
+        rootUri: '',
         serviceInstance: _createAnalyzerService()
     });
+
+    _connection.console.log(`Fetching settings for workspace(s)`);
+    updateSettingsForAllWorkspaces();
 
     return {
         capabilities: {
@@ -178,13 +188,13 @@ _documents.onDidChangeContent(change => {
     _connection.console.log(`File "${ filePath }" changed -- marking dirty`);
     _getWorkspacesForFile(filePath).forEach(workspace => {
         workspace.serviceInstance.markFilesChanged([filePath]);
+        updateOptionsAndRestartService(workspace);
     });
-    updateOptionsAndRestartService();
 });
 
 _connection.onDidChangeConfiguration(change => {
     _connection.console.log(`Received updated settings`);
-    updateOptionsAndRestartService(change.settings);
+    updateSettingsForAllWorkspaces();
 });
 
 _connection.onDefinition(params => {
@@ -322,37 +332,58 @@ _connection.onDidCloseTextDocument(params => {
     service.setFileClosed(filePath);
 });
 
-function updateOptionsAndRestartService(settings?: Settings) {
+function updateSettingsForAllWorkspaces() {
     _workspaceMap.forEach(workspace => {
-        const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
-        commandLineOptions.watch = true;
-        commandLineOptions.verboseOutput = true;
+        let settingsPromise: Thenable<PythonSettings>;
+        if (workspace.rootUri) {
+            settingsPromise = _connection.workspace.getConfiguration({
+                scopeUri: workspace.rootUri || undefined,
+                section: 'python'
+            });
+        } else {
+            settingsPromise = _connection.workspace.getConfiguration(
+                'python');
+        }
+        settingsPromise.then(settings => {
+            updateOptionsAndRestartService(workspace, { python: settings });
+        }, () => {
+            // An error occurred trying to read the settings
+            // for this workspace, so ignore.
+        });
+    });
+}
 
-        if (settings && settings.python) {
-            if (settings.python.venvPath) {
-                commandLineOptions.venvPath = combinePaths(workspace.rootPath || _rootPath,
-                    normalizePath(_expandPathVariables(settings.python.venvPath)));
-            }
+function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
+        settings?: Settings) {
 
-            if (settings.python.pythonPath) {
-                commandLineOptions.pythonPath = combinePaths(workspace.rootPath || _rootPath,
-                    normalizePath(_expandPathVariables(settings.python.pythonPath)));
-            }
+    const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
+    commandLineOptions.watch = true;
+    commandLineOptions.verboseOutput = true;
 
-            if (settings.python.analysis &&
-                    settings.python.analysis.typeshedPaths &&
-                    settings.python.analysis.typeshedPaths.length > 0) {
-
-                // Pyright supports only one typeshed path currently, whereas the
-                // official VS Code Python extension supports multiple typeshed paths.
-                // We'll use the first one specified and ignore the rest.
-                commandLineOptions.typeshedPath =
-                    _expandPathVariables(settings.python.analysis.typeshedPaths[0]);
-            }
+    if (settings && settings.python) {
+        if (settings.python.venvPath) {
+            commandLineOptions.venvPath = combinePaths(workspace.rootPath || _rootPath,
+                normalizePath(_expandPathVariables(settings.python.venvPath)));
         }
 
-        workspace.serviceInstance.setOptions(commandLineOptions);
-    });
+        if (settings.python.pythonPath) {
+            commandLineOptions.pythonPath = combinePaths(workspace.rootPath || _rootPath,
+                normalizePath(_expandPathVariables(settings.python.pythonPath)));
+        }
+
+        if (settings.python.analysis &&
+                settings.python.analysis.typeshedPaths &&
+                settings.python.analysis.typeshedPaths.length > 0) {
+
+            // Pyright supports only one typeshed path currently, whereas the
+            // official VS Code Python extension supports multiple typeshed paths.
+            // We'll use the first one specified and ignore the rest.
+            commandLineOptions.typeshedPath =
+                _expandPathVariables(settings.python.analysis.typeshedPaths[0]);
+        }
+    }
+
+    workspace.serviceInstance.setOptions(commandLineOptions);
 }
 
 _connection.onInitialized(() => {
@@ -367,6 +398,7 @@ _connection.onInitialized(() => {
             _workspaceMap.set(rootPath, {
                 workspaceName: workspace.name,
                 rootPath: rootPath,
+                rootUri: workspace.uri,
                 serviceInstance: _createAnalyzerService()
             });
         });
