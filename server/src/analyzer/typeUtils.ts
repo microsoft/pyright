@@ -420,6 +420,11 @@ export class TypeUtils {
                     }
                     return true;
                 }
+            } else if (srcType instanceof ModuleType) {
+                // Is the destination the built-in "ModuleType"?
+                if (destClassType.isBuiltIn() && destClassType.getClassName() === 'ModuleType') {
+                    return true;
+                }
             }
         }
 

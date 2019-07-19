@@ -331,6 +331,12 @@ test('Module1', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Module2', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['module2.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Ellipsis1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['ellipsis1.pyi']);
 
