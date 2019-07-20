@@ -646,8 +646,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     const iteratorType = this._getTypeOfExpression(compr.iterableExpression);
                     const evaluator = this._createEvaluator();
+
+                    // Pass undefined for the error node so we don't report
+                    // errors. We assume here that the expression has already
+                    // been evaluated and errors reported, and we don't want
+                    // them to be reported twice.
                     const iteratedType = evaluator.getTypeFromIterable(
-                        iteratorType, !!compr.isAsync, compr.iterableExpression, false);
+                        iteratorType, !!compr.isAsync, undefined, false);
 
                     this._addNamedTargetToCurrentScope(compr.targetExpression);
                     this._assignTypeToExpression(compr.targetExpression, iteratedType, compr.iterableExpression);

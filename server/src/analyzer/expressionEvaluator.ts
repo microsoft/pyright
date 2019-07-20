@@ -217,7 +217,8 @@ export class ExpressionEvaluator {
     // 1) a generator object
     // 2) an Awaitable (object that provides an __await__ that
     //    returns a generator object)
-    getTypeFromAwaitable(type: Type, errorNode: ParseNode): Type {
+    // If errorNode is undefined, no errors are reported.
+    getTypeFromAwaitable(type: Type, errorNode?: ParseNode): Type {
         return TypeUtils.doForSubtypes(type, subtype => {
             if (subtype.isAny()) {
                 return subtype;
@@ -251,14 +252,17 @@ export class ExpressionEvaluator {
                 }
             }
 
-            this._addError(`'${ subtype.asString() }' is not awaitable`, errorNode);
+            if (errorNode) {
+                this._addError(`'${ subtype.asString() }' is not awaitable`, errorNode);
+            }
 
             return UnknownType.create();
         });
     }
 
     // Validates that the type is iterable and returns the iterated type.
-    getTypeFromIterable(type: Type, isAsync: boolean, errorNode: ParseNode,
+    // If errorNode is undefined, no errors are reported.
+    getTypeFromIterable(type: Type, isAsync: boolean, errorNode: ParseNode | undefined,
             supportGetItem: boolean): Type {
 
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
@@ -266,10 +270,12 @@ export class ExpressionEvaluator {
         const getItemMethodName = supportGetItem ? '__getitem__' : '';
 
         if (type instanceof UnionType && type.getTypes().some(t => t instanceof NoneType)) {
-            this._addDiagnostic(
-                this._fileInfo.diagnosticSettings.reportOptionalIterable,
-                `Object of type 'None' cannot be used as iterable value`,
-                errorNode);
+            if (errorNode) {
+                this._addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportOptionalIterable,
+                    `Object of type 'None' cannot be used as iterable value`,
+                    errorNode);
+            }
             type = TypeUtils.removeNoneFromUnion(type);
         }
 
@@ -347,8 +353,10 @@ export class ExpressionEvaluator {
                 }
             }
 
-            this._addError(`'${ subtype.asString() }' is not iterable` + diag.getString(),
-                errorNode);
+            if (errorNode) {
+                this._addError(`'${ subtype.asString() }' is not iterable` + diag.getString(),
+                    errorNode);
+            }
 
             return UnknownType.create();
         });
@@ -2732,9 +2740,10 @@ export class ExpressionEvaluator {
     }
 
     private _assignTypeToExpression(targetExpr: ExpressionNode, type: Type, srcExpr: ExpressionNode): boolean {
+        let understoodType = true;
+
         if (targetExpr instanceof NameNode) {
             this._assignTypeToNameNode(targetExpr, type);
-            return true;
         } else if (targetExpr instanceof TupleExpressionNode) {
             // Initialize the array of target types, one for each target.
             const targetTypes: Type[][] = new Array(targetExpr.expressions.length);
@@ -2775,7 +2784,6 @@ export class ExpressionEvaluator {
             });
 
             // Assign the resulting types to the individual names in the tuple target expression.
-            let understoodType = true;
             targetExpr.expressions.forEach((expr, index) => {
                 const typeList = targetTypes[index];
                 const targetType = typeList.length === 0 ? UnknownType.create() : TypeUtils.combineTypes(typeList);
@@ -2783,12 +2791,17 @@ export class ExpressionEvaluator {
                     understoodType = false;
                 }
             });
-
-            return understoodType;
+        } else {
+            // TODO - need to implement
+            understoodType = false;
         }
 
-        // TODO - need to implement
-        return false;
+        // Cache the type so we don't evaluate it again.
+        if (this._writeTypeToCache) {
+            this._writeTypeToCache(targetExpr, type);
+        }
+
+        return understoodType;
     }
 
     // Returns the type of one entry returned by the list comprehension,
