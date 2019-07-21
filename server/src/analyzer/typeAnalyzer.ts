@@ -989,13 +989,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 node.typeAnnotationComment, node.rightExpression);
 
             const diagAddendum = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(typeHintType, srcType, diagAddendum)) {
-                this._addError(`Expression of type '${ srcType.asString() }' cannot be ` +
-                    `assigned to declared type '${ typeHintType.asString() }'` +
-                    diagAddendum.getString(),
-                    node.rightExpression);
-                srcType = typeHintType;
-            } else {
+            if (TypeUtils.canAssignType(typeHintType, srcType, diagAddendum)) {
                 // Constrain the resulting type to match the declared type.
                 srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(typeHintType, srcType);
             }
@@ -1649,7 +1643,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
             if (symbolWithScope && symbolWithScope.symbol) {
-                this._addDeclarationToSymbol(symbolWithScope.symbol, declaration, target);
+                this._addDeclarationToSymbol(symbolWithScope.symbol, declaration, typeAnnotationNode);
             }
             AnalyzerNodeInfo.setDeclarations(target, [declaration]);
             declarationHandled = true;
@@ -2455,7 +2449,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             node.memberName, srcType, srcExprNode);
                     }
 
-                    this._addDeclarationToSymbol(symbol, createDeclaration(), node);
+                    this._addDeclarationToSymbol(symbol, createDeclaration(), typeAnnotationNode || node);
                     const primaryDecls = TypeUtils.getPrimaryDeclarationsForSymbol(symbol)!;
                     AnalyzerNodeInfo.setDeclarations(node.memberName, primaryDecls);
 
@@ -2536,12 +2530,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         // TODO - need to validate property setter type.
                     } else {
                         const diagAddendum = new DiagnosticAddendum();
-                        if (!TypeUtils.canAssignType(declaredType, srcType, diagAddendum)) {
-                            this._addError(`Expression of type '${ srcType.asString() }' cannot be ` +
-                                `assigned to declared type '${ declaredType.asString() }'` + diagAddendum.getString(),
-                                srcExprNode || typeAnnotationNode || node);
-                            destType = declaredType;
-                        } else {
+                        if (TypeUtils.canAssignType(declaredType, srcType, diagAddendum)) {
                             // Constrain the resulting type to match the declared type.
                             destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(destType, srcType);
                         }
@@ -2794,19 +2783,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         } else if (target instanceof TypeAnnotationExpressionNode) {
             const typeHintType = this._getTypeOfAnnotation(target.typeAnnotation);
             const diagAddendum = new DiagnosticAddendum();
-
-            let destType: Type;
-            if (!TypeUtils.canAssignType(typeHintType, srcType, diagAddendum)) {
-                this._addError(`Expression of type '${ srcType.asString() }' cannot be ` +
-                    `assigned to declared type '${ typeHintType.asString() }'` +
-                    diagAddendum.getString(),
-                    srcExpr);
-                destType = typeHintType;
-            } else {
-                destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(typeHintType, srcType);
+            if (TypeUtils.canAssignType(typeHintType, srcType, diagAddendum)) {
+                srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(typeHintType, srcType);
             }
 
-            this._assignTypeToExpression(target.valueExpression, destType, srcExpr);
+            this._assignTypeToExpression(target.valueExpression, srcType, srcExpr);
         } else if (target instanceof UnpackExpressionNode) {
             if (target.expression instanceof NameNode) {
                 const name = target.expression.nameToken;

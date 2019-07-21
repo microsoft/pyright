@@ -384,7 +384,7 @@ export class TypeUtils {
 
             if (destType instanceof ClassType) {
                 return this._canAssignClass(destType, srcType, diag,
-                    typeVarMap, allowSubclasses, recursionCount + 1);
+                    typeVarMap, allowSubclasses, recursionCount + 1, false);
             }
         }
 
@@ -404,7 +404,7 @@ export class TypeUtils {
                 }
 
                 if (!this._canAssignClass(destClassType, srcType.getClassType(),
-                        diag, typeVarMap, allowSubclasses, recursionCount + 1)) {
+                        diag, typeVarMap, allowSubclasses, recursionCount + 1, true)) {
 
                     return false;
                 }
@@ -1592,7 +1592,8 @@ export class TypeUtils {
 
     private static _canAssignClass(destType: ClassType, srcType: ClassType,
             diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined,
-            allowSubclasses: boolean, recursionCount: number): boolean {
+            allowSubclasses: boolean, recursionCount: number,
+            reportErrorsUsingObjType: boolean): boolean {
 
         // Is it a structural type (i.e. a protocol)? If so, we need to
         // perform a member-by-member check.
@@ -1639,6 +1640,10 @@ export class TypeUtils {
         }
 
         if (!allowSubclasses && !srcType.isSameGenericClass(destType)) {
+            const destErrorType = reportErrorsUsingObjType ? new ObjectType(destType) : destType;
+            const srcErrorType = reportErrorsUsingObjType ? new ObjectType(srcType) : srcType;
+            diag.addMessage(`'${ srcErrorType.asString() }' is incompatible with ` +
+                `'${ destErrorType.asString() }'`);
             return false;
         }
 
@@ -1656,8 +1661,10 @@ export class TypeUtils {
             return true;
         }
 
-        diag.addMessage(`'${ srcType.asString() }' is incompatible with ` +
-            `'${ destType.asString() }'`);
+        const destErrorType = reportErrorsUsingObjType ? new ObjectType(destType) : destType;
+        const srcErrorType = reportErrorsUsingObjType ? new ObjectType(srcType) : srcType;
+        diag.addMessage(`'${ srcErrorType.asString() }' is incompatible with ` +
+            `'${ destErrorType.asString() }'`);
         return false;
     }
 

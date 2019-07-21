@@ -208,13 +208,13 @@ test('AnnotatedVar3', () => {
 test('AnnotatedVar4', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar4.py']);
 
-    validateResults(analysisResults, 9);
+    validateResults(analysisResults, 4);
 });
 
 test('AnnotatedVar5', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar5.py']);
 
-    validateResults(analysisResults, 7);
+    validateResults(analysisResults, 4);
 });
 
 test('Execution1', () => {

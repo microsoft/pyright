@@ -18,7 +18,11 @@ class ClassC(object):
         # type doesn't match the declared type.
         self.inst_var1 = 3 # type: str
 
-        self.inst_var1 = 'hello' # type: str
+        self.inst_var1: str = 'hello'
+
+        # This should generate an error because the declared
+        # type doesn't match the previously declared type.
+        self.inst_var1: int = 'hello'
 
         # This should generate an error because the declared
         # type doesn't match the previously declared type.
