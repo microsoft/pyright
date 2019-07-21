@@ -1040,14 +1040,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode): boolean {
-        let exprType = this._getTypeOfExpression(node.rightExpression);
+        this._getTypeOfExpression(node.rightExpression);
 
         // TODO - need to verify that the LHS supports this operation
         // TODO - determine resulting type of operation
 
         // Report any errors with assigning to this type.
-        this._evaluateExpressionForAssignment(node.leftExpression, exprType,
-            node.rightExpression);
+        // this._evaluateExpressionForAssignment(node.leftExpression, exprType,
+        //     node.rightExpression);
 
         return true;
     }
@@ -2388,7 +2388,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
             isInstanceMember: boolean, typeAnnotationNode?: ExpressionNode,
             srcExprNode?: ExpressionNode) {
 
-        let classDef = ParseTreeUtils.getEnclosingClass(node);
+        const memberName = node.memberName.nameToken.value;
+        const isConstant = SymbolUtils.isConstantName(memberName);
+
+        // If the member name appears to be a constant, use the strict
+        // source type. If it appears to be a variable, strip off any
+        // literal to allow other values to be assigned to it later.
+        if (!isConstant) {
+            srcType = TypeUtils.stripLiteralValue(srcType);
+        }
+
+        const classDef = ParseTreeUtils.getEnclosingClass(node);
         if (!classDef) {
             return;
         }
@@ -2398,7 +2408,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let classType = AnalyzerNodeInfo.getExpressionType(classDef);
         if (classType && classType instanceof ClassType) {
-            let memberName = node.memberName.nameToken.value;
             let memberInfo = TypeUtils.lookUpClassMember(classType, memberName);
 
             // A local helper function that creates a new declaration.
@@ -2407,7 +2416,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     category: srcType instanceof FunctionType ?
                         SymbolCategory.Method : SymbolCategory.Variable,
                     node: node.memberName,
-                    isConstant: SymbolUtils.isConstantName(node.memberName.nameToken.value),
+                    isConstant,
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.memberName.start, node.memberName.end, this._fileInfo.lines)
                 };
@@ -2712,6 +2721,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (targetNode instanceof NameNode) {
                 // Determine whether we're writing to a class or instance member.
                 const enclosingClassNode = ParseTreeUtils.getEnclosingClass(target);
+
                 if (enclosingClassNode) {
                     const classType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
 

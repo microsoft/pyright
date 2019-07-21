@@ -397,7 +397,7 @@ export class TypeUtils {
                     const srcLiteral = srcType.getLiteralValue();
                     if (srcLiteral !== destLiteral) {
                         diag.addMessage(`'${ srcLiteral ? srcType.literalAsString() : srcType.asString() }' ` +
-                        ` cannot be assigned to '${ destType.literalAsString() }'`);
+                        `cannot be assigned to '${ destType.literalAsString() }'`);
 
                         return false;
                     }
@@ -475,6 +475,11 @@ export class TypeUtils {
                     return true;
                 }
             }
+        }
+
+        if (destType instanceof NoneType) {
+            diag.addMessage(`Cannot assign to 'None'`);
+            return false;
         }
 
         return false;
