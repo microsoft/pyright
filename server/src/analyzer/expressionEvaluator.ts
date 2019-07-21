@@ -771,6 +771,7 @@ export class ExpressionEvaluator {
 
         const baseType = baseTypeResult.type;
         const memberName = node.memberName.nameToken.value;
+        const diag = new DiagnosticAddendum();
 
         let type: Type | undefined;
 
@@ -779,6 +780,10 @@ export class ExpressionEvaluator {
         } else if (baseType instanceof ClassType) {
             type = this.getTypeFromClassMember(node.memberName, baseType,
                 node.memberName.nameToken.value, usage);
+
+            if (!type) {
+                diag.addMessage(`Member '${ memberName }' is unknown`);
+            }
         } else if (baseType instanceof ObjectType) {
             const classFromTypeObject = this._getClassFromPotentialTypeObject(baseType);
             if (classFromTypeObject) {
@@ -786,9 +791,12 @@ export class ExpressionEvaluator {
                 // represents a class.
                 return this._getTypeFromMemberAccessExpressionWithBaseType(node,
                    { type: classFromTypeObject, node: baseTypeResult.node }, usage, flags);
-            } else {
-                type = this.getTypeFromObjectMember(node.memberName, baseType,
-                    node.memberName.nameToken.value, usage, MemberAccessFlags.None);
+            }
+
+            type = this.getTypeFromObjectMember(node.memberName, baseType,
+                node.memberName.nameToken.value, usage, MemberAccessFlags.None);
+            if (!type) {
+                diag.addMessage(`Member '${ memberName }' is unknown`);
             }
         } else if (baseType instanceof ModuleType) {
             let memberInfo = baseType.getFields().get(memberName);
@@ -837,6 +845,8 @@ export class ExpressionEvaluator {
                 });
                 decoratorType.setDeclaredReturnType(baseType);
                 type = decoratorType;
+            } else {
+                diag.addMessage(`Unknown property member`);
             }
         } else if (baseType instanceof FunctionType || baseType instanceof OverloadedFunctionType) {
             // If we're assigning a value to the __defaults__ member of a function,
@@ -850,6 +860,8 @@ export class ExpressionEvaluator {
             // TODO - not yet sure what to do about members of functions,
             // which have associated dictionaries.
             type = UnknownType.create();
+        } else {
+            diag.addMessage(`Unsupported type '${ baseType.asString() }'`);
         }
 
         if (!type) {
@@ -861,7 +873,8 @@ export class ExpressionEvaluator {
             }
 
             this._addError(
-                `Cannot ${ operationName } member '${ memberName }' for type '${ baseType.asString() }'`,
+                `Cannot ${ operationName } member '${ memberName }' ` +
+                `for type '${ baseType.asString() }'` + diag.getString(),
                 node.memberName);
             type = UnknownType.create();
         }
@@ -1059,7 +1072,8 @@ export class ExpressionEvaluator {
                 }
             } else if (usage.method === 'set') {
                 let setAttrType = this.getTypeFromClassMember(errorNode, classType,
-                    '__setattr__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
+                    '__setattr__', { method: 'get' },
+                        MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
                 if (setAttrType) {
                     // The type doesn't matter for a set usage. We just need
                     // to return a defined type.
@@ -1071,7 +1085,8 @@ export class ExpressionEvaluator {
             } else {
                 assert(usage.method === 'del');
                 let delAttrType = this.getTypeFromClassMember(errorNode, classType,
-                    '__detattr__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
+                    '__detattr__', { method: 'get' },
+                        MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
                 if (delAttrType) {
                     // The type doesn't matter for a delete usage. We just need
                     // to return a defined type.

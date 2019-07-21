@@ -2394,7 +2394,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // If the member name appears to be a constant, use the strict
         // source type. If it appears to be a variable, strip off any
         // literal to allow other values to be assigned to it later.
-        if (!isConstant) {
+        if (!isConstant || this._fileInfo.diagnosticSettings.reportConstantRedefinition === 'none') {
             srcType = TypeUtils.stripLiteralValue(srcType);
         }
 

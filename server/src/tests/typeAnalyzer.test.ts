@@ -450,3 +450,9 @@ test('CallbackPrototype1', () => {
 
     validateResults(analysisResults, 3);
 });
+
+test('Assignment1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment1.py']);
+
+    validateResults(analysisResults, 7);
+});
