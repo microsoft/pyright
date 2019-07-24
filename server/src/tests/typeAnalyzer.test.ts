@@ -292,7 +292,7 @@ test('Constant1', () => {
 test('Tuples1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples1.py']);
 
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 7);
 });
 
 test('NamedTuples1', () => {

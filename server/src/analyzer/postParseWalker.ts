@@ -19,9 +19,8 @@ import { NameBindings, NameBindingType } from '../parser/nameBindings';
 import { AssignmentNode, ClassNode, DelNode, ExpressionNode,
     ForNode, FunctionNode, GlobalNode, ImportAsNode, ImportFromAsNode,
     ImportFromNode, LambdaNode, ListNode, ModuleNameNode, ModuleNode, NameNode,
-    NonlocalNode, ParseNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode,
-    WithNode } from '../parser/parseNodes';
+    NonlocalNode, ParseNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnpackExpressionNode, WithNode } from '../parser/parseNodes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeWalker } from './parseTreeWalker';
 
@@ -255,6 +254,8 @@ export class PostParseWalker extends ParseTreeWalker {
             });
         } else if (node instanceof TypeAnnotationExpressionNode) {
             this._addPossibleTupleNamedTarget(node.valueExpression);
+        } else if (node instanceof UnpackExpressionNode) {
+            this._addPossibleTupleNamedTarget(node.expression);
         }
     }
 

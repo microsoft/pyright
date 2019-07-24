@@ -42,8 +42,9 @@ import { SymbolUtils } from './symbolUtils';
 import { TypeConstraintBuilder } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, NoneType, ObjectType, OverloadedFunctionType,
-    PropertyType, Type, TypeCategory, TypeVarType, UnboundType, UnionType,
+    FunctionTypeFlags, ModuleType, NeverType, NoneType, ObjectType,
+    OverloadedFunctionType, PropertyType, Type, TypeCategory, TypeVarType, UnboundType,
+    UnionType,
     UnknownType } from './types';
 import { ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
@@ -2743,23 +2744,50 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (tupleType && tupleType.getTypeArguments()) {
                     const entryTypes = tupleType.getTypeArguments()!;
                     let entryCount = entryTypes.length;
-                    const allowsMoreEntries = entryCount > 0 &&
+
+                    const sourceEndsInEllipsis = entryCount > 0 &&
                         TypeUtils.isEllipsisType(entryTypes[entryCount - 1]);
-                    if (allowsMoreEntries) {
+                    if (sourceEndsInEllipsis) {
                         entryCount--;
                     }
 
-                    if (target.expressions.length === entryCount ||
-                            (allowsMoreEntries && target.expressions.length >= entryCount)) {
-                        for (let index = 0; index < target.expressions.length; index++) {
-                            const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
-                            targetTypes[index].push(entryType);
+                    const targetEndsWithUnpackOperator = target.expressions.length > 0 &&
+                        target.expressions[target.expressions.length - 1] instanceof UnpackExpressionNode;
+
+                    if (targetEndsWithUnpackOperator) {
+                        if (entryCount >= target.expressions.length) {
+                            for (let index = 0; index < target.expressions.length - 1; index++) {
+                                const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
+                                targetTypes[index].push(entryType);
+                            }
+
+                            let remainingTypes: Type[] = [];
+                            for (let index = target.expressions.length - 1; index < entryCount; index++) {
+                                const entryType = entryTypes[index];
+                                remainingTypes.push(entryType);
+                            }
+
+                            targetTypes[target.expressions.length - 1].push(TypeUtils.combineTypes(remainingTypes));
+                        } else {
+                            this._addError(
+                                `Tuple size mismatch: expected at least ${ target.expressions.length } entries` +
+                                    ` but got ${ entryCount }`,
+                                target);
                         }
                     } else {
-                        this._addError(
-                            `Tuple size mismatch: expected ${ target.expressions.length }` +
-                                ` but got ${ entryCount }`,
-                            target);
+                        if (target.expressions.length === entryCount ||
+                                (sourceEndsInEllipsis && target.expressions.length >= entryCount)) {
+
+                            for (let index = 0; index < target.expressions.length; index++) {
+                                const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
+                                targetTypes[index].push(entryType);
+                            }
+                        } else {
+                            this._addError(
+                                `Tuple size mismatch: expected ${ target.expressions.length }` +
+                                    ` but got ${ entryCount }`,
+                                target);
+                        }
                     }
                 } else {
                     // The assigned expression isn't a tuple, so it had better
@@ -2798,7 +2826,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
                 };
-                srcType = UnknownType.create();
+
+                if (!srcType.isAny()) {
+                    // Make a list type from the source.
+                    const listType = ScopeUtils.getBuiltInType(this._currentScope, 'List');
+                    if (listType instanceof ClassType) {
+                        srcType = new ObjectType(listType.cloneForSpecialization([srcType]));
+                    } else {
+                        srcType = UnknownType.create();
+                    }
+                }
                 this._assignTypeToNameNode(target.expression, srcType, declaration, srcExpr);
             }
         } else if (target instanceof ListNode) {

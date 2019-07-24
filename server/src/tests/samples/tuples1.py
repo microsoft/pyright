@@ -66,3 +66,40 @@ func9(func10())
 func9((2, 3, 4))
 func9((2,))
 
+# Tests for tuple assignments with unpack expressions.
+def func10() -> int:
+    a = (3, 4, 5)
+
+    c, *d = a
+    if c:
+        # This should generate an error because
+        # d should be a list type, not compatible
+        # with the declared return type.
+        return d
+
+    if c:
+        return d[0]
+
+    # This should generate an error because
+    # there are not enough elements to populate
+    # the unpacked variable h.
+    e, f, g, *h = a
+
+    return e
+
+# Tests for tuple assignments with unpack expressions.
+def func11() -> float:
+    b = ('hello', 3, 6.7)
+
+    c, *d = b
+    if c:
+        # This should generate an error because
+        # d should be a list type, not compatible
+        # with the declared return type.
+        return d
+
+    if c:
+        return d[0]
+
+    return 3
+
