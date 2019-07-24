@@ -31,7 +31,7 @@ interface Settings {
     // If more sections are added to this interface,
     // make sure to update the sections array in the
     // updateSettingsForAllWorkspaces method.
-    python: PythonSettings;
+    python?: PythonSettings;
 }
 
 interface WorkspaceServiceInstance {
@@ -67,8 +67,8 @@ _documents.listen(_connection);
 
 const _defaultWorkspacePath = '<default>';
 
-function _createAnalyzerService(): AnalyzerService {
-    const service = new AnalyzerService(_connection.console);
+function _createAnalyzerService(name: string): AnalyzerService {
+    const service = new AnalyzerService(name, _connection.console);
 
     // Don't allow the analysis engine to go too long without
     // reporting results. This will keep it responsive.
@@ -121,7 +121,7 @@ _connection.onInitialize((params): InitializeResult => {
                 workspaceName: folder.name,
                 rootPath: path,
                 rootUri: folder.uri,
-                serviceInstance: _createAnalyzerService()
+                serviceInstance: _createAnalyzerService(folder.name)
             });
         });
     } else if (params.rootPath) {
@@ -129,7 +129,7 @@ _connection.onInitialize((params): InitializeResult => {
             workspaceName: '',
             rootPath: params.rootPath,
             rootUri: '',
-            serviceInstance: _createAnalyzerService()
+            serviceInstance: _createAnalyzerService(params.rootPath)
         });
     }
 
@@ -139,7 +139,7 @@ _connection.onInitialize((params): InitializeResult => {
         workspaceName: '',
         rootPath: '',
         rootUri: '',
-        serviceInstance: _createAnalyzerService()
+        serviceInstance: _createAnalyzerService('<default>')
     });
 
     _connection.console.log(`Fetching settings for workspace(s)`);
@@ -163,34 +163,32 @@ _connection.onInitialize((params): InitializeResult => {
     };
 });
 
-function _getWorkspacesForFile(filePath: string): WorkspaceServiceInstance[] {
-    let instances: WorkspaceServiceInstance[] = [];
+function _getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
+    let bestRootPath: string | undefined;
+    let bestInstance: WorkspaceServiceInstance | undefined;
 
     _workspaceMap.forEach(workspace => {
         if (workspace.rootPath) {
+            // Is the file is under this workspace folder?
             if (filePath.startsWith(workspace.rootPath)) {
-                instances.push(workspace);
+                // Is this the fist candidate? If not, is this workspace folder
+                // contained within the previous candidate folder? We always want
+                // to select the innermost folder, since that overrides the
+                // outer folders.
+                if (bestRootPath === undefined || workspace.rootPath.startsWith(bestRootPath)) {
+                    bestRootPath = workspace.rootPath;
+                    bestInstance = workspace;
+                }
             }
         }
     });
 
-    if (instances.length === 0) {
-        instances.push(_workspaceMap.get(_defaultWorkspacePath)!);
+    if (bestInstance === undefined) {
+        return _workspaceMap.get(_defaultWorkspacePath)!;
     }
 
-    return instances;
+    return bestInstance;
 }
-
-// The content of a text document has changed. This event is emitted
-// when the text document first opened or when its content has changed.
-_documents.onDidChangeContent(change => {
-    let filePath = _convertUriToPath(change.document.uri);
-    _connection.console.log(`File "${ filePath }" changed -- marking dirty`);
-    _getWorkspacesForFile(filePath).forEach(workspace => {
-        workspace.serviceInstance.markFilesChanged([filePath]);
-        updateOptionsAndRestartService(workspace);
-    });
-});
 
 _connection.onDidChangeConfiguration(change => {
     _connection.console.log(`Received updated settings`);
@@ -205,7 +203,7 @@ _connection.onDefinition(params => {
         column: params.position.character
     };
 
-    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const service = _getWorkspaceForFile(filePath).serviceInstance;
     const locations = service.getDefinitionForPosition(filePath, position);
     if (!locations) {
         return undefined;
@@ -222,7 +220,7 @@ _connection.onReferences(params => {
         column: params.position.character
     };
 
-    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const service = _getWorkspaceForFile(filePath).serviceInstance;
     const locations = service.getReferencesForPosition(filePath, position,
             params.context.includeDeclaration);
     if (!locations) {
@@ -240,7 +238,7 @@ _connection.onHover(params => {
         column: params.position.character
     };
 
-    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const service = _getWorkspaceForFile(filePath).serviceInstance;
     const hoverResults = service.getHoverForPosition(filePath, position);
     if (!hoverResults) {
         return undefined;
@@ -270,7 +268,7 @@ _connection.onSignatureHelp(params => {
         column: params.position.character
     };
 
-    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const service = _getWorkspaceForFile(filePath).serviceInstance;
     const signatureHelpResults = service.getSignatureHelpForPosition(
         filePath, position);
     if (!signatureHelpResults) {
@@ -304,13 +302,13 @@ _connection.onCompletion(params => {
         column: params.position.character
     };
 
-    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const service = _getWorkspaceForFile(filePath).serviceInstance;
     return service.getCompletionsForPosition(filePath, position);
 });
 
 _connection.onDidOpenTextDocument(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
-    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const service = _getWorkspaceForFile(filePath).serviceInstance;
     service.setFileOpened(
         filePath,
         params.textDocument.version,
@@ -319,7 +317,7 @@ _connection.onDidOpenTextDocument(params => {
 
 _connection.onDidChangeTextDocument(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
-    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const service = _getWorkspaceForFile(filePath).serviceInstance;
     service.updateOpenFileContents(
         filePath,
         params.textDocument.version,
@@ -328,7 +326,7 @@ _connection.onDidChangeTextDocument(params => {
 
 _connection.onDidCloseTextDocument(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
-    const service = _getWorkspacesForFile(filePath)[0].serviceInstance;
+    const service = _getWorkspaceForFile(filePath).serviceInstance;
     service.setFileClosed(filePath);
 });
 
@@ -354,13 +352,13 @@ function updateSettingsForAllWorkspaces() {
 }
 
 function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
-        settings?: Settings) {
+        settings: Settings) {
 
     const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
     commandLineOptions.watch = true;
     commandLineOptions.verboseOutput = true;
 
-    if (settings && settings.python) {
+    if (settings.python) {
         if (settings.python.venvPath) {
             commandLineOptions.venvPath = combinePaths(workspace.rootPath || _rootPath,
                 normalizePath(_expandPathVariables(settings.python.venvPath)));
@@ -399,7 +397,7 @@ _connection.onInitialized(() => {
                 workspaceName: workspace.name,
                 rootPath: rootPath,
                 rootUri: workspace.uri,
-                serviceInstance: _createAnalyzerService()
+                serviceInstance: _createAnalyzerService(workspace.name)
             });
         });
     });

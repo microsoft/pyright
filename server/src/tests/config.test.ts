@@ -16,7 +16,7 @@ import { NullConsole } from '../common/console';
 import { combinePaths, normalizeSlashes } from '../common/pathUtils';
 
 test('FindFilesWithConfigFile', () => {
-    let service = new AnalyzerService(new NullConsole());
+    let service = new AnalyzerService('<default>', new NullConsole());
     let commandLineOptions = new CommandLineOptions(process.cwd(), true);
     commandLineOptions.configFilePath = 'src/tests/samples/project1';
 
@@ -38,7 +38,7 @@ test('FindFilesWithConfigFile', () => {
 
 test('FileSpecNotAnArray', () => {
     let nullConsole = new NullConsole();
-    let service = new AnalyzerService(nullConsole);
+    let service = new AnalyzerService('<default>', nullConsole);
     let commandLineOptions = new CommandLineOptions(process.cwd(), false);
     commandLineOptions.configFilePath = 'src/tests/samples/project2';
     service.setOptions(commandLineOptions);
@@ -51,7 +51,7 @@ test('FileSpecNotAnArray', () => {
 
 test('FileSpecNotAString', () => {
     let nullConsole = new NullConsole();
-    let service = new AnalyzerService(nullConsole);
+    let service = new AnalyzerService('<default>', nullConsole);
     let commandLineOptions = new CommandLineOptions(process.cwd(), false);
     commandLineOptions.configFilePath = 'src/tests/samples/project3';
     service.setOptions(commandLineOptions);
@@ -64,7 +64,7 @@ test('FileSpecNotAString', () => {
 
 test('SomeFileSpecsAreInvalid', () => {
     let nullConsole = new NullConsole();
-    let service = new AnalyzerService(nullConsole);
+    let service = new AnalyzerService('<default>', nullConsole);
     let commandLineOptions = new CommandLineOptions(process.cwd(), false);
     commandLineOptions.configFilePath = 'src/tests/samples/project4';
     service.setOptions(commandLineOptions);
@@ -86,7 +86,7 @@ test('SomeFileSpecsAreInvalid', () => {
 
 test('ConfigBadJson', () => {
     let nullConsole = new NullConsole();
-    let service = new AnalyzerService(nullConsole);
+    let service = new AnalyzerService('<default>', nullConsole);
     let commandLineOptions = new CommandLineOptions(process.cwd(), false);
     commandLineOptions.configFilePath = 'src/tests/samples/project5';
     service.setOptions(commandLineOptions);

@@ -100,7 +100,7 @@ function processArgs() {
     let watch = args.watch !== undefined;
     options.watch = watch;
 
-    let service = new AnalyzerService();
+    let service = new AnalyzerService('<default>');
 
     service.setCompletionCallback(results => {
         if (results.fatalErrorOccurred) {

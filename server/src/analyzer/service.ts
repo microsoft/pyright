@@ -39,6 +39,7 @@ export interface AnalysisResults {
 export type AnalysisCompleteCallback = (results: AnalysisResults) => void;
 
 export class AnalyzerService {
+    private _instanceName: string;
     private _program: Program;
     private _configOptions: ConfigOptions;
     private _executionRootPath: string;
@@ -53,11 +54,14 @@ export class AnalyzerService {
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
 
-    constructor(console?: ConsoleInterface) {
+    constructor(instanceName: string, console?: ConsoleInterface) {
+        this._instanceName = instanceName;
         this._console = console || new StandardConsole();
         this._program = new Program(this._console);
         this._configOptions = new ConfigOptions(process.cwd());
         this._executionRootPath = '';
+
+        this._console.log(`Starting service instance "${ this._instanceName }"`);
     }
 
     setCompletionCallback(callback: AnalysisCompleteCallback | undefined): void {
@@ -254,6 +258,8 @@ export class AnalyzerService {
         }
 
         if (commandLineOptions.pythonPath) {
+            this._console.log(`Setting pythonPath for service "${ this._instanceName }": ` +
+                `"${ commandLineOptions.pythonPath }"`);
             configOptions.pythonPath = commandLineOptions.pythonPath;
         }
 
