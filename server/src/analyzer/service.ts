@@ -152,6 +152,10 @@ export class AnalyzerService {
         this._console.log('Maximum pass count:   ' + maxPassCount.toString() + path);
     }
 
+    printDependencies() {
+        this._program.printDependencies();
+    }
+
     test_getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
         return this._getConfigOptions(commandLineOptions);
     }

@@ -38,6 +38,7 @@ interface DiagnosticResult {
 
 function processArgs() {
     const optionDefinitions: OptionDefinition[] = [
+        { name: 'dependencies', type: Boolean },
         { name: 'files', type: String, multiple: true, defaultOption: true },
         { name: 'help', alias: 'h', type: Boolean },
         { name: 'project', alias: 'p', type: String },
@@ -95,7 +96,7 @@ function processArgs() {
         options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshed-path']));
     }
 
-    options.verboseOutput = args.verbose !== undefined;
+    options.verboseOutput = !!args.verbose;
 
     let watch = args.watch !== undefined;
     options.watch = watch;
@@ -124,6 +125,10 @@ function processArgs() {
             timingStats.printDetails(console);
         }
 
+        if (args.dependencies) {
+            service.printDependencies();
+        }
+
         if (!watch) {
             process.exit(
                 errorCount > 0 ?
@@ -146,6 +151,7 @@ function printUsage() {
     console.log(
         'Usage: ' + toolName + ' [options] files...\n' +
         '  Options:\n' +
+        '  --dependencies                   Emit import dependecy information\n' +
         '  -h,--help                        Show this help message\n' +
         '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +
         '  --stats                          Print detailed performance stats\n' +

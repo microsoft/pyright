@@ -302,6 +302,43 @@ export class Program {
         return false;
     }
 
+    // Prints import dependency information for each of the files in the program.
+    printDependencies() {
+        const sortedFiles = this._sourceFileList.sort((a, b) => {
+            return (a.sourceFile.getFilePath() < b.sourceFile.getFilePath()) ? 1 : -1;
+        });
+
+        const zeroImportFiles: SourceFile[] = [];
+
+        sortedFiles.forEach(sfInfo => {
+            this._console.log(`${ sfInfo.sourceFile.getFilePath() }`)
+
+            this._console.log(` Imports ${ sfInfo.imports.length } ` +
+                `file${ sfInfo.imports.length === 1 ? '' : 's' }`)
+            sfInfo.imports.forEach(importInfo => {
+                this._console.log(`    ${ importInfo.sourceFile.getFilePath() }`)
+            });
+
+            this._console.log(` Imported by ${ sfInfo.importedBy.length } ` +
+                `file${ sfInfo.importedBy.length === 1 ? '' : 's' }`)
+            sfInfo.importedBy.forEach(importInfo => {
+                this._console.log(`    ${ importInfo.sourceFile.getFilePath() }`)
+            });
+            if (sfInfo.importedBy.length === 0) {
+                zeroImportFiles.push(sfInfo.sourceFile);
+            }
+        });
+
+        if (zeroImportFiles.length > 0) {
+            this._console.log('');
+            this._console.log(`${ zeroImportFiles.length } file${ zeroImportFiles.length === 1 ? '' : 's' }` +
+                ` not explicitly imported`);
+            zeroImportFiles.forEach(importFile => {
+                this._console.log(`    ${ importFile.getFilePath() }`)
+            });
+        }
+    }
+
     // This method is similar to analyze() except that it analyzes
     // a single file (and its dependencies if necessary).
     private _analyzeFile(sourceFileInfo: SourceFileInfo, options: ConfigOptions,
