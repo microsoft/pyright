@@ -1152,6 +1152,17 @@ export class ExpressionEvaluator {
                 if (subtype.isSpecialBuiltIn() && subtype.getClassName() === 'Literal') {
                     // Special-case Literal types.
                     return this._createLiteralType(node);
+                } else if (subtype.isBuiltIn() && subtype.getClassName() === 'InitVar') {
+                    // Special-case InitVar, used in data classes.
+                    let typeArgs = this._getTypeArgs(node.items);
+                    if (typeArgs.length === 1) {
+                        return typeArgs[0].type;
+                    } else {
+                        this._addError(
+                            `Expected one type argument for 'InitVar' but got ${ typeArgs.length }`,
+                            node.baseExpression);
+                        return UnknownType.create();
+                    }
                 } else if (TypeUtils.isEnumClass(subtype)) {
                     // Special-case Enum types.
                     // TODO - validate that there's only one index entry

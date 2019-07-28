@@ -1,12 +1,13 @@
 # This sample tests the handling of the @dataclass decorator.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, InitVar
 
 @dataclass
 class Bar():
     bbb: int
     ccc: str
     aaa = 'string'
+    ddd: InitVar[int] = 3
 
 bar1 = Bar(bbb=5, ccc='hello')
 bar2 = Bar(5, 'hello')
