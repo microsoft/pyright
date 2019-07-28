@@ -16,16 +16,16 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { ArgumentCategory, AssignmentNode, AwaitExpressionNode,
-    BinaryExpressionNode, CallExpressionNode, ClassNode, ConstantNode,
-    DecoratorNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode,
-    EllipsisNode, ErrorExpressionNode, ExpressionNode, IndexExpressionNode,
-    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
-    ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode, NumberNode,
-    ParameterCategory, ParseNode, SetNode, SliceExpressionNode, StatementListNode,
-    StringListNode, TernaryExpressionNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { ArgumentCategory, AssignmentNode, AugmentedAssignmentExpressionNode,
+    AwaitExpressionNode, BinaryExpressionNode, CallExpressionNode, ClassNode,
+    ConstantNode, DecoratorNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode,
+    DictionaryNode, EllipsisNode, ErrorExpressionNode, ExpressionNode,
+    IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionForNode,
+    ListComprehensionIfNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
+    NumberNode, ParameterCategory, ParseNode, SetNode, SliceExpressionNode,
+    StatementListNode, StringListNode, TernaryExpressionNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
+    UnpackExpressionNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, StringTokenFlags,
     TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -119,6 +119,43 @@ interface ParamAssignmentInfo {
 
 export type ReadTypeFromNodeCacheCallback = (node: ExpressionNode) => Type | undefined;
 export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) => void;
+
+const arithmeticOperatorMap: { [operator: number]: [string, string, boolean] } = {
+    [OperatorType.Add]: ['__add__', '__radd__', true],
+    [OperatorType.Subtract]: ['__sub__', '__rsub__', true],
+    [OperatorType.Multiply]: ['__mul__', '__rmul__', true],
+    [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__', true],
+    [OperatorType.Divide]: ['__truediv__', '__rtruediv__', true],
+    [OperatorType.Mod]: ['__mod__', '__rmod__', true],
+    [OperatorType.Power]: ['__pow__', '__rpow__', true],
+    [OperatorType.MatrixMultiply]: ['__matmul__', '', false]
+};
+
+const bitwiseOperatorMap: { [operator: number]: [string, string] } = {
+    [OperatorType.BitwiseAnd]: ['__and__', '__rand__'],
+    [OperatorType.BitwiseOr]: ['__or__', '__ror__'],
+    [OperatorType.BitwiseXor]: ['__xor__', '__rxor__'],
+    [OperatorType.LeftShift]: ['__lshift__', '__rlshift__'],
+    [OperatorType.RightShift]: ['__rshift__', '__rrshift__']
+};
+
+const comparisonOperatorMap: { [operator: number]: string } = {
+    [OperatorType.Equals]: '__eq__',
+    [OperatorType.NotEquals]: '__ne__',
+    [OperatorType.LessThan]: '__lt__',
+    [OperatorType.LessThanOrEqual]: '__le__',
+    [OperatorType.GreaterThan]: '__gt__',
+    [OperatorType.GreaterThanOrEqual]: '__ge__'
+};
+
+const booleanOperatorMap: { [operator: number]: boolean } = {
+    [OperatorType.And]: true,
+    [OperatorType.Or]: true,
+    [OperatorType.Is]: true,
+    [OperatorType.IsNot]: true,
+    [OperatorType.In]: true,
+    [OperatorType.NotIn]: true
+};
 
 export class ExpressionEvaluator {
     private _scope: Scope;
@@ -611,6 +648,9 @@ export class ExpressionEvaluator {
         } else if (node instanceof BinaryExpressionNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromBinaryExpression(node);
+        } else if (node instanceof AugmentedAssignmentExpressionNode) {
+            this._reportUsageErrorForReadOnly(node, usage);
+            typeResult = this._getTypeFromAugmentedExpression(node);
         } else if (node instanceof ListNode) {
             typeResult = this._getTypeFromListExpression(node, usage);
         } else if (node instanceof SliceExpressionNode) {
@@ -2355,45 +2395,6 @@ export class ExpressionEvaluator {
             rightType = this.getType(node.rightExpression);
         });
 
-        const arithmeticOperatorMap: { [operator: number]: [string, string, boolean] } = {
-            [OperatorType.Add]: ['__add__', '__radd__', true],
-            [OperatorType.Subtract]: ['__sub__', '__rsub__', true],
-            [OperatorType.Multiply]: ['__mul__', '__rmul__', true],
-            [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__', true],
-            [OperatorType.Divide]: ['__truediv__', '__rtruediv__', true],
-            [OperatorType.Mod]: ['__mod__', '__rmod__', true],
-            [OperatorType.Power]: ['__pow__', '__rpow__', true],
-            [OperatorType.MatrixMultiply]: ['__matmul__', '', false]
-        };
-
-        const bitwiseOperatorMap: { [operator: number]: [string, string] } = {
-            [OperatorType.BitwiseAnd]: ['__and__', '__rand__'],
-            [OperatorType.BitwiseOr]: ['__or__', '__ror__'],
-            [OperatorType.BitwiseXor]: ['__xor__', '__rxor__'],
-            [OperatorType.LeftShift]: ['__lshift__', '__rlshift__'],
-            [OperatorType.RightShift]: ['__rshift__', '__rrshift__']
-        };
-
-        const comparisonOperatorMap: { [operator: number]: string } = {
-            [OperatorType.Equals]: '__eq__',
-            [OperatorType.NotEquals]: '__ne__',
-            [OperatorType.LessThan]: '__lt__',
-            [OperatorType.LessThanOrEqual]: '__le__',
-            [OperatorType.GreaterThan]: '__gt__',
-            [OperatorType.GreaterThanOrEqual]: '__ge__'
-        };
-
-        const booleanOperatorMap: { [operator: number]: boolean } = {
-            [OperatorType.And]: true,
-            [OperatorType.Or]: true,
-            [OperatorType.Is]: true,
-            [OperatorType.IsNot]: true,
-            [OperatorType.In]: true,
-            [OperatorType.NotIn]: true
-        };
-
-        let type: Type | undefined;
-
         // Optional checks apply to all operations except for boolean operations.
         if (booleanOperatorMap[node.operator] === undefined) {
             if (TypeUtils.isOptionalType(leftType)) {
@@ -2415,7 +2416,56 @@ export class ExpressionEvaluator {
             }
         }
 
-        if (arithmeticOperatorMap[node.operator]) {
+        return {
+            type: this._validateBinaryExpression(node.operator, leftType, rightType, node),
+            node
+        };
+    }
+
+    private _getTypeFromAugmentedExpression(node: AugmentedAssignmentExpressionNode): TypeResult {
+        const operatorMap: { [operator: number]: [string, OperatorType] } = {
+            [OperatorType.AddEqual]: ['__iadd__', OperatorType.Add],
+            [OperatorType.SubtractEqual]: ['__isub__', OperatorType.Subtract],
+            [OperatorType.MultiplyEqual]: ['__imul__', OperatorType.Multiply],
+            [OperatorType.FloorDivideEqual]: ['__ifloordiv__', OperatorType.FloorDivide],
+            [OperatorType.DivideEqual]: ['__itruediv__', OperatorType.Divide],
+            [OperatorType.ModEqual]: ['__imod__', OperatorType.Mod],
+            [OperatorType.PowerEqual]: ['__ipow__', OperatorType.Power],
+            [OperatorType.MatrixMultiplyEqual]: ['__imatmul__', OperatorType.MatrixMultiply],
+            [OperatorType.BitwiseAndEqual]: ['__iand__', OperatorType.BitwiseAnd],
+            [OperatorType.BitwiseOrEqual]: ['__ior__', OperatorType.BitwiseOr],
+            [OperatorType.BitwiseXorEqual]: ['__ixor__', OperatorType.BitwiseXor],
+            [OperatorType.LeftShiftEqual]: ['__ilshift__', OperatorType.LeftShift],
+            [OperatorType.RightShiftEqual]: ['__irshift__', OperatorType.RightShift]
+        };
+
+        let type: Type | undefined;
+
+        const leftType = this.getType(node.leftExpression);
+        const rightType = this.getType(node.rightExpression);
+
+        if (!leftType.isAny() && !rightType.isAny()) {
+            const magicMethodName = operatorMap[node.operator][0];
+            type = this._getTypeFromMagicMethodReturn(rightType, [leftType],
+                magicMethodName, node);
+        }
+
+        // If the LHS class didn't support the magic method for augmented
+        // assignment, fall back on the normal binary expression evaluator.
+        if (!type) {
+            const binaryOperator = operatorMap[node.operator][1];
+            type = this._validateBinaryExpression(binaryOperator, leftType, rightType, node);
+        }
+
+        return { type, node };
+    }
+
+    private _validateBinaryExpression(operator: OperatorType, leftType: Type, rightType: Type,
+            errorNode: ExpressionNode): Type {
+
+        let type: Type | undefined;
+
+        if (arithmeticOperatorMap[operator]) {
             if (leftType.isAny() || rightType.isAny()) {
                 // If either type is "Unknown" (versus Any), propagate the Unknown.
                 if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
@@ -2424,7 +2474,7 @@ export class ExpressionEvaluator {
                     type = AnyType.create();
                 }
             } else {
-                const supportsBuiltInTypes = arithmeticOperatorMap[node.operator][2];
+                const supportsBuiltInTypes = arithmeticOperatorMap[operator][2];
 
                 if (supportsBuiltInTypes) {
                     let simplifiedLeftType = TypeUtils.removeAnyFromUnion(leftType);
@@ -2462,17 +2512,17 @@ export class ExpressionEvaluator {
 
             // Handle the general case.
             if (!type) {
-                const magicMethodName = arithmeticOperatorMap[node.operator][0];
+                const magicMethodName = arithmeticOperatorMap[operator][0];
                 type = this._getTypeFromMagicMethodReturn(leftType, [rightType],
-                    magicMethodName, node);
+                    magicMethodName, errorNode);
 
                 if (!type) {
-                    const altMagicMethodName = arithmeticOperatorMap[node.operator][1];
+                    const altMagicMethodName = arithmeticOperatorMap[operator][1];
                     type = this._getTypeFromMagicMethodReturn(rightType, [leftType],
-                        altMagicMethodName, node);
+                        altMagicMethodName, errorNode);
                 }
             }
-        } else if (bitwiseOperatorMap[node.operator]) {
+        } else if (bitwiseOperatorMap[operator]) {
             if (leftType.isAny() || rightType.isAny()) {
                 // If either type is "Unknown" (versus Any), propagate the Unknown.
                 if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
@@ -2494,11 +2544,11 @@ export class ExpressionEvaluator {
 
             // Handle the general case.
             if (!type) {
-                const magicMethodName = bitwiseOperatorMap[node.operator][0];
+                const magicMethodName = bitwiseOperatorMap[operator][0];
                 type = this._getTypeFromMagicMethodReturn(leftType, [rightType],
-                    magicMethodName, node);
+                    magicMethodName, errorNode);
             }
-        } else if (comparisonOperatorMap[node.operator]) {
+        } else if (comparisonOperatorMap[operator]) {
             if (leftType.isAny() || rightType.isAny()) {
                 // If either type is "Unknown" (versus Any), propagate the Unknown.
                 if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
@@ -2507,17 +2557,17 @@ export class ExpressionEvaluator {
                     type = AnyType.create();
                 }
             } else {
-                const magicMethodName = comparisonOperatorMap[node.operator];
+                const magicMethodName = comparisonOperatorMap[operator];
 
                 type = this._getTypeFromMagicMethodReturn(leftType, [rightType],
-                    magicMethodName, node);
+                    magicMethodName, errorNode);
             }
-        } else if (booleanOperatorMap[node.operator]) {
-            if (node.operator === OperatorType.And) {
+        } else if (booleanOperatorMap[operator]) {
+            if (operator === OperatorType.And) {
                 // If the operator is an AND or OR, we need to combine the two types.
                 type = TypeUtils.combineTypes([
                     TypeUtils.removeTruthinessFromType(leftType), rightType]);
-            } else if (node.operator === OperatorType.Or) {
+            } else if (operator === OperatorType.Or) {
                 type = TypeUtils.combineTypes([
                     TypeUtils.removeFalsinessFromType(leftType), rightType]);
             } else {
@@ -2527,13 +2577,13 @@ export class ExpressionEvaluator {
         }
 
         if (!type) {
-            this._addError(`Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
+            this._addError(`Operator '${ ParseTreeUtils.printOperator(operator) }' not ` +
                 `supported for types '${ leftType.asString() }' and '${ rightType.asString() }'`,
-                node);
+                errorNode);
             type = UnknownType.create();
         }
 
-        return { type, node };
+        return type;
     }
 
     private _getTypeFromMagicMethodReturn(objType: Type, args: Type[],

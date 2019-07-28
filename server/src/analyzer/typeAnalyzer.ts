@@ -26,7 +26,7 @@ import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
     WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
-import { KeywordType } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -1035,15 +1035,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode): boolean {
-        this._getTypeOfExpression(node.rightExpression);
+        // Augmented assignments are technically not expressions but statements
+        // in Python, but we'll model them as expressions and rely on the expression
+        // evaluator to validate them.
+        const type = this._getTypeOfExpression(node);
 
-        // TODO - need to verify that the LHS supports this operation
-        // TODO - determine resulting type of operation
-
-        // Report any errors with assigning to this type.
-        // this._evaluateExpressionForAssignment(node.leftExpression, exprType,
-        //     node.rightExpression);
-
+        // Validate that the type can be written back to the LHS.
+        this._assignTypeToExpression(node.leftExpression, type, node.rightExpression);
         return true;
     }
 

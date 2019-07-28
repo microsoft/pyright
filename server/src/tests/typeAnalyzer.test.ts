@@ -456,3 +456,9 @@ test('Assignment1', () => {
 
     validateResults(analysisResults, 7);
 });
+
+test('AugmentedAssignment1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['augmentedAssignment1.py']);
+
+    validateResults(analysisResults, 3);
+});
