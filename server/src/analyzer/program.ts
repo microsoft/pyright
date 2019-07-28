@@ -311,18 +311,18 @@ export class Program {
         const zeroImportFiles: SourceFile[] = [];
 
         sortedFiles.forEach(sfInfo => {
-            this._console.log(`${ sfInfo.sourceFile.getFilePath() }`)
+            this._console.log(`${ sfInfo.sourceFile.getFilePath() }`);
 
             this._console.log(` Imports ${ sfInfo.imports.length } ` +
-                `file${ sfInfo.imports.length === 1 ? '' : 's' }`)
+                `file${ sfInfo.imports.length === 1 ? '' : 's' }`);
             sfInfo.imports.forEach(importInfo => {
-                this._console.log(`    ${ importInfo.sourceFile.getFilePath() }`)
+                this._console.log(`    ${ importInfo.sourceFile.getFilePath() }`);
             });
 
             this._console.log(` Imported by ${ sfInfo.importedBy.length } ` +
-                `file${ sfInfo.importedBy.length === 1 ? '' : 's' }`)
+                `file${ sfInfo.importedBy.length === 1 ? '' : 's' }`);
             sfInfo.importedBy.forEach(importInfo => {
-                this._console.log(`    ${ importInfo.sourceFile.getFilePath() }`)
+                this._console.log(`    ${ importInfo.sourceFile.getFilePath() }`);
             });
             if (sfInfo.importedBy.length === 0) {
                 zeroImportFiles.push(sfInfo.sourceFile);
@@ -334,7 +334,7 @@ export class Program {
             this._console.log(`${ zeroImportFiles.length } file${ zeroImportFiles.length === 1 ? '' : 's' }` +
                 ` not explicitly imported`);
             zeroImportFiles.forEach(importFile => {
-                this._console.log(`    ${ importFile.getFilePath() }`)
+                this._console.log(`    ${ importFile.getFilePath() }`);
             });
         }
     }
