@@ -7,7 +7,6 @@ class Bar():
     bbb: int
     ccc: str
     aaa = 'string'
-    ddd: InitVar[int] = 3
 
 bar1 = Bar(bbb=5, ccc='hello')
 bar2 = Bar(5, 'hello')
@@ -46,4 +45,5 @@ class Baz1():
 @dataclass
 class Baz2():
     aaa: str
+    ddd: InitVar[int] = 3
 
