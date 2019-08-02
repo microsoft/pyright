@@ -234,6 +234,12 @@
       "title": "Controls reporting class and instance variables whose types are unknown",
       "default": "none"
     },
+    "reportCallInDefaultInitializer": {
+      "$id": "#/properties/reportCallInDefaultInitializer",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting usage of function calls within a default value initializer expression",
+      "default": "none"
+    },
     "pythonVersion": {
       "$id": "#/properties/pythonVersion",
       "type": "string",

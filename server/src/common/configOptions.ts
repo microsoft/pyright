@@ -123,6 +123,10 @@ export interface DiagnosticSettings {
 
     // Report usage of unknown input or return parameters?
     reportUnknownMemberType: DiagnosticLevel;
+
+    // Report usage of function call within default value
+    // initialization expression?
+    reportCallInDefaultInitializer: DiagnosticLevel;
 }
 
 export function cloneDiagnosticSettings(
@@ -165,7 +169,8 @@ export function getDiagLevelSettings() {
         'reportInvalidStringEscapeSequence',
         'reportUnknownParameterType',
         'reportUnknownVariableType',
-        'reportUnknownMemberType'
+        'reportUnknownMemberType',
+        'reportCallInDefaultInitializer'
     ];
 }
 
@@ -197,7 +202,8 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',
         reportUnknownVariableType: 'error',
-        reportUnknownMemberType: 'error'
+        reportUnknownMemberType: 'error',
+        reportCallInDefaultInitializer: 'none'
     };
 
     return diagSettings;
@@ -231,7 +237,8 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportInvalidStringEscapeSequence: 'warning',
         reportUnknownParameterType: 'none',
         reportUnknownVariableType: 'none',
-        reportUnknownMemberType: 'none'
+        reportUnknownMemberType: 'none',
+        reportCallInDefaultInitializer: 'none'
     };
 
     return diagSettings;
@@ -544,7 +551,12 @@ export class ConfigOptions {
             // Read the "reportUnknownMemberType" entry.
             reportUnknownMemberType: this._convertDiagnosticLevel(
                 configObj.reportUnknownMemberType, 'reportUnknownMemberType',
-                defaultSettings.reportUnknownMemberType)
+                defaultSettings.reportUnknownMemberType),
+
+            // Read the "reportCallInDefaultInitializer" entry.
+            reportCallInDefaultInitializer: this._convertDiagnosticLevel(
+                configObj.reportCallInDefaultInitializer, 'reportCallInDefaultInitializer',
+                defaultSettings.reportCallInDefaultInitializer)
         };
 
         // Read the "venvPath".

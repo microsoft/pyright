@@ -17,9 +17,11 @@ export class CommentUtils {
     static getFileLevelDirectives(tokens: TextRangeCollection<Token>,
             defaultSettings: DiagnosticSettings, useStrict: boolean): DiagnosticSettings {
 
-        let settings = useStrict ?
-            getStrictDiagnosticSettings() :
-            cloneDiagnosticSettings(defaultSettings);
+        let settings = cloneDiagnosticSettings(defaultSettings);
+
+        if (useStrict) {
+            this._applyStrictSettings(settings);
+        }
 
         for (let i = 0; i < tokens.count; i++) {
             const token = tokens.getItemAt(i);
@@ -35,6 +37,28 @@ export class CommentUtils {
         return settings;
     }
 
+    private static _applyStrictSettings(settings: DiagnosticSettings) {
+        const strictSettings = getStrictDiagnosticSettings();
+        const boolSettingNames = getBooleanDiagnosticSettings();
+        const diagSettingNames = getDiagLevelSettings();
+
+        // Enable the strict settings as appropriate.
+        for (const setting of boolSettingNames) {
+            if ((strictSettings as any)[setting]) {
+                (settings as any)[setting] = true;
+            }
+        }
+
+        for (const setting of diagSettingNames) {
+            const strictValue: DiagnosticLevel = (strictSettings as any)[setting];
+            const prevValue: DiagnosticLevel = (settings as any)[setting];
+
+            if (strictValue === 'error' || (strictValue === 'warning' && prevValue !== 'error')) {
+                (settings as any)[setting] = strictValue;
+            }
+        }
+    }
+
     private static _parsePyrightComment(commentValue: string, settings: DiagnosticSettings) {
         // Is this a pyright-specific comment?
         const pyrightPrefix = 'pyright:';
@@ -45,7 +69,7 @@ export class CommentUtils {
             // If it contains a "strict" operand, replace the existing
             // diagnostic settings with their strict counterparts.
             if (operandList.some(s => s === 'strict')) {
-                settings = getStrictDiagnosticSettings();
+                this._applyStrictSettings(settings);
             }
 
             for (let operand of operandList) {

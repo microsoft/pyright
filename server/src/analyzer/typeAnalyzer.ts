@@ -26,7 +26,7 @@ import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
     WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
-import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
+import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -36,16 +36,15 @@ import { ImportResult, ImportType } from './importResult';
 import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
-import { Scope, ScopeType, SymbolWithScope } from './scope';
+import { Scope, ScopeType } from './scope';
 import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
 import { SymbolUtils } from './symbolUtils';
 import { TypeConstraintBuilder } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, NeverType, NoneType, ObjectType,
-    OverloadedFunctionType, PropertyType, Type, TypeCategory, TypeVarType, UnboundType,
-    UnionType,
-    UnknownType } from './types';
+    FunctionTypeFlags, ModuleType, NoneType, ObjectType,
+    OverloadedFunctionType, PropertyType, Type, TypeCategory, TypeVarType,
+    UnboundType, UnionType, UnknownType } from './types';
 import { ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
 interface AliasMapEntry {
@@ -73,6 +72,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
     private _currentScope: Scope;
+    private _defaultValueInitializerExpression = false;
 
     // Indicates where there was a change in the type analysis
     // the last time analyze() was called. Callers should repeatedly
@@ -319,7 +319,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (param.defaultValue) {
                 defaultValueType = this._getTypeOfExpression(param.defaultValue,
                     EvaluatorFlags.ConvertEllipsisToAny);
+
+                this._defaultValueInitializerExpression = true;
                 this.walk(param.defaultValue);
+                this._defaultValueInitializerExpression = false;
             }
 
             if (param.typeAnnotation) {
@@ -587,6 +590,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // scope as raising an exception.
         if (TypeUtils.isNoReturnType(returnValue)) {
             this._currentScope.setAlwaysRaises();
+        }
+
+        if (this._defaultValueInitializerExpression && !this._fileInfo.isStubFile) {
+            this._addDiagnostic(
+                this._fileInfo.diagnosticSettings.reportCallInDefaultInitializer,
+                `Function calls within default value initializer are not permitted`,
+                node);
         }
 
         return true;

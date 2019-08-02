@@ -84,6 +84,8 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportUnknownMemberType** [boolean or string, optional]: Generate or suppress diagnostics for class or instance variables that have an unknown type. The default value for this setting is 'none'.
 
+**reportCallInDefaultInitializer** [boolean or string, optional]: Generate or suppress diagnostics for function calls within a default value initialization expression. Such calls can mask expensive operations that are performed at module initialization time. The default value for this setting is 'none'.
+
 
 ## Execution Environment Options
 Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with different import search paths or a different version of the python interpreter than the rest of the source base.

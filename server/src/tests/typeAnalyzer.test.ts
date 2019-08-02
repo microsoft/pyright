@@ -462,3 +462,16 @@ test('AugmentedAssignment1', () => {
 
     validateResults(analysisResults, 3);
 });
+
+test('DefaultInitializer1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, optional diagnostics are ignored.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['defaultInitializer1.py'], configOptions);
+    validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticSettings.reportCallInDefaultInitializer = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['defaultInitializer1.py'], configOptions);
+    validateResults(analysisResults, 2);
+});
