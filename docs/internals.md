@@ -48,7 +48,7 @@ Pyright supports type constraints (sometimes called “path constraints”) to t
 def (a: Optional[Union[str, List[str]]):
     if isinstance(a, str):
         log(a)
-    elif a:
+    elif isinstance(a, list):
         log(msg) for msg in a
     else:
         log(a)
