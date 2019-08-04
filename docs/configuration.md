@@ -4,13 +4,13 @@ Pyright offers flexible configuration options specified in a JSON-formatted text
 
 ## Master Pyright Config Options
 
-**include** [array of paths, optional]: Paths of directories or files that should be included. If no paths are specified, pyright defaults to the directory that contains the config file.
+**include** [array of paths, optional]: Paths of directories or files that should be included. If no paths are specified, pyright defaults to the directory that contains the config file. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
-**exclude** [array of paths, optional]: Paths of directories or files that should not be included. These override the includes directories, allowing specific subdirectories to be ignored. Note that files in the exclude paths may still be included in the analysis if they are referenced (imported) by source files that are not excluded.
+**exclude** [array of paths, optional]: Paths of directories or files that should not be included. These override the includes directories, allowing specific subdirectories to be ignored. Note that files in the exclude paths may still be included in the analysis if they are referenced (imported) by source files that are not excluded. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
-**ignore** [array of paths, optional]: Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed even if they are an included file or within the transitive closure of an included file.
+**ignore** [array of paths, optional]: Paths of directories or files whose diagnostic output (errors and warnings) should be suppressed even if they are an included file or within the transitive closure of an included file. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
-**strict** [array of paths, optional]: Paths of directories or files that should use “strict” analysis if they are included. This is the same as manually adding a “# pyright: strict” comment. In strict mode, all type-checking rules are enabled.
+**strict** [array of paths, optional]: Paths of directories or files that should use “strict” analysis if they are included. This is the same as manually adding a “# pyright: strict” comment. In strict mode, all type-checking rules are enabled. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character).
 
 **typeshedPath** [path, optional]: Path to a directory that contains typeshed type stub files. Pyright ships with an internal copy of some typeshed type stubs (those that cover the Python stdlib packages). If you want to use a full copy of the typeshed type stubs (including those for third-party packages), you can clone the [typeshed github repo](https://github.com/python/typeshed) to a local directory and reference the location with this path.
 

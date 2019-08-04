@@ -10,7 +10,8 @@
 import { isAbsolute } from 'path';
 
 import { ConsoleInterface } from './console';
-import { combinePaths, ensureTrailingDirectorySeparator, normalizePath } from './pathUtils';
+import { combinePaths, ensureTrailingDirectorySeparator, FileSpec,
+    getFileSpec, normalizePath } from './pathUtils';
 import { LatestStablePythonVersion, PythonVersion, versionFromString } from './pythonVersion';
 
 export class ExecutionEnvironment {
@@ -268,19 +269,19 @@ export class ConfigOptions {
     // A list of file specs to include in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories
     // are included.
-    include: string[] = [];
+    include: FileSpec[] = [];
 
     // A list of file specs to exclude from the analysis (overriding include
     // if necessary). Can contain directories, in which case all "*.py" files
     // within those directories are included.
-    exclude: string[] = [];
+    exclude: FileSpec[] = [];
 
     // A list of file sepcs whose errors and warnings should be ignored even
     // if they are included in the transitive closure of included files.
-    ignore: string[] = [];
+    ignore: FileSpec[] = [];
 
     // A list of file sepcs that should be analyzed using "strict" mode.
-    strict: string[] = [];
+    strict: FileSpec[] = [];
 
     // Emit verbose information to console?
     verboseOutput: boolean;
@@ -352,7 +353,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.log(`Ignoring path "${ fileSpec }" in "include" array because it is not relative.`);
                     } else {
-                        this.include.push(this._normalizeRelativeFileSpec(fileSpec));
+                        this.include.push(getFileSpec(this.projectRoot, fileSpec));
                     }
                 });
             }
@@ -371,7 +372,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.log(`Ignoring path "${ fileSpec }" in "exclude" array because it is not relative.`);
                     } else {
-                        this.exclude.push(this._normalizeRelativeFileSpec(fileSpec));
+                        this.exclude.push(getFileSpec(this.projectRoot, fileSpec));
                     }
                 });
             }
@@ -390,7 +391,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.log(`Ignoring path "${ fileSpec }" in "ignore" array because it is not relative.`);
                     } else {
-                        this.ignore.push(this._normalizeRelativeFileSpec(fileSpec));
+                        this.ignore.push(getFileSpec(this.projectRoot, fileSpec));
                     }
                 });
             }
@@ -409,7 +410,7 @@ export class ConfigOptions {
                     } else if (isAbsolute(fileSpec)) {
                         console.log(`Ignoring path "${ fileSpec }" in "strict" array because it is not relative.`);
                     } else {
-                        this.strict.push(this._normalizeRelativeFileSpec(fileSpec));
+                        this.strict.push(getFileSpec(this.projectRoot, fileSpec));
                     }
                 });
             }
@@ -640,14 +641,6 @@ export class ConfigOptions {
                 });
             }
         }
-    }
-
-    private _normalizeRelativeFileSpec(fileSpec: string): string {
-        let absolutePath = normalizePath(combinePaths(this.projectRoot, fileSpec));
-        if (!absolutePath.endsWith('.py') && !absolutePath.endsWith('.pyi')) {
-            absolutePath = ensureTrailingDirectorySeparator(absolutePath);
-        }
-        return absolutePath;
     }
 
     private _convertBoolean(value: any, fieldName: string, defaultValue: boolean): boolean {

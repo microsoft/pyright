@@ -230,7 +230,7 @@ export class SourceFile {
         }
 
         // If the file is in the ignore list, clear the diagnostic list.
-        if (options.ignore.find(ignorePath => this._filePath.startsWith(ignorePath))) {
+        if (options.ignore.find(ignoreFileSpec => ignoreFileSpec.regExp.test(this._filePath))) {
             diagList = [];
         }
 
@@ -428,7 +428,7 @@ export class SourceFile {
 
             // Is this file in a "strict" path?
             const useStrict = configOptions.strict.find(
-                strictPath => this._filePath.startsWith(strictPath)) !== undefined;
+                strictFileSpec => strictFileSpec.regExp.test(this._filePath)) !== undefined;
 
             this._analysisJob.diagnosticSettings = CommentUtils.getFileLevelDirectives(
                 this._analysisJob.parseResults.tokens, configOptions.diagnosticSettings,

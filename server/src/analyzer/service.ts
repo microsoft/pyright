@@ -16,8 +16,8 @@ import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
-import { combinePaths, forEachAncestorDirectory, getDirectoryPath, getFileSystemEntries,
-    isDirectory, isFile, normalizePath } from '../common/pathUtils';
+import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
+    getFileSpec, getFileSystemEntries, isDirectory, isFile, normalizePath } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from './hoverProvider';
 import { MaxAnalysisTime, Program } from './program';
@@ -209,14 +209,16 @@ export class AnalyzerService {
         let configOptions = new ConfigOptions(projectRoot);
 
         if (commandLineOptions.fileSpecs.length > 0) {
-            configOptions.include.push(...commandLineOptions.fileSpecs);
+            commandLineOptions.fileSpecs.forEach(fileSpec => {
+                configOptions.include.push(getFileSpec(projectRoot, fileSpec));
+            });
         } else if (!configFilePath) {
             // If no config file was found and there are no explicit include
             // paths specified and this is the command-line version of the tool
             // (versus the VS Code extension), assume the caller wants to analyze
             // everything under the execution root path.
             if (commandLineOptions.executionRoot && !commandLineOptions.fromVsCodeExtension) {
-                configOptions.include.push(commandLineOptions.executionRoot);
+                configOptions.include.push(getFileSpec('', commandLineOptions.executionRoot));
             }
         }
 
@@ -233,7 +235,7 @@ export class AnalyzerService {
                 // the project should be included.
                 if (configOptions.include.length === 0) {
                     this._console.log(`No include entries specified; assuming ${ configFilePath }`);
-                    configOptions.include.push(getDirectoryPath(configFilePath));
+                    configOptions.include.push(getFileSpec('', getDirectoryPath(configFilePath)));
                 }
             }
             this._updateConfigFileWatcher();
@@ -447,29 +449,33 @@ export class AnalyzerService {
         this._requireTrackedFileUpdate = false;
     }
 
-    private _isInExcludePath(path: string, excludePaths: string[]) {
-        return !!excludePaths.find(excl => path.startsWith(excl));
+    private _isInExcludePath(path: string, excludePaths: FileSpec[]) {
+        return !!excludePaths.find(excl => excl.regExp.test(path));
     }
 
-    private _matchFiles(include: string[], exclude: string[]): string[] {
-        let results: string[] = [];
+    private _matchFiles(include: FileSpec[], exclude: FileSpec[]): string[] {
+        const results: string[] = [];
 
-        let visitDirectory = (absolutePath: string) => {
+        const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
             const includeFileRegex = /\.pyi?$/;
             const { files, directories } = getFileSystemEntries(absolutePath);
 
             for (const file of files) {
                 const filePath = combinePaths(absolutePath, file);
 
-                if (!this._isInExcludePath(filePath, exclude) && includeFileRegex.test(filePath)) {
-                    results.push(filePath);
+                if (includeRegExp.test(filePath)) {
+                    if (!this._isInExcludePath(filePath, exclude) && includeFileRegex.test(filePath)) {
+                        results.push(filePath);
+                    }
                 }
             }
 
             for (const directory of directories) {
                 const dirPath = combinePaths(absolutePath, directory);
-                if (!this._isInExcludePath(absolutePath, exclude)) {
-                    visitDirectory(dirPath);
+                if (includeRegExp.test(dirPath)) {
+                    if (!this._isInExcludePath(dirPath, exclude)) {
+                        visitDirectory(dirPath, includeRegExp);
+                    }
                 }
             }
         };
@@ -477,14 +483,15 @@ export class AnalyzerService {
         include.forEach(includeSpec => {
             let foundFileSpec = false;
 
-            if (!this._isInExcludePath(includeSpec, exclude) && fs.existsSync(includeSpec)) {
+            if (!this._isInExcludePath(includeSpec.wildcardRoot, exclude) &&
+                    fs.existsSync(includeSpec.wildcardRoot)) {
                 try {
-                    let stat = fs.statSync(includeSpec);
+                    let stat = fs.statSync(includeSpec.wildcardRoot);
                     if (stat.isFile()) {
-                        results.push(includeSpec);
+                        results.push(includeSpec.wildcardRoot);
                         foundFileSpec = true;
                     } else if (stat.isDirectory()) {
-                        visitDirectory(includeSpec);
+                        visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp);
                         foundFileSpec = true;
                     }
                 } catch {
@@ -493,7 +500,7 @@ export class AnalyzerService {
             }
 
             if (!foundFileSpec) {
-                this._console.log(`File or directory "${ includeSpec }" does not exist.`);
+                this._console.log(`File or directory "${ includeSpec.wildcardRoot }" does not exist.`);
             }
         });
 
@@ -516,7 +523,7 @@ export class AnalyzerService {
 
         if (this._configOptions.include.length > 0) {
             let fileList = this._configOptions.include.map(spec => {
-                return combinePaths(this._executionRootPath, spec);
+                return combinePaths(this._executionRootPath, spec.wildcardRoot);
             });
 
             this._sourceFileWatcher = fileList.map(fileSpec => {

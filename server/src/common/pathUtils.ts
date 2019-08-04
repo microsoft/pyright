@@ -11,6 +11,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import Char from 'typescript-char';
 
+export interface FileSpec {
+    // File specs can contain wildcard characters (**, *, ?). This
+    // specifies the first portion of the file spec that contains
+    // no wildcards.
+    wildcardRoot: string;
+
+    // Regular expression that can be used to match against this
+    // file spec.
+    regExp: RegExp;
+}
+
 export function forEachAncestorDirectory(directory: string, callback: (directory: string) => string | undefined): string | undefined {
     while (true) {
         const result = callback(directory);
@@ -44,6 +55,41 @@ export function getRootLength(pathString: string): number {
         if (pathString.charAt(2) === path.sep) { return 3; }
     }
     return 0;
+}
+
+export function getPathComponents(pathString: string) {
+    const rootLength = getRootLength(pathString);
+    const root = pathString.substring(0, rootLength);
+    const rest = pathString.substring(rootLength).split('/');
+    if (rest.length > 0 && !rest[rest.length - 1]) {
+        rest.pop();
+    }
+
+    let components = [root, ...rest];
+    const reduced = [components[0]];
+
+    // Reduce the path components by eliminating
+    // any '.' or '..'.
+    for (let i = 1; i < components.length; i++) {
+        const component = components[i];
+        if (!component || component === '.') {
+            continue;
+        }
+
+        if (component === '..') {
+            if (reduced.length > 1) {
+                if (reduced[reduced.length - 1] !== '..') {
+                    reduced.pop();
+                    continue;
+                }
+            } else if (reduced[0]) {
+                continue;
+            }
+        }
+        reduced.push(component);
+    }
+
+    return reduced;
 }
 
 export function normalizeSlashes(pathString: string): string {
@@ -171,4 +217,100 @@ export function getFileSystemEntries(path: string): FileSystemEntries {
     } catch (e) {
         return { files: [], directories: [] };
     }
+}
+
+// Transforms a relative file spec (one that potentially contains
+// escape characters **, * or ?) and returns a regular expression
+// that can be used for matching against.
+export function getWildcardRegexPattern(rootPath: string, fileSpec: string): string {
+    let absolutePath = normalizePath(combinePaths(rootPath, fileSpec));
+    if (!absolutePath.endsWith('.py') && !absolutePath.endsWith('.pyi')) {
+        absolutePath = ensureTrailingDirectorySeparator(absolutePath);
+    }
+
+    const pathComponents = getPathComponents(absolutePath);
+    const doubleAsteriskRegexFragment = `(/[^/.][^/]*)*?`;
+    const reservedCharacterPattern = /[^\w\s\/]/g;
+
+    // Strip the directory separator from the root component.
+    if (pathComponents.length > 0) {
+        pathComponents[0] = stripTrailingDirectorySeparator(pathComponents[0]);
+    }
+    let regExPattern = '';
+    let firstComponent = true;
+
+    for (let component of pathComponents) {
+        if (component === '**') {
+            regExPattern += doubleAsteriskRegexFragment;
+        } else {
+            if (!firstComponent) {
+                regExPattern += '/';
+            }
+
+            regExPattern += component.replace(
+                reservedCharacterPattern, match => {
+                    if (match === '*') {
+                        return '[^/]*';
+                    } else if (match === '?') {
+                        return '[^/]';
+                    } else {
+                        return '\\' + match;
+                    }
+                });
+
+            firstComponent = false;
+        }
+    }
+
+    return regExPattern;
+}
+
+// Returns the topmost path that contains no wildcard characters.
+export function getWildcardRoot(rootPath: string, fileSpec: string): string {
+    let absolutePath = normalizePath(combinePaths(rootPath, fileSpec));
+    if (!absolutePath.endsWith('.py') && !absolutePath.endsWith('.pyi')) {
+        absolutePath = ensureTrailingDirectorySeparator(absolutePath);
+    }
+
+    const pathComponents = getPathComponents(absolutePath);
+
+    // Strip the directory separator from the root component.
+    if (pathComponents.length > 0) {
+        pathComponents[0] = stripTrailingDirectorySeparator(pathComponents[0]);
+    }
+
+    let wildcardRoot = '';
+    let firstComponent = true;
+
+    for (let component of pathComponents) {
+        if (component === '**') {
+            break;
+        } else {
+            if (component.match(/[\*\?]/)) {
+                break;
+            }
+
+            if (!firstComponent) {
+                wildcardRoot += '/';
+            }
+
+            wildcardRoot += component;
+            firstComponent = false;
+        }
+    }
+
+    return wildcardRoot;
+}
+
+export function getFileSpec(rootPath: string, fileSpec: string): FileSpec {
+    let regExPattern = getWildcardRegexPattern(rootPath, fileSpec);
+    regExPattern = `^(${ regExPattern })($|/)`;
+
+    const regExp = new RegExp(regExPattern);
+    const wildcardRoot = getWildcardRoot(rootPath, fileSpec);
+
+    return {
+        wildcardRoot,
+        regExp
+    };
 }
