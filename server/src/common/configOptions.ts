@@ -48,6 +48,9 @@ export interface DiagnosticSettings {
     // Use strict inference rules for dictionary expressions?
     strictDictionaryInference: boolean;
 
+    // Use strict type rules for parameters assigned default of None?
+    strictParameterNoneValue: boolean;
+
     // Report diagnostics in typeshed files?
     reportTypeshedErrors: DiagnosticLevel;
 
@@ -140,7 +143,8 @@ export function cloneDiagnosticSettings(
 export function getBooleanDiagnosticSettings() {
     return [
         'strictListInference',
-        'strictDictionaryInference'
+        'strictDictionaryInference',
+        'strictParameterNoneValue'
     ];
 }
 
@@ -179,6 +183,7 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
     const diagSettings: DiagnosticSettings = {
         strictListInference: true,
         strictDictionaryInference: true,
+        strictParameterNoneValue: true,
         reportTypeshedErrors: 'error',
         reportMissingImports: 'error',
         reportMissingTypeStubs: 'error',
@@ -214,6 +219,7 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
     const diagSettings: DiagnosticSettings = {
         strictListInference: false,
         strictDictionaryInference: false,
+        strictParameterNoneValue: false,
         reportTypeshedErrors: 'none',
         reportMissingImports: 'error',
         reportMissingTypeStubs: 'none',
@@ -428,6 +434,12 @@ export class ConfigOptions {
             strictDictionaryInference: this._convertBoolean(
                 configObj.strictDictionaryInference, 'strictDictionaryInference',
                 defaultSettings.strictDictionaryInference),
+
+            // Should a None default value imply that the parameter type
+            // is Optional?
+            strictParameterNoneValue: this._convertBoolean(
+                configObj.strictParameterNoneValue, 'strictParameterNoneValue',
+                defaultSettings.strictParameterNoneValue),
 
             // Read the "reportTypeshedErrors" entry.
             reportTypeshedErrors: this._convertDiagnosticLevel(

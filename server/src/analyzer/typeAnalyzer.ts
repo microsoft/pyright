@@ -331,11 +331,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
                 // of the specified type and 'None').
-                // TODO - tighten this up, perhaps using a config setting
-                if (param.defaultValue instanceof ConstantNode) {
-                    if (param.defaultValue.token.keywordType === KeywordType.None) {
-                        annotatedType = TypeUtils.combineTypes(
-                            [annotatedType, NoneType.create()]);
+                if (!this._fileInfo.diagnosticSettings.strictParameterNoneValue) {
+                    if (param.defaultValue instanceof ConstantNode) {
+                        if (param.defaultValue.token.keywordType === KeywordType.None) {
+                            annotatedType = TypeUtils.combineTypes(
+                                [annotatedType, NoneType.create()]);
+                        }
                     }
                 }
 
