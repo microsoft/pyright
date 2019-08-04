@@ -60,8 +60,6 @@ export class AnalyzerService {
         this._program = new Program(this._console);
         this._configOptions = new ConfigOptions(process.cwd());
         this._executionRootPath = '';
-
-        this._console.log(`Starting service instance "${ this._instanceName }"`);
     }
 
     setCompletionCallback(callback: AnalysisCompleteCallback | undefined): void {
