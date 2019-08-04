@@ -68,7 +68,7 @@ _documents.listen(_connection);
 const _defaultWorkspacePath = '<default>';
 
 function _createAnalyzerService(name: string): AnalyzerService {
-    this._console.log(`Starting service instance "${ name }"`);
+    _connection.console.log(`Starting service instance "${ name }"`);
     const service = new AnalyzerService(name, _connection.console);
 
     // Don't allow the analysis engine to go too long without
