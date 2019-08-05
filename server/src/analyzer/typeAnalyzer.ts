@@ -816,13 +816,67 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitRaise(node: RaiseNode): boolean {
+        const baseExceptionType = ScopeUtils.getBuiltInType(
+            this._currentScope, 'BaseException') as ClassType;
+
         if (node.typeExpression) {
             this._markExpressionAccessed(node.typeExpression);
+
+            const exceptionType = this._getTypeOfExpression(node.typeExpression);
+
+            // Validate that the argument of "raise" is an exception object or class.
+            if (baseExceptionType) {
+                const diagAddendum = new DiagnosticAddendum();
+
+                TypeUtils.doForSubtypes(exceptionType, subtype => {
+                    if (!subtype.isAny()) {
+                        if (subtype instanceof ClassType) {
+                            if (!TypeUtils.derivesFromClassRecursive(subtype, baseExceptionType)) {
+                                diagAddendum.addMessage(`'${ subtype.asString() }' does not derive from BaseException`);
+                            }
+                        } else if (subtype instanceof ObjectType) {
+                            if (!TypeUtils.derivesFromClassRecursive(subtype.getClassType(), baseExceptionType)) {
+                                diagAddendum.addMessage(`'${ subtype.asString() }' does not derive from BaseException`);
+                            }
+                        } else {
+                            diagAddendum.addMessage(`'${ subtype.asString() }' does not derive from BaseException`);
+                        }
+                    }
+
+                    return subtype;
+                });
+
+                if (diagAddendum.getMessageCount() > 0) {
+                    this._addError(`Expected exception class or object` + diagAddendum.getString(), node.typeExpression);
+                }
+            }
         }
 
         if (node.valueExpression) {
             const exceptionType = this._getTypeOfExpression(node.valueExpression);
-            // TODO - validate that it's an exception type.
+
+            // Validate that the argument of "raise" is an exception object or None.
+            if (baseExceptionType) {
+                const diagAddendum = new DiagnosticAddendum();
+
+                TypeUtils.doForSubtypes(exceptionType, subtype => {
+                    if (!subtype.isAny() && !(subtype instanceof NoneType)) {
+                        if (subtype instanceof ObjectType) {
+                            if (!TypeUtils.derivesFromClassRecursive(subtype.getClassType(), baseExceptionType)) {
+                                diagAddendum.addMessage(`'${ subtype.asString() }' does not derive from BaseException`);
+                            }
+                        } else {
+                            diagAddendum.addMessage(`'${ subtype.asString() }' does not derive from BaseException`);
+                        }
+                    }
+
+                    return subtype;
+                });
+
+                if (diagAddendum.getMessageCount() > 0) {
+                    this._addError(`Expected exception object or None` + diagAddendum.getString(), node.valueExpression);
+                }
+            }
         }
 
         if (!this._currentScope.getAlwaysReturns()) {

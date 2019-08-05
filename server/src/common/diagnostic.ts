@@ -70,6 +70,10 @@ export class DiagnosticAddendum {
         return '';
     }
 
+    getMessageCount() {
+        return this._messages.length;
+    }
+
     private _addAddendum(addendum: DiagnosticAddendum) {
         this._childAddenda.push(addendum);
     }
