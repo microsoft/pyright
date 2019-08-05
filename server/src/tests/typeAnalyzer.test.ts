@@ -481,4 +481,3 @@ test('Super1', () => {
 
     validateResults(analysisResults, 4);
 });
-
