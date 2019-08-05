@@ -467,42 +467,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             });
 
-            // If this function is part of a class, add an implied "super" method.
-            // TODO - this code assumes the zero-parameter version of super. Another
-            // approach will be needed to handle the multi-parameter version which
-            // can even be used outside of a class definition.
-            let classNode = ParseTreeUtils.getEnclosingClass(node);
-            if (classNode) {
-                let classType = AnalyzerNodeInfo.getExpressionType(classNode) as ClassType;
-                assert(classType !== undefined && classType instanceof ClassType);
-
-                let superType = new FunctionType(FunctionTypeFlags.None);
-                superType.addParameter({
-                    category: ParameterCategory.VarArgList,
-                    name: 'args',
-                    type: UnknownType.create()
-                });
-                superType.addParameter({
-                    category: ParameterCategory.VarArgDictionary,
-                    name: 'kwargs',
-                    type: UnknownType.create()
-                });
-
-                if (classType.getBaseClasses().length > 0) {
-                    // TODO - we currently use only the first base class, but we should
-                    // be doing a full MRO search when evaluating super().
-                    let baseClass = classType.getBaseClasses()[0];
-                    if (baseClass.type instanceof ClassType) {
-                        superType.setDeclaredReturnType(new ObjectType(baseClass.type));
-                    } else {
-                        superType.setDeclaredReturnType(UnknownType.create());
-                    }
-                }
-
-                this._addSymbolToPermanentScope('super');
-                this._addTypeSourceToName('super', superType, DefaultTypeSourceId);
-            }
-
             this.walk(node.suite);
         });
 

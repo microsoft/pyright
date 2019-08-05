@@ -475,3 +475,10 @@ test('DefaultInitializer1', () => {
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['defaultInitializer1.py'], configOptions);
     validateResults(analysisResults, 2);
 });
+
+test('Super1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['super1.py']);
+
+    validateResults(analysisResults, 4);
+});
+

@@ -1334,6 +1334,14 @@ export class ExpressionEvaluator {
         const baseTypeResult = this._getTypeFromExpression(node.leftExpression,
             { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
 
+        // Handle the built-in "super" call specially.
+        if (node.leftExpression instanceof NameNode && node.leftExpression.nameToken.value === 'super') {
+            return {
+                type: this._getTypeFromSuperCall(node),
+                node
+            };
+        }
+
         const argList = node.arguments.map(arg => {
             return {
                 valueExpression: arg.valueExpression,
@@ -1345,6 +1353,96 @@ export class ExpressionEvaluator {
 
         return this._getTypeFromCallExpressionWithBaseType(
             node, argList, baseTypeResult, flags, node);
+    }
+
+    private _getTypeFromSuperCall(node: CallExpressionNode): Type {
+        if (node.arguments.length > 2) {
+            this._addError(
+                `Expecting no more than two arguments to super'`,
+                node.arguments[2]);
+        }
+
+        // Determine which class the "super" call is applied to. If
+        // there is no first argument, then the class is implicit.
+        let targetClassType: Type;
+        if (node.arguments.length > 0) {
+            targetClassType = this._getTypeFromExpression(node.arguments[0].valueExpression).type;
+
+            if (!targetClassType.isAny() && !(targetClassType instanceof ClassType)) {
+                this._addError(
+                    `Expected class type as first argument to super() call but received ` +
+                        `'${ targetClassType.asString() }'`,
+                    node.arguments[0].valueExpression);
+            }
+        } else {
+            const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
+            if (enclosingClass) {
+                targetClassType = AnalyzerNodeInfo.getExpressionType(enclosingClass) as ClassType;
+            } else {
+                this._addError(
+                    `Zero-argument form of super call is valid only within a class'`,
+                    node.leftExpression);
+                targetClassType = UnknownType.create();
+            }
+        }
+
+        // Determine whether there is a further constraint.
+        let constrainedClassType: Type;
+        if (node.arguments.length > 1) {
+            constrainedClassType = this._getTypeFromExpression(node.arguments[1].valueExpression).type;
+
+            let reportError = false;
+
+            if (constrainedClassType.isAny()) {
+                // Ignore unknown or any types.
+            } else if (constrainedClassType instanceof ObjectType) {
+                const childClassType = constrainedClassType.getClassType();
+                if (targetClassType instanceof ClassType) {
+                    if (!TypeUtils.derivesFromClassRecursive(childClassType, targetClassType)) {
+                        reportError = true;
+                    }
+                }
+            } else if (constrainedClassType instanceof ClassType) {
+                if (targetClassType instanceof ClassType) {
+                    if (!TypeUtils.derivesFromClassRecursive(constrainedClassType, targetClassType)) {
+                        reportError = true;
+                    }
+                }
+            } else {
+                reportError = true;
+            }
+
+            if (reportError) {
+                this._addError(
+                    `Second argument to super() call must be object or class that derives from '${ targetClassType.asString() }'`,
+                    node.arguments[1].valueExpression);
+            }
+        }
+
+        // Python docs indicate that super() isn't valid for
+        // operations other than member accesses.
+        if (node.parent! instanceof MemberAccessExpressionNode) {
+            const memberName = node.parent.memberName.nameToken.value;
+            const lookupResults = TypeUtils.lookUpClassMember(
+                targetClassType, memberName, ClassMemberLookupFlags.SkipOriginalClass);
+            if (lookupResults && lookupResults.classType instanceof ClassType) {
+                return new ObjectType(lookupResults.classType);
+            }
+
+            // If the lookup failed, try to return the first base class. An error
+            // will be reported by the member lookup logic at a later time.
+            if (targetClassType instanceof ClassType) {
+                const baseClasses = targetClassType.getBaseClasses();
+                if (baseClasses.length > 0 && !baseClasses[0].isMetaclass) {
+                    const baseClassType = baseClasses[0].type;
+                    if (baseClassType instanceof ClassType) {
+                        return new ObjectType(baseClassType);
+                    }
+                }
+            }
+        }
+
+        return UnknownType.create();
     }
 
     private _getTypeFromCallExpressionWithBaseType(errorNode: ExpressionNode,

@@ -38,22 +38,27 @@ export interface ClassMember {
 export enum ClassMemberLookupFlags {
     Default = 0,
 
+    // By default, the original (derived) class is searched along
+    // with its base classes. If this flag is set, the original
+    // class is skipped and only the base classes are searched.
+    SkipOriginalClass = 0x01,
+
     // By default, base classes are searched as well as the
     // original (derived) class. If this flag is set, no recursion
     // is performed.
-    SkipBaseClasses = 0x01,
+    SkipBaseClasses = 0x02,
 
     // Skip the 'object' base class in particular.
-    SkipObjectBaseClass = 0x02,
+    SkipObjectBaseClass = 0x04,
 
     // By default, both class and instance variables are searched.
     // If this flag is set, the instance variables are skipped.
-    SkipInstanceVariables = 0x04,
+    SkipInstanceVariables = 0x08,
 
     // By default, the first symbol is returned even if it has only
     // an inferred type associated with it. If this flag is set,
     // the search looks only for symbols with declared types.
-    DeclaredTypesOnly = 0x08
+    DeclaredTypesOnly = 0x10
 }
 
 export interface SymbolWithClass {
@@ -803,39 +808,41 @@ export class TypeUtils {
                 }
             }
 
-            // Look in the instance fields first if requested.
-            if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
-                const instanceFields = classType.getInstanceFields();
-                const instanceFieldEntry = instanceFields.get(memberName);
-                if (instanceFieldEntry) {
-                    const symbol = instanceFieldEntry;
+            if ((flags & ClassMemberLookupFlags.SkipOriginalClass) === 0) {
+                // Look in the instance fields first if requested.
+                if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
+                    const instanceFields = classType.getInstanceFields();
+                    const instanceFieldEntry = instanceFields.get(memberName);
+                    if (instanceFieldEntry) {
+                        const symbol = instanceFieldEntry;
+
+                        if (!declaredTypesOnly || this.getDeclaredTypeOfSymbol(symbol)) {
+                            return {
+                                symbol,
+                                isInstanceMember: true,
+                                classType,
+                                symbolType: this.partiallySpecializeType(
+                                    this.getEffectiveTypeOfSymbol(symbol), classType)
+                            };
+                        }
+                    }
+                }
+
+                // Next look in the class fields.
+                const classFields = classType.getClassFields();
+                const classFieldEntry = classFields.get(memberName);
+                if (classFieldEntry) {
+                    const symbol = classFieldEntry;
 
                     if (!declaredTypesOnly || this.getDeclaredTypeOfSymbol(symbol)) {
                         return {
                             symbol,
-                            isInstanceMember: true,
+                            isInstanceMember: false,
                             classType,
                             symbolType: this.partiallySpecializeType(
                                 this.getEffectiveTypeOfSymbol(symbol), classType)
                         };
                     }
-                }
-            }
-
-            // Next look in the class fields.
-            const classFields = classType.getClassFields();
-            const classFieldEntry = classFields.get(memberName);
-            if (classFieldEntry) {
-                const symbol = classFieldEntry;
-
-                if (!declaredTypesOnly || this.getDeclaredTypeOfSymbol(symbol)) {
-                    return {
-                        symbol,
-                        isInstanceMember: false,
-                        classType,
-                        symbolType: this.partiallySpecializeType(
-                            this.getEffectiveTypeOfSymbol(symbol), classType)
-                    };
                 }
             }
 
@@ -846,7 +853,7 @@ export class TypeUtils {
                         // Recursively perform search.
                         const methodType = this.lookUpClassMember(
                             this.partiallySpecializeType(baseClass.type, classType),
-                            memberName, flags);
+                            memberName, flags & ~ClassMemberLookupFlags.SkipOriginalClass);
                         if (methodType) {
                             return methodType;
                         }
