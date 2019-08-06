@@ -15,9 +15,9 @@ import { ParameterCategory } from '../parser/parseNodes';
 import { DefaultTypeSourceId } from './inferredType';
 import { Declaration, Symbol, SymbolTable } from './symbol';
 import { AnyType, ClassType, FunctionParameter,
-    FunctionType, InheritanceChain, ModuleType, NeverType, NoneType,
-    ObjectType, OverloadedFunctionEntry, OverloadedFunctionType, SpecializedFunctionTypes,
-    Type, TypeCategory, TypeVarMap, TypeVarType, UnboundType, UnionType, UnknownType } from './types';
+    FunctionType, FunctionTypeFlags, InheritanceChain, ModuleType, NeverType,
+    NoneType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,
+    SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType, UnboundType, UnionType, UnknownType } from './types';
 
 const MaxTypeRecursion = 20;
 
@@ -462,8 +462,35 @@ export class TypeUtils {
                     }
                 }
             } else if (srcType instanceof ClassType) {
-                // TODO - need to create function corresponding to constructor for class.
-                return true;
+                // Synthesize a function that represents the constructor for this class.
+                const constructorFunction = new FunctionType(FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod);
+                constructorFunction.setDeclaredReturnType(new ObjectType(srcType));
+
+                const newMemberInfo = TypeUtils.lookUpClassMember(srcType, '__new__',
+                    ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
+                if (newMemberInfo && newMemberInfo.symbolType instanceof FunctionType) {
+                    newMemberInfo.symbolType.getParameters().forEach((param, index) => {
+                        // Skip the 'cls' parameter.
+                        if (index > 0) {
+                            constructorFunction.addParameter(param);
+                        }
+                    });
+                } else {
+                    const initMemberInfo = TypeUtils.lookUpClassMember(srcType, '__init__',
+                        ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
+                    if (initMemberInfo && initMemberInfo.symbolType instanceof FunctionType) {
+                        initMemberInfo.symbolType.getParameters().forEach((param, index) => {
+                            // Skip the 'self' parameter.
+                            if (index > 0) {
+                                constructorFunction.addParameter(param);
+                            }
+                        });
+                    } else {
+                        this.addDefaultFunctionParameters(constructorFunction);
+                    }
+                }
+
+                srcFunction = constructorFunction;
             }
 
             if (srcFunction) {
