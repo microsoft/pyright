@@ -231,10 +231,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             evaluator.synthesizeDataClassMethods(node, classType);
         }
 
-        let declaration: Declaration = {
+        const declaration: Declaration = {
             category: SymbolCategory.Class,
             node: node.name,
-            declaredType: classType,
+            declaredType: decoratedType,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
         };
@@ -474,7 +474,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Validate that the function returns the declared type.
         this._validateFunctionReturn(node, functionType, functionScope);
 
-        let declaration: Declaration = {
+        const declaration: Declaration = {
             category: containingClassNode ? SymbolCategory.Method : SymbolCategory.Function,
             node: node.name,
             path: this._fileInfo.filePath,
