@@ -234,6 +234,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let declaration: Declaration = {
             category: SymbolCategory.Class,
             node: node.name,
+            declaredType: classType,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
         };
