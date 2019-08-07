@@ -21,7 +21,7 @@ export class DocStringUtils {
         let maxIndent = Number.MAX_VALUE;
         lines.forEach((line, index) => {
             // First line is special.
-            if (index > 0) {
+            if (lines.length <= 1 || index > 0) {
                 const trimmed = line.trimLeft();
                 if (trimmed) {
                     maxIndent = Math.min(maxIndent, line.length - trimmed.length);
