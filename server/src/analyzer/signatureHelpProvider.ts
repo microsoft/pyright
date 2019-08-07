@@ -181,7 +181,8 @@ export class SignatureHelpProvider {
 
         const sigInfo: SignatureInfo = {
             label,
-            parameters
+            parameters,
+            documentation: functionType.getDocString()
         };
 
         return sigInfo;
