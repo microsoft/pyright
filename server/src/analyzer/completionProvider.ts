@@ -9,8 +9,7 @@
 */
 
 import * as assert from 'assert';
-import { CompletionItem, CompletionItemKind,
-    CompletionList } from 'vscode-languageserver';
+import { CompletionItem, CompletionItemKind, CompletionList, MarkupKind } from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
@@ -26,7 +25,7 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { SymbolCategory, SymbolTable } from './symbol';
-import { ClassType, ModuleType, ObjectType } from './types';
+import { ClassType, FunctionType, ModuleType, ObjectType, OverloadedFunctionType } from './types';
 import { TypeUtils } from './typeUtils';
 
 const _keywords: string[] = [
@@ -319,12 +318,17 @@ export class CompletionProvider {
             completionList: CompletionList) {
 
         let curNode: ParseNode | undefined = node;
+
         while (curNode) {
             // Does this node have a scope associated with it?
-            const scope = AnalyzerNodeInfo.getScope(curNode);
+            let scope = AnalyzerNodeInfo.getScope(curNode);
             if (scope) {
-                this._addSymbolsForSymbolTable(scope.getSymbolTable(),
-                    priorWord, completionList);
+                while (scope) {
+                    this._addSymbolsForSymbolTable(scope.getSymbolTable(),
+                        priorWord, completionList);
+                    scope = scope.getParent();
+                }
+                break;
             }
 
             curNode = curNode.parent;
@@ -338,19 +342,82 @@ export class CompletionProvider {
             // Determine the kind.
             let itemKind: CompletionItemKind = CompletionItemKind.Variable;
             const declarations = item.getDeclarations();
+            let typeDetail: string | undefined;
+            let documentation: string | undefined;
+
             if (declarations.length > 0) {
-                itemKind = this._convertSymbolCategoryToItemKind(declarations[0].category);
+                const declaration = declarations[0];
+                itemKind = this._convertSymbolCategoryToItemKind(declaration.category);
+
+                const type = declaration.declaredType;
+                if (type) {
+                    switch (declaration.category) {
+                        case SymbolCategory.Variable:
+                        case SymbolCategory.Parameter:
+                            typeDetail = name + ': ' + type.asString();
+                            break;
+
+                        case SymbolCategory.Function:
+                        case SymbolCategory.Method:
+                            if (type instanceof OverloadedFunctionType) {
+                                typeDetail = type.getOverloads().map(overload =>
+                                    name + overload.type.asString()).join('\n');
+                            } else {
+                                typeDetail = name + type.asString();
+                            }
+                            break;
+
+                        case SymbolCategory.Class:
+                            typeDetail = 'class ' + name + '()';
+                            break;
+
+                        case SymbolCategory.Module:
+                        default:
+                            typeDetail = name;
+                            break;
+                    }
+                }
+
+                if (type instanceof ModuleType ||
+                        type instanceof ClassType ||
+                        type instanceof FunctionType) {
+                    documentation = type.getDocString();
+                }
             }
-            this._addNameToCompletionList(name, itemKind, priorWord, completionList);
+
+            this._addNameToCompletionList(name, itemKind, priorWord, completionList,
+                typeDetail, documentation);
         });
     }
 
     private static _addNameToCompletionList(name: string, itemKind: CompletionItemKind,
-            filter: string, completionList: CompletionList) {
+            filter: string, completionList: CompletionList, typeDetail?: string,
+            documentation?: string) {
 
         if (name.startsWith(filter)) {
             const completionItem = CompletionItem.create(name);
             completionItem.kind = itemKind;
+            let markdownString = '';
+
+            if (typeDetail) {
+                markdownString += '```python\n' + typeDetail + '\n```\n';
+            }
+
+            if (documentation) {
+                markdownString += '```text\n\n';
+                // Add spaces to the beginning of each line so
+                // the text is treated as "preformatted" by the
+                // markdown interpreter.
+                markdownString += documentation;
+                markdownString += '\n```\n';
+            }
+
+            if (markdownString) {
+                completionItem.documentation = {
+                    kind: MarkupKind.Markdown,
+                    value: markdownString
+                };
+            }
             completionList.items.push(completionItem);
         }
     }
