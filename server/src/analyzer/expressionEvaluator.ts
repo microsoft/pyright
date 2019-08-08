@@ -2912,8 +2912,8 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-        let listEntryType: Type = AnyType.create();
     private _getTypeFromListExpression(node: ListNode): TypeResult {
+        let listEntryType: Type = AnyType.create();
 
         if (node.entries.length === 1 && node.entries[0] instanceof ListComprehensionNode) {
             listEntryType = this._getElementTypeFromListComprehensionExpression(
