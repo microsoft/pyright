@@ -1368,6 +1368,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         this._updateExpressionTypeForNode(importAs.alias, symbolType);
                     }
 
+                    if (declaration && declaration.declaredType) {
+                        // Create a shallow copy of the declaration that
+                        // does not include the declaredType because the symbol
+                        // in this namespace is not necessarily constrained to
+                        // this type.
+                        declaration = Object.assign({}, declaration);
+                        declaration.declaredType = undefined;
+                    }
+
                     this._assignTypeToNameNode(aliasNode, symbolType, declaration);
 
                     if (declaration && importAs.alias) {
