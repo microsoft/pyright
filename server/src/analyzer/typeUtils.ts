@@ -18,7 +18,8 @@ import { Symbol, SymbolTable } from './symbol';
 import { AnyType, ClassType, FunctionParameter,
     FunctionType, FunctionTypeFlags, InheritanceChain, ModuleType, NeverType,
     NoneType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,
-    SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType, UnboundType, UnionType, UnknownType } from './types';
+    SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType,
+    UnboundType, UnionType, UnknownType } from './types';
 
 const MaxTypeRecursion = 20;
 
@@ -733,6 +734,13 @@ export class TypeUtils {
                     const firstTypeArg = typeArgs[0];
                     if (firstTypeArg instanceof ObjectType) {
                         return firstTypeArg.getClassType();
+                    } else if (firstTypeArg instanceof TypeVarType) {
+                        if (typeVarMap) {
+                            const replacementType = typeVarMap.get(firstTypeArg.getName());
+                            if (replacementType && replacementType instanceof ObjectType) {
+                                return replacementType.getClassType();
+                            }
+                        }
                     }
                 }
             }
