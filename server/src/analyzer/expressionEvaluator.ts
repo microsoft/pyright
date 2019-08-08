@@ -21,11 +21,11 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentExpressionNode,
     ConstantNode, DecoratorNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode,
     DictionaryNode, EllipsisNode, ErrorExpressionNode, ExpressionNode,
     IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionForNode,
-    ListComprehensionIfNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
-    NumberNode, ParameterCategory, ParseNode, SetNode, SliceExpressionNode,
-    StatementListNode, StringListNode, TernaryExpressionNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
-    UnpackExpressionNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    ListComprehensionIfNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode,
+    NameNode, NumberNode, ParameterCategory, ParseNode, SetNode, SliceExpressionNode,
+    StatementListNode, StringListNode, TernaryExpressionNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordToken, KeywordType, OperatorType, StringTokenFlags,
     TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -653,7 +653,7 @@ export class ExpressionEvaluator {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromAugmentedExpression(node);
         } else if (node instanceof ListNode) {
-            typeResult = this._getTypeFromListExpression(node, usage);
+            typeResult = this._getTypeFromListExpression(node);
         } else if (node instanceof SliceExpressionNode) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromSliceExpression(node);
@@ -1529,12 +1529,22 @@ export class ExpressionEvaluator {
                     errorNode);
                 type = this._createNamedTupleType(errorNode, argList, false,
                     cachedExpressionNode);
+            } else if (callType.getBuiltInName() === 'NewType') {
+                type = this._validateCallArguments(errorNode, argList, callType,
+                    new TypeVarMap(), specializeReturnType);
+
+                // If the call's arguments were validated, replace the
+                // type with a new synthesized subclass.
+                if (type) {
+                    type = this._createNewType(errorNode, argList, cachedExpressionNode);
+                }
             } else {
                 type = this._validateCallArguments(errorNode, argList, callType,
                     new TypeVarMap(), specializeReturnType);
-                if (!type) {
-                    type = UnknownType.create();
-                }
+            }
+
+            if (!type) {
+                type = UnknownType.create();
             }
         } else if (callType instanceof OverloadedFunctionType) {
             // Determine which of the overloads (if any) match.
@@ -2175,6 +2185,51 @@ export class ExpressionEvaluator {
         }
 
         return classType;
+    }
+
+    // Implemented the semantics of the NewType call as documented
+    // in the Python specification: The static type checker will treat
+    // the new type as if it were a subclass of the original type.
+    private _createNewType(errorNode: ExpressionNode, argList: FunctionArgument[],
+            cachedExpressionNode?: ExpressionNode): ClassType | undefined {
+
+        let className = '_';
+        if (argList.length >= 1) {
+            const nameArg = argList[0];
+            if (nameArg.argumentCategory === ArgumentCategory.Simple) {
+                if (nameArg.valueExpression instanceof StringListNode) {
+                    className = nameArg.valueExpression.getValue();
+                }
+            }
+        }
+
+        if (argList.length >= 2 && argList[1].type instanceof ClassType) {
+            const baseClass = argList[1].type;
+
+            // This is a hack to make named tuples work correctly. We don't want
+            // to create a new ClassType for every analysis pass. Instead, we'll
+            // use the cached version and update it after the first pass.
+            const cachedCallType = cachedExpressionNode ?
+                AnalyzerNodeInfo.getExpressionType(cachedExpressionNode) :
+                undefined;
+
+            // Use the cached class type and update it if this isn't the first
+            // analysis path. If this is the first pass, allocate a new ClassType.
+            let classType = cachedCallType as ClassType;
+            if (!(classType instanceof ClassType)) {
+                classType = new ClassType(className, ClassTypeFlags.None,
+                    AnalyzerNodeInfo.getTypeSourceId(errorNode));
+
+                AnalyzerNodeInfo.setExpressionType(errorNode, classType);
+                classType.addBaseClass(baseClass, false);
+            } else {
+                classType.updateBaseClassType(0, baseClass);
+            }
+
+            return classType;
+        }
+
+        return undefined;
     }
 
     // Creates a new custom tuple factory class with named values.
@@ -2857,8 +2912,8 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromListExpression(node: ListNode, usage: EvaluatorUsage): TypeResult {
         let listEntryType: Type = AnyType.create();
+    private _getTypeFromListExpression(node: ListNode): TypeResult {
 
         if (node.entries.length === 1 && node.entries[0] instanceof ListComprehensionNode) {
             listEntryType = this._getElementTypeFromListComprehensionExpression(
