@@ -481,3 +481,10 @@ test('Super1', () => {
 
     validateResults(analysisResults, 4);
 });
+
+test('NewType1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType1.py']);
+
+    validateResults(analysisResults, 1);
+});
+
