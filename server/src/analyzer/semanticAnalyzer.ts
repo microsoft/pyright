@@ -523,9 +523,11 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         if (!functionNode) {
             this._addError(
                 `'yield' not allowed outside of a function`, node);
-        } else if (functionNode.isAsync) {
+        } else if (functionNode.isAsync && node instanceof YieldFromExpressionNode) {
+            // PEP 525 indicates that 'yield from' is not allowed in an
+            // async function.
             this._addError(
-                `'yield' not allowed in an async function`, node);
+                `'yield from' not allowed in an async function`, node);
         }
     }
 
