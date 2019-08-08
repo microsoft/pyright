@@ -30,6 +30,7 @@ import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { Declaration, DeclarationCategory } from './declaration';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportResult, ImportType } from './importResult';
@@ -37,7 +38,7 @@ import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
-import { Declaration, Symbol, SymbolCategory, SymbolTable } from './symbol';
+import { Symbol, SymbolTable } from './symbol';
 import { SymbolUtils } from './symbolUtils';
 import { TypeConstraintBuilder } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
@@ -99,7 +100,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._didAnalysisChange = false;
 
         let declaration: Declaration = {
-            category: SymbolCategory.Module,
+            category: DeclarationCategory.Module,
             node: this._moduleNode,
             path: this._fileInfo.filePath,
             range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } }
@@ -232,7 +233,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         const declaration: Declaration = {
-            category: SymbolCategory.Class,
+            category: DeclarationCategory.Class,
             node: node.name,
             declaredType: decoratedType,
             path: this._fileInfo.filePath,
@@ -447,7 +448,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     let declaration: Declaration | undefined;
                     declaration = {
-                        category: SymbolCategory.Parameter,
+                        category: DeclarationCategory.Parameter,
                         node: paramNode,
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(paramNode.start, paramNode.end, this._fileInfo.lines),
@@ -475,7 +476,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._validateFunctionReturn(node, functionType, functionScope);
 
         const declaration: Declaration = {
-            category: containingClassNode ? SymbolCategory.Method : SymbolCategory.Function,
+            category: containingClassNode ? DeclarationCategory.Method : DeclarationCategory.Function,
             node: node.name,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines),
@@ -512,7 +513,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     let declaration: Declaration | undefined;
                     declaration = {
-                        category: SymbolCategory.Parameter,
+                        category: DeclarationCategory.Parameter,
                         node: param,
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(param.start, param.end, this._fileInfo.lines)
@@ -906,7 +907,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 let declaration: Declaration = {
-                    category: SymbolCategory.Variable,
+                    category: DeclarationCategory.Variable,
                     node: node.name,
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
@@ -1154,7 +1155,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let unaccessedDiagLevel: DiagnosticLevel = 'none';
         if (symbolInScope && declarations) {
             // Determine if we should log information about an unused name.
-            if (declarations[0].category === SymbolCategory.Variable) {
+            if (declarations[0].category === DeclarationCategory.Variable) {
                 unaccessedDiagLevel = this._fileInfo.diagnosticSettings.reportUnusedVariable;
             }
         }
@@ -1175,11 +1176,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (symbolWithScope) {
                     if (symbolWithScope.symbol.hasDeclarations()) {
                         const category = symbolWithScope.symbol.getDeclarations()[0].category;
-                        if (category === SymbolCategory.Function || category === SymbolCategory.Method) {
+                        if (category === DeclarationCategory.Function || category === DeclarationCategory.Method) {
                             this._addError('Del should not be applied to function', expr);
-                        } else if (category === SymbolCategory.Class) {
+                        } else if (category === DeclarationCategory.Class) {
                             this._addError('Del should not be applied to class', expr);
-                        } else if (category === SymbolCategory.Parameter) {
+                        } else if (category === DeclarationCategory.Parameter) {
                             this._addError('Del should not be applied to parameter', expr);
                         }
                     }
@@ -1224,7 +1225,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                         if (importedModule) {
                             let declaration: Declaration = {
-                                category: SymbolCategory.Module,
+                                category: DeclarationCategory.Module,
                                 node: importedModule.parseTree,
                                 path: implicitImport.path,
                                 range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 }}
@@ -1540,7 +1541,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (specialType) {
                 let declaration: Declaration = {
-                    category: SymbolCategory.Class,
+                    category: DeclarationCategory.Class,
                     node: node.leftExpression,
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.leftExpression.start,
@@ -1590,7 +1591,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (specialType) {
                 let declaration: Declaration = {
-                    category: SymbolCategory.Class,
+                    category: DeclarationCategory.Class,
                     node: nameNode,
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(nameNode.start,
@@ -1662,7 +1663,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (target instanceof NameNode) {
             const name = target.nameToken;
             const declaration: Declaration = {
-                category: SymbolCategory.Variable,
+                category: DeclarationCategory.Variable,
                 node: target,
                 isConstant: SymbolUtils.isConstantName(name.value),
                 path: this._fileInfo.filePath,
@@ -2437,7 +2438,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let createDeclaration = () => {
                 const declaration: Declaration = {
                     category: srcType instanceof FunctionType ?
-                        SymbolCategory.Method : SymbolCategory.Variable,
+                        DeclarationCategory.Method : DeclarationCategory.Variable,
                     node: node.memberName,
                     isConstant,
                     path: this._fileInfo.filePath,
@@ -2720,7 +2721,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (target instanceof NameNode) {
             const name = target.nameToken;
             const declaration: Declaration = {
-                category: SymbolCategory.Variable,
+                category: DeclarationCategory.Variable,
                 node: target,
                 isConstant: SymbolUtils.isConstantName(name.value),
                 path: this._fileInfo.filePath,
@@ -2848,7 +2849,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (target.expression instanceof NameNode) {
                 const name = target.expression.nameToken;
                 const declaration: Declaration = {
-                    category: SymbolCategory.Variable,
+                    category: DeclarationCategory.Variable,
                     node: target.expression,
                     isConstant: SymbolUtils.isConstantName(name.value),
                     path: this._fileInfo.filePath,

@@ -22,9 +22,10 @@ import { ParseResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { DeclarationCategory } from './declaration';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ParseTreeUtils } from './parseTreeUtils';
-import { SymbolCategory, SymbolTable } from './symbol';
+import { SymbolTable } from './symbol';
 import { ClassType, FunctionType, ModuleType, ObjectType, OverloadedFunctionType } from './types';
 import { TypeUtils } from './typeUtils';
 
@@ -347,18 +348,19 @@ export class CompletionProvider {
 
             if (declarations.length > 0) {
                 const declaration = declarations[0];
-                itemKind = this._convertSymbolCategoryToItemKind(declaration.category);
+                itemKind = this._convertDeclarationCategoryToItemKind(
+                    declaration.category);
 
                 const type = declaration.declaredType;
                 if (type) {
                     switch (declaration.category) {
-                        case SymbolCategory.Variable:
-                        case SymbolCategory.Parameter:
+                        case DeclarationCategory.Variable:
+                        case DeclarationCategory.Parameter:
                             typeDetail = name + ': ' + type.asString();
                             break;
 
-                        case SymbolCategory.Function:
-                        case SymbolCategory.Method:
+                        case DeclarationCategory.Function:
+                        case DeclarationCategory.Method:
                             if (type instanceof OverloadedFunctionType) {
                                 typeDetail = type.getOverloads().map(overload =>
                                     name + overload.type.asString()).join('\n');
@@ -367,11 +369,11 @@ export class CompletionProvider {
                             }
                             break;
 
-                        case SymbolCategory.Class:
+                        case DeclarationCategory.Class:
                             typeDetail = 'class ' + name + '()';
                             break;
 
-                        case SymbolCategory.Module:
+                        case DeclarationCategory.Module:
                         default:
                             typeDetail = name;
                             break;
@@ -422,22 +424,24 @@ export class CompletionProvider {
         }
     }
 
-    private static _convertSymbolCategoryToItemKind(category: SymbolCategory): CompletionItemKind {
+    private static _convertDeclarationCategoryToItemKind(
+                category: DeclarationCategory): CompletionItemKind {
+
         switch (category) {
-            case SymbolCategory.Variable:
-            case SymbolCategory.Parameter:
+            case DeclarationCategory.Variable:
+            case DeclarationCategory.Parameter:
                 return CompletionItemKind.Variable;
 
-            case SymbolCategory.Function:
+            case DeclarationCategory.Function:
                 return CompletionItemKind.Function;
 
-            case SymbolCategory.Method:
+            case DeclarationCategory.Method:
                 return CompletionItemKind.Method;
 
-            case SymbolCategory.Class:
+            case DeclarationCategory.Class:
                 return CompletionItemKind.Class;
 
-            case SymbolCategory.Module:
+            case DeclarationCategory.Module:
                 return CompletionItemKind.Module;
         }
     }

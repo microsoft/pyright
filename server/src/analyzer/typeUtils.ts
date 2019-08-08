@@ -12,8 +12,9 @@ import * as assert from 'assert';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
+import { Declaration } from './declaration';
 import { DefaultTypeSourceId } from './inferredType';
-import { Declaration, Symbol, SymbolTable } from './symbol';
+import { Symbol, SymbolTable } from './symbol';
 import { AnyType, ClassType, FunctionParameter,
     FunctionType, FunctionTypeFlags, InheritanceChain, ModuleType, NeverType,
     NoneType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,

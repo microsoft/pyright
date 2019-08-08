@@ -31,10 +31,11 @@ import { KeywordToken, KeywordType, OperatorType, StringTokenFlags,
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { Declaration, DeclarationCategory } from './declaration';
 import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
-import { Declaration, Symbol, SymbolCategory } from './symbol';
+import { Symbol } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
@@ -2159,7 +2160,7 @@ export class ExpressionEvaluator {
                         // user to the exact spot in the string, but it's close enough.
                         const stringNode = entriesArg.valueExpression!;
                         const declaration: Declaration = {
-                            category: SymbolCategory.Variable,
+                            category: DeclarationCategory.Variable,
                             node: stringNode,
                             path: this._fileInfo.filePath,
                             declaredType: entryType,
@@ -2265,7 +2266,7 @@ export class ExpressionEvaluator {
                                 // user to the exact spot in the string, but it's close enough.
                                 const stringNode = entriesArg.valueExpression!;
                                 const declaration: Declaration = {
-                                    category: SymbolCategory.Variable,
+                                    category: DeclarationCategory.Variable,
                                     node: stringNode,
                                     path: this._fileInfo.filePath,
                                     declaredType: entryType,
@@ -2340,7 +2341,7 @@ export class ExpressionEvaluator {
                             const newSymbol = Symbol.createWithType(entryType, DefaultTypeSourceId);
                             if (entryNameNode) {
                                 const declaration: Declaration = {
-                                    category: SymbolCategory.Variable,
+                                    category: DeclarationCategory.Variable,
                                     node: entryNameNode,
                                     path: this._fileInfo.filePath,
                                     declaredType: entryType,

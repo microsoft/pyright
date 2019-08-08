@@ -9,41 +9,10 @@
 * in the program.
 */
 
-import { DiagnosticTextRange } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
-import { ParseNode } from '../parser/parseNodes';
+import { Declaration } from './declaration';
 import { InferredType, TypeSourceId } from './inferredType';
 import { Type } from './types';
-
-export enum SymbolCategory {
-    Variable,
-    Parameter,
-    Function,
-    Method,
-    Class,
-    Module
-}
-
-export interface Declaration {
-    // Category of this symbol (function, variable, etc.).
-    // Used by hover provider to display helpful text.
-    category: SymbolCategory;
-
-    // The node that contains the definition.
-    node: ParseNode;
-
-    // Declared type (if specified) of the symbol.
-    declaredType?: Type;
-
-    // Is the declaration considered "constant" (i.e.
-    // reassignment is not permitted)?
-    isConstant?: boolean;
-
-    // The file and range within that file that
-    // contains the declaration.
-    path: string;
-    range: DiagnosticTextRange;
-}
 
 export class Symbol {
     // Inferred type of the symbol.

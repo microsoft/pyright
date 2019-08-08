@@ -15,9 +15,9 @@ import { ModuleNameNode, NameNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { DeclarationCategory } from './declaration';
 import { ImportType } from './importResult';
 import { ParseTreeUtils } from './parseTreeUtils';
-import { SymbolCategory } from './symbol';
 import { ClassType, FunctionType, ModuleType, OverloadedFunctionType,
     Type, UnknownType } from './types';
 
@@ -106,7 +106,7 @@ export class HoverProvider {
             const declaration = declarations[0];
 
             switch (declaration.category) {
-                case SymbolCategory.Variable: {
+                case DeclarationCategory.Variable: {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(variable) ' + node.nameToken.value +
                             this._getTypeText(node), true);
@@ -116,7 +116,7 @@ export class HoverProvider {
                     break;
                 }
 
-                case SymbolCategory.Parameter: {
+                case DeclarationCategory.Parameter: {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(parameter) ' + node.nameToken.value +
                             this._getTypeText(node), true);
@@ -126,7 +126,7 @@ export class HoverProvider {
                     break;
                 }
 
-                case SymbolCategory.Class: {
+                case DeclarationCategory.Class: {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(class) ' + this._getTypeText(node), true);
                         this._addDocumentationPart(results, node);
@@ -135,7 +135,7 @@ export class HoverProvider {
                     break;
                 }
 
-                case SymbolCategory.Function: {
+                case DeclarationCategory.Function: {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(function) ' + node.nameToken.value +
                             this._getTypeText(node), true);
@@ -145,7 +145,7 @@ export class HoverProvider {
                     break;
                 }
 
-                case SymbolCategory.Method: {
+                case DeclarationCategory.Method: {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(method) ' + node.nameToken.value +
                             this._getTypeText(node), true);
@@ -155,7 +155,7 @@ export class HoverProvider {
                     break;
                 }
 
-                case SymbolCategory.Module: {
+                case DeclarationCategory.Module: {
                     if (node instanceof NameNode) {
                         this._addResultsPart(results, '(module) ' + node.nameToken.value, true);
                         this._addDocumentationPart(results, node);

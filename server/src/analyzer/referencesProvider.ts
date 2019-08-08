@@ -13,9 +13,10 @@ import { convertOffsetToPosition, convertPositionToOffset } from '../common/posi
 import { NameNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { Declaration, DeclarationCategory } from './declaration';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
-import { Declaration, Symbol, SymbolCategory } from './symbol';
+import { Symbol } from './symbol';
 
 export interface ReferencesResult {
     requiresGlobalSearch: boolean;
@@ -95,7 +96,7 @@ export class ReferencesProvider {
         const symbolCategory = declarations[0].category;
 
         // Parameters are local to a scope, so they don't require a global search.
-        const requiresGlobalSearch = symbolCategory !== SymbolCategory.Parameter;
+        const requiresGlobalSearch = symbolCategory !== DeclarationCategory.Parameter;
 
         const results: ReferencesResult = {
             requiresGlobalSearch,

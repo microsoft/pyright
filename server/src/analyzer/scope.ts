@@ -13,8 +13,9 @@
 
 import * as assert from 'assert';
 
+import { Declaration } from './declaration';
 import { InferredType } from './inferredType';
-import { Declaration, Symbol, SymbolTable } from './symbol';
+import { Symbol, SymbolTable } from './symbol';
 import { TypeConstraint } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
 

@@ -10,7 +10,7 @@
 * analysis proceeds.
 */
 
-import { ClassType, ObjectType, Type, UnboundType, UnknownType } from './types';
+import { ClassType, ObjectType, Type, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 // A type can be inferred from multiple sources. Each sources

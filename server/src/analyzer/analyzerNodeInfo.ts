@@ -12,10 +12,10 @@
 
 import { NameBindings } from '../parser/nameBindings';
 import { ParseNode, StringListNode } from '../parser/parseNodes';
+import { Declaration } from './declaration';
 import { ImportResult } from './importResult';
 import { TypeSourceId } from './inferredType';
 import { Scope } from './scope';
-import { Declaration } from './symbol';
 import { Type } from './types';
 
 // An always-incrementing ID for assigning to nodes.
