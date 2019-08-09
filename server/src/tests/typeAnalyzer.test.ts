@@ -487,4 +487,3 @@ test('NewType1', () => {
 
     validateResults(analysisResults, 1);
 });
-
