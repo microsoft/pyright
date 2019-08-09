@@ -1468,8 +1468,8 @@ export class TypeUtils {
         });
 
         classType.getBaseClasses().forEach(baseClassType => {
-            if (baseClassType instanceof ClassType) {
-                this._getMembersForClassRecursive(baseClassType,
+            if (!baseClassType.isMetaclass && baseClassType.type instanceof ClassType) {
+                this._getMembersForClassRecursive(baseClassType.type,
                     symbolTable, includeInstanceVars, recursionCount + 1);
             }
         });
