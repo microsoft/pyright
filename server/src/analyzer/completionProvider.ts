@@ -26,6 +26,7 @@ import { DeclarationCategory } from './declaration';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { SymbolTable } from './symbol';
+import { SymbolUtils } from './symbolUtils';
 import { ClassType, FunctionType, ModuleType, ObjectType, OverloadedFunctionType } from './types';
 import { TypeUtils } from './typeUtils';
 
@@ -399,6 +400,9 @@ export class CompletionProvider {
         if (name.startsWith(filter)) {
             const completionItem = CompletionItem.create(name);
             completionItem.kind = itemKind;
+
+            // Force dunder-named symbols to appear after all other symbols.
+            completionItem.sortText = SymbolUtils.isDunderName(name) ? '~' + name : name;
             let markdownString = '';
 
             if (typeDetail) {
