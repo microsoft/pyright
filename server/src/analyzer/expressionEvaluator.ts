@@ -2864,8 +2864,27 @@ export class ExpressionEvaluator {
                 addUnknown = false;
 
             } else if (entryNode instanceof DictionaryExpandEntryNode) {
-                // TODO - handle DictionaryExpandEntryNode.
+                let unexpandedType = this.getType(entryNode.expandExpression);
+                if (unexpandedType.isAny()) {
+                    addUnknown = false;
+                } else {
+                    if (unexpandedType instanceof ObjectType) {
+                        let classType = unexpandedType.getClassType();
+                        const aliasClass = classType.getAliasClass();
+                        if (aliasClass) {
+                            classType = aliasClass;
+                        }
 
+                        if (classType.isBuiltIn() && classType.getClassName() === 'dict') {
+                            const typeArgs = classType.getTypeArguments();
+                            if (typeArgs && typeArgs.length >= 2) {
+                                keyTypes.push(typeArgs[0]);
+                                valueTypes.push(typeArgs[1]);
+                                addUnknown = false;
+                            }
+                        }
+                    }
+                }
             } else if (entryNode instanceof ListComprehensionNode) {
                 const dictEntryType = this._getElementTypeFromListComprehensionExpression(
                     node.entries[0] as ListComprehensionNode<DictionaryKeyEntryNode>);
@@ -3148,6 +3167,8 @@ export class ExpressionEvaluator {
                     type = ScopeUtils.getBuiltInObject(
                         this._scope, 'Tuple', [keyType, valueType]);
                 } else if (node.expression instanceof DictionaryExpandEntryNode) {
+                    let unexpandedType = this.getType(node.expression.expandExpression);
+
                     // TODO - need to implement
                 } else if (node.expression instanceof ExpressionNode) {
                     type = TypeUtils.stripLiteralValue(this.getType(node.expression));
