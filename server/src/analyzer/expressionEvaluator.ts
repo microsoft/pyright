@@ -998,7 +998,19 @@ export class ExpressionEvaluator {
             if (!(flags & MemberAccessFlags.SkipGetCheck)) {
                 if (type instanceof PropertyType) {
                     if (usage.method === 'get') {
-                        return makeClassMember(type.getEffectiveReturnType());
+                        // Use the property's getter function to determine
+                        // the return type.
+                        const selfArg: FunctionArgument = {
+                            argumentCategory: ArgumentCategory.Simple,
+                            type: new ObjectType(classType)
+                        };
+                        let propertyReturnType = this._validateCallArguments(
+                            errorNode, [selfArg], type.getGetter(), new TypeVarMap(), true);
+                        if (!propertyReturnType) {
+                            propertyReturnType = UnknownType.create();
+                        }
+
+                        return makeClassMember(propertyReturnType);
                     } else if (usage.method === 'set') {
                         let setterFunctionType = type.getSetter();
                         if (setterFunctionType) {
