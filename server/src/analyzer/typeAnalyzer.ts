@@ -23,9 +23,9 @@ import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode,
     ListNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
     ParseNode, RaiseNode, ReturnNode, SliceExpressionNode, StringListNode,
-    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
-    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
+    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -44,7 +44,7 @@ import { TypeConstraintBuilder } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NoneType, ObjectType,
-    OverloadedFunctionType, PropertyType, Type, TypeCategory, TypeVarType,
+    OverloadedFunctionType, PropertyType, Type, TypeVarType,
     UnboundType, UnionType, UnknownType } from './types';
 import { ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
@@ -2752,6 +2752,24 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 path: this._fileInfo.filePath,
                 range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
             };
+
+            // Handle '__all__' as a special case in the module scope.
+            if (name.value === '__all__' && this._currentScope.getType() === ScopeType.Module) {
+                // It's common for modules to include the expression
+                // __all__ = ['a', 'b', 'c']
+                // We will mark the symbols referenced by these strings as accessed.
+                if (srcExpr instanceof ListNode) {
+                    srcExpr.entries.forEach(entryExpr => {
+                        if (entryExpr instanceof StringListNode || entryExpr instanceof StringNode) {
+                            const symbolName = entryExpr.getValue();
+                            const symbolInScope = this._currentScope.lookUpSymbolRecursive(symbolName);
+                            if (symbolInScope) {
+                                symbolInScope.symbol.setIsAcccessed();
+                            }
+                        }
+                    });
+                }
+            }
 
             this._reportPossibleUnknownAssignment(
                 this._fileInfo.diagnosticSettings.reportUnknownVariableType,
