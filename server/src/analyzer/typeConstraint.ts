@@ -173,19 +173,21 @@ export class TypeConstraintBuilder {
                             testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
 
                         const argExpression = testExpression.leftExpression.arguments[0].valueExpression;
-                        const classType = typeEvaluator(testExpression.rightExpression);
-                        if (classType instanceof ClassType) {
-                            const originalType = typeEvaluator(argExpression);
-                            const positiveType = this._transformTypeForIsTypeExpression(originalType, classType, true);
-                            const negativeType = this._transformTypeForIsTypeExpression(originalType, classType, false);
-                            const trueConstraint = new TypeConstraint(argExpression, positiveType);
-                            const falseConstraint = new TypeConstraint(argExpression, negativeType);
-                            const isPositive = testExpression.operator === OperatorType.Is;
+                        if (TypeConstraint.isSupportedExpression(argExpression)) {
+                            const classType = typeEvaluator(testExpression.rightExpression);
+                            if (classType instanceof ClassType) {
+                                const originalType = typeEvaluator(argExpression);
+                                const positiveType = this._transformTypeForIsTypeExpression(originalType, classType, true);
+                                const negativeType = this._transformTypeForIsTypeExpression(originalType, classType, false);
+                                const trueConstraint = new TypeConstraint(argExpression, positiveType);
+                                const falseConstraint = new TypeConstraint(argExpression, negativeType);
+                                const isPositive = testExpression.operator === OperatorType.Is;
 
-                            results.ifConstraints.push(isPositive ? trueConstraint : falseConstraint);
-                            results.elseConstraints.push(isPositive ? falseConstraint : trueConstraint);
+                                results.ifConstraints.push(isPositive ? trueConstraint : falseConstraint);
+                                results.elseConstraints.push(isPositive ? falseConstraint : trueConstraint);
 
-                            return results;
+                                return results;
+                            }
                         }
                     }
                 }
