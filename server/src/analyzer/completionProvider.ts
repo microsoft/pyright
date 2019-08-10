@@ -93,7 +93,7 @@ export class CompletionProvider {
 
             // Stop scanning backward if we hit certain stop characters.
             const curChar = fileContents.substr(curOffset, 1);
-            if (curChar === '(' || curChar === ',' || curChar === '\n') {
+            if (curChar === '(' || curChar === '\n') {
                 break;
             }
 
@@ -324,7 +324,12 @@ export class CompletionProvider {
                 const moduleType = AnalyzerNodeInfo.getExpressionType(moduleNode) as ModuleType;
                 if (moduleType) {
                     const moduleFields = moduleType.getFields();
-                    this._addSymbolsForSymbolTable(moduleFields, name => true,
+                    this._addSymbolsForSymbolTable(moduleFields,
+                        name => {
+                            // Don't suggest symbols that have already been imported.
+                            return !importFromNode.imports.find(
+                                imp => imp.name.nameToken.value === name);
+                        },
                         priorWord, completionList);
                 }
             }
@@ -332,8 +337,10 @@ export class CompletionProvider {
 
         // Add the implicit imports.
         importInfo.implicitImports.forEach(implImport => {
-            this._addNameToCompletionList(implImport.name, CompletionItemKind.Module,
-                priorWord, completionList);
+            if (!importFromNode.imports.find(imp => imp.name.nameToken.value === implImport.name)) {
+                this._addNameToCompletionList(implImport.name, CompletionItemKind.Module,
+                    priorWord, completionList);
+            }
         });
 
         return completionList;
