@@ -18,14 +18,14 @@ import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode, ConstantNode,
-    DecoratorNode, DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode, FormatStringNode,
-    ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode,
-    IndexExpressionNode, LambdaNode, ListComprehensionForNode, ListComprehensionNode,
-    ListNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
-    ParseNode, RaiseNode, ReturnNode, SliceExpressionNode, StringListNode,
-    StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
-    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    ContinueNode, DecoratorNode, DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode,
+    FormatStringNode, ForNode, FunctionNode, IfNode, ImportAsNode,
+    ImportFromNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNode, NameNode,
+    ParameterCategory, ParseNode, RaiseNode, ReturnNode, SliceExpressionNode,
+    StringListNode, StringNode, SuiteNode, TernaryExpressionNode, TryNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
+    UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -825,6 +825,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this._validateYieldType(node, yieldType);
 
+        return true;
+    }
+
+    visitContinue(node: ContinueNode): boolean {
+        // For purposes of analysis, treat a continue as if it's a return.
+        if (!this._currentScope.getAlwaysRaises()) {
+            this._currentScope.setAlwaysReturns();
+        }
         return true;
     }
 
