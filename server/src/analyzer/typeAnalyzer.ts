@@ -43,9 +43,9 @@ import { SymbolUtils } from './symbolUtils';
 import { TypeConstraintBuilder } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, NoneType, ObjectType,
-    OverloadedFunctionType, PropertyType, Type, TypeVarType,
-    UnboundType, UnionType, UnknownType } from './types';
+    FunctionTypeFlags, ModuleType, NeverType, NoneType,
+    ObjectType, OverloadedFunctionType, PropertyType, Type,
+    TypeVarType, UnboundType, UnionType, UnknownType } from './types';
 import { ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
 interface AliasMapEntry {
@@ -574,6 +574,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (TypeUtils.isNoReturnType(returnValue)) {
             this._currentScope.setAlwaysRaises();
         }
+
+        this._validateIsInstanceCallNecessary(node);
 
         if (this._defaultValueInitializerExpression && !this._fileInfo.isStubFile) {
             this._addDiagnostic(
@@ -1506,6 +1508,121 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         return false;
+    }
+
+    // Validates that a call to isinstance is necessary. This is a
+    // common source of programming errors.
+    private _validateIsInstanceCallNecessary(node: CallExpressionNode) {
+        if (this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance === 'none') {
+            return;
+        }
+
+        if (!(node.leftExpression instanceof NameNode) ||
+                node.leftExpression.nameToken.value !== 'isinstance' ||
+                node.arguments.length !== 2) {
+            return;
+        }
+
+        const arg0Type = this._getTypeOfExpression(node.arguments[0].valueExpression);
+        if (arg0Type.isAny()) {
+            return;
+        }
+
+        const arg1Type = this._getTypeOfExpression(node.arguments[1].valueExpression);
+
+        const classTypeList: ClassType[] = [];
+        if (arg1Type instanceof ClassType) {
+            classTypeList.push(arg1Type);
+        } else if (arg1Type instanceof ObjectType) {
+            // The isinstance call supports a variation where the second
+            // parameter is a tuple of classes.
+            const objClass = arg1Type.getClassType();
+            if (objClass.isBuiltIn() && objClass.getClassName() === 'Tuple' && objClass.getTypeArguments()) {
+                objClass.getTypeArguments()!.forEach(typeArg => {
+                    if (typeArg instanceof ClassType) {
+                        classTypeList.push(typeArg);
+                    } else {
+                        return;
+                    }
+                });
+            }
+        } else {
+            return;
+        }
+
+        const finalizeFilteredTypeList = (types: Type[]): Type => {
+            return TypeUtils.combineTypes(types);
+        };
+
+        const filterType = (varType: ClassType): ObjectType[] => {
+            let filteredTypes: ClassType[] = [];
+
+            for (let filterType of classTypeList) {
+                const filterIsSuperclass = varType.isDerivedFrom(filterType);
+                const filterIsSubclass = filterType.isDerivedFrom(varType);
+
+                if (filterIsSuperclass) {
+                    // If the variable type is a subclass of the isinstance
+                    // filter, we haven't learned anything new about the
+                    // variable type.
+                    filteredTypes.push(varType);
+                } else if (filterIsSubclass) {
+                    // If the variable type is a superclass of the isinstance
+                    // filter, we can narrow the type to the subclass.
+                    filteredTypes.push(filterType);
+                }
+            }
+
+            return filteredTypes.map(t => new ObjectType(t));
+        };
+
+        let filteredType: Type;
+        if (arg0Type instanceof ObjectType) {
+            let remainingTypes = filterType(arg0Type.getClassType());
+            filteredType = finalizeFilteredTypeList(remainingTypes);
+        } else if (arg0Type instanceof UnionType) {
+            let remainingTypes: Type[] = [];
+            let foundAnyType = false;
+
+            arg0Type.getTypes().forEach(t => {
+                if (t.isAny()) {
+                    foundAnyType = true;
+                }
+
+                if (t instanceof ObjectType) {
+                    remainingTypes = remainingTypes.concat(
+                        filterType(t.getClassType()));
+                }
+            });
+
+            filteredType = finalizeFilteredTypeList(remainingTypes);
+
+            // If we found an any or unknown type, all bets are off.
+            if (foundAnyType) {
+                return;
+            }
+        } else {
+            return;
+        }
+
+        const getTestType = () => {
+            const objTypeList = classTypeList.map(t => new ObjectType(t));
+            return TypeUtils.combineTypes(objTypeList);
+        };
+
+        if (filteredType instanceof NeverType) {
+            this._addDiagnostic(
+                this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
+                `Unnecessary isinstance call: '${ arg0Type.asString() }' ` +
+                    `is never instance of '${ getTestType().asString() }'`,
+                node);
+        } else if (filteredType.isSame(arg0Type)) {
+            this._addDiagnostic(
+                this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
+                `Unnecessary isinstance call: '${ arg0Type.asString() }' ` +
+                    `is always instance of '${ getTestType().asString() }'`,
+                node);
+        }
     }
 
     // Handles some special-case assignment statements that are found

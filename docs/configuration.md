@@ -88,6 +88,8 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportCallInDefaultInitializer** [boolean or string, optional]: Generate or suppress diagnostics for function calls within a default value initialization expression. Such calls can mask expensive operations that are performed at module initialization time. The default value for this setting is 'none'.
 
+**reportUnnecessaryIsInstance** [boolean or string, optional]: Generate or suppress diagnostics for 'isinstance' calls where the result is statically determined to be always true or always false. Such calls are often indicative of a programming error. The default value for this setting is 'none'.
+
 
 ## Execution Environment Options
 Pyright allows multiple “execution environments” to be defined for different portions of your source tree. For example, a subtree may be designed to run with different import search paths or a different version of the python interpreter than the rest of the source base.

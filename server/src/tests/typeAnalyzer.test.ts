@@ -115,6 +115,18 @@ test('TypeConstraint3', () => {
     validateResults(analysisResults, 1);
 });
 
+test('TypeConstraint4', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint4.py']);
+
+    validateResults(analysisResults, 2);
+});
+
+test('TypeConstraint5', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint5.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('CircularBaseClass', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['circularBaseClass.py']);
 
@@ -486,4 +498,16 @@ test('NewType1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType1.py']);
 
     validateResults(analysisResults, 1);
+});
+
+test('UnnecessaryIsInstance1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance1.py'], configOptions);
+    validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticSettings.reportUnnecessaryIsInstance = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance1.py'], configOptions);
+    validateResults(analysisResults, 3);
 });

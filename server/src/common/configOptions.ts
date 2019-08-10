@@ -131,6 +131,10 @@ export interface DiagnosticSettings {
     // Report usage of function call within default value
     // initialization expression?
     reportCallInDefaultInitializer: DiagnosticLevel;
+
+    // Report calls to isinstance that are statically determined
+    // to always be true or false.
+    reportUnnecessaryIsInstance: DiagnosticLevel;
 }
 
 export function cloneDiagnosticSettings(
@@ -175,7 +179,8 @@ export function getDiagLevelSettings() {
         'reportUnknownParameterType',
         'reportUnknownVariableType',
         'reportUnknownMemberType',
-        'reportCallInDefaultInitializer'
+        'reportCallInDefaultInitializer',
+        'reportUnnecessaryIsInstance'
     ];
 }
 
@@ -209,7 +214,8 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportUnknownParameterType: 'error',
         reportUnknownVariableType: 'error',
         reportUnknownMemberType: 'error',
-        reportCallInDefaultInitializer: 'none'
+        reportCallInDefaultInitializer: 'none',
+        reportUnnecessaryIsInstance: 'error'
     };
 
     return diagSettings;
@@ -245,7 +251,8 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportUnknownParameterType: 'none',
         reportUnknownVariableType: 'none',
         reportUnknownMemberType: 'none',
-        reportCallInDefaultInitializer: 'none'
+        reportCallInDefaultInitializer: 'none',
+        reportUnnecessaryIsInstance: 'none'
     };
 
     return diagSettings;
@@ -569,7 +576,12 @@ export class ConfigOptions {
             // Read the "reportCallInDefaultInitializer" entry.
             reportCallInDefaultInitializer: this._convertDiagnosticLevel(
                 configObj.reportCallInDefaultInitializer, 'reportCallInDefaultInitializer',
-                defaultSettings.reportCallInDefaultInitializer)
+                defaultSettings.reportCallInDefaultInitializer),
+
+            // Read the "reportUnnecessaryIsInstance" entry.
+            reportUnnecessaryIsInstance: this._convertDiagnosticLevel(
+                configObj.reportUnnecessaryIsInstance, 'reportUnnecessaryIsInstance',
+                defaultSettings.reportUnnecessaryIsInstance)
         };
 
         // Read the "venvPath".
