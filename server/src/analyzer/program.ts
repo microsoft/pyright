@@ -237,8 +237,11 @@ export class Program {
     // that require it. If a limit time is specified, the operation
     // is interrupted when the time expires. The return value indicates
     // whether the method needs to be called again to complete the
-    // analysis.
-    analyze(options: ConfigOptions, maxTime?: MaxAnalysisTime): boolean {
+    // analysis. In interactive mode, the timeout is always limited
+    // to the smaller value to maintain responsiveness.
+    analyze(options: ConfigOptions, maxTime?: MaxAnalysisTime,
+            interactiveMode?: boolean): boolean {
+
         let elapsedTime = new Duration();
 
         let openFiles = this._sourceFileList.filter(
@@ -288,8 +291,13 @@ export class Program {
         let allFiles = this._sourceFileList;
 
         let isTimeElapsedNoOpenFiles = () => {
-            return maxTime !== undefined &&
-                elapsedTime.getDurationInMilliseconds() > maxTime.noOpenFilesTimeInMs;
+            if (maxTime === undefined) {
+                return false;
+            }
+            const effectiveMaxTime = interactiveMode ?
+                maxTime.openFilesTimeInMs :
+                maxTime.noOpenFilesTimeInMs;
+            return elapsedTime.getDurationInMilliseconds() > effectiveMaxTime;
         };
 
         // Now do type parsing and analysis of the remaining.

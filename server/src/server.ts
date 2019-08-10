@@ -74,7 +74,7 @@ function _createAnalyzerService(name: string): AnalyzerService {
     // Don't allow the analysis engine to go too long without
     // reporting results. This will keep it responsive.
     service.setMaxAnalysisDuration({
-        openFilesTimeInMs: 100,
+        openFilesTimeInMs: 50,
         noOpenFilesTimeInMs: 500
     });
 

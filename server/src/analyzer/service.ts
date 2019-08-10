@@ -53,6 +53,7 @@ export class AnalyzerService {
     private _maxAnalysisTime?: MaxAnalysisTime;
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
+    private _lastUserInteractionTime = Date.now();
 
     constructor(instanceName: string, console?: ConsoleInterface) {
         this._instanceName = instanceName;
@@ -80,11 +81,13 @@ export class AnalyzerService {
     }
 
     setFileOpened(path: string, version: number | null, contents: string) {
+        this._recordUserInteractionTime();
         this._program.setFileOpened(path, version, contents);
         this._scheduleReanalysis(false);
     }
 
     updateOpenFileContents(path: string, version: number | null, contents: string) {
+        this._recordUserInteractionTime();
         this._program.setFileOpened(path, version, contents);
         this._program.markFilesDirty([path]);
         this._scheduleReanalysis(false);
@@ -104,12 +107,14 @@ export class AnalyzerService {
     getDefinitionForPosition(filePath: string, position: DiagnosticTextPosition):
             DocumentTextRange[] | undefined {
 
+        this._recordUserInteractionTime();
         return this._program.getDefinitionsForPosition(filePath, position);
     }
 
     getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
             includeDeclaration: boolean): DocumentTextRange[] | undefined {
 
+        this._recordUserInteractionTime();
         return this._program.getReferencesForPosition(filePath, position,
             this._configOptions, includeDeclaration);
     }
@@ -117,12 +122,14 @@ export class AnalyzerService {
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
             HoverResults | undefined {
 
+        this._recordUserInteractionTime();
         return this._program.getHoverForPosition(filePath, position);
     }
 
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition):
             SignatureHelpResults | undefined {
 
+        this._recordUserInteractionTime();
         return this._program.getSignatureHelpForPosition(filePath, position,
             this._configOptions);
     }
@@ -130,6 +137,7 @@ export class AnalyzerService {
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition):
             CompletionList | undefined {
 
+        this._recordUserInteractionTime();
         return this._program.getCompletionsForPosition(filePath, position,
             this._configOptions);
     }
@@ -621,7 +629,7 @@ export class AnalyzerService {
         // is too small (like zero), the VS Code extension becomes
         // unresponsive during heavy analysis. If this number is too
         // large, analysis takes longer.
-        const timeToNextAnalysisInMs = 5;
+        const timeToNextAnalysisInMs = 20;
 
         // Schedule a new timer.
         this._analyzeTimer = setTimeout(() => {
@@ -639,6 +647,23 @@ export class AnalyzerService {
         }, timeToNextAnalysisInMs);
     }
 
+    // Determine whether the user appears to be interacting with
+    // the service currently. In this case, we'll optimize for
+    // responsiveness versus overall performance.
+    private _useInteractiveMode(): boolean {
+        const curTime = Date.now();
+
+        // Assume we're in interactive mode if we've seen a
+        // user action within this time (measured in ms).
+        const interactiveTimeLimit = 1000;
+
+        return curTime - this._lastUserInteractionTime < interactiveTimeLimit;
+    }
+
+    private _recordUserInteractionTime() {
+        this._lastUserInteractionTime = Date.now();
+    }
+
     // Performs analysis for a while (up to this._maxAnalysisTimeInMs) before
     // returning some results. Return value indicates whether more analysis is
     // required to finish the entire program.
@@ -647,7 +672,8 @@ export class AnalyzerService {
 
         try {
             let duration = new Duration();
-            moreToAnalyze = this._program.analyze(this._configOptions, this._maxAnalysisTime);
+            moreToAnalyze = this._program.analyze(this._configOptions,
+                this._maxAnalysisTime, this._useInteractiveMode());
 
             let results: AnalysisResults = {
                 diagnostics: this._program.getDiagnostics(this._configOptions),
