@@ -606,7 +606,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }, true);
 
         if (loopScope.getAlwaysReturnsOrRaises() && elseScope.getAlwaysReturnsOrRaises()) {
-            // If both an loop and else clauses are executed but they both return or
+            // If both loop and else clauses are executed but they both return or
             // raise an exception, mark the current scope as always returning or
             // raising an exception.
             if (loopScope.getAlwaysRaises() && elseScope.getAlwaysRaises()) {
@@ -837,7 +837,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitBreak(node: BreakNode): boolean {
-        this._currentScope.setBreaksFromLoop();
+        this._currentScope.setMayBreak();
+        this._currentScope.setAlwaysBreaks();
         return true;
     }
 
@@ -1485,7 +1486,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         node.statements.forEach((statement, index) => {
             this.walk(statement);
 
-            if (this._currentScope.getAlwaysRaises() || this._currentScope.getAlwaysReturns()) {
+            if (this._currentScope.getAlwaysRaises() ||
+                    this._currentScope.getAlwaysReturns() ||
+                    this._currentScope.getAlwaysBreaks()) {
+
                 if (!reportedUnreachableCode) {
                     if (index < node.statements.length - 1) {
                         // Create a text range that covers the next statement through
@@ -2293,8 +2297,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        let ifContributions = !ifScope.getAlwaysReturnsOrRaises() && !isElseUnconditional ? ifScope : undefined;
-        let elseContributions = !elseScope.getAlwaysReturnsOrRaises() && !isIfUnconditional ? elseScope : undefined;
+        const ifContributions = !ifScope.getAlwaysReturnsOrRaises() &&
+            !isElseUnconditional ? ifScope : undefined;
+        const elseContributions = !elseScope.getAlwaysReturnsOrRaises() &&
+            !isIfUnconditional ? elseScope : undefined;
 
         // Figure out how to combine the scopes.
         if (ifContributions && elseContributions) {
@@ -2321,7 +2327,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (isIfUnconditional && isWhile && !ifScope.getBreaksFromLoop()) {
+        if (isIfUnconditional && isWhile && !ifScope.getMayBreak()) {
             // If this is an infinite loop, mark it as always raising
             // So we don't assume that we'll fall through and possibly
             // return None at the end of the function.

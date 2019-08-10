@@ -87,7 +87,11 @@ export class Scope {
 
     // Tracks whether a "break" statement was executed within
     // the loop.
-    private _breaksFromLoop = false;
+    private _mayBreak = false;
+
+    // Tracks whether a "break" statement is always executed
+    // along all paths within this scope.
+    private _alwaysBreaks = false;
 
     // Inferred return and yield types for the scope.
     private _returnType = new InferredType();
@@ -222,8 +226,14 @@ export class Scope {
         // If the scope we're merging isn't a looping scope,
         // transfer the break to the this scope. This allows the break
         // to propagate to the nearest looping scope but no further.
-        if (!scopeToMerge._isLooping && scopeToMerge._breaksFromLoop) {
-            this._breaksFromLoop = true;
+        if (!scopeToMerge._isLooping) {
+            if (scopeToMerge._mayBreak) {
+                this._mayBreak = true;
+            }
+
+            if (scopeToMerge._alwaysBreaks) {
+                this._alwaysBreaks = true;
+            }
         }
 
         const typeConstraints = TypeConstraintUtils.dedupeTypeConstraints(
@@ -251,12 +261,18 @@ export class Scope {
             contributingTypeConstraints.map(s => s.getTypeConstraints()));
         combinedScope.addTypeConstraints(combinedTypeConstraints);
 
-        // Combine the return and yield types.
+        // Combine the return and yield types and break flags.
+        combinedScope._alwaysBreaks = scopes.length > 0;
         for (let scope of scopes) {
             combinedScope._returnType.addSources(scope._returnType);
             combinedScope._yieldType.addSources(scope._yieldType);
-            if (scope._breaksFromLoop) {
-                combinedScope._breaksFromLoop = true;
+
+            if (scope._mayBreak) {
+                combinedScope._mayBreak = true;
+            }
+
+            if (!scope._alwaysRaises && !scope._alwaysReturns && !scope._alwaysBreaks) {
+                combinedScope._alwaysBreaks = false;
             }
         }
 
@@ -299,12 +315,20 @@ export class Scope {
         return this._alwaysReturns || this._alwaysRaises;
     }
 
-    setBreaksFromLoop() {
-        this._breaksFromLoop = true;
+    setMayBreak() {
+        this._mayBreak = true;
     }
 
-    getBreaksFromLoop() {
-        return this._breaksFromLoop;
+    getMayBreak() {
+        return this._mayBreak;
+    }
+
+    setAlwaysBreaks() {
+        this._alwaysBreaks = true;
+    }
+
+    getAlwaysBreaks() {
+        return this._alwaysBreaks;
     }
 
     getTypeConstraints() {
