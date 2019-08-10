@@ -49,7 +49,7 @@ export class ParseTreeUtils {
 
     // Returns the deepest node that contains the specified offset.
     static findNodeByOffset(node: ParseNode, offset: number): ParseNode | undefined {
-        if (offset < node.start || offset >= node.end) {
+        if (offset < node.start || offset > node.end) {
             return undefined;
         }
 

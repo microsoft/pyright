@@ -929,11 +929,18 @@ export class Parser {
             modName.nameParts.length === 1 &&
             modName.nameParts[0].nameToken.value === '__future__';
 
+        const possibleInputToken = this._peekToken();
         if (!this._consumeTokenIfKeyword(KeywordType.Import)) {
             this._addError('Expected "import"', this._peekToken());
         } else {
+            importFromNode.extend(possibleInputToken);
+
             // Look for "*" token.
-            if (!this._consumeTokenIfOperator(OperatorType.Multiply)) {
+            const possibleStarToken = this._peekToken();
+            if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
+                importFromNode.extend(possibleStarToken);
+                importFromNode.isWildcardImport = true;
+            } else {
                 let inParen = this._consumeTokenIfType(TokenType.OpenParenthesis);
 
                 while (true) {
@@ -968,7 +975,7 @@ export class Parser {
                 }
 
                 if (importFromNode.imports.length === 0) {
-                    this._addError('Expected imported symbol name', this._peekToken());
+                    this._addError('Expected one or more symbol names after import', this._peekToken());
                 }
 
                 if (inParen) {

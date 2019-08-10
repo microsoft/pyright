@@ -1311,7 +1311,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
 
             // Empty list implies "import *"
-            if (node.imports.length === 0) {
+            if (node.isWildcardImport) {
                 const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
                 if (moduleType) {
                     // Import the fields in the current permanent scope.
@@ -1416,7 +1416,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         } else {
             // We were unable to resolve the import. Bind the names (or aliases)
             // to an unknown type.
-            if (node.imports.length !== 0) {
+            if (!node.isWildcardImport) {
                 node.imports.forEach(importAs => {
                     const aliasNode = importAs.alias || importAs.name;
                     const symbolType = UnknownType.create();

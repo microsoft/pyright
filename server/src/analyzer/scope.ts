@@ -115,6 +115,18 @@ export class Scope {
         return this._symbolTable;
     }
 
+    isSymbolExported(name: string) {
+        if (!this._exportFilterMap) {
+            return true;
+        }
+
+        if (this._exportFilterMap[name]) {
+            return true;
+        }
+
+        return false;
+    }
+
     getSymbols(): string[] {
         return this._symbolTable.getKeys();
     }

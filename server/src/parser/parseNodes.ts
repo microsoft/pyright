@@ -990,10 +990,12 @@ export class ImportFromNode extends ParseNode {
         super(fromToken);
         this.module = module;
         this.extend(module);
+        this.isWildcardImport = false;
     }
 
-    // An empty list implies "import *".
     imports: ImportFromAsNode[] = [];
+
+    isWildcardImport: boolean;
 
     getChildren(): RecursiveParseNodeArray {
         return [this.module, this.imports];

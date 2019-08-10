@@ -8,7 +8,6 @@
 * a list of zero or more text completions that apply in the context.
 */
 
-import * as assert from 'assert';
 import { CompletionItem, CompletionItemKind, CompletionList, MarkupKind } from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
@@ -25,6 +24,7 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DeclarationCategory } from './declaration';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ParseTreeUtils } from './parseTreeUtils';
+import { ScopeType } from './scope';
 import { SymbolTable } from './symbol';
 import { SymbolUtils } from './symbolUtils';
 import { ClassType, FunctionType, ModuleType, ObjectType, OverloadedFunctionType } from './types';
@@ -90,6 +90,13 @@ export class CompletionProvider {
         let curOffset = offset;
         while (curOffset >= 0) {
             curOffset--;
+
+            // Stop scanning backward if we hit certain stop characters.
+            const curChar = fileContents.substr(curOffset, 1);
+            if (curChar === '(' || curChar === ',' || curChar === '\n') {
+                break;
+            }
+
             let curNode = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, curOffset);
             if (curNode && curNode !== initialNode) {
                 if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
@@ -152,9 +159,17 @@ export class CompletionProvider {
                 // more specifically within the "Y"?
                 if (curNode.parent instanceof ImportFromAsNode &&
                         curNode.parent.name === curNode) {
+                    const parentNode = curNode.parent.parent;
 
-                    return this._getImportFromCompletions(curNode, priorWord, importMap);
+                    if (parentNode instanceof ImportFromNode) {
+                        return this._getImportFromCompletions(
+                            parentNode, priorWord, importMap);
+                    }
                 }
+            }
+
+            if (curNode instanceof ImportFromNode) {
+                return this._getImportFromCompletions(curNode, priorWord, importMap);
             }
 
             if (curNode instanceof ExpressionNode) {
@@ -205,13 +220,36 @@ export class CompletionProvider {
         // Is the error due to a missing member access name? If so,
         // we can evaluate the left side of the member access expression
         // to determine its type and offer suggestions based on it.
-        if (node.category === ErrorExpressionCategory.MissingMemberAccessName) {
-            if (node.child instanceof ExpressionNode) {
-                return this._getMemberAccessCompletions(node.child, priorWord);
+        switch (node.category) {
+            case ErrorExpressionCategory.MissingIn: {
+                return this._createSingleKeywordCompletionList('in');
+            }
+
+            case ErrorExpressionCategory.MissingElse: {
+                return this._createSingleKeywordCompletionList('else');
+            }
+
+            case ErrorExpressionCategory.MissingExpression:
+            case ErrorExpressionCategory.MissingDecoratorCallName: {
+                return this._getExpressionCompletions(node, priorWord);
+            }
+
+            case ErrorExpressionCategory.MissingMemberAccessName: {
+                if (node.child instanceof ExpressionNode) {
+                    return this._getMemberAccessCompletions(node.child, priorWord);
+                }
+                break;
             }
         }
 
         return undefined;
+    }
+
+    private static _createSingleKeywordCompletionList(keyword: string): CompletionList {
+        const completionItem = CompletionItem.create('in');
+        completionItem.kind = CompletionItemKind.Keyword;
+
+        return CompletionList.create([completionItem]);
     }
 
     private static _getMemberAccessCompletions(leftExprNode: ExpressionNode,
@@ -229,7 +267,8 @@ export class CompletionProvider {
         }
 
         let completionList = CompletionList.create();
-        this._addSymbolsForSymbolTable(symbolTable, priorWord, completionList);
+        this._addSymbolsForSymbolTable(symbolTable, name => true,
+            priorWord, completionList);
 
         return completionList;
     }
@@ -259,16 +298,11 @@ export class CompletionProvider {
         return completionList;
     }
 
-    private static _getImportFromCompletions(nameNode: NameNode,
+    private static _getImportFromCompletions(importFromNode: ImportFromNode,
             priorWord: string, importMap: ImportMap): CompletionList | undefined {
 
-        assert(nameNode.parent instanceof ImportFromAsNode);
-        const importFromAsNode = nameNode.parent as ImportFromAsNode;
-        assert(importFromAsNode.parent instanceof ImportFromNode);
-        const importFromNode = importFromAsNode.parent as ImportFromNode;
-
-        // Don't attempt to provide completions for "import * from".
-        if (importFromNode.imports.length === 0) {
+        // Don't attempt to provide completions for "from X import *".
+        if (importFromNode.isWildcardImport) {
             return undefined;
         }
 
@@ -290,7 +324,8 @@ export class CompletionProvider {
                 const moduleType = AnalyzerNodeInfo.getExpressionType(moduleNode) as ModuleType;
                 if (moduleType) {
                     const moduleFields = moduleType.getFields();
-                    this._addSymbolsForSymbolTable(moduleFields, priorWord, completionList);
+                    this._addSymbolsForSymbolTable(moduleFields, name => true,
+                        priorWord, completionList);
                 }
             }
         }
@@ -324,9 +359,10 @@ export class CompletionProvider {
         while (curNode) {
             // Does this node have a scope associated with it?
             let scope = AnalyzerNodeInfo.getScope(curNode);
-            if (scope) {
+            if (scope && scope.getType() !== ScopeType.Temporary) {
                 while (scope) {
                     this._addSymbolsForSymbolTable(scope.getSymbolTable(),
+                        name => scope!.isSymbolExported(name),
                         priorWord, completionList);
                     scope = scope.getParent();
                 }
@@ -338,16 +374,19 @@ export class CompletionProvider {
     }
 
     private static _addSymbolsForSymbolTable(symbolTable: SymbolTable,
+            isExportedCallback: (name: string) => boolean,
             priorWord: string, completionList: CompletionList) {
 
         symbolTable.forEach((item, name) => {
-            // Determine the kind.
             let itemKind: CompletionItemKind = CompletionItemKind.Variable;
             const declarations = item.getDeclarations();
             let typeDetail: string | undefined;
             let documentation: string | undefined;
 
-            if (declarations.length > 0) {
+            // If there are no declarations or the symbol is not
+            // exported from this scope, don't include it in the
+            // suggestion list.
+            if (isExportedCallback(name) && declarations.length > 0) {
                 const declaration = declarations[0];
                 itemKind = this._convertDeclarationCategoryToItemKind(
                     declaration.category);
@@ -386,10 +425,10 @@ export class CompletionProvider {
                         type instanceof FunctionType) {
                     documentation = type.getDocString();
                 }
-            }
 
-            this._addNameToCompletionList(name, itemKind, priorWord, completionList,
-                typeDetail, documentation);
+                this._addNameToCompletionList(name, itemKind, priorWord, completionList,
+                    typeDetail, documentation);
+            }
         });
     }
 
