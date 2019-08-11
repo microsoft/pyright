@@ -157,8 +157,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         if (argType instanceof ObjectType) {
                             const classType = argType.getClassType();
                             if (classType.isBuiltIn() && classType.getClassName() === 'Type') {
-                                argType = classType;
-                                reportBaseClassError = false;
+                                const typeArgs = classType.getTypeArguments();
+                                if (typeArgs && typeArgs.length >= 0) {
+                                    argType = typeArgs[0];
+                                    if (argType instanceof ObjectType) {
+                                        argType = argType.getClassType();
+                                        reportBaseClassError = false;
+                                    }
+                                }
                             }
                         }
 
