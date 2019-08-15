@@ -373,6 +373,12 @@ test('Generators3', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Generators4', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators4.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Coroutines1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines1.py']);
 

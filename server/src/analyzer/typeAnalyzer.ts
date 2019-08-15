@@ -2025,15 +2025,42 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _createAwaitableFunction(functionType: FunctionType): FunctionType {
         const returnType = functionType.getEffectiveReturnType();
 
-        let awaitableReturnType: Type;
+        let awaitableReturnType: Type | undefined;
         const evaluator = this._createEvaluator();
-        let awaitableType = evaluator.getTypingType('Awaitable');
 
-        if (awaitableType instanceof ClassType) {
-            awaitableReturnType = new ObjectType(awaitableType.cloneForSpecialization(
-                [returnType]));
-        } else {
-            awaitableReturnType = UnknownType.create();
+        if (returnType instanceof ObjectType) {
+            const classType = returnType.getClassType();
+            if (classType.isBuiltIn()) {
+                if (classType.getClassName() === 'Generator') {
+                    // If the return type is a Generator, change it to an AsyncGenerator.
+                    const asyncGeneratorType = evaluator.getTypingType('AsyncGenerator');
+                    if (asyncGeneratorType instanceof ClassType) {
+                        const typeArgs: Type[] = [];
+                        const generatorTypeArgs = classType.getTypeArguments();
+                        if (generatorTypeArgs && generatorTypeArgs.length > 0) {
+                            typeArgs.push(generatorTypeArgs[0]);
+                        }
+                        if (generatorTypeArgs && generatorTypeArgs.length > 1) {
+                            typeArgs.push(generatorTypeArgs[1]);
+                        }
+                        awaitableReturnType = new ObjectType(asyncGeneratorType.cloneForSpecialization(typeArgs));
+                    }
+
+                } else if (classType.getClassName() === 'AsyncGenerator') {
+                    // If it's already an AsyncGenerator, leave it as is.
+                    awaitableReturnType = returnType;
+                }
+            }
+        }
+
+        if (!awaitableReturnType) {
+            const awaitableType = evaluator.getTypingType('Awaitable');
+            if (awaitableType instanceof ClassType) {
+                awaitableReturnType = new ObjectType(awaitableType.cloneForSpecialization(
+                    [returnType]));
+            } else {
+                awaitableReturnType = UnknownType.create();
+            }
         }
 
         // Clone the original function and replace its return type with an
