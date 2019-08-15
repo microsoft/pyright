@@ -3357,6 +3357,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 tempScope.setParent(this._currentScope);
                 tempScope.clearAlwaysRaises();
                 tempScope.clearAlwaysReturns();
+                tempScope.clearBreaks();
             } else {
                 tempScope = new Scope(ScopeType.Temporary, this._currentScope);
 
@@ -3414,6 +3415,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // first time analyzing this scope.
         this._currentScope.clearAlwaysRaises();
         this._currentScope.clearAlwaysReturns();
+        this._currentScope.clearBreaks();
 
         callback();
 

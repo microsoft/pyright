@@ -323,6 +323,11 @@ export class Scope {
         return this._mayBreak;
     }
 
+    clearBreaks() {
+        this._mayBreak = false;
+        this._alwaysBreaks = false;
+    }
+
     setAlwaysBreaks() {
         this._alwaysBreaks = true;
     }
