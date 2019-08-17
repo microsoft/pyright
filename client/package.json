@@ -42,7 +42,7 @@
         ],
         "configuration": {
             "type": "object",
-            "title": "Python Configuration",
+            "title": "Pyright Configuration",
             "properties": {
                 "python.analysis.typeshedPaths": {
                     "type": "array",
@@ -63,6 +63,12 @@
                     "type": "string",
                     "default": "",
                     "description": "Path to folder with a list of Virtual Environments.",
+                    "scope": "resource"
+                },
+                "pyright.disableLanguageServices": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Disables type completion, definitions, and references.",
                     "scope": "resource"
                 }
             }

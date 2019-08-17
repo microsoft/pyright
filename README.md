@@ -51,6 +51,7 @@ To update to the latest version:
 * [Getting Started with Type Checking](/docs/getting-started.md)
 * [Command-line Options](/docs/command-line.md)
 * [Configuration](/docs/configuration.md)
+* [Settings](/docs/settings.md)
 * [Comments](/docs/comments.md)
 * [Import Resolution](/docs/import-resolution.md)
 * [Building & Debugging](/docs/build-debug.md)

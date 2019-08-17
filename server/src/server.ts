@@ -27,11 +27,16 @@ interface PythonSettings {
     };
 }
 
+interface PyrightSettings {
+    disableLanguageServices?: boolean;
+}
+
 interface Settings {
     // If more sections are added to this interface,
     // make sure to update the sections array in the
     // updateSettingsForAllWorkspaces method.
     python?: PythonSettings;
+    pyright?: PyrightSettings;
 }
 
 interface WorkspaceServiceInstance {
@@ -39,6 +44,7 @@ interface WorkspaceServiceInstance {
     rootPath: string;
     rootUri: string;
     serviceInstance: AnalyzerService;
+    disableLanguageServices: boolean;
 }
 
 // Stash the base directory into a global variable.
@@ -122,7 +128,8 @@ _connection.onInitialize((params): InitializeResult => {
                 workspaceName: folder.name,
                 rootPath: path,
                 rootUri: folder.uri,
-                serviceInstance: _createAnalyzerService(folder.name)
+                serviceInstance: _createAnalyzerService(folder.name),
+                disableLanguageServices: false
             });
         });
     } else if (params.rootPath) {
@@ -130,7 +137,8 @@ _connection.onInitialize((params): InitializeResult => {
             workspaceName: '',
             rootPath: params.rootPath,
             rootUri: '',
-            serviceInstance: _createAnalyzerService(params.rootPath)
+            serviceInstance: _createAnalyzerService(params.rootPath),
+            disableLanguageServices: false
         });
     }
 
@@ -140,7 +148,8 @@ _connection.onInitialize((params): InitializeResult => {
         workspaceName: '',
         rootPath: '',
         rootUri: '',
-        serviceInstance: _createAnalyzerService('<default>')
+        serviceInstance: _createAnalyzerService('<default>'),
+        disableLanguageServices: false
     });
 
     _connection.console.log(`Fetching settings for workspace(s)`);
@@ -205,8 +214,11 @@ _connection.onDefinition(params => {
         column: params.position.character
     };
 
-    const service = _getWorkspaceForFile(filePath).serviceInstance;
-    const locations = service.getDefinitionForPosition(filePath, position);
+    const workspace = _getWorkspaceForFile(filePath);
+    if (workspace.disableLanguageServices) {
+        return;
+    }
+    const locations = workspace.serviceInstance.getDefinitionForPosition(filePath, position);
     if (!locations) {
         return undefined;
     }
@@ -222,8 +234,11 @@ _connection.onReferences(params => {
         column: params.position.character
     };
 
-    const service = _getWorkspaceForFile(filePath).serviceInstance;
-    const locations = service.getReferencesForPosition(filePath, position,
+    const workspace = _getWorkspaceForFile(filePath);
+    if (workspace.disableLanguageServices) {
+        return;
+    }
+    const locations = workspace.serviceInstance.getReferencesForPosition(filePath, position,
             params.context.includeDeclaration);
     if (!locations) {
         return undefined;
@@ -234,8 +249,13 @@ _connection.onReferences(params => {
 
 _connection.onDocumentSymbol(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
-    const service = _getWorkspaceForFile(filePath).serviceInstance;
-    const symbols = service.getSymbolsForDocument(filePath);
+
+    const worksspace = _getWorkspaceForFile(filePath);
+    if (worksspace.disableLanguageServices) {
+        return;
+    }
+
+    const symbols = worksspace.serviceInstance.getSymbolsForDocument(filePath);
     return symbols;
 });
 
@@ -247,8 +267,8 @@ _connection.onHover(params => {
         column: params.position.character
     };
 
-    const service = _getWorkspaceForFile(filePath).serviceInstance;
-    const hoverResults = service.getHoverForPosition(filePath, position);
+    const workspace = _getWorkspaceForFile(filePath);
+    const hoverResults = workspace.serviceInstance.getHoverForPosition(filePath, position);
     if (!hoverResults) {
         return undefined;
     }
@@ -277,8 +297,11 @@ _connection.onSignatureHelp(params => {
         column: params.position.character
     };
 
-    const service = _getWorkspaceForFile(filePath).serviceInstance;
-    const signatureHelpResults = service.getSignatureHelpForPosition(
+    const workspace = _getWorkspaceForFile(filePath);
+    if (workspace.disableLanguageServices) {
+        return;
+    }
+    const signatureHelpResults = workspace.serviceInstance.getSignatureHelpForPosition(
         filePath, position);
     if (!signatureHelpResults) {
         return undefined;
@@ -311,8 +334,11 @@ _connection.onCompletion(params => {
         column: params.position.character
     };
 
-    const service = _getWorkspaceForFile(filePath).serviceInstance;
-    return service.getCompletionsForPosition(filePath, position);
+    const workspace = _getWorkspaceForFile(filePath);
+    if (workspace.disableLanguageServices) {
+        return;
+    }
+    return workspace.serviceInstance.getCompletionsForPosition(filePath, position);
 });
 
 _connection.onDidOpenTextDocument(params => {
@@ -339,20 +365,31 @@ _connection.onDidCloseTextDocument(params => {
     service.setFileClosed(filePath);
 });
 
+function getConfiguration(workspace: WorkspaceServiceInstance, section: string) {
+    if (workspace.rootUri) {
+        return _connection.workspace.getConfiguration({
+            scopeUri: workspace.rootUri || undefined,
+            section
+        });
+    } else {
+        return _connection.workspace.getConfiguration(section);
+    }
+}
+
 function updateSettingsForAllWorkspaces() {
     _workspaceMap.forEach(workspace => {
-        let settingsPromise: Thenable<PythonSettings>;
-        if (workspace.rootUri) {
-            settingsPromise = _connection.workspace.getConfiguration({
-                scopeUri: workspace.rootUri || undefined,
-                section: 'python'
-            });
-        } else {
-            settingsPromise = _connection.workspace.getConfiguration(
-                'python');
-        }
-        settingsPromise.then(settings => {
-            updateOptionsAndRestartService(workspace, { python: settings });
+        const pythonSettingsPromise = getConfiguration(workspace, 'python');
+        pythonSettingsPromise.then((settings: PythonSettings) => {
+            updateOptionsAndRestartService(workspace, settings);
+        }, () => {
+            // An error occurred trying to read the settings
+            // for this workspace, so ignore.
+        });
+
+        const pyrightSettingsPromise = getConfiguration(workspace, 'pyright');
+        pyrightSettingsPromise.then((settings?: PyrightSettings) => {
+            workspace.disableLanguageServices = settings !== undefined &&
+                !!settings.disableLanguageServices;
         }, () => {
             // An error occurred trying to read the settings
             // for this workspace, so ignore.
@@ -361,33 +398,31 @@ function updateSettingsForAllWorkspaces() {
 }
 
 function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
-        settings: Settings) {
+        settings: PythonSettings) {
 
     const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
     commandLineOptions.watch = true;
     commandLineOptions.verboseOutput = true;
 
-    if (settings.python) {
-        if (settings.python.venvPath) {
-            commandLineOptions.venvPath = combinePaths(workspace.rootPath || _rootPath,
-                normalizePath(_expandPathVariables(settings.python.venvPath)));
-        }
+    if (settings.venvPath) {
+        commandLineOptions.venvPath = combinePaths(workspace.rootPath || _rootPath,
+            normalizePath(_expandPathVariables(settings.venvPath)));
+    }
 
-        if (settings.python.pythonPath) {
-            commandLineOptions.pythonPath = combinePaths(workspace.rootPath || _rootPath,
-                normalizePath(_expandPathVariables(settings.python.pythonPath)));
-        }
+    if (settings.pythonPath) {
+        commandLineOptions.pythonPath = combinePaths(workspace.rootPath || _rootPath,
+            normalizePath(_expandPathVariables(settings.pythonPath)));
+    }
 
-        if (settings.python.analysis &&
-                settings.python.analysis.typeshedPaths &&
-                settings.python.analysis.typeshedPaths.length > 0) {
+    if (settings.analysis &&
+            settings.analysis.typeshedPaths &&
+            settings.analysis.typeshedPaths.length > 0) {
 
-            // Pyright supports only one typeshed path currently, whereas the
-            // official VS Code Python extension supports multiple typeshed paths.
-            // We'll use the first one specified and ignore the rest.
-            commandLineOptions.typeshedPath =
-                _expandPathVariables(settings.python.analysis.typeshedPaths[0]);
-        }
+        // Pyright supports only one typeshed path currently, whereas the
+        // official VS Code Python extension supports multiple typeshed paths.
+        // We'll use the first one specified and ignore the rest.
+        commandLineOptions.typeshedPath =
+            _expandPathVariables(settings.analysis.typeshedPaths[0]);
     }
 
     workspace.serviceInstance.setOptions(commandLineOptions);
@@ -406,7 +441,8 @@ _connection.onInitialized(() => {
                 workspaceName: workspace.name,
                 rootPath: rootPath,
                 rootUri: workspace.uri,
-                serviceInstance: _createAnalyzerService(workspace.name)
+                serviceInstance: _createAnalyzerService(workspace.name),
+                disableLanguageServices: false
             });
         });
     });

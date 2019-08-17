@@ -34,7 +34,7 @@ export function activate(context: ExtensionContext) {
 		}],
 		synchronize: {
 			// Synchronize the setting section to the server.
-			configurationSection: 'python'
+			configurationSection: ['python', 'pyright']
 		}
 	}
 	
