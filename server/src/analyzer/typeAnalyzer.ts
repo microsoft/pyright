@@ -186,7 +186,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // newer), it's considered a dataclass.
                     if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
                         if (argType.isBuiltIn() && argType.getClassName() === 'NamedTuple') {
-                            classType.setIsDataClass();
+                            classType.setIsDataClass(false);
                         }
                     }
 
@@ -249,8 +249,26 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (classType.isDataClass()) {
-            let evaluator = this._createEvaluator();
-            evaluator.synthesizeDataClassMethods(node, classType);
+            const evaluator = this._createEvaluator();
+
+            let skipSynthesizedInit = classType.isSkipSynthesizedInit();
+            if (!skipSynthesizedInit) {
+                // See if there's already a non-synthesized __init__ method.
+                // We shouldn't override it.
+                const initSymbol = TypeUtils.lookUpClassMember(classType, '__init__',
+                    ClassMemberLookupFlags.SkipBaseClasses);
+                if (initSymbol) {
+                    if (initSymbol.symbolType instanceof FunctionType) {
+                        if (!initSymbol.symbolType.isSynthesizedMethod()) {
+                            skipSynthesizedInit = true;
+                        }
+                    } else {
+                        skipSynthesizedInit = true;
+                    }
+                }
+            }
+
+            evaluator.synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
         }
 
         const declaration: Declaration = {
@@ -2206,7 +2224,24 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (decoratorType instanceof OverloadedFunctionType) {
             const overloads = decoratorType.getOverloads();
             if (overloads.length > 0 && overloads[0].type.getBuiltInName() === 'dataclass') {
-                originalClassType.setIsDataClass();
+                // Determine whether we should skip synthesizing the init method.
+                let skipSynthesizeInit = false;
+
+                if (decoratorNode.arguments) {
+                    decoratorNode.arguments.forEach(arg => {
+                        if (arg.name && arg.name.nameToken.value === 'init') {
+                            if (arg.valueExpression) {
+                                const value = ExpressionUtils.evaluateConstantExpression(
+                                    arg.valueExpression, this._fileInfo.executionEnvironment);
+                                if (!value) {
+                                    skipSynthesizeInit = true;
+                                }
+                            }
+                        }
+                    });
+                }
+
+                originalClassType.setIsDataClass(skipSynthesizeInit);
             }
 
             return inputClassType;

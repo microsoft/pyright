@@ -414,11 +414,15 @@ export class ExpressionEvaluator {
 
     // Validates fields for compatibility with a dataclass and synthesizes
     // an appropriate __new__ and __init__ methods.
-    synthesizeDataClassMethods(node: ClassNode, classType: ClassType) {
+    synthesizeDataClassMethods(node: ClassNode, classType: ClassType,
+            skipSynthesizeInit: boolean) {
+
         assert(classType.isDataClass());
 
-        let newType = new FunctionType(FunctionTypeFlags.StaticMethod);
-        let initType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+        let newType = new FunctionType(
+            FunctionTypeFlags.StaticMethod | FunctionTypeFlags.SynthesizedMethod);
+        let initType = new FunctionType(
+            FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
         let sawDefaultValue = false;
 
         newType.addParameter({
@@ -492,8 +496,10 @@ export class ExpressionEvaluator {
             }
         });
 
-        classType.getClassFields().set('__init__', Symbol.createWithType(initType, DefaultTypeSourceId));
-        classType.getClassFields().set('__new__', Symbol.createWithType(newType, DefaultTypeSourceId));
+        if (!skipSynthesizeInit) {
+            classType.getClassFields().set('__init__', Symbol.createWithType(initType, DefaultTypeSourceId));
+            classType.getClassFields().set('__new__', Symbol.createWithType(newType, DefaultTypeSourceId));
+        }
     }
 
     getTypingType(symbolName: string): Type | undefined {
@@ -878,7 +884,8 @@ export class ExpressionEvaluator {
         } else if (baseType instanceof PropertyType) {
             if (memberName === 'getter' || memberName === 'setter' || memberName === 'deleter') {
                 // Synthesize a decorator.
-                const decoratorType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+                const decoratorType = new FunctionType(
+                    FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
                 decoratorType.addParameter({
                     category: ParameterCategory.Simple,
                     name: 'fn',
@@ -2288,7 +2295,8 @@ export class ExpressionEvaluator {
 
         let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
         if (builtInTupleType instanceof ClassType) {
-            const constructorType = new FunctionType(FunctionTypeFlags.StaticMethod);
+            const constructorType = new FunctionType(
+                FunctionTypeFlags.StaticMethod | FunctionTypeFlags.SynthesizedMethod);
             constructorType.setDeclaredReturnType(new ObjectType(classType));
             constructorType.addParameter({
                 category: ParameterCategory.Simple,
@@ -2435,26 +2443,29 @@ export class ExpressionEvaluator {
             // will handle propery type checking. We may need to disable default
             // parameter processing for __new__ (see setDefaultParameterCheckDisabled),
             // and we don't want to do it for __init__ as well.
-            const initType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+            const initType = new FunctionType(
+                FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
             initType.addParameter(selfParameter);
             TypeUtils.addDefaultFunctionParameters(initType);
 
             classFields.set('__new__', Symbol.createWithType(constructorType, DefaultTypeSourceId));
             classFields.set('__init__', Symbol.createWithType(initType, DefaultTypeSourceId));
 
-            let keysItemType = new FunctionType(FunctionTypeFlags.None);
+            const keysItemType = new FunctionType(FunctionTypeFlags.SynthesizedMethod);
             keysItemType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'list',
                 [ScopeUtils.getBuiltInObject(this._scope, 'str')]));
             classFields.set('keys', Symbol.createWithType(keysItemType, DefaultTypeSourceId));
             classFields.set('items', Symbol.createWithType(keysItemType, DefaultTypeSourceId));
 
-            let lenType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+            const lenType = new FunctionType(
+                FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
             lenType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'int'));
             lenType.addParameter(selfParameter);
             classFields.set('__len__', Symbol.createWithType(lenType, DefaultTypeSourceId));
 
             if (addGenericGetAttribute) {
-                let getAttribType = new FunctionType(FunctionTypeFlags.InstanceMethod);
+                const getAttribType = new FunctionType(
+                    FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
                 getAttribType.setDeclaredReturnType(AnyType.create());
                 getAttribType.addParameter(selfParameter);
                 getAttribType.addParameter({
@@ -3230,7 +3241,7 @@ export class ExpressionEvaluator {
     // either an ellipsis or a list of parameter types. The second parameter, if
     // present, should specify the return type.
     private _createCallableType(typeArgs?: TypeResult[]): FunctionType {
-        let functionType = new FunctionType(FunctionTypeFlags.None);
+        const functionType = new FunctionType(FunctionTypeFlags.None);
         functionType.setDeclaredReturnType(AnyType.create());
 
         if (typeArgs && typeArgs.length > 0) {

@@ -331,6 +331,12 @@ test('DataClass4', () => {
     validateResults(analysisResults, 5);
 });
 
+test('DataClass5', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass5.py']);
+
+    validateResults(analysisResults, 2);
+});
+
 test('AbstractClass1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass1.py']);
 

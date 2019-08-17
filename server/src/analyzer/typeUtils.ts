@@ -465,7 +465,9 @@ export class TypeUtils {
                 }
             } else if (srcType instanceof ClassType) {
                 // Synthesize a function that represents the constructor for this class.
-                const constructorFunction = new FunctionType(FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod);
+                const constructorFunction = new FunctionType(
+                    FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod |
+                    FunctionTypeFlags.SynthesizedMethod);
                 constructorFunction.setDeclaredReturnType(new ObjectType(srcType));
 
                 const newMemberInfo = TypeUtils.lookUpClassMember(srcType, '__new__',

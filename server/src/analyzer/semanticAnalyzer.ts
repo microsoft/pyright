@@ -233,7 +233,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             functionFlags &= ~FunctionTypeFlags.InstanceMethod;
         }
 
-        let functionType = new FunctionType(functionFlags,
+        const functionType = new FunctionType(functionFlags,
             this._getDocString(node.suite.statements));
 
         this.walkMultiple(node.decorators);
@@ -242,7 +242,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 this.walk(param.defaultValue);
             }
 
-            let typeParam: FunctionParameter = {
+            const typeParam: FunctionParameter = {
                 category: param.category,
                 name: param.name ? param.name.nameToken.value : undefined,
                 hasDefault: !!param.defaultValue,

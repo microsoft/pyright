@@ -202,7 +202,12 @@ export enum ClassTypeFlags {
 
     // Introduced in Python 3.7 - class either derives directly
     // from NamedTuple or has a @dataclass class decorator.
-    DataClass = 0x04
+    DataClass = 0x04,
+
+    // Flags that control whether methods should be
+    // synthesized for a dataclass class.
+    SkipSynthesizedInit = 0x08
+
 }
 
 export interface BaseClass {
@@ -321,12 +326,19 @@ export class ClassType extends Type {
         return this._classDetails.name;
     }
 
-    setIsDataClass() {
+    setIsDataClass(skipInit: boolean) {
         this._classDetails.flags |= ClassTypeFlags.DataClass;
+        if (skipInit) {
+            this._classDetails.flags |= ClassTypeFlags.SkipSynthesizedInit;
+        }
     }
 
     isDataClass() {
         return !!(this._classDetails.flags & ClassTypeFlags.DataClass);
+    }
+
+    isSkipSynthesizedInit() {
+        return !!(this._classDetails.flags & ClassTypeFlags.SkipSynthesizedInit);
     }
 
     getBaseClasses(): BaseClass[] {
@@ -666,7 +678,8 @@ export enum FunctionTypeFlags {
     ClassMethod = 4,
     StaticMethod = 8,
     AbstractMethod = 16,
-    DisableDefaultChecks = 32
+    DisableDefaultChecks = 32,
+    SynthesizedMethod = 64
 }
 
 interface FunctionDetails {
@@ -786,6 +799,10 @@ export class FunctionType extends Type {
 
     setIsAbstractMethod() {
         this._functionDetails.flags |= FunctionTypeFlags.AbstractMethod;
+    }
+
+    isSynthesizedMethod(): boolean {
+        return (this._functionDetails.flags & FunctionTypeFlags.SynthesizedMethod) !== 0;
     }
 
     getBuiltInName() {
