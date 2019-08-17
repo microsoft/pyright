@@ -523,3 +523,9 @@ test('UnnecessaryIsInstance1', () => {
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance1.py'], configOptions);
     validateResults(analysisResults, 3);
 });
+
+test('Unbound1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound1.py']);
+
+    validateResults(analysisResults, 1);
+});

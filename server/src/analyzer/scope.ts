@@ -374,7 +374,8 @@ export class Scope {
 
         if (this._parent) {
             // If our recursion is about to take us outside the scope of the current
-            // module (i.e. into a built-in scope), indicate as such with the second parameter.
+            // module (i.e. into a built-in scope), indicate as such with the second
+            // parameter.
             return this._parent._lookUpSymbolRecursiveInternal(name,
                 isOutsideCallerModule || this._scopeType === ScopeType.Module,
                 isBeyondExecutionScope || this.isIndependentlyExecutable());

@@ -3471,6 +3471,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let prevScope = this._currentScope;
         let newScope = AnalyzerNodeInfo.getScope(node);
         assert(newScope !== undefined);
+
+        let prevParent: Scope | undefined;
+        if (!newScope!.isIndependentlyExecutable()) {
+            // Temporary reparent the scope in case it is contained
+            // within a temporary scope.
+            prevParent = newScope!.getParent();
+            newScope!.setParent(this._currentScope);
+        }
+
         this._currentScope = newScope!;
 
         // Clear the raises/returns flags in case this wasn't our
@@ -3486,6 +3495,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._currentScope.clearTypeConstraints();
 
         this._currentScope = prevScope;
+        if (prevParent) {
+            newScope!.setParent(prevParent);
+        }
 
         return newScope!;
     }
