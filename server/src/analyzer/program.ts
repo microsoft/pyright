@@ -9,7 +9,7 @@
 */
 
 import * as assert from 'assert';
-import { CompletionList } from 'vscode-languageserver';
+import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
@@ -701,6 +701,15 @@ export class Program {
         }
 
         return referencesResult.locations;
+    }
+
+    getSymbolsForDocument(filePath: string): SymbolInformation[] {
+        const sourceFileInfo = this._sourceFileMap[filePath];
+        if (!sourceFileInfo) {
+            return [];
+        }
+
+        return sourceFileInfo.sourceFile.getSymbolsForDocument();
     }
 
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):

@@ -9,7 +9,7 @@
 */
 
 import * as fs from 'fs';
-import { CompletionList } from 'vscode-languageserver';
+import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
@@ -117,6 +117,11 @@ export class AnalyzerService {
         this._recordUserInteractionTime();
         return this._program.getReferencesForPosition(filePath, position,
             this._configOptions, includeDeclaration);
+    }
+
+    getSymbolsForDocument(filePath: string): SymbolInformation[] {
+        this._recordUserInteractionTime();
+        return this._program.getSymbolsForDocument(filePath);
     }
 
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):

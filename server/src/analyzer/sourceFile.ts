@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 import * as fs from 'fs';
-import { CompletionList } from 'vscode-languageserver';
+import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { ConfigOptions, DiagnosticSettings, ExecutionEnvironment,
     getDefaultDiagnosticSettings } from '../common/configOptions';
@@ -32,6 +32,7 @@ import { CircularDependency } from './circularDependency';
 import { CommentUtils } from './commentUtils';
 import { CompletionProvider } from './completionProvider';
 import { DefinitionProvider } from './definitionProvider';
+import { DocumentSymbolProvider } from './documentSymbolProvider';
 import { HoverProvider, HoverResults } from './hoverProvider';
 import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
@@ -497,6 +498,16 @@ export class SourceFile {
 
         ReferencesProvider.addReferences(
             this._analysisJob.parseResults, this._filePath, referencesResult, includeDeclaration);
+    }
+
+    getSymbolsForDocument(): SymbolInformation[] {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._analysisJob.parseResults) {
+            return [];
+        }
+
+        return DocumentSymbolProvider.getSymbolsForDocument(
+            this._filePath, this._analysisJob.parseResults);
     }
 
     getHoverForPosition(position: DiagnosticTextPosition, importMap: ImportMap): HoverResults | undefined {

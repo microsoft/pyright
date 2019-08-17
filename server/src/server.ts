@@ -153,6 +153,7 @@ _connection.onInitialize((params): InitializeResult => {
             textDocumentSync: _documents.syncKind,
             definitionProvider: true,
             referencesProvider: true,
+            documentSymbolProvider: true,
             hoverProvider: true,
             completionProvider: {
                 triggerCharacters: ['.']
@@ -229,6 +230,13 @@ _connection.onReferences(params => {
     }
     return locations.map(loc =>
         Location.create(_convertPathToUri(loc.path), _convertRange(loc.range)));
+});
+
+_connection.onDocumentSymbol(params => {
+    const filePath = _convertUriToPath(params.textDocument.uri);
+    const service = _getWorkspaceForFile(filePath).serviceInstance;
+    const symbols = service.getSymbolsForDocument(filePath);
+    return symbols;
 });
 
 _connection.onHover(params => {
