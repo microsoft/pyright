@@ -17,7 +17,7 @@ import { ConsoleInterface, StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
     DocumentTextRange } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { getFileName } from '../common/pathUtils';
+import { getFileName, normalizeSlashes } from '../common/pathUtils';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -161,7 +161,7 @@ export class SourceFile {
 
         this._isBuiltInStubFile = false;
         if (this._isStubFile) {
-            if (this._filePath.endsWith('/collections/__init__.pyi') ||
+            if (this._filePath.endsWith(normalizeSlashes('/collections/__init__.pyi')) ||
                     fileName === '_importlib_modulespec.pyi' ||
                     fileName === 'dataclasses.pyi' ||
                     fileName === 'abc.pyi' ||
