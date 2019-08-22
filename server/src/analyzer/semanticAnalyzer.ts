@@ -137,7 +137,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         let importResult = AnalyzerNodeInfo.getImportInfo(node);
         assert(importResult !== undefined);
         if (importResult) {
-            if (!importResult.importFound) {
+            if (!importResult.isImportFound) {
                 this._addDiagnostic(this._fileInfo.diagnosticSettings.reportMissingImports,
                     `Import '${ importResult.importName }' could not be resolved`, node);
             } else if (importResult.importType === ImportType.ThirdParty) {

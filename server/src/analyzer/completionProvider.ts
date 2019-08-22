@@ -71,6 +71,10 @@ const _keywords: string[] = [
     'yield'
 ];
 
+// We'll use a somewhat-arbitrary cutoff value here to determine
+// whether it's sufficiently similar.
+const SimilarityLimit = 0.25;
+
 export class CompletionProvider {
     static getCompletionsForPosition(parseResults: ParseResults, fileContents: string,
             position: DiagnosticTextPosition, filePath: string, configOptions: ConfigOptions,
@@ -449,9 +453,7 @@ export class CompletionProvider {
 
         const similarity = StringUtils.computeCompletionSimilarity(filter, name);
 
-        // We'll use a somewhat-arbitrary cutoff value here to determine
-        // whether it's sufficiently similar.
-        if (similarity > 0.25) {
+        if (similarity > SimilarityLimit) {
             const completionItem = CompletionItem.create(name);
             completionItem.kind = itemKind;
 
@@ -516,7 +518,8 @@ export class CompletionProvider {
             importedSymbols: []
         };
 
-        const completions = resolver.getCompletionSuggestions(moduleDescriptor);
+        const completions = resolver.getCompletionSuggestions(moduleDescriptor,
+            SimilarityLimit);
 
         const completionList = CompletionList.create();
         completions.forEach(completionName => {

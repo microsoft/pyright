@@ -24,9 +24,9 @@ export interface ImportResult {
     importName: string;
 
     // True if import was resolved to a module or file.
-    importFound: boolean;
+    isImportFound: boolean;
 
-    // If importFound is false, may contain strings that help
+    // If isImportFound is false, may contain strings that help
     // diagnose the import resolution failure.
     importFailureInfo?: string[];
 
@@ -47,6 +47,9 @@ export interface ImportResult {
     // True if resolved file is a type hint (.pyi) file rather than
     // a python (.py) file.
     isStubFile: boolean;
+
+    // True if resolved file is a Windows DLL (.pyd) file.
+    isPydFile: boolean;
 
     // True if the resolved file is a type hint (.pyi) file that comes
     // from typeshed.

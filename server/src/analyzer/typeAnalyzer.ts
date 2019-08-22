@@ -1261,7 +1261,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
         assert(importInfo !== undefined);
 
-        if (importInfo && importInfo.importFound && importInfo.resolvedPaths.length > 0) {
+        if (importInfo && importInfo.isImportFound && importInfo.resolvedPaths.length > 0) {
             let resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
             let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
 
@@ -1341,7 +1341,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitImportFrom(node: ImportFromNode): boolean {
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
-        if (importInfo && importInfo.importFound) {
+        if (importInfo && importInfo.isImportFound) {
             const resolvedPath = importInfo.resolvedPaths.length > 0 ?
                 importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
 
