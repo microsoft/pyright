@@ -13,6 +13,7 @@ import { CompletionItem, CompletionItemKind, CompletionList, MarkupKind } from '
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
+import { StringUtils } from '../common/stringUtils';
 import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode,
     ImportFromAsNode, ImportFromNode, MemberAccessExpressionNode,
     ModuleNameNode, ModuleNode, NameNode, ParseNode,
@@ -165,6 +166,9 @@ export class CompletionProvider {
                         return this._getImportFromCompletions(
                             parentNode, priorWord, importMap);
                     }
+                } else if (curNode.parent instanceof MemberAccessExpressionNode) {
+                    return this._getMemberAccessCompletions(
+                        curNode.parent.leftExpression, priorWord);
                 }
             }
 
@@ -443,7 +447,11 @@ export class CompletionProvider {
             filter: string, completionList: CompletionList, typeDetail?: string,
             documentation?: string) {
 
-        if (name.startsWith(filter)) {
+        const similarity = StringUtils.computeCompletionSimilarity(filter, name);
+
+        // We'll use a somewhat-arbitrary cutoff value here to determine
+        // whether it's sufficiently similar.
+        if (similarity > 0.25) {
             const completionItem = CompletionItem.create(name);
             completionItem.kind = itemKind;
 
