@@ -831,7 +831,9 @@ export class StringListNode extends ExpressionNode {
     }
 
     getChildren(): RecursiveParseNodeArray {
-        return this.strings;
+        // Return type annotations first (if they're not undefined)
+        // so position lookups favor annotations over the raw string.
+        return [this.typeAnnotation, this.strings];
     }
 
     getValue(): string {
