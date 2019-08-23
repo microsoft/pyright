@@ -7,7 +7,7 @@
 import * as assert from 'assert';
 
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
-import { AssignmentNode, ParseNode } from '../parser/parseNodes';
+import { AssignmentNode, ParseNode, StringListNode } from '../parser/parseNodes';
 
 export class TestWalker extends ParseTreeWalker {
     constructor() {
@@ -39,10 +39,16 @@ export class TestWalker extends ParseTreeWalker {
         children.forEach(child => {
             let skipCheck = false;
 
-            // There's an exception we need to deal with here. Comment
+            // There are a few exceptions we need to deal with here. Comment
             // annotations can occur outside of an assignment node's range.
             if (node instanceof AssignmentNode) {
                 if (child === node.typeAnnotationComment) {
+                    skipCheck = true;
+                }
+            }
+
+            if (node instanceof StringListNode) {
+                if (child === node.typeAnnotation) {
                     skipCheck = true;
                 }
             }
