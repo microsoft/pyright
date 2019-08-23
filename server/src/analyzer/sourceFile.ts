@@ -30,7 +30,7 @@ import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { CommentUtils } from './commentUtils';
-import { CompletionProvider } from './completionProvider';
+import { CompletionProvider, ModuleSymbolMap } from './completionProvider';
 import { DefinitionProvider } from './definitionProvider';
 import { DocumentSymbolProvider } from './documentSymbolProvider';
 import { HoverProvider, HoverResults } from './hoverProvider';
@@ -244,6 +244,20 @@ export class SourceFile {
 
     getBuiltinsImport(): ImportResult | undefined {
         return this._analysisJob.builtinsImport;
+    }
+
+    getModuleScope(): Scope | undefined {
+        if (!this._analysisJob.parseResults) {
+            return undefined;
+        }
+
+        const moduleNode = this._analysisJob.parseResults.parseTree;
+        const scope = AnalyzerNodeInfo.getScope(moduleNode)!;
+        if (!scope) {
+            return undefined;
+        }
+
+        return scope;
     }
 
     // Indicates whether the contents of the file have changed since
@@ -537,7 +551,8 @@ export class SourceFile {
     }
 
     getCompletionsForPosition(position: DiagnosticTextPosition,
-            configOptions: ConfigOptions, importMap: ImportMap): CompletionList | undefined {
+            configOptions: ConfigOptions, importMapCallback: () => ImportMap,
+            moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
@@ -552,7 +567,8 @@ export class SourceFile {
 
         return CompletionProvider.getCompletionsForPosition(
             this._analysisJob.parseResults, this._fileContents, position,
-            this._filePath, configOptions, importMap);
+            this._filePath, configOptions, importMapCallback,
+            moduleSymbolsCallback);
     }
 
     getAnalysisPassCount() {

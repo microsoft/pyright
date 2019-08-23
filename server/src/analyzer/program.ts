@@ -19,6 +19,7 @@ import { Duration } from '../common/timing';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
+import { ModuleSymbolMap } from './completionProvider';
 import { HoverResults } from './hoverProvider';
 import { ImportType } from './importResult';
 import { Scope } from './scope';
@@ -414,6 +415,23 @@ export class Program {
         return importMap;
     }
 
+    // Build a map of all modules within this program and the module-
+    // level scope that contains the symbol table for the module.
+    private _buildModuleSymbolsMap(sourceFileToExclude?: SourceFileInfo): ModuleSymbolMap {
+        const moduleSymbolMap: ModuleSymbolMap = {};
+
+        this._sourceFileList.forEach(fileInfo => {
+            if (fileInfo !== sourceFileToExclude) {
+                const moduleScope = fileInfo.sourceFile.getModuleScope();
+                if (moduleScope) {
+                    moduleSymbolMap[fileInfo.sourceFile.getFilePath()] = moduleScope;
+                }
+            }
+        });
+
+        return moduleSymbolMap;
+    }
+
     private _doFullAnalysis(fileToAnalyze: SourceFileInfo, options: ConfigOptions,
             timeElapsedCallback: () => boolean): boolean {
         // If the file isn't needed because it was eliminated from the
@@ -769,7 +787,9 @@ export class Program {
         }
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
-            position, options, this._buildImportMap(sourceFileInfo));
+            position, options,
+            () => this._buildImportMap(sourceFileInfo),
+            () => this._buildModuleSymbolsMap(sourceFileInfo));
     }
 
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,

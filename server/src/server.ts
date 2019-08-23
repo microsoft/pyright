@@ -341,7 +341,19 @@ _connection.onCompletion(params => {
     if (workspace.disableLanguageServices) {
         return;
     }
-    return workspace.serviceInstance.getCompletionsForPosition(filePath, position);
+
+    const completions = workspace.serviceInstance.getCompletionsForPosition(
+        filePath, position);
+
+    // Always mark as incomplete so we get called back when the
+    // user continues typing. Without this, the editor will assume
+    // that it has received a complete list and will filter that list
+    // on its own.
+    if (completions) {
+        completions.isIncomplete = true;
+    }
+
+    return completions;
 });
 
 _connection.onRenameRequest(params => {

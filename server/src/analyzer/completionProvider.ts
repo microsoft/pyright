@@ -25,8 +25,8 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DeclarationCategory } from './declaration';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { ParseTreeUtils } from './parseTreeUtils';
-import { ScopeType } from './scope';
-import { SymbolTable } from './symbol';
+import { Scope, ScopeType } from './scope';
+import { Symbol, SymbolTable } from './symbol';
 import { SymbolUtils } from './symbolUtils';
 import { ClassType, FunctionType, ModuleType, ObjectType, OverloadedFunctionType } from './types';
 import { TypeUtils } from './typeUtils';
@@ -75,10 +75,13 @@ const _keywords: string[] = [
 // whether it's sufficiently similar.
 const SimilarityLimit = 0.25;
 
+export type ModuleSymbolMap = { [file: string]: Scope };
+
 export class CompletionProvider {
     static getCompletionsForPosition(parseResults: ParseResults, fileContents: string,
             position: DiagnosticTextPosition, filePath: string, configOptions: ConfigOptions,
-            importMap: ImportMap): CompletionList | undefined {
+            importMapCallback: () => ImportMap, moduleSymbolsCallback: () => ModuleSymbolMap):
+                CompletionList | undefined {
 
         let offset = convertPositionToOffset(position, parseResults.lines);
         if (offset === undefined) {
@@ -152,7 +155,8 @@ export class CompletionProvider {
             }
 
             if (curNode instanceof ErrorExpressionNode) {
-                return this._getExpressionErrorCompletions(curNode, priorWord);
+                return this._getExpressionErrorCompletions(curNode, priorWord,
+                    moduleSymbolsCallback);
             }
 
             if (curNode instanceof MemberAccessExpressionNode) {
@@ -168,7 +172,7 @@ export class CompletionProvider {
 
                     if (parentNode instanceof ImportFromNode) {
                         return this._getImportFromCompletions(
-                            parentNode, priorWord, importMap);
+                            parentNode, priorWord, importMapCallback);
                     }
                 } else if (curNode.parent instanceof MemberAccessExpressionNode) {
                     return this._getMemberAccessCompletions(
@@ -177,15 +181,18 @@ export class CompletionProvider {
             }
 
             if (curNode instanceof ImportFromNode) {
-                return this._getImportFromCompletions(curNode, priorWord, importMap);
+                return this._getImportFromCompletions(
+                    curNode, priorWord, importMapCallback);
             }
 
             if (curNode instanceof ExpressionNode) {
-                return this._getExpressionCompletions(curNode, priorWord);
+                return this._getExpressionCompletions(curNode, priorWord,
+                    moduleSymbolsCallback);
             }
 
             if (curNode instanceof SuiteNode || curNode instanceof ModuleNode) {
-                return this._getStatementCompletions(curNode, priorWord);
+                return this._getStatementCompletions(curNode, priorWord,
+                    moduleSymbolsCallback);
             }
 
             if (!curNode.parent) {
@@ -223,7 +230,8 @@ export class CompletionProvider {
     }
 
     private static _getExpressionErrorCompletions(node: ErrorExpressionNode,
-            priorWord: string): CompletionList | undefined {
+        priorWord: string, moduleSymbolsCallback: () => ModuleSymbolMap):
+            CompletionList | undefined {
 
         // Is the error due to a missing member access name? If so,
         // we can evaluate the left side of the member access expression
@@ -239,7 +247,8 @@ export class CompletionProvider {
 
             case ErrorExpressionCategory.MissingExpression:
             case ErrorExpressionCategory.MissingDecoratorCallName: {
-                return this._getExpressionCompletions(node, priorWord);
+                return this._getExpressionCompletions(node, priorWord,
+                    moduleSymbolsCallback);
             }
 
             case ErrorExpressionCategory.MissingMemberAccessName: {
@@ -282,14 +291,17 @@ export class CompletionProvider {
     }
 
     private static _getStatementCompletions(parseNode: ParseNode,
-            priorWord: string): CompletionList | undefined {
+        priorWord: string, moduleSymbolsCallback: () => ModuleSymbolMap):
+            CompletionList | undefined {
 
         // For now, use the same logic for expressions and statements.
-        return this._getExpressionCompletions(parseNode, priorWord);
+        return this._getExpressionCompletions(parseNode, priorWord,
+            moduleSymbolsCallback);
     }
 
     private static _getExpressionCompletions(parseNode: ParseNode,
-            priorWord: string): CompletionList | undefined {
+        priorWord: string, moduleSymbolsCallback: () => ModuleSymbolMap):
+            CompletionList | undefined {
 
         const completionList = CompletionList.create();
 
@@ -298,16 +310,46 @@ export class CompletionProvider {
 
         // Add keywords.
         this._findMatchingKeywords(_keywords, priorWord).map(keyword => {
-            let completionItem = CompletionItem.create(keyword);
+            const completionItem = CompletionItem.create(keyword);
             completionItem.kind = CompletionItemKind.Keyword;
             completionList.items.push(completionItem);
         });
+
+        // Add auto-import suggestions from other modules.
+        if (priorWord.length > 2 && !priorWord.startsWith('_')) {
+            const moduleSymbolMap = moduleSymbolsCallback();
+            Object.keys(moduleSymbolMap).forEach(filePath => {
+                const moduleScope = moduleSymbolMap[filePath];
+                const symbolTable = moduleScope.getSymbolTable();
+
+                symbolTable.forEach((item, name) => {
+                    if (name.startsWith(priorWord)) {
+                        // If there's already a local completion suggestion with
+                        // this name, don't add an auto-import suggestion with
+                        // the same name.
+                        const duplicate = completionList.items.find(
+                            item => item.label === name && !item.data.autoImport);
+                        const declarations = item.getDeclarations();
+                        if (declarations && declarations.length > 0 && duplicate === undefined) {
+                            // Don't include imported symbols, only those that
+                            // are declared within this file.
+                            if (declarations[0].path === filePath) {
+                                if (moduleScope.isSymbolExported(name)) {
+                                    this._addSymbol(name, item, priorWord,
+                                        completionList, filePath);
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        }
 
         return completionList;
     }
 
     private static _getImportFromCompletions(importFromNode: ImportFromNode,
-            priorWord: string, importMap: ImportMap): CompletionList | undefined {
+            priorWord: string, importMapCallback: () => ImportMap): CompletionList | undefined {
 
         // Don't attempt to provide completions for "from X import *".
         if (importFromNode.isWildcardImport) {
@@ -325,6 +367,8 @@ export class CompletionProvider {
 
         const resolvedPath = importInfo.resolvedPaths.length > 0 ?
             importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
+
+        const importMap = importMapCallback();
 
         if (importMap[resolvedPath]) {
             const moduleNode = importMap[resolvedPath].parseTree;
@@ -393,73 +437,103 @@ export class CompletionProvider {
             priorWord: string, completionList: CompletionList) {
 
         symbolTable.forEach((item, name) => {
-            let itemKind: CompletionItemKind = CompletionItemKind.Variable;
-            const declarations = item.getDeclarations();
-            let typeDetail: string | undefined;
-            let documentation: string | undefined;
-
             // If there are no declarations or the symbol is not
             // exported from this scope, don't include it in the
             // suggestion list.
-            if (isExportedCallback(name) && declarations.length > 0) {
-                const declaration = declarations[0];
-                itemKind = this._convertDeclarationCategoryToItemKind(
-                    declaration.category);
-
-                const type = declaration.declaredType;
-                if (type) {
-                    switch (declaration.category) {
-                        case DeclarationCategory.Variable:
-                        case DeclarationCategory.Parameter:
-                            typeDetail = name + ': ' + type.asString();
-                            break;
-
-                        case DeclarationCategory.Function:
-                        case DeclarationCategory.Method:
-                            if (type instanceof OverloadedFunctionType) {
-                                typeDetail = type.getOverloads().map(overload =>
-                                    name + overload.type.asString()).join('\n');
-                            } else {
-                                typeDetail = name + type.asString();
-                            }
-                            break;
-
-                        case DeclarationCategory.Class:
-                            typeDetail = 'class ' + name + '()';
-                            break;
-
-                        case DeclarationCategory.Module:
-                        default:
-                            typeDetail = name;
-                            break;
-                    }
-                }
-
-                if (type instanceof ModuleType ||
-                        type instanceof ClassType ||
-                        type instanceof FunctionType) {
-                    documentation = type.getDocString();
-                }
-
-                this._addNameToCompletionList(name, itemKind, priorWord, completionList,
-                    typeDetail, documentation);
+            if (isExportedCallback(name)) {
+                this._addSymbol(name, item, priorWord, completionList);
             }
         });
     }
 
+    private static _addSymbol(name: string, symbol: Symbol,
+            priorWord: string, completionList: CompletionList,
+            autoImportSource?: string) {
+
+        const declarations = symbol.getDeclarations();
+
+        if (declarations.length > 0) {
+            let itemKind: CompletionItemKind = CompletionItemKind.Variable;
+            let typeDetail: string | undefined;
+            let documentation: string | undefined;
+
+            const declaration = declarations[0];
+            itemKind = this._convertDeclarationCategoryToItemKind(
+                declaration.category);
+
+            const type = declaration.declaredType;
+            if (type) {
+                switch (declaration.category) {
+                    case DeclarationCategory.Variable:
+                    case DeclarationCategory.Parameter:
+                        typeDetail = name + ': ' + type.asString();
+                        break;
+
+                    case DeclarationCategory.Function:
+                    case DeclarationCategory.Method:
+                        if (type instanceof OverloadedFunctionType) {
+                            typeDetail = type.getOverloads().map(overload =>
+                                name + overload.type.asString()).join('\n');
+                        } else {
+                            typeDetail = name + type.asString();
+                        }
+                        break;
+
+                    case DeclarationCategory.Class:
+                        typeDetail = 'class ' + name + '()';
+                        break;
+
+                    case DeclarationCategory.Module:
+                    default:
+                        typeDetail = name;
+                        break;
+                }
+            }
+
+            if (type instanceof ModuleType ||
+                    type instanceof ClassType ||
+                    type instanceof FunctionType) {
+                documentation = type.getDocString();
+            }
+
+            let autoImportText: string | undefined;
+            if (autoImportSource) {
+                autoImportText = `Auto-import from ${ autoImportSource }`;
+            }
+
+            this._addNameToCompletionList(name, itemKind, priorWord, completionList,
+                typeDetail, documentation, autoImportText);
+        }
+    }
+
     private static _addNameToCompletionList(name: string, itemKind: CompletionItemKind,
             filter: string, completionList: CompletionList, typeDetail?: string,
-            documentation?: string) {
+            documentation?: string, autoImportText?: string) {
 
         const similarity = StringUtils.computeCompletionSimilarity(filter, name);
 
         if (similarity > SimilarityLimit) {
             const completionItem = CompletionItem.create(name);
             completionItem.kind = itemKind;
+            completionItem.data = {};
 
-            // Force dunder-named symbols to appear after all other symbols.
-            completionItem.sortText = SymbolUtils.isDunderName(name) ? '~' + name : name;
+            if (autoImportText) {
+                // Force auto-import entries to the end.
+                completionItem.sortText = '~~' + name;
+            } else if (SymbolUtils.isDunderName(name)) {
+                // Force dunder-named symbols to appear after all other symbols.
+                completionItem.sortText = '~' + name;
+            } else {
+                completionItem.sortText = name;
+            }
+
             let markdownString = '';
+
+            if (autoImportText) {
+                markdownString += autoImportText;
+                markdownString += '\n\n';
+                completionItem.data.autoImport = true;
+            }
 
             if (typeDetail) {
                 markdownString += '```python\n' + typeDetail + '\n```\n';
