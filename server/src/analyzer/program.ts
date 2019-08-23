@@ -13,7 +13,7 @@ import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
+import { DiagnosticTextPosition, DiagnosticTextRange, DocumentTextRange } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { Duration } from '../common/timing';
 import { ImportMap } from './analyzerFileInfo';
@@ -37,6 +37,12 @@ export interface SourceFileInfo {
     imports: SourceFileInfo[];
     builtinsImport?: SourceFileInfo;
     importedBy: SourceFileInfo[];
+}
+
+export interface FileEditAction {
+    filePath: string;
+    range: DiagnosticTextRange;
+    replacementText: string;
 }
 
 export interface MaxAnalysisTime {
@@ -764,6 +770,50 @@ export class Program {
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
             position, options, this._buildImportMap(sourceFileInfo));
+    }
+
+    renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
+            newName: string, options: ConfigOptions): FileEditAction[] | undefined {
+
+        const sourceFileInfo = this._sourceFileMap[filePath];
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+
+        const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
+            position, true);
+
+        if (!referencesResult) {
+            return undefined;
+        }
+
+        // Do we need to do a global search as well?
+        if (referencesResult.requiresGlobalSearch) {
+            for (let curSourceFileInfo of this._sourceFileList) {
+                if (curSourceFileInfo !== sourceFileInfo) {
+                    if (curSourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+                        this._analyzeFile(curSourceFileInfo, options, {
+                            openFilesTimeInMs: MaxAnalysisTimeForCompletions,
+                            noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+                        });
+                    }
+
+                    curSourceFileInfo.sourceFile.addReferences(referencesResult, true);
+                }
+            }
+        }
+
+        const editActions: FileEditAction[] = [];
+
+        referencesResult.locations.forEach(loc => {
+            editActions.push({
+                filePath: loc.path,
+                range: loc.range,
+                replacementText: newName
+            });
+        });
+
+        return editActions;
     }
 
     // Returns a list of empty file diagnostic entries for the files

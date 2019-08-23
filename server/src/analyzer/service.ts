@@ -9,7 +9,7 @@
 */
 
 import * as fs from 'fs';
-import { CompletionList, SymbolInformation } from 'vscode-languageserver';
+import { CompletionList, SymbolInformation, WorkspaceEdit } from 'vscode-languageserver';
 
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
@@ -20,7 +20,7 @@ import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
     getFileSpec, getFileSystemEntries, isDirectory, isFile, normalizePath } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from './hoverProvider';
-import { MaxAnalysisTime, Program } from './program';
+import { FileEditAction, MaxAnalysisTime, Program } from './program';
 import { PythonPathUtils } from './pythonPathUtils';
 import { SignatureHelpResults } from './signatureHelpProvider';
 
@@ -145,6 +145,14 @@ export class AnalyzerService {
         this._recordUserInteractionTime();
         return this._program.getCompletionsForPosition(filePath, position,
             this._configOptions);
+    }
+
+    renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
+            newName: string): FileEditAction[] | undefined {
+
+        this._recordUserInteractionTime();
+        return this._program.renameSymbolAtPosition(filePath, position,
+            newName, this._configOptions);
     }
 
     printStats() {

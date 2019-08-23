@@ -8,7 +8,9 @@ import {
     createConnection, Diagnostic, DiagnosticSeverity, DiagnosticTag,
     IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter,
     Location, ParameterInformation, Position, Range, SignatureInformation,
-    TextDocuments
+    TextDocuments,
+    TextEdit,
+    WorkspaceEdit
 } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
 
@@ -164,6 +166,7 @@ _connection.onInitialize((params): InitializeResult => {
             referencesProvider: true,
             documentSymbolProvider: true,
             hoverProvider: true,
+            renameProvider: true,
             completionProvider: {
                 triggerCharacters: ['.']
             },
@@ -339,6 +342,44 @@ _connection.onCompletion(params => {
         return;
     }
     return workspace.serviceInstance.getCompletionsForPosition(filePath, position);
+});
+
+_connection.onRenameRequest(params => {
+    const filePath = _convertUriToPath(params.textDocument.uri);
+
+    const position: DiagnosticTextPosition = {
+        line: params.position.line,
+        column: params.position.character
+    };
+
+    const workspace = _getWorkspaceForFile(filePath);
+    if (workspace.disableLanguageServices) {
+        return;
+    }
+    const editActions = workspace.serviceInstance.renameSymbolAtPosition(
+        filePath, position, params.newName);
+
+    if (!editActions) {
+        return undefined;
+    }
+
+    const edits: WorkspaceEdit = {
+        changes: {}
+    };
+    editActions.forEach(editAction => {
+        const uri = _convertPathToUri(editAction.filePath);
+        if (edits.changes![uri] === undefined) {
+            edits.changes![uri] = [];
+        }
+
+        const textEdit: TextEdit = {
+            range: _convertRange(editAction.range),
+            newText: editAction.replacementText
+        };
+        edits.changes![uri].push(textEdit);
+    });
+
+    return edits;
 });
 
 _connection.onDidOpenTextDocument(params => {
