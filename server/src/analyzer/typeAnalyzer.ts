@@ -2656,7 +2656,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let classType = AnalyzerNodeInfo.getExpressionType(classDef);
         if (classType && classType instanceof ClassType) {
-            let memberInfo = TypeUtils.lookUpClassMember(classType, memberName);
+            let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
+                isInstanceMember ? ClassMemberLookupFlags.Default : ClassMemberLookupFlags.SkipInstanceVariables);
 
             // A local helper function that creates a new declaration.
             let createDeclaration = () => {
