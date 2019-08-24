@@ -18,6 +18,7 @@ export interface ImportStatement {
     importResult: ImportResult | undefined;
     resolvedPath: string | undefined;
     moduleName: string;
+    followsNonImportStatement: boolean;
 }
 
 export interface ImportStatements {
@@ -34,22 +35,35 @@ export class ImportStatementUtils {
             mapByFilePath: {}
         };
 
+        let followsNonImportStatement = false;
+        let foundFirstImportStatement = false;
+
         parseTree.statements.forEach(statement => {
             if (statement instanceof StatementListNode) {
                 statement.statements.forEach(subStatement => {
                     if (subStatement instanceof ImportNode) {
-                        this._processImportNode(subStatement, localImports);
+                        foundFirstImportStatement = true;
+                        this._processImportNode(subStatement, localImports, followsNonImportStatement);
+                        followsNonImportStatement = false;
                     } else if (subStatement instanceof ImportFromNode) {
-                        this._processImportFromNode(subStatement, localImports);
+                        foundFirstImportStatement = true;
+                        this._processImportFromNode(subStatement, localImports, followsNonImportStatement);
+                        followsNonImportStatement = false;
+                    } else {
+                        followsNonImportStatement = foundFirstImportStatement;
                     }
                 });
+            } else {
+                followsNonImportStatement = foundFirstImportStatement;
             }
         });
 
         return localImports;
     }
 
-    private static _processImportNode(node: ImportNode, localImports: ImportStatements) {
+    private static _processImportNode(node: ImportNode, localImports: ImportStatements,
+            followsNonImportStatement: boolean) {
+
         node.list.forEach(importAsNode => {
             const importResult = AnalyzerNodeInfo.getImportInfo(importAsNode.module);
             let resolvedPath: string | undefined;
@@ -62,7 +76,8 @@ export class ImportStatementUtils {
                 node,
                 importResult,
                 resolvedPath,
-                moduleName: this._formatModuleName(importAsNode.module)
+                moduleName: this._formatModuleName(importAsNode.module),
+                followsNonImportStatement
             };
 
             localImports.orderedImports.push(localImport);
@@ -79,7 +94,9 @@ export class ImportStatementUtils {
         });
     }
 
-    private static _processImportFromNode(node: ImportFromNode, localImports: ImportStatements) {
+    private static _processImportFromNode(node: ImportFromNode, localImports: ImportStatements,
+            followsNonImportStatement: boolean) {
+
         const importResult = AnalyzerNodeInfo.getImportInfo(node.module);
         let resolvedPath: string | undefined;
 
@@ -91,7 +108,8 @@ export class ImportStatementUtils {
             node,
             importResult,
             resolvedPath,
-            moduleName: this._formatModuleName(node.module)
+            moduleName: this._formatModuleName(node.module),
+            followsNonImportStatement
         };
 
         localImports.orderedImports.push(localImport);

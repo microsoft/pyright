@@ -436,8 +436,19 @@ export class CompletionProvider {
                         break;
                     }
 
+                    // If we're about to hit the end of the import statements, don't go
+                    // any further.
+                    if (curImport.followsNonImportStatement) {
+                        if (importType > prevImportType) {
+                            // Add an extra line to create a new group.
+                            newImportStatement = '\n' + newImportStatement;
+                        }
+                        break;
+                    }
+
                     // If this is the last import, see if we need to create a new group.
                     if (curImport === importStatements.orderedImports[importStatements.orderedImports.length - 1]) {
+
                         if (importType > curImportType) {
                             // Add an extra line to create a new group.
                             newImportStatement = '\n' + newImportStatement;
