@@ -81,17 +81,22 @@ const SimilarityLimit = 0.25;
 export type ModuleSymbolMap = { [file: string]: Scope };
 
 export class CompletionProvider {
-    static getCompletionsForPosition(parseResults: ParseResults, fileContents: string,
-            position: DiagnosticTextPosition, filePath: string, configOptions: ConfigOptions,
-            importMapCallback: () => ImportMap, moduleSymbolsCallback: () => ModuleSymbolMap):
-                CompletionList | undefined {
+    constructor(private _parseResults: ParseResults,
+        private _fileContents: string,
+        private _position: DiagnosticTextPosition,
+        private _filePath: string,
+        private _configOptions: ConfigOptions,
+        private _importMapCallback: () => ImportMap,
+        private _moduleSymbolsCallback: () => ModuleSymbolMap) {
+    }
 
-        let offset = convertPositionToOffset(position, parseResults.lines);
+    getCompletionsForPosition(): CompletionList | undefined {
+        let offset = convertPositionToOffset(this._position, this._parseResults.lines);
         if (offset === undefined) {
             return undefined;
         }
 
-        let node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
+        let node = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, offset);
 
         // See if we can get to a "better" node by backing up a few columns.
         // A "better" node is defined as one that's deeper than the current
@@ -103,12 +108,12 @@ export class CompletionProvider {
             curOffset--;
 
             // Stop scanning backward if we hit certain stop characters.
-            const curChar = fileContents.substr(curOffset, 1);
+            const curChar = this._fileContents.substr(curOffset, 1);
             if (curChar === '(' || curChar === '\n') {
                 break;
             }
 
-            let curNode = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, curOffset);
+            let curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, curOffset);
             if (curNode && curNode !== initialNode) {
                 if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
                     node = curNode;
@@ -122,14 +127,14 @@ export class CompletionProvider {
         }
 
         // Get the text on that line prior to the insertion point.
-        const lineTextRange = parseResults.lines.getItemAt(position.line);
-        const textOnLine = fileContents.substr(lineTextRange.start, lineTextRange.length);
-        const priorText = textOnLine.substr(0, position.column);
+        const lineTextRange = this._parseResults.lines.getItemAt(this._position.line);
+        const textOnLine = this._fileContents.substr(lineTextRange.start, lineTextRange.length);
+        const priorText = textOnLine.substr(0, this._position.column);
         const priorWordIndex = priorText.search(/\w+$/);
         const priorWord = priorWordIndex >= 0 ? priorText.substr(priorWordIndex) : '';
 
         // Don't offer completions if we're within a comment or a string.
-        if (this._isWithinCommentOrString(parseResults, offset, priorText)) {
+        if (this._isWithinCommentOrString(offset, priorText)) {
             return undefined;
         }
 
@@ -154,12 +159,11 @@ export class CompletionProvider {
             }
 
             if (curNode instanceof ModuleNameNode) {
-                return this._getImportModuleCompletions(curNode, filePath, configOptions);
+                return this._getImportModuleCompletions(curNode);
             }
 
             if (curNode instanceof ErrorExpressionNode) {
-                return this._getExpressionErrorCompletions(parseResults, fileContents,
-                    curNode, priorWord, moduleSymbolsCallback);
+                return this._getExpressionErrorCompletions(curNode, priorWord);
             }
 
             if (curNode instanceof MemberAccessExpressionNode) {
@@ -174,8 +178,7 @@ export class CompletionProvider {
                     const parentNode = curNode.parent.parent;
 
                     if (parentNode instanceof ImportFromNode) {
-                        return this._getImportFromCompletions(
-                            parentNode, priorWord, importMapCallback);
+                        return this._getImportFromCompletions(parentNode, priorWord);
                     }
                 } else if (curNode.parent instanceof MemberAccessExpressionNode) {
                     return this._getMemberAccessCompletions(
@@ -184,18 +187,15 @@ export class CompletionProvider {
             }
 
             if (curNode instanceof ImportFromNode) {
-                return this._getImportFromCompletions(
-                    curNode, priorWord, importMapCallback);
+                return this._getImportFromCompletions(curNode, priorWord);
             }
 
             if (curNode instanceof ExpressionNode) {
-                return this._getExpressionCompletions(parseResults, fileContents, curNode,
-                    priorWord, moduleSymbolsCallback);
+                return this._getExpressionCompletions(curNode, priorWord);
             }
 
             if (curNode instanceof SuiteNode || curNode instanceof ModuleNode) {
-                return this._getStatementCompletions(parseResults, fileContents, curNode,
-                    priorWord, moduleSymbolsCallback);
+                return this._getStatementCompletions(curNode, priorWord);
             }
 
             if (!curNode.parent) {
@@ -208,15 +208,13 @@ export class CompletionProvider {
         return undefined;
     }
 
-    private static _isWithinCommentOrString(parseResults: ParseResults, offset: number,
-            priorText: string): boolean {
-
-        const tokenIndex = parseResults.tokens.getItemAtPosition(offset);
+    private _isWithinCommentOrString(offset: number, priorText: string): boolean {
+        const tokenIndex = this._parseResults.tokens.getItemAtPosition(offset);
         if (tokenIndex < 0) {
             return false;
         }
 
-        const token = parseResults.tokens.getItemAt(tokenIndex);
+        const token = this._parseResults.tokens.getItemAt(tokenIndex);
 
         if (token.type === TokenType.String) {
             return true;
@@ -232,9 +230,7 @@ export class CompletionProvider {
         return !!priorText.match(/#/);
     }
 
-    private static _getExpressionErrorCompletions(parseResults: ParseResults,
-        fileContents: string, node: ErrorExpressionNode, priorWord: string,
-        moduleSymbolsCallback: () => ModuleSymbolMap):
+    private _getExpressionErrorCompletions(node: ErrorExpressionNode, priorWord: string):
             CompletionList | undefined {
 
         // Is the error due to a missing member access name? If so,
@@ -251,8 +247,7 @@ export class CompletionProvider {
 
             case ErrorExpressionCategory.MissingExpression:
             case ErrorExpressionCategory.MissingDecoratorCallName: {
-                return this._getExpressionCompletions(parseResults, fileContents, node,
-                    priorWord, moduleSymbolsCallback);
+                return this._getExpressionCompletions(node, priorWord);
             }
 
             case ErrorExpressionCategory.MissingMemberAccessName: {
@@ -266,14 +261,14 @@ export class CompletionProvider {
         return undefined;
     }
 
-    private static _createSingleKeywordCompletionList(keyword: string): CompletionList {
+    private _createSingleKeywordCompletionList(keyword: string): CompletionList {
         const completionItem = CompletionItem.create('in');
         completionItem.kind = CompletionItemKind.Keyword;
 
         return CompletionList.create([completionItem]);
     }
 
-    private static _getMemberAccessCompletions(leftExprNode: ExpressionNode,
+    private _getMemberAccessCompletions(leftExprNode: ExpressionNode,
             priorWord: string): CompletionList | undefined {
 
         const leftType = AnalyzerNodeInfo.getExpressionType(leftExprNode);
@@ -294,18 +289,14 @@ export class CompletionProvider {
         return completionList;
     }
 
-    private static _getStatementCompletions(parseResults: ParseResults, fileContents: string,
-        parseNode: ParseNode, priorWord: string, moduleSymbolsCallback: () => ModuleSymbolMap):
+    private _getStatementCompletions(parseNode: ParseNode, priorWord: string):
             CompletionList | undefined {
 
         // For now, use the same logic for expressions and statements.
-        return this._getExpressionCompletions(parseResults, fileContents, parseNode,
-            priorWord, moduleSymbolsCallback);
+        return this._getExpressionCompletions(parseNode, priorWord);
     }
 
-    private static _getExpressionCompletions(parseResults: ParseResults,
-        fileContents: string, parseNode: ParseNode, priorWord: string,
-        moduleSymbolsCallback: () => ModuleSymbolMap):
+    private _getExpressionCompletions(parseNode: ParseNode, priorWord: string):
             CompletionList | undefined {
 
         const completionList = CompletionList.create();
@@ -324,21 +315,16 @@ export class CompletionProvider {
         // this expensive check unless/until we get at least two characters.
         // Also, ignore this check for privates, since they are not imported.
         if (priorWord.length > 2 && !priorWord.startsWith('_')) {
-            this._getAutoImportCompletions(parseResults, fileContents, priorWord,
-                moduleSymbolsCallback, completionList);
+            this._getAutoImportCompletions(priorWord, completionList);
         }
 
         return completionList;
     }
 
-    private static _getAutoImportCompletions(parseResults: ParseResults,
-        fileContents: string, priorWord: string,
-        moduleSymbolsCallback: () => ModuleSymbolMap,
-            completionList: CompletionList) {
-
-        const moduleSymbolMap = moduleSymbolsCallback();
+    private _getAutoImportCompletions(priorWord: string, completionList: CompletionList) {
+        const moduleSymbolMap = this._moduleSymbolsCallback();
         const localImports = ImportStatementUtils.getTopLevelImports(
-            parseResults.parseTree);
+            this._parseResults.parseTree);
 
         Object.keys(moduleSymbolMap).forEach(filePath => {
             const moduleScope = moduleSymbolMap[filePath];
@@ -362,7 +348,7 @@ export class CompletionProvider {
                                 this._getModuleNameFromFilePath(filePath);
 
                             const autoImportTextEdits = this._getTextEditsForAutoImport(
-                                parseResults, fileContents, name, localImports, filePath);
+                                name, localImports, filePath);
 
                             this._addSymbol(name, item, priorWord,
                                 completionList, importSource, autoImportTextEdits);
@@ -376,13 +362,13 @@ export class CompletionProvider {
     // Given the file path of a module that we want to import,
     // convert to a module name that can be used in an
     // 'import from' statement.
-    private static _getModuleNameFromFilePath(filePath: string): string {
+    private _getModuleNameFromFilePath(filePath: string): string {
         // TODO - need to implement
         return filePath;
     }
 
-    private static _getTextEditsForAutoImport(parseResults: ParseResults, fileContents: string,
-            symbolName: string, importStatements: ImportStatements, filePath: string): TextEdit[] {
+    private _getTextEditsForAutoImport(symbolName: string, importStatements: ImportStatements,
+            filePath: string): TextEdit[] {
 
         const textEditList: TextEdit[] = [];
 
@@ -402,7 +388,7 @@ export class CompletionProvider {
 
             if (priorImport) {
                 const insertionOffset = priorImport.name.end;
-                const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.lines);
+                const insertionPosition = convertOffsetToPosition(insertionOffset, this._parseResults.lines);
 
                 textEditList.push(
                     TextEdit.insert(Position.create(insertionPosition.line, insertionPosition.column),
@@ -414,8 +400,8 @@ export class CompletionProvider {
         return textEditList;
     }
 
-    private static _getImportFromCompletions(importFromNode: ImportFromNode,
-            priorWord: string, importMapCallback: () => ImportMap): CompletionList | undefined {
+    private _getImportFromCompletions(importFromNode: ImportFromNode,
+            priorWord: string): CompletionList | undefined {
 
         // Don't attempt to provide completions for "from X import *".
         if (importFromNode.isWildcardImport) {
@@ -434,7 +420,7 @@ export class CompletionProvider {
         const resolvedPath = importInfo.resolvedPaths.length > 0 ?
             importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
 
-        const importMap = importMapCallback();
+        const importMap = this._importMapCallback();
 
         if (importMap[resolvedPath]) {
             const moduleNode = importMap[resolvedPath].parseTree;
@@ -464,8 +450,7 @@ export class CompletionProvider {
         return completionList;
     }
 
-    private static _findMatchingKeywords(keywordList: string[],
-            partialMatch: string): string[] {
+    private _findMatchingKeywords(keywordList: string[], partialMatch: string): string[] {
 
         return keywordList.filter(keyword => {
             if (partialMatch) {
@@ -476,8 +461,7 @@ export class CompletionProvider {
         });
     }
 
-    private static _addSymbols(node: ParseNode, priorWord: string,
-            completionList: CompletionList) {
+    private _addSymbols(node: ParseNode, priorWord: string, completionList: CompletionList) {
 
         let curNode: ParseNode | undefined = node;
 
@@ -498,7 +482,7 @@ export class CompletionProvider {
         }
     }
 
-    private static _addSymbolsForSymbolTable(symbolTable: SymbolTable,
+    private _addSymbolsForSymbolTable(symbolTable: SymbolTable,
             isExportedCallback: (name: string) => boolean,
             priorWord: string, completionList: CompletionList) {
 
@@ -512,7 +496,7 @@ export class CompletionProvider {
         });
     }
 
-    private static _addSymbol(name: string, symbol: Symbol,
+    private _addSymbol(name: string, symbol: Symbol,
             priorWord: string, completionList: CompletionList,
             autoImportSource?: string, additionalTextEdits?: TextEdit[]) {
 
@@ -572,7 +556,7 @@ export class CompletionProvider {
         }
     }
 
-    private static _addNameToCompletionList(name: string, itemKind: CompletionItemKind,
+    private _addNameToCompletionList(name: string, itemKind: CompletionItemKind,
             filter: string, completionList: CompletionList, typeDetail?: string,
             documentation?: string, autoImportText?: string,
             additionalTextEdits?: TextEdit[]) {
@@ -630,7 +614,7 @@ export class CompletionProvider {
         }
     }
 
-    private static _convertDeclarationCategoryToItemKind(
+    private _convertDeclarationCategoryToItemKind(
                 category: DeclarationCategory): CompletionItemKind {
 
         switch (category) {
@@ -652,11 +636,9 @@ export class CompletionProvider {
         }
     }
 
-    private static _getImportModuleCompletions(node: ModuleNameNode,
-            filePath: string, configOptions: ConfigOptions): CompletionList {
-
-        const execEnvironment = configOptions.findExecEnvironment(filePath);
-        const resolver = new ImportResolver(filePath, configOptions, execEnvironment);
+    private _getImportModuleCompletions(node: ModuleNameNode): CompletionList {
+        const execEnvironment = this._configOptions.findExecEnvironment(this._filePath);
+        const resolver = new ImportResolver(this._filePath, this._configOptions, execEnvironment);
         const moduleDescriptor: ImportedModuleDescriptor = {
             leadingDots: node.leadingDots,
             hasTrailingDot: node.hasTrailingDot,

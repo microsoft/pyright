@@ -4,7 +4,7 @@
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* Class that represents a source file.
+* Class that represents a single python source file.
 */
 
 import * as assert from 'assert';
@@ -565,10 +565,12 @@ export class SourceFile {
             return undefined;
         }
 
-        return CompletionProvider.getCompletionsForPosition(
+        const completionProvider = new CompletionProvider(
             this._analysisJob.parseResults, this._fileContents, position,
             this._filePath, configOptions, importMapCallback,
             moduleSymbolsCallback);
+
+        return completionProvider.getCompletionsForPosition();
     }
 
     getAnalysisPassCount() {
