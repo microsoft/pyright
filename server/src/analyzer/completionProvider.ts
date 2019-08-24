@@ -24,7 +24,8 @@ import { TokenType } from '../parser/tokenizerTypes';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DeclarationCategory } from './declaration';
-import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
+import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from './importResolver';
+import { ImportType } from './importResult';
 import { ImportStatements, ImportStatementUtils } from './importStatementUtils';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
@@ -323,7 +324,7 @@ export class CompletionProvider {
 
     private _getAutoImportCompletions(priorWord: string, completionList: CompletionList) {
         const moduleSymbolMap = this._moduleSymbolsCallback();
-        const localImports = ImportStatementUtils.getTopLevelImports(
+        const importStatements = ImportStatementUtils.getTopLevelImports(
             this._parseResults.parseTree);
 
         Object.keys(moduleSymbolMap).forEach(filePath => {
@@ -335,20 +336,27 @@ export class CompletionProvider {
                     // If there's already a local completion suggestion with
                     // this name, don't add an auto-import suggestion with
                     // the same name.
-                    const duplicate = completionList.items.find(
+                    const localDuplicate = completionList.items.find(
                         item => item.label === name && !item.data.autoImport);
                     const declarations = item.getDeclarations();
-                    if (declarations && declarations.length > 0 && duplicate === undefined) {
+                    if (declarations && declarations.length > 0 && localDuplicate === undefined) {
                         // Don't include imported symbols, only those that
                         // are declared within this file.
                         if (declarations[0].path === filePath) {
-                            const localImport = localImports.mapByFilePath[filePath];
-                            const importSource = localImport ?
-                                localImport.moduleName :
-                                this._getModuleNameFromFilePath(filePath);
+                            const localImport = importStatements.mapByFilePath[filePath];
+                            let importSource: string;
+                            let moduleNameAndType: ModuleNameAndType | undefined;
+
+                            if (localImport) {
+                                importSource = localImport.moduleName;
+                            } else {
+                                moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
+                                importSource = moduleNameAndType.moduleName;
+                            }
 
                             const autoImportTextEdits = this._getTextEditsForAutoImport(
-                                name, localImports, filePath);
+                                name, importStatements, filePath, importSource,
+                                moduleNameAndType ? moduleNameAndType.importType : ImportType.Local);
 
                             this._addSymbol(name, item, priorWord,
                                 completionList, importSource, autoImportTextEdits);
@@ -362,7 +370,7 @@ export class CompletionProvider {
     // Given the file path of a module that we want to import,
     // convert to a module name that can be used in an
     // 'import from' statement.
-    private _getModuleNameFromFilePath(filePath: string): string {
+    private _getModuleNameAndTypeFromFilePath(filePath: string): ModuleNameAndType {
         const execEnvironment = this._configOptions.findExecEnvironment(this._filePath);
         const resolver = new ImportResolver(this._filePath, this._configOptions, execEnvironment);
 
@@ -370,14 +378,14 @@ export class CompletionProvider {
     }
 
     private _getTextEditsForAutoImport(symbolName: string, importStatements: ImportStatements,
-            filePath: string): TextEdit[] {
+            filePath: string, moduleName: string, importType: ImportType): TextEdit[] {
 
         const textEditList: TextEdit[] = [];
 
         // Does an 'import from' statement already exist? If so, we'll reuse it.
         const importStatement = importStatements.mapByFilePath[filePath];
         if (importStatement && importStatement.node instanceof ImportFromNode) {
-            // Scan through the imports to find the right insertion point,
+            // Scan through the import symbols to find the right insertion point,
             // assuming we want to keep the imports alphebetized.
             let priorImport: ImportFromAsNode | undefined;
             for (let curImport of importStatement.node.imports) {
@@ -392,11 +400,82 @@ export class CompletionProvider {
                 const insertionOffset = priorImport.name.end;
                 const insertionPosition = convertOffsetToPosition(insertionOffset, this._parseResults.lines);
 
-                textEditList.push(
-                    TextEdit.insert(Position.create(insertionPosition.line, insertionPosition.column),
+                textEditList.push(TextEdit.insert(
+                    Position.create(insertionPosition.line, insertionPosition.column),
                     ', ' + symbolName)
                 );
             }
+        } else {
+            // We need to emit a new 'from import' statement.
+            let newImportStatement = `from ${ moduleName } import ${ symbolName }`;
+            let insertionPosition: Position;
+            if (importStatements.orderedImports.length > 0) {
+                let insertBefore = true;
+                let insertionImport = importStatements.orderedImports[0];
+
+                // Find a good spot to insert the new import statement. Follow
+                // the PEP8 standard sorting order whereby built-in imports are
+                // followed by third-party, which are followed by local.
+                let prevImportType = ImportType.BuiltIn;
+                for (let curImport of importStatements.orderedImports) {
+                    // If the import was resolved, use its import type. If it wasn't
+                    // resolved, assume that it's the same import type as the previous
+                    // one.
+                    const curImportType: ImportType = curImport.importResult ?
+                        curImport.importResult.importType : prevImportType;
+
+                    if (importType < curImportType) {
+                        if (!insertBefore && prevImportType < importType) {
+                            // Add an extra line to create a new group.
+                            newImportStatement = '\n' + newImportStatement;
+                        }
+                        break;
+                    }
+
+                    if (importType === curImportType && curImport.moduleName > moduleName) {
+                        break;
+                    }
+
+                    // If this is the last import, see if we need to create a new group.
+                    if (curImport === importStatements.orderedImports[importStatements.orderedImports.length - 1]) {
+                        if (importType > curImportType) {
+                            // Add an extra line to create a new group.
+                            newImportStatement = '\n' + newImportStatement;
+                        }
+                    }
+
+                    // Are we starting a new group?
+                    if (!insertBefore && importType < prevImportType && importType === curImportType) {
+                        insertBefore = true;
+                    } else {
+                        insertBefore = false;
+                    }
+
+                    prevImportType = curImportType;
+                    insertionImport = curImport;
+                }
+
+                if (insertionImport) {
+                    if (insertBefore) {
+                        newImportStatement = newImportStatement + '\n';
+                    } else {
+                        newImportStatement = '\n' + newImportStatement;
+                    }
+
+                    const position = convertOffsetToPosition(
+                        insertBefore ? insertionImport.node.start : insertionImport.node.end,
+                        this._parseResults.lines);
+                    insertionPosition = Position.create(position.line, position.column);
+                } else {
+                    insertionPosition = Position.create(0, 0);
+                }
+            } else {
+                // Insert at the top of the file.
+                // We may want to do something smarter here in the future.
+                insertionPosition = Position.create(0, 0);
+            }
+
+            textEditList.push(TextEdit.insert(insertionPosition, newImportStatement));
         }
 
         return textEditList;

@@ -8,9 +8,11 @@
 */
 
 export enum ImportType {
-    BuiltIn,
-    Local,
-    ThirdParty
+    // The ordering here is important because this is the order
+    // in which PEP8 specifies that imports should be ordered.
+    BuiltIn = 0,
+    ThirdParty = 1,
+    Local = 2
 }
 
 export interface ImplicitImport {

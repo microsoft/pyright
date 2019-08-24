@@ -8,13 +8,13 @@
 * import statements in a python source file.
 */
 
-import { ImportAsNode, ImportFromNode, ImportNode,
-    ModuleNameNode, ModuleNode, StatementListNode } from '../parser/parseNodes';
+import { ImportFromNode, ImportNode, ModuleNameNode, ModuleNode,
+    StatementListNode } from '../parser/parseNodes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportResult } from './importResult';
 
 export interface ImportStatement {
-    node: ImportAsNode | ImportFromNode;
+    node: ImportNode | ImportFromNode;
     importResult: ImportResult | undefined;
     resolvedPath: string | undefined;
     moduleName: string;
@@ -59,7 +59,7 @@ export class ImportStatementUtils {
             }
 
             const localImport: ImportStatement = {
-                node: importAsNode,
+                node,
                 importResult,
                 resolvedPath,
                 moduleName: this._formatModuleName(importAsNode.module)
@@ -98,10 +98,13 @@ export class ImportStatementUtils {
 
         // Add it to the map.
         if (resolvedPath) {
-            // Always overwrite existing import or import from statements
-            // because we always want to prefer 'import from' over 'import'
-            // in the map.
-            localImports.mapByFilePath[resolvedPath] = localImport;
+            const prevEntry = localImports.mapByFilePath[resolvedPath];
+            // Overwrite existing import statements because we always want to prefer
+            // 'import from' over 'import'. Also, overwrite existing 'import from' if
+            // the module name is shorter.
+            if (!prevEntry || prevEntry.node instanceof ImportNode || prevEntry.moduleName.length > localImport.moduleName.length) {
+                localImports.mapByFilePath[resolvedPath] = localImport;
+            }
         }
     }
 

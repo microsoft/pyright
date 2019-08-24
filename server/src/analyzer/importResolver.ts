@@ -25,6 +25,11 @@ export interface ImportedModuleDescriptor {
     importedSymbols: string[] | undefined;
 }
 
+export interface ModuleNameAndType {
+    moduleName: string;
+    importType: ImportType;
+}
+
 export class ImportResolver {
     private _sourceFilePath: string;
     private _configOptions: ConfigOptions;
@@ -96,6 +101,7 @@ export class ImportResolver {
                 const typingsImport = this._resolveAbsoluteImport(
                     this._configOptions.typingsPath, moduleDescriptor, importName, importFailureInfo);
                 if (typingsImport && typingsImport.isImportFound) {
+                    typingsImport.importType = ImportType.ThirdParty;
                     return typingsImport;
                 }
             }
@@ -207,8 +213,10 @@ export class ImportResolver {
     // Returns the module name (of the form X.Y.Z) that needs to be imported
     // from the current context to access the module with the specified file path.
     // In a sense, it's performing the inverse of resolveImport.
-    getModuleNameForImport(filePath: string): string {
+    getModuleNameForImport(filePath: string): ModuleNameAndType {
         let moduleName: string | undefined;
+        let importType = ImportType.BuiltIn;
+
         const importFailureInfo: string[] = [];
 
         // If we haven't already cached search paths, do so now.
@@ -219,7 +227,7 @@ export class ImportResolver {
         if (stdLibTypeshedPath) {
             moduleName = this._getModuleNameFromPath(stdLibTypeshedPath, filePath, true);
             if (moduleName) {
-                return moduleName;
+                return { moduleName, importType };
             }
         }
 
@@ -233,6 +241,7 @@ export class ImportResolver {
             // We'll always try to use the shortest version.
             if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                 moduleName = candidateModuleName;
+                importType = ImportType.Local;
             }
         }
 
@@ -245,6 +254,7 @@ export class ImportResolver {
             // We'll always try to use the shortest version.
             if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                 moduleName = candidateModuleName;
+                importType = ImportType.ThirdParty;
             }
         }
 
@@ -257,6 +267,7 @@ export class ImportResolver {
             // We'll always try to use the shortest version.
             if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                 moduleName = candidateModuleName;
+                importType = ImportType.ThirdParty;
             }
         }
 
@@ -269,16 +280,17 @@ export class ImportResolver {
                 // We'll always try to use the shortest version.
                 if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                     moduleName = candidateModuleName;
+                    importType = ImportType.ThirdParty;
                 }
             }
         }
 
         if (moduleName) {
-            return moduleName;
+            return { moduleName, importType };
         }
 
         // We didn't find any module name.
-        return '';
+        return { moduleName: '', importType: ImportType.Local };
     }
 
     private _getModuleNameFromPath(containerPath: string, filePath: string,
@@ -343,9 +355,7 @@ export class ImportResolver {
                 let importInfo = this._resolveAbsoluteImport(testPath, moduleDescriptor,
                     importName, importFailureInfo);
                 if (importInfo && importInfo.isImportFound) {
-                    if (isStdLib) {
-                        importInfo.importType = ImportType.BuiltIn;
-                    }
+                    importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
                     return importInfo;
                 }
             }
