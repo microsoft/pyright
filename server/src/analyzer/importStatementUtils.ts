@@ -13,23 +13,23 @@ import { ImportAsNode, ImportFromNode, ImportNode,
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportResult } from './importResult';
 
-interface LocalImport {
+export interface ImportStatement {
     node: ImportAsNode | ImportFromNode;
     importResult: ImportResult | undefined;
     resolvedPath: string | undefined;
     moduleName: string;
 }
 
-interface LocalImports {
-    orderedImports: LocalImport[];
-    mapByFilePath: { [filePath: string ]: LocalImport };
+export interface ImportStatements {
+    orderedImports: ImportStatement[];
+    mapByFilePath: { [filePath: string ]: ImportStatement };
 }
 
 export class ImportStatementUtils {
     // Looks for top-level 'import' and 'import from' statements and provides
     // an ordered list and a map (by file path).
-    static getTopLevelImports(parseTree: ModuleNode): LocalImports {
-        const localImports: LocalImports = {
+    static getTopLevelImports(parseTree: ModuleNode): ImportStatements {
+        const localImports: ImportStatements = {
             orderedImports: [],
             mapByFilePath: {}
         };
@@ -49,7 +49,7 @@ export class ImportStatementUtils {
         return localImports;
     }
 
-    private static _processImportNode(node: ImportNode, localImports: LocalImports) {
+    private static _processImportNode(node: ImportNode, localImports: ImportStatements) {
         node.list.forEach(importAsNode => {
             const importResult = AnalyzerNodeInfo.getImportInfo(importAsNode.module);
             let resolvedPath: string | undefined;
@@ -58,7 +58,7 @@ export class ImportStatementUtils {
                 resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
             }
 
-            const localImport: LocalImport = {
+            const localImport: ImportStatement = {
                 node: importAsNode,
                 importResult,
                 resolvedPath,
@@ -79,7 +79,7 @@ export class ImportStatementUtils {
         });
     }
 
-    private static _processImportFromNode(node: ImportFromNode, localImports: LocalImports) {
+    private static _processImportFromNode(node: ImportFromNode, localImports: ImportStatements) {
         const importResult = AnalyzerNodeInfo.getImportInfo(node.module);
         let resolvedPath: string | undefined;
 
@@ -87,7 +87,7 @@ export class ImportStatementUtils {
             resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
         }
 
-        const localImport: LocalImport = {
+        const localImport: ImportStatement = {
             node,
             importResult,
             resolvedPath,
