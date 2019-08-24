@@ -11,8 +11,8 @@
 import * as fs from 'fs';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { combinePaths, getDirectoryPath, getFileExtension, getFileSystemEntries, isDirectory,
-    isFile, stripFileExtension, stripTrailingDirectorySeparator } from '../common/pathUtils';
+import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileExtension, getFileSystemEntries,
+    getPathComponents, isDirectory, isFile, stripFileExtension, stripTrailingDirectorySeparator } from '../common/pathUtils';
 import { versionToString } from '../common/pythonVersion';
 import { StringUtils } from '../common/stringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
@@ -202,6 +202,115 @@ export class ImportResolver {
         }
 
         return suggestions;
+    }
+
+    // Returns the module name (of the form X.Y.Z) that needs to be imported
+    // from the current context to access the module with the specified file path.
+    // In a sense, it's performing the inverse of resolveImport.
+    getModuleNameForImport(filePath: string): string {
+        let moduleName: string | undefined;
+        const importFailureInfo: string[] = [];
+
+        // If we haven't already cached search paths, do so now.
+        this._cachePythonSearchPaths(importFailureInfo);
+
+        // Is this ia stdlib typeshed path?
+        const stdLibTypeshedPath = this._getTypeshedPath(true);
+        if (stdLibTypeshedPath) {
+            moduleName = this._getModuleNameFromPath(stdLibTypeshedPath, filePath, true);
+            if (moduleName) {
+                return moduleName;
+            }
+        }
+
+        // Look for it in the root directory of the execution environment.
+        moduleName = this._getModuleNameFromPath(this._executionEnvironment.root, filePath);
+
+        for (let extraPath of this._executionEnvironment.extraPaths) {
+            const candidateModuleName = this._getModuleNameFromPath(extraPath, filePath);
+
+            // Does this candidate look better than the previous best module name?
+            // We'll always try to use the shortest version.
+            if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
+                moduleName = candidateModuleName;
+            }
+        }
+
+        // Check for a typings file.
+        if (this._configOptions.typingsPath) {
+            const candidateModuleName = this._getModuleNameFromPath(
+                this._configOptions.typingsPath, filePath);
+
+            // Does this candidate look better than the previous best module name?
+            // We'll always try to use the shortest version.
+            if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
+                moduleName = candidateModuleName;
+            }
+        }
+
+        // Check for a typeshed file.
+        const thirdPartyTypeshedPath = this._getTypeshedPath(false);
+        if (thirdPartyTypeshedPath) {
+            const candidateModuleName = this._getModuleNameFromPath(thirdPartyTypeshedPath, filePath);
+
+            // Does this candidate look better than the previous best module name?
+            // We'll always try to use the shortest version.
+            if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
+                moduleName = candidateModuleName;
+            }
+        }
+
+        // Look for the import in the list of third-party packages.
+        if (this._cachedPythonSearchPaths && this._cachedPythonSearchPaths.length > 0) {
+            for (let searchPath of this._cachedPythonSearchPaths) {
+                const candidateModuleName = this._getModuleNameFromPath(searchPath, filePath);
+
+                // Does this candidate look better than the previous best module name?
+                // We'll always try to use the shortest version.
+                if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
+                    moduleName = candidateModuleName;
+                }
+            }
+        }
+
+        if (moduleName) {
+            return moduleName;
+        }
+
+        // We didn't find any module name.
+        return '';
+    }
+
+    private _getModuleNameFromPath(containerPath: string, filePath: string,
+            stripTopContainerDir = false): string | undefined {
+
+        containerPath = ensureTrailingDirectorySeparator(containerPath);
+        let filePathWithoutExtension = stripFileExtension(filePath);
+
+        if (!filePathWithoutExtension.startsWith(containerPath)) {
+            return undefined;
+        }
+
+        // Strip off the '/__init__' if it's present.
+        if (filePathWithoutExtension.endsWith('__init__')) {
+            filePathWithoutExtension = filePathWithoutExtension.substr(0, filePathWithoutExtension.length - 9);
+        }
+
+        const relativeFilePath = filePathWithoutExtension.substr(containerPath.length);
+        let parts = getPathComponents(relativeFilePath);
+        parts.shift();
+        if (stripTopContainerDir) {
+            if (parts.length === 0) {
+                return undefined;
+            }
+            parts.shift();
+        }
+
+        if (parts.length === 0) {
+            return undefined;
+        }
+
+        return parts.join('.');
     }
 
     private _cachePythonSearchPaths(importFailureInfo: string[]) {

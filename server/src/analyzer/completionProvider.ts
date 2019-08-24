@@ -363,8 +363,10 @@ export class CompletionProvider {
     // convert to a module name that can be used in an
     // 'import from' statement.
     private _getModuleNameFromFilePath(filePath: string): string {
-        // TODO - need to implement
-        return filePath;
+        const execEnvironment = this._configOptions.findExecEnvironment(this._filePath);
+        const resolver = new ImportResolver(this._filePath, this._configOptions, execEnvironment);
+
+        return resolver.getModuleNameForImport(filePath);
     }
 
     private _getTextEditsForAutoImport(symbolName: string, importStatements: ImportStatements,
