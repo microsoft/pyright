@@ -15,15 +15,16 @@ import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { StringUtils } from '../common/stringUtils';
 import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode,
-    ImportFromAsNode, ImportFromNode, MemberAccessExpressionNode,
+    ImportFromAsNode, ImportFromNode, ImportNode, MemberAccessExpressionNode,
     ModuleNameNode, ModuleNode, NameNode, ParseNode,
-    StringListNode, SuiteNode } from '../parser/parseNodes';
+    StringListNode, SuiteNode  } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DeclarationCategory } from './declaration';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
+import { ImportStatementUtils } from './importStatementUtils';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
 import { Symbol, SymbolTable } from './symbol';
@@ -155,8 +156,8 @@ export class CompletionProvider {
             }
 
             if (curNode instanceof ErrorExpressionNode) {
-                return this._getExpressionErrorCompletions(curNode, priorWord,
-                    moduleSymbolsCallback);
+                return this._getExpressionErrorCompletions(parseResults, curNode,
+                    priorWord, moduleSymbolsCallback);
             }
 
             if (curNode instanceof MemberAccessExpressionNode) {
@@ -186,13 +187,13 @@ export class CompletionProvider {
             }
 
             if (curNode instanceof ExpressionNode) {
-                return this._getExpressionCompletions(curNode, priorWord,
-                    moduleSymbolsCallback);
+                return this._getExpressionCompletions(parseResults, curNode,
+                    priorWord, moduleSymbolsCallback);
             }
 
             if (curNode instanceof SuiteNode || curNode instanceof ModuleNode) {
-                return this._getStatementCompletions(curNode, priorWord,
-                    moduleSymbolsCallback);
+                return this._getStatementCompletions(parseResults, curNode,
+                    priorWord, moduleSymbolsCallback);
             }
 
             if (!curNode.parent) {
@@ -229,8 +230,9 @@ export class CompletionProvider {
         return !!priorText.match(/#/);
     }
 
-    private static _getExpressionErrorCompletions(node: ErrorExpressionNode,
-        priorWord: string, moduleSymbolsCallback: () => ModuleSymbolMap):
+    private static _getExpressionErrorCompletions(parseResults: ParseResults,
+        node: ErrorExpressionNode, priorWord: string,
+        moduleSymbolsCallback: () => ModuleSymbolMap):
             CompletionList | undefined {
 
         // Is the error due to a missing member access name? If so,
@@ -247,8 +249,8 @@ export class CompletionProvider {
 
             case ErrorExpressionCategory.MissingExpression:
             case ErrorExpressionCategory.MissingDecoratorCallName: {
-                return this._getExpressionCompletions(node, priorWord,
-                    moduleSymbolsCallback);
+                return this._getExpressionCompletions(parseResults, node,
+                    priorWord, moduleSymbolsCallback);
             }
 
             case ErrorExpressionCategory.MissingMemberAccessName: {
@@ -290,17 +292,18 @@ export class CompletionProvider {
         return completionList;
     }
 
-    private static _getStatementCompletions(parseNode: ParseNode,
-        priorWord: string, moduleSymbolsCallback: () => ModuleSymbolMap):
+    private static _getStatementCompletions(parseResults: ParseResults,
+        parseNode: ParseNode, priorWord: string, moduleSymbolsCallback: () => ModuleSymbolMap):
             CompletionList | undefined {
 
         // For now, use the same logic for expressions and statements.
-        return this._getExpressionCompletions(parseNode, priorWord,
-            moduleSymbolsCallback);
+        return this._getExpressionCompletions(parseResults, parseNode,
+            priorWord, moduleSymbolsCallback);
     }
 
-    private static _getExpressionCompletions(parseNode: ParseNode,
-        priorWord: string, moduleSymbolsCallback: () => ModuleSymbolMap):
+    private static _getExpressionCompletions(parseResults: ParseResults,
+        parseNode: ParseNode, priorWord: string,
+        moduleSymbolsCallback: () => ModuleSymbolMap):
             CompletionList | undefined {
 
         const completionList = CompletionList.create();
@@ -315,37 +318,61 @@ export class CompletionProvider {
             completionList.items.push(completionItem);
         });
 
-        // Add auto-import suggestions from other modules.
+        // Add auto-import suggestions from other modules. Don't bother doing
+        // this expensive check unless/until we get at least two characters.
+        // Also, ignore this check for privates, since they are not imported.
         if (priorWord.length > 2 && !priorWord.startsWith('_')) {
-            const moduleSymbolMap = moduleSymbolsCallback();
-            Object.keys(moduleSymbolMap).forEach(filePath => {
-                const moduleScope = moduleSymbolMap[filePath];
-                const symbolTable = moduleScope.getSymbolTable();
-
-                symbolTable.forEach((item, name) => {
-                    if (name.startsWith(priorWord)) {
-                        // If there's already a local completion suggestion with
-                        // this name, don't add an auto-import suggestion with
-                        // the same name.
-                        const duplicate = completionList.items.find(
-                            item => item.label === name && !item.data.autoImport);
-                        const declarations = item.getDeclarations();
-                        if (declarations && declarations.length > 0 && duplicate === undefined) {
-                            // Don't include imported symbols, only those that
-                            // are declared within this file.
-                            if (declarations[0].path === filePath) {
-                                if (moduleScope.isSymbolExported(name)) {
-                                    this._addSymbol(name, item, priorWord,
-                                        completionList, filePath);
-                                }
-                            }
-                        }
-                    }
-                });
-            });
+            this._getAutoImportCompletions(parseResults, priorWord,
+                moduleSymbolsCallback, completionList);
         }
 
         return completionList;
+    }
+
+    private static _getAutoImportCompletions(parseResults: ParseResults,
+        priorWord: string, moduleSymbolsCallback: () => ModuleSymbolMap,
+            completionList: CompletionList) {
+
+        const moduleSymbolMap = moduleSymbolsCallback();
+        const localImports = ImportStatementUtils.getTopLevelImports(
+            parseResults.parseTree);
+
+        Object.keys(moduleSymbolMap).forEach(filePath => {
+            const moduleScope = moduleSymbolMap[filePath];
+            const symbolTable = moduleScope.getSymbolTable();
+
+            symbolTable.forEach((item, name) => {
+                if (name.startsWith(priorWord) && moduleScope.isSymbolExported(name)) {
+                    // If there's already a local completion suggestion with
+                    // this name, don't add an auto-import suggestion with
+                    // the same name.
+                    const duplicate = completionList.items.find(
+                        item => item.label === name && !item.data.autoImport);
+                    const declarations = item.getDeclarations();
+                    if (declarations && declarations.length > 0 && duplicate === undefined) {
+                        // Don't include imported symbols, only those that
+                        // are declared within this file.
+                        if (declarations[0].path === filePath) {
+                            const localImport = localImports.mapByFilePath[filePath];
+                            const importSource = localImport ?
+                                localImport.moduleName :
+                                this._getModuleNameFromFilePath(filePath);
+
+                            this._addSymbol(name, item, priorWord,
+                                completionList, importSource);
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    // Given the file path of a module that we want to import,
+    // convert to a module name that can be used in an
+    // 'import from' statement.
+    private static _getModuleNameFromFilePath(filePath: string): string {
+        // TODO - need to implement
+        return filePath;
     }
 
     private static _getImportFromCompletions(importFromNode: ImportFromNode,
