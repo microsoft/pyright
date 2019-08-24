@@ -979,6 +979,8 @@ export class Parser {
                 }
 
                 if (inParen) {
+                    importFromNode.usesParens = true;
+
                     let nextToken = this._peekToken();
                     if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
                         this._addError('Expected ")"', this._peekToken());

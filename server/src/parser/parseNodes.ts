@@ -987,17 +987,17 @@ export class ImportAsNode extends ParseNode {
 export class ImportFromNode extends ParseNode {
     readonly nodeType = ParseNodeType.ImportFrom;
     module: ModuleNameNode;
+    imports: ImportFromAsNode[] = [];
+    isWildcardImport: boolean;
+    usesParens: boolean;
 
     constructor(fromToken: Token, module: ModuleNameNode) {
         super(fromToken);
         this.module = module;
         this.extend(module);
         this.isWildcardImport = false;
+        this.usesParens = false;
     }
-
-    imports: ImportFromAsNode[] = [];
-
-    isWildcardImport: boolean;
 
     getChildren(): RecursiveParseNodeArray {
         return [this.module, this.imports];
