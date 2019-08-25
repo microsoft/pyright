@@ -5,12 +5,10 @@
 */
 
 import {
-    createConnection, Diagnostic, DiagnosticSeverity, DiagnosticTag,
+    createConnection, Diagnostic, DiagnosticSeverity, DiagnosticTag, ExecuteCommandParams,
     IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter,
-    Location, ParameterInformation, Position, Range, SignatureInformation,
-    TextDocuments,
-    TextEdit,
-    WorkspaceEdit
+    Location, ParameterInformation, Position, Range, ResponseError, SignatureInformation,
+    TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
 
@@ -499,6 +497,32 @@ _connection.onInitialized(() => {
             });
         });
     });
+});
+
+_connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
+    if (cmdParams.command === 'pyright.sortimports') {
+        if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
+            const docUri = cmdParams.arguments[0];
+            const filePath = _convertUriToPath(docUri);
+            const workspace = _getWorkspaceForFile(filePath);
+            const editActions = workspace.serviceInstance.sortImports(filePath);
+            if (!editActions) {
+                return [];
+            }
+
+            const edits: TextEdit[] = [];
+            editActions.forEach(editAction => {
+                edits.push({
+                    range: _convertRange(editAction.range),
+                    newText: editAction.replacementText
+                });
+            });
+
+            return edits;
+        }
+    }
+
+    return new ResponseError<string>(1, 'Unsupported command');
 });
 
 // Expands certain predefined variables supported within VS Code settings.

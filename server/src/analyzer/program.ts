@@ -13,8 +13,9 @@ import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { DiagnosticTextPosition, DiagnosticTextRange, DocumentTextRange } from '../common/diagnostic';
+import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
+import { FileEditAction, TextEditAction } from '../common/editAction';
 import { Duration } from '../common/timing';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -38,12 +39,6 @@ export interface SourceFileInfo {
     imports: SourceFileInfo[];
     builtinsImport?: SourceFileInfo;
     importedBy: SourceFileInfo[];
-}
-
-export interface FileEditAction {
-    filePath: string;
-    range: DiagnosticTextRange;
-    replacementText: string;
 }
 
 export interface MaxAnalysisTime {
@@ -780,16 +775,30 @@ export class Program {
                 noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
             });
 
-            if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-                // If we ran out of time before completing the type
-                // analysis, do our best.
-            }
+            // If we ran out of time before completing the type
+            // analysis, do our best.
         }
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
             position, options,
             () => this._buildImportMap(sourceFileInfo),
             () => this._buildModuleSymbolsMap(sourceFileInfo));
+    }
+
+    sortImports(filePath: string, options: ConfigOptions): TextEditAction[] | undefined {
+        const sourceFileInfo = this._sourceFileMap[filePath];
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+
+        if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+            this._analyzeFile(sourceFileInfo, options, {
+                openFilesTimeInMs: MaxAnalysisTimeForCompletions,
+                noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+            });
+        }
+
+        return sourceFileInfo.sourceFile.sortImports(options);
     }
 
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,

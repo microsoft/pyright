@@ -9,18 +9,20 @@
 */
 
 import * as fs from 'fs';
-import { CompletionList, SymbolInformation, WorkspaceEdit } from 'vscode-languageserver';
+import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
+import { FileEditAction, TextEditAction } from '../common/editAction';
 import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
-    getFileSpec, getFileSystemEntries, isDirectory, isFile, normalizePath } from '../common/pathUtils';
+    getFileSpec, getFileSystemEntries, isDirectory, isFile,
+    normalizePath } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from './hoverProvider';
-import { FileEditAction, MaxAnalysisTime, Program } from './program';
+import { MaxAnalysisTime, Program } from './program';
 import { PythonPathUtils } from './pythonPathUtils';
 import { SignatureHelpResults } from './signatureHelpProvider';
 
@@ -145,6 +147,11 @@ export class AnalyzerService {
         this._recordUserInteractionTime();
         return this._program.getCompletionsForPosition(filePath, position,
             this._configOptions);
+    }
+
+    sortImports(filePath: string): TextEditAction[] | undefined {
+        this._recordUserInteractionTime();
+        return this._program.sortImports(filePath, this._configOptions);
     }
 
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,

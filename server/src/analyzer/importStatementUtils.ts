@@ -8,13 +8,14 @@
 * import statements in a python source file.
 */
 
-import { ImportFromNode, ImportNode, ModuleNameNode, ModuleNode,
+import { ImportAsNode, ImportFromNode, ImportNode, ModuleNameNode, ModuleNode,
     StatementListNode } from '../parser/parseNodes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportResult } from './importResult';
 
 export interface ImportStatement {
     node: ImportNode | ImportFromNode;
+    subnode?: ImportAsNode;
     importResult: ImportResult | undefined;
     resolvedPath: string | undefined;
     moduleName: string;
@@ -74,6 +75,7 @@ export class ImportStatementUtils {
 
             const localImport: ImportStatement = {
                 node,
+                subnode: importAsNode,
                 importResult,
                 resolvedPath,
                 moduleName: this._formatModuleName(importAsNode.module),

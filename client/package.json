@@ -40,6 +40,12 @@
                 ]
             }
         ],
+        "commands": [
+            {
+                "command": "pyright.sortimports",
+                "title": "Pyright: Sort Imports"
+            }
+        ],
         "configuration": {
             "type": "object",
             "title": "Pyright Configuration",

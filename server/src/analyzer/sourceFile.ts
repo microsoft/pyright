@@ -17,6 +17,7 @@ import { ConsoleInterface, StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
     DocumentTextRange } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
+import { TextEditAction } from '../common/editAction';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
@@ -36,6 +37,7 @@ import { DocumentSymbolProvider } from './documentSymbolProvider';
 import { HoverProvider, HoverResults } from './hoverProvider';
 import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
+import { ImportSorter } from './importSorter';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { ModuleImport, PostParseWalker } from './postParseWalker';
 import { ReferencesProvider, ReferencesResult } from './referencesProvider';
@@ -571,6 +573,22 @@ export class SourceFile {
             moduleSymbolsCallback);
 
         return completionProvider.getCompletionsForPosition();
+    }
+
+    sortImports(configOptions: ConfigOptions): TextEditAction[] | undefined {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._analysisJob.parseResults) {
+            return undefined;
+        }
+
+        // This command should be called only for open files, in which
+        // case we should have the file contents already loaded.
+        if (this._fileContents === undefined) {
+            return undefined;
+        }
+
+        const importSorter = new ImportSorter(this._analysisJob.parseResults);
+        return importSorter.sort();
     }
 
     getAnalysisPassCount() {
