@@ -68,6 +68,8 @@ export interface ParseResults {
     futureImports: StringMap<boolean>;
     tokens: TextRangeCollection<Token>;
     lines: TextRangeCollection<TextRange>;
+    predominantLineEndSequence: string;
+    predominantTabSequence: string;
 }
 
 export interface ParseExpressionTextResults {
@@ -124,7 +126,9 @@ export class Parser {
             parseTree: moduleNode,
             futureImports: this._futureImportMap,
             tokens: this._tokenizerOutput!.tokens,
-            lines: this._tokenizerOutput!.lines
+            lines: this._tokenizerOutput!.lines,
+            predominantLineEndSequence: this._tokenizerOutput!.predominantEndOfLineSequence,
+            predominantTabSequence: this._tokenizerOutput!.predominantTabSequance
         };
     }
 

@@ -427,7 +427,7 @@ export class CompletionProvider {
                     if (importType < curImportType) {
                         if (!insertBefore && prevImportType < importType) {
                             // Add an extra line to create a new group.
-                            newImportStatement = '\n' + newImportStatement;
+                            newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
                         }
                         break;
                     }
@@ -441,7 +441,7 @@ export class CompletionProvider {
                     if (curImport.followsNonImportStatement) {
                         if (importType > prevImportType) {
                             // Add an extra line to create a new group.
-                            newImportStatement = '\n' + newImportStatement;
+                            newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
                         }
                         break;
                     }
@@ -451,7 +451,7 @@ export class CompletionProvider {
 
                         if (importType > curImportType) {
                             // Add an extra line to create a new group.
-                            newImportStatement = '\n' + newImportStatement;
+                            newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
                         }
                     }
 
@@ -468,9 +468,9 @@ export class CompletionProvider {
 
                 if (insertionImport) {
                     if (insertBefore) {
-                        newImportStatement = newImportStatement + '\n';
+                        newImportStatement = newImportStatement + this._parseResults.predominantLineEndSequence;
                     } else {
-                        newImportStatement = '\n' + newImportStatement;
+                        newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
                     }
 
                     const position = convertOffsetToPosition(

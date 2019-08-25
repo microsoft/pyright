@@ -465,7 +465,9 @@ export class SourceFile {
                 parseTree: new ModuleNode(new TextRange(0, 0)),
                 futureImports: new StringMap<boolean>(),
                 tokens: new TextRangeCollection<Token>([]),
-                lines: new TextRangeCollection<TextRange>([])
+                lines: new TextRangeCollection<TextRange>([]),
+                predominantLineEndSequence: '\n',
+                predominantTabSequence: '    '
             };
             this._analysisJob.imports = undefined;
             this._analysisJob.builtinsImport = undefined;

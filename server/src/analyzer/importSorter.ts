@@ -17,7 +17,6 @@ import { ImportType } from './importResult';
 import { ImportStatement, ImportStatementUtils } from './importStatementUtils';
 
 const MaxLineLength = 80;
-const TabText = '    ';
 
 export class ImportSorter {
     constructor(private _parseResults: ParseResults) {}
@@ -128,7 +127,7 @@ export class ImportSorter {
             // Insert a blank space between import type groups.
             const curImportType = this._getImportType(statement);
             if (prevImportType !== curImportType) {
-                importText += '\n';
+                importText += this._parseResults.predominantLineEndSequence;
                 prevImportType = curImportType;
             }
 
@@ -143,7 +142,7 @@ export class ImportSorter {
 
             // If this isn't the last statement, add a newline.
             if (statement !== sortedStatements[sortedStatements.length - 1]) {
-                importLine += '\n';
+                importLine += this._parseResults.predominantLineEndSequence;
             }
 
             importText += importLine;
@@ -184,7 +183,7 @@ export class ImportSorter {
 
         let nextSymbolIndex = 0;
         while (nextSymbolIndex < symbols.length) {
-            let curTextLine = TabText + symbols[nextSymbolIndex];
+            let curTextLine = this._parseResults.predominantTabSequence + symbols[nextSymbolIndex];
             if (nextSymbolIndex < symbols.length - 1) {
                 curTextLine += ',';
             } else {
@@ -216,7 +215,7 @@ export class ImportSorter {
 
             cumulativeText += curTextLine;
             if (nextSymbolIndex < symbols.length) {
-                cumulativeText += '\n';
+                cumulativeText += this._parseResults.predominantLineEndSequence;
             }
         }
 

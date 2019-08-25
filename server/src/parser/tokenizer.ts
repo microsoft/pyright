@@ -107,6 +107,8 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
 export interface TokenizerOutput {
     tokens: TextRangeCollection<Token>;
     lines: TextRangeCollection<TextRange>;
+    predominantEndOfLineSequence: string;
+    predominantTabSequance: string;
 }
 
 interface StringScannerOutput {
@@ -122,6 +124,23 @@ export class Tokenizer {
     private _lineRanges: TextRange[] = [];
     private _indentAmounts: number[] = [];
     private _comments: Comment[] | undefined;
+
+    // Total times CR, CR/LF, and LF are used to terminate
+    // lines. Used to determine the predominant line ending.
+    private _crCount = 0;
+    private _crLfCount = 0;
+    private _lfCount = 0;
+
+    // Number of times an indent token is emitted.
+    private _indentCount = 0;
+
+    // Number of times an indent token is emitted and a tab character
+    // is present (used to determine predomininant tab sequence).
+    private _indentTabCount = 0;
+
+    // Number of spaces that are added for an indent token
+    // (used to determine predominnant tab sequence).
+    private _indentSpacesTotal = 0;
 
     tokenize(text: string, start?: number, length?: number): TokenizerOutput {
         if (start === undefined) {
@@ -161,7 +180,7 @@ export class Tokenizer {
         }
 
         // Insert any implied dedent tokens.
-        this._setIndent(0);
+        this._setIndent(0, false);
 
         // Add a final end-of-stream token to make parsing easier.
         this._tokens.push(new Token(TokenType.EndOfStream, this._cs.position, 0, this._getComments()));
@@ -169,9 +188,39 @@ export class Tokenizer {
         // Add the final line range.
         this._addLineRange();
 
+        let predominantEndOfLineSequence = '\n';
+        if (this._crCount > this._crLfCount && this._crCount > this._lfCount) {
+            predominantEndOfLineSequence = '\r';
+        } else if (this._crLfCount > this._crCount && this._crLfCount > this._lfCount) {
+            predominantEndOfLineSequence = '\r\n';
+        }
+
+        let predominantTabSequance = '    ';
+        // If more than half of the indents use tab sequences,
+        // assume we're using tabs rather than spaces.
+        if (this._indentTabCount > this._indentCount / 2) {
+            predominantTabSequance = '\t';
+        } else if (this._indentCount > 0) {
+            // Compute the average number of spaces per indent
+            // to estimate the predominant tab value.
+            let averageSpacePerIndent = Math.round(
+                this._indentSpacesTotal / this._indentCount);
+            if (averageSpacePerIndent < 1) {
+                averageSpacePerIndent = 1;
+            } else if (averageSpacePerIndent > 8) {
+                averageSpacePerIndent = 8;
+            }
+            predominantTabSequance = '';
+            for (let i = 0; i < averageSpacePerIndent; i++) {
+                predominantTabSequance += ' ';
+            }
+        }
+
         return {
             tokens: new TextRangeCollection(this._tokens),
-            lines: new TextRangeCollection(this._lineRanges)
+            lines: new TextRangeCollection(this._lineRanges),
+            predominantEndOfLineSequence,
+            predominantTabSequance
         };
     }
 
@@ -362,6 +411,13 @@ export class Tokenizer {
                     length, newLineType, this._getComments()));
             }
         }
+        if (newLineType === NewLineType.CarriageReturn) {
+            this._crCount++;
+        } else if (newLineType === NewLineType.CarriageReturnLineFeed) {
+            this._crLfCount++;
+        } else {
+            this._lfCount++;
+        }
         this._cs.advance(length);
         this._addLineRange();
         this._readIndentationAfterNewLine();
@@ -369,6 +425,7 @@ export class Tokenizer {
 
     private _readIndentationAfterNewLine() {
         let spaceCount = 0;
+        let isTabPresent = false;
 
         while (!this._cs.isEndOfStream()) {
             switch (this._cs.currentChar) {
@@ -379,6 +436,7 @@ export class Tokenizer {
 
                 case Char.Tab:
                     spaceCount += 8 - (spaceCount % 8);
+                    isTabPresent = true;
                     this._cs.moveNext();
                     break;
 
@@ -389,7 +447,7 @@ export class Tokenizer {
 
                 default:
                     // Non-blank line. Set the current indent level.
-                    this._setIndent(spaceCount);
+                    this._setIndent(spaceCount, isTabPresent);
                     return;
 
                 case Char.Hash:
@@ -401,7 +459,7 @@ export class Tokenizer {
         }
     }
 
-    private _setIndent(spaceCount: number) {
+    private _setIndent(spaceCount: number, isTabPresent: boolean) {
         // Indentations are ignored within a parenthesized clause.
         if (this._parenDepth > 0) {
             return;
@@ -410,12 +468,24 @@ export class Tokenizer {
         // Insert indent or dedent tokens as necessary.
         if (this._indentAmounts.length === 0) {
             if (spaceCount > 0) {
+                this._indentCount++;
+                if (isTabPresent) {
+                    this._indentTabCount++;
+                }
+                this._indentSpacesTotal += spaceCount;
+
                 this._indentAmounts.push(spaceCount);
                 this._tokens.push(new IndentToken(this._cs.position, 0,
                     spaceCount, this._getComments()));
             }
         } else {
             if (this._indentAmounts[this._indentAmounts.length - 1] < spaceCount) {
+                this._indentCount++;
+                if (isTabPresent) {
+                    this._indentTabCount++;
+                }
+                this._indentSpacesTotal += spaceCount - this._indentAmounts[this._indentAmounts.length - 1];
+
                 this._indentAmounts.push(spaceCount);
                 this._tokens.push(new IndentToken(this._cs.position, 0,
                     spaceCount, this._getComments()));
