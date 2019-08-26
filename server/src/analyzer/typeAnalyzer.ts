@@ -3233,7 +3233,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         } else {
             // We should never get here.
-            assert.fail('Missing symbol');
+            assert.fail(`Missing symbol '${ nameValue }'`);
         }
 
         // We found an existing declared type. Make sure the newly-bound type is assignable.
@@ -3312,7 +3312,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         } else {
             // We should never get here!
-            assert.fail('Missing symbol');
+            assert.fail(`Missing symbol '${ name }'`);
         }
     }
 
