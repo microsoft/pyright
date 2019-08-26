@@ -1231,8 +1231,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             this._addError('Del should not be applied to function', expr);
                         } else if (category === DeclarationCategory.Class) {
                             this._addError('Del should not be applied to class', expr);
-                        } else if (category === DeclarationCategory.Parameter) {
-                            this._addError('Del should not be applied to parameter', expr);
                         }
                     }
                 }
