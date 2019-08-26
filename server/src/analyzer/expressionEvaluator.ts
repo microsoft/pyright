@@ -3377,7 +3377,8 @@ export class ExpressionEvaluator {
         const type = typeArgs[0].type;
 
         if (type.requiresSpecialization()) {
-            this._addError(`ClassVar cannot contain generic type variables`, typeArgs[1].node);
+            this._addError(`ClassVar cannot contain generic type variables`,
+                typeArgs.length > 0 ? typeArgs[0].node : errorNode);
             return UnknownType.create();
         }
 

@@ -32,14 +32,20 @@ export enum NameBindingType {
 
 export class NameBindings {
     private _bindingType: NameBindingType;
+    private _parentScope: NameBindings | undefined;
     private _names = new StringMap<NameBindingType>();
 
-    constructor(bindingType: NameBindingType) {
+    constructor(bindingType: NameBindingType, parentScope: NameBindings | undefined) {
         this._bindingType = bindingType;
+        this._parentScope = parentScope;
     }
 
     getBindingType() {
         return this._bindingType;
+    }
+
+    getParentScope() {
+        return this._parentScope;
     }
 
     lookUpName(name: string): NameBindingType | undefined {

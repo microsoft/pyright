@@ -878,7 +878,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const exceptionType = this._getTypeOfExpression(node.typeExpression);
 
             // Validate that the argument of "raise" is an exception object or class.
-            if (baseExceptionType) {
+            if (baseExceptionType && baseExceptionType instanceof ClassType) {
                 const diagAddendum = new DiagnosticAddendum();
 
                 TypeUtils.doForSubtypes(exceptionType, subtype => {
@@ -909,7 +909,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const exceptionType = this._getTypeOfExpression(node.valueExpression);
 
             // Validate that the argument of "raise" is an exception object or None.
-            if (baseExceptionType) {
+            if (baseExceptionType && baseExceptionType instanceof ClassType) {
                 const diagAddendum = new DiagnosticAddendum();
 
                 TypeUtils.doForSubtypes(exceptionType, subtype => {

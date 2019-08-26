@@ -47,7 +47,8 @@ export class PostParseWalker extends ParseTreeWalker {
         this._diagnosticSink = diagSink;
         this._parseTree = parseTree;
 
-        let moduleNameBindings = new NameBindings(NameBindingType.Global);
+        let moduleNameBindings = new NameBindings(
+            NameBindingType.Global, undefined);
         AnalyzerNodeInfo.setNameBindings(parseTree, moduleNameBindings);
         this._currentNameBindings = moduleNameBindings;
         this._currentBindingType = NameBindingType.Global;
@@ -126,7 +127,8 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
-        let nameBindings = new NameBindings(NameBindingType.Local);
+        let nameBindings = new NameBindings(
+            NameBindingType.Local, this._currentNameBindings);
         AnalyzerNodeInfo.setNameBindings(node, nameBindings);
 
         // Decorators are executed in the scope outside the function.
@@ -154,7 +156,8 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     visitClass(node: ClassNode) {
-        let nameBindings = new NameBindings(NameBindingType.Local);
+        let nameBindings = new NameBindings(
+            NameBindingType.Local, this._currentNameBindings);
         AnalyzerNodeInfo.setNameBindings(node, nameBindings);
 
         // Decorators are executed in the scope outside the class.
@@ -170,7 +173,8 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     visitLambda(node: LambdaNode): boolean {
-        let nameBindings = new NameBindings(NameBindingType.Local);
+        let nameBindings = new NameBindings(
+            NameBindingType.Local, this._currentNameBindings);
         AnalyzerNodeInfo.setNameBindings(node, nameBindings);
 
         this._createNewScope(nameBindings, () => {
@@ -218,6 +222,18 @@ export class PostParseWalker extends ParseTreeWalker {
                 this._diagnosticSink.addErrorWithTextRange(
                     `'${ name.nameToken.value }' is assigned before global declaration`,
                     name);
+            }
+
+            // Add it to the global scope as well, in case it's not already added there.
+            if (this._currentNameBindings.getBindingType() !== NameBindingType.Global) {
+                let globalScope: NameBindings | undefined = this._currentNameBindings;
+                while (globalScope && globalScope.getBindingType() !== NameBindingType.Global) {
+                    globalScope = globalScope.getParentScope();
+                }
+
+                if (globalScope) {
+                    globalScope.addName(name.nameToken.value, NameBindingType.Global);
+                }
             }
         });
         return true;
