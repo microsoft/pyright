@@ -453,7 +453,7 @@ export class SourceFile {
         } catch (e) {
             let message: string;
             if (e instanceof Error) {
-                message = e.message;
+                message = e.stack || e.message;
             } else {
                 message = JSON.stringify(e);
             }
@@ -624,7 +624,7 @@ export class SourceFile {
         } catch (e) {
             let message: string;
             if (e instanceof Error) {
-                message = e.message;
+                message = e.stack || e.message;
             } else {
                 message = JSON.stringify(e);
             }
@@ -670,7 +670,7 @@ export class SourceFile {
         } catch (e) {
             let message: string;
             if (e instanceof Error) {
-                message = e.message;
+                message = e.stack || e.message;
             } else {
                 message = JSON.stringify(e);
             }
