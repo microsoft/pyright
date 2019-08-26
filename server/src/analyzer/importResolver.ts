@@ -30,9 +30,12 @@ export interface ModuleNameAndType {
     importType: ImportType;
 }
 
+type CachedImportResults = { [importName: string]: ImportResult };
+
 export class ImportResolver {
     private _configOptions: ConfigOptions;
     private _cachedPythonSearchPaths: { [venv: string]: string[] } = {};
+    private _cachedImportResults: { [execEnvRoot: string]: CachedImportResults } = {};
 
     constructor(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
@@ -54,13 +57,21 @@ export class ImportResolver {
                 return relativeImport;
             }
         } else {
+            // Is it already cached?
+            const cachedResults = this._lookUpResultsInCache(execEnv, importName,
+                moduleDescriptor.importedSymbols);
+            if (cachedResults) {
+                return cachedResults;
+            }
+
             // First check for a typeshed file.
             if (moduleDescriptor.nameParts.length > 0) {
                 const builtInImport = this._findTypeshedPath(execEnv, moduleDescriptor,
                     importName, true, importFailureInfo);
                 if (builtInImport) {
                     builtInImport.isTypeshedFile = true;
-                    return builtInImport;
+                    return this._addResultsToCache(execEnv, importName, builtInImport,
+                        moduleDescriptor.importedSymbols);
                 }
             }
 
@@ -72,7 +83,8 @@ export class ImportResolver {
             let localImport = this._resolveAbsoluteImport(
                 execEnv.root, moduleDescriptor, importName, importFailureInfo);
             if (localImport && localImport.isImportFound) {
-                return localImport;
+                return this._addResultsToCache(execEnv, importName, localImport,
+                    moduleDescriptor.importedSymbols);
             }
             bestResultSoFar = localImport;
 
@@ -81,7 +93,8 @@ export class ImportResolver {
                 localImport = this._resolveAbsoluteImport(extraPath, moduleDescriptor,
                     importName, importFailureInfo);
                 if (localImport && localImport.isImportFound) {
-                    return localImport;
+                    return this._addResultsToCache(execEnv, importName, localImport,
+                        moduleDescriptor.importedSymbols);
                 }
 
                 if (localImport && (bestResultSoFar === undefined ||
@@ -97,7 +110,8 @@ export class ImportResolver {
                     this._configOptions.typingsPath, moduleDescriptor, importName, importFailureInfo);
                 if (typingsImport && typingsImport.isImportFound) {
                     typingsImport.importType = ImportType.ThirdParty;
-                    return typingsImport;
+                    return this._addResultsToCache(execEnv, importName, typingsImport,
+                        moduleDescriptor.importedSymbols);
                 }
             }
 
@@ -107,7 +121,8 @@ export class ImportResolver {
                 importName, false, importFailureInfo);
             if (typeshedImport) {
                 typeshedImport.isTypeshedFile = true;
-                return typeshedImport;
+                return this._addResultsToCache(execEnv, importName, typeshedImport,
+                    moduleDescriptor.importedSymbols);
             }
 
             // Look for the import in the list of third-party packages.
@@ -124,7 +139,8 @@ export class ImportResolver {
                         thirdPartyImport.importType = ImportType.ThirdParty;
 
                         if (thirdPartyImport.isImportFound) {
-                            return thirdPartyImport;
+                            return this._addResultsToCache(execEnv, importName,
+                                thirdPartyImport, moduleDescriptor.importedSymbols);
                         }
 
                         if (bestResultSoFar === undefined ||
@@ -140,11 +156,12 @@ export class ImportResolver {
             // We weren't able to find an exact match, so return the best
             // partial match.
             if (bestResultSoFar) {
-                return bestResultSoFar;
+                return this._addResultsToCache(execEnv, importName, bestResultSoFar,
+                    moduleDescriptor.importedSymbols);
             }
         }
 
-        return {
+        const notFoundResult: ImportResult = {
             importName,
             isImportFound: false,
             importFailureInfo,
@@ -155,6 +172,8 @@ export class ImportResolver {
             isPydFile: false,
             implicitImports: []
         };
+
+        return this._addResultsToCache(execEnv, importName, notFoundResult, undefined);
     }
 
     getCompletionSuggestions(sourceFilePath: string, execEnv: ExecutionEnvironment,
@@ -281,6 +300,36 @@ export class ImportResolver {
 
         // We didn't find any module name.
         return { moduleName: '', importType: ImportType.Local };
+    }
+
+    private _lookUpResultsInCache(execEnv: ExecutionEnvironment, importName: string,
+            importedSymbols: string[] | undefined) {
+
+        const cacheForExecEnv = this._cachedImportResults[execEnv.root];
+        if (!cacheForExecEnv) {
+            return undefined;
+        }
+
+        const cachedEntry = cacheForExecEnv[importName];
+        if (!cachedEntry) {
+            return undefined;
+        }
+
+        return this._filterImplicitImports(cachedEntry, importedSymbols);
+    }
+
+    private _addResultsToCache(execEnv: ExecutionEnvironment, importName: string,
+            importResult: ImportResult, importedSymbols: string[] | undefined) {
+
+        let cacheForExecEnv = this._cachedImportResults[execEnv.root];
+        if (!cacheForExecEnv) {
+            cacheForExecEnv = {};
+            this._cachedImportResults[execEnv.root] = cacheForExecEnv;
+        }
+
+        cacheForExecEnv[importName] = importResult;
+
+        return this._filterImplicitImports(importResult, importedSymbols);
     }
 
     private _getModuleNameFromPath(containerPath: string, filePath: string,
@@ -452,8 +501,13 @@ export class ImportResolver {
         }
 
         // Now try to match the module parts from the current directory location.
-        return this._resolveAbsoluteImport(curDir, moduleDescriptor,
+        const absImport = this._resolveAbsoluteImport(curDir, moduleDescriptor,
             importName, importFailureInfo);
+        if (!absImport) {
+            return undefined;
+        }
+
+        return this._filterImplicitImports(absImport, moduleDescriptor.importedSymbols);
     }
 
     private _getCompletionSuggestsionsRelative(sourceFilePath: string,
@@ -514,8 +568,7 @@ export class ImportResolver {
                 isNamespacePackage = true;
             }
 
-            implicitImports = this._findImplicitImports(
-                dirPath, [pyFilePath, pyiFilePath], moduleDescriptor.importedSymbols);
+            implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
         } else {
             for (let i = 0; i < moduleDescriptor.nameParts.length; i++) {
                 dirPath = combinePaths(dirPath, moduleDescriptor.nameParts[i]);
@@ -564,8 +617,7 @@ export class ImportResolver {
                 }
 
                 if (i === moduleDescriptor.nameParts.length - 1) {
-                    implicitImports = this._findImplicitImports(
-                        dirPath, [pyFilePath, pyiFilePath], moduleDescriptor.importedSymbols);
+                    implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
                 }
             }
         }
@@ -667,18 +719,32 @@ export class ImportResolver {
         suggestions.push(suggestionToAdd);
     }
 
-    private _findImplicitImports(dirPath: string, exclusions: string[],
-            importedSymbols: string[] | undefined): ImplicitImport[] {
+    // Potentially modifies the ImportResult by removing some or all of the
+    // implicit import entries. Only the imported symbols should be included.
+    private _filterImplicitImports(importResult: ImportResult, importedSymbols: string[] | undefined): ImportResult {
+        if (importedSymbols === undefined || importedSymbols.length === 0) {
+            return importResult;
+        }
 
+        if (importResult.implicitImports.length === 0) {
+            return importResult;
+        }
+
+        const filteredImplicitImports = importResult.implicitImports.filter(implicitImport => {
+            return importedSymbols.some(sym => sym === implicitImport.name);
+        });
+
+        if (filteredImplicitImports.length === importResult.implicitImports.length) {
+            return importResult;
+        }
+
+        const newImportResult = Object.assign({}, importResult);
+        newImportResult.implicitImports = filteredImplicitImports;
+        return newImportResult;
+    }
+
+    private _findImplicitImports(dirPath: string, exclusions: string[]): ImplicitImport[] {
         const implicitImportMap: { [name: string]: ImplicitImport } = {};
-        const importAll = importedSymbols === undefined || importedSymbols.length === 0;
-        const shouldImportFile = (strippedFileName: string) => {
-            if (importAll) {
-                return true;
-            }
-
-            return importedSymbols!.some(sym => sym === strippedFileName);
-        };
 
         // Enumerate all of the files and directories in the path.
         let entries = getFileSystemEntries(dirPath);
@@ -690,18 +756,16 @@ export class ImportResolver {
 
                 if (!exclusions.find(exclusion => exclusion === filePath)) {
                     const strippedFileName = stripFileExtension(fileName);
-                    if (shouldImportFile(strippedFileName)) {
-                        const implicitImport: ImplicitImport = {
-                            isStubFile: fileName.endsWith('.pyi'),
-                            name: strippedFileName,
-                            path: filePath
-                        };
+                    const implicitImport: ImplicitImport = {
+                        isStubFile: fileName.endsWith('.pyi'),
+                        name: strippedFileName,
+                        path: filePath
+                    };
 
-                        // Always prefer stub files over non-stub files.
-                        if (!implicitImportMap[implicitImport.name] ||
-                                !implicitImportMap[implicitImport.name].isStubFile) {
-                            implicitImportMap[implicitImport.name] = implicitImport;
-                        }
+                    // Always prefer stub files over non-stub files.
+                    if (!implicitImportMap[implicitImport.name] ||
+                            !implicitImportMap[implicitImport.name].isStubFile) {
+                        implicitImportMap[implicitImport.name] = implicitImport;
                     }
                 }
             }
@@ -723,15 +787,13 @@ export class ImportResolver {
 
             if (path) {
                 if (!exclusions.find(exclusion => exclusion === path)) {
-                    if (shouldImportFile(dirName)) {
-                        let implicitImport: ImplicitImport = {
-                            isStubFile,
-                            name: dirName,
-                            path
-                        };
+                    let implicitImport: ImplicitImport = {
+                        isStubFile,
+                        name: dirName,
+                        path
+                    };
 
-                        implicitImportMap[implicitImport.name] = implicitImport;
-                    }
+                    implicitImportMap[implicitImport.name] = implicitImport;
                 }
             }
         }
