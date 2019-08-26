@@ -84,6 +84,7 @@ export type ModuleSymbolMap = { [file: string]: Scope };
 export class CompletionProvider {
     constructor(private _parseResults: ParseResults,
         private _fileContents: string,
+        private _importResolver: ImportResolver,
         private _position: DiagnosticTextPosition,
         private _filePath: string,
         private _configOptions: ConfigOptions,
@@ -372,9 +373,8 @@ export class CompletionProvider {
     // 'import from' statement.
     private _getModuleNameAndTypeFromFilePath(filePath: string): ModuleNameAndType {
         const execEnvironment = this._configOptions.findExecEnvironment(this._filePath);
-        const resolver = new ImportResolver(this._filePath, this._configOptions, execEnvironment);
-
-        return resolver.getModuleNameForImport(filePath);
+        return this._importResolver.getModuleNameForImport(
+            filePath, execEnvironment);
     }
 
     private _getTextEditsForAutoImport(symbolName: string, importStatements: ImportStatements,
@@ -730,7 +730,6 @@ export class CompletionProvider {
 
     private _getImportModuleCompletions(node: ModuleNameNode): CompletionList {
         const execEnvironment = this._configOptions.findExecEnvironment(this._filePath);
-        const resolver = new ImportResolver(this._filePath, this._configOptions, execEnvironment);
         const moduleDescriptor: ImportedModuleDescriptor = {
             leadingDots: node.leadingDots,
             hasTrailingDot: node.hasTrailingDot,
@@ -738,8 +737,8 @@ export class CompletionProvider {
             importedSymbols: []
         };
 
-        const completions = resolver.getCompletionSuggestions(moduleDescriptor,
-            SimilarityLimit);
+        const completions = this._importResolver.getCompletionSuggestions(this._filePath,
+            execEnvironment, moduleDescriptor, SimilarityLimit);
 
         const completionList = CompletionList.create();
         completions.forEach(completionName => {

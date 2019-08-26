@@ -381,7 +381,7 @@ export class SourceFile {
     // Parse the file and update the state. Callers should wait for completion
     // (or at least cancel) prior to calling again. It returns true if a parse
     // was required and false if the parse information was up to date already.
-    parse(configOptions: ConfigOptions): boolean {
+    parse(configOptions: ConfigOptions, importResolver: ImportResolver): boolean {
         // If the file is already parsed, we can skip.
         if (!this.isParseRequired()) {
             return false;
@@ -442,7 +442,7 @@ export class SourceFile {
 
             timingStats.resolveImportsTime.timeOperation(() => {
                 [this._analysisJob.imports, this._analysisJob.builtinsImport, this._analysisJob.typingModulePath] =
-                    this._resolveImports(walker.getImportedModules(), configOptions, execEnvironment);
+                    this._resolveImports(importResolver, walker.getImportedModules(), execEnvironment);
             });
             this._analysisJob.parseDiagnostics = diagSink.diagnostics;
 
@@ -558,7 +558,8 @@ export class SourceFile {
     }
 
     getCompletionsForPosition(position: DiagnosticTextPosition,
-            configOptions: ConfigOptions, importMapCallback: () => ImportMap,
+            configOptions: ConfigOptions, importResolver: ImportResolver,
+            importMapCallback: () => ImportMap,
             moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
@@ -573,14 +574,15 @@ export class SourceFile {
         }
 
         const completionProvider = new CompletionProvider(
-            this._analysisJob.parseResults, this._fileContents, position,
+            this._analysisJob.parseResults, this._fileContents,
+            importResolver, position,
             this._filePath, configOptions, importMapCallback,
             moduleSymbolsCallback);
 
         return completionProvider.getCompletionsForPosition();
     }
 
-    sortImports(configOptions: ConfigOptions): TextEditAction[] | undefined {
+    sortImports(): TextEditAction[] | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
             return undefined;
@@ -748,19 +750,23 @@ export class SourceFile {
         }
     }
 
-    private _resolveImports(moduleImports: ModuleImport[],
-            configOptions: ConfigOptions, execEnv: ExecutionEnvironment):
+    private _resolveImports(importResolver: ImportResolver,
+            moduleImports: ModuleImport[],
+            execEnv: ExecutionEnvironment):
             [ImportResult[], ImportResult?, string?] {
 
         const imports: ImportResult[] = [];
-        const resolver = new ImportResolver(this._filePath, configOptions, execEnv);
 
         // Always include an implicit import of the builtins module.
-        let builtinsImportResult: ImportResult | undefined = resolver.resolveImport({
-            leadingDots: 0,
-            nameParts: ['builtins'],
-            importedSymbols: undefined
-        });
+        let builtinsImportResult: ImportResult | undefined = importResolver.resolveImport(
+            this._filePath,
+            execEnv,
+            {
+                leadingDots: 0,
+                nameParts: ['builtins'],
+                importedSymbols: undefined
+            }
+        );
 
         // Avoid importing builtins from the builtins.pyi file itself.
         if (builtinsImportResult.resolvedPaths.length === 0 ||
@@ -771,11 +777,15 @@ export class SourceFile {
         }
 
         // Always include an implicit import of the typing module.
-        const typingImportResult: ImportResult | undefined = resolver.resolveImport({
-            leadingDots: 0,
-            nameParts: ['typing'],
-            importedSymbols: undefined
-        });
+        const typingImportResult: ImportResult | undefined = importResolver.resolveImport(
+            this._filePath,
+            execEnv,
+            {
+                leadingDots: 0,
+                nameParts: ['typing'],
+                importedSymbols: undefined
+            }
+        );
 
         // Avoid importing typing from the typing.pyi file itself.
         let typingModulePath: string | undefined;
@@ -786,11 +796,15 @@ export class SourceFile {
         }
 
         for (const moduleImport of moduleImports) {
-            const importResult = resolver.resolveImport({
-                leadingDots: moduleImport.leadingDots,
-                nameParts: moduleImport.nameParts,
-                importedSymbols: moduleImport.importedSymbols
-            });
+            const importResult = importResolver.resolveImport(
+                this._filePath,
+                execEnv,
+                {
+                    leadingDots: moduleImport.leadingDots,
+                    nameParts: moduleImport.nameParts,
+                    importedSymbols: moduleImport.importedSymbols
+                }
+            );
             imports.push(importResult);
 
             // Associate the import results with the module import

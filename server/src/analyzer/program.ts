@@ -22,6 +22,7 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { ModuleSymbolMap } from './completionProvider';
 import { HoverResults } from './hoverProvider';
+import { ImportResolver } from './importResolver';
 import { ImportType } from './importResult';
 import { Scope } from './scope';
 import { SignatureHelpResults } from './signatureHelpProvider';
@@ -241,8 +242,8 @@ export class Program {
     // whether the method needs to be called again to complete the
     // analysis. In interactive mode, the timeout is always limited
     // to the smaller value to maintain responsiveness.
-    analyze(options: ConfigOptions, maxTime?: MaxAnalysisTime,
-            interactiveMode?: boolean): boolean {
+    analyze(options: ConfigOptions, importResolver: ImportResolver,
+            maxTime?: MaxAnalysisTime, interactiveMode?: boolean): boolean {
 
         let elapsedTime = new Duration();
 
@@ -258,7 +259,7 @@ export class Program {
 
             // Start by parsing the open files.
             for (let sourceFileInfo of openFiles) {
-                this._parseFile(sourceFileInfo, options);
+                this._parseFile(sourceFileInfo, options, importResolver);
 
                 if (isTimeElapsedOpenFiles()) {
                     return true;
@@ -267,7 +268,7 @@ export class Program {
 
             // Now do semantic analysis of the open files.
             for (let sourceFileInfo of openFiles) {
-                this._doSemanticAnalysis(sourceFileInfo, options);
+                this._doSemanticAnalysis(sourceFileInfo, options, importResolver);
 
                 if (isTimeElapsedOpenFiles()) {
                     return true;
@@ -276,7 +277,7 @@ export class Program {
 
             // Now do type analysis of the open files.
             for (let sourceFileInfo of openFiles) {
-                if (this._doFullAnalysis(sourceFileInfo, options, isTimeElapsedOpenFiles)) {
+                if (this._doFullAnalysis(sourceFileInfo, options, importResolver, isTimeElapsedOpenFiles)) {
                     return true;
                 }
             }
@@ -304,7 +305,7 @@ export class Program {
 
         // Now do type parsing and analysis of the remaining.
         for (let sourceFileInfo of allFiles) {
-            if (this._doFullAnalysis(sourceFileInfo, options, isTimeElapsedNoOpenFiles)) {
+            if (this._doFullAnalysis(sourceFileInfo, options, importResolver, isTimeElapsedNoOpenFiles)) {
                 return true;
             }
         }
@@ -352,39 +353,43 @@ export class Program {
     // This method is similar to analyze() except that it analyzes
     // a single file (and its dependencies if necessary).
     private _analyzeFile(sourceFileInfo: SourceFileInfo, options: ConfigOptions,
-            maxTime?: MaxAnalysisTime) {
+            importResolver: ImportResolver, maxTime?: MaxAnalysisTime) {
 
         let elapsedTime = new Duration();
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-            this._doFullAnalysis(sourceFileInfo, options, () => {
+            this._doFullAnalysis(sourceFileInfo, options, importResolver, () => {
                 return maxTime !== undefined &&
                     elapsedTime.getDurationInMilliseconds() > maxTime.openFilesTimeInMs;
             });
         }
     }
 
-    private _parseFile(fileToParse: SourceFileInfo, options: ConfigOptions) {
+    private _parseFile(fileToParse: SourceFileInfo, options: ConfigOptions,
+            importResolver: ImportResolver) {
+
         if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) {
             return;
         }
 
-        if (fileToParse.sourceFile.parse(options)) {
+        if (fileToParse.sourceFile.parse(options, importResolver)) {
             this._updateSourceFileImports(fileToParse, options);
         }
     }
 
-    private _doSemanticAnalysis(fileToAnalyze: SourceFileInfo, options: ConfigOptions) {
+    private _doSemanticAnalysis(fileToAnalyze: SourceFileInfo,
+            options: ConfigOptions, importResolver: ImportResolver) {
+
         if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isSemanticAnalysisRequired()) {
             return;
         }
 
-        this._parseFile(fileToAnalyze, options);
+        this._parseFile(fileToAnalyze, options, importResolver);
 
         // We need to parse and semantically analyze the builtins import first.
         let builtinsScope: Scope | undefined;
         if (fileToAnalyze.builtinsImport) {
-            this._doSemanticAnalysis(fileToAnalyze.builtinsImport, options);
+            this._doSemanticAnalysis(fileToAnalyze.builtinsImport, options, importResolver);
 
             // Get the builtins scope to pass to the semantic analyzer pass.
             const parseResults = fileToAnalyze.builtinsImport.sourceFile.getParseResults();
@@ -428,7 +433,8 @@ export class Program {
     }
 
     private _doFullAnalysis(fileToAnalyze: SourceFileInfo, options: ConfigOptions,
-            timeElapsedCallback: () => boolean): boolean {
+            importResolver: ImportResolver, timeElapsedCallback: () => boolean): boolean {
+
         // If the file isn't needed because it was eliminated from the
         // transitive closure or deleted, skip the file rather than wasting
         // time on it.
@@ -440,7 +446,7 @@ export class Program {
         let closureMap: { [path: string]: boolean } = {};
         let analysisQueue: SourceFileInfo[] = [];
         if (this._getNonFinalizedImportsRecursive(fileToAnalyze, closureMap,
-                analysisQueue, options, timeElapsedCallback, 0)) {
+                analysisQueue, options, importResolver, timeElapsedCallback, 0)) {
             return true;
         }
 
@@ -524,7 +530,8 @@ export class Program {
     // completing.
     private _getNonFinalizedImportsRecursive(fileToAnalyze: SourceFileInfo,
             closureMap: { [path: string]: boolean }, analysisQueue: SourceFileInfo[],
-            options: ConfigOptions, timeElapsedCallback: () => boolean,
+            options: ConfigOptions, importResolver: ImportResolver,
+            timeElapsedCallback: () => boolean,
             recursionCount: number): boolean {
 
         // If the file is already finalized, no need to do any more work.
@@ -547,7 +554,7 @@ export class Program {
         }
 
         // Make sure the file is parsed and semantically analyzed.
-        this._doSemanticAnalysis(fileToAnalyze, options);
+        this._doSemanticAnalysis(fileToAnalyze, options, importResolver);
         if (timeElapsedCallback()) {
             return true;
         }
@@ -558,7 +565,8 @@ export class Program {
         // Recursively add the file's imports.
         for (let importedFileInfo of fileToAnalyze.imports) {
             if (this._getNonFinalizedImportsRecursive(importedFileInfo, closureMap,
-                    analysisQueue, options, timeElapsedCallback, recursionCount + 1)) {
+                    analysisQueue, options, importResolver,
+                    timeElapsedCallback, recursionCount + 1)) {
                 return true;
             }
         }
@@ -680,8 +688,8 @@ export class Program {
     }
 
     getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
-            options: ConfigOptions, includeDeclaration: boolean):
-                DocumentTextRange[] | undefined {
+            options: ConfigOptions, importResolver: ImportResolver,
+            includeDeclaration: boolean): DocumentTextRange[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
@@ -689,7 +697,7 @@ export class Program {
         }
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-            this._analyzeFile(sourceFileInfo, options, {
+            this._analyzeFile(sourceFileInfo, options, importResolver, {
                 openFilesTimeInMs: MaxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
             });
@@ -707,7 +715,7 @@ export class Program {
             for (let curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
                     if (curSourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-                        this._analyzeFile(curSourceFileInfo, options, {
+                        this._analyzeFile(curSourceFileInfo, options, importResolver, {
                             openFilesTimeInMs: MaxAnalysisTimeForCompletions,
                             noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
                         });
@@ -744,7 +752,7 @@ export class Program {
     }
 
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition,
-            options: ConfigOptions): SignatureHelpResults | undefined {
+            options: ConfigOptions, importResolver: ImportResolver): SignatureHelpResults | undefined {
 
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
@@ -752,7 +760,7 @@ export class Program {
         }
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-            this._analyzeFile(sourceFileInfo, options, {
+            this._analyzeFile(sourceFileInfo, options, importResolver, {
                 openFilesTimeInMs: MaxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
             });
@@ -762,7 +770,7 @@ export class Program {
     }
 
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
-        options: ConfigOptions): CompletionList | undefined {
+        options: ConfigOptions, importResolver: ImportResolver): CompletionList | undefined {
 
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
@@ -770,7 +778,7 @@ export class Program {
         }
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-            this._analyzeFile(sourceFileInfo, options, {
+            this._analyzeFile(sourceFileInfo, options, importResolver, {
                 openFilesTimeInMs: MaxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
             });
@@ -780,29 +788,32 @@ export class Program {
         }
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
-            position, options,
+            position, options, importResolver,
             () => this._buildImportMap(sourceFileInfo),
             () => this._buildModuleSymbolsMap(sourceFileInfo));
     }
 
-    sortImports(filePath: string, options: ConfigOptions): TextEditAction[] | undefined {
+    sortImports(filePath: string, options: ConfigOptions,
+            importResolver: ImportResolver): TextEditAction[] | undefined {
+
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
             return undefined;
         }
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-            this._analyzeFile(sourceFileInfo, options, {
+            this._analyzeFile(sourceFileInfo, options, importResolver, {
                 openFilesTimeInMs: MaxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
             });
         }
 
-        return sourceFileInfo.sourceFile.sortImports(options);
+        return sourceFileInfo.sourceFile.sortImports();
     }
 
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
-            newName: string, options: ConfigOptions): FileEditAction[] | undefined {
+            newName: string, options: ConfigOptions,
+            importResolver: ImportResolver): FileEditAction[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
@@ -821,7 +832,7 @@ export class Program {
             for (let curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
                     if (curSourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-                        this._analyzeFile(curSourceFileInfo, options, {
+                        this._analyzeFile(curSourceFileInfo, options, importResolver, {
                             openFilesTimeInMs: MaxAnalysisTimeForCompletions,
                             noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
                         });

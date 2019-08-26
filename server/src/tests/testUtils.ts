@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
+import { ImportResolver } from '../analyzer/importResolver';
 import { PostParseWalker } from '../analyzer/postParseWalker';
 import { Program } from '../analyzer/program';
 import { ModuleScopeAnalyzer } from '../analyzer/semanticAnalyzer';
@@ -137,8 +138,9 @@ export class TestUtils {
 
         // Always enable "test mode".
         configOptions.internalTestMode = true;
+        const importResolver = new ImportResolver(configOptions);
 
-        while (program.analyze(configOptions)) {
+        while (program.analyze(configOptions, importResolver)) {
             // Continue to call analyze until it completes. Since we're not
             // specifying a timeout, it should complete the first time.
         }

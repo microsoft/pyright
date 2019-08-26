@@ -10,7 +10,7 @@
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 
-import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { ConfigOptions } from '../common/configOptions';
 import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
     getFileSystemEntries, isDirectory, normalizePath } from '../common/pathUtils';
 
@@ -36,15 +36,15 @@ export class PythonPathUtils {
         return combinePaths(typeshedPath, isStdLib ? 'stdlib' : 'third_party');
     }
 
-    static findPythonSearchPaths(configOptions: ConfigOptions, execEnv: ExecutionEnvironment | undefined,
+    static findPythonSearchPaths(configOptions: ConfigOptions, venv: string | undefined,
             importFailureInfo: string[]): string[] | undefined {
 
         importFailureInfo.push('Finding python search paths');
 
         let venvPath: string | undefined;
-        if (execEnv && execEnv.venv) {
+        if (venv !== undefined) {
             if (configOptions.venvPath) {
-                venvPath = combinePaths(configOptions.venvPath, execEnv.venv);
+                venvPath = combinePaths(configOptions.venvPath, venv);
             }
         } else if (configOptions.defaultVenv) {
             if (configOptions.venvPath) {

@@ -22,6 +22,7 @@ import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
     normalizePath } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from './hoverProvider';
+import { ImportResolver } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import { PythonPathUtils } from './pythonPathUtils';
 import { SignatureHelpResults } from './signatureHelpProvider';
@@ -44,6 +45,7 @@ export class AnalyzerService {
     private _instanceName: string;
     private _program: Program;
     private _configOptions: ConfigOptions;
+    private _importResolver: ImportResolver;
     private _executionRootPath: string;
     private _console: ConsoleInterface;
     private _sourceFileWatcher: (fs.FSWatcher | undefined)[] | undefined;
@@ -62,6 +64,7 @@ export class AnalyzerService {
         this._console = console || new StandardConsole();
         this._program = new Program(this._console);
         this._configOptions = new ConfigOptions(process.cwd());
+        this._importResolver = new ImportResolver(this._configOptions);
         this._executionRootPath = '';
     }
 
@@ -118,7 +121,7 @@ export class AnalyzerService {
 
         this._recordUserInteractionTime();
         return this._program.getReferencesForPosition(filePath, position,
-            this._configOptions, includeDeclaration);
+            this._configOptions, this._importResolver, includeDeclaration);
     }
 
     getSymbolsForDocument(filePath: string): SymbolInformation[] {
@@ -138,7 +141,7 @@ export class AnalyzerService {
 
         this._recordUserInteractionTime();
         return this._program.getSignatureHelpForPosition(filePath, position,
-            this._configOptions);
+            this._configOptions, this._importResolver);
     }
 
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition):
@@ -146,12 +149,13 @@ export class AnalyzerService {
 
         this._recordUserInteractionTime();
         return this._program.getCompletionsForPosition(filePath, position,
-            this._configOptions);
+            this._configOptions, this._importResolver);
     }
 
     sortImports(filePath: string): TextEditAction[] | undefined {
         this._recordUserInteractionTime();
-        return this._program.sortImports(filePath, this._configOptions);
+        return this._program.sortImports(filePath, this._configOptions,
+            this._importResolver);
     }
 
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
@@ -159,7 +163,7 @@ export class AnalyzerService {
 
         this._recordUserInteractionTime();
         return this._program.renameSymbolAtPosition(filePath, position,
-            newName, this._configOptions);
+            newName, this._configOptions, this._importResolver);
     }
 
     printStats() {
@@ -625,6 +629,10 @@ export class AnalyzerService {
     }
 
     private _applyConfigOptions() {
+        // Allocate a new import resolver because the old one has information
+        // cached based on the previous config options.
+        this._importResolver = new ImportResolver(this._configOptions);
+
         this._updateSourceFileWatchers();
         this._updateTrackedFileList(true);
         this._scheduleReanalysis(false);
@@ -693,7 +701,7 @@ export class AnalyzerService {
         try {
             let duration = new Duration();
             moreToAnalyze = this._program.analyze(this._configOptions,
-                this._maxAnalysisTime, this._useInteractiveMode());
+                this._importResolver, this._maxAnalysisTime, this._useInteractiveMode());
 
             let results: AnalysisResults = {
                 diagnostics: this._program.getDiagnostics(this._configOptions),

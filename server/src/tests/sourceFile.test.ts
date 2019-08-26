@@ -7,14 +7,16 @@
 * Unit tests for pyright sourceFile module.
 */
 
+import { ImportResolver } from '../analyzer/importResolver';
 import { SourceFile } from '../analyzer/sourceFile';
 import { ConfigOptions } from '../common/configOptions';
 import { combinePaths } from '../common/pathUtils';
 
 test('Empty', () => {
-    let filePath = combinePaths(process.cwd(), 'tests/samples/test_file1.py');
-    let sourceFile = new SourceFile(filePath, false);
-    let configOptions = new ConfigOptions(process.cwd());
+    const filePath = combinePaths(process.cwd(), 'tests/samples/test_file1.py');
+    const sourceFile = new SourceFile(filePath, false);
+    const configOptions = new ConfigOptions(process.cwd());
+    const importResolver = new ImportResolver(configOptions);
 
-    sourceFile.parse(configOptions);
+    sourceFile.parse(configOptions, importResolver);
 });
