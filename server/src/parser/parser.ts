@@ -91,12 +91,13 @@ export class Parser {
 
     parseSourceFile(fileContents: string, parseOptions: ParseOptions,
             diagSink: DiagnosticSink, cancelToken?: CancelToken): ParseResults {
+
         timingStats.tokenizeFileTime.timeOperation(() => {
             this._startNewParse(fileContents, 0, fileContents.length,
                 parseOptions, diagSink, cancelToken);
         });
 
-        let moduleNode = new ModuleNode(new TextRange(0, fileContents.length));
+        const moduleNode = new ModuleNode(new TextRange(0, fileContents.length));
 
         timingStats.parseFileTime.timeOperation(() => {
             while (!this._atEof()) {

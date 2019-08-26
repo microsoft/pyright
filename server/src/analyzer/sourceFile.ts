@@ -417,15 +417,15 @@ export class SourceFile {
 
         try {
             // Parse the token stream, building the abstract syntax tree.
-            let parser = new Parser();
-            let parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
+            const parser = new Parser();
+            const parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
 
             // Convert the diagnostic sink into one that knows how to convert
             // to line numbers.
-            let textRangeDiagSink = new TextRangeDiagnosticSink(parseResults.lines, diagSink.diagnostics);
+            const textRangeDiagSink = new TextRangeDiagnosticSink(parseResults.lines, diagSink.diagnostics);
 
             // Fill in the parent links and get the list of imports.
-            let walker = new PostParseWalker(textRangeDiagSink, parseResults.parseTree);
+            const walker = new PostParseWalker(textRangeDiagSink, parseResults.parseTree);
             timingStats.postParseWalkerTime.timeOperation(() => {
                 walker.analyze();
             });
@@ -433,14 +433,17 @@ export class SourceFile {
             // If we're in "test mode" (used for unit testing), run an additional
             // "test walker" over the parse tree to validate its internal consistency.
             if (configOptions.internalTestMode) {
-                let testWalker = new TestWalker();
+                const testWalker = new TestWalker();
                 testWalker.walk(parseResults.parseTree);
             }
 
             // Save information in the analysis job.
             this._analysisJob.parseResults = parseResults;
-            [this._analysisJob.imports, this._analysisJob.builtinsImport, this._analysisJob.typingModulePath] =
-                this._resolveImports(walker.getImportedModules(), configOptions, execEnvironment);
+
+            timingStats.resolveImportsTime.timeOperation(() => {
+                [this._analysisJob.imports, this._analysisJob.builtinsImport, this._analysisJob.typingModulePath] =
+                    this._resolveImports(walker.getImportedModules(), configOptions, execEnvironment);
+            });
             this._analysisJob.parseDiagnostics = diagSink.diagnostics;
 
             // Is this file in a "strict" path?
