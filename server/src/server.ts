@@ -215,9 +215,11 @@ _connection.onDidChangeConfiguration(change => {
 
 _connection.onCodeAction(params => {
     const sortImportsCodeAction = CodeAction.create(
-        'Sort Imports', Command.create('Sort Imports', 'pyright.sortimports'),
+        'Organize Imports', Command.create('Organize Imports', 'pyright.organizeimports'),
         CodeActionKind.SourceOrganizeImports);
-    return [sortImportsCodeAction];
+    const codeActions: CodeAction[] = [sortImportsCodeAction];
+
+    return codeActions;
 });
 
 _connection.onDefinition(params => {
@@ -513,7 +515,7 @@ _connection.onInitialized(() => {
 });
 
 _connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
-    if (cmdParams.command === 'pyright.sortimports') {
+    if (cmdParams.command === 'pyright.organizeimports') {
         if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
             const docUri = cmdParams.arguments[0];
             const filePath = _convertUriToPath(docUri);

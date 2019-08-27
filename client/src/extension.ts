@@ -52,10 +52,10 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(progressReporting);
 
 	// Register our custom commands.
-	context.subscriptions.push(commands.registerTextEditorCommand('pyright.sortimports',
+	context.subscriptions.push(commands.registerTextEditorCommand('pyright.organizeimports',
 	(editor: TextEditor) => {
 		const cmd = {
-			command: 'pyright.sortimports',
+			command: 'pyright.organizeimports',
 			arguments: [editor.document.uri.toString()]
 		};
 	

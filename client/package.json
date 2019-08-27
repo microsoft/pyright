@@ -42,8 +42,8 @@
         ],
         "commands": [
             {
-                "command": "pyright.sortimports",
-                "title": "Pyright: Sort Imports"
+                "command": "pyright.organizeimports",
+                "title": "Pyright: Organize Imports"
             }
         ],
         "configuration": {
