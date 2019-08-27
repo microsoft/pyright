@@ -19,9 +19,45 @@ export interface DiagnosticTextPosition {
     column: number;
 }
 
+export function comparePositions(a: DiagnosticTextPosition, b: DiagnosticTextPosition) {
+    if (a.line < b.line) {
+        return -1;
+    } else if (a.line > b.line) {
+        return 1;
+    } else if (a.column < b.column) {
+        return -1;
+    } else if (a.column > b.column) {
+        return 1;
+    }
+    return 0;
+}
+
+export function getEmptyPosition(): DiagnosticTextPosition {
+    return {
+        line: 0,
+        column: 0
+    };
+}
+
 export interface DiagnosticTextRange {
     start: DiagnosticTextPosition;
     end: DiagnosticTextPosition;
+}
+
+export function doRangesOverlap(a: DiagnosticTextRange, b: DiagnosticTextRange) {
+    if (comparePositions(b.start, a.end) >= 0) {
+        return false;
+    } else if (comparePositions(a.start, b.end) >= 0) {
+        return false;
+    }
+    return true;
+}
+
+export function getEmptyRange(): DiagnosticTextRange {
+    return {
+        start: getEmptyPosition(),
+        end: getEmptyPosition()
+    };
 }
 
 // Represents a range within a particular document.
@@ -30,10 +66,33 @@ export interface DocumentTextRange {
     range: DiagnosticTextRange;
 }
 
+export interface DiagnosticAction {
+    action: string;
+}
+
+export interface CreateTypeStubFileAction extends DiagnosticAction {
+    action: 'pyright.createtypestub';
+    moduleName: string;
+}
+
 // Represents a single error or warning.
 export class Diagnostic {
+    private _actions: DiagnosticAction[] | undefined;
+
     constructor(readonly category: DiagnosticCategory, readonly message: string,
-        readonly range?: DiagnosticTextRange) {
+        readonly range: DiagnosticTextRange) {
+    }
+
+    addAction(action: DiagnosticAction) {
+        if (this._actions === undefined) {
+            this._actions = [action];
+        } else {
+            this._actions.push(action);
+        }
+    }
+
+    getActions() {
+        return this._actions;
     }
 }
 

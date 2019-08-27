@@ -14,18 +14,19 @@ import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
+import { Diagnostic, DiagnosticTextPosition, DiagnosticTextRange,
+    DocumentTextRange } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
     getFileSpec, getFileSystemEntries, isDirectory, isFile,
     normalizePath } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
-import { HoverResults } from './hoverProvider';
+import { HoverResults } from '../languageService/hoverProvider';
+import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportResolver } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import { PythonPathUtils } from './pythonPathUtils';
-import { SignatureHelpResults } from './signatureHelpProvider';
 
 const _defaultConfigFileName = 'pyrightconfig.json';
 
@@ -192,6 +193,10 @@ export class AnalyzerService {
 
     test_getFileNamesFromFileSpecs(): string[] {
         return this._getFileNamesFromFileSpecs();
+    }
+
+    getDiagnosticsForRange(filePath: string, range: DiagnosticTextRange): Diagnostic[] {
+        return this._program.getDiagnosticsForRange(filePath, this._configOptions, range);
     }
 
     // Calculates the effective options based on the command-line options,

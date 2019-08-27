@@ -8,15 +8,15 @@
 * by a location within a file.
 */
 
+import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
+import { Declaration, DeclarationCategory } from '../analyzer/declaration';
+import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
+import { Symbol } from '../analyzer/symbol';
 import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { NameNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { Declaration, DeclarationCategory } from './declaration';
-import { ParseTreeUtils } from './parseTreeUtils';
-import { ParseTreeWalker } from './parseTreeWalker';
-import { Symbol } from './symbol';
 
 export interface ReferencesResult {
     requiresGlobalSearch: boolean;

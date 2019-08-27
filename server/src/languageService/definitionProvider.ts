@@ -10,13 +10,13 @@
 * definition is the top of the resolved import file.
 */
 
+import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
+import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
 import { DiagnosticTextPosition, DiagnosticTextRange, DocumentTextRange } from '../common/diagnostic';
 import { isFile } from '../common/pathUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ModuleNameNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { ParseTreeUtils } from './parseTreeUtils';
 
 const _startOfFilePosition: DiagnosticTextPosition = { line: 0, column: 0 };
 const _startOfFileRange: DiagnosticTextRange = { start: _startOfFilePosition, end: _startOfFilePosition };

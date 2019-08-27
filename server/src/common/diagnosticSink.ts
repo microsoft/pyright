@@ -30,20 +30,21 @@ export class DiagnosticSink {
         this.diagnostics = [];
     }
 
-    addError(message: string, range?: DiagnosticTextRange) {
-        this.addDiagnostic(new Diagnostic(DiagnosticCategory.Error, message, range));
+    addError(message: string, range: DiagnosticTextRange) {
+        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Error, message, range));
     }
 
-    addWarning(message: string, range?: DiagnosticTextRange) {
-        this.addDiagnostic(new Diagnostic(DiagnosticCategory.Warning, message, range));
+    addWarning(message: string, range: DiagnosticTextRange) {
+        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Warning, message, range));
     }
 
-    addUnusedCode(message: string, range?: DiagnosticTextRange) {
-        this.addDiagnostic(new Diagnostic(DiagnosticCategory.UnusedCode, message, range));
+    addUnusedCode(message: string, range: DiagnosticTextRange) {
+        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.UnusedCode, message, range));
     }
 
     addDiagnostic(diag: Diagnostic) {
         this.diagnostics.push(diag);
+        return diag;
     }
 
     addDiagnostics(diagsToAdd: Diagnostic[]) {
@@ -70,14 +71,14 @@ export class TextRangeDiagnosticSink extends DiagnosticSink {
     }
 
     addErrorWithTextRange(message: string, range: TextRange) {
-        this.addError(message, convertOffsetsToRange(range.start, range.end, this._lines));
+        return this.addError(message, convertOffsetsToRange(range.start, range.end, this._lines));
     }
 
     addWarningWithTextRange(message: string, range: TextRange) {
-        this.addWarning(message, convertOffsetsToRange(range.start, range.end, this._lines));
+        return this.addWarning(message, convertOffsetsToRange(range.start, range.end, this._lines));
     }
 
     addUnusedCodeWithTextRange(message: string, range: TextRange) {
-        this.addUnusedCode(message, convertOffsetsToRange(range.start, range.end, this._lines));
+        return this.addUnusedCode(message, convertOffsetsToRange(range.start, range.end, this._lines));
     }
 }

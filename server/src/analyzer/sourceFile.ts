@@ -15,7 +15,7 @@ import { ConfigOptions, DiagnosticSettings, ExecutionEnvironment,
     getDefaultDiagnosticSettings } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
-    DocumentTextRange } from '../common/diagnostic';
+    DocumentTextRange, getEmptyRange } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
@@ -23,6 +23,13 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
+import { CompletionProvider, ModuleSymbolMap } from '../languageService/completionProvider';
+import { DefinitionProvider } from '../languageService/definitionProvider';
+import { DocumentSymbolProvider } from '../languageService/documentSymbolProvider';
+import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
+import { ImportSorter } from '../languageService/importSorter';
+import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
+import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ModuleNode } from '../parser/parseNodes';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
@@ -31,19 +38,12 @@ import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { CommentUtils } from './commentUtils';
-import { CompletionProvider, ModuleSymbolMap } from './completionProvider';
-import { DefinitionProvider } from './definitionProvider';
-import { DocumentSymbolProvider } from './documentSymbolProvider';
-import { HoverProvider, HoverResults } from './hoverProvider';
 import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
-import { ImportSorter } from './importSorter';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { ModuleImport, PostParseWalker } from './postParseWalker';
-import { ReferencesProvider, ReferencesResult } from './referencesProvider';
 import { Scope } from './scope';
 import { ModuleScopeAnalyzer } from './semanticAnalyzer';
-import { SignatureHelpProvider, SignatureHelpResults } from './signatureHelpProvider';
 import { TypeAnalyzer } from './typeAnalyzer';
 
 const MaxImportCyclesPerFile = 4;
@@ -208,13 +208,14 @@ export class SourceFile {
 
             this._analysisJob.circularDependencies.forEach(cirDep => {
                 diagList.push(new Diagnostic(category, 'Cycle detected in import chain\n' +
-                    cirDep.getPaths().map(path => '  ' + path).join('\n')));
+                    cirDep.getPaths().map(path => '  ' + path).join('\n'), getEmptyRange()));
             });
         }
 
         if (this._analysisJob.hitMaxImportDepth !== undefined) {
             diagList.push(new Diagnostic(DiagnosticCategory.Error,
-                `Import chain depth exceeded ${ this._analysisJob.hitMaxImportDepth }`));
+                `Import chain depth exceeded ${ this._analysisJob.hitMaxImportDepth }`,
+                getEmptyRange()));
         }
 
         if (this._isTypeshedStubFile) {
@@ -400,7 +401,7 @@ export class SourceFile {
                     this._lastFileContentHash = this._hashString(fileContents);
                 });
             } catch (error) {
-                diagSink.addError(`Source file could not be read`);
+                diagSink.addError(`Source file could not be read`, getEmptyRange());
                 fileContents = '';
             }
         }
@@ -476,7 +477,7 @@ export class SourceFile {
             this._analysisJob.builtinsImport = undefined;
 
             const diagSink = new DiagnosticSink();
-            diagSink.addError(`An internal error occurred while parsing file`);
+            diagSink.addError(`An internal error occurred while parsing file`, getEmptyRange());
             this._analysisJob.parseDiagnostics = diagSink.diagnostics;
         }
 
@@ -638,7 +639,8 @@ export class SourceFile {
                 `An internal error occurred while performing semantic analysis for ${ this.getFilePath() }: ` + message);
 
             const diagSink = new DiagnosticSink();
-            diagSink.addError(`An internal error occurred while performing semantic analysis`);
+            diagSink.addError(`An internal error occurred while performing semantic analysis`,
+                getEmptyRange());
             this._analysisJob.semanticAnalysisDiagnostics = diagSink.diagnostics;
         }
 
@@ -683,7 +685,8 @@ export class SourceFile {
             this._console.log(
                 `An internal error occurred while while performing type analysis for ${ this.getFilePath() }: ` + message);
             const diagSink = new DiagnosticSink();
-            diagSink.addError(`An internal error occurred while performing type analysis`);
+            diagSink.addError(`An internal error occurred while performing type analysis`,
+                getEmptyRange());
 
             // Mark the file as complete so we don't get into an infinite loop.
             this._analysisJob.isTypeAnalysisPassNeeded = false;

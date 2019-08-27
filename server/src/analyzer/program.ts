@@ -13,19 +13,20 @@ import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
+import { Diagnostic, DiagnosticTextPosition, DiagnosticTextRange,
+    DocumentTextRange, doRangesOverlap } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { Duration } from '../common/timing';
+import { ModuleSymbolMap } from '../languageService/completionProvider';
+import { HoverResults } from '../languageService/hoverProvider';
+import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
-import { ModuleSymbolMap } from './completionProvider';
-import { HoverResults } from './hoverProvider';
 import { ImportResolver } from './importResolver';
 import { ImportType } from './importResult';
 import { Scope } from './scope';
-import { SignatureHelpResults } from './signatureHelpProvider';
 import { SourceFile } from './sourceFile';
 
 const MaxImportDepth = 256;
@@ -674,6 +675,22 @@ export class Program {
         });
 
         return fileDiagnostics;
+    }
+
+    getDiagnosticsForRange(filePath: string, options: ConfigOptions, range: DiagnosticTextRange): Diagnostic[] {
+        const sourceFile = this.getSourceFile(filePath);
+        if (!sourceFile) {
+            return [];
+        }
+
+        const unfilteredDiags = sourceFile.getDiagnostics(options);
+        if (!unfilteredDiags) {
+            return [];
+        }
+
+        return unfilteredDiags.filter(diag => {
+            return doRangesOverlap(diag.range, range);
+        });
     }
 
     getDefinitionsForPosition(filePath: string, position: DiagnosticTextPosition):

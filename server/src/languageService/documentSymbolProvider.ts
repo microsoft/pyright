@@ -11,13 +11,13 @@
 import { Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
 
+import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
+import { Declaration, DeclarationCategory } from '../analyzer/declaration';
+import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { ClassNode, FunctionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { Declaration, DeclarationCategory } from './declaration';
-import { ParseTreeUtils } from './parseTreeUtils';
-import { ParseTreeWalker } from './parseTreeWalker';
 
 class FindSymbolTreeWalker extends ParseTreeWalker {
     private _filePath: string;

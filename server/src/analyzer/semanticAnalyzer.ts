@@ -20,6 +20,7 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
+import { CreateTypeStubFileAction } from '../common/diagnostic';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
@@ -142,8 +143,16 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                     `Import '${ importResult.importName }' could not be resolved`, node);
             } else if (importResult.importType === ImportType.ThirdParty) {
                 if (!importResult.isStubFile) {
-                    this._addDiagnostic(this._fileInfo.diagnosticSettings.reportMissingTypeStubs,
+                    const diagnostic = this._addDiagnostic(this._fileInfo.diagnosticSettings.reportMissingTypeStubs,
                         `Stub file not found for '${ importResult.importName }'`, node);
+                    if (diagnostic) {
+                        // Add a diagnostic action for resolving this diagnostic.
+                        const createTypeStubAction: CreateTypeStubFileAction = {
+                            action: 'pyright.createtypestub',
+                            moduleName: importResult.importName
+                        };
+                        diagnostic.addAction(createTypeStubAction);
+                    }
                 }
             }
         }
@@ -563,18 +572,19 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
         if (diagLevel === 'error') {
-            this._addError(message, textRange);
+            return this._addError(message, textRange);
         } else if (diagLevel === 'warning') {
-            this._addWarning(message, textRange);
+            return this._addWarning(message, textRange);
         }
+        return undefined;
     }
 
     private _addError(message: string, textRange: TextRange) {
-        this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
+        return this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
     }
 
     private _addWarning(message: string, textRange: TextRange) {
-        this._fileInfo.diagnosticSink.addWarningWithTextRange(message, textRange);
+        return this._fileInfo.diagnosticSink.addWarningWithTextRange(message, textRange);
     }
 }
 

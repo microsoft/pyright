@@ -8,13 +8,13 @@
 * python source file.
 */
 
+import { ImportType } from '../analyzer/importResult';
+import { ImportStatement, ImportStatementUtils } from '../analyzer/importStatementUtils';
 import { DiagnosticTextRange } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { ImportType } from './importResult';
-import { ImportStatement, ImportStatementUtils } from './importStatementUtils';
 
 const MaxLineLength = 80;
 

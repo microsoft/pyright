@@ -11,6 +11,20 @@
 import { CompletionItem, CompletionItemKind, CompletionList, MarkupKind,
     Position, TextEdit } from 'vscode-languageserver';
 
+import { ImportMap } from '../analyzer/analyzerFileInfo';
+import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
+import { DeclarationCategory } from '../analyzer/declaration';
+import { ImportedModuleDescriptor, ImportResolver,
+    ModuleNameAndType } from '../analyzer/importResolver';
+import { ImportType } from '../analyzer/importResult';
+import { ImportStatements, ImportStatementUtils } from '../analyzer/importStatementUtils';
+import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import { Scope, ScopeType } from '../analyzer/scope';
+import { Symbol, SymbolTable } from '../analyzer/symbol';
+import { SymbolUtils } from '../analyzer/symbolUtils';
+import { ClassType, FunctionType, ModuleType, ObjectType,
+    OverloadedFunctionType } from '../analyzer/types';
+import { TypeUtils } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
@@ -21,19 +35,6 @@ import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode,
     StringListNode, SuiteNode  } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
-import { ImportMap } from './analyzerFileInfo';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { DeclarationCategory } from './declaration';
-import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from './importResolver';
-import { ImportType } from './importResult';
-import { ImportStatements, ImportStatementUtils } from './importStatementUtils';
-import { ParseTreeUtils } from './parseTreeUtils';
-import { Scope, ScopeType } from './scope';
-import { Symbol, SymbolTable } from './symbol';
-import { SymbolUtils } from './symbolUtils';
-import { ClassType, FunctionType, ModuleType, ObjectType,
-    OverloadedFunctionType } from './types';
-import { TypeUtils } from './typeUtils';
 
 const _keywords: string[] = [
     // Expression keywords

@@ -9,17 +9,17 @@
 * position within a smart editor.
 */
 
+import { ImportMap } from '../analyzer/analyzerFileInfo';
+import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
+import { DeclarationCategory } from '../analyzer/declaration';
+import { ImportType } from '../analyzer/importResult';
+import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import { ClassType, FunctionType, ModuleType, OverloadedFunctionType,
+    Type, UnknownType } from '../analyzer/types';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { ModuleNameNode, NameNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { ImportMap } from './analyzerFileInfo';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { DeclarationCategory } from './declaration';
-import { ImportType } from './importResult';
-import { ParseTreeUtils } from './parseTreeUtils';
-import { ClassType, FunctionType, ModuleType, OverloadedFunctionType,
-    Type, UnknownType } from './types';
 
 export interface HoverTextPart {
     python?: boolean;

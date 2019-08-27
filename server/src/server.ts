@@ -7,17 +7,19 @@
 import {
     CodeAction, CodeActionKind, Command, createConnection, Diagnostic,
     DiagnosticSeverity, DiagnosticTag, ExecuteCommandParams, IConnection,
-    InitializeResult, IPCMessageReader, IPCMessageWriter, Location, ParameterInformation, Position,
-    Range, ResponseError, SignatureInformation, TextDocuments, TextEdit, WorkspaceEdit
+    InitializeResult, IPCMessageReader, IPCMessageWriter, Location, ParameterInformation,
+    Position, Range, ResponseError, SignatureInformation, TextDocuments, TextEdit,
+    WorkspaceEdit
 } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
 
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
-import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory, DiagnosticTextPosition,
-    DiagnosticTextRange } from './common/diagnostic';
+import { CreateTypeStubFileAction, Diagnostic as AnalyzerDiagnostic, DiagnosticCategory,
+    DiagnosticTextPosition, DiagnosticTextRange } from './common/diagnostic';
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
 import StringMap from './common/stringMap';
+import { CommandCreateTypeStub, CommandOrderImports } from './languageService/commands';
 
 interface PythonSettings {
     venvPath?: string;
@@ -215,9 +217,42 @@ _connection.onDidChangeConfiguration(change => {
 
 _connection.onCodeAction(params => {
     const sortImportsCodeAction = CodeAction.create(
-        'Organize Imports', Command.create('Organize Imports', 'pyright.organizeimports'),
+        'Organize Imports', Command.create('Organize Imports', CommandOrderImports),
         CodeActionKind.SourceOrganizeImports);
     const codeActions: CodeAction[] = [sortImportsCodeAction];
+
+    const filePath = _convertUriToPath(params.textDocument.uri);
+    const workspace = _getWorkspaceForFile(filePath);
+    if (!workspace.disableLanguageServices) {
+        const range: DiagnosticTextRange = {
+            start: {
+                line: params.range.start.line,
+                column: params.range.start.character
+            },
+            end: {
+                line: params.range.end.line,
+                column: params.range.end.character
+            }
+        };
+
+        const diags = workspace.serviceInstance.getDiagnosticsForRange(filePath, range);
+        const typeStubDiag = diags.find(d => {
+            const actions = d.getActions();
+            return actions && actions.find(a => a.action === CommandCreateTypeStub);
+        });
+
+        if (typeStubDiag) {
+            const action = typeStubDiag.getActions()!.find(
+                a => a.action === CommandCreateTypeStub) as CreateTypeStubFileAction;
+            const createTypeStubAction = CodeAction.create(
+                `Create Type Stub For ‘${ action.moduleName }’`, Command.create('Create Type Stub',
+                CommandCreateTypeStub, workspace.rootPath, action.moduleName),
+                CodeActionKind.QuickFix);
+            if (createTypeStubAction) {
+                codeActions.push(createTypeStubAction);
+            }
+        }
+    }
 
     return codeActions;
 });
@@ -515,7 +550,7 @@ _connection.onInitialized(() => {
 });
 
 _connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
-    if (cmdParams.command === 'pyright.organizeimports') {
+    if (cmdParams.command === CommandOrderImports) {
         if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
             const docUri = cmdParams.arguments[0];
             const filePath = _convertUriToPath(docUri);
