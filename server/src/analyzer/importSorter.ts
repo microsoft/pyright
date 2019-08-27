@@ -94,10 +94,10 @@ export class ImportSorter {
         }
 
         while (true) {
-            let secondaryBlockEnd = statements.findIndex(
+            let secondaryBlockLimit = statements.findIndex(
                 (s, index) => index > secondaryBlockStart && s.followsNonImportStatement);
-            if (secondaryBlockEnd < 0) {
-                secondaryBlockEnd = statements.length - 1;
+            if (secondaryBlockLimit < 0) {
+                secondaryBlockLimit = statements.length;
             }
 
             actions.push({
@@ -106,13 +106,13 @@ export class ImportSorter {
                         statements[secondaryBlockStart].node.start,
                         this._parseResults.lines),
                     end: convertOffsetToPosition(
-                        statements[secondaryBlockEnd].node.end,
+                        statements[secondaryBlockLimit - 1].node.end,
                         this._parseResults.lines)
                 },
                 replacementText: ''
             });
 
-            secondaryBlockStart = secondaryBlockEnd + 1;
+            secondaryBlockStart = secondaryBlockLimit;
             if (secondaryBlockStart >= statements.length) {
                 break;
             }
