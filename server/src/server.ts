@@ -5,10 +5,10 @@
 */
 
 import {
-    createConnection, Diagnostic, DiagnosticSeverity, DiagnosticTag, ExecuteCommandParams,
-    IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter,
-    Location, ParameterInformation, Position, Range, ResponseError, SignatureInformation,
-    TextDocuments, TextEdit, WorkspaceEdit
+    CodeAction, CodeActionKind, Command, createConnection, Diagnostic,
+    DiagnosticSeverity, DiagnosticTag, ExecuteCommandParams, IConnection,
+    InitializeResult, IPCMessageReader, IPCMessageWriter, Location, ParameterInformation, Position,
+    Range, ResponseError, SignatureInformation, TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
 
@@ -170,6 +170,12 @@ _connection.onInitialize((params): InitializeResult => {
             },
             signatureHelpProvider: {
                 triggerCharacters: ['(', ',', ')']
+            },
+            codeActionProvider: {
+                codeActionKinds: [
+                    CodeActionKind.QuickFix,
+                    CodeActionKind.SourceOrganizeImports
+                ]
             }
         }
     };
@@ -205,6 +211,13 @@ function _getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
 _connection.onDidChangeConfiguration(change => {
     _connection.console.log(`Received updated settings`);
     updateSettingsForAllWorkspaces();
+});
+
+_connection.onCodeAction(params => {
+    const sortImportsCodeAction = CodeAction.create(
+        'Sort Imports', Command.create('Sort Imports', 'pyright.sortimports'),
+        CodeActionKind.SourceOrganizeImports);
+    return [sortImportsCodeAction];
 });
 
 _connection.onDefinition(params => {
