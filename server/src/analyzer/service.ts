@@ -24,7 +24,7 @@ import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
 import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
-import { ImportResolver } from './importResolver';
+import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import { PythonPathUtils } from './pythonPathUtils';
 
@@ -48,6 +48,7 @@ export class AnalyzerService {
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
     private _executionRootPath: string;
+    private _typeStubTargetImportName: string | undefined;
     private _console: ConsoleInterface;
     private _sourceFileWatcher: (fs.FSWatcher | undefined)[] | undefined;
     private _reloadConfigTimer: any;
@@ -67,6 +68,14 @@ export class AnalyzerService {
         this._configOptions = new ConfigOptions(process.cwd());
         this._importResolver = new ImportResolver(this._configOptions);
         this._executionRootPath = '';
+        this._typeStubTargetImportName = undefined;
+    }
+
+    dispose() {
+        this._removeSourceFileWatchers();
+        this._removeConfigFileWatcher();
+        this._clearReloadConfigTimer();
+        this._clearReanalysisTimer();
     }
 
     setCompletionCallback(callback: AnalysisCompleteCallback | undefined): void {
@@ -80,6 +89,7 @@ export class AnalyzerService {
     setOptions(commandLineOptions: CommandLineOptions): void {
         this._watchForChanges = !!commandLineOptions.watch;
         this._configOptions = this._getConfigOptions(commandLineOptions);
+        this._typeStubTargetImportName = commandLineOptions.typeStubTargetImportName;
 
         this._executionRootPath = normalizePath(combinePaths(
                 commandLineOptions.executionRoot, this._configOptions.projectRoot));
@@ -403,6 +413,10 @@ export class AnalyzerService {
         return configOptions;
     }
 
+    writeTypeStub() {
+        // TODO - need to implement
+    }
+
     private _findConfigFile(searchPath: string): string | undefined {
         return forEachAncestorDirectory(searchPath, ancestor => {
             const fileName = combinePaths(ancestor, _defaultConfigFileName);
@@ -470,17 +484,50 @@ export class AnalyzerService {
     // have changed. Unconditional dirtying is needed in the case where
     // configuration options have changed.
     private _updateTrackedFileList(markFilesDirtyUnconditionally: boolean) {
-        this._console.log(`Searching for source files`);
-        let fileList = this._getFileNamesFromFileSpecs();
+        // Are we in type stub generation mode? If so, we need to search
+        // for a different set of files.
+        if (this._typeStubTargetImportName) {
+            const execEnv = this._configOptions.findExecEnvironment(this._executionRootPath);
+            const moduleDescriptor: ImportedModuleDescriptor = {
+                leadingDots: 0,
+                nameParts: this._typeStubTargetImportName.split('.'),
+                importedSymbols: []
+            };
+            const importResult = this._importResolver.resolveImport(
+                '', execEnv, moduleDescriptor);
+            if (importResult.isImportFound) {
+                const filesToImport: string[] = [];
 
-        let fileDiagnostics = this._program.setTrackedFiles(fileList);
-        this._reportDiagnosticsForRemovedFiles(fileDiagnostics);
-        this._program.markAllFilesDirty(markFilesDirtyUnconditionally);
-        if (fileList.length === 0) {
-            this._console.log(`No source files found.`);
+                // Namespace packages resolve to a directory name, so
+                // don't include those.
+                if (!importResult.isNamespacePackage) {
+                    filesToImport.push(importResult.resolvedPaths[
+                        importResult.resolvedPaths.length - 1]);
+                }
+
+                // Add the implicit import paths.
+                importResult.implicitImports.forEach(implicitImport => {
+                    filesToImport.push(implicitImport.path);
+                });
+
+                this._program.setAllowThirdPartyImports();
+                this._program.setTrackedFiles(filesToImport);
+            } else {
+                this._console.log(`Import '${ this._typeStubTargetImportName }' not found`);
+            }
         } else {
-            this._console.log(`Found ${ fileList.length } ` +
-                `source ${ fileList.length === 1 ? 'file' : 'files' }`);
+            this._console.log(`Searching for source files`);
+            const fileList = this._getFileNamesFromFileSpecs();
+
+            const fileDiagnostics = this._program.setTrackedFiles(fileList);
+            this._reportDiagnosticsForRemovedFiles(fileDiagnostics);
+            this._program.markAllFilesDirty(markFilesDirtyUnconditionally);
+            if (fileList.length === 0) {
+                this._console.log(`No source files found.`);
+            } else {
+                this._console.log(`Found ${ fileList.length } ` +
+                    `source ${ fileList.length === 1 ? 'file' : 'files' }`);
+            }
         }
 
         this._requireTrackedFileUpdate = false;
@@ -544,7 +591,7 @@ export class AnalyzerService {
         return results;
     }
 
-    private _updateSourceFileWatchers() {
+    private _removeSourceFileWatchers() {
         if (this._sourceFileWatcher) {
             this._sourceFileWatcher.forEach(watcher => {
                 if (watcher) {
@@ -553,6 +600,10 @@ export class AnalyzerService {
             });
             this._sourceFileWatcher = undefined;
         }
+    }
+
+    private _updateSourceFileWatchers() {
+        this._removeSourceFileWatchers();
 
         if (!this._watchForChanges) {
             return;
@@ -586,11 +637,15 @@ export class AnalyzerService {
         }
     }
 
-    private _updateConfigFileWatcher() {
+    private _removeConfigFileWatcher() {
         if (this._configFileWatcher) {
             this._configFileWatcher.close();
             this._configFileWatcher = undefined;
         }
+    }
+
+    private _updateConfigFileWatcher() {
+        this._removeConfigFileWatcher();
 
         if (this._watchForChanges && this._configFilePath) {
             this._configFileWatcher = fs.watch(this._configFilePath, {}, (event, fileName) => {

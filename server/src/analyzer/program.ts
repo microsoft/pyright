@@ -65,6 +65,7 @@ export class Program {
     private _console: ConsoleInterface;
     private _sourceFileList: SourceFileInfo[] = [];
     private _sourceFileMap: { [path: string]: SourceFileInfo } = {};
+    private _allowThirdPartyImports = false;
 
     constructor(console?: ConsoleInterface) {
         this._console = console || new StandardConsole();
@@ -93,6 +94,10 @@ export class Program {
         this.addTrackedFiles(filePaths);
 
         return this._removeUnneededFiles();
+    }
+
+    setAllowThirdPartyImports() {
+        this._allowThirdPartyImports = true;
     }
 
     getFileCount() {
@@ -512,8 +517,12 @@ export class Program {
         Object.keys(closureMap).forEach(filePath => {
             assert(!this._sourceFileMap[filePath].sourceFile.isAnalysisFinalized());
 
-            if (options.diagnosticSettings.reportImportCycles !== 'none') {
-                this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
+            // Don't detect import cycles when doing type stub generation. Some
+            // third-party modules are pretty convoluted.
+            if (!this._allowThirdPartyImports) {
+                if (options.diagnosticSettings.reportImportCycles !== 'none') {
+                    this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
+                }
             }
 
             this._sourceFileMap[filePath].sourceFile.finalizeAnalysis();
@@ -978,8 +987,11 @@ export class Program {
         const newImportPathMap: { [name: string]: boolean } =  {};
         imports.forEach(importResult => {
             if (importResult.isImportFound) {
-                // Don't explore any third-party files unless they're type stub files.
-                if (importResult.importType === ImportType.Local || importResult.isStubFile) {
+                // Don't explore any third-party files unless they're type stub files
+                // or we've been told explicitly that third-party imports are OK.
+                if (importResult.importType === ImportType.Local || importResult.isStubFile ||
+                        this._allowThirdPartyImports) {
+
                     // Namespace packages have no __init__.py file, so the resolved
                     // path points to a directory.
                     if (!importResult.isNamespacePackage && importResult.resolvedPaths.length > 0) {
@@ -1027,13 +1039,14 @@ export class Program {
                 if (this._sourceFileMap[importPath] !== undefined) {
                     importedFileInfo = this._sourceFileMap[importPath];
                 } else {
-                    let sourceFile = new SourceFile(
-                        importPath, newImportPathMap[importPath], this._console);
+                    const isTypeShedFile = newImportPathMap[importPath];
+                    const sourceFile = new SourceFile(
+                        importPath, isTypeShedFile, this._console);
                     importedFileInfo = {
                         sourceFile,
                         isTracked: false,
                         isOpenByClient: false,
-                        isTypeshedFile: newImportPathMap[importPath],
+                        isTypeshedFile: isTypeShedFile,
                         diagnosticsVersion: sourceFile.getDiagnosticVersion(),
                         imports: [],
                         importedBy: []

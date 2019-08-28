@@ -40,6 +40,9 @@ export class CommandLineOptions {
     // Absolute execution root (current working directory).
     executionRoot: string;
 
+    // Type stub import target (for creation of type stubs).
+    typeStubTargetImportName?: string;
+
     // Emit verbose information to console?
     verboseOutput?: boolean;
 

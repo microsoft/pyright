@@ -75,6 +75,13 @@ export function activate(context: ExtensionContext) {
 	() => {
 		// Error received. For now, do nothing.
 	}));
+
+	const genericCommands = ['pyright.createtypestub'];
+	genericCommands.forEach(command => {
+		context.subscriptions.push(commands.registerCommand(command, (...args: any[]) => {
+			languageClient.sendRequest('workspace/executeCommand', { command, arguments: args });
+		}));
+	});
 }
 
 export function deactivate() {

@@ -33,14 +33,6 @@ interface PyrightSettings {
     disableLanguageServices?: boolean;
 }
 
-interface Settings {
-    // If more sections are added to this interface,
-    // make sure to update the sections array in the
-    // updateSettingsForAllWorkspaces method.
-    python?: PythonSettings;
-    pyright?: PyrightSettings;
-}
-
 interface WorkspaceServiceInstance {
     workspaceName: string;
     rootPath: string;
@@ -75,6 +67,8 @@ _documents.listen(_connection);
 
 const _defaultWorkspacePath = '<default>';
 
+// Creates a service instance that's used for analyzing a
+// program within a workspace.
 function _createAnalyzerService(name: string): AnalyzerService {
     _connection.console.log(`Starting service instance "${ name }"`);
     const service = new AnalyzerService(name, _connection.console);
@@ -112,6 +106,28 @@ function _createAnalyzerService(name: string): AnalyzerService {
                 }
             }
         });
+    });
+
+    return service;
+}
+
+// Creates a service instance that's used for creating type
+// stubs for a specified target library.
+function _createTypeStubService(): AnalyzerService {
+    _connection.console.log('Starting type stub service instance');
+    const service = new AnalyzerService('Type stub',
+        _connection.console);
+
+    service.setMaxAnalysisDuration({
+        openFilesTimeInMs: 500,
+        noOpenFilesTimeInMs: 500
+    });
+
+    service.setCompletionCallback(results => {
+        if (results.filesRequiringAnalysis === 0) {
+            service.writeTypeStub();
+            service.dispose();
+        }
     });
 
     return service;
@@ -244,11 +260,12 @@ _connection.onCodeAction(params => {
         if (typeStubDiag) {
             const action = typeStubDiag.getActions()!.find(
                 a => a.action === CommandCreateTypeStub) as CreateTypeStubFileAction;
-            const createTypeStubAction = CodeAction.create(
-                `Create Type Stub For ‘${ action.moduleName }’`, Command.create('Create Type Stub',
-                CommandCreateTypeStub, workspace.rootPath, action.moduleName),
-                CodeActionKind.QuickFix);
-            if (createTypeStubAction) {
+            if (action) {
+                const createTypeStubAction = CodeAction.create(
+                    `Create Type Stub For ‘${ action.moduleName }’`,
+                    Command.create('Create Type Stub', CommandCreateTypeStub,
+                        workspace.rootPath, action.moduleName),
+                    CodeActionKind.QuickFix);
                 codeActions.push(createTypeStubAction);
             }
         }
@@ -499,7 +516,7 @@ function updateSettingsForAllWorkspaces() {
 }
 
 function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
-        settings: PythonSettings) {
+        settings: PythonSettings, typeStubTargetImportName?: string) {
 
     const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
     commandLineOptions.watch = true;
@@ -524,6 +541,10 @@ function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
         // We'll use the first one specified and ignore the rest.
         commandLineOptions.typeshedPath =
             _expandPathVariables(settings.analysis.typeshedPaths[0]);
+    }
+
+    if (typeStubTargetImportName) {
+        commandLineOptions.typeStubTargetImportName = typeStubTargetImportName;
     }
 
     workspace.serviceInstance.setOptions(commandLineOptions);
@@ -569,6 +590,28 @@ _connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
             });
 
             return edits;
+        }
+    } else if (cmdParams.command === CommandCreateTypeStub) {
+        if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
+            const workspaceRoot = cmdParams.arguments[0];
+            const importName = cmdParams.arguments[1];
+
+            // Allocate a temporary pseudo-workspace to perform this job.
+            const workspace: WorkspaceServiceInstance = {
+                workspaceName: `Create Type Stub ${ importName }`,
+                rootPath: workspaceRoot,
+                rootUri: _convertPathToUri(workspaceRoot),
+                serviceInstance: _createTypeStubService(),
+                disableLanguageServices: true
+            };
+
+            const pythonSettingsPromise = getConfiguration(workspace, 'python');
+            pythonSettingsPromise.then((settings: PythonSettings) => {
+                updateOptionsAndRestartService(workspace, settings, importName);
+            }, () => {
+                // An error occurred trying to read the settings
+                // for this workspace, so ignore.
+            });
         }
     }
 
