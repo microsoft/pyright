@@ -415,11 +415,52 @@ export class AnalyzerService {
     }
 
     writeTypeStub() {
-        if (!this._typeStubTargetPath) {
+        const typingsPath = this._configOptions.typingsPath;
+        if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
+            this._console.error(`Import '${ this._typeStubTargetImportName }'` +
+                ` could not be resolved`);
             return;
         }
 
-        this._program.writeTypeStub(this._typeStubTargetPath);
+        if (!typingsPath) {
+            // We should never get here because we always generate a
+            // default typings path if none was specified.
+            this._console.error('No typings path was specified');
+            return;
+        }
+
+        const typeStubInputTargetParts = this._typeStubTargetImportName.split('.');
+        if (typeStubInputTargetParts[0].length === 0) {
+            // We should never get here because the import resolution
+            // would have failed.
+            this._console.error(`Import '${ this._typeStubTargetImportName }'` +
+                ` could not be resolved`);
+            return;
+        }
+
+        try {
+            // Generate a new typings directory if necessary.
+            if (!fs.existsSync(typingsPath)) {
+                fs.mkdirSync(typingsPath);
+            }
+        } catch (e) {
+            this._console.error(`Could not create typings directory '${ typingsPath }'`);
+            return;
+        }
+
+        // Generate a typings subdirectory.
+        const typingsSubdirPath = combinePaths(typingsPath, typeStubInputTargetParts[0]);
+        try {
+            // Generate a new typings subdirectory if necessary.
+            if (!fs.existsSync(typingsSubdirPath)) {
+                fs.mkdirSync(typingsSubdirPath);
+            }
+        } catch (e) {
+            this._console.error(`Could not create typings subdirectory '${ typingsSubdirPath }'`);
+            return;
+        }
+
+        this._program.writeTypeStub(this._typeStubTargetPath, typingsSubdirPath);
     }
 
     private _findConfigFile(searchPath: string): string | undefined {

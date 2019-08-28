@@ -17,6 +17,7 @@ import { Diagnostic, DiagnosticTextPosition, DiagnosticTextRange,
     DocumentTextRange, doRangesOverlap } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
+import { combinePaths, getDirectoryPath, getRelativePath, makeDirectories, normalizePath, stripFileExtension } from '../common/pathUtils';
 import { Duration } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
@@ -28,6 +29,7 @@ import { ImportResolver } from './importResolver';
 import { ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
+import { TypeStubWriter } from './typeStubWriter';
 
 const MaxImportDepth = 256;
 const MaxAnalysisTimeForCompletions = 500;
@@ -356,14 +358,27 @@ export class Program {
         }
     }
 
-    writeTypeStub(targetPath: string) {
+    writeTypeStub(targetImportPath: string, typingsPath: string) {
         for (let sourceFileInfo of this._sourceFileList) {
             const filePath = sourceFileInfo.sourceFile.getFilePath();
 
             // Generate type stubs only for the files within the target path,
             // not any files that the target module happened to import.
-            if (filePath.startsWith(targetPath)) {
-                // TODO - need to implement
+            const relativePath = getRelativePath(filePath, targetImportPath);
+            if (relativePath !== undefined) {
+                let typeStubPath = normalizePath(combinePaths(typingsPath, relativePath));
+                typeStubPath = stripFileExtension(typeStubPath) + '.pyi';
+                const typeStubDir = getDirectoryPath(typeStubPath);
+
+                try {
+                    makeDirectories(typeStubDir, typingsPath);
+                } catch (e) {
+                    this._console.error(`Could not create directory for '${ typeStubDir }'`);
+                }
+
+                const writer = new TypeStubWriter(targetImportPath, typeStubPath,
+                    sourceFileInfo.sourceFile);
+                writer.write();
             }
         }
     }

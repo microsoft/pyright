@@ -22,6 +22,11 @@ export interface FileSpec {
     regExp: RegExp;
 }
 
+export interface FileSystemEntries {
+    files: string[];
+    directories: string[];
+}
+
 export function forEachAncestorDirectory(directory: string, callback: (directory: string) => string | undefined): string | undefined {
     while (true) {
         const result = callback(directory);
@@ -92,6 +97,40 @@ export function getPathComponents(pathString: string) {
     return reduced;
 }
 
+export function getRelativePath(dirPath: string, relativeTo: string) {
+    if (!dirPath.startsWith(relativeTo)) {
+        return undefined;
+    }
+
+    const pathComponents = getPathComponents(dirPath);
+    const relativeToComponents = getPathComponents(relativeTo);
+
+    let relativePath = '.';
+    for (let i = relativeToComponents.length; i < pathComponents.length; i++) {
+        relativePath += path.sep + pathComponents[i];
+    }
+
+    return relativePath;
+}
+
+// Creates a directory hierarchy for a path, starting from some ancestor path.
+export function makeDirectories(dirPath: string, startingFromDirPath: string) {
+    if (!dirPath.startsWith(startingFromDirPath)) {
+        return;
+    }
+
+    const pathComponents = getPathComponents(dirPath);
+    const relativeToComponents = getPathComponents(startingFromDirPath);
+    let curPath = startingFromDirPath;
+
+    for (let i = relativeToComponents.length; i < pathComponents.length; i++) {
+        curPath = combinePaths(curPath, pathComponents[i]);
+        if (!fs.existsSync(curPath)) {
+            fs.mkdirSync(curPath);
+        }
+    }
+}
+
 export function normalizeSlashes(pathString: string): string {
     const separatorRegExp = /[\\\/]/g;
     return pathString.replace(separatorRegExp, path.sep);
@@ -158,11 +197,6 @@ export function stripFileExtension(fileName: string) {
 
 export function normalizePath(pathString: string): string {
     return normalizeSlashes(path.normalize(pathString));
-}
-
-export interface FileSystemEntries {
-    files: string[];
-    directories: string[];
 }
 
 export function isDirectory(path: string): boolean {
