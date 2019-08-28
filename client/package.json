@@ -43,7 +43,8 @@
         "commands": [
             {
                 "command": "pyright.organizeimports",
-                "title": "Pyright: Organize Imports"
+                "title": "Organize Imports",
+                "category": "Pyright"
             }
         ],
         "configuration": {
