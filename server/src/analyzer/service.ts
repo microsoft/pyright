@@ -49,6 +49,7 @@ export class AnalyzerService {
     private _importResolver: ImportResolver;
     private _executionRootPath: string;
     private _typeStubTargetImportName: string | undefined;
+    private _typeStubTargetPath: string | undefined;
     private _console: ConsoleInterface;
     private _sourceFileWatcher: (fs.FSWatcher | undefined)[] | undefined;
     private _reloadConfigTimer: any;
@@ -414,7 +415,11 @@ export class AnalyzerService {
     }
 
     writeTypeStub() {
-        // TODO - need to implement
+        if (!this._typeStubTargetPath) {
+            return;
+        }
+
+        this._program.writeTypeStub(this._typeStubTargetPath);
     }
 
     private _findConfigFile(searchPath: string): string | undefined {
@@ -493,16 +498,22 @@ export class AnalyzerService {
                 nameParts: this._typeStubTargetImportName.split('.'),
                 importedSymbols: []
             };
+
             const importResult = this._importResolver.resolveImport(
                 '', execEnv, moduleDescriptor);
+
             if (importResult.isImportFound) {
                 const filesToImport: string[] = [];
 
                 // Namespace packages resolve to a directory name, so
                 // don't include those.
-                if (!importResult.isNamespacePackage) {
-                    filesToImport.push(importResult.resolvedPaths[
-                        importResult.resolvedPaths.length - 1]);
+                const resolvedPath = importResult.resolvedPaths[
+                        importResult.resolvedPaths.length - 1];
+                if (importResult.isNamespacePackage) {
+                    this._typeStubTargetPath = resolvedPath;
+                } else {
+                    filesToImport.push(resolvedPath);
+                    this._typeStubTargetPath = getDirectoryPath(resolvedPath);
                 }
 
                 // Add the implicit import paths.

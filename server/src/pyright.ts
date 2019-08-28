@@ -38,6 +38,7 @@ interface DiagnosticResult {
 
 function processArgs() {
     const optionDefinitions: OptionDefinition[] = [
+        { name: 'createstub', type: String },
         { name: 'dependencies', type: Boolean },
         { name: 'files', type: String, multiple: true, defaultOption: true },
         { name: 'help', alias: 'h', type: Boolean },
@@ -92,16 +93,26 @@ function processArgs() {
     if (args['venv-path']) {
         options.venvPath = combinePaths(process.cwd(), normalizePath(args['venv-path']));
     }
+
     if (args['typeshed-path']) {
         options.typeshedPath = combinePaths(process.cwd(), normalizePath(args['typeshed-path']));
     }
 
+    if (args.createstub) {
+        options.typeStubTargetImportName = args.createstub;
+
+        if (args.watch) {
+            console.error(`Option 'createstub' cannot be used with option 'watch'`);
+            return;
+        }
+    }
+
     options.verboseOutput = !!args.verbose;
 
-    let watch = args.watch !== undefined;
+    const watch = args.watch !== undefined;
     options.watch = watch;
 
-    let service = new AnalyzerService('<default>');
+    const service = new AnalyzerService('<default>');
 
     service.setCompletionCallback(results => {
         if (results.fatalErrorOccurred) {
@@ -109,9 +120,15 @@ function processArgs() {
         }
 
         let errorCount = 0;
-        if (results.diagnostics.length > 0) {
+        if (results.diagnostics.length > 0 && !args.createstub) {
             const report = reportDiagnostics(results.diagnostics);
             errorCount += report.errorCount;
+        }
+
+        if (args.createstub && results.filesRequiringAnalysis === 0) {
+            service.writeTypeStub();
+            service.dispose();
+            process.exit(ExitStatus.NoErrors);
         }
 
         if (!watch) {
@@ -151,6 +168,7 @@ function printUsage() {
     console.log(
         'Usage: ' + toolName + ' [options] files...\n' +
         '  Options:\n' +
+        '  --createstub IMPORT              Create type stub file(s) for import\n' +
         '  --dependencies                   Emit import dependecy information\n' +
         '  -h,--help                        Show this help message\n' +
         '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +

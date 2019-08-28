@@ -356,6 +356,18 @@ export class Program {
         }
     }
 
+    writeTypeStub(targetPath: string) {
+        for (let sourceFileInfo of this._sourceFileList) {
+            const filePath = sourceFileInfo.sourceFile.getFilePath();
+
+            // Generate type stubs only for the files within the target path,
+            // not any files that the target module happened to import.
+            if (filePath.startsWith(targetPath)) {
+                // TODO - need to implement
+            }
+        }
+    }
+
     // This method is similar to analyze() except that it analyzes
     // a single file (and its dependencies if necessary).
     private _analyzeFile(sourceFileInfo: SourceFileInfo, options: ConfigOptions,
