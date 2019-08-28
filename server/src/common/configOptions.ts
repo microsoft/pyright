@@ -649,6 +649,11 @@ export class ConfigOptions {
             }
         }
 
+        // If there was no typings path specified, use a default path.
+        if (this.typingsPath === undefined) {
+            this.typingsPath = normalizePath(combinePaths(this.projectRoot, 'typings'));
+        }
+
         // Read the "executionEnvironments" array. This should be done at the end
         // after we've established default values.
         this.executionEnvironments = [];
