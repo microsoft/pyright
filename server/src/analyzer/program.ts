@@ -13,8 +13,8 @@ import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { Diagnostic, DiagnosticTextPosition, DiagnosticTextRange,
-    DocumentTextRange, doRangesOverlap } from '../common/diagnostic';
+import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
+    DiagnosticTextRange, DocumentTextRange, doRangesOverlap } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getRelativePath, makeDirectories, normalizePath, stripFileExtension } from '../common/pathUtils';
@@ -222,6 +222,23 @@ export class Program {
         });
     }
 
+    markFilesWithErrorsDirty(options: ConfigOptions) {
+        const markDirtyMap: { [path: string]: boolean } = {};
+
+        this._sourceFileList.forEach(sourceFileInfo => {
+            const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(options);
+            if (diagnostics && !!diagnostics.find(
+                    diag => diag.category === DiagnosticCategory.Error)) {
+
+                sourceFileInfo.sourceFile.markDirty();
+
+                // Mark any files that depend on this file as dirty
+                // also. This will retrigger analysis of these other files.
+                this._markFileDirtyRecursive(sourceFileInfo, markDirtyMap);
+            }
+        });
+    }
+
     markFilesDirty(filePaths: string[]) {
         let markDirtyMap: { [path: string]: boolean } = {};
         filePaths.forEach(filePath => {
@@ -373,11 +390,11 @@ export class Program {
                 try {
                     makeDirectories(typeStubDir, typingsPath);
                 } catch (e) {
-                    this._console.error(`Could not create directory for '${ typeStubDir }'`);
+                    const errMsg = `Could not create directory for '${ typeStubDir }'`;
+                    throw new Error(errMsg);
                 }
 
-                const writer = new TypeStubWriter(targetImportPath, typeStubPath,
-                    sourceFileInfo.sourceFile);
+                const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile);
                 writer.write();
             }
         }
@@ -407,6 +424,18 @@ export class Program {
 
         if (fileToParse.sourceFile.parse(options, importResolver)) {
             this._updateSourceFileImports(fileToParse, options);
+        }
+
+        if (fileToParse.sourceFile.isFileDeleted()) {
+            fileToParse.isTracked = false;
+
+            // Mark any files that depend on this file as dirty
+            // also. This will retrigger analysis of these other files.
+            let markDirtyMap: { [path: string]: boolean } = {};
+            this._markFileDirtyRecursive(fileToParse, markDirtyMap);
+
+            // Invalidate the import resolver's cache as well.
+            importResolver.invalidateCache();
         }
     }
 
@@ -678,7 +707,8 @@ export class Program {
 
     private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo,
             markMap: { [path: string]: boolean }) {
-        let filePath = sourceFileInfo.sourceFile.getFilePath();
+
+        const filePath = sourceFileInfo.sourceFile.getFilePath();
 
         // Don't mark it again if it's already been visited.
         if (markMap[filePath] === undefined) {
@@ -963,6 +993,10 @@ export class Program {
     }
 
     private _isFileNeeded(fileInfo: SourceFileInfo) {
+        if (fileInfo.sourceFile.isFileDeleted()) {
+            return false;
+        }
+
         if (fileInfo.isTracked || fileInfo.isOpenByClient) {
             return true;
         }

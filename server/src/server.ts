@@ -113,7 +113,9 @@ function _createAnalyzerService(name: string): AnalyzerService {
 
 // Creates a service instance that's used for creating type
 // stubs for a specified target library.
-function _createTypeStubService(): AnalyzerService {
+function _createTypeStubService(importName: string,
+        complete: (success: boolean) => void): AnalyzerService {
+
     _connection.console.log('Starting type stub service instance');
     const service = new AnalyzerService('Type stub',
         _connection.console);
@@ -125,12 +127,33 @@ function _createTypeStubService(): AnalyzerService {
 
     service.setCompletionCallback(results => {
         if (results.filesRequiringAnalysis === 0) {
-            service.writeTypeStub();
-            service.dispose();
+            try {
+                service.writeTypeStub();
+                service.dispose();
+                const infoMessage = `Type stub created for '${ importName }'`;
+                _connection.window.showInformationMessage(infoMessage);
+                complete(true);
+            } catch (err) {
+                let errMessage = '';
+                if (err instanceof Error) {
+                    errMessage = ': ' + err.message;
+                }
+                errMessage = `Error occurred when creating type stub for '${ importName }'` +
+                    errMessage;
+                _connection.console.error(errMessage);
+                _connection.window.showErrorMessage(errMessage);
+                complete(false);
+            }
         }
     });
 
     return service;
+}
+
+function _handlePostCreateTypeStub() {
+    _workspaceMap.forEach(workspace => {
+        workspace.serviceInstance.handlePostCreateTypeStub();
+    });
 }
 
 // After the server has started the client sends an initialize request. The server receives
@@ -595,23 +618,35 @@ _connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
         if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
             const workspaceRoot = cmdParams.arguments[0];
             const importName = cmdParams.arguments[1];
+            const promise = new Promise<void>((resolve, reject) => {
+                const serviceInstance = _createTypeStubService(importName, success => {
+                    if (success) {
+                        _handlePostCreateTypeStub();
+                        resolve();
+                    } else {
+                        reject();
+                    }
+                });
 
-            // Allocate a temporary pseudo-workspace to perform this job.
-            const workspace: WorkspaceServiceInstance = {
-                workspaceName: `Create Type Stub ${ importName }`,
-                rootPath: workspaceRoot,
-                rootUri: _convertPathToUri(workspaceRoot),
-                serviceInstance: _createTypeStubService(),
-                disableLanguageServices: true
-            };
+                // Allocate a temporary pseudo-workspace to perform this job.
+                const workspace: WorkspaceServiceInstance = {
+                    workspaceName: `Create Type Stub ${ importName }`,
+                    rootPath: workspaceRoot,
+                    rootUri: _convertPathToUri(workspaceRoot),
+                    serviceInstance,
+                    disableLanguageServices: true
+                };
 
-            const pythonSettingsPromise = getConfiguration(workspace, 'python');
-            pythonSettingsPromise.then((settings: PythonSettings) => {
-                updateOptionsAndRestartService(workspace, settings, importName);
-            }, () => {
-                // An error occurred trying to read the settings
-                // for this workspace, so ignore.
+                const pythonSettingsPromise = getConfiguration(workspace, 'python');
+                pythonSettingsPromise.then((settings: PythonSettings) => {
+                    updateOptionsAndRestartService(workspace, settings, importName);
+                }, () => {
+                    // An error occurred trying to read the settings
+                    // for this workspace, so ignore.
+                });
             });
+
+            return promise;
         }
     }
 

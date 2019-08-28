@@ -417,25 +417,28 @@ export class AnalyzerService {
     writeTypeStub() {
         const typingsPath = this._configOptions.typingsPath;
         if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
-            this._console.error(`Import '${ this._typeStubTargetImportName }'` +
-                ` could not be resolved`);
-            return;
+            const errMsg = `Import '${ this._typeStubTargetImportName }'` +
+                ` could not be resolved`;
+            this._console.error(errMsg);
+            throw new Error(errMsg);
         }
 
         if (!typingsPath) {
             // We should never get here because we always generate a
             // default typings path if none was specified.
-            this._console.error('No typings path was specified');
-            return;
+            const errMsg = 'No typings path was specified';
+            this._console.error(errMsg);
+            throw new Error(errMsg);
         }
 
         const typeStubInputTargetParts = this._typeStubTargetImportName.split('.');
         if (typeStubInputTargetParts[0].length === 0) {
             // We should never get here because the import resolution
             // would have failed.
-            this._console.error(`Import '${ this._typeStubTargetImportName }'` +
-                ` could not be resolved`);
-            return;
+            const errMsg = `Import '${ this._typeStubTargetImportName }'` +
+                ` could not be resolved`;
+            this._console.error(errMsg);
+            throw new Error(errMsg);
         }
 
         try {
@@ -444,8 +447,9 @@ export class AnalyzerService {
                 fs.mkdirSync(typingsPath);
             }
         } catch (e) {
-            this._console.error(`Could not create typings directory '${ typingsPath }'`);
-            return;
+            const errMsg = `Could not create typings directory '${ typingsPath }'`;
+            this._console.error(errMsg);
+            throw new Error(errMsg);
         }
 
         // Generate a typings subdirectory.
@@ -456,11 +460,24 @@ export class AnalyzerService {
                 fs.mkdirSync(typingsSubdirPath);
             }
         } catch (e) {
-            this._console.error(`Could not create typings subdirectory '${ typingsSubdirPath }'`);
-            return;
+            const errMsg = `Could not create typings subdirectory '${ typingsSubdirPath }'`;
+            this._console.error(errMsg);
+            throw new Error(errMsg);
         }
 
         this._program.writeTypeStub(this._typeStubTargetPath, typingsSubdirPath);
+    }
+
+    // This is called after a new type stub has been created. It allows
+    // us to invalidate caches and force reanalysis of files that potentially
+    // are affected by the appearance of a new type stub.
+    handlePostCreateTypeStub() {
+        // Make sure the import resolver doesn't have invalid
+        // cached entries.
+        this._importResolver.invalidateCache();
+
+        // Mark all files with one or more errors dirty.
+        this._program.markFilesWithErrorsDirty(this._configOptions);
     }
 
     private _findConfigFile(searchPath: string): string | undefined {
@@ -656,6 +673,11 @@ export class AnalyzerService {
 
     private _updateSourceFileWatchers() {
         this._removeSourceFileWatchers();
+
+        // Invalidate import resolver because it could have cached
+        // imports that are no longer valid because a source file has
+        // been deleted or added.
+        this._importResolver.invalidateCache();
 
         if (!this._watchForChanges) {
             return;

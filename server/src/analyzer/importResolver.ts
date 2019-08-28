@@ -41,6 +41,11 @@ export class ImportResolver {
         this._configOptions = configOptions;
     }
 
+    invalidateCache() {
+        this._cachedPythonSearchPaths = {};
+        this._cachedImportResults = {};
+    }
+
     // Resolves the import and returns the path if it exists, otherwise
     // returns undefined.
     resolveImport(sourceFilePath: string, execEnv: ExecutionEnvironment,

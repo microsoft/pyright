@@ -106,6 +106,9 @@ export class SourceFile {
     // "dataclasses.pyi", "abc.pyi", "asyncio/coroutines.pyi".
     private readonly _isBuiltInStubFile: boolean;
 
+    // True if the file appears to have been deleted.
+    private _isFileDeleted = false;
+
     // Latest analysis job that has completed at least one phase
     // of analysis.
     private _analysisJob: AnalysisJob = {
@@ -326,6 +329,10 @@ export class SourceFile {
         // Nothing to do currently.
     }
 
+    isFileDeleted() {
+        return this._isFileDeleted;
+    }
+
     isParseRequired() {
         return this._analysisJob.fileContentsVersion !== this._fileContentsVersion;
     }
@@ -403,6 +410,10 @@ export class SourceFile {
             } catch (error) {
                 diagSink.addError(`Source file could not be read`, getEmptyRange());
                 fileContents = '';
+
+                if (!fs.existsSync(this._filePath)) {
+                    this._isFileDeleted = true;
+                }
             }
         }
 
