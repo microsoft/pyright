@@ -10,9 +10,11 @@
 
 import * as fs from 'fs';
 
-import { ArgumentCategory, ArgumentNode, ClassNode, DecoratorNode,
-    ExpressionNode, FunctionNode, ImportFromNode, ImportNode, ModuleNameNode,
-    ParameterCategory, ParameterNode } from '../parser/parseNodes';
+import { ArgumentCategory, ArgumentNode, AssignmentNode, ClassNode,
+    DecoratorNode, ExpressionNode, FunctionNode, IfNode, ImportFromNode,
+    ImportNode, MemberAccessExpressionNode, ModuleNameNode, NameNode,
+    ParameterCategory, ParameterNode, StringListNode,
+    TypeAnnotationExpressionNode } from '../parser/parseNodes';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { SourceFile } from './sourceFile';
@@ -46,33 +48,30 @@ export class TypeStubWriter extends ParseTreeWalker {
     visitClass(node: ClassNode) {
         const className = node.name.nameToken.value;
 
-        // Skip if it's private.
-        if (!SymbolUtils.isProtectedName(className) && !SymbolUtils.isPrivateName(className)) {
-            this._emittedSuite = true;
-            this._emitDecorators(node.decorators);
-            let line = `class ${ className }`;
-            if (node.arguments.length > 0) {
-                line += `(${ node.arguments.map(arg => {
-                    let argString = '';
-                    if (arg.name) {
-                        argString = arg.name.nameToken.value + '=';
-                    }
-                    argString += this._printExpression(arg.valueExpression);
-                    return argString;
-                }).join(', ') })`;
-            }
-            line += ':';
-            this._emitLine(line);
-
-            this._emitSuite(() => {
-                this._classNestCount++;
-                this.walkChildren(node);
-                this._classNestCount--;
-            });
-
-            this._emitLine('');
-            this._emitLine('');
+        this._emittedSuite = true;
+        this._emitDecorators(node.decorators);
+        let line = `class ${ className }`;
+        if (node.arguments.length > 0) {
+            line += `(${ node.arguments.map(arg => {
+                let argString = '';
+                if (arg.name) {
+                    argString = arg.name.nameToken.value + '=';
+                }
+                argString += this._printExpression(arg.valueExpression);
+                return argString;
+            }).join(', ') })`;
         }
+        line += ':';
+        this._emitLine(line);
+
+        this._emitSuite(() => {
+            this._classNestCount++;
+            this.walkChildren(node);
+            this._classNestCount--;
+        });
+
+        this._emitLine('');
+        this._emitLine('');
 
         return false;
     }
@@ -90,9 +89,13 @@ export class TypeStubWriter extends ParseTreeWalker {
             let line = node.isAsync ? 'async ' : '';
             line += `def ${ functionName }`;
             line += `(${ node.parameters.map(param => this._printParameter(param)).join(', ') })`;
+
             if (node.returnTypeAnnotation) {
                 line += ' -> ' + this._printExpression(node.returnTypeAnnotation);
+            } else {
+                // TODO - add inferred type
             }
+
             line += ':';
             this._emitLine(line);
 
@@ -104,6 +107,92 @@ export class TypeStubWriter extends ParseTreeWalker {
             });
 
             this._emitLine('');
+        }
+
+        return false;
+    }
+
+    visitIf(node: IfNode) {
+        // Include if statements if they are located
+        // at the global scope.
+        if (this._functionNestCount === 0) {
+            this._emittedSuite = true;
+            this._emitLine('if ' + this._printExpression(node.testExpression) + ':');
+            this._emitSuite(() => {
+                this.walkChildren(node.ifSuite);
+            });
+
+            if (node.elseSuite) {
+                this._emitLine('else:');
+                this._emitSuite(() => {
+                    this.walkChildren(node.elseSuite!);
+                });
+            }
+        }
+
+        return false;
+    }
+
+    visitAssignment(node: AssignmentNode) {
+        let line = '';
+
+        if (node.leftExpression instanceof NameNode) {
+            if (this._functionNestCount === 0) {
+                line = this._printExpression(node.leftExpression);
+            }
+        } else if (node.leftExpression instanceof MemberAccessExpressionNode) {
+            const baseExpression = node.leftExpression.leftExpression;
+            if (baseExpression instanceof NameNode) {
+                if (baseExpression.nameToken.value === 'self') {
+                    const memberName = node.leftExpression.memberName.nameToken.value;
+                    if (!SymbolUtils.isProtectedName(memberName) &&
+                            !SymbolUtils.isPrivateName(memberName)) {
+
+                        line = this._printExpression(node.leftExpression);
+                    }
+                }
+            }
+        }
+
+        if (line) {
+            this._emittedSuite = true;
+
+            // TODO - add inferred type
+            line += ' = ';
+
+            if (this._functionNestCount === 0 && this._classNestCount === 0) {
+                line += this._printExpression(node.rightExpression);
+            } else {
+                line += '...';
+            }
+            this._emitLine(line);
+        }
+
+        return false;
+    }
+
+    visitTypeAnnotation(node: TypeAnnotationExpressionNode) {
+        if (this._functionNestCount === 0) {
+            let line = '';
+            if (node.valueExpression instanceof NameNode) {
+                line = this._printExpression(node.valueExpression);
+            } else if (node.valueExpression instanceof MemberAccessExpressionNode) {
+                const baseExpression = node.valueExpression.leftExpression;
+                if (baseExpression instanceof NameNode) {
+                    if (baseExpression.nameToken.value === 'self') {
+                        const memberName = node.valueExpression.memberName.nameToken.value;
+                        if (!SymbolUtils.isProtectedName(memberName) &&
+                                !SymbolUtils.isPrivateName(memberName)) {
+                            line = this._printExpression(node.valueExpression);
+                        }
+                    }
+                }
+            }
+
+            if (line) {
+                line += ': ' + this._printExpression(node.typeAnnotation);
+                this._emitLine(line);
+            }
         }
 
         return false;
@@ -149,6 +238,15 @@ export class TypeStubWriter extends ParseTreeWalker {
 
         this._emitLine(line);
 
+        return false;
+    }
+
+    visitStringList(node: StringListNode) {
+        // Is this the first statement in a suite? If so, assume
+        // it's a doc string and emit it.
+        if (!this._emittedSuite) {
+            this._emitLine(this._printExpression(node));
+        }
         return false;
     }
 
