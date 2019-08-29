@@ -54,6 +54,8 @@ To update to the latest version:
 * [Settings](/docs/settings.md)
 * [Comments](/docs/comments.md)
 * [Import Resolution](/docs/import-resolution.md)
+* [Type Stubs](/docs/type-stubs.md)
+* [Commands](/docs/commands.md)
 * [Building & Debugging](/docs/build-debug.md)
 * [Pyright Internals](/docs/internals.md)
 

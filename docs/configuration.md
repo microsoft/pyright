@@ -14,7 +14,7 @@ Pyright offers flexible configuration options specified in a JSON-formatted text
 
 **typeshedPath** [path, optional]: Path to a directory that contains typeshed type stub files. Pyright ships with an internal copy of some typeshed type stubs (those that cover the Python stdlib packages). If you want to use a full copy of the typeshed type stubs (including those for third-party packages), you can clone the [typeshed github repo](https://github.com/python/typeshed) to a local directory and reference the location with this path.
 
-**typingsPath** [path, optional]: Path to a directory that contains custom type stubs. Each package's type stub file(s) are expected to be in its own subdirectory.
+**typingsPath** [path, optional]: Path to a directory that contains custom type stubs. Each package's type stub file(s) are expected to be in its own subdirectory. The default value of this setting is "./typings".
 
 **venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. Each execution environment (see below for details) can refer to a different virtual environment. When used in conjunction with a **venv** setting (see below), pyright will search for imports in the virtual environment’s site-packages directory rather than the paths specified in PYTHONPATH.
 
