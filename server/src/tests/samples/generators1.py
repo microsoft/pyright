@@ -6,9 +6,12 @@ from typing import Generator, Iterator
 class ClassA():
     pass
 
+s = True
+
 class ClassB():
     def shouldContinue(self):
-        return True
+        global s
+        return s
 
 class ClassC():
     pass

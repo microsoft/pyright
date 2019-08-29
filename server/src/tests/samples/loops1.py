@@ -22,7 +22,7 @@ def func1():
         bar(data)
 
 
-x = True
+x = 20 + 20
 
 def func2():
     data = None
