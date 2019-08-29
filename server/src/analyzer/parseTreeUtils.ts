@@ -23,6 +23,13 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 
+export enum PrintExpressionFlags {
+    None = 0,
+
+    // Don't use string literals for forward declarations.
+    ForwardDeclarations = 0x01
+}
+
 export class ParseTreeUtils {
     static getNodeDepth(node: ParseNode): number {
         let depth = 0;
@@ -67,14 +74,14 @@ export class ParseTreeUtils {
         return node;
     }
 
-    static printExpression(node: ExpressionNode): string {
+    static printExpression(node: ExpressionNode, flags = PrintExpressionFlags.None): string {
         if (node instanceof NameNode) {
             return node.nameToken.value;
         } else if (node instanceof MemberAccessExpressionNode) {
-            return ParseTreeUtils.printExpression(node.leftExpression) + '.' +
+            return ParseTreeUtils.printExpression(node.leftExpression, flags) + '.' +
                 node.memberName.nameToken.value;
         } else if (node instanceof CallExpressionNode) {
-            return ParseTreeUtils.printExpression(node.leftExpression) + '(' +
+            return ParseTreeUtils.printExpression(node.leftExpression, flags) + '(' +
                 node.arguments.map(arg => {
                     let argStr = '';
                     if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
@@ -85,27 +92,31 @@ export class ParseTreeUtils {
                     if (arg.name) {
                         argStr += arg.name.nameToken.value + '=';
                     }
-                    argStr += this.printExpression(arg.valueExpression);
+                    argStr += this.printExpression(arg.valueExpression, flags);
                     return argStr;
                 }).join(', ') +
                 ')';
         } else if (node instanceof IndexExpressionNode) {
-            return ParseTreeUtils.printExpression(node.baseExpression) + '[' +
-                node.items.items.map(item => this.printExpression(item)).join(', ') +
+            return ParseTreeUtils.printExpression(node.baseExpression, flags) + '[' +
+                node.items.items.map(item => this.printExpression(item, flags)).join(', ') +
                 ']';
         } else if (node instanceof UnaryExpressionNode) {
             return ParseTreeUtils.printOperator(node.operator) + ' ' +
-                ParseTreeUtils.printExpression(node.expression);
+                ParseTreeUtils.printExpression(node.expression, flags);
         } else if (node instanceof BinaryExpressionNode) {
-            return ParseTreeUtils.printExpression(node.leftExpression) + ' ' +
+            return ParseTreeUtils.printExpression(node.leftExpression, flags) + ' ' +
                 ParseTreeUtils.printOperator(node.operator) + ' ' +
-                ParseTreeUtils.printExpression(node.rightExpression);
+                ParseTreeUtils.printExpression(node.rightExpression, flags);
         } else if (node instanceof NumberNode) {
             return node.token.value.toString();
         } else if (node instanceof StringListNode) {
-            return node.strings.map(str => {
-                return ParseTreeUtils.printExpression(str);
-            }).join(' ');
+            if ((flags & PrintExpressionFlags.ForwardDeclarations) && node.typeAnnotation) {
+                return ParseTreeUtils.printExpression(node.typeAnnotation, flags);
+            } else {
+                return node.strings.map(str => {
+                    return ParseTreeUtils.printExpression(str, flags);
+                }).join(' ');
+            }
         } else if (node instanceof StringNode) {
             let exprString = '';
             if (node.token.flags & StringTokenFlags.Raw) {
@@ -140,50 +151,50 @@ export class ParseTreeUtils {
 
             return exprString;
         } else if (node instanceof AssignmentNode) {
-            return ParseTreeUtils.printExpression(node.leftExpression) + ' = ' +
-                ParseTreeUtils.printExpression(node.rightExpression);
+            return ParseTreeUtils.printExpression(node.leftExpression, flags) + ' = ' +
+                ParseTreeUtils.printExpression(node.rightExpression, flags);
         } else if (node instanceof TypeAnnotationExpressionNode) {
-            return ParseTreeUtils.printExpression(node.valueExpression) + ': ' +
-                ParseTreeUtils.printExpression(node.typeAnnotation);
+            return ParseTreeUtils.printExpression(node.valueExpression, flags) + ': ' +
+                ParseTreeUtils.printExpression(node.typeAnnotation, flags);
         } else if (node instanceof AugmentedAssignmentExpressionNode) {
-            return ParseTreeUtils.printExpression(node.leftExpression) + ' ' +
+            return ParseTreeUtils.printExpression(node.leftExpression, flags) + ' ' +
                 ParseTreeUtils.printOperator(node.operator) + ' ' +
-                ParseTreeUtils.printExpression(node.rightExpression);
+                ParseTreeUtils.printExpression(node.rightExpression, flags);
         } else if (node instanceof AwaitExpressionNode) {
-            return 'await ' + ParseTreeUtils.printExpression(node.expression);
+            return 'await ' + ParseTreeUtils.printExpression(node.expression, flags);
         } else if (node instanceof TernaryExpressionNode) {
-            return ParseTreeUtils.printExpression(node.ifExpression) + ' if ' +
-                ParseTreeUtils.printExpression(node.testExpression) + ' else ' +
-                ParseTreeUtils.printExpression(node.elseExpression);
+            return ParseTreeUtils.printExpression(node.ifExpression, flags) + ' if ' +
+                ParseTreeUtils.printExpression(node.testExpression, flags) + ' else ' +
+                ParseTreeUtils.printExpression(node.elseExpression, flags);
         } else if (node instanceof ListNode) {
             let expressions = node.entries.map(expr => {
-                return ParseTreeUtils.printExpression(expr);
+                return ParseTreeUtils.printExpression(expr, flags);
             });
             return `[${ expressions.join(', ') }]`;
         } else if (node instanceof UnpackExpressionNode) {
-            return '*' + ParseTreeUtils.printExpression(node.expression);
+            return '*' + ParseTreeUtils.printExpression(node.expression, flags);
         } else if (node instanceof TupleExpressionNode) {
             let expressions = node.expressions.map(expr => {
-                return ParseTreeUtils.printExpression(expr);
+                return ParseTreeUtils.printExpression(expr, flags);
             });
             if (expressions.length === 1) {
                 return `(${ expressions[0] }, )`;
             }
             return `(${ expressions.join(', ') })`;
         } else if (node instanceof YieldExpressionNode) {
-            return 'yield ' + ParseTreeUtils.printExpression(node.expression);
+            return 'yield ' + ParseTreeUtils.printExpression(node.expression, flags);
         } else if (node instanceof YieldFromExpressionNode) {
-            return 'yield from ' + ParseTreeUtils.printExpression(node.expression);
+            return 'yield from ' + ParseTreeUtils.printExpression(node.expression, flags);
         } else if (node instanceof EllipsisNode) {
             return '...';
         } else if (node instanceof ListComprehensionNode) {
             let listStr = '<ListExpression>';
 
             if (node.expression instanceof ExpressionNode) {
-                listStr = ParseTreeUtils.printExpression(node.expression);
+                listStr = ParseTreeUtils.printExpression(node.expression, flags);
             } else if (node.expression instanceof DictionaryKeyEntryNode) {
-                const keyStr = ParseTreeUtils.printExpression(node.expression.keyExpression);
-                const valueStr = ParseTreeUtils.printExpression(node.expression.valueExpression);
+                const keyStr = ParseTreeUtils.printExpression(node.expression.keyExpression, flags);
+                const valueStr = ParseTreeUtils.printExpression(node.expression.valueExpression, flags);
                 listStr = `${ keyStr }: ${ valueStr }`;
             }
 
@@ -191,22 +202,22 @@ export class ParseTreeUtils {
                 node.comprehensions.map(expr => {
                     if (expr instanceof ListComprehensionForNode) {
                         return `${ expr.isAsync ? 'async ' : '' }for ` +
-                            ParseTreeUtils.printExpression(expr.targetExpression) +
-                            ` in ${ ParseTreeUtils.printExpression(expr.iterableExpression) }`;
+                            ParseTreeUtils.printExpression(expr.targetExpression, flags) +
+                            ` in ${ ParseTreeUtils.printExpression(expr.iterableExpression, flags) }`;
                     } else {
-                        return `if ${ ParseTreeUtils.printExpression(expr.testExpression) }`;
+                        return `if ${ ParseTreeUtils.printExpression(expr.testExpression, flags) }`;
                     }
                 }).join(' ');
         } else if (node instanceof SliceExpressionNode) {
             let result = '';
             if (node.startValue) {
-                result += ParseTreeUtils.printExpression(node.startValue);
+                result += ParseTreeUtils.printExpression(node.startValue, flags);
             }
             if (node.endValue) {
-                result += ': ' + ParseTreeUtils.printExpression(node.endValue);
+                result += ': ' + ParseTreeUtils.printExpression(node.endValue, flags);
             }
             if (node.stepValue) {
-                result += ': ' + ParseTreeUtils.printExpression(node.stepValue);
+                result += ': ' + ParseTreeUtils.printExpression(node.stepValue, flags);
             }
             return result;
         } else if (node instanceof LambdaNode) {
@@ -224,10 +235,10 @@ export class ParseTreeUtils {
                 }
 
                 if (param.defaultValue) {
-                    paramStr += ' = ' + ParseTreeUtils.printExpression(param.defaultValue);
+                    paramStr += ' = ' + ParseTreeUtils.printExpression(param.defaultValue, flags);
                 }
                 return paramStr;
-            }).join(', ') + ': ' + ParseTreeUtils.printExpression(node.expression);
+            }).join(', ') + ': ' + ParseTreeUtils.printExpression(node.expression, flags);
         } else if (node instanceof ConstantNode) {
             if (node.token.keywordType === KeywordType.True) {
                 return 'True';
@@ -241,16 +252,16 @@ export class ParseTreeUtils {
         } else if (node instanceof DictionaryNode) {
             return `{ ${ node.entries.map(entry => {
                 if (entry instanceof DictionaryKeyEntryNode) {
-                    return `${ ParseTreeUtils.printExpression(entry.keyExpression) }: ` +
-                        `${ ParseTreeUtils.printExpression(entry.valueExpression) }`;
+                    return `${ ParseTreeUtils.printExpression(entry.keyExpression, flags) }: ` +
+                        `${ ParseTreeUtils.printExpression(entry.valueExpression, flags) }`;
                 } else {
-                    return ParseTreeUtils.printExpression(entry);
+                    return ParseTreeUtils.printExpression(entry, flags);
                 }
             })} }`;
         } else if (node instanceof DictionaryExpandEntryNode) {
-            return `**${ ParseTreeUtils.printExpression(node.expandExpression) }`;
+            return `**${ ParseTreeUtils.printExpression(node.expandExpression, flags) }`;
         } else if (node instanceof SetNode) {
-            return node.entries.map(entry => ParseTreeUtils.printExpression(entry)).join(', ');
+            return node.entries.map(entry => ParseTreeUtils.printExpression(entry, flags)).join(', ');
         }
 
         return '<Expression>';

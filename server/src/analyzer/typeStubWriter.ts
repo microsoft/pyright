@@ -10,22 +10,117 @@
 
 import * as fs from 'fs';
 
-import { ArgumentCategory, ArgumentNode, AssignmentNode, ClassNode,
-    DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode, ImportFromNode,
-    ImportNode, MemberAccessExpressionNode, ModuleNameNode, NameNode,
-    ParameterCategory, ParameterNode, StatementListNode, StringListNode,
-    TryNode, TypeAnnotationExpressionNode, WhileNode,
+import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentExpressionNode,
+    ClassNode, DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode,
+    ImportFromNode, ImportNode, MemberAccessExpressionNode, ModuleNameNode, NameNode,
+    ParameterCategory, ParameterNode, ParseNode, StatementListNode,
+    StringListNode, StringNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
     WithNode } from '../parser/parseNodes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { ParseTreeUtils } from './parseTreeUtils';
+import { ParseTreeUtils, PrintExpressionFlags } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { SourceFile } from './sourceFile';
+import { Symbol } from './symbol';
 import { SymbolUtils } from './symbolUtils';
 import { FunctionType, NoneType, ObjectType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
+class TrackedImport {
+    constructor(public importName: string) {}
+
+    isAccessed = false;
+}
+
+class TrackedImportAs extends TrackedImport {
+    constructor(importName: string, public alias: string | undefined,
+            public symbol: Symbol) {
+
+        super(importName);
+    }
+}
+
+interface TrackedImportSymbol {
+    symbol?: Symbol;
+    name: string;
+    alias?: string;
+    isAccessed: boolean;
+}
+
+class TrackedImportFrom extends TrackedImport {
+    constructor(importName: string, public isWildcardImport: boolean, public node?: ImportFromNode) {
+        super(importName);
+    }
+    symbols: TrackedImportSymbol[] = [];
+
+    addSymbol(symbol: Symbol | undefined, name: string,
+            alias: string | undefined, isAccessed = false) {
+
+        if (!this.symbols.find(s => s.name === name)) {
+            this.symbols.push({
+                symbol,
+                name,
+                alias,
+                isAccessed
+            });
+        }
+    }
+}
+
+class ImportSymbolWalker extends ParseTreeWalker {
+    constructor(
+        private _trackedImportAs: { [importName: string]: TrackedImportAs },
+            private _trackedImportFrom: { [importName: string]: TrackedImportFrom },
+            private _treatStringsAsSymbols: boolean) {
+
+        super();
+    }
+
+    analyze(node: ExpressionNode) {
+        this.walk(node);
+    }
+
+    visitName(node: NameNode) {
+        this._markNameAccessed(node, node.nameToken.value);
+        return true;
+    }
+
+    visitString(node: StringNode) {
+        if (this._treatStringsAsSymbols) {
+            const value = node.getValue();
+            this._markNameAccessed(node, value);
+        }
+
+        return true;
+    }
+
+    private _markNameAccessed(node: ParseNode, name: string) {
+        const currentScope = AnalyzerNodeInfo.getScopeRecursive(node);
+        if (currentScope) {
+            const symbolInfo = currentScope.lookUpSymbolRecursive(name);
+            if (symbolInfo) {
+                Object.keys(this._trackedImportAs).forEach(implName => {
+                    const impl = this._trackedImportAs[implName];
+                    if (impl.symbol === symbolInfo.symbol) {
+                        impl.isAccessed = true;
+                    }
+                });
+
+                Object.keys(this._trackedImportFrom).forEach(implName => {
+                    const impl = this._trackedImportFrom[implName];
+                    impl.symbols.forEach(symbol => {
+                        if (symbol.symbol === symbolInfo.symbol) {
+                            symbol.isAccessed = true;
+                        }
+                    });
+                });
+            }
+        }
+    }
+}
+
 export class TypeStubWriter extends ParseTreeWalker {
     private _indentAmount = 0;
+    private _includeAllImports = false;
     private _typeStubText = '';
     private _lineEnd = '\n';
     private _tab = '    ';
@@ -34,17 +129,22 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _ifNestCount = 0;
     private _emittedSuite = false;
     private _emitDocString = true;
+    private _trackedImportAs: { [importName: string]: TrackedImportAs } = {};
+    private _trackedImportFrom: { [importName: string]: TrackedImportFrom } = {};
 
     constructor(private _typingsPath: string, private _sourceFile: SourceFile) {
         super();
+
+        // As a heuristic, we'll include all of the import statements
+        // in "__init__.pyi" files even if they're not locally referenced
+        // because these are often used as ways to re-export symbols.
+        this._includeAllImports = this._typingsPath.endsWith('__init__.pyi');
     }
 
     write() {
         const parseResults = this._sourceFile.getParseResults()!;
         this._lineEnd = parseResults.predominantLineEndSequence;
         this._tab = parseResults.predominantTabSequence;
-
-        this._emitHeaderDocString();
 
         this.walk(parseResults.parseTree);
 
@@ -96,7 +196,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             line += `(${ node.parameters.map(param => this._printParameter(param)).join(', ') })`;
 
             if (node.returnTypeAnnotation) {
-                line += ' -> ' + this._printExpression(node.returnTypeAnnotation);
+                line += ' -> ' + this._printExpression(node.returnTypeAnnotation, true);
             } else {
                 const functionType = AnalyzerNodeInfo.getExpressionType(node);
                 if (functionType instanceof FunctionType) {
@@ -195,6 +295,10 @@ export class TypeStubWriter extends ParseTreeWalker {
             if (this._functionNestCount === 0) {
                 line = this._printExpression(node.leftExpression);
             }
+
+            if (node.leftExpression.nameToken.value === '__all__') {
+                this._emitLine(this._printExpression(node, false, true));
+            }
         } else if (node.leftExpression instanceof MemberAccessExpressionNode) {
             const baseExpression = node.leftExpression.leftExpression;
             if (baseExpression instanceof NameNode) {
@@ -236,6 +340,18 @@ export class TypeStubWriter extends ParseTreeWalker {
         return false;
     }
 
+    visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode) {
+        if (this._classNestCount === 0 && this._functionNestCount === 0) {
+            if (node.leftExpression instanceof NameNode) {
+                if (node.leftExpression.nameToken.value === '__all__') {
+                    this._emitLine(this._printExpression(node, false, true));
+                }
+            }
+        }
+
+        return false;
+    }
+
     visitTypeAnnotation(node: TypeAnnotationExpressionNode) {
         if (this._functionNestCount === 0) {
             let line = '';
@@ -255,7 +371,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             }
 
             if (line) {
-                line += ': ' + this._printExpression(node.typeAnnotation);
+                line += ': ' + this._printExpression(node.typeAnnotation, true);
                 this._emitLine(line);
             }
         }
@@ -268,17 +384,25 @@ export class TypeStubWriter extends ParseTreeWalker {
             return false;
         }
 
-        let line = 'import ';
-
-        line += node.list.map(imp => {
-            let impText = this._printModuleName(imp.module);
-            if (imp.alias) {
-                impText += ' as ' + imp.alias.nameToken.value;
-            }
-            return impText;
-        }).join(', ');
-
-        this._emitLine(line);
+        const currentScope = AnalyzerNodeInfo.getScopeRecursive(node);
+        if (currentScope) {
+            // Record the input for later.
+            node.list.forEach(imp => {
+                const moduleName = this._printModuleName(imp.module);
+                if (!this._trackedImportAs[moduleName]) {
+                    const symbolName = imp.alias ? imp.alias.nameToken.value :
+                        (imp.module.nameParts.length > 0 ?
+                            imp.module.nameParts[0].nameToken.value : '');
+                    const symbolInfo = currentScope.lookUpSymbolRecursive(symbolName);
+                    if (symbolInfo) {
+                        const trackedImportAs = new TrackedImportAs(moduleName,
+                            imp.alias ? imp.alias.nameToken.value : undefined,
+                            symbolInfo.symbol);
+                        this._trackedImportAs[moduleName] = trackedImportAs;
+                    }
+                }
+            });
+        }
 
         return false;
     }
@@ -288,20 +412,27 @@ export class TypeStubWriter extends ParseTreeWalker {
             return false;
         }
 
-        let line = 'from ' + this._printModuleName(node.module) + ' import ';
-        if (node.isWildcardImport) {
-            line += '*';
-        } else {
-            line += node.imports.map(imp => {
-                let impString = imp.name.nameToken.value;
-                if (imp.alias) {
-                    impString += ' as ' + imp.alias.nameToken.value;
-                }
-                return impString;
-            }).join(', ');
-        }
+        const currentScope = AnalyzerNodeInfo.getScopeRecursive(node);
+        if (currentScope) {
+            // Record the input for later.
+            const moduleName = this._printModuleName(node.module);
+            let trackedImportFrom = this._trackedImportFrom[moduleName];
+            if (!this._trackedImportFrom[moduleName]) {
+                trackedImportFrom = new TrackedImportFrom(moduleName,
+                    node.isWildcardImport, node);
+                this._trackedImportFrom[moduleName] = trackedImportFrom;
+            }
 
-        this._emitLine(line);
+            node.imports.forEach(imp => {
+                const symbolName = imp.alias ?
+                    imp.alias.nameToken.value : imp.name.nameToken.value;
+                const symbolInfo = currentScope.lookUpSymbolRecursive(symbolName);
+                if (symbolInfo) {
+                    trackedImportFrom.addSymbol(symbolInfo.symbol, imp.name.nameToken.value,
+                        imp.alias ? imp.alias.nameToken.value : undefined, false);
+                }
+            });
+        }
 
         return false;
     }
@@ -354,11 +485,13 @@ export class TypeStubWriter extends ParseTreeWalker {
         });
     }
 
-    private _emitHeaderDocString() {
-        this._emitLine('"""');
-        this._emitLine('This type stub file was generated by pyright.');
-        this._emitLine('"""');
-        this._emitLine('');
+    private _printHeaderDocString() {
+        return '"""' + this._lineEnd +
+            'This type stub file was generated by pyright.' + this._lineEnd +
+            '"""' + this._lineEnd +
+            this._lineEnd;
+        // this._emitLine('');
+        // this._emitLine('from typing import Any, Optional');
         // this._emitLine('from typing import Any, List, Dict, Optional, Tuple, Type, Union');
         // this._emitLine('from typing_extensions import Literal');
     }
@@ -380,6 +513,18 @@ export class TypeStubWriter extends ParseTreeWalker {
         return line;
     }
 
+    private _addImplicitImportFrom(importName: string, symbols: string[]) {
+        let trackedImportFrom = this._trackedImportFrom[importName];
+        if (!this._trackedImportFrom[importName]) {
+            trackedImportFrom = new TrackedImportFrom(importName, false);
+            this._trackedImportFrom[importName] = trackedImportFrom;
+        }
+
+        symbols.forEach(symbol => {
+            trackedImportFrom.addSymbol(undefined, symbol, undefined, true);
+        });
+    }
+
     private _printParameter(node: ParameterNode): string {
         let line = '';
         if (node.category === ParameterCategory.VarArgList) {
@@ -394,13 +539,14 @@ export class TypeStubWriter extends ParseTreeWalker {
 
         let paramType = '';
         if (node.typeAnnotation) {
-            paramType = this._printExpression(node.typeAnnotation);
+            paramType = this._printExpression(node.typeAnnotation, true);
         } else if (node.defaultValue) {
             // Try to infer the param type based on the default value.
             const typeOfDefault = AnalyzerNodeInfo.getExpressionType(node.defaultValue);
             if (typeOfDefault && !TypeUtils.containsUnknown(typeOfDefault)) {
                 if (typeOfDefault instanceof NoneType) {
                     paramType = 'Optional[Any]';
+                    this._addImplicitImportFrom('typing', ['Any', 'Optional']);
                 } else if (typeOfDefault instanceof ObjectType) {
                     const classType = typeOfDefault.getClassType();
                     if (classType.isBuiltIn() && classType.getClassName() === 'bool') {
@@ -442,11 +588,84 @@ export class TypeStubWriter extends ParseTreeWalker {
         return line + this._printExpression(node.valueExpression);
     }
 
-    private _printExpression(node: ExpressionNode): string {
-        return ParseTreeUtils.printExpression(node);
+    private _printExpression(node: ExpressionNode, isType = false,
+            treatStringsAsSymbols = false): string {
+
+        const importSymbolWalker = new ImportSymbolWalker(
+            this._trackedImportAs,
+            this._trackedImportFrom,
+            treatStringsAsSymbols);
+        importSymbolWalker.analyze(node);
+
+        return ParseTreeUtils.printExpression(node,
+            isType ? PrintExpressionFlags.ForwardDeclarations : PrintExpressionFlags.None);
+    }
+
+    private _printTrackedImports() {
+        let importStr = '';
+        let lineEmitted = false;
+
+        // Emit the "import" statements.
+        Object.keys(this._trackedImportAs).forEach(impName => {
+            const imp = this._trackedImportAs[impName];
+            if (imp.isAccessed || this._includeAllImports) {
+                importStr += `import ${ imp.importName }`;
+                if (imp.alias) {
+                    importStr += ` as ${ imp.alias }`;
+                }
+                importStr += this._lineEnd;
+                lineEmitted = true;
+            }
+        });
+
+        // Emit the "import from" statements.
+        Object.keys(this._trackedImportFrom).forEach(impName => {
+            const imp = this._trackedImportFrom[impName];
+
+            if (imp.isWildcardImport) {
+                importStr += `from ${ imp.importName } import *` + this._lineEnd;
+                lineEmitted = true;
+            }
+
+            const sortedSymbols = imp.symbols.
+                filter(s => s.isAccessed || this._includeAllImports).
+                sort((a, b) => {
+                    if (a.name < b.name) {
+                        return -1;
+                    } else if (a.name > b.name) {
+                        return 1;
+                    }
+                    return 0;
+                });
+
+            if (sortedSymbols.length > 0) {
+                importStr += `from ${ imp.importName } import `;
+
+                importStr += sortedSymbols.map(symbol => {
+                    let symStr = symbol.name;
+                    if (symbol.alias) {
+                        symStr += ' as ' + symbol.alias;
+                    }
+                    return symStr;
+                }).join(', ');
+
+                importStr += this._lineEnd;
+                lineEmitted = true;
+            }
+        });
+
+        if (lineEmitted) {
+            importStr += this._lineEnd;
+        }
+
+        return importStr;
     }
 
     private _writeFile() {
-        fs.writeFileSync(this._typingsPath, this._typeStubText, { encoding: 'utf8' });
+        let finalText = this._printHeaderDocString();
+        finalText += this._printTrackedImports();
+        finalText += this._typeStubText;
+
+        fs.writeFileSync(this._typingsPath, finalText, { encoding: 'utf8' });
     }
 }

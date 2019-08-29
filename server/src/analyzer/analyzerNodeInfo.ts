@@ -15,7 +15,7 @@ import { ParseNode, StringListNode } from '../parser/parseNodes';
 import { Declaration } from './declaration';
 import { ImportResult } from './importResult';
 import { TypeSourceId } from './inferredType';
-import { Scope } from './scope';
+import { Scope, ScopeType } from './scope';
 import { Type } from './types';
 
 // An always-incrementing ID for assigning to nodes.
@@ -96,6 +96,23 @@ export class AnalyzerNodeInfo {
     static setScope(node: ParseNode, scope: Scope) {
         const analyzerNode = node as AnalyzerNodeInfo;
         analyzerNode._scope = scope;
+    }
+
+    static getScopeRecursive(node: ParseNode, skipTemporary = true): Scope | undefined {
+        let curNode: ParseNode | undefined = node;
+
+        while (curNode) {
+            let scope = AnalyzerNodeInfo.getScope(curNode);
+            if (scope) {
+                if (!skipTemporary || scope.getType() !== ScopeType.Temporary) {
+                    return scope;
+                }
+            }
+
+            curNode = curNode.parent;
+        }
+
+        return undefined;
     }
 
     static getImportInfo(node: ParseNode): ImportResult | undefined {
