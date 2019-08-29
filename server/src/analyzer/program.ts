@@ -375,7 +375,7 @@ export class Program {
         }
     }
 
-    writeTypeStub(targetImportPath: string, typingsPath: string) {
+    writeTypeStub(targetImportPath: string, targetIsSingleFile: boolean, typingsPath: string) {
         for (let sourceFileInfo of this._sourceFileList) {
             const filePath = sourceFileInfo.sourceFile.getFilePath();
 
@@ -384,7 +384,16 @@ export class Program {
             const relativePath = getRelativePath(filePath, targetImportPath);
             if (relativePath !== undefined) {
                 let typeStubPath = normalizePath(combinePaths(typingsPath, relativePath));
-                typeStubPath = stripFileExtension(typeStubPath) + '.pyi';
+
+                // If the target is a single file implementation, as opposed to
+                // a package in a directory, transform the name of the type stub
+                // to __init__.pyi because we're placing it in a directory.
+                if (targetIsSingleFile) {
+                    typeStubPath = combinePaths(getDirectoryPath(typeStubPath), '__init__.pyi');
+                } else {
+                    typeStubPath = stripFileExtension(typeStubPath) + '.pyi';
+                }
+
                 const typeStubDir = getDirectoryPath(typeStubPath);
 
                 try {

@@ -19,8 +19,10 @@ import { Diagnostic, DiagnosticTextPosition, DiagnosticTextRange,
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
-    getFileSpec, getFileSystemEntries, isDirectory, isFile,
-    normalizePath } from '../common/pathUtils';
+    getFileName, getFileSpec, getFileSystemEntries, isDirectory,
+    isFile,
+    normalizePath,
+    stripFileExtension } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
@@ -50,6 +52,7 @@ export class AnalyzerService {
     private _executionRootPath: string;
     private _typeStubTargetImportName: string | undefined;
     private _typeStubTargetPath: string | undefined;
+    private _typeStubTargetIsSingleFile = false;
     private _console: ConsoleInterface;
     private _sourceFileWatcher: (fs.FSWatcher | undefined)[] | undefined;
     private _reloadConfigTimer: any;
@@ -465,7 +468,7 @@ export class AnalyzerService {
             throw new Error(errMsg);
         }
 
-        this._program.writeTypeStub(this._typeStubTargetPath, typingsSubdirPath);
+        this._program.writeTypeStub(this._typeStubTargetPath, this._typeStubTargetIsSingleFile, typingsSubdirPath);
     }
 
     // This is called after a new type stub has been created. It allows
@@ -569,9 +572,11 @@ export class AnalyzerService {
                         importResult.resolvedPaths.length - 1];
                 if (importResult.isNamespacePackage) {
                     this._typeStubTargetPath = resolvedPath;
+                    this._typeStubTargetIsSingleFile = false;
                 } else {
                     filesToImport.push(resolvedPath);
                     this._typeStubTargetPath = getDirectoryPath(resolvedPath);
+                    this._typeStubTargetIsSingleFile = stripFileExtension(getFileName(resolvedPath)) !== '__init__';
                 }
 
                 // Add the implicit import paths.
