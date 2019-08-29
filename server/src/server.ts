@@ -130,7 +130,7 @@ function _createTypeStubService(importName: string,
             try {
                 service.writeTypeStub();
                 service.dispose();
-                const infoMessage = `Type stub created for '${ importName }'`;
+                const infoMessage = `Type stub was successfully created for '${ importName }'.`;
                 _connection.window.showInformationMessage(infoMessage);
                 complete(true);
             } catch (err) {
@@ -138,7 +138,7 @@ function _createTypeStubService(importName: string,
                 if (err instanceof Error) {
                     errMessage = ': ' + err.message;
                 }
-                errMessage = `Error occurred when creating type stub for '${ importName }'` +
+                errMessage = `An error occurred when creating type stub for '${ importName }'` +
                     errMessage;
                 _connection.console.error(errMessage);
                 _connection.window.showErrorMessage(errMessage);

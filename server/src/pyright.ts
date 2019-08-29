@@ -129,14 +129,14 @@ function processArgs() {
             try {
                 service.writeTypeStub();
                 service.dispose();
-                console.log(`Type stub created for '${ args.createstub }'`);
+                console.log(`Type stub was created for '${ args.createstub }'`);
             } catch (err) {
                 let errMessage = '';
                 if (err instanceof Error) {
                     errMessage = ': ' + err.message;
                 }
 
-                console.error('Error occurred when creating type stub' + errMessage);
+                console.error(`Error occurred when creating type stub: ` + errMessage);
             }
             process.exit(ExitStatus.NoErrors);
         }
