@@ -276,7 +276,7 @@ export class ImportResolver {
         // Check for a typeshed file.
         const thirdPartyTypeshedPath = this._getTypeshedPath(false, execEnv, importFailureInfo);
         if (thirdPartyTypeshedPath) {
-            const candidateModuleName = this._getModuleNameFromPath(thirdPartyTypeshedPath, filePath);
+            const candidateModuleName = this._getModuleNameFromPath(thirdPartyTypeshedPath, filePath, true);
 
             // Does this candidate look better than the previous best module name?
             // We'll always try to use the shortest version.
