@@ -1065,6 +1065,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let srcType = this._getTypeOfExpression(node.rightExpression,
             this._fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined);
 
+        // Determine if the RHS is a constant boolean expression.
+        // If so, assign it a literal type.
+        const constExprValue = ExpressionUtils.evaluateConstantExpression(node.rightExpression,
+            this._fileInfo.executionEnvironment);
+        if (constExprValue !== undefined) {
+            const boolType = ScopeUtils.getBuiltInObject(this._currentScope, 'bool');
+            if (boolType instanceof ObjectType) {
+                srcType = boolType.cloneWithLiteral(constExprValue);
+            }
+        }
+
         // If a type declaration was provided, note it here.
         if (node.typeAnnotationComment) {
             const typeHintType = this._getTypeOfAnnotation(node.typeAnnotationComment);
@@ -2343,7 +2354,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (node.name && node.name.nameToken.value === '__new__') {
             // __new__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name ||
-                    node.parameters[0].name.nameToken.value !== 'cls') {
+                    (node.parameters[0].name.nameToken.value !== 'cls' &&
+                    node.parameters[0].name.nameToken.value !== 'mcs')) {
                 this._addError(
                     `The __new__ override should take a 'cls' parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name);
@@ -2426,7 +2438,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Get and cache the expression type before walking it. This will apply
         // any type constraints along the way.
-        this._getTypeOfExpression(testExpression);
+        const exprType = this._getTypeOfExpression(testExpression);
+
+        // Handle the case where the expression evaluates to a known
+        // true, false or None value.
+        if (exprType instanceof ObjectType) {
+            const exprClass = exprType.getClassType();
+            if (exprClass.isBuiltIn() && exprClass.getClassName() === 'bool') {
+                const literalValue = exprType.getLiteralValue();
+                if (typeof literalValue === 'boolean') {
+                    constExprValue = literalValue;
+                }
+            }
+        } else if (exprType instanceof NoneType) {
+            constExprValue = false;
+        }
+
         this.walk(testExpression);
 
         let typeConstraints = this._buildConditionalTypeConstraints(testExpression);

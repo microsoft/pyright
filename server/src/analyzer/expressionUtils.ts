@@ -18,7 +18,7 @@ export class ExpressionUtils {
     // Returns undefined if the expression cannot be evaluated
     // statically or a value if it can.
     static evaluateConstantExpression(node: ExpressionNode,
-            execEnv: ExecutionEnvironment): any | undefined {
+            execEnv: ExecutionEnvironment): boolean | undefined {
 
         if (node instanceof BinaryExpressionNode) {
             if (this._isSysVersionInfoExpression(node.leftExpression) &&
@@ -38,22 +38,29 @@ export class ExpressionUtils {
 
                 // Handle the special case of "sys.version_info[0] >= X"
                 return this._evaluateNumericBinaryOperation(node.operator,
-                    execEnv.pythonVersion / 256, node.rightExpression.token.value);
+                    Math.floor(execEnv.pythonVersion / 256), node.rightExpression.token.value);
             } else if (this._isSysPlatformInfoExpression(node.leftExpression) &&
                     node.rightExpression instanceof StringListNode) {
                 // Handle the special case of "sys.platform != 'X'"
-                let comparisonPlatform = node.rightExpression.getValue();
+                const comparisonPlatform = node.rightExpression.getValue();
                 if (execEnv.pythonPlatform !== undefined) {
                     return this._evaluateStringBinaryOperation(node.operator,
                         execEnv.pythonPlatform, comparisonPlatform);
+                }
+            } else if (this._isOsNameInfoExpression(node.leftExpression) &&
+                    node.rightExpression instanceof StringListNode) {
+                // Handle the special case of "os.name == 'X'"
+                const comparisonOsName = node.rightExpression.getValue();
+                let expectedOsName = this._getExpectedOsNameFromPlatform(execEnv);
+                if (expectedOsName !== undefined) {
+                    return this._evaluateStringBinaryOperation(node.operator,
+                        expectedOsName, comparisonOsName);
                 }
             }
         } else if (node instanceof ConstantNode) {
             if (node.token.keywordType === KeywordType.True) {
                 return true;
-            } else if (node.token.keywordType === KeywordType.False ||
-                    node.token.keywordType === KeywordType.None) {
-
+            } else if (node.token.keywordType === KeywordType.False) {
                 return false;
             }
         } else if (node instanceof NameNode) {
@@ -138,5 +145,29 @@ export class ExpressionUtils {
         }
 
         return false;
+    }
+
+    private static _isOsNameInfoExpression(node: ExpressionNode): boolean {
+        if (node instanceof MemberAccessExpressionNode) {
+            if (node.leftExpression instanceof NameNode &&
+                    node.leftExpression.nameToken.value === 'os' &&
+                    node.memberName.nameToken.value === 'name') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static _getExpectedOsNameFromPlatform(execEnv: ExecutionEnvironment): string | undefined {
+        if (execEnv.pythonPlatform === 'Darwin') {
+            return 'posix';
+        } else if (execEnv.pythonPlatform === 'Windows') {
+            return 'nt';
+        } else if (execEnv.pythonPlatform === 'Linux') {
+            return 'linux';
+        }
+
+        return undefined;
     }
 }

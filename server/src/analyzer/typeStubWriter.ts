@@ -11,10 +11,11 @@
 import * as fs from 'fs';
 
 import { ArgumentCategory, ArgumentNode, AssignmentNode, ClassNode,
-    DecoratorNode, ExpressionNode, FunctionNode, IfNode, ImportFromNode,
+    DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode, ImportFromNode,
     ImportNode, MemberAccessExpressionNode, ModuleNameNode, NameNode,
-    ParameterCategory, ParameterNode, StringListNode,
-    TypeAnnotationExpressionNode } from '../parser/parseNodes';
+    ParameterCategory, ParameterNode, StatementListNode, StringListNode,
+    TryNode, TypeAnnotationExpressionNode, WhileNode,
+    WithNode } from '../parser/parseNodes';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { SourceFile } from './sourceFile';
@@ -27,7 +28,9 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _tab = '    ';
     private _classNestCount = 0;
     private _functionNestCount = 0;
+    private _ifNestCount = 0;
     private _emittedSuite = false;
+    private _emitDocString = true;
 
     constructor(private _typingsPath: string, private _sourceFile: SourceFile) {
         super();
@@ -49,6 +52,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         const className = node.name.nameToken.value;
 
         this._emittedSuite = true;
+        this._emitDocString = true;
         this._emitDecorators(node.decorators);
         let line = `class ${ className }`;
         if (node.arguments.length > 0) {
@@ -79,12 +83,10 @@ export class TypeStubWriter extends ParseTreeWalker {
     visitFunction(node: FunctionNode) {
         const functionName = node.name.nameToken.value;
 
-        // Skip if it's private or if we're already within a function.
-        if (this._functionNestCount === 0 &&
-            !SymbolUtils.isProtectedName(functionName) &&
-                !SymbolUtils.isPrivateName(functionName)) {
-
+        // Skip if we're already within a function.
+        if (this._functionNestCount === 0) {
             this._emittedSuite = true;
+            this._emitDocString = true;
             this._emitDecorators(node.decorators);
             let line = node.isAsync ? 'async ' : '';
             line += `def ${ functionName }`;
@@ -112,10 +114,38 @@ export class TypeStubWriter extends ParseTreeWalker {
         return false;
     }
 
+    visitWhile(node: WhileNode) {
+        // Don't emit a doc string after the first statement.
+        this._emitDocString = false;
+        return false;
+    }
+
+    visitFor(node: ForNode) {
+        // Don't emit a doc string after the first statement.
+        this._emitDocString = false;
+        return false;
+    }
+
+    visitTry(node: TryNode) {
+        // Don't emit a doc string after the first statement.
+        this._emitDocString = false;
+        return false;
+    }
+
+    visitWith(node: WithNode) {
+        // Don't emit a doc string after the first statement.
+        this._emitDocString = false;
+        return false;
+    }
+
     visitIf(node: IfNode) {
+        // Don't emit a doc string after the first statement.
+        this._emitDocString = false;
+
         // Include if statements if they are located
         // at the global scope.
-        if (this._functionNestCount === 0) {
+        if (this._functionNestCount === 0 && this._ifNestCount === 0) {
+            this._ifNestCount++;
             this._emittedSuite = true;
             this._emitLine('if ' + this._printExpression(node.testExpression) + ':');
             this._emitSuite(() => {
@@ -128,6 +158,7 @@ export class TypeStubWriter extends ParseTreeWalker {
                     this.walkChildren(node.elseSuite!);
                 });
             }
+            this._ifNestCount--;
         }
 
         return false;
@@ -241,12 +272,18 @@ export class TypeStubWriter extends ParseTreeWalker {
         return false;
     }
 
-    visitStringList(node: StringListNode) {
-        // Is this the first statement in a suite? If so, assume
-        // it's a doc string and emit it.
-        if (!this._emittedSuite) {
-            this._emitLine(this._printExpression(node));
+    visitStatementList(node: StatementListNode) {
+        if (node.statements.length > 0 && node.statements[0] instanceof StringListNode) {
+            // Is this the first statement in a suite? If so, assume
+            // it's a doc string and emit it.
+            if (!this._emittedSuite && this._emitDocString) {
+                this._emitLine(this._printExpression(node));
+            }
         }
+
+        // Don't emit a doc string after the first statement.
+        this._emitDocString = false;
+        this.walkChildren(node);
         return false;
     }
 
