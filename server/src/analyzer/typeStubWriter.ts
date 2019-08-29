@@ -274,15 +274,16 @@ export class TypeStubWriter extends ParseTreeWalker {
 
     visitStatementList(node: StatementListNode) {
         if (node.statements.length > 0 && node.statements[0] instanceof StringListNode) {
-            // Is this the first statement in a suite? If so, assume
-            // it's a doc string and emit it.
+            // Is this the first statement in a suite? If it's a string
+            // literal, assume it's a doc string and emit it.
             if (!this._emittedSuite && this._emitDocString) {
-                this._emitLine(this._printExpression(node));
+                this._emitLine(this._printExpression(node.statements[0]));
             }
         }
 
         // Don't emit a doc string after the first statement.
         this._emitDocString = false;
+
         this.walkChildren(node);
         return false;
     }
