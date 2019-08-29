@@ -98,7 +98,7 @@ export function getPathComponents(pathString: string) {
 }
 
 export function getRelativePath(dirPath: string, relativeTo: string) {
-    if (!dirPath.startsWith(relativeTo)) {
+    if (!dirPath.startsWith(ensureTrailingDirectorySeparator(relativeTo))) {
         return undefined;
     }
 
