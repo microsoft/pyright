@@ -153,7 +153,7 @@ function processArgs() {
         }
 
         if (args.dependencies) {
-            service.printDependencies();
+            service.printDependencies(!!args.verbose);
         }
 
         if (!watch) {
