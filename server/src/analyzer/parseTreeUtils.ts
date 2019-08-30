@@ -63,11 +63,13 @@ export class ParseTreeUtils {
 
         // The range is found within this node. See if we can localize it
         // further by checking its children.
-        let children = node.getChildrenFlattened();
+        let children = node.getChildren();
         for (let child of children) {
-            let containingChild = ParseTreeUtils.findNodeByOffset(child, offset);
-            if (containingChild) {
-                return containingChild;
+            if (child) {
+                let containingChild = ParseTreeUtils.findNodeByOffset(child, offset);
+                if (containingChild) {
+                    return containingChild;
+                }
             }
         }
 

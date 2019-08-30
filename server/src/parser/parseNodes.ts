@@ -12,8 +12,7 @@ import { TextRange } from '../common/textRange';
 import { IdentifierToken, KeywordToken, NumberToken,
     OperatorType, StringToken, Token } from './tokenizerTypes';
 
-export type ParseNodeOrArray = undefined | ParseNode | ParseNode[];
-export type RecursiveParseNodeArray = ParseNodeOrArray | ParseNodeOrArray[];
+export type ParseNodeArray = (undefined | ParseNode)[];
 
 export enum ParseNodeType {
     None,
@@ -105,36 +104,14 @@ export abstract class ParseNode extends TextRange {
         super(initialRange.start, initialRange.length);
     }
 
-    abstract getChildren(): RecursiveParseNodeArray;
-
-    getChildrenFlattened(): ParseNode[] {
-        return this._unflatten(this.getChildren());
-    }
-
-    private _unflatten(nodes: RecursiveParseNodeArray): ParseNode[] {
-        if (Array.isArray(nodes)) {
-            let nodeArray: ParseNode[] = [];
-            nodes.forEach(node => {
-                if (node) {
-                    nodeArray = nodeArray.concat(this._unflatten(node));
-                }
-            });
-            return nodeArray;
-        }
-
-        if (nodes) {
-            return [nodes];
-        }
-
-        return [];
-    }
+    abstract getChildren(): ParseNodeArray;
 }
 
 export class ModuleNode extends ParseNode {
     readonly nodeType = ParseNodeType.Module;
     statements: StatementNode[] = [];
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.statements;
     }
 }
@@ -143,7 +120,7 @@ export class SuiteNode extends ParseNode {
     readonly nodeType = ParseNodeType.Suite;
     statements: StatementNode[] = [];
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.statements;
     }
 }
@@ -163,7 +140,7 @@ export class IfNode extends ParseNode {
         this.extend(this.ifSuite);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.testExpression, this.ifSuite, this.elseSuite];
     }
 }
@@ -174,7 +151,7 @@ export class WhileNode extends ParseNode {
     whileSuite: SuiteNode;
     elseSuite?: SuiteNode;
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.testExpression, this.whileSuite, this.elseSuite];
     }
 }
@@ -196,7 +173,7 @@ export class ForNode extends ParseNode {
         this.extend(forSuite);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.targetExpression, this.iterableExpression, this.forSuite, this.elseSuite];
     }
 }
@@ -217,7 +194,7 @@ export class ListComprehensionForNode extends ParseNode {
         this.extend(iterableExpression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.targetExpression, this.iterableExpression];
     }
 }
@@ -232,8 +209,8 @@ export class ListComprehensionIfNode extends ParseNode {
         this.extend(testExpression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return this.testExpression;
+    getChildren(): ParseNodeArray {
+        return [this.testExpression];
     }
 }
 
@@ -249,8 +226,8 @@ export class TryNode extends ParseNode {
         this.trySuite = trySuite;
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return [this.trySuite, this.exceptClauses, this.elseSuite, this.finallySuite];
+    getChildren(): ParseNodeArray {
+        return [this.trySuite, ...this.exceptClauses, this.elseSuite, this.finallySuite];
     }
 }
 
@@ -266,7 +243,7 @@ export class ExceptNode extends ParseNode {
         this.extend(exceptSuite);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.typeExpression, this.name, this.exceptSuite];
     }
 }
@@ -287,8 +264,8 @@ export class FunctionNode extends ParseNode {
         this.extend(suite);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return [this.decorators, this.name, this.parameters,
+    getChildren(): ParseNodeArray {
+        return [...this.decorators, this.name, ...this.parameters,
             this.returnTypeAnnotation ? this.returnTypeAnnotation : undefined,
             this.suite];
     }
@@ -312,7 +289,7 @@ export class ParameterNode extends ParseNode {
         this.category = paramCategory;
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.name,
             this.typeAnnotation ? this.typeAnnotation : undefined,
             this.defaultValue];
@@ -333,8 +310,8 @@ export class ClassNode extends ParseNode {
         this.extend(suite);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return [this.decorators, this.name, this.arguments, this.suite];
+    getChildren(): ParseNodeArray {
+        return [...this.decorators, this.name, ...this.arguments, this.suite];
     }
 }
 
@@ -350,8 +327,8 @@ export class WithNode extends ParseNode {
         this.extend(suite);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return [this.withItems, this.suite];
+    getChildren(): ParseNodeArray {
+        return [...this.withItems, this.suite];
     }
 }
 
@@ -365,7 +342,7 @@ export class WithItemNode extends ParseNode {
         this.expression = expression;
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.expression, this.target];
     }
 }
@@ -381,8 +358,8 @@ export class DecoratorNode extends ParseNode {
         this.extend(leftExpression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return [this.leftExpression, this.arguments];
+    getChildren(): ParseNodeArray {
+        return [this.leftExpression, ...(this.arguments || [])];
     }
 }
 
@@ -390,7 +367,7 @@ export class StatementListNode extends ParseNode {
     readonly nodeType = ParseNodeType.StatementList;
     statements: ParseNode[] = [];
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.statements;
     }
 }
@@ -421,8 +398,8 @@ export class ErrorExpressionNode extends ExpressionNode {
         }
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return this.child;
+    getChildren(): ParseNodeArray {
+        return [this.child];
     }
 }
 
@@ -438,8 +415,8 @@ export class UnaryExpressionNode extends ExpressionNode {
         this.extend(expression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return this.expression;
+    getChildren(): ParseNodeArray {
+        return [this.expression];
     }
 }
 
@@ -458,7 +435,7 @@ export class BinaryExpressionNode extends ExpressionNode {
         this.extend(rightExpression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.leftExpression, this.rightExpression];
     }
 }
@@ -477,7 +454,7 @@ export class AssignmentNode extends ExpressionNode {
         this.extend(rightExpression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.leftExpression, this.rightExpression, this.typeAnnotationComment];
     }
 }
@@ -494,7 +471,7 @@ export class TypeAnnotationExpressionNode extends ExpressionNode {
         this.extend(typeAnnotation);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.valueExpression, this.typeAnnotation];
     }
 }
@@ -513,7 +490,7 @@ export class AugmentedAssignmentExpressionNode extends ExpressionNode {
         this.extend(rightExpression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.leftExpression, this.rightExpression];
     }
 }
@@ -528,8 +505,8 @@ export class AwaitExpressionNode extends ExpressionNode {
         this.extend(expression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return this.expression;
+    getChildren(): ParseNodeArray {
+        return [this.expression];
     }
 }
 
@@ -547,7 +524,7 @@ export class TernaryExpressionNode extends ExpressionNode {
         this.extend(elseExpression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.ifExpression, this.testExpression, this.elseExpression];
     }
 }
@@ -562,8 +539,8 @@ export class UnpackExpressionNode extends ExpressionNode {
         this.extend(expression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return this.expression;
+    getChildren(): ParseNodeArray {
+        return [this.expression];
     }
 }
 
@@ -571,7 +548,7 @@ export class TupleExpressionNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Tuple;
     expressions: ExpressionNode[] = [];
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.expressions;
     }
 }
@@ -586,8 +563,8 @@ export class CallExpressionNode extends ExpressionNode {
         this.leftExpression = leftExpression;
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return [this.leftExpression, this.arguments];
+    getChildren(): ParseNodeArray {
+        return [this.leftExpression, ...this.arguments];
     }
 }
 
@@ -601,8 +578,8 @@ export class ListComprehensionNode<T extends ParseNode = ExpressionNode> extends
         this.expression = expression;
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return [this.expression, this.comprehensions];
+    getChildren(): ParseNodeArray {
+        return [this.expression, ...this.comprehensions];
     }
 }
 
@@ -616,7 +593,7 @@ export class IndexItemsNode extends ParseNode {
         this.extend(closeBracketToken);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.items;
     }
 }
@@ -633,7 +610,7 @@ export class IndexExpressionNode extends ExpressionNode {
         this.extend(items);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.baseExpression, this.items];
     }
 }
@@ -644,7 +621,7 @@ export class SliceExpressionNode extends ExpressionNode {
     endValue?: ExpressionNode;
     stepValue?: ExpressionNode;
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.startValue, this.endValue, this.stepValue];
     }
 }
@@ -659,8 +636,8 @@ export class YieldExpressionNode extends ExpressionNode {
         this.extend(expression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return this.expression;
+    getChildren(): ParseNodeArray {
+        return [this.expression];
     }
 }
 
@@ -674,8 +651,8 @@ export class YieldFromExpressionNode extends ExpressionNode {
         this.extend(expression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return this.expression;
+    getChildren(): ParseNodeArray {
+        return [this.expression];
     }
 }
 
@@ -691,7 +668,7 @@ export class MemberAccessExpressionNode extends ExpressionNode {
         this.extend(memberName);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.leftExpression, this.memberName];
     }
 }
@@ -707,8 +684,8 @@ export class LambdaNode extends ExpressionNode {
         this.extend(expression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return [this.parameters, this.expression];
+    getChildren(): ParseNodeArray {
+        return [...this.parameters, this.expression];
     }
 }
 
@@ -721,8 +698,8 @@ export class NameNode extends ExpressionNode {
         this.nameToken = nameToken;
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return undefined;
+    getChildren(): ParseNodeArray {
+        return [];
     }
 }
 
@@ -735,16 +712,16 @@ export class ConstantNode extends ExpressionNode {
         this.token = token;
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return undefined;
+    getChildren(): ParseNodeArray {
+        return [];
     }
 }
 
 export class EllipsisNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Ellipsis;
 
-    getChildren(): RecursiveParseNodeArray {
-        return undefined;
+    getChildren(): ParseNodeArray {
+        return [];
     }
 }
 
@@ -757,8 +734,8 @@ export class NumberNode extends ExpressionNode {
         this.token = token;
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return undefined;
+    getChildren(): ParseNodeArray {
+        return [];
     }
 }
 
@@ -775,8 +752,8 @@ export class StringNode extends ExpressionNode {
         this.hasUnescapeErrors = hasUnescapeErrors;
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return undefined;
+    getChildren(): ParseNodeArray {
+        return [];
     }
 
     getValue(): string {
@@ -804,7 +781,7 @@ export class FormatStringNode extends ExpressionNode {
         this.expressions = expressions;
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.expressions.map(e => e.expression);
     }
 
@@ -830,10 +807,10 @@ export class StringListNode extends ExpressionNode {
         }
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         // Return type annotations first (if they're not undefined)
         // so position lookups favor annotations over the raw string.
-        return [this.typeAnnotation, this.strings];
+        return [this.typeAnnotation, ...this.strings];
     }
 
     getValue(): string {
@@ -845,7 +822,7 @@ export class DictionaryNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Dictionary;
     entries: DictionaryEntryNode[] = [];
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.entries;
     }
 }
@@ -862,7 +839,7 @@ export class DictionaryKeyEntryNode extends ParseNode {
         this.extend(valueExpression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.keyExpression, this.valueExpression];
     }
 }
@@ -876,8 +853,8 @@ export class DictionaryExpandEntryNode extends ExpressionNode {
         this.expandExpression = expandExpression;
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return this.expandExpression;
+    getChildren(): ParseNodeArray {
+        return [this.expandExpression];
     }
 }
 
@@ -888,7 +865,7 @@ export class SetNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.Set;
     entries: ExpressionNode[] = [];
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.entries;
     }
 }
@@ -897,7 +874,7 @@ export class ListNode extends ExpressionNode {
     readonly nodeType = ParseNodeType.List;
     entries: ExpressionNode[] = [];
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.entries;
     }
 }
@@ -921,8 +898,8 @@ export class ArgumentNode extends ParseNode {
         this.extend(valueExpression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return this.valueExpression;
+    getChildren(): ParseNodeArray {
+        return [this.valueExpression];
     }
 }
 
@@ -934,7 +911,7 @@ export class DelNode extends ParseNode {
         super(delToken);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.expressions;
     }
 }
@@ -942,8 +919,8 @@ export class DelNode extends ParseNode {
 export class PassNode extends ParseNode {
     readonly nodeType = ParseNodeType.Pass;
 
-    getChildren(): RecursiveParseNodeArray {
-        return undefined;
+    getChildren(): ParseNodeArray {
+        return [];
     }
 }
 
@@ -951,7 +928,7 @@ export class ImportNode extends ParseNode {
     readonly nodeType = ParseNodeType.Import;
     list: ImportAsNode[] = [];
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.list;
     }
 }
@@ -964,8 +941,8 @@ export class ModuleNameNode extends ParseNode {
     // This is an error condition used only for type completion.
     hasTrailingDot?: boolean;
 
-    getChildren(): RecursiveParseNodeArray {
-        return undefined;
+    getChildren(): ParseNodeArray {
+        return [];
     }
 }
 
@@ -979,7 +956,7 @@ export class ImportAsNode extends ParseNode {
         this.module = module;
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.module, this.alias];
     }
 }
@@ -999,8 +976,8 @@ export class ImportFromNode extends ParseNode {
         this.usesParens = false;
     }
 
-    getChildren(): RecursiveParseNodeArray {
-        return [this.module, this.imports];
+    getChildren(): ParseNodeArray {
+        return [this.module, ...this.imports];
     }
 }
 
@@ -1014,7 +991,7 @@ export class ImportFromAsNode extends ParseNode {
         this.name = name;
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.name, this.alias];
     }
 }
@@ -1023,7 +1000,7 @@ export class GlobalNode extends ParseNode {
     readonly nodeType = ParseNodeType.Global;
     nameList: NameNode[] = [];
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.nameList;
     }
 }
@@ -1032,7 +1009,7 @@ export class NonlocalNode extends ParseNode {
     readonly nodeType = ParseNodeType.Nonlocal;
     nameList: NameNode[] = [];
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return this.nameList;
     }
 }
@@ -1048,7 +1025,7 @@ export class AssertNode extends ParseNode {
         this.extend(testExpression);
     }
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.testExpression, this.exceptionExpression];
     }
 }
@@ -1056,16 +1033,16 @@ export class AssertNode extends ParseNode {
 export class BreakNode extends ParseNode {
     readonly nodeType = ParseNodeType.Break;
 
-    getChildren(): RecursiveParseNodeArray {
-        return undefined;
+    getChildren(): ParseNodeArray {
+        return [];
     }
 }
 
 export class ContinueNode extends ParseNode {
     readonly nodeType = ParseNodeType.Continue;
 
-    getChildren(): RecursiveParseNodeArray {
-        return undefined;
+    getChildren(): ParseNodeArray {
+        return [];
     }
 }
 
@@ -1073,8 +1050,8 @@ export class ReturnNode extends ParseNode {
     readonly nodeType = ParseNodeType.Return;
     returnExpression?: ExpressionNode;
 
-    getChildren(): RecursiveParseNodeArray {
-        return this.returnExpression;
+    getChildren(): ParseNodeArray {
+        return [this.returnExpression];
     }
 }
 
@@ -1084,7 +1061,7 @@ export class RaiseNode extends ParseNode {
     valueExpression?: ExpressionNode;
     tracebackExpression?: ExpressionNode;
 
-    getChildren(): RecursiveParseNodeArray {
+    getChildren(): ParseNodeArray {
         return [this.typeExpression, this.valueExpression, this.tracebackExpression];
     }
 }

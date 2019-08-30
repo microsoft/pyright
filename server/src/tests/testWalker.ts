@@ -7,7 +7,7 @@
 import * as assert from 'assert';
 
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
-import { AssignmentNode, ParseNode, StringListNode } from '../parser/parseNodes';
+import { AssignmentNode, ParseNode, ParseNodeArray, StringListNode } from '../parser/parseNodes';
 
 export class TestWalker extends ParseTreeWalker {
     constructor() {
@@ -15,7 +15,7 @@ export class TestWalker extends ParseTreeWalker {
     }
 
     visitNode(node: ParseNode): boolean {
-        let children = this.getChildren(node);
+        const children = node.getChildren();
         this._verifyParentChildLinks(node, children);
         this._verifyChildRanges(node, children);
 
@@ -23,9 +23,11 @@ export class TestWalker extends ParseTreeWalker {
     }
 
     // Make sure that all of the children point to their parent.
-    private _verifyParentChildLinks(node: ParseNode, children: ParseNode[]) {
+    private _verifyParentChildLinks(node: ParseNode, children: ParseNodeArray) {
         children.forEach(child => {
-            assert.equal(child.parent, node);
+            if (child) {
+                assert.equal(child.parent, node);
+            }
         });
     }
 
@@ -33,35 +35,37 @@ export class TestWalker extends ParseTreeWalker {
     //      Children are all contained within the parent
     //      Children have non-overlapping ranges
     //      Children are listed in increasing order
-    private _verifyChildRanges(node: ParseNode, children: ParseNode[]) {
+    private _verifyChildRanges(node: ParseNode, children: ParseNodeArray) {
         let prevNode: ParseNode | undefined;
 
         children.forEach(child => {
-            let skipCheck = false;
+            if (child) {
+                let skipCheck = false;
 
-            // There are a few exceptions we need to deal with here. Comment
-            // annotations can occur outside of an assignment node's range.
-            if (node instanceof AssignmentNode) {
-                if (child === node.typeAnnotationComment) {
-                    skipCheck = true;
-                }
-            }
-
-            if (node instanceof StringListNode) {
-                if (child === node.typeAnnotation) {
-                    skipCheck = true;
-                }
-            }
-
-            if (!skipCheck) {
-                // Make sure the child is contained within the parent.
-                assert(child.start >= node.start && child.end <= node.end);
-                if (prevNode) {
-                    // Make sure the child is after the previous child.
-                    assert(child.start >= prevNode.end);
+                // There are a few exceptions we need to deal with here. Comment
+                // annotations can occur outside of an assignment node's range.
+                if (node instanceof AssignmentNode) {
+                    if (child === node.typeAnnotationComment) {
+                        skipCheck = true;
+                    }
                 }
 
-                prevNode = child;
+                if (node instanceof StringListNode) {
+                    if (child === node.typeAnnotation) {
+                        skipCheck = true;
+                    }
+                }
+
+                if (!skipCheck) {
+                    // Make sure the child is contained within the parent.
+                    assert(child.start >= node.start && child.end <= node.end);
+                    if (prevNode) {
+                        // Make sure the child is after the previous child.
+                        assert(child.start >= prevNode.end);
+                    }
+
+                    prevNode = child;
+                }
             }
         });
     }

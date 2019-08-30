@@ -63,11 +63,13 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     visitNode(node: ParseNode): boolean {
-        let children = this.getChildren(node);
+        const children = node.getChildren();
 
         // Add the parent link to each of the child nodes.
         children.forEach(child => {
-            child.parent = node;
+            if (child) {
+                child.parent = node;
+            }
         });
 
         return super.visitNode(node);

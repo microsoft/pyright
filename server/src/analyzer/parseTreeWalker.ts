@@ -17,7 +17,7 @@ import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpression
     ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode, IndexItemsNode,
     LambdaNode, ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode,
     ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
-    NumberNode, ParameterNode, ParseNode, ParseNodeType, PassNode, RaiseNode,
+    NumberNode, ParameterNode, ParseNode, ParseNodeArray, ParseNodeType, PassNode, RaiseNode,
     ReturnNode, SetNode, SliceExpressionNode, StatementListNode, StringListNode, StringNode,
     SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
@@ -32,18 +32,20 @@ export class ParseTreeWalker {
         }
     }
 
-    walkMultiple(nodes: ParseNode[]) {
+    walkMultiple(nodes: ParseNodeArray) {
         nodes.forEach(node => {
-            this.walk(node);
+            if (node) {
+                this.walk(node);
+            }
         });
     }
 
     walkChildren(node: ParseNode) {
-        this.walkMultiple(this.getChildren(node));
-    }
-
-    getChildren(node: ParseNode): ParseNode[] {
-        return node.getChildrenFlattened();
+        node.getChildren().forEach(node => {
+            if (node) {
+                this.walk(node);
+            }
+        });
     }
 
     visitNode(node: ParseNode): boolean {
