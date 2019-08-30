@@ -698,9 +698,8 @@ export class ExpressionEvaluator {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromYieldFromExpression(node);
         } else if (node instanceof UnpackExpressionNode) {
-            // TODO - need to implement
-            this._getTypeFromExpression(node.expression, usage);
-            let type = UnknownType.create();
+            const iterType = this._getTypeFromExpression(node.expression, usage).type;
+            const type = this.getTypeFromIterable(iterType, false, node, false);
             typeResult = { type, node };
         } else if (node instanceof TypeAnnotationExpressionNode) {
             typeResult = this._getTypeFromExpression(node.typeAnnotation);

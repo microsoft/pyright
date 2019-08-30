@@ -169,6 +169,12 @@ test('Expressions3', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Unpack1', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unpack1.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('Lambda1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda1.py']);
 
