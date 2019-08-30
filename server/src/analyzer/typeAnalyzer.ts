@@ -2605,47 +2605,62 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _validateExceptionType(exceptionType: Type, errorNode: ParseNode) {
-        if (exceptionType.isAny()) {
-            return exceptionType;
-        }
+        const baseExceptionType = ScopeUtils.getBuiltInType(
+            this._currentScope, 'BaseException');
 
-        if (exceptionType instanceof ClassType) {
-            const baseExceptionType = ScopeUtils.getBuiltInType(
-                this._currentScope, 'BaseException');
+        const derivesFromBaseException = (classType: ClassType) => {
             if (!baseExceptionType || !(baseExceptionType instanceof ClassType)) {
-                return new ObjectType(exceptionType);
+                return true;
             }
 
-            if (!TypeUtils.derivesFromClassRecursive(exceptionType, baseExceptionType)) {
-                this._addError(
-                    `'${ exceptionType.asString() }' does not derive from ` +
-                    `'${ baseExceptionType.asString() }'`,
-                    errorNode);
-            }
+            return TypeUtils.derivesFromClassRecursive(classType, baseExceptionType);
+        };
 
-            return new ObjectType(exceptionType);
+        const diagAddendum = new DiagnosticAddendum();
+        let isValidExceptionType = true;
+        let resultingExceptionType: Type | undefined;
+
+        if (exceptionType.isAny()) {
+            resultingExceptionType = exceptionType;
+        } else if (exceptionType instanceof ClassType) {
+            if (!derivesFromBaseException(exceptionType)) {
+                isValidExceptionType = false;
+                diagAddendum.addMessage(
+                    `'${ exceptionType.asString() }' does not derive from BaseException`);
+            }
+            resultingExceptionType = new ObjectType(exceptionType);
         } else if (exceptionType instanceof ObjectType) {
-            // TODO - we need to determine whether the type is an iterable
-            // collection of classes. For now, just see if it derives
-            // from one of the built-in iterable types.
-            const classType = exceptionType.getClassType();
-            const validTypes = ['list', 'tuple', 'set'];
-            const isValid = validTypes.find(t => {
-                const builtInType = ScopeUtils.getBuiltInType(this._currentScope, t);
-                if (!builtInType || !(builtInType instanceof ClassType)) {
-                    return false;
+            const evaluator = this._createEvaluator();
+            const iterableType = evaluator.getTypeFromIterable(exceptionType, false, errorNode, false);
+
+            resultingExceptionType = TypeUtils.doForSubtypes(iterableType, subtype => {
+                if (subtype.isAny()) {
+                    return subtype;
+                } else if (subtype instanceof ClassType) {
+                    if (!derivesFromBaseException(subtype)) {
+                        isValidExceptionType = false;
+                        diagAddendum.addMessage(
+                            `'${ exceptionType.asString() }' does not derive from BaseException`);
+                    }
+
+                    return new ObjectType(subtype);
+                } else {
+                    isValidExceptionType = false;
+                    diagAddendum.addMessage(
+                        `'${ exceptionType.asString() }' does not derive from BaseException`);
+                    return UnknownType.create();
                 }
-                return classType.isDerivedFrom(builtInType);
-            }) !== undefined;
-            if (isValid) {
-                return UnknownType.create();
-            }
+            });
         }
 
-        this._addError(
-            `'${ exceptionType.asString() }' is not valid exception class`,
-            errorNode);
-        return exceptionType;
+        if (!isValidExceptionType) {
+            this._addError(
+                `'${ exceptionType.asString() }' is not valid exception class` +
+                    diagAddendum.getString(),
+                errorNode);
+        }
+
+        return resultingExceptionType || UnknownType.create();
     }
 
     private _addAssignmentTypeConstraint(node: ExpressionNode, assignmentType: Type) {

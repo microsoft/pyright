@@ -3123,7 +3123,7 @@ export class ExpressionEvaluator {
                 }
             });
         } else {
-            // TODO - need to implement
+            // We should theoretically never get here.
             understoodType = false;
         }
 
