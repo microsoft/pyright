@@ -102,6 +102,20 @@ export class Scope {
     // expressions.
     private _typeConstraints: TypeConstraint[] = [];
 
+    // Groups of type constriants that are active at the time
+    // a loop continuation is encountered. This can be an explicit
+    // "continue" statement or an implicit continue at the bottom
+    // of a loop. This is used only for looping scopes
+    // (_isLooping is true).
+    private _continueTypeConstraints: TypeConstraint[][] = [];
+
+    // Groups of type constraints that are active at the time
+    // a loop break is encountered. This includes explicit
+    // "break" statements or an implicit break a the top of
+    // a loop. This is used only for looping scopes
+    // (_isLooping is true).
+    private _breakTypeConstraints: TypeConstraint[][] = [];
+
     constructor(type: ScopeType, parent?: Scope) {
         this._scopeType = type;
         this._parent = parent;
@@ -346,12 +360,111 @@ export class Scope {
 
     clearTypeConstraints() {
         this._typeConstraints = [];
+        this._continueTypeConstraints = [];
+        this._breakTypeConstraints = [];
     }
 
     addTypeConstraints(constraints: TypeConstraint[]) {
         constraints.forEach(constraint => {
             this.addTypeConstraint(constraint);
         });
+    }
+
+    setTypeConstraints(constraints: TypeConstraint[]) {
+        this._typeConstraints = [];
+        this.addTypeConstraints(constraints);
+    }
+
+    snapshotTypeConstraintsForBreak() {
+        const snapshot = this._snapshotTypeConstraintsForLoop();
+        const loopScope = this._getFirstLoopScope();
+        if (loopScope) {
+            loopScope._breakTypeConstraints.push(snapshot);
+        }
+    }
+
+    snapshotTypeConstraintsForContinue() {
+        const snapshot = this._snapshotTypeConstraintsForLoop();
+        const loopScope = this._getFirstLoopScope();
+        if (loopScope) {
+            loopScope._continueTypeConstraints.push(snapshot);
+        }
+    }
+
+    combineContinueTypeConstraints() {
+        const combinedTCs = TypeConstraintUtils.combineTypeConstraints(this._continueTypeConstraints);
+
+        // Dedup and mark conditional because continue type constraints
+        // are always combined conditionally with incoming type constraints
+        // at the top of the loop.
+        return TypeConstraintUtils.dedupeTypeConstraints(combinedTCs, true);
+    }
+
+    combineBreakTypeConstraints() {
+        const combinedTCs = TypeConstraintUtils.combineTypeConstraints(this._breakTypeConstraints);
+        return TypeConstraintUtils.dedupeTypeConstraints(combinedTCs);
+    }
+
+    // Returns the first looping scope in the hierarchy starting
+    // with the current scope.
+    private _getFirstLoopScope() {
+        let curScope: Scope | undefined = this;
+
+        while (curScope) {
+            // If the scope always breaks, raises or returns, we can't
+            // get to the current location, so return undefined to
+            // indicate that the caller shouldn't bother.
+            if (curScope._alwaysBreaks || curScope._alwaysRaises || curScope._alwaysReturns) {
+                return undefined;
+            }
+
+            if (curScope._isLooping) {
+                return curScope;
+            }
+
+            curScope = curScope.getParent();
+        }
+
+        return undefined;
+    }
+
+    // Combines all of the type constraints for this scope
+    // and all parent scopes up to and including the first
+    // looping scope encountered in the scope hierarchy.
+    private _snapshotTypeConstraintsForLoop(): TypeConstraint[] {
+        // Create a list of scopes to explore.
+        const scopeList: Scope[] = [];
+        let curScope: Scope | undefined = this;
+        while (curScope) {
+            scopeList.push(curScope);
+            if (curScope._isLooping) {
+                break;
+            }
+            curScope = curScope.getParent();
+        }
+
+        // We didn't find a looping scope, so return an empty list.
+        if (!curScope) {
+            return [];
+        }
+
+        const constraints: TypeConstraint[] = [];
+        let isConditional = false;
+
+        // Now append the type constraints starting with the
+        // outermost scope moving inward.
+        while (scopeList.length > 0) {
+            const curScope = scopeList.pop()!;
+            let localContraints = curScope.getTypeConstraints();
+            localContraints = localContraints.map(c => isConditional ? c.cloneAsConditional() : c);
+            constraints.push(...localContraints);
+
+            if (curScope.isConditional()) {
+                isConditional = true;
+            }
+        }
+
+        return TypeConstraintUtils.dedupeTypeConstraints(constraints);
     }
 
     private _lookUpSymbolRecursiveInternal(name: string, isOutsideCallerModule: boolean,

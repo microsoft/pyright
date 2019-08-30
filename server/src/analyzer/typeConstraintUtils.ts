@@ -15,11 +15,10 @@ import { Type } from './types';
 import { TypeUtils } from './typeUtils';
 
 export class TypeConstraintUtils {
-    // Combines two type constraint lists that come from two paired
+    // Combines two type constraint lists that come from multiple
     // conditional scopes (e.g. an if/else scope pair). For expressions
-    // that are common, it combines the two. For expressions that are
-    // unique, it marks them as conditional.
-
+    // that are common to all lists, it combines them. For expressions
+    // that are not common to all lists, it marks them as conditional.
     static combineTypeConstraints(tcLists: TypeConstraint[][]): TypeConstraint[] {
         const combinedList: TypeConstraint[] = [];
 

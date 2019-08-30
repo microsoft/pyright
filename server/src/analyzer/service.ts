@@ -838,11 +838,11 @@ export class AnalyzerService {
         let moreToAnalyze = false;
 
         try {
-            let duration = new Duration();
+            const duration = new Duration();
             moreToAnalyze = this._program.analyze(this._configOptions,
                 this._importResolver, this._maxAnalysisTime, this._useInteractiveMode());
 
-            let results: AnalysisResults = {
+            const results: AnalysisResults = {
                 diagnostics: this._program.getDiagnostics(this._configOptions),
                 filesInProgram: this._program.getFileCount(),
                 filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
@@ -850,7 +850,7 @@ export class AnalyzerService {
                 elapsedTime: duration.getDurationInSeconds()
             };
 
-            let fileCount = results.diagnostics.length;
+            const fileCount = results.diagnostics.length;
             if (fileCount > 0) {
                 if (this._onCompletionCallback) {
                     this._onCompletionCallback(results);

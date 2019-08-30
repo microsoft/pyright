@@ -63,6 +63,16 @@ export class TypeConstraint {
         this._isConditional = true;
     }
 
+    cloneAsConditional(): TypeConstraint {
+        if (this._isConditional) {
+            return this;
+        }
+
+        const clone = new TypeConstraint(this._expression, this._type);
+        clone.setIsConditional();
+        return clone;
+    }
+
     applyToType(node: ExpressionNode, type: Type): Type {
         if (this.doesExpressionMatch(node)) {
             // Don't transform special built-in types. These involve special processing

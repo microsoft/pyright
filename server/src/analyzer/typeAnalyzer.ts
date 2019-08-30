@@ -40,7 +40,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { Symbol, SymbolTable } from './symbol';
 import { SymbolUtils } from './symbolUtils';
-import { TypeConstraintBuilder } from './typeConstraint';
+import { ConditionalTypeConstraintResults, TypeConstraintBuilder } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NeverType, NoneType,
@@ -855,14 +855,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitContinue(node: ContinueNode): boolean {
-        // For purposes of analysis, treat a continue as if it's a return.
         if (!this._currentScope.getAlwaysRaises()) {
+            this._currentScope.snapshotTypeConstraintsForContinue();
+
+            // For purposes of analysis, treat a continue as if it's a return.
             this._currentScope.setAlwaysReturns();
         }
         return true;
     }
 
     visitBreak(node: BreakNode): boolean {
+        this._currentScope.snapshotTypeConstraintsForBreak();
         this._currentScope.setMayBreak();
         this._currentScope.setAlwaysBreaks();
         return true;
@@ -2436,31 +2439,36 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let constExprValue = ExpressionUtils.evaluateConstantExpression(
             testExpression, this._fileInfo.executionEnvironment);
 
-        // Get and cache the expression type before walking it. This will apply
-        // any type constraints along the way.
-        const exprType = this._getTypeOfExpression(testExpression);
-
-        // Handle the case where the expression evaluates to a known
-        // true, false or None value.
-        if (exprType instanceof ObjectType) {
-            const exprClass = exprType.getClassType();
-            if (exprClass.isBuiltIn() && exprClass.getClassName() === 'bool') {
-                const literalValue = exprType.getLiteralValue();
-                if (typeof literalValue === 'boolean') {
-                    constExprValue = literalValue;
-                }
-            }
-        } else if (exprType instanceof NoneType) {
-            constExprValue = false;
-        }
-
-        this.walk(testExpression);
-
-        let typeConstraints = this._buildConditionalTypeConstraints(testExpression);
+        let typeConstraints: ConditionalTypeConstraintResults | undefined;
 
         // Push a temporary scope so we can track
         // which variables have been assigned to conditionally.
         const ifScope = this._enterTemporaryScope(() => {
+            // Get and cache the expression type before walking it. This will apply
+            // any type constraints along the way. Note that we do this within the
+            // temporary if/while scope because in the while case, the expression type
+            // might change from one pass to the next as we analyze the loop.
+            const exprType = this._getTypeOfExpression(testExpression);
+
+            // Build the type constraints for the test expression.
+            typeConstraints = this._buildConditionalTypeConstraints(testExpression);
+
+            // Handle the case where the expression evaluates to a known
+            // true, false or None value.
+            if (exprType instanceof ObjectType) {
+                const exprClass = exprType.getClassType();
+                if (exprClass.isBuiltIn() && exprClass.getClassName() === 'bool') {
+                    const literalValue = exprType.getLiteralValue();
+                    if (typeof literalValue === 'boolean') {
+                        constExprValue = literalValue;
+                    }
+                }
+            } else if (exprType instanceof NoneType) {
+                constExprValue = false;
+            }
+
+            this.walk(testExpression);
+
             // Add any applicable type constraints.
             if (typeConstraints) {
                 typeConstraints.ifConstraints.forEach(constraint => {
@@ -2471,7 +2479,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (constExprValue !== false) {
                 this.walk(ifWhileSuite);
             }
-        }, true, isWhile ? ifWhileSuite : undefined);
+        }, constExprValue === undefined, isWhile ? ifWhileSuite : undefined);
 
         // Now handle the else statement. If there are chained "elif"
         // statements, they'll be handled recursively here.
@@ -2486,10 +2494,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (elseSuite && constExprValue !== true) {
                 this.walk(elseSuite);
             }
-        }, true);
-
-        // Evaluate the expression so the expression type is cached.
-        this._getTypeOfExpression(testExpression);
+        }, constExprValue === undefined);
 
         let isIfUnconditional = false;
         let isElseUnconditional = false;
@@ -3432,7 +3437,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // If loopNode is specified, the scope is also persisted to that node
     // so the analyzer to take into account type information that is gathered
     // lower in the loop body.
-    private _enterTemporaryScope(callback: () => void, isConditional?: boolean,
+    private _enterTemporaryScope(callback: () => void, isConditional = false,
             loopNode?: ParseNode) {
 
         let tempScope: Scope | undefined;
@@ -3462,16 +3467,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // "Unknown" value from persisting in the loop.
                 tempScope.clearTypeConstraints();
             } else {
-                const typeConstraints = tempScope.getTypeConstraints();
-
-                // Dedupe the previous type constraints and make them conditional
-                // so the incoming types are combined conditionally with the end-of-loop
-                // types.
-                const conditionalTCs = TypeConstraintUtils.dedupeTypeConstraints(typeConstraints, true);
-
-                // Add the deduped conditionals back to the loop scope.
+                // Capture the type constraints that represent all of the ways
+                // we continued within the loop during the previous analysis pass.
+                // Mark these as conditional and use them for the initial
+                // (top-of-loop) type constraints.
+                const continueTypeConstraints = tempScope.combineContinueTypeConstraints();
                 tempScope.clearTypeConstraints();
-                tempScope.addTypeConstraints(conditionalTCs);
+                tempScope.setTypeConstraints(continueTypeConstraints);
             }
         } else {
             tempScope = new Scope(ScopeType.Temporary, this._currentScope);
@@ -3484,6 +3486,24 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this._currentScope = tempScope;
         callback();
+
+        if (loopNode) {
+            // The bottom of the loop is an implicit conditional break
+            // if the test at the top of the loop is conditional.
+            if (isConditional) {
+                tempScope.snapshotTypeConstraintsForBreak();
+            }
+
+            // The bottom of the loop is always an implicit continue.
+            tempScope.snapshotTypeConstraintsForContinue();
+
+            // Replace the current type constraints with a combination of
+            // the "break" constraints for the loop. This is what will be
+            // "seen" by the parent scope.
+            const breakTypeConstraints = tempScope.combineBreakTypeConstraints();
+            tempScope.setTypeConstraints(breakTypeConstraints);
+        }
+
         this._currentScope = prevScope;
 
         // Unset the parent to allow any other temporary scopes in the
