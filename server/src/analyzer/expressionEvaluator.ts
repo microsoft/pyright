@@ -1191,10 +1191,6 @@ export class ExpressionEvaluator {
                     let typeArgs = this._getTypeArgs(node.items);
                     return this._createSpecializeClassType(subtype, typeArgs, node.items);
                 }
-            } else if (subtype instanceof FunctionType) {
-                // TODO - need to implement. This is used in cases where
-                // a generic Callable is used as a function parameter.
-                return UnknownType.create();
             } else if (subtype instanceof ObjectType) {
                 return this._getTypeFromIndexedObject(node, subtype, usage);
             } else if (subtype instanceof NoneType) {
