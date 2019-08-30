@@ -29,10 +29,10 @@ import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { StringUtils } from '../common/stringUtils';
-import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode,
-    ImportFromAsNode, ImportFromNode, MemberAccessExpressionNode,
-    ModuleNameNode, ModuleNode, NameNode, ParseNode,
-    StringListNode, SuiteNode  } from '../parser/parseNodes';
+import { AssignmentNode, ErrorExpressionCategory, ErrorExpressionNode,
+    ExpressionNode, ImportFromAsNode, ImportFromNode,
+    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode,
+    ParseNode, StatementListNode, StringListNode, SuiteNode  } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
 
@@ -482,9 +482,51 @@ export class CompletionProvider {
                     insertionPosition = Position.create(0, 0);
                 }
             } else {
-                // Insert at the top of the file.
-                // We may want to do something smarter here in the future.
+                // Insert at or near the top of the file. See if there's a doc string and
+                // copyright notice, etc. at the top. If so, move past those.
                 insertionPosition = Position.create(0, 0);
+                let addNewLineBefore = false;
+
+                for (let statement of this._parseResults.parseTree.statements) {
+                    let stopHere = true;
+                    if (statement instanceof StatementListNode && statement.statements.length === 1) {
+                        const simpleStatement = statement.statements[0];
+
+                        if (simpleStatement instanceof StringListNode) {
+                            // Assume that it's a file header doc string.
+                            stopHere = false;
+                        } else if (simpleStatement instanceof AssignmentNode) {
+                            if (simpleStatement.leftExpression instanceof NameNode) {
+                                if (SymbolUtils.isDunderName(simpleStatement.leftExpression.nameToken.value)) {
+                                    // Assume that it's an assignment of __copyright__, __author__, etc.
+                                    stopHere = false;
+                                }
+                            }
+                        }
+                    }
+
+                    if (stopHere) {
+                        const statementPosition = convertOffsetToPosition(statement.start,
+                            this._parseResults.lines);
+                        insertionPosition = Position.create(statementPosition.line, statementPosition.column);
+                        addNewLineBefore = false;
+                        break;
+                    } else {
+                        const statementPosition = convertOffsetToPosition(statement.end,
+                            this._parseResults.lines);
+                        insertionPosition = Position.create(statementPosition.line, statementPosition.column);
+                        addNewLineBefore = true;
+                    }
+                }
+
+                newImportStatement += this._parseResults.predominantLineEndSequence +
+                    this._parseResults.predominantLineEndSequence;
+
+                if (addNewLineBefore) {
+                    newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
+                } else {
+                    this._parseResults.predominantLineEndSequence += this._parseResults.predominantLineEndSequence;
+                }
             }
 
             textEditList.push(TextEdit.insert(insertionPosition, newImportStatement));
@@ -555,7 +597,6 @@ export class CompletionProvider {
     }
 
     private _addSymbols(node: ParseNode, priorWord: string, completionList: CompletionList) {
-
         let curNode: ParseNode | undefined = node;
 
         while (curNode) {
