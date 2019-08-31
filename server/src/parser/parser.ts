@@ -64,11 +64,23 @@ export class ParseOptions {
 }
 
 export interface ParseResults {
+    // Root of the parse tree.
     parseTree: ModuleNode;
+
+    // Imports from "future" module (used to enable python features
+    // that are not yet standard).
     futureImports: StringMap<boolean>;
+
+    // List of tokens in the file.
     tokens: TextRangeCollection<Token>;
+
+    // List of text ranges for each line in the file.
     lines: TextRangeCollection<TextRange>;
+
+    // Predominant line-end sequence in file ('\n', '\r\n' or '\r').
     predominantLineEndSequence: string;
+
+    // Predominant tab sequence (either '\t' or a series of spaces).
     predominantTabSequence: string;
 }
 

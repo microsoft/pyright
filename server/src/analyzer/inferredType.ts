@@ -23,8 +23,8 @@ export interface InferredTypeSource {
     sourceId: TypeSourceId;
 }
 
-export type TypeSourceId = number;
-export const defaultTypeSourceId: TypeSourceId = 0;
+export type TypeSourceId = string;
+export const defaultTypeSourceId: TypeSourceId = 'Default';
 
 export class InferredType {
     private _sources: InferredTypeSource[] = [];

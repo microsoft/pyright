@@ -10,6 +10,8 @@
 * language services (e.g. hover information).
 */
 
+import { v4 as uuid } from 'uuid';
+
 import { NameBindings } from '../parser/nameBindings';
 import { ParseNode, StringListNode } from '../parser/parseNodes';
 import { Declaration } from './declaration';
@@ -17,9 +19,6 @@ import { ImportResult } from './importResult';
 import { TypeSourceId } from './inferredType';
 import { Scope, ScopeType } from './scope';
 import { Type } from './types';
-
-// An always-incrementing ID for assigning to nodes.
-let _nextTypeSourceId: TypeSourceId = 1;
 
 export class AnalyzerNodeInfo {
     //---------------------------------------------------------------
@@ -172,7 +171,7 @@ export class AnalyzerNodeInfo {
     static getTypeSourceId(node: ParseNode): TypeSourceId {
         const analyzerNode = node as AnalyzerNodeInfo;
         if (analyzerNode._typeSourceId === undefined) {
-            analyzerNode._typeSourceId = _nextTypeSourceId++;
+            analyzerNode._typeSourceId = uuid();
         }
 
         return analyzerNode._typeSourceId;
