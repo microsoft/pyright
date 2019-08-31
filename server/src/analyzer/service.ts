@@ -201,6 +201,10 @@ export class AnalyzerService {
         this._program.printDependencies(this._executionRootPath, verbose);
     }
 
+    printAnalysisPassDetails() {
+        this._program.printAnalysisPassDetails(this._executionRootPath);
+    }
+
     test_getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
         return this._getConfigOptions(commandLineOptions);
     }

@@ -75,6 +75,7 @@ export interface AnalysisJob {
     hitMaxImportDepth?: number;
 
     typeAnalysisPassNumber: number;
+    lastReanalysisReason: string;
     isTypeAnalysisPassNeeded: boolean;
     isTypeAnalysisFinalized: boolean;
 
@@ -126,6 +127,7 @@ export class SourceFile {
         circularDependencies: [],
 
         typeAnalysisPassNumber: 1,
+        lastReanalysisReason: '',
         isTypeAnalysisPassNeeded: true,
         isTypeAnalysisFinalized: false
     };
@@ -611,7 +613,11 @@ export class SourceFile {
     }
 
     getAnalysisPassCount() {
-        return this._analysisJob.typeAnalysisPassNumber;
+        return this._analysisJob.typeAnalysisPassNumber - 1;
+    }
+
+    getLastReanalysisReason() {
+        return this._analysisJob.lastReanalysisReason;
     }
 
     setTypeAnalysisPassNeeded() {
@@ -659,6 +665,7 @@ export class SourceFile {
         this._analysisJob.nextPhaseToRun = AnalysisPhase.TypeAnalysis;
         this._diagnosticVersion++;
         this._analysisJob.typeAnalysisPassNumber = 1;
+        this._analysisJob.lastReanalysisReason = '';
         this._analysisJob.circularDependencies = [];
         this._analysisJob.isTypeAnalysisPassNeeded = true;
         this._analysisJob.isTypeAnalysisFinalized = false;
@@ -684,6 +691,9 @@ export class SourceFile {
                 // Repeatedly call the analyzer until everything converges.
                 this._analysisJob.isTypeAnalysisPassNeeded = typeAnalyzer.analyze();
                 this._analysisJob.typeAnalysisLastPassDiagnostics = fileInfo.diagnosticSink.diagnostics;
+                if (this._analysisJob.isTypeAnalysisPassNeeded) {
+                    this._analysisJob.lastReanalysisReason = typeAnalyzer.getLastReanalysisReason();
+                }
             });
         } catch (e) {
             let message: string;

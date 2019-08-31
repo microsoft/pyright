@@ -80,6 +80,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // call analyze() until this returns false.
     private _didAnalysisChange: boolean;
 
+    // The last reason the analysis needed to change. Useful for
+    // determining how to reduce the number of analysis passes.
+    private _lastAnalysisChangeReason: string;
+
     // Analysis version is incremented each time an analyzer pass
     // is performed. It allows the code to determine when cached
     // type information needs to be regenerated because it was
@@ -124,6 +128,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return this._didAnalysisChange;
+    }
+
+    getLastReanalysisReason() {
+        return this._lastAnalysisChangeReason;
     }
 
     visitClass(node: ClassNode): boolean {
@@ -208,7 +216,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 if (classType.updateBaseClassType(index, argType)) {
-                    this._setAnalysisChanged();
+                    this._setAnalysisChanged('Base class changed');
                 }
 
                 // TODO - validate that we are not adding type parameters that
@@ -220,7 +228,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Update the type parameters for the class.
         if (classType.setTypeParameters(typeParameters)) {
-            this._setAnalysisChanged();
+            this._setAnalysisChanged('Class type parameters changed');
         }
 
         this._enterScope(node, () => {
@@ -398,7 +406,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 if (functionType.setParameterType(index, annotatedType)) {
-                    this._setAnalysisChanged();
+                    this._setAnalysisChanged('Function parameter type annotation changed');
                 }
 
                 this.walk(param.typeAnnotation);
@@ -420,7 +428,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 const specializedClassType = TypeUtils.selfSpecializeClassType(
                                     containingClassType);
                                 if (functionType.setParameterType(index, new ObjectType(specializedClassType))) {
-                                    this._setAnalysisChanged();
+                                    this._setAnalysisChanged('Specialized self changed');
                                 }
                             } else if (functionType.isClassMethod() || functionType.isConstructorMethod()) {
                                 // For class methods, the cls parameter is allowed to skip the
@@ -429,7 +437,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 const specializedClassType = TypeUtils.selfSpecializeClassType(
                                     containingClassType, true);
                                 if (functionType.setParameterType(index, specializedClassType)) {
-                                    this._setAnalysisChanged();
+                                    this._setAnalysisChanged('Specialized cls changed');
                                 }
                             }
                         }
@@ -448,7 +456,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (node.returnTypeAnnotation) {
             const returnType = this._getTypeOfAnnotation(node.returnTypeAnnotation);
             if (functionType.setDeclaredReturnType(returnType)) {
-                this._setAnalysisChanged();
+                this._setAnalysisChanged('Function return type annotation changed');
             }
 
             this.walk(node.returnTypeAnnotation);
@@ -2113,7 +2121,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Add all of the return and yield types that were found within the function.
         let inferredReturnType = functionType.getInferredReturnType();
         if (inferredReturnType.addSources(functionScope.getReturnType())) {
-            this._setAnalysisChanged();
+            this._setAnalysisChanged('Function return inferred type changed');
         }
 
         let inferredYieldType = functionType.getInferredYieldType();
@@ -2127,7 +2135,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (inferredYieldType.addSources(functionScope.getYieldType())) {
-            this._setAnalysisChanged();
+            this._setAnalysisChanged('Function yield type changed');
         }
 
         // Add the "None" type if the function doesn't always return.
@@ -2135,7 +2143,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (inferredReturnType.addSource(NoneType.create(),
                     AnalyzerNodeInfo.getTypeSourceId(node))) {
 
-                this._setAnalysisChanged();
+                this._setAnalysisChanged('Function inferred None changed');
             }
 
             let declaredReturnType = functionType.isGenerator() ?
@@ -2166,11 +2174,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (noReturnType && inferredReturnType.addSource(new ObjectType(noReturnType),
                     AnalyzerNodeInfo.getTypeSourceId(node))) {
 
-                this._setAnalysisChanged();
+                this._setAnalysisChanged('Function inferred NoReturn changed');
             }
         } else {
             if (inferredReturnType.removeSource(AnalyzerNodeInfo.getTypeSourceId(node))) {
-                this._setAnalysisChanged();
+                this._setAnalysisChanged('Function inferred return type changed');
             }
         }
 
@@ -2740,7 +2748,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // won't converge if we use the same source ID for both.
                     const sourceId = AnalyzerNodeInfo.getTypeSourceId(typeAnnotationNode || node.memberName);
                     if (symbol.setInferredTypeForSource(srcType, sourceId)) {
-                        this._setAnalysisChanged();
+                        this._setAnalysisChanged('Class member inferred type changed');
                     }
 
                     if (srcExprNode) {
@@ -2805,7 +2813,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                 newSymbol.addDeclaration(createDeclaration());
                 setSymbolPreservingAccess(memberFields, memberName, newSymbol);
-                this._setAnalysisChanged();
+                this._setAnalysisChanged('Class member added');
 
                 if (srcExprNode) {
                     this._reportPossibleUnknownAssignment(
@@ -2852,13 +2860,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _mergeReturnAndYieldTypeToCurrentScope(scopeToMerge: Scope) {
         if (this._currentScope.mergeReturnType(scopeToMerge)) {
             if (this._currentScope.getType() !== ScopeType.Temporary) {
-                this._setAnalysisChanged();
+                this._setAnalysisChanged('Return type changed for scope');
             }
         }
 
         if (this._currentScope.mergeYieldType(scopeToMerge)) {
             if (this._currentScope.getType() !== ScopeType.Temporary) {
-                this._setAnalysisChanged();
+                this._setAnalysisChanged('Yield type changed for scope');
             }
         }
 
@@ -2992,7 +3000,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // If someone has already accessed this expression cache entry during
                 // this pass, we need to perform another pass.
                 if (prevReadVersion === this._analysisVersion) {
-                    this._setAnalysisChanged();
+                    this._setAnalysisChanged('Expression type changed');
                 }
                 AnalyzerNodeInfo.setExpressionType(node, exprType);
             }
@@ -3372,7 +3380,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (symbolWithScope) {
             if (symbolWithScope.symbol.setInferredTypeForSource(type, typeSourceId)) {
                 if (symbolWithScope.scope.getType() !== ScopeType.Temporary) {
-                    this._setAnalysisChanged();
+                    this._setAnalysisChanged('Inferred type of name changed');
                 }
             }
 
@@ -3626,12 +3634,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _setSymbolAccessed(symbol: Symbol) {
         if (!symbol.isAccessed()) {
-            this._setAnalysisChanged();
+            this._setAnalysisChanged('Symbol accessed flag set');
             symbol.setIsAcccessed();
         }
     }
 
-    private _setAnalysisChanged() {
+    private _setAnalysisChanged(reason: string) {
         this._didAnalysisChange = true;
+        this._lastAnalysisChangeReason = reason;
     }
 }

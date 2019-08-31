@@ -388,6 +388,27 @@ export class Program {
         }
     }
 
+    printAnalysisPassDetails(projectRootDir: string) {
+        const sortedFiles = this._sourceFileList.sort((a, b) => {
+            return (a.sourceFile.getFilePath() < b.sourceFile.getFilePath()) ? 1 : -1;
+        });
+
+        sortedFiles.forEach(sfInfo => {
+            this._console.log('');
+            let filePath = sfInfo.sourceFile.getFilePath();
+            const relPath = getRelativePath(filePath, projectRootDir);
+            if (relPath) {
+                filePath = relPath;
+            }
+            this._console.log(`${ filePath }`);
+
+            const analysisPassCount = sfInfo.sourceFile.getAnalysisPassCount();
+            const lastRenalysisReason = sfInfo.sourceFile.getLastReanalysisReason();
+            this._console.log(`  Analysis passes: ${ analysisPassCount }`);
+            this._console.log(`  Reason for last reanalysis: ${ lastRenalysisReason }`);
+        });
+    }
+
     writeTypeStub(targetImportPath: string, targetIsSingleFile: boolean, typingsPath: string) {
         for (let sourceFileInfo of this._sourceFileList) {
             const filePath = sourceFileInfo.sourceFile.getFilePath();
