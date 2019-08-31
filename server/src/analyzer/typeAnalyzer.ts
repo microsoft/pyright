@@ -118,6 +118,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // during the processing of the scope.
         this._currentScope.clearTypeConstraints();
 
+        // Apply the export filter to symbols in this scope's
+        // symbol table if an export filter exists.
+        this._currentScope.applyExportFilter();
+
         // If we've already analyzed the file the max number of times,
         // just give up and admit defeat. This should happen only in
         // the case of analyzer bugs.

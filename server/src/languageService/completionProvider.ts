@@ -332,14 +332,14 @@ export class CompletionProvider {
         Object.keys(moduleSymbolMap).forEach(filePath => {
             const symbolTable = moduleSymbolMap[filePath];
 
-            symbolTable.forEach((item, name) => {
-                if (name.startsWith(priorWord)) {
+            symbolTable.forEach((symbol, name) => {
+                if (name.startsWith(priorWord) && !symbol.isExternallyHidden()) {
                     // If there's already a local completion suggestion with
                     // this name, don't add an auto-import suggestion with
                     // the same name.
                     const localDuplicate = completionList.items.find(
                         item => item.label === name && !item.data.autoImport);
-                    const declarations = item.getDeclarations();
+                    const declarations = symbol.getDeclarations();
                     if (declarations && declarations.length > 0 && localDuplicate === undefined) {
                         // Don't include imported symbols, only those that
                         // are declared within this file.
@@ -359,7 +359,7 @@ export class CompletionProvider {
                                 name, importStatements, filePath, importSource,
                                 moduleNameAndType ? moduleNameAndType.importType : ImportType.Local);
 
-                            this._addSymbol(name, item, priorWord,
+                            this._addSymbol(name, symbol, priorWord,
                                 completionList, importSource, autoImportTextEdits);
                         }
                     }
@@ -604,8 +604,7 @@ export class CompletionProvider {
             if (scope && scope.getType() !== ScopeType.Temporary) {
                 while (scope) {
                     this._addSymbolsForSymbolTable(scope.getSymbolTable(),
-                        name => scope!.isSymbolExported(name),
-                        priorWord, completionList);
+                        () => true, priorWord, completionList);
                     scope = scope.getParent();
                 }
                 break;
@@ -616,15 +615,15 @@ export class CompletionProvider {
     }
 
     private _addSymbolsForSymbolTable(symbolTable: SymbolTable,
-            isExportedCallback: (name: string) => boolean,
+            includeSymbolCallback: (name: string) => boolean,
             priorWord: string, completionList: CompletionList) {
 
-        symbolTable.forEach((item, name) => {
+        symbolTable.forEach((symbol, name) => {
             // If there are no declarations or the symbol is not
             // exported from this scope, don't include it in the
             // suggestion list.
-            if (isExportedCallback(name)) {
-                this._addSymbol(name, item, priorWord, completionList);
+            if (!symbol.isExternallyHidden() && includeSymbolCallback(name)) {
+                this._addSymbol(name, symbol, priorWord, completionList);
             }
         });
     }

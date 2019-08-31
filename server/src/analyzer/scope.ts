@@ -134,29 +134,16 @@ export class Scope {
         }
     }
 
-    getSymbolTable(filterNonexports = false): SymbolTable {
-        if (filterNonexports && this._exportFilterMap) {
-            const filteredSymbolTable = new SymbolTable();
+    applyExportFilter() {
+        if (this._exportFilterMap) {
             this._symbolTable.forEach((symbol, name) => {
-                if (!this.isSymbolExported(name)) {
-                    filteredSymbolTable.set(name, symbol);
-                }
+                symbol.setIsExternallyHidden(this._exportFilterMap![name] === undefined);
             });
-            return filteredSymbolTable;
         }
-        return this._symbolTable;
     }
 
-    isSymbolExported(name: string) {
-        if (!this._exportFilterMap) {
-            return true;
-        }
-
-        if (this._exportFilterMap[name]) {
-            return true;
-        }
-
-        return false;
+    getSymbolTable(): SymbolTable {
+        return this._symbolTable;
     }
 
     getSymbols(): string[] {
@@ -484,14 +471,15 @@ export class Scope {
     private _lookUpSymbolRecursiveInternal(name: string, isOutsideCallerModule: boolean,
             isBeyondExecutionScope: boolean): SymbolWithScope | undefined {
 
-        // If we're searching outside of the original caller's module (global) scope,
-        // hide any names that are not meant to be visible to importers.
-        if (isOutsideCallerModule && this._exportFilterMap && !this._exportFilterMap[name]) {
-            return undefined;
-        }
-
         const symbol = this._symbolTable.get(name);
+
         if (symbol) {
+            // If we're searching outside of the original caller's module (global) scope,
+            // hide any names that are not meant to be visible to importers.
+            if (isOutsideCallerModule && symbol.isExternallyHidden()) {
+                return undefined;
+            }
+
             return {
                 symbol,
                 isOutsideCallerModule,

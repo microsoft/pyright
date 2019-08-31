@@ -44,6 +44,7 @@ import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { ModuleImport, PostParseWalker } from './postParseWalker';
 import { Scope } from './scope';
 import { ModuleScopeAnalyzer } from './semanticAnalyzer';
+import { SymbolTable } from './symbol';
 import { TypeAnalyzer } from './typeAnalyzer';
 
 const _maxImportCyclesPerFile = 4;
@@ -63,6 +64,7 @@ export interface AnalysisJob {
     nextPhaseToRun: AnalysisPhase;
     parseTreeNeedsCleaning: boolean;
     parseResults?: ParseResults;
+    moduleSymbolTable?: SymbolTable;
 
     parseDiagnostics: Diagnostic[];
     semanticAnalysisDiagnostics: Diagnostic[];
@@ -254,18 +256,12 @@ export class SourceFile {
         return this._analysisJob.builtinsImport;
     }
 
-    getModuleScope(): Scope | undefined {
-        if (!this._analysisJob.parseResults) {
+    getModuleSymbolTable(): SymbolTable | undefined {
+        if (!this._analysisJob.moduleSymbolTable) {
             return undefined;
         }
 
-        const moduleNode = this._analysisJob.parseResults.parseTree;
-        const scope = AnalyzerNodeInfo.getScope(moduleNode)!;
-        if (!scope) {
-            return undefined;
-        }
-
-        return scope;
+        return this._analysisJob.moduleSymbolTable;
     }
 
     // Indicates whether the contents of the file have changed since
@@ -644,6 +640,9 @@ export class SourceFile {
             });
 
             this._analysisJob.semanticAnalysisDiagnostics = fileInfo.diagnosticSink.diagnostics;
+            const moduleScope = AnalyzerNodeInfo.getScope(this._analysisJob.parseResults!.parseTree);
+            assert(moduleScope !== undefined);
+            this._analysisJob.moduleSymbolTable = moduleScope!.getSymbolTable();
         } catch (e) {
             let message: string;
             if (e instanceof Error) {

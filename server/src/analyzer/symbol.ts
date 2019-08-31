@@ -28,6 +28,10 @@ export class Symbol {
     // later be unbound through a delete operation.
     private _isInitiallyUnbound: boolean;
 
+    // Indicates that the symbol is not visible from other files.
+    // Used for module-level symbols.
+    private _isExternallyHidden = false;
+
     // Indicates that someone read the value of the symbol at
     // some point. This is used for unused symbol detection.
     private _isAccessed = false;
@@ -50,6 +54,14 @@ export class Symbol {
 
     isInitiallyUnbound() {
         return this._isInitiallyUnbound;
+    }
+
+    isExternallyHidden() {
+        return this._isExternallyHidden;
+    }
+
+    setIsExternallyHidden(isHidden: boolean) {
+        this._isExternallyHidden = isHidden;
     }
 
     setIsAcccessed() {
