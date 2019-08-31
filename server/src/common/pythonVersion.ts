@@ -27,8 +27,8 @@ export enum PythonVersion {
     V38 = 0x0308
 }
 
-export const LatestStablePythonVersion = PythonVersion.V37;
-export const LatestPythonVersion = PythonVersion.V38;
+export const latestStablePythonVersion = PythonVersion.V37;
+export const latestPythonVersion = PythonVersion.V38;
 
 export function versionToString(version: PythonVersion): string {
     const majorVersion = (version >> 8) & 0xFF;
@@ -53,7 +53,7 @@ export function versionFromString(verString: string): PythonVersion | undefined 
         return undefined;
     }
 
-    let value = majorVersion * 256 + minorVersion;
+    const value = majorVersion * 256 + minorVersion;
     if (PythonVersion[value] === undefined) {
         return undefined;
     }

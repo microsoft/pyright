@@ -19,7 +19,7 @@ import { CreateTypeStubFileAction, Diagnostic as AnalyzerDiagnostic, DiagnosticC
     DiagnosticTextPosition, DiagnosticTextRange } from './common/diagnostic';
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
 import StringMap from './common/stringMap';
-import { CommandCreateTypeStub, CommandOrderImports } from './languageService/commands';
+import { commandCreateTypeStub, commandOrderImports } from './languageService/commands';
 
 interface PythonSettings {
     venvPath?: string;
@@ -45,13 +45,13 @@ interface WorkspaceServiceInstance {
 (global as any).__rootDirectory = getDirectoryPath(__dirname);
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
-let _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+const _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 
 _connection.console.log('Pyright language server starting');
 
 // Create a simple text document manager. The text document manager
 // supports full document sync only.
-let _documents: TextDocuments = new TextDocuments();
+const _documents: TextDocuments = new TextDocuments();
 
 // Global root path - the basis for all global settings.
 let _rootPath = '';
@@ -59,7 +59,7 @@ let _rootPath = '';
 // Tracks whether we're currently displaying progress.
 let _isDisplayingProgress = false;
 
-let _workspaceMap = new StringMap<WorkspaceServiceInstance>();
+const _workspaceMap = new StringMap<WorkspaceServiceInstance>();
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events.
@@ -82,7 +82,7 @@ function _createAnalyzerService(name: string): AnalyzerService {
 
     service.setCompletionCallback(results => {
         results.diagnostics.forEach(fileDiag => {
-            let diagnostics = _convertDiagnostics(fileDiag.diagnostics);
+            const diagnostics = _convertDiagnostics(fileDiag.diagnostics);
 
             // Send the computed diagnostics to the client.
             _connection.sendDiagnostics({
@@ -256,7 +256,7 @@ _connection.onDidChangeConfiguration(change => {
 
 _connection.onCodeAction(params => {
     const sortImportsCodeAction = CodeAction.create(
-        'Organize Imports', Command.create('Organize Imports', CommandOrderImports),
+        'Organize Imports', Command.create('Organize Imports', commandOrderImports),
         CodeActionKind.SourceOrganizeImports);
     const codeActions: CodeAction[] = [sortImportsCodeAction];
 
@@ -277,16 +277,16 @@ _connection.onCodeAction(params => {
         const diags = workspace.serviceInstance.getDiagnosticsForRange(filePath, range);
         const typeStubDiag = diags.find(d => {
             const actions = d.getActions();
-            return actions && actions.find(a => a.action === CommandCreateTypeStub);
+            return actions && actions.find(a => a.action === commandCreateTypeStub);
         });
 
         if (typeStubDiag) {
             const action = typeStubDiag.getActions()!.find(
-                a => a.action === CommandCreateTypeStub) as CreateTypeStubFileAction;
+                a => a.action === commandCreateTypeStub) as CreateTypeStubFileAction;
             if (action) {
                 const createTypeStubAction = CodeAction.create(
                     `Create Type Stub For ‘${ action.moduleName }’`,
-                    Command.create('Create Type Stub', CommandCreateTypeStub,
+                    Command.create('Create Type Stub', commandCreateTypeStub,
                         workspace.rootPath, action.moduleName),
                     CodeActionKind.QuickFix);
                 codeActions.push(createTypeStubAction);
@@ -584,7 +584,7 @@ _connection.onInitialized(() => {
             const rootPath = _convertUriToPath(workspace.uri);
             _workspaceMap.set(rootPath, {
                 workspaceName: workspace.name,
-                rootPath: rootPath,
+                rootPath,
                 rootUri: workspace.uri,
                 serviceInstance: _createAnalyzerService(workspace.name),
                 disableLanguageServices: false
@@ -594,7 +594,7 @@ _connection.onInitialized(() => {
 });
 
 _connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
-    if (cmdParams.command === CommandOrderImports) {
+    if (cmdParams.command === commandOrderImports) {
         if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
             const docUri = cmdParams.arguments[0];
             const filePath = _convertUriToPath(docUri);
@@ -614,7 +614,7 @@ _connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
 
             return edits;
         }
-    } else if (cmdParams.command === CommandCreateTypeStub) {
+    } else if (cmdParams.command === commandCreateTypeStub) {
         if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
             const workspaceRoot = cmdParams.arguments[0];
             const importName = cmdParams.arguments[1];
@@ -669,10 +669,10 @@ function _expandPathVariables(value: string): string {
 
 function _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
     return diags.map(diag => {
-        let severity = diag.category === DiagnosticCategory.Error ?
+        const severity = diag.category === DiagnosticCategory.Error ?
             DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
 
-        let vsDiag = Diagnostic.create(_convertRange(diag.range), diag.message, severity,
+        const vsDiag = Diagnostic.create(_convertRange(diag.range), diag.message, severity,
             undefined, 'pyright');
 
         if (diag.category === DiagnosticCategory.UnusedCode) {

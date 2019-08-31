@@ -77,12 +77,12 @@ export class ReferencesProvider {
             position: DiagnosticTextPosition, includeDeclaration: boolean):
                 ReferencesResult | undefined {
 
-        let offset = convertPositionToOffset(position, parseResults.lines);
+        const offset = convertPositionToOffset(position, parseResults.lines);
         if (offset === undefined) {
             return undefined;
         }
 
-        let node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
+        const node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
         if (node === undefined) {
             return undefined;
         }

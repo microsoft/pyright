@@ -43,7 +43,7 @@ export class TestUtils {
     }
 
     static readSampleFile(fileName: string): string {
-        let filePath = this.resolveSampleFilePath(fileName);
+        const filePath = this.resolveSampleFilePath(fileName);
 
         try {
             return fs.readFileSync(filePath, { encoding: 'utf8' });
@@ -57,17 +57,17 @@ export class TestUtils {
         parseOptions: ParseOptions = new ParseOptions()): ParseResults {
 
         const parser = new Parser();
-        let parseResults = parser.parseSourceFile(textToParse, parseOptions, diagSink);
-        let textRangeDiagSink = new TextRangeDiagnosticSink(parseResults.lines,
+        const parseResults = parser.parseSourceFile(textToParse, parseOptions, diagSink);
+        const textRangeDiagSink = new TextRangeDiagnosticSink(parseResults.lines,
             diagSink.diagnostics);
 
         // Link the parents.
-        let parentWalker = new PostParseWalker(textRangeDiagSink,
+        const parentWalker = new PostParseWalker(textRangeDiagSink,
             parseResults.parseTree);
         parentWalker.analyze();
 
         // Walk the AST to verify internal consistency.
-        let testWalker = new TestWalker();
+        const testWalker = new TestWalker();
         testWalker.walk(parseResults.parseTree);
 
         return parseResults;
@@ -118,7 +118,7 @@ export class TestUtils {
         const parseResults = this.parseSampleFile(fileName, diagSink, execEnvironment);
 
         const fileInfo = this.buildAnalyzerFileInfo(filePath, parseResults, configOptions);
-        let scopeAnalyzer = new ModuleScopeAnalyzer(parseResults.parseTree, fileInfo);
+        const scopeAnalyzer = new ModuleScopeAnalyzer(parseResults.parseTree, fileInfo);
         scopeAnalyzer.analyze();
 
         return {

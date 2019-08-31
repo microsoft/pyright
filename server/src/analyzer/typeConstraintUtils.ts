@@ -23,7 +23,7 @@ export class TypeConstraintUtils {
         const combinedList: TypeConstraint[] = [];
 
         // Start by deduping the lists.
-        let dedupedLists = tcLists.map(tcList => this.dedupeTypeConstraints(tcList));
+        const dedupedLists = tcLists.map(tcList => this.dedupeTypeConstraints(tcList));
 
         for (let listIndex = 0; listIndex < tcLists.length; listIndex++) {
             while (dedupedLists[listIndex].length > 0) {
@@ -72,7 +72,7 @@ export class TypeConstraintUtils {
     // constraints, they are combined.
     static dedupeTypeConstraints(tcList: TypeConstraint[], markConditional = false): TypeConstraint[] {
         let remainingList = tcList;
-        let dedupedList: TypeConstraint[] = [];
+        const dedupedList: TypeConstraint[] = [];
 
         while (remainingList.length > 0) {
             const expression = remainingList[0].getExpression();

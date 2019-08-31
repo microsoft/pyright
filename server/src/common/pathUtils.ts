@@ -50,9 +50,9 @@ export function getDirectoryPath(pathString: string): string {
 export function getRootLength(pathString: string): number {
     if (pathString.charAt(0) === path.sep) {
         if (pathString.charAt(1) !== path.sep) { return 1; }
-        let p1 = pathString.indexOf(path.sep, 2);
+        const p1 = pathString.indexOf(path.sep, 2);
         if (p1 < 0) { return 2; }
-        let p2 = pathString.indexOf(path.sep, p1 + 1);
+        const p2 = pathString.indexOf(path.sep, p1 + 1);
         if (p2 < 0) { return p1 + 1; }
         return p2 + 1;
     }
@@ -70,7 +70,7 @@ export function getPathComponents(pathString: string) {
         rest.pop();
     }
 
-    let components = [root, ...rest];
+    const components = [root, ...rest];
     const reduced = [components[0]];
 
     // Reduce the path components by eliminating
@@ -191,7 +191,7 @@ export function getFileName(pathString: string) {
 }
 
 export function stripFileExtension(fileName: string) {
-    let ext = path.extname(fileName);
+    const ext = path.extname(fileName);
     return fileName.substr(0, fileName.length - ext.length);
 }
 
@@ -273,7 +273,7 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
     let regExPattern = '';
     let firstComponent = true;
 
-    for (let component of pathComponents) {
+    for (const component of pathComponents) {
         if (component === '**') {
             regExPattern += doubleAsteriskRegexFragment;
         } else {
@@ -316,7 +316,7 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
     let wildcardRoot = '';
     let firstComponent = true;
 
-    for (let component of pathComponents) {
+    for (const component of pathComponents) {
         if (component === '**') {
             break;
         } else {

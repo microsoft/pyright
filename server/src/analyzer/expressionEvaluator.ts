@@ -32,7 +32,7 @@ import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { Declaration, DeclarationCategory } from './declaration';
-import { DefaultTypeSourceId } from './inferredType';
+import { defaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
 import { setSymbolPreservingAccess, Symbol } from './symbol';
@@ -386,7 +386,7 @@ export class ExpressionEvaluator {
                 return subtype;
             }
 
-            let diag = new DiagnosticAddendum();
+            const diag = new DiagnosticAddendum();
             if (subtype instanceof ObjectType) {
                 const returnType = getIteratorReturnType(subtype, undefined, diag);
                 if (returnType) {
@@ -423,9 +423,9 @@ export class ExpressionEvaluator {
 
         assert(classType.isDataClass());
 
-        let newType = new FunctionType(
+        const newType = new FunctionType(
             FunctionTypeFlags.StaticMethod | FunctionTypeFlags.SynthesizedMethod);
-        let initType = new FunctionType(
+        const initType = new FunctionType(
             FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
         let sawDefaultValue = false;
 
@@ -502,9 +502,9 @@ export class ExpressionEvaluator {
 
         if (!skipSynthesizeInit) {
             setSymbolPreservingAccess(classType.getClassFields(),
-                '__init__', Symbol.createWithType(initType, DefaultTypeSourceId));
+                '__init__', Symbol.createWithType(initType, defaultTypeSourceId));
             setSymbolPreservingAccess(classType.getClassFields(),
-                '__new__', Symbol.createWithType(newType, DefaultTypeSourceId));
+                '__new__', Symbol.createWithType(newType, defaultTypeSourceId));
         }
     }
 
@@ -564,7 +564,7 @@ export class ExpressionEvaluator {
         }
 
         if (classMember.symbolType instanceof FunctionType) {
-            let methodType = TypeUtils.bindFunctionToClassOrObject(objType,
+            const methodType = TypeUtils.bindFunctionToClassOrObject(objType,
                 classMember.symbolType) as FunctionType;
             return methodType.getEffectiveReturnType();
         }
@@ -590,7 +590,7 @@ export class ExpressionEvaluator {
         }
 
         if (classMember.symbolType instanceof FunctionType) {
-            let methodType = TypeUtils.bindFunctionToClassOrObject(
+            const methodType = TypeUtils.bindFunctionToClassOrObject(
                 classType, classMember.symbolType, true) as FunctionType;
             return methodType.getEffectiveReturnType();
         }
@@ -603,7 +603,7 @@ export class ExpressionEvaluator {
 
         // Is this type already cached?
         if (this._readTypeFromCache) {
-            let cachedType = this._readTypeFromCache(node);
+            const cachedType = this._readTypeFromCache(node);
             if (cachedType) {
                 return { type: cachedType, node };
             }
@@ -651,7 +651,7 @@ export class ExpressionEvaluator {
             if ((flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0) {
                 typeResult = { type: AnyType.create(true), node };
             } else {
-                let ellipsisType = ScopeUtils.getBuiltInType(this._scope, 'ellipsis') ||
+                const ellipsisType = ScopeUtils.getBuiltInType(this._scope, 'ellipsis') ||
                     AnyType.create();
                 typeResult = { type: ellipsisType, node };
             }
@@ -866,14 +866,14 @@ export class ExpressionEvaluator {
                 type = UnknownType.create();
             }
         } else if (baseType instanceof UnionType) {
-            let returnTypes: Type[] = [];
+            const returnTypes: Type[] = [];
             baseType.getTypes().forEach(typeEntry => {
                 if (typeEntry instanceof NoneType) {
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportOptionalMemberAccess,
                         `'${ memberName }' is not a known member of 'None'`, node.memberName);
                 } else {
-                    let typeResult = this._getTypeFromMemberAccessExpressionWithBaseType(node,
+                    const typeResult = this._getTypeFromMemberAccessExpressionWithBaseType(node,
                         {
                             type: typeEntry,
                             node
@@ -994,14 +994,14 @@ export class ExpressionEvaluator {
         if (flags & MemberAccessFlags.SkipObjectBaseClass) {
             classLookupFlags |= ClassMemberLookupFlags.SkipObjectBaseClass;
         }
-        let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
+        const memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
             classLookupFlags);
 
         if (memberInfo) {
             const makeClassMember = (type: Type): ClassMemberLookup => {
                 return {
                     type,
-                    isClassMember: !memberInfo!.isInstanceMember
+                    isClassMember: !memberInfo.isInstanceMember
                 };
             };
 
@@ -1070,7 +1070,7 @@ export class ExpressionEvaluator {
                     }
 
                     const memberClassType = type.getClassType();
-                    let getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName,
+                    const getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName,
                         ClassMemberLookupFlags.SkipInstanceVariables);
                     if (getMember) {
                         if (getMember.symbolType instanceof FunctionType) {
@@ -1122,7 +1122,7 @@ export class ExpressionEvaluator {
             if (usage.method === 'get') {
                 // See if the class has a "__getattribute__" or "__getattr__" method.
                 // If so, arbitrary members are supported.
-                let getAttribType = this.getTypeFromClassMember(errorNode, classType,
+                const getAttribType = this.getTypeFromClassMember(errorNode, classType,
                     '__getattribute__', { method: 'get' },
                         MemberAccessFlags.SkipForMethodLookup |
                         MemberAccessFlags.SkipObjectBaseClass);
@@ -1134,7 +1134,7 @@ export class ExpressionEvaluator {
                     };
                 }
 
-                let getAttrType = this.getTypeFromClassMember(errorNode, classType,
+                const getAttrType = this.getTypeFromClassMember(errorNode, classType,
                     '__getattr__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
                 if (getAttrType && getAttrType instanceof FunctionType) {
                     return {
@@ -1143,7 +1143,7 @@ export class ExpressionEvaluator {
                     };
                 }
             } else if (usage.method === 'set') {
-                let setAttrType = this.getTypeFromClassMember(errorNode, classType,
+                const setAttrType = this.getTypeFromClassMember(errorNode, classType,
                     '__setattr__', { method: 'get' },
                         MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
                 if (setAttrType) {
@@ -1156,7 +1156,7 @@ export class ExpressionEvaluator {
                 }
             } else {
                 assert(usage.method === 'del');
-                let delAttrType = this.getTypeFromClassMember(errorNode, classType,
+                const delAttrType = this.getTypeFromClassMember(errorNode, classType,
                     '__detattr__', { method: 'get' },
                         MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
                 if (delAttrType) {
@@ -1186,7 +1186,7 @@ export class ExpressionEvaluator {
                     return this._createLiteralType(node);
                 } else if (subtype.isBuiltIn() && subtype.getClassName() === 'InitVar') {
                     // Special-case InitVar, used in data classes.
-                    let typeArgs = this._getTypeArgs(node.items);
+                    const typeArgs = this._getTypeArgs(node.items);
                     if (typeArgs.length === 1) {
                         return typeArgs[0].type;
                     } else {
@@ -1201,7 +1201,7 @@ export class ExpressionEvaluator {
                     // that is a str type.
                     return Object(subtype);
                 } else {
-                    let typeArgs = this._getTypeArgs(node.items);
+                    const typeArgs = this._getTypeArgs(node.items);
                     return this._createSpecializeClassType(subtype, typeArgs, node.items);
                 }
             } else if (subtype instanceof ObjectType) {
@@ -1244,7 +1244,7 @@ export class ExpressionEvaluator {
             magicMethodName = '__delitem__';
         }
 
-        let itemMethodType = this.getTypeFromObjectMember(node,
+        const itemMethodType = this.getTypeFromObjectMember(node,
             baseType, magicMethodName, { method: 'get' },
                 MemberAccessFlags.SkipForMethodLookup);
 
@@ -1256,7 +1256,7 @@ export class ExpressionEvaluator {
             return UnknownType.create();
         }
 
-        let indexTypeList = node.items.items.map(item => this.getType(item));
+        const indexTypeList = node.items.items.map(item => this.getType(item));
 
         let indexType: Type;
         if (indexTypeList.length === 1) {
@@ -1295,7 +1295,7 @@ export class ExpressionEvaluator {
             }
         }
 
-        let argList: FunctionArgument[] = [{
+        const argList: FunctionArgument[] = [{
             argumentCategory: ArgumentCategory.Simple,
             type: indexType
         }];
@@ -1307,14 +1307,14 @@ export class ExpressionEvaluator {
             });
         }
 
-        let returnType = this._validateCallArguments(node, argList,
+        const returnType = this._validateCallArguments(node, argList,
             itemMethodType, new TypeVarMap());
 
         return returnType || UnknownType.create();
     }
 
     private _getTypeArgs(node: IndexItemsNode): TypeResult[] {
-        let typeArgs: TypeResult[] = [];
+        const typeArgs: TypeResult[] = [];
 
         node.items.forEach(expr => {
             typeArgs.push(this._getTypeArg(expr));
@@ -1346,7 +1346,7 @@ export class ExpressionEvaluator {
         );
 
         let type = UnknownType.create();
-        let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
+        const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
 
         if (builtInTupleType instanceof ClassType) {
             type = TypeUtils.convertClassToObject(
@@ -1488,7 +1488,7 @@ export class ExpressionEvaluator {
                 if (className === 'type') {
                     // Handle the 'type' call specially.
                     if (argList.length >= 1) {
-                        let argType = argList[0].type;
+                        const argType = argList[0].type;
                         if (argType instanceof ObjectType) {
                             type = argType.getClassType();
                         }
@@ -1622,7 +1622,7 @@ export class ExpressionEvaluator {
                         `Object of type 'None' cannot be called`,
                         errorNode);
                 } else {
-                    let typeResult = this._getTypeFromCallExpressionWithBaseType(
+                    const typeResult = this._getTypeFromCallExpressionWithBaseType(
                         errorNode,
                         argList,
                         {
@@ -1668,7 +1668,7 @@ export class ExpressionEvaluator {
 
         // Temporarily disable diagnostic output.
         this._silenceDiagnostics(() => {
-            for (let overload of callType.getOverloads()) {
+            for (const overload of callType.getOverloads()) {
                 if (this._validateCallArguments(errorNode, argList, overload.type, new TypeVarMap())) {
                     validOverload = overload.type;
                     break;
@@ -1690,7 +1690,7 @@ export class ExpressionEvaluator {
         let reportedErrorsForNewCall = false;
 
         // Validate __new__
-        let constructorMethodInfo = this._getTypeFromClassMemberName(errorNode,
+        const constructorMethodInfo = this._getTypeFromClassMemberName(errorNode,
             type, '__new__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup |
                 MemberAccessFlags.SkipObjectBaseClass);
         if (constructorMethodInfo) {
@@ -1712,7 +1712,7 @@ export class ExpressionEvaluator {
                 new ObjectType(type), '__init__', { method: 'get' },
                 MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
             if (initMethodType) {
-                let typeVarMap = new TypeVarMap();
+                const typeVarMap = new TypeVarMap();
                 if (this._validateCallArguments(errorNode, argList, initMethodType, typeVarMap)) {
                     let specializedClassType = type;
                     if (!typeVarMap.isEmpty()) {
@@ -1780,7 +1780,7 @@ export class ExpressionEvaluator {
                     errorNode);
             }
         } else if (callType instanceof ObjectType) {
-            let memberType = this.getTypeFromObjectMember(errorNode,
+            const memberType = this.getTypeFromObjectMember(errorNode,
                 callType, '__call__', { method: 'get' },
                     MemberAccessFlags.SkipForMethodLookup);
 
@@ -1790,16 +1790,16 @@ export class ExpressionEvaluator {
                     errorNode, argList, callMethodType, typeVarMap);
             }
         } else if (callType instanceof UnionType) {
-            let returnTypes: Type[] = [];
+            const returnTypes: Type[] = [];
 
-            for (let type of callType.getTypes()) {
+            for (const type of callType.getTypes()) {
                 if (type instanceof NoneType) {
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
                         errorNode);
                 } else {
-                    let entryReturnType = this._validateCallArguments(
+                    const entryReturnType = this._validateCallArguments(
                         errorNode, argList, type, typeVarMap);
                     if (entryReturnType) {
                         returnTypes.push(entryReturnType);
@@ -1887,7 +1887,7 @@ export class ExpressionEvaluator {
         while (argIndex < positionalArgCount) {
             if (paramIndex >= positionalParamCount) {
                 if (argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
-                    let adjustedCount = positionalParamCount;
+                    const adjustedCount = positionalParamCount;
                     this._addError(
                         `Expected ${ adjustedCount } positional ` +
                         `${ adjustedCount === 1 ? 'argument' : 'arguments' }`,
@@ -1938,7 +1938,7 @@ export class ExpressionEvaluator {
 
         if (!reportedArgError) {
             let foundUnpackedDictionaryArg = false;
-            let foundUnpackedListArg = argList.find(
+            const foundUnpackedListArg = argList.find(
                 arg => arg.argumentCategory === ArgumentCategory.UnpackedList) !== undefined;
 
             // Now consume any named parameters.
@@ -1961,7 +1961,7 @@ export class ExpressionEvaluator {
                             } else {
                                 paramMap.get(paramName.nameToken.value)!.argsReceived++;
 
-                                let paramInfoIndex = typeParams.findIndex(
+                                const paramInfoIndex = typeParams.findIndex(
                                     param => param.name === paramNameValue);
                                 assert(paramInfoIndex >= 0);
                                 const paramType = type.getEffectiveParameterType(paramInfoIndex);
@@ -1993,7 +1993,7 @@ export class ExpressionEvaluator {
             // (i.e. an arg starting with a "**") or a list argument (i.e. an arg
             // starting with a "*"), we will assume that all parameters are matched.
             if (!foundUnpackedDictionaryArg && !foundUnpackedListArg && !type.isDefaultParameterCheckDisabled()) {
-                let unassignedParams = paramMap.getKeys().filter(name => {
+                const unassignedParams = paramMap.getKeys().filter(name => {
                     const entry = paramMap.get(name)!;
                     return entry.argsReceived < entry.argsNeeded;
                 });
@@ -2039,7 +2039,7 @@ export class ExpressionEvaluator {
             return undefined;
         }
 
-        let firstArg = argList[0];
+        const firstArg = argList[0];
         if (firstArg.valueExpression instanceof StringListNode) {
             typeVarName = firstArg.valueExpression.getValue();
         } else {
@@ -2047,13 +2047,13 @@ export class ExpressionEvaluator {
                 firstArg.valueExpression || errorNode);
         }
 
-        let typeVar = new TypeVarType(typeVarName);
+        const typeVar = new TypeVarType(typeVarName);
 
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
             const paramNameNode = argList[i].name;
             const paramName = paramNameNode ? paramNameNode.nameToken.value : undefined;
-            let paramNameMap = new StringMap<string>();
+            const paramNameMap = new StringMap<string>();
 
             if (paramName) {
                 if (paramNameMap.get(paramName)) {
@@ -2173,7 +2173,7 @@ export class ExpressionEvaluator {
 
         const classFields = classType.getClassFields();
         setSymbolPreservingAccess(classFields, '__class__',
-            Symbol.createWithType(classType, DefaultTypeSourceId));
+            Symbol.createWithType(classType, defaultTypeSourceId));
 
         if (argList.length < 2) {
             this._addError('Expected enum item string as second parameter', errorNode);
@@ -2184,13 +2184,13 @@ export class ExpressionEvaluator {
 
                 this._addError('Expected enum item string as second parameter', errorNode);
             } else {
-                let entries = entriesArg.valueExpression.getValue().split(' ');
+                const entries = entriesArg.valueExpression.getValue().split(' ');
                 entries.forEach(entryName => {
                     entryName = entryName.trim();
                     if (entryName) {
-                        let entryType = UnknownType.create();
+                        const entryType = UnknownType.create();
 
-                        const newSymbol = Symbol.createWithType(entryType, DefaultTypeSourceId);
+                        const newSymbol = Symbol.createWithType(entryType, defaultTypeSourceId);
 
                         // We need to associate the declaration with a parse node.
                         // In this case it's just part of a string literal value.
@@ -2300,10 +2300,10 @@ export class ExpressionEvaluator {
 
         const classFields = classType.getClassFields();
         setSymbolPreservingAccess(classFields, '__class__',
-            Symbol.createWithType(classType, DefaultTypeSourceId));
+            Symbol.createWithType(classType, defaultTypeSourceId));
         const instanceFields = classType.getInstanceFields();
 
-        let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
+        const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
         if (builtInTupleType instanceof ClassType) {
             const constructorType = new FunctionType(
                 FunctionTypeFlags.StaticMethod | FunctionTypeFlags.SynthesizedMethod);
@@ -2331,11 +2331,11 @@ export class ExpressionEvaluator {
                     addGenericGetAttribute = true;
                 } else {
                     if (!includesTypes && entriesArg.valueExpression instanceof StringListNode) {
-                        let entries = entriesArg.valueExpression.getValue().split(' ');
+                        const entries = entriesArg.valueExpression.getValue().split(' ');
                         entries.forEach(entryName => {
                             entryName = entryName.trim();
                             if (entryName) {
-                                let entryType = UnknownType.create();
+                                const entryType = UnknownType.create();
                                 const paramInfo: FunctionParameter = {
                                     category: ParameterCategory.Simple,
                                     name: entryName,
@@ -2343,7 +2343,7 @@ export class ExpressionEvaluator {
                                 };
 
                                 constructorType.addParameter(paramInfo);
-                                const newSymbol = Symbol.createWithType(entryType, DefaultTypeSourceId);
+                                const newSymbol = Symbol.createWithType(entryType, defaultTypeSourceId);
 
                                 // We need to associate the declaration with a parse node.
                                 // In this case it's just part of a string literal value.
@@ -2364,7 +2364,7 @@ export class ExpressionEvaluator {
                         });
                     } else if (entriesArg.valueExpression instanceof ListNode) {
                         const entryList = entriesArg.valueExpression;
-                        let entryMap: { [name: string]: string } = {};
+                        const entryMap: { [name: string]: string } = {};
 
                         entryList.entries.forEach((entry, index) => {
                             let entryType: Type | undefined;
@@ -2375,7 +2375,7 @@ export class ExpressionEvaluator {
                                 // Handle the variant that includes name/type tuples.
                                 if (entry instanceof TupleExpressionNode && entry.expressions.length === 2) {
                                     entryNameNode = entry.expressions[0];
-                                    let entryTypeInfo = this._getTypeFromExpression(entry.expressions[1]);
+                                    const entryTypeInfo = this._getTypeFromExpression(entry.expressions[1]);
                                     if (entryTypeInfo) {
                                         entryType = TypeUtils.convertClassToObject(entryTypeInfo.type);
                                     }
@@ -2423,7 +2423,7 @@ export class ExpressionEvaluator {
 
                             constructorType.addParameter(paramInfo);
 
-                            const newSymbol = Symbol.createWithType(entryType, DefaultTypeSourceId);
+                            const newSymbol = Symbol.createWithType(entryType, defaultTypeSourceId);
                             if (entryNameNode) {
                                 const declaration: Declaration = {
                                     category: DeclarationCategory.Variable,
@@ -2459,24 +2459,24 @@ export class ExpressionEvaluator {
             TypeUtils.addDefaultFunctionParameters(initType);
 
             setSymbolPreservingAccess(classFields, '__new__',
-                Symbol.createWithType(constructorType, DefaultTypeSourceId));
+                Symbol.createWithType(constructorType, defaultTypeSourceId));
             setSymbolPreservingAccess(classFields, '__init__',
-                Symbol.createWithType(initType, DefaultTypeSourceId));
+                Symbol.createWithType(initType, defaultTypeSourceId));
 
             const keysItemType = new FunctionType(FunctionTypeFlags.SynthesizedMethod);
             keysItemType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'list',
                 [ScopeUtils.getBuiltInObject(this._scope, 'str')]));
             setSymbolPreservingAccess(classFields, 'keys',
-                Symbol.createWithType(keysItemType, DefaultTypeSourceId));
+                Symbol.createWithType(keysItemType, defaultTypeSourceId));
             setSymbolPreservingAccess(classFields, 'items',
-                Symbol.createWithType(keysItemType, DefaultTypeSourceId));
+                Symbol.createWithType(keysItemType, defaultTypeSourceId));
 
             const lenType = new FunctionType(
                 FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
             lenType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'int'));
             lenType.addParameter(selfParameter);
             setSymbolPreservingAccess(classFields, '__len__',
-                Symbol.createWithType(lenType, DefaultTypeSourceId));
+                Symbol.createWithType(lenType, defaultTypeSourceId));
 
             if (addGenericGetAttribute) {
                 const getAttribType = new FunctionType(
@@ -2489,7 +2489,7 @@ export class ExpressionEvaluator {
                     type: ScopeUtils.getBuiltInObject(this._scope, 'str')
                 });
                 setSymbolPreservingAccess(classFields, '__getattribute__',
-                    Symbol.createWithType(getAttribType, DefaultTypeSourceId));
+                    Symbol.createWithType(getAttribType, defaultTypeSourceId));
             }
         }
 
@@ -2681,8 +2681,8 @@ export class ExpressionEvaluator {
                 const supportsBuiltInTypes = arithmeticOperatorMap[operator][2];
 
                 if (supportsBuiltInTypes) {
-                    let simplifiedLeftType = TypeUtils.removeAnyFromUnion(leftType);
-                    let simplifiedRightType = TypeUtils.removeAnyFromUnion(rightType);
+                    const simplifiedLeftType = TypeUtils.removeAnyFromUnion(leftType);
+                    const simplifiedRightType = TypeUtils.removeAnyFromUnion(rightType);
                     if (simplifiedLeftType instanceof ObjectType && simplifiedRightType instanceof ObjectType) {
                         const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
                         const getTypeMatch = (classType: ClassType): boolean[] => {
@@ -2796,13 +2796,13 @@ export class ExpressionEvaluator {
         let magicMethodSupported = true;
 
         // Create a helper lambda for object subtypes.
-        let handleObjectSubtype = (subtype: ObjectType) => {
+        const handleObjectSubtype = (subtype: ObjectType) => {
             const magicMethodType = this.getTypeFromObjectMember(errorNode,
                 subtype, magicMethodName,
                 { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
 
             if (magicMethodType) {
-                let functionArgs = args.map(arg => {
+                const functionArgs = args.map(arg => {
                     return {
                         argumentCategory: ArgumentCategory.Simple,
                         type: arg
@@ -2827,7 +2827,7 @@ export class ExpressionEvaluator {
             return undefined;
         };
 
-        let returnType = TypeUtils.doForSubtypes(objType, subtype => {
+        const returnType = TypeUtils.doForSubtypes(objType, subtype => {
             if (subtype.isAny()) {
                 return subtype;
             }
@@ -2856,7 +2856,7 @@ export class ExpressionEvaluator {
 
     private _getBuiltInClassTypes(names: string[]): (ClassType | undefined)[] {
         return names.map(name => {
-            let classType = ScopeUtils.getBuiltInType(this._scope, name);
+            const classType = ScopeUtils.getBuiltInType(this._scope, name);
             return classType instanceof ClassType ? classType : undefined;
         });
     }
@@ -2878,7 +2878,7 @@ export class ExpressionEvaluator {
             TypeUtils.combineTypes(entryTypes) :
             UnknownType.create();
 
-        let type = ScopeUtils.getBuiltInObject(this._scope, 'set', [inferredEntryType]);
+        const type = ScopeUtils.getBuiltInObject(this._scope, 'set', [inferredEntryType]);
 
         return { type, node };
     }
@@ -2903,7 +2903,7 @@ export class ExpressionEvaluator {
                 addUnknown = false;
 
             } else if (entryNode instanceof DictionaryExpandEntryNode) {
-                let unexpandedType = this.getType(entryNode.expandExpression);
+                const unexpandedType = this.getType(entryNode.expandExpression);
                 if (unexpandedType.isAny()) {
                     addUnknown = false;
                 } else {
@@ -2999,7 +2999,7 @@ export class ExpressionEvaluator {
         this._getTypeFromExpression(node.testExpression);
 
         // Apply the type constraint when evaluating the if and else clauses.
-        let typeConstraints = this._buildTypeConstraints(node.testExpression);
+        const typeConstraints = this._buildTypeConstraints(node.testExpression);
 
         let ifType: TypeResult | undefined;
         this._useExpressionTypeConstraint(typeConstraints, true, () => {
@@ -3013,7 +3013,7 @@ export class ExpressionEvaluator {
                 { method: 'get' }, flags);
         });
 
-        let type = TypeUtils.combineTypes([ifType!.type, elseType!.type]);
+        const type = TypeUtils.combineTypes([ifType!.type, elseType!.type]);
         return { type, node };
     }
 
@@ -3206,7 +3206,7 @@ export class ExpressionEvaluator {
                     type = ScopeUtils.getBuiltInObject(
                         this._scope, 'Tuple', [keyType, valueType]);
                 } else if (node.expression instanceof DictionaryExpandEntryNode) {
-                    let unexpandedType = this.getType(node.expression.expandExpression);
+                    const unexpandedType = this.getType(node.expression.expandExpression);
 
                     // TODO - need to implement
                 } else if (node.expression instanceof ExpressionNode) {
@@ -3227,7 +3227,7 @@ export class ExpressionEvaluator {
         const validateIndexType = (indexExpr: ExpressionNode) => {
             const exprType = TypeUtils.stripLiteralValue(this.getType(indexExpr));
 
-            let diag = new DiagnosticAddendum();
+            const diag = new DiagnosticAddendum();
             if (!TypeUtils.canAssignType(optionalIntObject, exprType, diag)) {
                 this._addError(
                     `Index for slice operation must be an int value or None` + diag.getString(),
@@ -3341,7 +3341,7 @@ export class ExpressionEvaluator {
         // As per the specification, we support int, bool, str, and bytes literals.
         const literalTypes: Type[] = [];
 
-        for (let item of node.items.items) {
+        for (const item of node.items.items) {
             let type: Type | undefined;
 
             if (item instanceof StringListNode) {
@@ -3438,17 +3438,17 @@ export class ExpressionEvaluator {
             }
         }
 
-        let specializedType = classType.cloneForSpecialization(typeArgTypes);
+        const specializedType = classType.cloneForSpecialization(typeArgTypes);
 
         return specializedType;
     }
 
     // Unpacks the index expression for a "Union[X, Y, Z]" type annotation.
     private _createUnionType(typeArgs?: TypeResult[]): Type {
-        let types: Type[] = [];
+        const types: Type[] = [];
 
         if (typeArgs) {
-            for (let typeArg of typeArgs) {
+            for (const typeArg of typeArgs) {
                 types.push(typeArg.type);
 
                 // Verify that we didn't receive any inappropriate ellipses.
@@ -3479,14 +3479,14 @@ export class ExpressionEvaluator {
         }
 
         // Make sure that all of the type args are typeVars and are unique.
-        let uniqueTypeVars: TypeVarType[] = [];
+        const uniqueTypeVars: TypeVarType[] = [];
         if (typeArgs) {
             typeArgs.forEach(typeArg => {
                 if (!(typeArg.type instanceof TypeVarType)) {
                     this._addError(
                         `Type argument for 'Generic' must be a type variable`, typeArg.node);
                 } else {
-                    for (let typeVar of uniqueTypeVars) {
+                    for (const typeVar of uniqueTypeVars) {
                         if (typeVar === typeArg.type) {
                             this._addError(
                                 `Type argument for 'Generic' must be unique`, typeArg.node);
@@ -3506,7 +3506,7 @@ export class ExpressionEvaluator {
         let typeArgCount = typeArgs ? typeArgs.length : 0;
 
         // Make sure the argument list count is correct.
-        let typeParameters = classType.getTypeParameters();
+        const typeParameters = classType.getTypeParameters();
 
         // If there are no type parameters or args, the class is already specialized.
         // No need to do any more work.
@@ -3557,7 +3557,7 @@ export class ExpressionEvaluator {
             }
         });
 
-        let specializedClass = classType.cloneForSpecialization(typeArgTypes);
+        const specializedClass = classType.cloneForSpecialization(typeArgTypes);
 
         return specializedClass;
     }
@@ -3595,7 +3595,7 @@ export class ExpressionEvaluator {
 
         // Apply the constraints within the current scope. Stop if one of
         // them indicates that further constraints shouldn't be applied.
-        for (let constraint of scope.getTypeConstraints()) {
+        for (const constraint of scope.getTypeConstraints()) {
             type = constraint.applyToType(node, type);
         }
 
@@ -3661,7 +3661,7 @@ export class ExpressionEvaluator {
             }
         }
 
-        let specializedType = this._createSpecializedClassType(classType, typeArgs);
+        const specializedType = this._createSpecializedClassType(classType, typeArgs);
         return specializedType;
     }
 
@@ -3672,7 +3672,7 @@ export class ExpressionEvaluator {
         // Push the specified constraints onto the list.
         let itemsToPop = 0;
         if (typeConstraints) {
-            let constraintsToUse = useIfClause ?
+            const constraintsToUse = useIfClause ?
                 typeConstraints.ifConstraints : typeConstraints.elseConstraints;
             constraintsToUse.forEach(tc => {
                 this._expressionTypeConstraints.push(tc);
@@ -3694,7 +3694,7 @@ export class ExpressionEvaluator {
     }
 
     private _silenceDiagnostics(callback: () => void) {
-        let oldDiagSink = this._diagnosticSink;
+        const oldDiagSink = this._diagnosticSink;
         this._diagnosticSink = undefined;
 
         callback();

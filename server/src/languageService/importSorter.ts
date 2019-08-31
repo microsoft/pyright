@@ -16,7 +16,7 @@ import { convertOffsetToPosition } from '../common/positionUtils';
 import { ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
-const MaxLineLength = 80;
+const _maxLineLength = 80;
 
 export class ImportSorter {
     constructor(private _parseResults: ParseResults) {}
@@ -123,7 +123,7 @@ export class ImportSorter {
         let importText = '';
         let prevImportType = this._getImportType(sortedStatements[0]);
 
-        for (let statement of sortedStatements) {
+        for (const statement of sortedStatements) {
             // Insert a blank space between import type groups.
             const curImportType = this._getImportType(statement);
             if (prevImportType !== curImportType) {
@@ -173,8 +173,8 @@ export class ImportSorter {
             });
 
         let cumulativeText = `from ${ moduleName } import `;
-        let symbolText = symbols.join(', ');
-        if (cumulativeText.length + symbolText.length <= MaxLineLength) {
+        const symbolText = symbols.join(', ');
+        if (cumulativeText.length + symbolText.length <= _maxLineLength) {
             return cumulativeText + symbolText;
         }
 
@@ -203,7 +203,7 @@ export class ImportSorter {
 
                 // If the potential text line went beyond our allowed
                 // max, break out of the inner loop.
-                if (potentialTextLine.length > MaxLineLength) {
+                if (potentialTextLine.length > _maxLineLength) {
                     break;
                 }
 

@@ -30,7 +30,7 @@ export class DocStringUtils {
         });
 
         // Trim the lines.
-        let trimmedLines: string[] = [];
+        const trimmedLines: string[] = [];
         if (maxIndent < Number.MAX_VALUE) {
             lines.forEach((line, index) => {
                 if (index === 0) {

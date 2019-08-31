@@ -12,13 +12,13 @@ import { isAbsolute } from 'path';
 import { ConsoleInterface } from './console';
 import { combinePaths, ensureTrailingDirectorySeparator, FileSpec,
     getFileSpec, normalizePath } from './pathUtils';
-import { LatestStablePythonVersion, PythonVersion, versionFromString } from './pythonVersion';
+import { latestStablePythonVersion, PythonVersion, versionFromString } from './pythonVersion';
 
 export class ExecutionEnvironment {
     // Default to "." which indicates every file in the project.
     constructor(root: string, defaultPythonVersion?: PythonVersion, defaultPythonPlatform?: string) {
         this.root = root;
-        this.pythonVersion = defaultPythonVersion || LatestStablePythonVersion;
+        this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
     }
 
@@ -338,7 +338,7 @@ export class ConfigOptions {
     // execution environment is used.
     findExecEnvironment(filePath: string): ExecutionEnvironment {
         let execEnv = this.executionEnvironments.find(env => {
-            let envRoot = ensureTrailingDirectorySeparator(
+            const envRoot = ensureTrailingDirectorySeparator(
                 normalizePath(combinePaths(this.projectRoot, env.root)));
             return filePath.startsWith(envRoot);
         });
@@ -359,7 +359,7 @@ export class ConfigOptions {
             if (!Array.isArray(configObj.include)) {
                 console.log(`Config "include" entry must must contain an array.`);
             } else {
-                let filesList = configObj.include as string[];
+                const filesList = configObj.include as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
                         console.log(`Index ${ index } of "include" array should be a string.`);
@@ -378,7 +378,7 @@ export class ConfigOptions {
             if (!Array.isArray(configObj.exclude)) {
                 console.log(`Config "exclude" entry must contain an array.`);
             } else {
-                let filesList = configObj.exclude as string[];
+                const filesList = configObj.exclude as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
                         console.log(`Index ${ index } of "exclude" array should be a string.`);
@@ -397,7 +397,7 @@ export class ConfigOptions {
             if (!Array.isArray(configObj.ignore)) {
                 console.log(`Config "ignore" entry must contain an array.`);
             } else {
-                let filesList = configObj.ignore as string[];
+                const filesList = configObj.ignore as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
                         console.log(`Index ${ index } of "ignore" array should be a string.`);
@@ -416,7 +416,7 @@ export class ConfigOptions {
             if (!Array.isArray(configObj.strict)) {
                 console.log(`Config "strict" entry must contain an array.`);
             } else {
-                let filesList = configObj.strict as string[];
+                const filesList = configObj.strict as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
                         console.log(`Index ${ index } of "strict" array should be a string.`);
@@ -608,7 +608,7 @@ export class ConfigOptions {
         this.defaultPythonVersion = undefined;
         if (configObj.pythonVersion !== undefined) {
             if (typeof configObj.pythonVersion === 'string') {
-                let version = versionFromString(configObj.pythonVersion);
+                const version = versionFromString(configObj.pythonVersion);
                 if (version) {
                     this.defaultPythonVersion = version;
                 } else {
@@ -661,9 +661,9 @@ export class ConfigOptions {
             if (!Array.isArray(configObj.executionEnvironments)) {
                 console.log(`Config "executionEnvironments" field must contain an array.`);
             } else {
-                let execEnvironments = configObj.executionEnvironments as ExecutionEnvironment[];
+                const execEnvironments = configObj.executionEnvironments as ExecutionEnvironment[];
                 execEnvironments.forEach((env, index) => {
-                    let execEnv = this._initExecutionEnvironmentFromJson(env, index, console);
+                    const execEnv = this._initExecutionEnvironmentFromJson(env, index, console);
                     if (execEnv) {
                         this.executionEnvironments.push(execEnv);
                     }
@@ -703,7 +703,7 @@ export class ConfigOptions {
     private _initExecutionEnvironmentFromJson(envObj: any, index: number,
             console: ConsoleInterface): ExecutionEnvironment | undefined {
         try {
-            let newExecEnv = new ExecutionEnvironment(this.projectRoot,
+            const newExecEnv = new ExecutionEnvironment(this.projectRoot,
                 this.defaultPythonVersion, this.defaultPythonPlatform);
 
             // Validate the root.
@@ -718,7 +718,7 @@ export class ConfigOptions {
                 if (!Array.isArray(envObj.extraPaths)) {
                     console.log(`Config executionEnvironments index ${ index }: extraPaths field must contain an array.`);
                 } else {
-                    let pathList = envObj.extraPaths as string[];
+                    const pathList = envObj.extraPaths as string[];
                     pathList.forEach((path, pathIndex) => {
                         if (typeof path !== 'string') {
                             console.log(`Config executionEnvironments index ${ index }:` +
@@ -733,7 +733,7 @@ export class ConfigOptions {
             // Validate the pythonVersion.
             if (envObj.pythonVersion) {
                 if (typeof envObj.pythonVersion === 'string') {
-                    let version = versionFromString(envObj.pythonVersion);
+                    const version = versionFromString(envObj.pythonVersion);
                     if (version) {
                         newExecEnv.pythonVersion = version;
                     } else {

@@ -23,7 +23,7 @@ export class ScopeUtils {
             builtInScope = builtInScope.getParent()!;
         }
 
-        let nameType = builtInScope.lookUpSymbol(name);
+        const nameType = builtInScope.lookUpSymbol(name);
         if (nameType) {
             return TypeUtils.getEffectiveTypeOfSymbol(nameType);
         }
@@ -34,7 +34,7 @@ export class ScopeUtils {
     static getBuiltInObject(currentScope: Scope, className: string,
             typeArguments?: Type[]): Type {
 
-        let nameType = this.getBuiltInType(currentScope, className);
+        const nameType = this.getBuiltInType(currentScope, className);
         if (nameType instanceof ClassType) {
             let classType = nameType;
             if (typeArguments) {

@@ -7,5 +7,5 @@
 * Command identifier strings.
 */
 
-export const CommandCreateTypeStub = 'pyright.createtypestub';
-export const CommandOrderImports = 'pyright.organizeimports';
+export const commandCreateTypeStub = 'pyright.createtypestub';
+export const commandOrderImports = 'pyright.organizeimports';

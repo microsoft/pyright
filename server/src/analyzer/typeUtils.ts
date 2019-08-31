@@ -13,7 +13,7 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { Declaration } from './declaration';
-import { DefaultTypeSourceId } from './inferredType';
+import { defaultTypeSourceId } from './inferredType';
 import { Symbol, SymbolTable } from './symbol';
 import { AnyType, ClassType, FunctionParameter,
     FunctionType, FunctionTypeFlags, InheritanceChain, ModuleType, NeverType,
@@ -21,7 +21,7 @@ import { AnyType, ClassType, FunctionParameter,
     SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType,
     UnboundType, UnionType, UnknownType } from './types';
 
-const MaxTypeRecursion = 20;
+const _maxTypeRecursion = 20;
 
 export interface ClassMember {
     // Symbol
@@ -105,7 +105,7 @@ export class TypeUtils {
     // into a final type.
     static doForSubtypes(type: Type, callback: (type: Type) => (Type | undefined)): Type {
         if (type instanceof UnionType) {
-            let newTypes: Type[] = [];
+            const newTypes: Type[] = [];
 
             type.getTypes().forEach(typeEntry => {
                 const transformedType = callback(typeEntry);
@@ -138,7 +138,7 @@ export class TypeUtils {
 
         // Expand all union types.
         let expandedTypes: Type[] = [];
-        for (let type of types) {
+        for (const type of types) {
             if (type instanceof UnionType) {
                 expandedTypes = expandedTypes.concat(type.getTypes());
             } else {
@@ -156,7 +156,7 @@ export class TypeUtils {
             return 0;
         });
 
-        let resultingTypes = [expandedTypes[0]];
+        const resultingTypes = [expandedTypes[0]];
         expandedTypes.forEach((t, index) => {
             if (index > 0) {
                 this._addTypeIfUnique(resultingTypes, t);
@@ -283,7 +283,7 @@ export class TypeUtils {
     static canAssignType(destType: Type, srcType: Type, diag: DiagnosticAddendum,
             typeVarMap?: TypeVarMap, allowSubclasses = true, recursionCount = 0): boolean {
 
-        if (recursionCount > MaxTypeRecursion) {
+        if (recursionCount > _maxTypeRecursion) {
             return true;
         }
 
@@ -325,7 +325,7 @@ export class TypeUtils {
                 undefined, undefined, recursionCount + 1);
         }
 
-        if (recursionCount > MaxTypeRecursion) {
+        if (recursionCount > _maxTypeRecursion) {
             return true;
         }
 
@@ -506,7 +506,7 @@ export class TypeUtils {
         // NoneType and ModuleType derive from object.
         if (srcType instanceof NoneType || srcType instanceof ModuleType) {
             if (destType instanceof ObjectType) {
-                let destClassType = destType.getClassType();
+                const destClassType = destType.getClassType();
                 if (destClassType.isBuiltIn() && destClassType.getClassName() === 'object') {
                     return true;
                 }
@@ -567,7 +567,7 @@ export class TypeUtils {
     static canAssignToTypeVar(destType: TypeVarType, srcType: Type, diag: DiagnosticAddendum,
             recursionCount = 0): boolean {
 
-        if (recursionCount > MaxTypeRecursion) {
+        if (recursionCount > _maxTypeRecursion) {
             return true;
         }
 
@@ -596,7 +596,7 @@ export class TypeUtils {
         }
 
         // If there are no constraints, we're done.
-        let constraints = destType.getConstraints();
+        const constraints = destType.getConstraints();
         if (constraints.length === 0) {
             return true;
         }
@@ -716,7 +716,7 @@ export class TypeUtils {
         }
 
         if (type instanceof UnionType) {
-            let subtypes: Type[] = [];
+            const subtypes: Type[] = [];
             type.getTypes().forEach(typeEntry => {
                 subtypes.push(this.specializeType(typeEntry, typeVarMap,
                     recursionLevel + 1));
@@ -802,7 +802,7 @@ export class TypeUtils {
                 }
             }
         } else if (memberType instanceof OverloadedFunctionType) {
-            let newOverloadType = new OverloadedFunctionType();
+            const newOverloadType = new OverloadedFunctionType();
             memberType.getOverloads().forEach(overload => {
                 newOverloadType.addOverload(overload.typeSourceId,
                     this.bindFunctionToClassOrObject(baseType, overload.type,
@@ -885,7 +885,7 @@ export class TypeUtils {
             }
 
             if ((flags & ClassMemberLookupFlags.SkipBaseClasses) === 0) {
-                for (let baseClass of classType.getBaseClasses()) {
+                for (const baseClass of classType.getBaseClasses()) {
                     // Skip metaclasses.
                     if (!baseClass.isMetaclass) {
                         // Recursively perform search.
@@ -902,7 +902,7 @@ export class TypeUtils {
             // The class derives from an unknown type, so all bets are off
             // when trying to find a member. Return an unknown symbol.
             return {
-                symbol: Symbol.createWithType(UnknownType.create(), DefaultTypeSourceId),
+                symbol: Symbol.createWithType(UnknownType.create(), defaultTypeSourceId),
                 isInstanceMember: false,
                 classType: UnknownType.create(),
                 symbolType: UnknownType.create()
@@ -975,11 +975,11 @@ export class TypeUtils {
     }
 
     static getMetaclass(type: ClassType, recursionCount = 0): ClassType | UnknownType | undefined {
-        if (recursionCount > MaxTypeRecursion) {
+        if (recursionCount > _maxTypeRecursion) {
             return undefined;
         }
 
-        for (let base of type.getBaseClasses()) {
+        for (const base of type.getBaseClasses()) {
             if (base.isMetaclass) {
                 if (base.type instanceof ClassType) {
                     return base.type;
@@ -989,7 +989,7 @@ export class TypeUtils {
             }
 
             if (base.type instanceof ClassType) {
-                let metaclass = this.getMetaclass(base.type, recursionCount + 1);
+                const metaclass = this.getMetaclass(base.type, recursionCount + 1);
                 if (metaclass) {
                     return metaclass;
                 }
@@ -1008,7 +1008,7 @@ export class TypeUtils {
     // Combines two lists of type var types, maintaining the combined order
     // but removing any duplicates.
     static addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[]) {
-        for (let t of list2) {
+        for (const t of list2) {
             this.addTypeVarToListIfUnique(list1, t);
         }
     }
@@ -1019,9 +1019,9 @@ export class TypeUtils {
     // Union[List[Dict[_T1, _T2]], _T1, _T3], the result would be
     // [_T1, _T2, _T3].
     static getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
-        let getTypeVarsFromClass = (classType: ClassType) => {
-            let combinedList: TypeVarType[] = [];
-            let typeArgs = classType.getTypeArguments();
+        const getTypeVarsFromClass = (classType: ClassType) => {
+            const combinedList: TypeVarType[] = [];
+            const typeArgs = classType.getTypeArguments();
 
             if (typeArgs) {
                 typeArgs.forEach(typeArg => {
@@ -1042,8 +1042,8 @@ export class TypeUtils {
         } else if (type instanceof ObjectType) {
             return getTypeVarsFromClass(type.getClassType());
         } else if (type instanceof UnionType) {
-            let combinedList: TypeVarType[] = [];
-            for (let subtype of type.getTypes()) {
+            const combinedList: TypeVarType[] = [];
+            for (const subtype of type.getTypes()) {
                 this.addTypeVarsToListIfUnique(combinedList,
                     this.getTypeVarArgumentsRecursive(subtype));
             }
@@ -1060,7 +1060,7 @@ export class TypeUtils {
             return type;
         }
 
-        let typeArgs = type.getTypeParameters();
+        const typeArgs = type.getTypeParameters();
         return type.cloneForSpecialization(typeArgs, setSkipAbstractClassTest);
     }
 
@@ -1074,11 +1074,11 @@ export class TypeUtils {
     // specialized type is Dict[str, int], it returns a map that associates
     // _T1 with str and _T2 with int.
     static buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeVarMap {
-        let typeArgMap = new TypeVarMap();
+        const typeArgMap = new TypeVarMap();
 
         // Get the type parameters for the class.
-        let typeParameters = classType.getTypeParameters();
-        let typeArgs = classType.getTypeArguments();
+        const typeParameters = classType.getTypeParameters();
+        const typeArgs = classType.getTypeArguments();
 
         typeParameters.forEach((typeParam, index) => {
             const typeVarName = typeParam.getName();
@@ -1103,7 +1103,7 @@ export class TypeUtils {
     // Converts a type var type into the most specific type
     // that fits the specified constraints.
     static specializeTypeVarType(type: TypeVarType): Type {
-        let subtypes: Type[] = [];
+        const subtypes: Type[] = [];
         type.getConstraints().forEach(constraint => {
             subtypes.push(constraint);
         });
@@ -1121,7 +1121,7 @@ export class TypeUtils {
     }
 
     static cloneTypeVarMap(typeVarMap: TypeVarMap): TypeVarMap {
-        let newTypeVarMap = new TypeVarMap();
+        const newTypeVarMap = new TypeVarMap();
         newTypeVarMap.getKeys().forEach(key => {
             newTypeVarMap.set(key, typeVarMap.get(key)!);
         });
@@ -1133,7 +1133,7 @@ export class TypeUtils {
             return true;
         }
 
-        for (let baseClass of classType.getBaseClasses()) {
+        for (const baseClass of classType.getBaseClasses()) {
             if (baseClass.type instanceof ClassType) {
                 if (this.derivesFromClassRecursive(baseClass.type, baseClassToFind)) {
                     return true;
@@ -1243,14 +1243,14 @@ export class TypeUtils {
     static getSymbolFromBaseClasses(classType: ClassType, name: string,
             recursionCount = 0): SymbolWithClass | undefined {
 
-        if (recursionCount > MaxTypeRecursion) {
+        if (recursionCount > _maxTypeRecursion) {
             return undefined;
         }
 
-        for (let baseClass of classType.getBaseClasses()) {
+        for (const baseClass of classType.getBaseClasses()) {
             if (baseClass.type instanceof ClassType) {
                 const classFields = baseClass.type.getClassFields();
-                let symbol = classFields.get(name);
+                const symbol = classFields.get(name);
                 if (symbol) {
                     return {
                         class: baseClass.type,
@@ -1282,7 +1282,7 @@ export class TypeUtils {
             symbolTable: StringMap<ClassMember>, recursiveCount = 0) {
 
         // Protect against infinite recursion.
-        if (recursiveCount > MaxTypeRecursion) {
+        if (recursiveCount > _maxTypeRecursion) {
             return;
         }
 
@@ -1397,7 +1397,7 @@ export class TypeUtils {
     }
 
     static containsUnknown(type: Type, recursionCount = 0): boolean {
-        if (recursionCount > MaxTypeRecursion) {
+        if (recursionCount > _maxTypeRecursion) {
             return false;
         }
 
@@ -1449,7 +1449,7 @@ export class TypeUtils {
             symbolTable: SymbolTable, includeInstanceVars: boolean,
             recursionCount = 0) {
 
-        if (recursionCount > MaxTypeRecursion) {
+        if (recursionCount > _maxTypeRecursion) {
             return;
         }
 
@@ -1480,16 +1480,16 @@ export class TypeUtils {
     private static _partiallySpecializeFunctionForBoundClassOrObject(
             baseType: ClassType | ObjectType, memberType: FunctionType): Type {
 
-        let classType = baseType instanceof ClassType ? baseType : baseType.getClassType();
+        const classType = baseType instanceof ClassType ? baseType : baseType.getClassType();
 
         // If the class has already been specialized (fully or partially), use its
         // existing type arg mappings. If it hasn't, use a fresh type arg map.
-        let typeVarMap = classType.getTypeArguments() ?
+        const typeVarMap = classType.getTypeArguments() ?
             TypeUtils.buildTypeVarMapFromSpecializedClass(classType) :
             new TypeVarMap();
 
         if (memberType.getParameterCount() > 0) {
-            let firstParam = memberType.getParameters()[0];
+            const firstParam = memberType.getParameters()[0];
 
             // Fill out the typeVarMap.
             TypeUtils.canAssignType(firstParam.type, baseType, new DiagnosticAddendum(), typeVarMap);
@@ -1651,9 +1651,9 @@ export class TypeUtils {
                 return true;
             }
 
-            let missingNames: string[] = [];
-            let wrongTypes: string[] = [];
-            let destClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(destType);
+            const missingNames: string[] = [];
+            const wrongTypes: string[] = [];
+            const destClassTypeVarMap = this.buildTypeVarMapFromSpecializedClass(destType);
 
             destClassFields.forEach((symbol, name) => {
                 const memberInfo = TypeUtils.lookUpClassMember(srcType, name,
@@ -1666,7 +1666,7 @@ export class TypeUtils {
                     if (primaryDecls && primaryDecls.length > 0 && primaryDecls[0].declaredType) {
                         let destMemberType = primaryDecls[0].declaredType;
                         destMemberType = this.specializeType(destMemberType, destClassTypeVarMap);
-                        let srcMemberType = memberInfo.symbolType;
+                        const srcMemberType = memberInfo.symbolType;
 
                         if (!TypeUtils.canAssignType(destMemberType, srcMemberType,
                                 diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
@@ -1692,7 +1692,7 @@ export class TypeUtils {
             return false;
         }
 
-        let inheritanceChain: InheritanceChain = [];
+        const inheritanceChain: InheritanceChain = [];
         if (srcType.isDerivedFrom(destType, inheritanceChain)) {
             assert(inheritanceChain.length > 0);
 
@@ -1877,7 +1877,7 @@ export class TypeUtils {
         // If type args were previously provided, specialize them.
         if (oldTypeArgs) {
             newTypeArgs = oldTypeArgs.map(oldTypeArgType => {
-                let newTypeArgType = this.specializeType(oldTypeArgType,
+                const newTypeArgType = this.specializeType(oldTypeArgType,
                     typeVarMap, recursionLevel + 1);
                 if (newTypeArgType !== oldTypeArgType) {
                     specializationNeeded = true;
@@ -1925,7 +1925,7 @@ export class TypeUtils {
             return AnyType.create();
         }
 
-        let concreteTypes = constraints.map(constraint =>
+        const concreteTypes = constraints.map(constraint =>
             this.specializeType(constraint, undefined, recursionLevel + 1)
         );
 
@@ -1962,7 +1962,7 @@ export class TypeUtils {
             typeVarMap, recursionLevel + 1);
         let typesRequiredSpecialization = returnType !== specializedReturnType;
 
-        let specializedParameters: SpecializedFunctionTypes = {
+        const specializedParameters: SpecializedFunctionTypes = {
             parameterTypes: [],
             returnType: specializedReturnType
         };
@@ -2002,7 +2002,7 @@ export class TypeUtils {
     }
 
     private static _addTypeIfUnique(types: Type[], typeToAdd: Type) {
-        for (let type of types) {
+        for (const type of types) {
             // Does this type already exist in the types array?
             if (type.isSame(typeToAdd)) {
                 return;

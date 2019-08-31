@@ -16,11 +16,11 @@ import { NullConsole } from '../common/console';
 import { combinePaths, normalizeSlashes } from '../common/pathUtils';
 
 test('FindFilesWithConfigFile', () => {
-    let service = new AnalyzerService('<default>', new NullConsole());
-    let commandLineOptions = new CommandLineOptions(process.cwd(), true);
+    const service = new AnalyzerService('<default>', new NullConsole());
+    const commandLineOptions = new CommandLineOptions(process.cwd(), true);
     commandLineOptions.configFilePath = 'src/tests/samples/project1';
 
-    let configOptions = service.test_getConfigOptions(commandLineOptions);
+    const configOptions = service.test_getConfigOptions(commandLineOptions);
     service.setOptions(commandLineOptions);
 
     // The config file specifies a single file spec (a directory).
@@ -28,7 +28,7 @@ test('FindFilesWithConfigFile', () => {
     assert.equal(normalizeSlashes(configOptions.projectRoot),
         normalizeSlashes(combinePaths(process.cwd(), commandLineOptions.configFilePath)));
 
-    let fileList = service.test_getFileNamesFromFileSpecs();
+    const fileList = service.test_getFileNamesFromFileSpecs();
 
     // The config file specifies a subdirectory, so we should find
     // only two of the three "*.py" files present in the project
@@ -37,9 +37,9 @@ test('FindFilesWithConfigFile', () => {
 });
 
 test('FileSpecNotAnArray', () => {
-    let nullConsole = new NullConsole();
-    let service = new AnalyzerService('<default>', nullConsole);
-    let commandLineOptions = new CommandLineOptions(process.cwd(), false);
+    const nullConsole = new NullConsole();
+    const service = new AnalyzerService('<default>', nullConsole);
+    const commandLineOptions = new CommandLineOptions(process.cwd(), false);
     commandLineOptions.configFilePath = 'src/tests/samples/project2';
     service.setOptions(commandLineOptions);
 
@@ -50,9 +50,9 @@ test('FileSpecNotAnArray', () => {
 });
 
 test('FileSpecNotAString', () => {
-    let nullConsole = new NullConsole();
-    let service = new AnalyzerService('<default>', nullConsole);
-    let commandLineOptions = new CommandLineOptions(process.cwd(), false);
+    const nullConsole = new NullConsole();
+    const service = new AnalyzerService('<default>', nullConsole);
+    const commandLineOptions = new CommandLineOptions(process.cwd(), false);
     commandLineOptions.configFilePath = 'src/tests/samples/project3';
     service.setOptions(commandLineOptions);
 
@@ -63,13 +63,13 @@ test('FileSpecNotAString', () => {
 });
 
 test('SomeFileSpecsAreInvalid', () => {
-    let nullConsole = new NullConsole();
-    let service = new AnalyzerService('<default>', nullConsole);
-    let commandLineOptions = new CommandLineOptions(process.cwd(), false);
+    const nullConsole = new NullConsole();
+    const service = new AnalyzerService('<default>', nullConsole);
+    const commandLineOptions = new CommandLineOptions(process.cwd(), false);
     commandLineOptions.configFilePath = 'src/tests/samples/project4';
     service.setOptions(commandLineOptions);
 
-    let configOptions = service.test_getConfigOptions(commandLineOptions);
+    const configOptions = service.test_getConfigOptions(commandLineOptions);
 
     // The config file specifies four file specs in the include array
     // and one in the exclude array.
@@ -78,16 +78,16 @@ test('SomeFileSpecsAreInvalid', () => {
     assert.equal(normalizeSlashes(configOptions.projectRoot),
         normalizeSlashes(combinePaths(process.cwd(), commandLineOptions.configFilePath)));
 
-    let fileList = service.test_getFileNamesFromFileSpecs();
+    const fileList = service.test_getFileNamesFromFileSpecs();
 
     // We should receive two final files that match the include/exclude rules.
     assert.equal(fileList.length, 2);
 });
 
 test('ConfigBadJson', () => {
-    let nullConsole = new NullConsole();
-    let service = new AnalyzerService('<default>', nullConsole);
-    let commandLineOptions = new CommandLineOptions(process.cwd(), false);
+    const nullConsole = new NullConsole();
+    const service = new AnalyzerService('<default>', nullConsole);
+    const commandLineOptions = new CommandLineOptions(process.cwd(), false);
     commandLineOptions.configFilePath = 'src/tests/samples/project5';
     service.setOptions(commandLineOptions);
 
@@ -98,23 +98,23 @@ test('ConfigBadJson', () => {
 });
 
 test('FindExecEnv1', () => {
-    let configOptions = new ConfigOptions(process.cwd());
+    const configOptions = new ConfigOptions(process.cwd());
 
     // Build a config option with three execution environments.
-    let execEnv1 = new ExecutionEnvironment('src/foo');
+    const execEnv1 = new ExecutionEnvironment('src/foo');
     configOptions.executionEnvironments.push(execEnv1);
-    let execEnv2 = new ExecutionEnvironment('src');
+    const execEnv2 = new ExecutionEnvironment('src');
     configOptions.executionEnvironments.push(execEnv2);
 
-    let file1 = normalizeSlashes(combinePaths(process.cwd(), 'src/foo/bar.py'));
+    const file1 = normalizeSlashes(combinePaths(process.cwd(), 'src/foo/bar.py'));
     assert.equal(configOptions.findExecEnvironment(file1), execEnv1);
-    let file2 = normalizeSlashes(combinePaths(process.cwd(), 'src/foo2/bar.py'));
+    const file2 = normalizeSlashes(combinePaths(process.cwd(), 'src/foo2/bar.py'));
     assert.equal(configOptions.findExecEnvironment(file2), execEnv2);
 
     // If none of the execution environments matched, we should get
     // a default environment with the root equal to that of the config.
-    let file4 = '/nothing/bar.py';
-    let defaultExecEnv = configOptions.findExecEnvironment(file4);
+    const file4 = '/nothing/bar.py';
+    const defaultExecEnv = configOptions.findExecEnvironment(file4);
     assert.equal(normalizeSlashes(defaultExecEnv.root),
         normalizeSlashes(configOptions.projectRoot));
 });

@@ -35,7 +35,7 @@ import { Declaration, DeclarationCategory } from './declaration';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportResult, ImportType } from './importResult';
-import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
+import { defaultTypeSourceId, TypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
@@ -59,7 +59,7 @@ interface AliasMapEntry {
 // The number is somewhat arbitrary. It needs to be at least
 // 21 or so to handle all of the import cycles in the stdlib
 // files.
-const MaxAnalysisPassCount = 25;
+const _maxAnalysisPassCount = 25;
 
 // There are rare circumstances where we can get into a "beating
 // pattern" where one variable is assigned to another in one pass
@@ -67,7 +67,7 @@ const MaxAnalysisPassCount = 25;
 // they both contain an "unknown" in their union. In this case,
 // we will never converge. Look for this particular case after
 // several analysis passes.
-const CheckForBeatingUnknownPassCount = 16;
+const _checkForBeatingUnknownPassCount = 16;
 
 export class TypeAnalyzer extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
@@ -103,7 +103,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     analyze() {
         this._didAnalysisChange = false;
 
-        let declaration: Declaration = {
+        const declaration: Declaration = {
             category: DeclarationCategory.Module,
             node: this._moduleNode,
             path: this._fileInfo.filePath,
@@ -121,7 +121,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // If we've already analyzed the file the max number of times,
         // just give up and admit defeat. This should happen only in
         // the case of analyzer bugs.
-        if (this._analysisVersion >= MaxAnalysisPassCount) {
+        if (this._analysisVersion >= _maxAnalysisPassCount) {
             this._fileInfo.console.log(
                 `Hit max analysis pass count for ${ this._fileInfo.filePath }`);
             return false;
@@ -138,12 +138,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // We should have already resolved most of the base class
         // parameters in the semantic analyzer, but if these parameters
         // are variables, they may not have been resolved at that time.
-        let classType = AnalyzerNodeInfo.getExpressionType(node) as ClassType;
+        const classType = AnalyzerNodeInfo.getExpressionType(node) as ClassType;
         assert(classType instanceof ClassType);
 
         // Keep a list of unique type parameters that are used in the
         // base class arguments.
-        let typeParameters: TypeVarType[] = [];
+        const typeParameters: TypeVarType[] = [];
 
         node.arguments.forEach((arg, index) => {
             // Ignore keyword parameters other than metaclass.
@@ -732,8 +732,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 if (subtype instanceof ObjectType) {
-                    let evaluator = this._createEvaluator();
-                    let memberType = evaluator.getTypeFromObjectMember(item.expression,
+                    const evaluator = this._createEvaluator();
+                    const memberType = evaluator.getTypeFromObjectMember(item.expression,
                         subtype, enterMethodName, { method: 'get' });
 
                     if (memberType) {
@@ -774,9 +774,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let declaredReturnType: Type | undefined;
         let returnType: Type;
 
-        let enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
+        const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunctionNode) {
-            let functionType = AnalyzerNodeInfo.getExpressionType(
+            const functionType = AnalyzerNodeInfo.getExpressionType(
                 enclosingFunctionNode) as FunctionType;
 
             if (functionType) {
@@ -803,7 +803,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             returnType = NoneType.create();
         }
 
-        let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
+        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
         this._currentScope.getReturnType().addSource(returnType, typeSourceId);
 
         if (declaredReturnType) {
@@ -853,8 +853,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitYieldFrom(node: YieldFromExpressionNode) {
-        let yieldType = this._getTypeOfExpression(node.expression);
-        let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
+        const yieldType = this._getTypeOfExpression(node.expression);
+        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
         this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
         this._validateYieldType(node, yieldType);
@@ -968,7 +968,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         exceptionType, node.typeExpression);
                 }
 
-                let declaration: Declaration = {
+                const declaration: Declaration = {
                     category: DeclarationCategory.Variable,
                     node: node.name,
                     path: this._fileInfo.filePath,
@@ -984,7 +984,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitTry(node: TryNode): boolean {
-        let conditionalScopesToMerge: Scope[] = [];
+        const conditionalScopesToMerge: Scope[] = [];
 
         const tryScope = this._enterTemporaryScope(() => {
             this.walk(node.trySuite);
@@ -1245,7 +1245,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._evaluateExpressionForDeletion(expr);
 
             if (expr instanceof NameNode) {
-                let symbolWithScope = this._currentScope.lookUpSymbolRecursive(expr.nameToken.value);
+                const symbolWithScope = this._currentScope.lookUpSymbolRecursive(expr.nameToken.value);
                 if (symbolWithScope) {
                     if (symbolWithScope.symbol.hasDeclarations()) {
                         const category = symbolWithScope.symbol.getDeclarations()[0].category;
@@ -1278,31 +1278,31 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitImportAs(node: ImportAsNode): boolean {
-        let importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
+        const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
         assert(importInfo !== undefined);
 
         if (importInfo && importInfo.isImportFound && importInfo.resolvedPaths.length > 0) {
-            let resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
-            let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
+            const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+            const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
 
             if (moduleType) {
                 // Import the implicit imports in the module's namespace.
                 importInfo.implicitImports.forEach(implicitImport => {
-                    let implicitModuleType = this._getModuleTypeForImportPath(
+                    const implicitModuleType = this._getModuleTypeForImportPath(
                         importInfo, implicitImport.path);
                     if (implicitModuleType) {
-                        const moduleFields = moduleType!.getFields();
-                        let importedModule = this._fileInfo.importMap[implicitImport.path];
+                        const moduleFields = moduleType.getFields();
+                        const importedModule = this._fileInfo.importMap[implicitImport.path];
 
                         if (importedModule) {
-                            let declaration: Declaration = {
+                            const declaration: Declaration = {
                                 category: DeclarationCategory.Module,
                                 node: importedModule.parseTree,
                                 path: implicitImport.path,
                                 range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 }}
                             };
 
-                            let newSymbol = Symbol.createWithType(implicitModuleType, DefaultTypeSourceId);
+                            const newSymbol = Symbol.createWithType(implicitModuleType, defaultTypeSourceId);
                             newSymbol.addDeclaration(declaration);
                             if (!moduleFields.get(implicitImport.name)) {
                                 setSymbolPreservingAccess(moduleFields, implicitImport.name, newSymbol);
@@ -1380,7 +1380,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     // Import the fields in the current permanent scope.
                     importInfo.implicitImports.forEach(implicitImport => {
-                        let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
+                        const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
                         if (moduleType) {
                             this._addSymbolToPermanentScope(implicitImport.name);
                             this._addTypeSourceToName(implicitImport.name, moduleType,
@@ -1599,9 +1599,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         };
 
         const filterType = (varType: ClassType): ObjectType[] => {
-            let filteredTypes: ClassType[] = [];
+            const filteredTypes: ClassType[] = [];
 
-            for (let filterType of classTypeList) {
+            for (const filterType of classTypeList) {
                 const filterIsSuperclass = varType.isDerivedFrom(filterType);
                 const filterIsSubclass = filterType.isDerivedFrom(varType);
 
@@ -1622,7 +1622,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let filteredType: Type;
         if (arg0Type instanceof ObjectType) {
-            let remainingTypes = filterType(arg0Type.getClassType());
+            const remainingTypes = filterType(arg0Type.getClassType());
             filteredType = finalizeFilteredTypeList(remainingTypes);
         } else if (arg0Type instanceof UnionType) {
             let remainingTypes: Type[] = [];
@@ -1700,7 +1700,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // Synthesize a class.
                     const specialClassType = new ClassType(assignedName,
                         ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-                        DefaultTypeSourceId);
+                        defaultTypeSourceId);
 
                     // See if we need to locate an alias class to bind it to.
                     const aliasMapEntry = aliasMap[assignedName];
@@ -1712,7 +1712,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             aliasClass = ScopeUtils.getBuiltInType(this._currentScope, aliasName);
                         } else if (aliasMapEntry.module === 'collections') {
                             // The typing.pyi file imports collections.
-                            let collectionsScope = this._findCollectionsImportScope();
+                            const collectionsScope = this._findCollectionsImportScope();
                             if (collectionsScope) {
                                 const symbolInfo = collectionsScope.lookUpSymbol(aliasName);
                                 if (symbolInfo) {
@@ -1738,7 +1738,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (specialType) {
-                let declaration: Declaration = {
+                const declaration: Declaration = {
                     category: DeclarationCategory.Class,
                     node: node.leftExpression,
                     path: this._fileInfo.filePath,
@@ -1788,7 +1788,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (specialType) {
-                let declaration: Declaration = {
+                const declaration: Declaration = {
                     category: DeclarationCategory.Class,
                     node: nameNode,
                     path: this._fileInfo.filePath,
@@ -1876,7 +1876,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             AnalyzerNodeInfo.setDeclarations(target, [declaration]);
             declarationHandled = true;
         } else if (target instanceof MemberAccessExpressionNode) {
-            let targetNode = target.leftExpression;
+            const targetNode = target.leftExpression;
 
             // Handle member accesses (e.g. self.x or cls.y).
             if (targetNode instanceof NameNode) {
@@ -2119,12 +2119,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         // Add all of the return and yield types that were found within the function.
-        let inferredReturnType = functionType.getInferredReturnType();
+        const inferredReturnType = functionType.getInferredReturnType();
         if (inferredReturnType.addSources(functionScope.getReturnType())) {
             this._setAnalysisChanged('Function return inferred type changed');
         }
 
-        let inferredYieldType = functionType.getInferredYieldType();
+        const inferredYieldType = functionType.getInferredYieldType();
 
         // Inferred yield types need to be wrapped in a Generator to
         // produce the final result.
@@ -2146,7 +2146,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._setAnalysisChanged('Function inferred None changed');
             }
 
-            let declaredReturnType = functionType.isGenerator() ?
+            const declaredReturnType = functionType.isGenerator() ?
                 TypeUtils.getDeclaredGeneratorReturnType(functionType) :
                 functionType.getDeclaredReturnType();
 
@@ -2221,7 +2221,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const baseClassAndSymbol = TypeUtils.getSymbolFromBaseClasses(classType, name);
                     if (baseClassAndSymbol) {
                         const typeOfBaseClassMethod = TypeUtils.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
-                        let diagAddendum = new DiagnosticAddendum();
+                        const diagAddendum = new DiagnosticAddendum();
                         if (!TypeUtils.canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol, diagAddendum)) {
                             const declarations = symbol.getDeclarations();
                             const errorNode = declarations[0].node;
@@ -2267,7 +2267,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return inputClassType;
         }
 
-        let evaluator = this._createEvaluator();
+        const evaluator = this._createEvaluator();
         return evaluator.getTypeFromDecorator(decoratorNode, inputClassType);
     }
 
@@ -2281,8 +2281,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Special-case the "overload" because it has no definition.
         if (decoratorType instanceof ClassType && decoratorType.getClassName() === 'overload') {
             const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
-            let existingSymbol = permanentScope.lookUpSymbol(node.name.nameToken.value);
-            let typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
+            const existingSymbol = permanentScope.lookUpSymbol(node.name.nameToken.value);
+            const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
             if (inputFunctionType instanceof FunctionType) {
                 if (existingSymbol) {
                     const symbolType = TypeUtils.getEffectiveTypeOfSymbol(existingSymbol);
@@ -2292,14 +2292,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
 
-                let newOverloadType = new OverloadedFunctionType();
+                const newOverloadType = new OverloadedFunctionType();
                 newOverloadType.addOverload(typeSourceId, inputFunctionType);
                 return newOverloadType;
             }
         }
 
-        let evaluator = this._createEvaluator();
-        let returnType = evaluator.getTypeFromDecorator(decoratorNode, inputFunctionType);
+        const evaluator = this._createEvaluator();
+        const returnType = evaluator.getTypeFromDecorator(decoratorNode, inputFunctionType);
 
         // Check for some built-in decorator types with known semantics.
         if (decoratorType instanceof FunctionType) {
@@ -2382,7 +2382,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         } else if (functionType.isStaticMethod()) {
             // Static methods should not have "self" or "cls" parameters.
             if (node.parameters.length > 0 && node.parameters[0].name) {
-                let paramName = node.parameters[0].name.nameToken.value;
+                const paramName = node.parameters[0].name.nameToken.value;
                 if (paramName === 'self' || paramName === 'cls') {
                     this._addError(
                         `Static methods should not take a 'self' or 'cls' parameter`,
@@ -2569,7 +2569,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _findCollectionsImportScope() {
-        let collectionResults = Object.keys(this._fileInfo.importMap).find(path => {
+        const collectionResults = Object.keys(this._fileInfo.importMap).find(path => {
             return path.endsWith('collections/__init__.pyi');
         });
 
@@ -2586,7 +2586,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
 
         if (enclosingFunctionNode) {
-            let functionType = AnalyzerNodeInfo.getExpressionType(
+            const functionType = AnalyzerNodeInfo.getExpressionType(
                 enclosingFunctionNode) as FunctionType;
             if (functionType) {
                 assert(functionType instanceof FunctionType);
@@ -2707,13 +2707,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let destType = srcType;
         let addTypeConstraintForAssignment = true;
 
-        let classType = AnalyzerNodeInfo.getExpressionType(classDef);
+        const classType = AnalyzerNodeInfo.getExpressionType(classDef);
         if (classType && classType instanceof ClassType) {
             let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
                 isInstanceMember ? ClassMemberLookupFlags.Default : ClassMemberLookupFlags.SkipInstanceVariables);
 
             // A local helper function that creates a new declaration.
-            let createDeclaration = () => {
+            const createDeclaration = () => {
                 const declaration: Declaration = {
                     category: srcType instanceof FunctionType ?
                         DeclarationCategory.Method : DeclarationCategory.Variable,
@@ -2803,7 +2803,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (addNewMemberToLocalClass) {
-                let newSymbol = Symbol.createWithType(srcType, AnalyzerNodeInfo.getTypeSourceId(node.memberName));
+                const newSymbol = Symbol.createWithType(srcType, AnalyzerNodeInfo.getTypeSourceId(node.memberName));
 
                 // If this is an instance variable that has a corresponding class varible
                 // with a defined type, it should inherit that declaration (and declared type).
@@ -2912,7 +2912,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     undefined, implicitImport.path);
                 if (implicitModuleType) {
                     setSymbolPreservingAccess(symbolTable, implicitImport.name,
-                        Symbol.createWithType(implicitModuleType, DefaultTypeSourceId));
+                        Symbol.createWithType(implicitModuleType, defaultTypeSourceId));
                 }
             });
 
@@ -2949,7 +2949,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _evaluateExpressionForAssignment(node: ExpressionNode, type: Type, errorNode: ExpressionNode) {
-        let evaluator = this._createEvaluator();
+        const evaluator = this._createEvaluator();
         evaluator.getType(node, { method: 'set', setType: type, setErrorNode: errorNode }, EvaluatorFlags.None);
     }
 
@@ -2987,7 +2987,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // In rare cases, we can run into a situation where an "unknown"
             // is passed back and forth between two variables, preventing
             // us from ever converging. Detect this rare condition here.
-            if (this._analysisVersion > CheckForBeatingUnknownPassCount) {
+            if (this._analysisVersion > _checkForBeatingUnknownPassCount) {
                 if (oldType && exprType instanceof UnionType) {
                     const simplifiedExprType = TypeUtils.removeUnknownFromUnion(exprType);
                     if (oldType.isSame(simplifiedExprType)) {
@@ -3053,7 +3053,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             this._assignTypeToNameNode(target, srcType, declaration, srcExpr);
         } else if (target instanceof MemberAccessExpressionNode) {
-            let targetNode = target.leftExpression;
+            const targetNode = target.leftExpression;
 
             // Handle member accesses (e.g. self.x or cls.y).
             if (targetNode instanceof NameNode) {
@@ -3109,7 +3109,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 targetTypes[index].push(entryType);
                             }
 
-                            let remainingTypes: Type[] = [];
+                            const remainingTypes: Type[] = [];
                             for (let index = target.expressions.length - 1; index < entryCount; index++) {
                                 const entryType = entryTypes[index];
                                 remainingTypes.push(entryType);
@@ -3225,7 +3225,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // table, which should include the first part of the name.
         const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
         let targetSymbolTable = permanentScope.getSymbolTable();
-        const symbol = Symbol.createWithType(type, DefaultTypeSourceId);
+        const symbol = Symbol.createWithType(type, defaultTypeSourceId);
         if (declaration) {
             symbol.addDeclaration(declaration);
         }
@@ -3264,7 +3264,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const newPartialModule = new ModuleType(new SymbolTable());
                 newPartialModule.setIsPartialModule();
                 setSymbolPreservingAccess(targetSymbolTable, name,
-                    Symbol.createWithType(newPartialModule, DefaultTypeSourceId));
+                    Symbol.createWithType(newPartialModule, defaultTypeSourceId));
                 targetSymbolTable = newPartialModule.getFields();
                 symbolType = newPartialModule;
             }
@@ -3397,7 +3397,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _transformTypeForPossibleEnumClass(node: NameNode, typeOfExpr: Type): Type {
-        let enumClass = this._getEnclosingEnumClassInfo(node);
+        const enumClass = this._getEnclosingEnumClassInfo(node);
 
         if (enumClass) {
             // The type of each enumerated item is an instance of the enum class.
@@ -3410,7 +3410,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // If the node is within a class that derives from the metaclass
     // "EnumMeta", we need to treat assignments differently.
     private _getEnclosingEnumClassInfo(node: ParseNode): ClassType | undefined {
-        let enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+        const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         if (enclosingClassNode) {
             const enumClass = AnalyzerNodeInfo.getExpressionType(enclosingClassNode) as ClassType;
             assert(enumClass instanceof ClassType);
@@ -3445,7 +3445,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let declarations: Declaration[] = [];
 
         if (baseType instanceof ObjectType) {
-            let classMemberInfo = TypeUtils.lookUpClassMember(
+            const classMemberInfo = TypeUtils.lookUpClassMember(
                 baseType.getClassType(), memberNameValue);
             if (classMemberInfo) {
                 if (classMemberInfo.symbol.hasDeclarations()) {
@@ -3453,14 +3453,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
         } else if (baseType instanceof ModuleType) {
-            let moduleMemberInfo = baseType.getFields().get(memberNameValue);
+            const moduleMemberInfo = baseType.getFields().get(memberNameValue);
             if (moduleMemberInfo) {
                 if (moduleMemberInfo.hasDeclarations()) {
                     declarations = TypeUtils.getPrimaryDeclarationsForSymbol(moduleMemberInfo)!;
                 }
             }
         } else if (baseType instanceof ClassType) {
-            let classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue,
+            const classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue,
                 ClassMemberLookupFlags.SkipInstanceVariables);
             if (classMemberInfo) {
                 if (classMemberInfo.symbol.hasDeclarations()) {
@@ -3468,7 +3468,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
         } else if (baseType instanceof UnionType) {
-            for (let t of baseType.getTypes()) {
+            for (const t of baseType.getTypes()) {
                 declarations = declarations.concat(
                     this._getDeclarationsForMemberName(t, memberName));
             }
@@ -3564,8 +3564,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _enterScope(node: ParseNode, callback: () => void): Scope {
-        let prevScope = this._currentScope;
-        let newScope = AnalyzerNodeInfo.getScope(node);
+        const prevScope = this._currentScope;
+        const newScope = AnalyzerNodeInfo.getScope(node);
         assert(newScope !== undefined);
 
         let prevParent: Scope | undefined;

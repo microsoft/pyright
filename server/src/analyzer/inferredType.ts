@@ -24,7 +24,7 @@ export interface InferredTypeSource {
 }
 
 export type TypeSourceId = number;
-export const DefaultTypeSourceId: TypeSourceId = 0;
+export const defaultTypeSourceId: TypeSourceId = 0;
 
 export class InferredType {
     private _sources: InferredTypeSource[] = [];
@@ -92,7 +92,7 @@ export class InferredType {
     addSources(inferredType: InferredType): boolean {
         let madeChange = false;
 
-        for (let source of inferredType._sources) {
+        for (const source of inferredType._sources) {
             if (this.addSource(source.type, source.sourceId)) {
                 madeChange = true;
             }

@@ -494,7 +494,7 @@ export class Tokenizer {
                 // amount exactly. An error is generated at runtime if it doesn't.
                 // We'll record that error condition within the token, allowing the
                 // parser to report it later.
-                let dedentPoints: number[] = [];
+                const dedentPoints: number[] = [];
                 while (this._indentAmounts.length > 0 &&
                         this._indentAmounts[this._indentAmounts.length - 1] > spaceCount) {
                     dedentPoints.push(this._indentAmounts.length > 1 ?
@@ -503,9 +503,9 @@ export class Tokenizer {
                 }
 
                 dedentPoints.forEach((dedentAmount, index) => {
-                    let matchesIndent = index < dedentPoints.length - 1 ||
+                    const matchesIndent = index < dedentPoints.length - 1 ||
                         dedentAmount === spaceCount;
-                    let actualDedentAmount = index < dedentPoints.length - 1 ?
+                    const actualDedentAmount = index < dedentPoints.length - 1 ?
                         dedentAmount : spaceCount;
                     this._tokens.push(new DedentToken(this._cs.position, 0, actualDedentAmount,
                         matchesIndent, this._getComments()));
@@ -868,7 +868,7 @@ export class Tokenizer {
     }
 
     private _handleString(flags: StringTokenFlags, stringPrefixLength: number): void {
-        let start = this._cs.position - stringPrefixLength;
+        const start = this._cs.position - stringPrefixLength;
 
         if (flags & StringTokenFlags.Triplicate) {
             this._cs.advance(3);
@@ -878,7 +878,7 @@ export class Tokenizer {
 
         const stringLiteralInfo = this._skipToEndOfStringLiteral(flags);
 
-        let end = this._cs.position;
+        const end = this._cs.position;
 
         this._tokens.push(new StringToken(start, end - start, stringLiteralInfo.flags,
             stringLiteralInfo.escapedValue, stringPrefixLength, this._getComments()));

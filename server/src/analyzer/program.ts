@@ -31,8 +31,8 @@ import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
 import { TypeStubWriter } from './typeStubWriter';
 
-const MaxImportDepth = 256;
-const MaxAnalysisTimeForCompletions = 500;
+const _maxImportDepth = 256;
+const _maxAnalysisTimeForCompletions = 500;
 
 export interface SourceFileInfo {
     sourceFile: SourceFile;
@@ -77,7 +77,7 @@ export class Program {
     setTrackedFiles(filePaths: string[]): FileDiagnostics[] {
         if (this._sourceFileList.length > 0) {
             // We need to determine which files to remove from the existing file list.
-            let newFileMap: { [path: string]: string } = {};
+            const newFileMap: { [path: string]: string } = {};
             filePaths.forEach(path => {
                 newFileMap[path] = path;
             });
@@ -85,7 +85,7 @@ export class Program {
             // Files that are not in the tracked file list are
             // marked as no longer tracked.
             this._sourceFileList.forEach(oldFile => {
-                let filePath = oldFile.sourceFile.getFilePath();
+                const filePath = oldFile.sourceFile.getFilePath();
                 if (newFileMap[filePath] === undefined) {
                     oldFile.isTracked = false;
                 }
@@ -240,9 +240,9 @@ export class Program {
     }
 
     markFilesDirty(filePaths: string[]) {
-        let markDirtyMap: { [path: string]: boolean } = {};
+        const markDirtyMap: { [path: string]: boolean } = {};
         filePaths.forEach(filePath => {
-            let sourceFileInfo = this._sourceFileMap[filePath];
+            const sourceFileInfo = this._sourceFileMap[filePath];
             if (sourceFileInfo) {
                 sourceFileInfo.sourceFile.markDirty();
 
@@ -254,7 +254,7 @@ export class Program {
     }
 
     getSourceFile(filePath: string): SourceFile | undefined {
-        let sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -270,20 +270,20 @@ export class Program {
     analyze(options: ConfigOptions, importResolver: ImportResolver,
             maxTime?: MaxAnalysisTime, interactiveMode?: boolean): boolean {
 
-        let elapsedTime = new Duration();
+        const elapsedTime = new Duration();
 
-        let openFiles = this._sourceFileList.filter(
+        const openFiles = this._sourceFileList.filter(
             sf => sf.isOpenByClient && !sf.sourceFile.isAnalysisFinalized()
         );
 
         if (openFiles.length > 0) {
-            let isTimeElapsedOpenFiles = () => {
+            const isTimeElapsedOpenFiles = () => {
                 return maxTime !== undefined &&
                     elapsedTime.getDurationInMilliseconds() > maxTime.openFilesTimeInMs;
             };
 
             // Start by parsing the open files.
-            for (let sourceFileInfo of openFiles) {
+            for (const sourceFileInfo of openFiles) {
                 this._parseFile(sourceFileInfo, options, importResolver);
 
                 if (isTimeElapsedOpenFiles()) {
@@ -292,7 +292,7 @@ export class Program {
             }
 
             // Now do semantic analysis of the open files.
-            for (let sourceFileInfo of openFiles) {
+            for (const sourceFileInfo of openFiles) {
                 this._doSemanticAnalysis(sourceFileInfo, options, importResolver);
 
                 if (isTimeElapsedOpenFiles()) {
@@ -301,7 +301,7 @@ export class Program {
             }
 
             // Now do type analysis of the open files.
-            for (let sourceFileInfo of openFiles) {
+            for (const sourceFileInfo of openFiles) {
                 if (this._doFullAnalysis(sourceFileInfo, options, importResolver, isTimeElapsedOpenFiles)) {
                     return true;
                 }
@@ -316,9 +316,9 @@ export class Program {
         }
 
         // Do type analysis of remaining files.
-        let allFiles = this._sourceFileList;
+        const allFiles = this._sourceFileList;
 
-        let isTimeElapsedNoOpenFiles = () => {
+        const isTimeElapsedNoOpenFiles = () => {
             if (maxTime === undefined) {
                 return false;
             }
@@ -329,7 +329,7 @@ export class Program {
         };
 
         // Now do type parsing and analysis of the remaining.
-        for (let sourceFileInfo of allFiles) {
+        for (const sourceFileInfo of allFiles) {
             if (this._doFullAnalysis(sourceFileInfo, options, importResolver, isTimeElapsedNoOpenFiles)) {
                 return true;
             }
@@ -418,7 +418,7 @@ export class Program {
     }
 
     writeTypeStub(targetImportPath: string, targetIsSingleFile: boolean, typingsPath: string) {
-        for (let sourceFileInfo of this._sourceFileList) {
+        for (const sourceFileInfo of this._sourceFileList) {
             const filePath = sourceFileInfo.sourceFile.getFilePath();
 
             // Generate type stubs only for the files within the target path,
@@ -456,7 +456,7 @@ export class Program {
     private _analyzeFile(sourceFileInfo: SourceFileInfo, options: ConfigOptions,
             importResolver: ImportResolver, maxTime?: MaxAnalysisTime) {
 
-        let elapsedTime = new Duration();
+        const elapsedTime = new Duration();
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
             this._doFullAnalysis(sourceFileInfo, options, importResolver, () => {
@@ -482,7 +482,7 @@ export class Program {
 
             // Mark any files that depend on this file as dirty
             // also. This will retrigger analysis of these other files.
-            let markDirtyMap: { [path: string]: boolean } = {};
+            const markDirtyMap: { [path: string]: boolean } = {};
             this._markFileDirtyRecursive(fileToParse, markDirtyMap);
 
             // Invalidate the import resolver's cache as well.
@@ -518,8 +518,8 @@ export class Program {
     private _buildImportMap(sourceFileInfo: SourceFileInfo): ImportMap {
         const importMap: ImportMap = {};
 
-        for (let importedFileInfo of sourceFileInfo.imports) {
-            let parseResults = importedFileInfo.sourceFile.getParseResults();
+        for (const importedFileInfo of sourceFileInfo.imports) {
+            const parseResults = importedFileInfo.sourceFile.getParseResults();
             if (parseResults) {
                 importMap[importedFileInfo.sourceFile.getFilePath()] = parseResults;
             }
@@ -556,8 +556,8 @@ export class Program {
         }
 
         // Discover all imports (recursively) that have not yet been finalized.
-        let closureMap: { [path: string]: boolean } = {};
-        let analysisQueue: SourceFileInfo[] = [];
+        const closureMap: { [path: string]: boolean } = {};
+        const analysisQueue: SourceFileInfo[] = [];
         if (this._getNonFinalizedImportsRecursive(fileToAnalyze, closureMap,
                 analysisQueue, options, importResolver, timeElapsedCallback, 0)) {
             return true;
@@ -567,7 +567,7 @@ export class Program {
         // is ordered in a way that should minimize the number of passes
         // we need to perform (with lower-level imports earlier in the list).
         while (true) {
-            let fileToAnalyze = analysisQueue.shift();
+            const fileToAnalyze = analysisQueue.shift();
             if (!fileToAnalyze) {
                 break;
             }
@@ -599,7 +599,7 @@ export class Program {
                 // analysis pass, so we need to add its dependencies back
                 // onto the queue if they're not already on it.
                 if (didAnalysisChange) {
-                    for (let dependency of fileToAnalyze.importedBy) {
+                    for (const dependency of fileToAnalyze.importedBy) {
                         const dependencyFilePath = dependency.sourceFile.getFilePath();
 
                         // If the dependency isn't part of the closure, we can ignore it.
@@ -665,8 +665,8 @@ export class Program {
 
         // If the import chain is too long, emit an error. Otherwise we
         // risk blowing the stack.
-        if (recursionCount > MaxImportDepth) {
-            fileToAnalyze.sourceFile.setHitMaxImportDepth(MaxImportDepth);
+        if (recursionCount > _maxImportDepth) {
+            fileToAnalyze.sourceFile.setHitMaxImportDepth(_maxImportDepth);
             return false;
         }
 
@@ -680,7 +680,7 @@ export class Program {
         closureMap[filePath] = false;
 
         // Recursively add the file's imports.
-        for (let importedFileInfo of fileToAnalyze.imports) {
+        for (const importedFileInfo of fileToAnalyze.imports) {
             if (this._getNonFinalizedImportsRecursive(importedFileInfo, closureMap,
                     analysisQueue, options, importResolver,
                     timeElapsedCallback, recursionCount + 1)) {
@@ -773,10 +773,10 @@ export class Program {
     }
 
     getDiagnostics(options: ConfigOptions): FileDiagnostics[] {
-        let fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
+        const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
 
         this._sourceFileList.forEach(sourceFileInfo => {
-            let diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
+            const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
                     options, sourceFileInfo.diagnosticsVersion);
             if (diagnostics !== undefined) {
                 fileDiagnostics.push({
@@ -832,8 +832,8 @@ export class Program {
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
             this._analyzeFile(sourceFileInfo, options, importResolver, {
-                openFilesTimeInMs: MaxAnalysisTimeForCompletions,
-                noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+                openFilesTimeInMs: _maxAnalysisTimeForCompletions,
+                noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
             });
         }
 
@@ -846,12 +846,12 @@ export class Program {
 
         // Do we need to do a global search as well?
         if (referencesResult.requiresGlobalSearch) {
-            for (let curSourceFileInfo of this._sourceFileList) {
+            for (const curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
                     if (curSourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
                         this._analyzeFile(curSourceFileInfo, options, importResolver, {
-                            openFilesTimeInMs: MaxAnalysisTimeForCompletions,
-                            noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+                            openFilesTimeInMs: _maxAnalysisTimeForCompletions,
+                            noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
                         });
                     }
 
@@ -895,8 +895,8 @@ export class Program {
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
             this._analyzeFile(sourceFileInfo, options, importResolver, {
-                openFilesTimeInMs: MaxAnalysisTimeForCompletions,
-                noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+                openFilesTimeInMs: _maxAnalysisTimeForCompletions,
+                noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
             });
         }
 
@@ -913,8 +913,8 @@ export class Program {
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
             this._analyzeFile(sourceFileInfo, options, importResolver, {
-                openFilesTimeInMs: MaxAnalysisTimeForCompletions,
-                noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+                openFilesTimeInMs: _maxAnalysisTimeForCompletions,
+                noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
             });
 
             // If we ran out of time before completing the type
@@ -937,8 +937,8 @@ export class Program {
 
         if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
             this._analyzeFile(sourceFileInfo, options, importResolver, {
-                openFilesTimeInMs: MaxAnalysisTimeForCompletions,
-                noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+                openFilesTimeInMs: _maxAnalysisTimeForCompletions,
+                noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
             });
         }
 
@@ -963,12 +963,12 @@ export class Program {
 
         // Do we need to do a global search as well?
         if (referencesResult.requiresGlobalSearch) {
-            for (let curSourceFileInfo of this._sourceFileList) {
+            for (const curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
                     if (curSourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
                         this._analyzeFile(curSourceFileInfo, options, importResolver, {
-                            openFilesTimeInMs: MaxAnalysisTimeForCompletions,
-                            noOpenFilesTimeInMs: MaxAnalysisTimeForCompletions
+                            openFilesTimeInMs: _maxAnalysisTimeForCompletions,
+                            noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
                         });
                     }
 
@@ -994,12 +994,12 @@ export class Program {
     // that have been removed. This is needed to clear out the
     // errors for files that have been deleted or closed.
     private _removeUnneededFiles(): FileDiagnostics[] {
-        let fileDiagnostics: FileDiagnostics[] = [];
+        const fileDiagnostics: FileDiagnostics[] = [];
 
         // If a file is no longer tracked or opened, it can
         // be removed from the program.
         for (let i = 0; i < this._sourceFileList.length; ) {
-            let fileInfo = this._sourceFileList[i];
+            const fileInfo = this._sourceFileList[i];
             if (!this._isFileNeeded(fileInfo)) {
                 fileDiagnostics.push({
                     filePath: fileInfo.sourceFile.getFilePath(),
@@ -1013,7 +1013,7 @@ export class Program {
                 // Unlink any imports and remove them from the list if
                 // they are no longer referenced.
                 fileInfo.imports.forEach(importedFile => {
-                    let indexToRemove = importedFile.importedBy.findIndex(fi => fi === fileInfo);
+                    const indexToRemove = importedFile.importedBy.findIndex(fi => fi === fileInfo);
                     assert(indexToRemove >= 0);
                     importedFile.importedBy.splice(indexToRemove, 1);
 
@@ -1021,7 +1021,7 @@ export class Program {
                     // is no longer needed. If its index is >= i, it will be
                     // removed when we get to it.
                     if (!this._isFileNeeded(importedFile)) {
-                        let indexToRemove = this._sourceFileList.findIndex(fi => fi === importedFile);
+                        const indexToRemove = this._sourceFileList.findIndex(fi => fi === importedFile);
                         if (indexToRemove >= 0 && indexToRemove < i) {
                             fileDiagnostics.push({
                                 filePath: importedFile.sourceFile.getFilePath(),
@@ -1077,7 +1077,7 @@ export class Program {
 
         recursionMap[filePath] = true;
 
-        for (let importerInfo of fileInfo.importedBy) {
+        for (const importerInfo of fileInfo.importedBy) {
             if (this._isImportNeededRecursive(importerInfo, recursionMap)) {
                 return true;
             }
@@ -1181,7 +1181,7 @@ export class Program {
         // Resolve the builtins import for the file. This needs to be
         // analyzed before the file can be analyzed.
         sourceFileInfo.builtinsImport = undefined;
-        let builtinsImport = sourceFileInfo.sourceFile.getBuiltinsImport();
+        const builtinsImport = sourceFileInfo.sourceFile.getBuiltinsImport();
         if (builtinsImport) {
             const resolvedBuiltinsPath = builtinsImport.resolvedPaths[
                 builtinsImport.resolvedPaths.length - 1];

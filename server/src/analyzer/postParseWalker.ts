@@ -47,7 +47,7 @@ export class PostParseWalker extends ParseTreeWalker {
         this._diagnosticSink = diagSink;
         this._parseTree = parseTree;
 
-        let moduleNameBindings = new NameBindings(
+        const moduleNameBindings = new NameBindings(
             NameBindingType.Global, undefined);
         AnalyzerNodeInfo.setNameBindings(parseTree, moduleNameBindings);
         this._currentNameBindings = moduleNameBindings;
@@ -129,7 +129,7 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
-        let nameBindings = new NameBindings(
+        const nameBindings = new NameBindings(
             NameBindingType.Local, this._currentNameBindings);
         AnalyzerNodeInfo.setNameBindings(node, nameBindings);
 
@@ -158,7 +158,7 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     visitClass(node: ClassNode) {
-        let nameBindings = new NameBindings(
+        const nameBindings = new NameBindings(
             NameBindingType.Local, this._currentNameBindings);
         AnalyzerNodeInfo.setNameBindings(node, nameBindings);
 
@@ -175,7 +175,7 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     visitLambda(node: LambdaNode): boolean {
-        let nameBindings = new NameBindings(
+        const nameBindings = new NameBindings(
             NameBindingType.Local, this._currentNameBindings);
         AnalyzerNodeInfo.setNameBindings(node, nameBindings);
 
@@ -242,7 +242,7 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     visitNonlocal(node: NonlocalNode) {
-        let moduleNameBindings = AnalyzerNodeInfo.getNameBindings(this._parseTree);
+        const moduleNameBindings = AnalyzerNodeInfo.getNameBindings(this._parseTree);
         if (this._currentNameBindings === moduleNameBindings) {
             this._diagnosticSink.addErrorWithTextRange(
                 'Nonlocal declaration not allowed at module level',
@@ -287,10 +287,10 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     private _createNewScope(nameBindings: NameBindings, walkInnerScopeCallback: () => void) {
-        let prevNameBindings = this._currentNameBindings;
+        const prevNameBindings = this._currentNameBindings;
         this._currentNameBindings = nameBindings;
 
-        let prevBindingScope = this._currentBindingType;
+        const prevBindingScope = this._currentBindingType;
         this._currentBindingType = NameBindingType.Local;
 
         walkInnerScopeCallback();

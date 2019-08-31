@@ -56,7 +56,7 @@ export class SignatureHelpProvider {
         let curOffset = offset;
         while (curOffset >= 0) {
             curOffset--;
-            let curNode = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, curOffset);
+            const curNode = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, curOffset);
             if (curNode && curNode !== initialNode) {
                 if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
                     node = curNode;

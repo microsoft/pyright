@@ -114,7 +114,7 @@ export class AnalyzerService {
     }
 
     setFileClosed(path: string) {
-        let fileDiagnostics = this._program.setFileClosed(path);
+        const fileDiagnostics = this._program.setFileClosed(path);
         this._reportDiagnosticsForRemovedFiles(fileDiagnostics);
         this._scheduleReanalysis(false);
     }
@@ -261,7 +261,7 @@ export class AnalyzerService {
             }
         }
 
-        let configOptions = new ConfigOptions(projectRoot);
+        const configOptions = new ConfigOptions(projectRoot);
 
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach(fileSpec => {
@@ -282,7 +282,7 @@ export class AnalyzerService {
         // If we found a config file, parse it to compute the effective options.
         if (configFilePath) {
             this._console.log(`Loading configuration file at ${ configFilePath }`);
-            let configJsonObj = this._parseConfigFile(configFilePath);
+            const configJsonObj = this._parseConfigFile(configFilePath);
             if (configJsonObj) {
                 configOptions.initializeFromJson(configJsonObj, this._console);
 
@@ -648,7 +648,7 @@ export class AnalyzerService {
             if (!this._isInExcludePath(includeSpec.wildcardRoot, exclude) &&
                     fs.existsSync(includeSpec.wildcardRoot)) {
                 try {
-                    let stat = fs.statSync(includeSpec.wildcardRoot);
+                    const stat = fs.statSync(includeSpec.wildcardRoot);
                     if (stat.isFile()) {
                         results.push(includeSpec.wildcardRoot);
                         foundFileSpec = true;
@@ -693,7 +693,7 @@ export class AnalyzerService {
         }
 
         if (this._configOptions.include.length > 0) {
-            let fileList = this._configOptions.include.map(spec => {
+            const fileList = this._configOptions.include.map(spec => {
                 return combinePaths(this._executionRootPath, spec.wildcardRoot);
             });
 
@@ -762,7 +762,7 @@ export class AnalyzerService {
             this._updateConfigFileWatcher();
 
             this._console.log(`Reloading configuration file at ${ this._configFilePath }`);
-            let configJsonObj = this._parseConfigFile(this._configFilePath);
+            const configJsonObj = this._parseConfigFile(this._configFilePath);
             if (configJsonObj) {
                 this._configOptions.initializeFromJson(configJsonObj, this._console);
             }

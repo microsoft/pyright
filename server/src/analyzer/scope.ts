@@ -266,7 +266,7 @@ export class Scope {
         assert(scopes.length > 1);
 
         const parentScope = scopes[0]._parent;
-        for (let scope of scopes) {
+        for (const scope of scopes) {
             assert(scope._isConditional);
             assert(scope._scopeType === ScopeType.Temporary);
             assert(scope._parent === parentScope);
@@ -282,7 +282,7 @@ export class Scope {
 
         // Combine the return and yield types and break flags.
         combinedScope._alwaysBreaks = scopes.length > 0;
-        for (let scope of scopes) {
+        for (const scope of scopes) {
             combinedScope._returnType.addSources(scope._returnType);
             combinedScope._yieldType.addSources(scope._yieldType);
 

@@ -93,7 +93,7 @@ export class ImportResolver {
             }
             bestResultSoFar = localImport;
 
-            for (let extraPath of execEnv.extraPaths) {
+            for (const extraPath of execEnv.extraPaths) {
                 importFailureInfo.push(`Looking in extraPath '${ extraPath }'`);
                 localImport = this._resolveAbsoluteImport(extraPath, moduleDescriptor,
                     importName, importFailureInfo);
@@ -133,7 +133,7 @@ export class ImportResolver {
             // Look for the import in the list of third-party packages.
             const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
             if (pythonSearchPaths.length > 0) {
-                for (let searchPath of pythonSearchPaths) {
+                for (const searchPath of pythonSearchPaths) {
                     // Allow partial resolution because some third-party packages
                     // use tricks to populate their package namespaces.
                     importFailureInfo.push(`Looking in python search path '${ searchPath }'`);
@@ -202,7 +202,7 @@ export class ImportResolver {
             this._getCompletionSuggestionsAbsolute(execEnv.root,
                 moduleDescriptor, suggestions, similarityLimit);
 
-            for (let extraPath of execEnv.extraPaths) {
+            for (const extraPath of execEnv.extraPaths) {
                 this._getCompletionSuggestionsAbsolute(extraPath, moduleDescriptor,
                     suggestions, similarityLimit);
             }
@@ -219,7 +219,7 @@ export class ImportResolver {
 
             // Look for the import in the list of third-party packages.
             const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
-            for (let searchPath of pythonSearchPaths) {
+            for (const searchPath of pythonSearchPaths) {
                 this._getCompletionSuggestionsAbsolute(searchPath,
                     moduleDescriptor, suggestions, similarityLimit);
             }
@@ -249,7 +249,7 @@ export class ImportResolver {
         // Look for it in the root directory of the execution environment.
         moduleName = this._getModuleNameFromPath(execEnv.root, filePath);
 
-        for (let extraPath of execEnv.extraPaths) {
+        for (const extraPath of execEnv.extraPaths) {
             const candidateModuleName = this._getModuleNameFromPath(extraPath, filePath);
 
             // Does this candidate look better than the previous best module name?
@@ -288,7 +288,7 @@ export class ImportResolver {
 
         // Look for the import in the list of third-party packages.
         const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
-        for (let searchPath of pythonSearchPaths) {
+        for (const searchPath of pythonSearchPaths) {
             const candidateModuleName = this._getModuleNameFromPath(searchPath, filePath);
 
             // Does this candidate look better than the previous best module name?
@@ -353,7 +353,7 @@ export class ImportResolver {
         }
 
         const relativeFilePath = filePathWithoutExtension.substr(containerPath.length);
-        let parts = getPathComponents(relativeFilePath);
+        const parts = getPathComponents(relativeFilePath);
         parts.shift();
         if (stripTopContainerDir) {
             if (parts.length === 0) {
@@ -402,7 +402,7 @@ export class ImportResolver {
                 minorVersion === 0 ? '3' : '2and3';
             const testPath = combinePaths(typeshedPath, pythonVersionString);
             if (fs.existsSync(testPath)) {
-                let importInfo = this._resolveAbsoluteImport(testPath, moduleDescriptor,
+                const importInfo = this._resolveAbsoluteImport(testPath, moduleDescriptor,
                     importName, importFailureInfo);
                 if (importInfo && importInfo.isImportFound) {
                     importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
@@ -466,7 +466,7 @@ export class ImportResolver {
             }
         } else {
             const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
-            for (let searchPath of pythonSearchPaths) {
+            for (const searchPath of pythonSearchPaths) {
                 const possibleTypeshedPath = combinePaths(searchPath, 'typeshed');
                 if (fs.existsSync(possibleTypeshedPath) && isDirectory(possibleTypeshedPath)) {
                     typeshedPath = possibleTypeshedPath;
@@ -543,7 +543,7 @@ export class ImportResolver {
 
         // Starting at the specified path, walk the file system to find the
         // specified module.
-        let resolvedPaths: string[] = [];
+        const resolvedPaths: string[] = [];
         let dirPath = rootPath;
         let isNamespacePackage = false;
         let isStubFile = false;
@@ -663,7 +663,7 @@ export class ImportResolver {
 
         // Copy the nameParts into a new directory and add an extra empty
         // part if there is a trailing dot.
-        let nameParts = moduleDescriptor.nameParts.map(name => name);
+        const nameParts = moduleDescriptor.nameParts.map(name => name);
         if (moduleDescriptor.hasTrailingDot) {
             nameParts.push('');
         }
@@ -752,12 +752,12 @@ export class ImportResolver {
         const implicitImportMap: { [name: string]: ImplicitImport } = {};
 
         // Enumerate all of the files and directories in the path.
-        let entries = getFileSystemEntries(dirPath);
+        const entries = getFileSystemEntries(dirPath);
 
         // Add implicit file-based modules.
-        for (let fileName of entries.files) {
+        for (const fileName of entries.files) {
             if (fileName.endsWith('.py') || fileName.endsWith('.pyi')) {
-                let filePath = combinePaths(dirPath, fileName);
+                const filePath = combinePaths(dirPath, fileName);
 
                 if (!exclusions.find(exclusion => exclusion === filePath)) {
                     const strippedFileName = stripFileExtension(fileName);
@@ -777,7 +777,7 @@ export class ImportResolver {
         }
 
         // Add implicit directory-based modules.
-        for (let dirName of entries.directories) {
+        for (const dirName of entries.directories) {
             const pyFilePath = combinePaths(dirPath, dirName, '__init__.py');
             const pyiFilePath = pyFilePath + 'i';
             let isStubFile = false;
@@ -792,7 +792,7 @@ export class ImportResolver {
 
             if (path) {
                 if (!exclusions.find(exclusion => exclusion === path)) {
-                    let implicitImport: ImplicitImport = {
+                    const implicitImport: ImplicitImport = {
                         isStubFile,
                         name: dirName,
                         path

@@ -72,7 +72,7 @@ export class CommentUtils {
                 this._applyStrictSettings(settings);
             }
 
-            for (let operand of operandList) {
+            for (const operand of operandList) {
                 settings = this._parsePyrightOperand(operand, settings);
             }
         }

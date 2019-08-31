@@ -87,7 +87,7 @@ export class TypeConstraint {
             }
 
             if (this._isConditional) {
-                let types = [this._type, type];
+                const types = [this._type, type];
                 return TypeUtils.combineTypes(types);
             }
             return this._type;
@@ -146,7 +146,7 @@ export class TypeConstraintBuilder {
                 ConditionalTypeConstraintResults | undefined {
 
         if (testExpression instanceof BinaryExpressionNode) {
-            let results: ConditionalTypeConstraintResults = {
+            const results: ConditionalTypeConstraintResults = {
                 ifConstraints: [],
                 elseConstraints: []
             };
@@ -202,9 +202,9 @@ export class TypeConstraintBuilder {
                     }
                 }
             } else if (testExpression.operator === OperatorType.And) {
-                let leftConstraints = this.buildTypeConstraintsForConditional(
+                const leftConstraints = this.buildTypeConstraintsForConditional(
                     testExpression.leftExpression, typeEvaluator);
-                let rightConstraints = this.buildTypeConstraintsForConditional(
+                const rightConstraints = this.buildTypeConstraintsForConditional(
                     testExpression.rightExpression, typeEvaluator);
 
                 // For an AND operator, all of the "if" constraints must be true,
@@ -222,9 +222,9 @@ export class TypeConstraintBuilder {
                 }
                 return results;
             } else if (testExpression.operator === OperatorType.Or) {
-                let leftConstraints = this.buildTypeConstraintsForConditional(
+                const leftConstraints = this.buildTypeConstraintsForConditional(
                     testExpression.leftExpression, typeEvaluator);
-                let rightConstraints = this.buildTypeConstraintsForConditional(
+                const rightConstraints = this.buildTypeConstraintsForConditional(
                     testExpression.rightExpression, typeEvaluator);
 
                 // For an OR operator, all of the "else" constraints must be false,
@@ -244,7 +244,7 @@ export class TypeConstraintBuilder {
             }
         } else if (testExpression instanceof UnaryExpressionNode) {
             if (testExpression.operator === OperatorType.Not) {
-                let constraints = this.buildTypeConstraintsForConditional(
+                const constraints = this.buildTypeConstraintsForConditional(
                     testExpression.expression, typeEvaluator);
 
                 if (constraints) {
@@ -370,7 +370,7 @@ export class TypeConstraintBuilder {
     // Represents an "is" or "is not" None test.
     private static _transformTypeForIsNoneExpression(type: Type, isPositiveTest: boolean): Type {
         if (type instanceof UnionType) {
-            let remainingTypes = type.getTypes().filter(t => {
+            const remainingTypes = type.getTypes().filter(t => {
                 if (t.isAny()) {
                     // We need to assume that "Any" is always an instance and not an instance,
                     // so it matches regardless of whether the test is positive or negative.
@@ -423,10 +423,10 @@ export class TypeConstraintBuilder {
         // and returns the list of types the varType could be after
         // applying the filter.
         const filterType = (varType: ClassType): ObjectType[] => {
-            let filteredTypes: ClassType[] = [];
+            const filteredTypes: ClassType[] = [];
 
             let foundSuperclass = false;
-            for (let filterType of classTypeList) {
+            for (const filterType of classTypeList) {
                 const filterIsSuperclass = varType.isDerivedFrom(filterType);
                 const filterIsSubclass = filterType.isDerivedFrom(varType);
 
@@ -465,7 +465,7 @@ export class TypeConstraintBuilder {
         };
 
         if (type instanceof ObjectType) {
-            let filteredType = filterType(type.getClassType());
+            const filteredType = filterType(type.getClassType());
             return finalizeFilteredTypeList(filteredType);
         } else if (type instanceof UnionType) {
             let remainingTypes: Type[] = [];

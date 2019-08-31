@@ -29,14 +29,14 @@ import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
     StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
-import { StringToken, StringTokenFlags } from '../parser/tokenizerTypes';
+import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { DocStringUtils } from './docStringUtils';
 import { ExpressionUtils } from './expressionUtils';
 import { ImportType } from './importResult';
-import { DefaultTypeSourceId } from './inferredType';
+import { defaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
@@ -135,7 +135,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     visitModuleName(node: ModuleNameNode): boolean {
-        let importResult = AnalyzerNodeInfo.getImportInfo(node);
+        const importResult = AnalyzerNodeInfo.getImportInfo(node);
         assert(importResult !== undefined);
         if (importResult) {
             if (!importResult.isImportFound) {
@@ -171,7 +171,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             classFlags |= ClassTypeFlags.BuiltInClass;
         }
 
-        let classType = new ClassType(node.name.nameToken.value, classFlags,
+        const classType = new ClassType(node.name.nameToken.value, classFlags,
             AnalyzerNodeInfo.getTypeSourceId(node),
             this._getDocString(node.suite.statements));
 
@@ -220,7 +220,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         AnalyzerNodeInfo.setExpressionType(node, classType);
 
-        let analyzer = new ClassScopeAnalyzer(node, this._currentScope, classType, this._fileInfo);
+        const analyzer = new ClassScopeAnalyzer(node, this._currentScope, classType, this._fileInfo);
         this._queueSubScopeAnalyzer(analyzer);
 
         // Add the class symbol. We do this in the semantic analyzer to speed
@@ -294,10 +294,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
         assert(functionOrModuleNode !== undefined);
 
-        let functionOrModuleScope = AnalyzerNodeInfo.getScope(functionOrModuleNode!);
+        const functionOrModuleScope = AnalyzerNodeInfo.getScope(functionOrModuleNode!);
         assert(functionOrModuleScope !== undefined);
 
-        let analyzer = new FunctionScopeAnalyzer(node, functionOrModuleScope!, this._fileInfo);
+        const analyzer = new FunctionScopeAnalyzer(node, functionOrModuleScope!, this._fileInfo);
         this._queueSubScopeAnalyzer(analyzer);
         return false;
     }
@@ -311,7 +311,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             }
         });
 
-        let analyzer = new LambdaScopeAnalyzer(node, this._currentScope, this._fileInfo);
+        const analyzer = new LambdaScopeAnalyzer(node, this._currentScope, this._fileInfo);
         this._queueSubScopeAnalyzer(analyzer);
 
         return false;
@@ -383,7 +383,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
     visitAwait(node: AwaitExpressionNode) {
         // Make sure this is within an async lambda or function.
-        let enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
             this._addError(`'await' allowed only within async function`, node);
         }
@@ -392,7 +392,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 
     visitStringList(node: StringListNode): boolean {
-        for (let stringNode of node.strings) {
+        for (const stringNode of node.strings) {
             if (stringNode.hasUnescapeErrors) {
                 const unescapedResult = StringTokenUtils.getUnescapedString(stringNode.token);
 
@@ -470,7 +470,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
     // Analyzes the subscopes that are discovered during the first analysis pass.
     protected _analyzeSubscopesDeferred() {
-        for (let subscope of this._subscopesToAnalyze) {
+        for (const subscope of this._subscopesToAnalyze) {
             subscope.analyzeDeferred();
         }
 
@@ -480,7 +480,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     // Finds the nearest permanent scope (as opposed to temporary scope) and
     // adds a new symbol with the specified name if it doesn't already exist.
     protected _addSymbolToPermanentScope(nameValue: string, type: Type,
-            typeSourceId = DefaultTypeSourceId) {
+            typeSourceId = defaultTypeSourceId) {
 
         const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
         assert(permanentScope.getType() !== ScopeType.Temporary);
@@ -491,7 +491,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             // Add the symbol. Assume that symbols with a default type source ID
             // are "implicit" symbols added to the scope. These are not initially unbound.
             symbol = this._currentScope.addSymbol(nameValue,
-                typeSourceId !== DefaultTypeSourceId);
+                typeSourceId !== defaultTypeSourceId);
         }
 
         symbol.setInferredTypeForSource(type, typeSourceId);
@@ -547,7 +547,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         // Determine if the if condition is always true or always false. If so,
         // we can treat either the if or the else clause as unconditional.
-        let constExprValue = ExpressionUtils.evaluateConstantExpression(
+        const constExprValue = ExpressionUtils.evaluateConstantExpression(
             testExpression, this._fileInfo.executionEnvironment);
 
         // which variables have been assigned to conditionally.
@@ -601,7 +601,7 @@ export class ModuleScopeAnalyzer extends SemanticAnalyzer {
 
     analyzeImmediate() {
         this._bindImplicitNames();
-        let nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
+        const nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
         this._addNamesToScope(nameBindings!.getGlobalNames());
 
@@ -642,12 +642,12 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
 
     analyzeImmediate() {
         this._bindImplicitNames();
-        let nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
+        const nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
         this._addNamesToScope(nameBindings!.getLocalNames());
 
         // Analyze the suite.
-        let classNode = this._scopedNode as ClassNode;
+        const classNode = this._scopedNode as ClassNode;
 
         this.walk(classNode.suite);
 
@@ -661,7 +661,7 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
     }
 
     private _bindImplicitNames() {
-        let classType = AnalyzerNodeInfo.getExpressionType(this._scopedNode);
+        const classType = AnalyzerNodeInfo.getExpressionType(this._scopedNode);
         assert(classType instanceof ClassType);
         this._addSymbolToPermanentScope('__class__', classType!);
         this._addSymbolToPermanentScope('__dict__', AnyType.create());
@@ -685,12 +685,12 @@ export class FunctionScopeAnalyzer extends SemanticAnalyzer {
     }
 
     analyzeDeferred() {
-        let functionNode = this._scopedNode as FunctionNode;
+        const functionNode = this._scopedNode as FunctionNode;
 
         // Add the names for this scope. They are initially unbound. We
         // do this because current versions of Python use static namespace
         // resolution for functions.
-        let nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
+        const nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
         this._addNamesToScope(nameBindings!.getLocalNames());
 
@@ -729,12 +729,12 @@ export class LambdaScopeAnalyzer extends SemanticAnalyzer {
     }
 
     analyzeDeferred() {
-        let lambdaNode = this._scopedNode as LambdaNode;
+        const lambdaNode = this._scopedNode as LambdaNode;
 
         // Add the names for this scope. They are initially unbound. We
         // do this because current versions of Python use static namespace
         // resolution for functions.
-        let nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
+        const nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
         this._addNamesToScope(nameBindings!.getLocalNames());
 

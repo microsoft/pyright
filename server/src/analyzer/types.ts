@@ -63,7 +63,7 @@ export enum TypeCategory {
 
 export type LiteralValue = number | boolean | string;
 
-const MaxRecursionCount = 16;
+const _maxRecursionCount = 16;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
@@ -258,7 +258,7 @@ export class ClassType extends Type {
     }
 
     cloneForSpecialization(typeArguments: Type[], skipAbstractClassTest = false): ClassType {
-        let newClassType = new ClassType(this._classDetails.name,
+        const newClassType = new ClassType(this._classDetails.name,
             this._classDetails.flags, this._classDetails.typeSourceId);
         newClassType._classDetails = this._classDetails;
         newClassType.setTypeArguments(typeArguments);
@@ -277,7 +277,7 @@ export class ClassType extends Type {
 
     requiresSpecialization(recursionCount = 0) {
         if (this._typeArguments) {
-            if (recursionCount > MaxRecursionCount) {
+            if (recursionCount > _maxRecursionCount) {
                 return false;
             }
 
@@ -458,11 +458,11 @@ export class ClassType extends Type {
             return false;
         }
 
-        if (recursionCount > MaxRecursionCount) {
+        if (recursionCount > _maxRecursionCount) {
             return true;
         }
 
-        let classType2 = type2 as ClassType;
+        const classType2 = type2 as ClassType;
 
         // If the class details are common, it's the same class.
         // In a few cases (e.g. with NamedTuple classes) we allocate a
@@ -482,14 +482,14 @@ export class ClassType extends Type {
             return false;
         }
 
-        let typeArgCount = Math.max(this._typeArguments.length,
+        const typeArgCount = Math.max(this._typeArguments.length,
             classType2._typeArguments.length);
 
         // Make sure the type args match.
         for (let i = 0; i < typeArgCount; i++) {
-            let typeArg1 = i < this._typeArguments.length ?
+            const typeArg1 = i < this._typeArguments.length ?
                 this._typeArguments[i] : AnyType.create();
-            let typeArg2 = i < classType2._typeArguments.length ?
+            const typeArg2 = i < classType2._typeArguments.length ?
                 classType2._typeArguments[i] : AnyType.create();
 
             if ((typeArg1 instanceof Type) !== (typeArg2 instanceof Type)) {
@@ -558,7 +558,7 @@ export class ClassType extends Type {
             return true;
         }
 
-        for (let baseClass of this.getBaseClasses()) {
+        for (const baseClass of this.getBaseClasses()) {
             if (baseClass.type instanceof ClassType) {
                 if (baseClass.type.isDerivedFrom(type2, inheritanceChain)) {
                     if (inheritanceChain) {
@@ -599,7 +599,7 @@ export class ObjectType extends Type {
     }
 
     cloneWithLiteral(value: LiteralValue): ObjectType {
-        let newType = new ObjectType(this._classType);
+        const newType = new ObjectType(this._classType);
         newType._literalValue = value;
         return newType;
     }
@@ -617,7 +617,7 @@ export class ObjectType extends Type {
             return false;
         }
 
-        if (recursionCount > MaxRecursionCount) {
+        if (recursionCount > _maxRecursionCount) {
             return true;
         }
 
@@ -656,7 +656,7 @@ export class ObjectType extends Type {
     }
 
     requiresSpecialization(recursionCount = 0) {
-        if (recursionCount > MaxRecursionCount) {
+        if (recursionCount > _maxRecursionCount) {
             return false;
         }
 
@@ -916,7 +916,7 @@ export class FunctionType extends Type {
 
             if (param.category === ParameterCategory.Simple) {
                 const paramType = this.getEffectiveParameterType(index);
-                const paramTypeString = recursionCount < MaxRecursionCount ?
+                const paramTypeString = recursionCount < _maxRecursionCount ?
                     paramType.asStringInternal(recursionCount + 1) : '';
                 paramString += ': ' + paramTypeString;
             }
@@ -924,13 +924,13 @@ export class FunctionType extends Type {
         });
 
         const returnType = this.getEffectiveReturnType();
-        const returnTypeString = recursionCount < MaxRecursionCount ?
+        const returnTypeString = recursionCount < _maxRecursionCount ?
             returnType.asStringInternal(recursionCount + 1) : '';
         return [paramTypeStrings, returnTypeString];
     }
 
     requiresSpecialization(recursionCount = 0) {
-        if (recursionCount > MaxRecursionCount) {
+        if (recursionCount > _maxRecursionCount) {
             return false;
         }
 
@@ -952,7 +952,7 @@ export class FunctionType extends Type {
             return false;
         }
 
-        if (recursionCount > MaxRecursionCount) {
+        if (recursionCount > _maxRecursionCount) {
             return true;
         }
 
@@ -1079,7 +1079,7 @@ export class PropertyType extends Type {
 
     asStringInternal(recursionCount = 0): string {
         const returnType = this._getter.getEffectiveReturnType();
-        let returnTypeString = recursionCount < MaxRecursionCount ?
+        const returnTypeString = recursionCount < _maxRecursionCount ?
             returnType.asStringInternal(recursionCount + 1) : '';
         return returnTypeString;
     }
@@ -1180,7 +1180,7 @@ export class UnionType extends Type {
     }
 
     addTypes(types: Type[]) {
-        for (let newType of types) {
+        for (const newType of types) {
             assert(newType.category !== TypeCategory.Union);
             assert(newType.category !== TypeCategory.Never);
             this._types.push(newType);
@@ -1188,7 +1188,7 @@ export class UnionType extends Type {
     }
 
     isSame(type2: Type, recursionCount = 0): boolean {
-        if (recursionCount > MaxRecursionCount) {
+        if (recursionCount > _maxRecursionCount) {
             return true;
         }
 
@@ -1211,12 +1211,12 @@ export class UnionType extends Type {
 
     asStringInternal(recursionCount = 0): string {
         if (this._types.find(t => t.category === TypeCategory.None) !== undefined) {
-            const optionalType = recursionCount < MaxRecursionCount ?
+            const optionalType = recursionCount < _maxRecursionCount ?
                 this._removeOptional().asStringInternal(recursionCount + 1) : '';
             return 'Optional[' + optionalType + ']';
         }
 
-        const unionTypeString = recursionCount < MaxRecursionCount ?
+        const unionTypeString = recursionCount < _maxRecursionCount ?
             this._types.map(t => t.asStringInternal(recursionCount + 1)).join(', ') : '';
 
         return 'Union[' + unionTypeString + ']';
@@ -1340,9 +1340,9 @@ export class TypeVarType extends Type {
         if (recursionCount > 0) {
             return this._name;
         } else {
-            let params: string[] = [`'${ this._name }'`];
-            if (recursionCount < MaxRecursionCount) {
-                for (let constraint of this._constraints) {
+            const params: string[] = [`'${ this._name }'`];
+            if (recursionCount < _maxRecursionCount) {
+                for (const constraint of this._constraints) {
                     params.push(constraint.asStringInternal(recursionCount + 1));
                 }
             }

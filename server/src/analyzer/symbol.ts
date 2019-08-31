@@ -74,7 +74,7 @@ export class Symbol {
             // See if this node was already identified as a declaration. If so,
             // replace it. Otherwise, add it as a new declaration to the end of
             // the list.
-            let declIndex = this._declarations.findIndex(decl => decl.node === declaration.node);
+            const declIndex = this._declarations.findIndex(decl => decl.node === declaration.node);
             if (declIndex >= 0) {
                 // This declaration has already been added. Update the declared
                 // type if it's available. The other fields in the declaration

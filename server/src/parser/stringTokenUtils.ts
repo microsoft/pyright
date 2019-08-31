@@ -69,7 +69,7 @@ export class StringTokenUtils {
             isExpression: false
         };
         let strOffset = 0;
-        let output: UnescapedString = {
+        const output: UnescapedString = {
             value: '',
             unescapeErrors: [],
             nonAsciiInBytes: false,

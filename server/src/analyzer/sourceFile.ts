@@ -46,7 +46,7 @@ import { Scope } from './scope';
 import { ModuleScopeAnalyzer } from './semanticAnalyzer';
 import { TypeAnalyzer } from './typeAnalyzer';
 
-const MaxImportCyclesPerFile = 4;
+const _maxImportCyclesPerFile = 4;
 
 export enum AnalysisPhase {
     Parse = 0,
@@ -377,7 +377,7 @@ export class SourceFile {
     // it hasn't already been added.
     addCircularDependency(circDependency: CircularDependency) {
         // Some topologies can result in a massive number of cycles. We'll cut it off.
-        if (this._analysisJob.circularDependencies.length < MaxImportCyclesPerFile) {
+        if (this._analysisJob.circularDependencies.length < _maxImportCyclesPerFile) {
             if (!this._analysisJob.circularDependencies.some(dep => dep.isEqual(circDependency))) {
                 this._analysisJob.circularDependencies.push(circDependency);
             }
@@ -637,7 +637,7 @@ export class SourceFile {
             this._cleanParseTreeIfRequired();
 
             // Perform semantic analysis.
-            let scopeAnalyzer = new ModuleScopeAnalyzer(
+            const scopeAnalyzer = new ModuleScopeAnalyzer(
                 this._analysisJob.parseResults!.parseTree, fileInfo);
             timingStats.semanticAnalyzerTime.timeOperation(() => {
                 scopeAnalyzer.analyze();
@@ -766,7 +766,7 @@ export class SourceFile {
     private _cleanParseTreeIfRequired() {
         if (this._analysisJob && this._analysisJob.parseResults) {
             if (this._analysisJob.parseTreeNeedsCleaning) {
-                let cleanerWalker = new ParseTreeCleanerWalker(
+                const cleanerWalker = new ParseTreeCleanerWalker(
                     this._analysisJob.parseResults.parseTree);
                 cleanerWalker.clean();
                 this._analysisJob.parseTreeNeedsCleaning = false;

@@ -92,7 +92,7 @@ export class NameBindings {
 
     // Returns all of the names with a specified binding type.
     private _getNamesOfBindingType(type: NameBindingType): string[] {
-        let nameList: string[] = [];
+        const nameList: string[] = [];
 
         this._names.forEach((entry, name) => {
             // Include names with inconsistent binding types as well to

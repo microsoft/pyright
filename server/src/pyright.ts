@@ -56,7 +56,7 @@ function processArgs() {
     try {
         args = commandLineArgs(optionDefinitions);
     } catch (err) {
-        let argErr: { name: string; optionName: string } = err;
+        const argErr: { name: string; optionName: string } = err;
         if (argErr && argErr.optionName) {
             console.error(`Unexpected option ${ argErr.optionName }.\n${ toolName } --help for usage`);
             return;
@@ -171,7 +171,7 @@ function processArgs() {
     service.setOptions(options);
 
     // Sleep indefinitely.
-    let brokenPromise = new Promise(resolve => {
+    const brokenPromise = new Promise(resolve => {
         // Do nothing.
     });
     brokenPromise.then().catch();

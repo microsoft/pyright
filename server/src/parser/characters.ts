@@ -27,10 +27,10 @@ enum CharCategory {
 
 // Table of first 256 character codes (the most common cases).
 const _identifierCharFastTableSize = 256;
-let _identifierCharFastTable: CharCategory[] = new Array(_identifierCharFastTableSize);
+const _identifierCharFastTable: CharCategory[] = new Array(_identifierCharFastTableSize);
 
 // Map of remaining characters that can appear within identifier.
-let _identifierCharMap: { [code: number]: CharCategory } = {};
+const _identifierCharMap: { [code: number]: CharCategory } = {};
 
 // We do lazy initialization of this map because it's rarely used.
 let _identifierCharMapInitialized = false;
@@ -105,7 +105,7 @@ const _identifierCharRanges = [_specialIdentifierChars, unicode.unicodeMn, unico
 function _buildIdentifierLookupTableFromUnicodeRangeTable(table: unicode.UnicodeRangeTable,
         category: CharCategory, fastTableOnly: boolean) {
     for (let entryIndex = 0; entryIndex < table.length; entryIndex++) {
-        let entry = table[entryIndex];
+        const entry = table[entryIndex];
         let rangeStart: number;
         let rangeEnd: number;
 

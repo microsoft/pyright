@@ -47,7 +47,7 @@ export class ParseTreeUtils {
     static findNodeByPosition(node: ParseNode, position: DiagnosticTextPosition,
             lines: TextRangeCollection<TextRange>): ParseNode | undefined {
 
-        let offset = convertPositionToOffset(position, lines);
+        const offset = convertPositionToOffset(position, lines);
         if (offset === undefined) {
             return undefined;
         }
@@ -63,10 +63,10 @@ export class ParseTreeUtils {
 
         // The range is found within this node. See if we can localize it
         // further by checking its children.
-        let children = node.getChildren();
-        for (let child of children) {
+        const children = node.getChildren();
+        for (const child of children) {
             if (child) {
-                let containingChild = ParseTreeUtils.findNodeByOffset(child, offset);
+                const containingChild = ParseTreeUtils.findNodeByOffset(child, offset);
                 if (containingChild) {
                     return containingChild;
                 }
@@ -169,14 +169,14 @@ export class ParseTreeUtils {
                 ParseTreeUtils.printExpression(node.testExpression, flags) + ' else ' +
                 ParseTreeUtils.printExpression(node.elseExpression, flags);
         } else if (node instanceof ListNode) {
-            let expressions = node.entries.map(expr => {
+            const expressions = node.entries.map(expr => {
                 return ParseTreeUtils.printExpression(expr, flags);
             });
             return `[${ expressions.join(', ') }]`;
         } else if (node instanceof UnpackExpressionNode) {
             return '*' + ParseTreeUtils.printExpression(node.expression, flags);
         } else if (node instanceof TupleExpressionNode) {
-            let expressions = node.expressions.map(expr => {
+            const expressions = node.expressions.map(expr => {
                 return ParseTreeUtils.printExpression(expr, flags);
             });
             if (expressions.length === 1) {

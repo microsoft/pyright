@@ -29,9 +29,9 @@ export function convertOffsetToPosition(offset: number, lines: TextRangeCollecti
         offset = lines.end - 1;
     }
 
-    let itemIndex = lines.getItemContaining(offset);
+    const itemIndex = lines.getItemContaining(offset);
     assert(itemIndex >= 0 && itemIndex <= lines.length);
-    let lineRange = lines.getItemAt(itemIndex);
+    const lineRange = lines.getItemAt(itemIndex);
     assert(lineRange !== undefined);
     return {
         line: itemIndex,
@@ -42,8 +42,8 @@ export function convertOffsetToPosition(offset: number, lines: TextRangeCollecti
 // Translates a start/end file offset into a pair of line/column positions.
 export function convertOffsetsToRange(startOffset: number, endOffset: number,
         lines: TextRangeCollection<TextRange>): DiagnosticTextRange {
-    let start = convertOffsetToPosition(startOffset, lines);
-    let end = convertOffsetToPosition(endOffset, lines);
+    const start = convertOffsetToPosition(startOffset, lines);
+    const end = convertOffsetToPosition(endOffset, lines);
     return { start, end };
 }
 

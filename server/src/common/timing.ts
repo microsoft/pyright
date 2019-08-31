@@ -22,7 +22,7 @@ export class Duration {
     }
 
     getDurationInMilliseconds() {
-        let curTime = Date.now();
+        const curTime = Date.now();
         return curTime - this._startTime;
     }
 
@@ -35,14 +35,14 @@ export class TimingStat {
     totalTime = 0;
 
     timeOperation(callback: () => void) {
-        let duration = new Duration();
+        const duration = new Duration();
         callback();
         this.totalTime += duration.getDurationInMilliseconds();
     }
 
     printTime(): string {
-        let totalTimeInSec = this.totalTime / 1000;
-        let roundedTime = Math.round(totalTimeInSec * 100) / 100;
+        const totalTimeInSec = this.totalTime / 1000;
+        const roundedTime = Math.round(totalTimeInSec * 100) / 100;
         return roundedTime.toString() + 'sec';
     }
 }

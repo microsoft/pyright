@@ -25,7 +25,7 @@ export class ExpressionUtils {
                     node.rightExpression instanceof TupleExpressionNode) {
 
                 // Handle the special case of "sys.version_info >= (3, x)"
-                let comparisonVersion = this._convertTupleToVersion(node.rightExpression);
+                const comparisonVersion = this._convertTupleToVersion(node.rightExpression);
                 return this._evaluateNumericBinaryOperation(node.operator,
                     execEnv.pythonVersion, comparisonVersion);
 
@@ -51,7 +51,7 @@ export class ExpressionUtils {
                     node.rightExpression instanceof StringListNode) {
                 // Handle the special case of "os.name == 'X'"
                 const comparisonOsName = node.rightExpression.getValue();
-                let expectedOsName = this._getExpectedOsNameFromPlatform(execEnv);
+                const expectedOsName = this._getExpectedOsNameFromPlatform(execEnv);
                 if (expectedOsName !== undefined) {
                     return this._evaluateStringBinaryOperation(node.operator,
                         expectedOsName, comparisonOsName);

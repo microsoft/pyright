@@ -49,7 +49,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
     visitFunction(node: FunctionNode) {
         const functionName = node.name.nameToken.value;
         let containerName = functionName;
-        let containingClass = ParseTreeUtils.getEnclosingClass(node, true);
+        const containingClass = ParseTreeUtils.getEnclosingClass(node, true);
         if (containingClass) {
             containerName = containingClass.name.nameToken.value + '.' + functionName;
         }

@@ -35,12 +35,12 @@ export class HoverProvider {
     static getHoverForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
             importMap: ImportMap): HoverResults | undefined {
 
-        let offset = convertPositionToOffset(position, parseResults.lines);
+        const offset = convertPositionToOffset(position, parseResults.lines);
         if (offset === undefined) {
             return undefined;
         }
 
-        let node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
+        const node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
         if (node === undefined) {
             return undefined;
         }
@@ -56,13 +56,13 @@ export class HoverProvider {
         if (node instanceof ModuleNameNode) {
             // If this is an imported module name, try to map the position
             // to the resolved import path.
-            let importInfo = AnalyzerNodeInfo.getImportInfo(node);
+            const importInfo = AnalyzerNodeInfo.getImportInfo(node);
             if (!importInfo) {
                 return undefined;
             }
 
             let pathOffset = node.nameParts.findIndex(range => {
-                return offset! >= range.start && offset! < range.end;
+                return offset >= range.start && offset < range.end;
             });
 
             if (pathOffset < 0) {

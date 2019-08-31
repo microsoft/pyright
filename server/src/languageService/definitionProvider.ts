@@ -25,12 +25,12 @@ export class DefinitionProvider {
     static getDefinitionsForPosition(parseResults: ParseResults,
             position: DiagnosticTextPosition): DocumentTextRange[] | undefined {
 
-        let offset = convertPositionToOffset(position, parseResults.lines);
+        const offset = convertPositionToOffset(position, parseResults.lines);
         if (offset === undefined) {
             return undefined;
         }
 
-        let node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
+        const node = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
         if (node === undefined) {
             return undefined;
         }
@@ -38,13 +38,13 @@ export class DefinitionProvider {
         if (node instanceof ModuleNameNode) {
             // If this is an imported module name, try to map the position
             // to the resolved import path.
-            let importInfo = AnalyzerNodeInfo.getImportInfo(node);
+            const importInfo = AnalyzerNodeInfo.getImportInfo(node);
             if (!importInfo) {
                 return undefined;
             }
 
-            let pathOffset = node.nameParts.findIndex(range => {
-                return offset! >= range.start && offset! < range.end;
+            const pathOffset = node.nameParts.findIndex(range => {
+                return offset >= range.start && offset < range.end;
             });
 
             if (pathOffset < 0) {
@@ -69,7 +69,7 @@ export class DefinitionProvider {
             }];
         }
 
-        let declarations = AnalyzerNodeInfo.getDeclarations(node);
+        const declarations = AnalyzerNodeInfo.getDeclarations(node);
         if (declarations) {
             return declarations.map(decl => {
                 return {

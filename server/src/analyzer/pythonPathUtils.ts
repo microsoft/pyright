@@ -14,7 +14,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
     getFileSystemEntries, isDirectory, normalizePath } from '../common/pathUtils';
 
-let cachedSearchPaths: { [path: string]: string[] } = {};
+const cachedSearchPaths: { [path: string]: string[] } = {};
 
 export class PythonPathUtils {
     static getTypeShedFallbackPath() {
@@ -68,7 +68,7 @@ export class PythonPathUtils {
             }
 
             if (libPath) {
-                let sitePackagesPath = combinePaths(libPath, 'site-packages');
+                const sitePackagesPath = combinePaths(libPath, 'site-packages');
                 if (fs.existsSync(sitePackagesPath)) {
                     importFailureInfo.push(`Found path '${ sitePackagesPath }'`);
                     return [sitePackagesPath];
@@ -78,11 +78,11 @@ export class PythonPathUtils {
 
                 // We didn't find a site-packages directory directly in the lib
                 // directory. Scan for a "python*" directory instead.
-                let entries = getFileSystemEntries(libPath);
+                const entries = getFileSystemEntries(libPath);
                 for (let i = 0; i < entries.directories.length; i++) {
-                    let dirName = entries.directories[i];
+                    const dirName = entries.directories[i];
                     if (dirName.startsWith('python')) {
-                        let dirPath = combinePaths(libPath, dirName, 'site-packages');
+                        const dirPath = combinePaths(libPath, dirName, 'site-packages');
                         if (fs.existsSync(dirPath)) {
                             importFailureInfo.push(`Found path '${ dirPath }'`);
                             return [dirPath];

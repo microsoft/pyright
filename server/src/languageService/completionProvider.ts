@@ -78,7 +78,7 @@ const _keywords: string[] = [
 
 // We'll use a somewhat-arbitrary cutoff value here to determine
 // whether it's sufficiently similar.
-const SimilarityLimit = 0.25;
+const similarityLimit = 0.25;
 
 export type ModuleSymbolMap = { [file: string]: Scope };
 
@@ -94,7 +94,7 @@ export class CompletionProvider {
     }
 
     getCompletionsForPosition(): CompletionList | undefined {
-        let offset = convertPositionToOffset(this._position, this._parseResults.lines);
+        const offset = convertPositionToOffset(this._position, this._parseResults.lines);
         if (offset === undefined) {
             return undefined;
         }
@@ -116,7 +116,7 @@ export class CompletionProvider {
                 break;
             }
 
-            let curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, curOffset);
+            const curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, curOffset);
             if (curNode && curNode !== initialNode) {
                 if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
                     node = curNode;
@@ -285,7 +285,7 @@ export class CompletionProvider {
             symbolTable = leftType.getFields();
         }
 
-        let completionList = CompletionList.create();
+        const completionList = CompletionList.create();
         this._addSymbolsForSymbolTable(symbolTable, name => true,
             priorWord, completionList);
 
@@ -389,7 +389,7 @@ export class CompletionProvider {
             // Scan through the import symbols to find the right insertion point,
             // assuming we want to keep the imports alphebetized.
             let priorImport: ImportFromAsNode | undefined;
-            for (let curImport of importStatement.node.imports) {
+            for (const curImport of importStatement.node.imports) {
                 if (priorImport && curImport.name.nameToken.value > symbolName) {
                     break;
                 }
@@ -418,7 +418,7 @@ export class CompletionProvider {
                 // the PEP8 standard sorting order whereby built-in imports are
                 // followed by third-party, which are followed by local.
                 let prevImportType = ImportType.BuiltIn;
-                for (let curImport of importStatements.orderedImports) {
+                for (const curImport of importStatements.orderedImports) {
                     // If the import was resolved, use its import type. If it wasn't
                     // resolved, assume that it's the same import type as the previous
                     // one.
@@ -487,7 +487,7 @@ export class CompletionProvider {
                 insertionPosition = Position.create(0, 0);
                 let addNewLineBefore = false;
 
-                for (let statement of this._parseResults.parseTree.statements) {
+                for (const statement of this._parseResults.parseTree.statements) {
                     let stopHere = true;
                     if (statement instanceof StatementListNode && statement.statements.length === 1) {
                         const simpleStatement = statement.statements[0];
@@ -697,7 +697,7 @@ export class CompletionProvider {
 
         const similarity = StringUtils.computeCompletionSimilarity(filter, name);
 
-        if (similarity > SimilarityLimit) {
+        if (similarity > similarityLimit) {
             const completionItem = CompletionItem.create(name);
             completionItem.kind = itemKind;
             completionItem.data = {};
@@ -780,7 +780,7 @@ export class CompletionProvider {
         };
 
         const completions = this._importResolver.getCompletionSuggestions(this._filePath,
-            execEnvironment, moduleDescriptor, SimilarityLimit);
+            execEnvironment, moduleDescriptor, similarityLimit);
 
         const completionList = CompletionList.create();
         completions.forEach(completionName => {

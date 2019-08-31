@@ -19,7 +19,7 @@ import { Scope, ScopeType } from './scope';
 import { Type } from './types';
 
 // An always-incrementing ID for assigning to nodes.
-let NextTypeSourceId: TypeSourceId = 1;
+let _nextTypeSourceId: TypeSourceId = 1;
 
 export class AnalyzerNodeInfo {
     //---------------------------------------------------------------
@@ -106,7 +106,7 @@ export class AnalyzerNodeInfo {
         let curNode: ParseNode | undefined = node;
 
         while (curNode) {
-            let scope = AnalyzerNodeInfo.getScope(curNode);
+            const scope = AnalyzerNodeInfo.getScope(curNode);
             if (scope) {
                 if (!skipTemporary || scope.getType() !== ScopeType.Temporary) {
                     return scope;
@@ -172,7 +172,7 @@ export class AnalyzerNodeInfo {
     static getTypeSourceId(node: ParseNode): TypeSourceId {
         const analyzerNode = node as AnalyzerNodeInfo;
         if (analyzerNode._typeSourceId === undefined) {
-            analyzerNode._typeSourceId = NextTypeSourceId++;
+            analyzerNode._typeSourceId = _nextTypeSourceId++;
         }
 
         return analyzerNode._typeSourceId;

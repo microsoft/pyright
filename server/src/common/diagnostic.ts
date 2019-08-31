@@ -108,7 +108,7 @@ export class DiagnosticAddendum {
 
     // Create a new (nested) addendum to which messages can be added.
     createAddendum() {
-        let newAddendum = new DiagnosticAddendum();
+        const newAddendum = new DiagnosticAddendum();
         this._addAddendum(newAddendum);
         return newAddendum;
     }
@@ -121,7 +121,7 @@ export class DiagnosticAddendum {
             lines.push('...');
         }
 
-        let text = lines.join('\n');
+        const text = lines.join('\n');
         if (text.length > 0) {
             return '\n' + text;
         }
@@ -142,8 +142,8 @@ export class DiagnosticAddendum {
             return [];
         }
 
-        let childLines: string[] = [];
-        for (let addendum of this._childAddenda) {
+        const childLines: string[] = [];
+        for (const addendum of this._childAddenda) {
             childLines.push(...addendum._getLinesRecursive(maxDepth - 1));
         }
 
