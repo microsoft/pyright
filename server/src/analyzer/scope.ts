@@ -15,7 +15,7 @@ import * as assert from 'assert';
 
 import { Declaration } from './declaration';
 import { InferredType } from './inferredType';
-import { Symbol, SymbolTable } from './symbol';
+import { setSymbolPreservingAccess, Symbol, SymbolTable } from './symbol';
 import { TypeConstraint } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
 
@@ -207,8 +207,8 @@ export class Scope {
 
     // Adds a new untyped symbol to the scope.
     addSymbol(name: string, isInitiallyUnbound: boolean): Symbol {
-        let symbol = new Symbol(isInitiallyUnbound);
-        this._symbolTable.set(name, symbol);
+        const symbol = new Symbol(isInitiallyUnbound);
+        setSymbolPreservingAccess(this._symbolTable, name, symbol);
         return symbol;
     }
 

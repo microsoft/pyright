@@ -35,7 +35,7 @@ import { Declaration, DeclarationCategory } from './declaration';
 import { DefaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Scope, ScopeType } from './scope';
-import { Symbol } from './symbol';
+import { setSymbolPreservingAccess, Symbol } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
@@ -120,6 +120,7 @@ interface ParamAssignmentInfo {
 
 export type ReadTypeFromNodeCacheCallback = (node: ExpressionNode) => Type | undefined;
 export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) => void;
+export type SetSymbolAccessedCallback = (symbol: Symbol) => void;
 
 const arithmeticOperatorMap: { [operator: number]: [string, string, boolean] } = {
     [OperatorType.Add]: ['__add__', '__radd__', true],
@@ -165,17 +166,20 @@ export class ExpressionEvaluator {
     private _diagnosticSink?: TextRangeDiagnosticSink;
     private _readTypeFromCache?: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
+    private _setSymbolAccessed?: SetSymbolAccessedCallback;
     private _isUnboundCheckSuppressed = false;
 
     constructor(scope: Scope, fileInfo: AnalyzerFileInfo,
             diagnosticSink?: TextRangeDiagnosticSink,
             readTypeCallback?: ReadTypeFromNodeCacheCallback,
-            writeTypeCallback?: WriteTypeToNodeCacheCallback) {
+            writeTypeCallback?: WriteTypeToNodeCacheCallback,
+            setSymbolAccessedCallback?: SetSymbolAccessedCallback) {
         this._scope = scope;
         this._fileInfo = fileInfo;
         this._diagnosticSink = diagnosticSink;
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
+        this._setSymbolAccessed = setSymbolAccessedCallback;
     }
 
     getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
@@ -497,8 +501,10 @@ export class ExpressionEvaluator {
         });
 
         if (!skipSynthesizeInit) {
-            classType.getClassFields().set('__init__', Symbol.createWithType(initType, DefaultTypeSourceId));
-            classType.getClassFields().set('__new__', Symbol.createWithType(newType, DefaultTypeSourceId));
+            setSymbolPreservingAccess(classType.getClassFields(),
+                '__init__', Symbol.createWithType(initType, DefaultTypeSourceId));
+            setSymbolPreservingAccess(classType.getClassFields(),
+                '__new__', Symbol.createWithType(newType, DefaultTypeSourceId));
         }
     }
 
@@ -770,7 +776,9 @@ export class ExpressionEvaluator {
             }
 
             if (usage.method === 'get') {
-                symbol.setIsAcccessed();
+                if (this._setSymbolAccessed) {
+                    this._setSymbolAccessed(symbol);
+                }
             }
         } else {
             this._addError(`'${ name }' is not defined`, node);
@@ -845,12 +853,14 @@ export class ExpressionEvaluator {
                 diag.addMessage(`Member '${ memberName }' is unknown`);
             }
         } else if (baseType instanceof ModuleType) {
-            let memberInfo = baseType.getFields().get(memberName);
-            if (memberInfo) {
+            const symbol = baseType.getFields().get(memberName);
+            if (symbol) {
                 if (usage.method === 'get') {
-                    memberInfo.setIsAcccessed();
+                    if (this._setSymbolAccessed) {
+                        this._setSymbolAccessed(symbol);
+                    }
                 }
-                type = TypeUtils.getEffectiveTypeOfSymbol(memberInfo);
+                type = TypeUtils.getEffectiveTypeOfSymbol(symbol);
             } else {
                 this._addError(`'${ memberName }' is not a known member of module`, node.memberName);
                 type = UnknownType.create();
@@ -998,7 +1008,10 @@ export class ExpressionEvaluator {
             let type = memberInfo.symbolType;
 
             if (usage.method === 'get') {
-                memberInfo.symbol.setIsAcccessed();
+                // Mark the member accessed if it's not coming from a parent class.
+                if (memberInfo.classType === classType && this._setSymbolAccessed) {
+                    this._setSymbolAccessed(memberInfo.symbol);
+                }
             }
 
             if (!(flags & MemberAccessFlags.SkipGetCheck)) {
@@ -2159,7 +2172,8 @@ export class ExpressionEvaluator {
         }
 
         const classFields = classType.getClassFields();
-        classFields.set('__class__', Symbol.createWithType(classType, DefaultTypeSourceId));
+        setSymbolPreservingAccess(classFields, '__class__',
+            Symbol.createWithType(classType, DefaultTypeSourceId));
 
         if (argList.length < 2) {
             this._addError('Expected enum item string as second parameter', errorNode);
@@ -2192,7 +2206,7 @@ export class ExpressionEvaluator {
                                 stringNode.start, stringNode.end, this._fileInfo.lines)
                         };
                         newSymbol.addDeclaration(declaration);
-                        classFields.set(entryName, newSymbol);
+                        setSymbolPreservingAccess(classFields, entryName, newSymbol);
                     }
                 });
             }
@@ -2285,7 +2299,8 @@ export class ExpressionEvaluator {
         }
 
         const classFields = classType.getClassFields();
-        classFields.set('__class__', Symbol.createWithType(classType, DefaultTypeSourceId));
+        setSymbolPreservingAccess(classFields, '__class__',
+            Symbol.createWithType(classType, DefaultTypeSourceId));
         const instanceFields = classType.getInstanceFields();
 
         let builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
@@ -2344,7 +2359,7 @@ export class ExpressionEvaluator {
                                         stringNode.start, stringNode.end, this._fileInfo.lines)
                                 };
                                 newSymbol.addDeclaration(declaration);
-                                instanceFields.set(entryName, newSymbol);
+                                setSymbolPreservingAccess(instanceFields, entryName, newSymbol);
                             }
                         });
                     } else if (entriesArg.valueExpression instanceof ListNode) {
@@ -2420,7 +2435,7 @@ export class ExpressionEvaluator {
                                 };
                                 newSymbol.addDeclaration(declaration);
                             }
-                            instanceFields.set(entryName, newSymbol);
+                            setSymbolPreservingAccess(instanceFields, entryName, newSymbol);
                         });
                     } else {
                         // A dynamic expression was used, so we can't evaluate
@@ -2443,20 +2458,25 @@ export class ExpressionEvaluator {
             initType.addParameter(selfParameter);
             TypeUtils.addDefaultFunctionParameters(initType);
 
-            classFields.set('__new__', Symbol.createWithType(constructorType, DefaultTypeSourceId));
-            classFields.set('__init__', Symbol.createWithType(initType, DefaultTypeSourceId));
+            setSymbolPreservingAccess(classFields, '__new__',
+                Symbol.createWithType(constructorType, DefaultTypeSourceId));
+            setSymbolPreservingAccess(classFields, '__init__',
+                Symbol.createWithType(initType, DefaultTypeSourceId));
 
             const keysItemType = new FunctionType(FunctionTypeFlags.SynthesizedMethod);
             keysItemType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'list',
                 [ScopeUtils.getBuiltInObject(this._scope, 'str')]));
-            classFields.set('keys', Symbol.createWithType(keysItemType, DefaultTypeSourceId));
-            classFields.set('items', Symbol.createWithType(keysItemType, DefaultTypeSourceId));
+            setSymbolPreservingAccess(classFields, 'keys',
+                Symbol.createWithType(keysItemType, DefaultTypeSourceId));
+            setSymbolPreservingAccess(classFields, 'items',
+                Symbol.createWithType(keysItemType, DefaultTypeSourceId));
 
             const lenType = new FunctionType(
                 FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
             lenType.setDeclaredReturnType(ScopeUtils.getBuiltInObject(this._scope, 'int'));
             lenType.addParameter(selfParameter);
-            classFields.set('__len__', Symbol.createWithType(lenType, DefaultTypeSourceId));
+            setSymbolPreservingAccess(classFields, '__len__',
+                Symbol.createWithType(lenType, DefaultTypeSourceId));
 
             if (addGenericGetAttribute) {
                 const getAttribType = new FunctionType(
@@ -2468,7 +2488,8 @@ export class ExpressionEvaluator {
                     name: 'name',
                     type: ScopeUtils.getBuiltInObject(this._scope, 'str')
                 });
-                classFields.set('__getattribute__', Symbol.createWithType(getAttribType, DefaultTypeSourceId));
+                setSymbolPreservingAccess(classFields, '__getattribute__',
+                    Symbol.createWithType(getAttribType, DefaultTypeSourceId));
             }
         }
 

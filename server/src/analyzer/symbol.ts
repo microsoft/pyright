@@ -105,3 +105,14 @@ export class Symbol {
 
 // Maps names to symbol information.
 export class SymbolTable extends StringMap<Symbol> {}
+
+// Use this helper method rather than symbolTable.set() if
+// it's important to preserve the "isAccessed" state of the
+// previous symbol that the new symbol is replacing.
+export function setSymbolPreservingAccess(symbolTable: SymbolTable, name: string, symbol: Symbol) {
+    const oldSymbol = symbolTable.get(name);
+    symbolTable.set(name, symbol);
+    if (oldSymbol && oldSymbol.isAccessed()) {
+        symbol.setIsAcccessed();
+    }
+}

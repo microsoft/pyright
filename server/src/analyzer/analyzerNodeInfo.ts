@@ -49,7 +49,10 @@ export class AnalyzerNodeInfo {
     _expressionType?: Type;
 
     // Version of cached expressionType.
-    _expressionTypeVersion?: number;
+    _expressionTypeWriteVersion?: number;
+
+    // Version that last accessed the cache.
+    _expressionTypeReadVersion?: number;
 
     // Information to resolve definition and hover requests from
     // language service interface; used for NamedNode's.
@@ -72,7 +75,8 @@ export class AnalyzerNodeInfo {
 
         delete analyzerNode._scope;
         delete analyzerNode._expressionType;
-        delete analyzerNode._expressionTypeVersion;
+        delete analyzerNode._expressionTypeWriteVersion;
+        delete analyzerNode._expressionTypeReadVersion;
         delete analyzerNode._declarations;
         delete analyzerNode._typeSourceId;
         delete analyzerNode._ignoreTypeAnnotation;
@@ -145,14 +149,24 @@ export class AnalyzerNodeInfo {
         analyzerNode._expressionType = typeAnnotation;
     }
 
-    static getExpressionTypeVersion(node: ParseNode): number | undefined {
+    static getExpressionTypeWriteVersion(node: ParseNode): number | undefined {
         const analyzerNode = node as AnalyzerNodeInfo;
-        return analyzerNode._expressionTypeVersion;
+        return analyzerNode._expressionTypeWriteVersion;
     }
 
-    static setExpressionTypeVersion(node: ParseNode, version: number) {
+    static setExpressionTypeWriteVersion(node: ParseNode, version: number) {
         const analyzerNode = node as AnalyzerNodeInfo;
-        analyzerNode._expressionTypeVersion = version;
+        analyzerNode._expressionTypeWriteVersion = version;
+    }
+
+    static getExpressionTypeReadVersion(node: ParseNode): number | undefined {
+        const analyzerNode = node as AnalyzerNodeInfo;
+        return analyzerNode._expressionTypeReadVersion;
+    }
+
+    static setExpressionTypeReadVersion(node: ParseNode, version: number) {
+        const analyzerNode = node as AnalyzerNodeInfo;
+        analyzerNode._expressionTypeReadVersion = version;
     }
 
     static getTypeSourceId(node: ParseNode): TypeSourceId {

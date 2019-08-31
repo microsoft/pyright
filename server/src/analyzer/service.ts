@@ -533,7 +533,7 @@ export class AnalyzerService {
         const fileMap: { [key: string]: string } = {};
 
         timingStats.findFilesTime.timeOperation(() => {
-            let matchedFiles = this._matchFiles(this._configOptions.include,
+            const matchedFiles = this._matchFiles(this._configOptions.include,
                 this._configOptions.exclude);
 
             for (const file of matchedFiles) {

@@ -25,7 +25,8 @@ import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     ParameterCategory, ParseNode, RaiseNode, ReturnNode, SliceExpressionNode,
     StringListNode, StringNode, SuiteNode, TernaryExpressionNode, TryNode,
     TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
-    UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode,
+    YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -38,10 +39,9 @@ import { DefaultTypeSourceId, TypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
-import { Symbol, SymbolTable } from './symbol';
+import { setSymbolPreservingAccess, Symbol, SymbolTable } from './symbol';
 import { SymbolUtils } from './symbolUtils';
 import { ConditionalTypeConstraintResults, TypeConstraintBuilder } from './typeConstraint';
-import { TypeConstraintUtils } from './typeConstraintUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, NeverType, NoneType,
     ObjectType, OverloadedFunctionType, PropertyType, Type,
@@ -1297,7 +1297,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             let newSymbol = Symbol.createWithType(implicitModuleType, DefaultTypeSourceId);
                             newSymbol.addDeclaration(declaration);
                             if (!moduleFields.get(implicitImport.name)) {
-                                moduleFields.set(implicitImport.name, newSymbol);
+                                setSymbolPreservingAccess(moduleFields, implicitImport.name, newSymbol);
                             }
                         }
                     }
@@ -2782,7 +2782,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             }
 
                             // The class variable is accessed in this case.
-                            memberInfo.symbol.setIsAcccessed();
+                            this._setSymbolAccessed(memberInfo.symbol);
                             srcType = TypeUtils.combineTypes([srcType, memberInfo.symbolType]);
                         }
 
@@ -2804,7 +2804,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 newSymbol.addDeclaration(createDeclaration());
-                memberFields.set(memberName, newSymbol);
+                setSymbolPreservingAccess(memberFields, memberName, newSymbol);
                 this._setAnalysisChanged();
 
                 if (srcExprNode) {
@@ -2903,8 +2903,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const implicitModuleType = this._getModuleTypeForImportPath(
                     undefined, implicitImport.path);
                 if (implicitModuleType) {
-                    symbolTable.set(implicitImport.name, Symbol.createWithType(
-                        implicitModuleType, DefaultTypeSourceId));
+                    setSymbolPreservingAccess(symbolTable, implicitImport.name,
+                        Symbol.createWithType(implicitModuleType, DefaultTypeSourceId));
                 }
             });
 
@@ -2950,9 +2950,28 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return evaluator.getType(node, { method: 'del' }, EvaluatorFlags.None);
     }
 
+    private _readExpressionTypeFromNodeCache(node: ExpressionNode): Type | undefined {
+        const cachedVersion = AnalyzerNodeInfo.getExpressionTypeWriteVersion(node);
+
+        if (cachedVersion === this._analysisVersion) {
+            const cachedType = AnalyzerNodeInfo.getExpressionType(node);
+            assert(cachedType !== undefined);
+            AnalyzerNodeInfo.setExpressionTypeReadVersion(node, this._analysisVersion);
+            return cachedType!;
+        }
+
+        return undefined;
+    }
+
     private _updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
         const oldType = AnalyzerNodeInfo.getExpressionType(node);
-        AnalyzerNodeInfo.setExpressionTypeVersion(node, this._analysisVersion);
+        AnalyzerNodeInfo.setExpressionTypeWriteVersion(node, this._analysisVersion);
+        const prevReadVersion = AnalyzerNodeInfo.getExpressionTypeReadVersion(node);
+
+        // Any time this method is called, we're effectively writing to the cache
+        // and reading the value immediately, so we need to update the read version
+        // as well.
+        AnalyzerNodeInfo.setExpressionTypeReadVersion(node, this._analysisVersion);
 
         if (!oldType || !oldType.isSame(exprType)) {
             let replaceType = true;
@@ -2970,7 +2989,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (replaceType) {
-                this._setAnalysisChanged();
+                // If someone has already accessed this expression cache entry during
+                // this pass, we need to perform another pass.
+                if (prevReadVersion === this._analysisVersion) {
+                    this._setAnalysisChanged();
+                }
                 AnalyzerNodeInfo.setExpressionType(node, exprType);
             }
         }
@@ -2982,7 +3005,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
             if (symbolWithScope) {
-                symbolWithScope.symbol.setIsAcccessed();
+                this._setSymbolAccessed(symbolWithScope.symbol);
             }
         }
     }
@@ -3009,7 +3032,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             const symbolName = entryExpr.getValue();
                             const symbolInScope = this._currentScope.lookUpSymbolRecursive(symbolName);
                             if (symbolInScope) {
-                                symbolInScope.symbol.setIsAcccessed();
+                                this._setSymbolAccessed(symbolInScope.symbol);
                             }
                         }
                     });
@@ -3192,8 +3215,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // The target symbol table will change as we progress through
         // the multi-part name. Start with the current scope's symbol
         // table, which should include the first part of the name.
-        let targetSymbolTable = this._currentScope.getSymbolTable();
-        let symbol = Symbol.createWithType(type, DefaultTypeSourceId);
+        const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
+        let targetSymbolTable = permanentScope.getSymbolTable();
+        const symbol = Symbol.createWithType(type, DefaultTypeSourceId);
         if (declaration) {
             symbol.addDeclaration(declaration);
         }
@@ -3212,11 +3236,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // Combine the names in the existing partial module into
                     // the new module's symbol table.
                     moduleFields.getKeys().forEach(name => {
-                        type.getFields().set(name, moduleFields.get(name)!);
+                        setSymbolPreservingAccess(type.getFields(), name, moduleFields.get(name)!);
                     });
 
                     if (!targetSymbolTable.get(name)) {
-                        targetSymbolTable.set(name, symbol);
+                        setSymbolPreservingAccess(targetSymbolTable, name, symbol);
                     }
 
                     symbolType = type;
@@ -3224,14 +3248,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                 targetSymbolTable = moduleFields;
             } else if (i === nameParts.length - 1) {
-                targetSymbolTable.set(name, symbol);
+                setSymbolPreservingAccess(targetSymbolTable, name, symbol);
                 symbolType = type;
             } else {
                 // Build a "partial module" to contain the references
                 // to the next part of the name.
                 const newPartialModule = new ModuleType(new SymbolTable());
                 newPartialModule.setIsPartialModule();
-                targetSymbolTable.set(name, Symbol.createWithType(newPartialModule, DefaultTypeSourceId));
+                setSymbolPreservingAccess(targetSymbolTable, name,
+                    Symbol.createWithType(newPartialModule, DefaultTypeSourceId));
                 targetSymbolTable = newPartialModule.getFields();
                 symbolType = newPartialModule;
             }
@@ -3335,7 +3360,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const scopeType = permanentScope.getType();
         if (scopeType === ScopeType.Class || scopeType === ScopeType.Module) {
             if (!this._isSymbolPrivate(name, scopeType)) {
-                symbol.setIsAcccessed();
+                this._setSymbolAccessed(symbol);
             }
         }
     }
@@ -3588,23 +3613,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _readTypeFromNodeCache(node: ExpressionNode): Type | undefined {
-        let cachedVersion = AnalyzerNodeInfo.getExpressionTypeVersion(node);
-        if (cachedVersion === this._analysisVersion) {
-            let cachedType = AnalyzerNodeInfo.getExpressionType(node);
-            assert(cachedType !== undefined);
-            return cachedType!;
-        }
-
-        return undefined;
-    }
-
     private _createEvaluator() {
         return new ExpressionEvaluator(this._currentScope,
-            this._fileInfo, this._fileInfo.diagnosticSink, node => this._readTypeFromNodeCache(node),
+            this._fileInfo, this._fileInfo.diagnosticSink, node => this._readExpressionTypeFromNodeCache(node),
             (node, type) => {
                 this._updateExpressionTypeForNode(node, type);
+            },
+            symbol => {
+                this._setSymbolAccessed(symbol);
             });
+    }
+
+    private _setSymbolAccessed(symbol: Symbol) {
+        if (!symbol.isAccessed()) {
+            this._setAnalysisChanged();
+            symbol.setIsAcccessed();
+        }
     }
 
     private _setAnalysisChanged() {
