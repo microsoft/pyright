@@ -134,7 +134,16 @@ export class Scope {
         }
     }
 
-    getSymbolTable(): SymbolTable {
+    getSymbolTable(filterNonexports = false): SymbolTable {
+        if (filterNonexports && this._exportFilterMap) {
+            const filteredSymbolTable = new SymbolTable();
+            this._symbolTable.forEach((symbol, name) => {
+                if (!this.isSymbolExported(name)) {
+                    filteredSymbolTable.set(name, symbol);
+                }
+            });
+            return filteredSymbolTable;
+        }
         return this._symbolTable;
     }
 

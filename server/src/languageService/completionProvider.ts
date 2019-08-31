@@ -80,7 +80,7 @@ const _keywords: string[] = [
 // whether it's sufficiently similar.
 const similarityLimit = 0.25;
 
-export type ModuleSymbolMap = { [file: string]: Scope };
+export type ModuleSymbolMap = { [file: string]: SymbolTable };
 
 export class CompletionProvider {
     constructor(private _parseResults: ParseResults,
@@ -330,11 +330,10 @@ export class CompletionProvider {
             this._parseResults.parseTree);
 
         Object.keys(moduleSymbolMap).forEach(filePath => {
-            const moduleScope = moduleSymbolMap[filePath];
-            const symbolTable = moduleScope.getSymbolTable();
+            const symbolTable = moduleSymbolMap[filePath];
 
             symbolTable.forEach((item, name) => {
-                if (name.startsWith(priorWord) && moduleScope.isSymbolExported(name)) {
+                if (name.startsWith(priorWord)) {
                     // If there's already a local completion suggestion with
                     // this name, don't add an auto-import suggestion with
                     // the same name.

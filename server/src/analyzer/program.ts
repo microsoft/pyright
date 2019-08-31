@@ -537,7 +537,8 @@ export class Program {
             if (fileInfo !== sourceFileToExclude) {
                 const moduleScope = fileInfo.sourceFile.getModuleScope();
                 if (moduleScope) {
-                    moduleSymbolMap[fileInfo.sourceFile.getFilePath()] = moduleScope;
+                    const symbolTable = moduleScope.getSymbolTable(true);
+                    moduleSymbolMap[fileInfo.sourceFile.getFilePath()] = symbolTable;
                 }
             }
         });
