@@ -1301,7 +1301,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         if (importedModule) {
                             const declaration: Declaration = {
                                 category: DeclarationCategory.Module,
-                                node: importedModule.parseTree,
                                 path: implicitImport.path,
                                 range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 }}
                             };
@@ -1316,14 +1315,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 });
 
                 let moduleDeclaration: Declaration | undefined;
-                if (this._fileInfo.importMap[resolvedPath] &&
-                        this._fileInfo.importMap[resolvedPath].parseTree) {
-
-                    const moduleDeclarations = AnalyzerNodeInfo.getDeclarations(
-                        this._fileInfo.importMap[resolvedPath].parseTree);
-                    if (moduleDeclarations && moduleDeclarations.length > 0) {
-                        moduleDeclaration = moduleDeclarations[0];
-                    }
+                if (this._fileInfo.importMap[resolvedPath]) {
+                    moduleDeclaration = {
+                        category: DeclarationCategory.Module,
+                        path: resolvedPath,
+                        range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } }
+                    };
                 }
 
                 if (node.alias) {
@@ -1403,16 +1400,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const implicitImport = importInfo.implicitImports.find(impImport => impImport.name === name);
                     if (implicitImport) {
                         const moduleType = this._getModuleTypeForImportPath(importInfo, implicitImport.path);
-                        if (moduleType &&
-                                this._fileInfo.importMap[implicitImport.path] &&
-                                this._fileInfo.importMap[implicitImport.path].parseTree) {
-
+                        if (moduleType && this._fileInfo.importMap[implicitImport.path]) {
                             symbolType = moduleType;
-                            const declarations = AnalyzerNodeInfo.getDeclarations(
-                                this._fileInfo.importMap[implicitImport.path].parseTree);
-                            if (declarations && declarations.length > 0) {
-                                declaration = declarations[0];
-                            }
+                            declaration = {
+                                category: DeclarationCategory.Module,
+                                path: implicitImport.path,
+                                range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } }
+                            };
                         }
                     } else {
                         const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
@@ -1716,11 +1710,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             aliasClass = ScopeUtils.getBuiltInType(this._currentScope, aliasName);
                         } else if (aliasMapEntry.module === 'collections') {
                             // The typing.pyi file imports collections.
-                            const collectionsScope = this._findCollectionsImportScope();
-                            if (collectionsScope) {
-                                const symbolInfo = collectionsScope.lookUpSymbol(aliasName);
-                                if (symbolInfo) {
-                                    aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbolInfo);
+                            const collectionsSymbolTable = this._findCollectionsImportSymbolTable();
+                            if (collectionsSymbolTable) {
+                                const symbol = collectionsSymbolTable.get(aliasName);
+                                if (symbol) {
+                                    aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbol);
                                 }
                             }
                         }
@@ -2010,12 +2004,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return;
         }
 
-        let classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(
+        let classOrModuleNode: ClassNode | ModuleNode | undefined;
+        if (primaryDeclaration.node) {
+            classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(
             primaryDeclaration.node);
+        }
 
         // If this is the name of a class, find the module or class that contains it rather
         // than constraining the use of the class name within the class itself.
-        if (primaryDeclaration.node.parent &&
+        if (primaryDeclaration.node &&
+                primaryDeclaration.node.parent &&
                 primaryDeclaration.node.parent === classOrModuleNode &&
                 classOrModuleNode instanceof ClassNode) {
 
@@ -2229,9 +2227,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         if (!TypeUtils.canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol, diagAddendum)) {
                             const declarations = symbol.getDeclarations();
                             const errorNode = declarations[0].node;
-                            this._addDiagnostic(this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
-                                `Method '${ name }' overrides class '${ baseClassAndSymbol.class.getClassName() }' ` +
-                                    `in an incompatible manner` + diagAddendum.getString(), errorNode);
+                            if (errorNode) {
+                                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
+                                    `Method '${ name }' overrides class '${ baseClassAndSymbol.class.getClassName() }' ` +
+                                        `in an incompatible manner` + diagAddendum.getString(), errorNode);
+                            }
                         }
                     }
                 }
@@ -2572,14 +2572,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _findCollectionsImportScope() {
+    private _findCollectionsImportSymbolTable(): SymbolTable | undefined {
         const collectionResults = Object.keys(this._fileInfo.importMap).find(path => {
             return path.endsWith('collections/__init__.pyi');
         });
 
         if (collectionResults) {
-            const moduleNode = this._fileInfo.importMap[collectionResults].parseTree;
-            return AnalyzerNodeInfo.getScope(moduleNode);
+            const moduleType = this._fileInfo.importMap[collectionResults];
+            return moduleType.getFields();
         }
 
         return undefined;
@@ -2895,12 +2895,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (this._fileInfo.importMap[path]) {
-            const moduleNode = this._fileInfo.importMap[path].parseTree;
-            if (moduleNode) {
-                const moduleType = AnalyzerNodeInfo.getExpressionType(moduleNode) as ModuleType;
-                if (moduleType) {
-                    return moduleType;
-                }
+            const moduleType = this._fileInfo.importMap[path];
+            if (moduleType) {
+                return moduleType;
             }
         } else if (importResult) {
             // There was no module even though the import was resolved. This

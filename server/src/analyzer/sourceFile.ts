@@ -46,6 +46,7 @@ import { Scope } from './scope';
 import { ModuleScopeAnalyzer } from './semanticAnalyzer';
 import { SymbolTable } from './symbol';
 import { TypeAnalyzer } from './typeAnalyzer';
+import { ModuleType } from './types';
 
 const _maxImportCyclesPerFile = 4;
 
@@ -65,6 +66,7 @@ export interface AnalysisJob {
     parseTreeNeedsCleaning: boolean;
     parseResults?: ParseResults;
     moduleSymbolTable?: SymbolTable;
+    moduleType?: ModuleType;
 
     parseDiagnostics: Diagnostic[];
     semanticAnalysisDiagnostics: Diagnostic[];
@@ -257,11 +259,11 @@ export class SourceFile {
     }
 
     getModuleSymbolTable(): SymbolTable | undefined {
-        if (!this._analysisJob.moduleSymbolTable) {
-            return undefined;
-        }
-
         return this._analysisJob.moduleSymbolTable;
+    }
+
+    getModuleType(): ModuleType | undefined {
+        return this._analysisJob.moduleType;
     }
 
     // Indicates whether the contents of the file have changed since
@@ -643,6 +645,10 @@ export class SourceFile {
             const moduleScope = AnalyzerNodeInfo.getScope(this._analysisJob.parseResults!.parseTree);
             assert(moduleScope !== undefined);
             this._analysisJob.moduleSymbolTable = moduleScope!.getSymbolTable();
+            const moduleType = AnalyzerNodeInfo.getExpressionType(
+                this._analysisJob.parseResults!.parseTree);
+            assert(moduleType instanceof ModuleType);
+            this._analysisJob.moduleType = moduleType as ModuleType;
         } catch (e) {
             let message: string;
             if (e instanceof Error) {

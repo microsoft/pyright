@@ -28,7 +28,7 @@ export interface Declaration {
     category: DeclarationCategory;
 
     // The node that contains the definition.
-    node: ParseNode;
+    node?: ParseNode;
 
     // Declared type (if specified) of the symbol.
     declaredType?: Type;

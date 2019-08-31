@@ -85,12 +85,9 @@ export class HoverProvider {
                 // If the module has been resolved and already analyzed,
                 // we can add the docString for it as well.
                 if (importMap[resolvedPath]) {
-                    const moduleNode = importMap[resolvedPath].parseTree;
-                    if (moduleNode) {
-                        const moduleType = AnalyzerNodeInfo.getExpressionType(moduleNode) as ModuleType;
-                        if (moduleType) {
-                            this._addDocumentationPartForType(results, moduleType);
-                        }
+                    const moduleType = importMap[resolvedPath];
+                    if (moduleType) {
+                        this._addDocumentationPartForType(results, moduleType);
                     }
                 }
 

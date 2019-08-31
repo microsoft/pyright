@@ -514,12 +514,7 @@ export class ExpressionEvaluator {
             return undefined;
         }
 
-        const typingParseInfo = this._fileInfo.importMap[typingImportPath];
-        if (!typingParseInfo) {
-            return undefined;
-        }
-
-        const moduleType = AnalyzerNodeInfo.getExpressionType(typingParseInfo.parseTree);
+        const moduleType = this._fileInfo.importMap[typingImportPath];
         if (!(moduleType instanceof ModuleType)) {
             return undefined;
         }

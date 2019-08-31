@@ -519,9 +519,9 @@ export class Program {
         const importMap: ImportMap = {};
 
         for (const importedFileInfo of sourceFileInfo.imports) {
-            const parseResults = importedFileInfo.sourceFile.getParseResults();
-            if (parseResults) {
-                importMap[importedFileInfo.sourceFile.getFilePath()] = parseResults;
+            const moduleType = importedFileInfo.sourceFile.getModuleType();
+            if (moduleType) {
+                importMap[importedFileInfo.sourceFile.getFilePath()] = moduleType;
             }
         }
 
