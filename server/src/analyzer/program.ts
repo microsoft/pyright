@@ -405,7 +405,9 @@ export class Program {
             const analysisPassCount = sfInfo.sourceFile.getAnalysisPassCount();
             const lastRenalysisReason = sfInfo.sourceFile.getLastReanalysisReason();
             this._console.log(`  Analysis passes: ${ analysisPassCount }`);
-            this._console.log(`  Reason for last reanalysis: ${ lastRenalysisReason }`);
+            if (analysisPassCount > 1) {
+                this._console.log(`  Reason for last reanalysis: ${ lastRenalysisReason }`);
+            }
         });
     }
 

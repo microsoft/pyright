@@ -3378,15 +3378,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name);
         if (symbolWithScope) {
-            if (symbolWithScope.symbol.setInferredTypeForSource(type, typeSourceId)) {
-                if (symbolWithScope.scope.getType() !== ScopeType.Temporary) {
-                    this._setAnalysisChanged('Inferred type of name changed');
+            if (!symbolWithScope.isOutsideCallerModule) {
+                if (symbolWithScope.symbol.setInferredTypeForSource(type, typeSourceId)) {
+                    if (symbolWithScope.scope.getType() !== ScopeType.Temporary) {
+                        this._setAnalysisChanged('Inferred type of name changed');
+                    }
                 }
-            }
 
-            // Add the declaration if provided.
-            if (declaration) {
-                symbolWithScope.symbol.addDeclaration(declaration);
+                // Add the declaration if provided.
+                if (declaration) {
+                    symbolWithScope.symbol.addDeclaration(declaration);
+                }
             }
         } else {
             // We should never get here!

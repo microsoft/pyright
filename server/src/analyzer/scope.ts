@@ -47,6 +47,11 @@ export interface SymbolWithScope {
     scope: Scope;
 
     // Indicates that the recursion needed to proceed
+    // outside of the module's scope into the builtins
+    // scope.
+    isOutsideCallerModule: boolean;
+
+    // Indicates that the recursion needed to proceed
     // to a scope that is beyond the current execution
     // scope. An execution scope is defined as a function
     // or a module. Classes are not considered execution
@@ -480,6 +485,7 @@ export class Scope {
         if (symbol) {
             return {
                 symbol,
+                isOutsideCallerModule,
                 isBeyondExecutionScope,
                 scope: this
             };
