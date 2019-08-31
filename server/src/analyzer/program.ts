@@ -390,7 +390,13 @@ export class Program {
 
     printAnalysisPassDetails(projectRootDir: string) {
         const sortedFiles = this._sourceFileList.sort((a, b) => {
+            // First sort alphabetically.
             return (a.sourceFile.getFilePath() < b.sourceFile.getFilePath()) ? 1 : -1;
+        }).sort((a, b) => {
+            // Then sort by pass count.
+            const aPassCount = a.sourceFile.getAnalysisPassCount();
+            const bPassCount = b.sourceFile.getAnalysisPassCount();
+            return (aPassCount < bPassCount ? -1 : (aPassCount > bPassCount ? 1 : 0));
         });
 
         sortedFiles.forEach(sfInfo => {
