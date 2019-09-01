@@ -10,8 +10,6 @@
 * language services (e.g. hover information).
 */
 
-import { v4 as uuid } from 'uuid';
-
 import { NameBindings } from '../parser/nameBindings';
 import { ParseNode, StringListNode } from '../parser/parseNodes';
 import { Declaration } from './declaration';
@@ -168,10 +166,15 @@ export class AnalyzerNodeInfo {
         analyzerNode._expressionTypeReadVersion = version;
     }
 
-    static getTypeSourceId(node: ParseNode): TypeSourceId {
+    // The TypeSourceId needs to be unique across all files but always
+    // be the same when a file is reanalyzed (assuming no edits). To
+    // achieve this, we incorporate the hash of the file path plus
+    // the offset of the node's text.
+    static getTypeSourceId(node: ParseNode, filePathHash: number): TypeSourceId {
         const analyzerNode = node as AnalyzerNodeInfo;
         if (analyzerNode._typeSourceId === undefined) {
-            analyzerNode._typeSourceId = uuid();
+            analyzerNode._typeSourceId = filePathHash.toString(16) + '-' +
+                node.start.toString(10);
         }
 
         return analyzerNode._typeSourceId;

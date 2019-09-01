@@ -589,7 +589,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Infer the return type.
             const returnType = this._getTypeOfExpression(node.expression);
             functionType.getInferredReturnType().addSource(
-                returnType, AnalyzerNodeInfo.getTypeSourceId(node.expression));
+                returnType, AnalyzerNodeInfo.getTypeSourceId(
+                    node.expression, this._fileInfo.filePathHash));
 
             this.walkChildren(node.expression);
         });
@@ -807,7 +808,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             returnType = NoneType.create();
         }
 
-        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
+        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node, this._fileInfo.filePathHash);
         this._currentScope.getReturnType().addSource(returnType, typeSourceId);
 
         if (declaredReturnType) {
@@ -840,7 +841,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitYield(node: YieldExpressionNode) {
         let yieldType = this._getTypeOfExpression(node.expression);
-        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
+        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression, this._fileInfo.filePathHash);
         this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
         // Wrap the yield type in an Iterator.
@@ -858,7 +859,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitYieldFrom(node: YieldFromExpressionNode) {
         const yieldType = this._getTypeOfExpression(node.expression);
-        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
+        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression, this._fileInfo.filePathHash);
         this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
         this._validateYieldType(node, yieldType);
@@ -1375,7 +1376,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     moduleFields.forEach((boundValue, fieldName) => {
                         this._addSymbolToPermanentScope(fieldName);
                         this._addTypeSourceToName(fieldName, TypeUtils.getEffectiveTypeOfSymbol(boundValue),
-                            AnalyzerNodeInfo.getTypeSourceId(node),
+                            AnalyzerNodeInfo.getTypeSourceId(node, this._fileInfo.filePathHash),
                             boundValue.hasDeclarations() ? boundValue.getDeclarations()[0] : undefined);
                     });
 
@@ -1385,7 +1386,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         if (moduleType) {
                             this._addSymbolToPermanentScope(implicitImport.name);
                             this._addTypeSourceToName(implicitImport.name, moduleType,
-                                AnalyzerNodeInfo.getTypeSourceId(node));
+                                AnalyzerNodeInfo.getTypeSourceId(node, this._fileInfo.filePathHash));
                         }
                     });
                 }
@@ -1760,7 +1761,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // Synthesize a class.
                 const specialClassType = new ClassType(assignedName,
                     ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-                    AnalyzerNodeInfo.getTypeSourceId(node));
+                    AnalyzerNodeInfo.getTypeSourceId(node, this._fileInfo.filePathHash));
 
                 const aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
                     assignedName.toLowerCase());
@@ -2143,7 +2144,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Add the "None" type if the function doesn't always return.
         if (!functionScope.getAlwaysReturnsOrRaises()) {
             if (inferredReturnType.addSource(NoneType.create(),
-                    AnalyzerNodeInfo.getTypeSourceId(node))) {
+                    AnalyzerNodeInfo.getTypeSourceId(node, this._fileInfo.filePathHash))) {
 
                 this._setAnalysisChanged('Function inferred None changed');
             }
@@ -2174,12 +2175,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // often are implemented with "raise NotImplementedError()".
             const noReturnType = evaluator.getTypingType('NoReturn') as ClassType;
             if (noReturnType && inferredReturnType.addSource(new ObjectType(noReturnType),
-                    AnalyzerNodeInfo.getTypeSourceId(node))) {
+                    AnalyzerNodeInfo.getTypeSourceId(node, this._fileInfo.filePathHash))) {
 
                 this._setAnalysisChanged('Function inferred NoReturn changed');
             }
         } else {
-            if (inferredReturnType.removeSource(AnalyzerNodeInfo.getTypeSourceId(node))) {
+            if (inferredReturnType.removeSource(AnalyzerNodeInfo.getTypeSourceId(
+                    node, this._fileInfo.filePathHash))) {
+
                 this._setAnalysisChanged('Function inferred return type changed');
             }
         }
@@ -2286,7 +2289,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (decoratorType instanceof ClassType && decoratorType.getClassName() === 'overload') {
             const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
             const existingSymbol = permanentScope.lookUpSymbol(node.name.nameToken.value);
-            const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
+            const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node, this._fileInfo.filePathHash);
             if (inputFunctionType instanceof FunctionType) {
                 if (existingSymbol) {
                     const symbolType = TypeUtils.getEffectiveTypeOfSymbol(existingSymbol);
@@ -2750,7 +2753,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // If an expression contains both a type annotation and an assigment, we want
                     // to generate two sources because the types may different, and the analysis
                     // won't converge if we use the same source ID for both.
-                    const sourceId = AnalyzerNodeInfo.getTypeSourceId(typeAnnotationNode || node.memberName);
+                    const sourceId = AnalyzerNodeInfo.getTypeSourceId(
+                        typeAnnotationNode || node.memberName, this._fileInfo.filePathHash);
                     if (symbol.setInferredTypeForSource(srcType, sourceId)) {
                         this._setAnalysisChanged('Class member inferred type changed');
                     }
@@ -2807,7 +2811,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (addNewMemberToLocalClass) {
-                const newSymbol = Symbol.createWithType(srcType, AnalyzerNodeInfo.getTypeSourceId(node.memberName));
+                const newSymbol = Symbol.createWithType(srcType, AnalyzerNodeInfo.getTypeSourceId(
+                    node.memberName, this._fileInfo.filePathHash));
 
                 // If this is an instance variable that has a corresponding class varible
                 // with a defined type, it should inherit that declaration (and declared type).
@@ -3347,7 +3352,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _addTypeSourceToNameNode(node: NameNode, type: Type, declaration?: Declaration) {
         this._addTypeSourceToName(node.nameToken.value, type,
-            AnalyzerNodeInfo.getTypeSourceId(node), declaration);
+            AnalyzerNodeInfo.getTypeSourceId(node, this._fileInfo.filePathHash), declaration);
 
         this._addAssignmentTypeConstraint(node, type);
     }

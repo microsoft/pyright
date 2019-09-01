@@ -2160,7 +2160,7 @@ export class ExpressionEvaluator {
         let classType = cachedCallType as ClassType;
         if (!(classType instanceof ClassType)) {
             classType = new ClassType(className, ClassTypeFlags.None,
-                AnalyzerNodeInfo.getTypeSourceId(errorNode));
+                AnalyzerNodeInfo.getTypeSourceId(errorNode, this._fileInfo.filePathHash));
 
             AnalyzerNodeInfo.setExpressionType(errorNode, classType);
             classType.addBaseClass(enumClass, false);
@@ -2241,7 +2241,7 @@ export class ExpressionEvaluator {
             let classType = cachedCallType as ClassType;
             if (!(classType instanceof ClassType)) {
                 classType = new ClassType(className, ClassTypeFlags.None,
-                    AnalyzerNodeInfo.getTypeSourceId(errorNode));
+                    AnalyzerNodeInfo.getTypeSourceId(errorNode, this._fileInfo.filePathHash));
 
                 AnalyzerNodeInfo.setExpressionType(errorNode, classType);
                 classType.addBaseClass(baseClass, false);
@@ -2286,7 +2286,7 @@ export class ExpressionEvaluator {
         let classType = cachedCallType as ClassType;
         if (!(classType instanceof ClassType)) {
             classType = new ClassType(className, ClassTypeFlags.None,
-                AnalyzerNodeInfo.getTypeSourceId(errorNode));
+                AnalyzerNodeInfo.getTypeSourceId(errorNode, this._fileInfo.filePathHash));
 
             AnalyzerNodeInfo.setExpressionType(errorNode, classType);
             const builtInNamedTuple = this.getTypingType('NamedTuple') || UnknownType.create();
@@ -3073,7 +3073,8 @@ export class ExpressionEvaluator {
 
     private _assignTypeToNameNode(targetExpr: NameNode, type: Type) {
         const symbol = this._scope.addSymbol(targetExpr.nameToken.value, false);
-        symbol.setInferredTypeForSource(type, AnalyzerNodeInfo.getTypeSourceId(targetExpr));
+        symbol.setInferredTypeForSource(type, AnalyzerNodeInfo.getTypeSourceId(
+            targetExpr, this._fileInfo.filePathHash));
 
         // Mark the symbol as accessed. These symbols are not persisted
         // between analysis passes, so we never have an opportunity to

@@ -21,6 +21,7 @@ import { StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import StringMap from '../common/stringMap';
+import { StringUtils } from '../common/stringUtils';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { TestWalker } from './testWalker';
 
@@ -100,6 +101,7 @@ export class TestUtils {
             diagnosticSettings: cloneDiagnosticSettings(configOptions.diagnosticSettings),
             lines: parseResults.lines,
             filePath,
+            filePathHash: StringUtils.hashString(filePath),
             isStubFile: filePath.endsWith('.pyi'),
             isTypingStubFile: false,
             isBuiltInStubFile: false,

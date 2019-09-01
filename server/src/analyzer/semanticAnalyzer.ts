@@ -172,7 +172,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         }
 
         const classType = new ClassType(node.name.nameToken.value, classFlags,
-            AnalyzerNodeInfo.getTypeSourceId(node),
+            AnalyzerNodeInfo.getTypeSourceId(node, this._fileInfo.filePathHash),
             this._getDocString(node.suite.statements));
 
         // Don't walk the arguments for stub files because of forward
@@ -227,7 +227,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // up overall analysis times. Without this, the type analyzer needs
         // to do more passes to resolve classes.
         this._addSymbolToPermanentScope(node.name.nameToken.value, classType,
-            AnalyzerNodeInfo.getTypeSourceId(node.name));
+            AnalyzerNodeInfo.getTypeSourceId(node.name, this._fileInfo.filePathHash));
 
         return false;
     }
