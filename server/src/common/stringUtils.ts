@@ -52,4 +52,14 @@ export class StringUtils {
         const similarity = (typedValue.length - smallestEditDistance) / typedValue.length;
         return 0.5 * similarity;
     }
+
+    // This is a simple, non-cryptographic hash function for text.
+    static hashString(contents: string) {
+        let hash = 0;
+
+        for (let i = 0; i < contents.length; i++) {
+            hash = (hash << 5) - hash + contents.charCodeAt(i++) | 0;
+        }
+        return hash;
+    }
 }
