@@ -751,7 +751,6 @@ export class SourceFile {
             diagnosticSettings: this._analysisJob.diagnosticSettings,
             lines: this._analysisJob.parseResults!.lines,
             filePath: this._filePath,
-            filePathHash: StringUtils.hashString(this._filePath),
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
             isBuiltInStubFile: this._isBuiltInStubFile,
