@@ -949,6 +949,9 @@ export class Parser {
         const possibleInputToken = this._peekToken();
         if (!this._consumeTokenIfKeyword(KeywordType.Import)) {
             this._addError('Expected "import"', this._peekToken());
+            if (!modName.hasTrailingDot) {
+                importFromNode.missingImportKeyword = true;
+            }
         } else {
             importFromNode.extend(possibleInputToken);
 

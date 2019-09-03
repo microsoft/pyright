@@ -780,6 +780,15 @@ export class CompletionProvider {
             execEnvironment, moduleDescriptor, similarityLimit);
 
         const completionList = CompletionList.create();
+
+        // If we're in the middle of a "from X import Y" statement, offer
+        // the "import" keyword as a completion.
+        if (!node.hasTrailingDot && node.parent instanceof ImportFromNode && node.parent.missingImportKeyword) {
+            const completionItem = CompletionItem.create('import');
+            completionItem.kind = CompletionItemKind.Keyword;
+            completionList.items.push(completionItem);
+        }
+
         completions.forEach(completionName => {
             const completionItem = CompletionItem.create(completionName);
             completionItem.kind = CompletionItemKind.Module;

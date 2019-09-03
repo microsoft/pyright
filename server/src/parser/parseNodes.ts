@@ -967,6 +967,7 @@ export class ImportFromNode extends ParseNode {
     imports: ImportFromAsNode[] = [];
     isWildcardImport: boolean;
     usesParens: boolean;
+    missingImportKeyword?: boolean;
 
     constructor(fromToken: Token, module: ModuleNameNode) {
         super(fromToken);
