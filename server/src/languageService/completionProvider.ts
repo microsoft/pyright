@@ -526,7 +526,7 @@ export class CompletionProvider {
                 if (addNewLineBefore) {
                     newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
                 } else {
-                    this._parseResults.predominantLineEndSequence += this._parseResults.predominantLineEndSequence;
+                    newImportStatement += this._parseResults.predominantLineEndSequence;
                 }
             }
 
@@ -584,7 +584,6 @@ export class CompletionProvider {
     }
 
     private _findMatchingKeywords(keywordList: string[], partialMatch: string): string[] {
-
         return keywordList.filter(keyword => {
             if (partialMatch) {
                 return StringUtils.computeCompletionSimilarity(partialMatch, keyword) > similarityLimit;
