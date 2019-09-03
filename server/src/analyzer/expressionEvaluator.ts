@@ -453,14 +453,17 @@ export class ExpressionEvaluator {
                     if (statement instanceof AssignmentNode) {
                         if (statement.leftExpression instanceof NameNode) {
                             variableNameNode = statement.leftExpression;
+                            variableType = TypeUtils.stripLiteralValue(
+                                this.getType(statement.rightExpression, { method: 'get' }));
                         } else if (statement.leftExpression instanceof TypeAnnotationExpressionNode &&
                                 statement.leftExpression.valueExpression instanceof NameNode) {
 
                             variableNameNode = statement.leftExpression.valueExpression;
+                            variableType = TypeUtils.convertClassToObject(
+                                this.getType(statement.leftExpression.typeAnnotation, { method: 'get' },
+                                    EvaluatorFlags.ConvertEllipsisToAny));
                         }
 
-                        variableType = TypeUtils.stripLiteralValue(
-                            this.getType(statement.rightExpression, { method: 'get' }));
                         hasDefaultValue = true;
                     } else if (statement instanceof TypeAnnotationExpressionNode) {
                         if (statement.valueExpression instanceof NameNode) {
