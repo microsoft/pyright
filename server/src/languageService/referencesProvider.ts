@@ -46,7 +46,26 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     }
 
     visitName(node: NameNode): boolean {
-        const declarations = AnalyzerNodeInfo.getDeclarations(node);
+        const scope = AnalyzerNodeInfo.getScopeRecursive(node);
+        let declarations: Declaration[] | undefined;
+
+        // Use the declarations from the symbol if we can find it. The
+        // symbol should contain all of the declarations, whereas the
+        // local node will contain only the declaration that is added
+        // within that line.
+        if (scope) {
+            const symbolWithScope = scope.lookUpSymbolRecursive(node.nameToken.value);
+            if (symbolWithScope) {
+                declarations = symbolWithScope.symbol.getDeclarations();
+            }
+        }
+
+        // If we couldn't find the symbol for some sort, use the local
+        // node's declarations instead.
+        if (!declarations) {
+            declarations = AnalyzerNodeInfo.getDeclarations(node);
+        }
+
         if (declarations && declarations.length > 0) {
             // Does this name share a declaration with the symbol of interest?
             if (declarations.some(decl => this._resultsContainsDeclaration(decl))) {
