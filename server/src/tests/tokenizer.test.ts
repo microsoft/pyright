@@ -1130,3 +1130,29 @@ test('Comments1', () => {
     assert.equal(token2.comments!.length, 1);
     assert.equal(token2.comments![0].value, ' another');
 });
+
+test('Identifiers1', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('배열 数値 лік Opciók 可選值');
+    assert.equal(results.tokens.count, 5 + _implicitTokenCount);
+
+    // Korean (Hangul)
+    const token0 = results.tokens.getItemAt(0);
+    assert.equal(token0.type, TokenType.Identifier);
+
+    // Japanese
+    const token1 = results.tokens.getItemAt(1);
+    assert.equal(token1.type, TokenType.Identifier);
+
+    // Russian (Cyrillic)
+    const token2 = results.tokens.getItemAt(2);
+    assert.equal(token2.type, TokenType.Identifier);
+
+    // Hungarian
+    const token3 = results.tokens.getItemAt(3);
+    assert.equal(token3.type, TokenType.Identifier);
+
+    // Chinese
+    const token4 = results.tokens.getItemAt(4);
+    assert.equal(token4.type, TokenType.Identifier);
+});
