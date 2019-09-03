@@ -27,6 +27,7 @@ import { ClassType, FunctionType, ModuleType, ObjectType,
 import { TypeUtils } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
+import { getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { StringUtils } from '../common/stringUtils';
 import { AssignmentNode, ErrorExpressionCategory, ErrorExpressionNode,
@@ -76,13 +77,62 @@ const _keywords: string[] = [
     'yield'
 ];
 
+enum SortCategory {
+    // The order of the following is important. We use
+    // this to order the completion suggestions.
+
+    // A keyword that must be entered for the syntax to be correct.
+    LikelyKeyword,
+
+    // A module name recently used in an import statement.
+    RecentImportModuleName,
+
+    // A module name used in an import statement.
+    ImportModuleName,
+
+    // A keyword or symbol that was recently used for completion.
+    RecentKeywordOrSymbol,
+
+    // An auto-import symbol that was recently used for completion.
+    RecentAutoImport,
+
+    // A keyword in the python syntax.
+    Keyword,
+
+    // A normal symbol.
+    NormalSymbol,
+
+    // A symbol with a dunder name (e.g. __init__).
+    DunderSymbol,
+
+    // An auto-import symbol.
+    AutoImport
+}
+
+// Completion items can have arbirary data hanging off them.
+// This data allows the resolve handling to disambiguate
+// which item was selected.
+interface CompletionItemData {
+    autoImportText: string;
+}
+
+interface RecentCompletionInfo {
+    label: string;
+    autoImportText: string;
+}
+
 // We'll use a somewhat-arbitrary cutoff value here to determine
 // whether it's sufficiently similar.
 const similarityLimit = 0.25;
 
+// We'll remember this many completions in the MRU list.
+const maxRecentCompletions = 128;
+
 export type ModuleSymbolMap = { [file: string]: SymbolTable };
 
 export class CompletionProvider {
+    private static _mostRecentCompletions: RecentCompletionInfo[] = [];
+
     constructor(private _parseResults: ParseResults,
         private _fileContents: string,
         private _importResolver: ImportResolver,
@@ -91,6 +141,39 @@ export class CompletionProvider {
         private _configOptions: ConfigOptions,
         private _importMapCallback: () => ImportMap,
         private _moduleSymbolsCallback: () => ModuleSymbolMap) {
+    }
+
+    // When the user selects a completion, this callback is invoked,
+    // allowing us to record what was selected. This allows us to
+    // build our MRU cache so we can better predict entries.
+    static recordCompletionResolve(completionItem: CompletionItem) {
+        const label = completionItem.label;
+        let autoImportText = '';
+        if (completionItem.data) {
+            const completionItemData = completionItem.data as CompletionItemData;
+            if (completionItemData && completionItemData.autoImportText) {
+                autoImportText = completionItemData.autoImportText;
+            }
+        }
+        const curIndex = this._mostRecentCompletions.findIndex(
+            item => item.label === label &&
+            item.autoImportText === autoImportText);
+
+        if (curIndex > 0) {
+            // If there's an existing entry with the same name that's not at the
+            // beginning of the array, remove it.
+            this._mostRecentCompletions = this._mostRecentCompletions.splice(curIndex, 1);
+        }
+
+        if (curIndex !== 0) {
+            // Add to the start of the array.
+            this._mostRecentCompletions.unshift({ label, autoImportText });
+        }
+
+        if (this._mostRecentCompletions.length > maxRecentCompletions) {
+            // Prevent the MRU list from growing indefinitely.
+            this._mostRecentCompletions.pop();
+        }
     }
 
     getCompletionsForPosition(): CompletionList | undefined {
@@ -265,8 +348,10 @@ export class CompletionProvider {
     }
 
     private _createSingleKeywordCompletionList(keyword: string): CompletionList {
-        const completionItem = CompletionItem.create('in');
+        const completionItem = CompletionItem.create(keyword);
         completionItem.kind = CompletionItemKind.Keyword;
+        completionItem.sortText =
+            this._makeSortText(SortCategory.LikelyKeyword, keyword);
 
         return CompletionList.create([completionItem]);
     }
@@ -312,6 +397,8 @@ export class CompletionProvider {
             const completionItem = CompletionItem.create(keyword);
             completionItem.kind = CompletionItemKind.Keyword;
             completionList.items.push(completionItem);
+            completionItem.sortText =
+                this._makeSortText(SortCategory.Keyword, keyword);
         });
 
         // Add auto-import suggestions from other modules. Don't bother doing
@@ -330,43 +417,49 @@ export class CompletionProvider {
             this._parseResults.parseTree);
 
         Object.keys(moduleSymbolMap).forEach(filePath => {
-            const symbolTable = moduleSymbolMap[filePath];
+            const fileName = stripFileExtension(getFileName(filePath));
 
-            symbolTable.forEach((symbol, name) => {
-                if (StringUtils.computeCompletionSimilarity(priorWord, name) > similarityLimit) {
-                    if (!symbol.isExternallyHidden()) {
-                        // If there's already a local completion suggestion with
-                        // this name, don't add an auto-import suggestion with
-                        // the same name.
-                        const localDuplicate = completionList.items.find(
-                            item => item.label === name && !item.data.autoImport);
-                        const declarations = symbol.getDeclarations();
-                        if (declarations && declarations.length > 0 && localDuplicate === undefined) {
-                            // Don't include imported symbols, only those that
-                            // are declared within this file.
-                            if (declarations[0].path === filePath) {
-                                const localImport = importStatements.mapByFilePath[filePath];
-                                let importSource: string;
-                                let moduleNameAndType: ModuleNameAndType | undefined;
+            // Don't offer imports from files that are named with private
+            // naming semantics like "_ast.py".
+            if (!SymbolUtils.isProtectedName(fileName) && !SymbolUtils.isPrivateName(fileName)) {
+                const symbolTable = moduleSymbolMap[filePath];
 
-                                if (localImport) {
-                                    importSource = localImport.moduleName;
-                                } else {
-                                    moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
-                                    importSource = moduleNameAndType.moduleName;
+                symbolTable.forEach((symbol, name) => {
+                    if (StringUtils.computeCompletionSimilarity(priorWord, name) > similarityLimit) {
+                        if (!symbol.isExternallyHidden()) {
+                            // If there's already a local completion suggestion with
+                            // this name, don't add an auto-import suggestion with
+                            // the same name.
+                            const localDuplicate = completionList.items.find(
+                                item => item.label === name && !item.data.autoImport);
+                            const declarations = symbol.getDeclarations();
+                            if (declarations && declarations.length > 0 && localDuplicate === undefined) {
+                                // Don't include imported symbols, only those that
+                                // are declared within this file.
+                                if (declarations[0].path === filePath) {
+                                    const localImport = importStatements.mapByFilePath[filePath];
+                                    let importSource: string;
+                                    let moduleNameAndType: ModuleNameAndType | undefined;
+
+                                    if (localImport) {
+                                        importSource = localImport.moduleName;
+                                    } else {
+                                        moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
+                                        importSource = moduleNameAndType.moduleName;
+                                    }
+
+                                    const autoImportTextEdits = this._getTextEditsForAutoImport(
+                                        name, importStatements, filePath, importSource,
+                                        moduleNameAndType ? moduleNameAndType.importType : ImportType.Local);
+
+                                    this._addSymbol(name, symbol, priorWord,
+                                        completionList, importSource, autoImportTextEdits);
                                 }
-
-                                const autoImportTextEdits = this._getTextEditsForAutoImport(
-                                    name, importStatements, filePath, importSource,
-                                    moduleNameAndType ? moduleNameAndType.importType : ImportType.Local);
-
-                                this._addSymbol(name, symbol, priorWord,
-                                    completionList, importSource, autoImportTextEdits);
                             }
                         }
                     }
-                }
-            });
+                });
+            }
         });
     }
 
@@ -700,12 +793,19 @@ export class CompletionProvider {
 
             if (autoImportText) {
                 // Force auto-import entries to the end.
-                completionItem.sortText = '~~' + name;
+                completionItem.sortText =
+                    this._makeSortText(SortCategory.AutoImport, name, autoImportText);
+                const completionItemData: CompletionItemData = {
+                    autoImportText
+                };
+                completionItem.data = completionItemData;
             } else if (SymbolUtils.isDunderName(name)) {
                 // Force dunder-named symbols to appear after all other symbols.
-                completionItem.sortText = '~' + name;
+                completionItem.sortText =
+                    this._makeSortText(SortCategory.DunderSymbol, name);
             } else {
-                completionItem.sortText = name;
+                completionItem.sortText =
+                    this._makeSortText(SortCategory.NormalSymbol, name);
             }
 
             let markdownString = '';
@@ -742,6 +842,57 @@ export class CompletionProvider {
 
             completionList.items.push(completionItem);
         }
+    }
+
+    private _getRecentListIndex(name: string, autoImportText: string) {
+        return CompletionProvider._mostRecentCompletions.findIndex(
+            item => item.label === name &&
+                item.autoImportText === autoImportText);
+    }
+
+    private _makeSortText(sortCategory: SortCategory, name: string,
+            autoImportText = ''): string {
+
+        const recentListIndex = this._getRecentListIndex(name, autoImportText);
+
+        // If the label is in the recent list, modify the category
+        // so it appears higher in our list.
+        if (recentListIndex >= 0) {
+            if (sortCategory === SortCategory.AutoImport) {
+                sortCategory = SortCategory.RecentAutoImport;
+            } else if (sortCategory === SortCategory.ImportModuleName) {
+                sortCategory = SortCategory.RecentImportModuleName;
+            } else if (sortCategory === SortCategory.Keyword ||
+                    sortCategory === SortCategory.NormalSymbol ||
+                    sortCategory === SortCategory.DunderSymbol) {
+                sortCategory = SortCategory.RecentKeywordOrSymbol;
+            }
+        }
+
+        // Generate a sort string of the format
+        //    XX.YYYY.name
+        // where XX is the sort category
+        // and YYYY is the index of the item in the MRU list
+        return this._formatInteger(sortCategory, 2) + '.' +
+            this._formatInteger(recentListIndex, 4) + '.' +
+            name;
+    }
+
+    private _formatInteger(val: number, digits: number): string {
+        const charCodeZero = '0'.charCodeAt(0);
+
+        let result = '';
+        for (let i = 0; i < digits; i++) {
+            // Prepend the next digit.
+            let digit = Math.floor(val % 10);
+            if (digit < 0) {
+                digit = 9;
+            }
+            result = String.fromCharCode(digit + charCodeZero) + result;
+            val = Math.floor(val / 10);
+        }
+
+        return result;
     }
 
     private _convertDeclarationCategoryToItemKind(
@@ -783,15 +934,20 @@ export class CompletionProvider {
         // If we're in the middle of a "from X import Y" statement, offer
         // the "import" keyword as a completion.
         if (!node.hasTrailingDot && node.parent instanceof ImportFromNode && node.parent.missingImportKeyword) {
-            const completionItem = CompletionItem.create('import');
+            const keyword = 'import';
+            const completionItem = CompletionItem.create(keyword);
             completionItem.kind = CompletionItemKind.Keyword;
             completionList.items.push(completionItem);
+            completionItem.sortText =
+                this._makeSortText(SortCategory.Keyword, keyword);
         }
 
         completions.forEach(completionName => {
             const completionItem = CompletionItem.create(completionName);
             completionItem.kind = CompletionItemKind.Module;
             completionList.items.push(completionItem);
+            completionItem.sortText =
+                this._makeSortText(SortCategory.ImportModuleName, completionName);
         });
 
         return completionList;

@@ -20,6 +20,7 @@ import { CreateTypeStubFileAction, Diagnostic as AnalyzerDiagnostic, DiagnosticC
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
 import StringMap from './common/stringMap';
 import { commandCreateTypeStub, commandOrderImports } from './languageService/commands';
+import { CompletionProvider } from './languageService/completionProvider';
 
 interface PythonSettings {
     venvPath?: string;
@@ -207,7 +208,8 @@ _connection.onInitialize((params): InitializeResult => {
             hoverProvider: true,
             renameProvider: true,
             completionProvider: {
-                triggerCharacters: ['.']
+                triggerCharacters: ['.'],
+                resolveProvider: true
             },
             signatureHelpProvider: {
                 triggerCharacters: ['(', ',', ')']
@@ -442,6 +444,11 @@ _connection.onCompletion(params => {
     }
 
     return completions;
+});
+
+_connection.onCompletionResolve(params => {
+    CompletionProvider.recordCompletionResolve(params);
+    return params;
 });
 
 _connection.onRenameRequest(params => {
