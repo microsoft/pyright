@@ -434,6 +434,7 @@ export class ExpressionEvaluator {
             name: 'cls',
             type: classType
         });
+        TypeUtils.addDefaultFunctionParameters(newType);
 
         newType.setDeclaredReturnType(new ObjectType(classType));
 
@@ -493,7 +494,6 @@ export class ExpressionEvaluator {
                         };
 
                         initType.addParameter(paramInfo);
-                        newType.addParameter(paramInfo);
 
                         if (hasDefaultValue) {
                             sawDefaultValue = true;
