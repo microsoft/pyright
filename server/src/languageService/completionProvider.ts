@@ -19,7 +19,7 @@ import { ImportedModuleDescriptor, ImportResolver,
 import { ImportType } from '../analyzer/importResult';
 import { ImportStatements, ImportStatementUtils } from '../analyzer/importStatementUtils';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
-import { Scope, ScopeType } from '../analyzer/scope';
+import { ScopeType } from '../analyzer/scope';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import { SymbolUtils } from '../analyzer/symbolUtils';
 import { ClassType, FunctionType, ModuleType, ObjectType,
@@ -333,34 +333,36 @@ export class CompletionProvider {
             const symbolTable = moduleSymbolMap[filePath];
 
             symbolTable.forEach((symbol, name) => {
-                if (name.startsWith(priorWord) && !symbol.isExternallyHidden()) {
-                    // If there's already a local completion suggestion with
-                    // this name, don't add an auto-import suggestion with
-                    // the same name.
-                    const localDuplicate = completionList.items.find(
-                        item => item.label === name && !item.data.autoImport);
-                    const declarations = symbol.getDeclarations();
-                    if (declarations && declarations.length > 0 && localDuplicate === undefined) {
-                        // Don't include imported symbols, only those that
-                        // are declared within this file.
-                        if (declarations[0].path === filePath) {
-                            const localImport = importStatements.mapByFilePath[filePath];
-                            let importSource: string;
-                            let moduleNameAndType: ModuleNameAndType | undefined;
+                if (StringUtils.computeCompletionSimilarity(priorWord, name) > similarityLimit) {
+                    if (!symbol.isExternallyHidden()) {
+                        // If there's already a local completion suggestion with
+                        // this name, don't add an auto-import suggestion with
+                        // the same name.
+                        const localDuplicate = completionList.items.find(
+                            item => item.label === name && !item.data.autoImport);
+                        const declarations = symbol.getDeclarations();
+                        if (declarations && declarations.length > 0 && localDuplicate === undefined) {
+                            // Don't include imported symbols, only those that
+                            // are declared within this file.
+                            if (declarations[0].path === filePath) {
+                                const localImport = importStatements.mapByFilePath[filePath];
+                                let importSource: string;
+                                let moduleNameAndType: ModuleNameAndType | undefined;
 
-                            if (localImport) {
-                                importSource = localImport.moduleName;
-                            } else {
-                                moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
-                                importSource = moduleNameAndType.moduleName;
+                                if (localImport) {
+                                    importSource = localImport.moduleName;
+                                } else {
+                                    moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
+                                    importSource = moduleNameAndType.moduleName;
+                                }
+
+                                const autoImportTextEdits = this._getTextEditsForAutoImport(
+                                    name, importStatements, filePath, importSource,
+                                    moduleNameAndType ? moduleNameAndType.importType : ImportType.Local);
+
+                                this._addSymbol(name, symbol, priorWord,
+                                    completionList, importSource, autoImportTextEdits);
                             }
-
-                            const autoImportTextEdits = this._getTextEditsForAutoImport(
-                                name, importStatements, filePath, importSource,
-                                moduleNameAndType ? moduleNameAndType.importType : ImportType.Local);
-
-                            this._addSymbol(name, symbol, priorWord,
-                                completionList, importSource, autoImportTextEdits);
                         }
                     }
                 }
@@ -585,7 +587,7 @@ export class CompletionProvider {
 
         return keywordList.filter(keyword => {
             if (partialMatch) {
-                return keyword.startsWith(partialMatch);
+                return StringUtils.computeCompletionSimilarity(partialMatch, keyword) > similarityLimit;
             } else {
                 return true;
             }
