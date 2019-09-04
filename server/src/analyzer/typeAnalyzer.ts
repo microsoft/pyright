@@ -2266,9 +2266,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 originalClassType.setIsDataClass(skipSynthesizeInit);
+                return inputClassType;
             }
-
-            return inputClassType;
         }
 
         const evaluator = this._createEvaluator();
