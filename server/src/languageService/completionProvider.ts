@@ -259,12 +259,15 @@ export class CompletionProvider {
             if (curNode instanceof NameNode) {
                 // Are we within a "from X import Y as Z" statement and
                 // more specifically within the "Y"?
-                if (curNode.parent instanceof ImportFromAsNode &&
-                        curNode.parent.name === curNode) {
+                if (curNode.parent instanceof ImportFromAsNode) {
                     const parentNode = curNode.parent.parent;
 
                     if (parentNode instanceof ImportFromNode) {
-                        return this._getImportFromCompletions(parentNode, priorWord);
+                        if (curNode.parent.name === curNode) {
+                            return this._getImportFromCompletions(parentNode, priorWord);
+                        } else {
+                            return this._getImportFromCompletions(parentNode, '');
+                        }
                     }
                 } else if (curNode.parent instanceof MemberAccessExpressionNode) {
                     return this._getMemberAccessCompletions(
