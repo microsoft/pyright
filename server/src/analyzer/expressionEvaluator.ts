@@ -1576,6 +1576,20 @@ export class ExpressionEvaluator {
             const functionType = this._findOverloadedFunctionType(errorNode, argList, callType);
 
             if (functionType) {
+                if (functionType.getBuiltInName() === 'cast' && argList.length === 2) {
+                    // Verify that the cast is necessary.
+                    const castToType = argList[0].type;
+                    const castFromType = argList[1].type;
+                    if (castToType instanceof ClassType && castFromType instanceof ObjectType) {
+                        if (castToType.isSame(castFromType.getClassType())) {
+                            this._addDiagnostic(
+                                this._fileInfo.diagnosticSettings.reportUnnecessaryCast,
+                                `Unnecessary call to cast: type is already ${ castFromType.asString() }`,
+                                errorNode);
+                        }
+                    }
+                }
+
                 type = this._validateCallArguments(errorNode, argList, callType,
                     new TypeVarMap(), specializeReturnType);
                 if (!type) {

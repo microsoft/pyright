@@ -135,6 +135,10 @@ export interface DiagnosticSettings {
     // Report calls to isinstance that are statically determined
     // to always be true or false.
     reportUnnecessaryIsInstance: DiagnosticLevel;
+
+    // Report calls to cast that are statically determined
+    // to always unnecessary.
+    reportUnnecessaryCast: DiagnosticLevel;
 }
 
 export function cloneDiagnosticSettings(
@@ -180,7 +184,8 @@ export function getDiagLevelSettings() {
         'reportUnknownVariableType',
         'reportUnknownMemberType',
         'reportCallInDefaultInitializer',
-        'reportUnnecessaryIsInstance'
+        'reportUnnecessaryIsInstance',
+        'reportUnnecessaryCast'
     ];
 }
 
@@ -215,7 +220,8 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportUnknownVariableType: 'error',
         reportUnknownMemberType: 'error',
         reportCallInDefaultInitializer: 'none',
-        reportUnnecessaryIsInstance: 'error'
+        reportUnnecessaryIsInstance: 'error',
+        reportUnnecessaryCast: 'error'
     };
 
     return diagSettings;
@@ -252,7 +258,8 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportUnknownVariableType: 'none',
         reportUnknownMemberType: 'none',
         reportCallInDefaultInitializer: 'none',
-        reportUnnecessaryIsInstance: 'none'
+        reportUnnecessaryIsInstance: 'none',
+        reportUnnecessaryCast: 'none'
     };
 
     return diagSettings;
@@ -581,7 +588,12 @@ export class ConfigOptions {
             // Read the "reportUnnecessaryIsInstance" entry.
             reportUnnecessaryIsInstance: this._convertDiagnosticLevel(
                 configObj.reportUnnecessaryIsInstance, 'reportUnnecessaryIsInstance',
-                defaultSettings.reportUnnecessaryIsInstance)
+                defaultSettings.reportUnnecessaryIsInstance),
+
+            // Read the "reportUnnecessaryCast" entry.
+            reportUnnecessaryCast: this._convertDiagnosticLevel(
+                configObj.reportUnnecessaryCast, 'reportUnnecessaryCast',
+                defaultSettings.reportUnnecessaryCast)
         };
 
         // Read the "venvPath".

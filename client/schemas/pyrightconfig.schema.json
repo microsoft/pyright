@@ -246,6 +246,12 @@
       "title": "Controls reporting calls to 'isinstance' where the result is statically determined to be always true or false",
       "default": "none"
     },
+    "reportUnnecessaryCast": {
+      "$id": "#/properties/reportUnnecessaryCast",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting calls to 'cast' that are unnecessary",
+      "default": "none"
+    },
     "pythonVersion": {
       "$id": "#/properties/pythonVersion",
       "type": "string",

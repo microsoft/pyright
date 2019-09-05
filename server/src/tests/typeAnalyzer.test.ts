@@ -547,3 +547,15 @@ test('Unbound1', () => {
 
     validateResults(analysisResults, 1);
 });
+
+test('UnnecessaryCast', () => {
+    const configOptions = new ConfigOptions('.');
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryCast1.py'], configOptions);
+    validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticSettings.reportUnnecessaryCast = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryCast1.py'], configOptions);
+    validateResults(analysisResults, 1);
+});
