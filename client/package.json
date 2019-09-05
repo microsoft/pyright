@@ -47,6 +47,16 @@
                 "category": "Pyright"
             }
         ],
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "pyright.organizeimports",
+                    "title": "Pyright: Organize Imports",
+                    "group": "Pyright",
+                    "when": "editorLangId == python"
+                }
+            ]
+        },
         "configuration": {
             "type": "object",
             "title": "Pyright Configuration",
