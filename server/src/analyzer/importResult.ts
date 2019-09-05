@@ -8,11 +8,9 @@
 */
 
 export enum ImportType {
-    // The ordering here is important because this is the order
-    // in which PEP8 specifies that imports should be ordered.
-    BuiltIn = 0,
-    ThirdParty = 1,
-    Local = 2
+    BuiltIn,
+    ThirdParty,
+    Local
 }
 
 export interface ImplicitImport {
@@ -24,6 +22,10 @@ export interface ImplicitImport {
 export interface ImportResult {
     // The formatted import name. Useful for error messages.
     importName: string;
+
+    // Indicates whether the import name was relative (starts
+    // with one or more dots).
+    isRelative: boolean;
 
     // True if import was resolved to a module or file.
     isImportFound: boolean;

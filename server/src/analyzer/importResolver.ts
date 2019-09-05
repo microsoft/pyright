@@ -58,7 +58,9 @@ export class ImportResolver {
         if (moduleDescriptor.leadingDots > 0) {
             const relativeImport = this._resolveRelativeImport(sourceFilePath,
                 moduleDescriptor, importName, importFailureInfo);
+
             if (relativeImport) {
+                relativeImport.isRelative = true;
                 return relativeImport;
             }
         } else {
@@ -168,6 +170,7 @@ export class ImportResolver {
 
         const notFoundResult: ImportResult = {
             importName,
+            isRelative: false,
             isImportFound: false,
             importFailureInfo,
             resolvedPaths: [],
@@ -641,6 +644,7 @@ export class ImportResolver {
 
         return {
             importName,
+            isRelative: false,
             isImportFound: importFound,
             importFailureInfo,
             importType: ImportType.Local,

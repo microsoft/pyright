@@ -18,6 +18,15 @@ import { ParseResults } from '../parser/parser';
 
 const _maxLineLength = 80;
 
+export enum ImportGroup {
+    // The ordering here is important because this is the order
+    // in which PEP8 specifies that imports should be ordered.
+    BuiltIn = 0,
+    ThirdParty = 1,
+    Local = 2,
+    LocalRelative = 3
+}
+
 export class ImportSorter {
     constructor(private _parseResults: ParseResults) {}
 
@@ -51,21 +60,34 @@ export class ImportSorter {
     }
 
     private _compareImportStatements(a: ImportStatement, b: ImportStatement) {
-        const aImportType = this._getImportType(a);
-        const bImportType = this._getImportType(b);
+        const aImportGroup = this._getImportGroup(a);
+        const bImportGroup = this._getImportGroup(b);
 
-        if (aImportType < bImportType) {
+        if (aImportGroup < bImportGroup) {
             return -1;
-        } else if (aImportType > bImportType) {
+        } else if (aImportGroup > bImportGroup) {
             return 1;
         }
 
         return (a.moduleName < b.moduleName) ? -1 : 1;
     }
 
-    private _getImportType(statement: ImportStatement): ImportType {
-        return statement.importResult ?
-            statement.importResult.importType : ImportType.Local;
+    private _getImportGroup(statement: ImportStatement): ImportGroup {
+        if (statement.importResult) {
+            if (statement.importResult.importType === ImportType.BuiltIn) {
+                return ImportGroup.BuiltIn;
+            } else if (statement.importResult.importType === ImportType.ThirdParty) {
+                return ImportGroup.ThirdParty;
+            }
+
+            if (statement.importResult.isRelative) {
+                return ImportGroup.LocalRelative;
+            }
+
+            return ImportGroup.Local;
+        } else {
+            return ImportGroup.Local;
+        }
     }
 
     // Determines the text range for the existing primary block of import statements.
@@ -121,14 +143,14 @@ export class ImportSorter {
 
     private _generateSortedImportText(sortedStatements: ImportStatement[]): string {
         let importText = '';
-        let prevImportType = this._getImportType(sortedStatements[0]);
+        let prevImportGroup = this._getImportGroup(sortedStatements[0]);
 
         for (const statement of sortedStatements) {
             // Insert a blank space between import type groups.
-            const curImportType = this._getImportType(statement);
-            if (prevImportType !== curImportType) {
+            const curImportType = this._getImportGroup(statement);
+            if (prevImportGroup !== curImportType) {
                 importText += this._parseResults.predominantLineEndSequence;
-                prevImportType = curImportType;
+                prevImportGroup = curImportType;
             }
 
             let importLine: string;
