@@ -4,6 +4,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 
 | Flag                               | Description                                           |
 | :--------------------------------- | :---------------------------------------------------  |
+| --createstub IMPORT                 | Create type stub file(s) for import                  |
 | --dependencies                      | Emit import dependecy information                    |
 | -h, --help                          | Show help message                                    |
 | -p, --project FILE OR DIRECTORY     | Use the configuration file at this location          |
