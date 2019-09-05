@@ -282,7 +282,7 @@ export class Scope {
             combinedScope._returnType.addSources(scope._returnType);
             combinedScope._yieldType.addSources(scope._yieldType);
 
-            if (scope._mayBreak) {
+            if (scope._mayBreak && !scope._isLooping) {
                 combinedScope._mayBreak = true;
             }
 
