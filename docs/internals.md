@@ -14,7 +14,7 @@
 
 ## Core Concepts
 
-Pyright implements a [service](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/service.ts), a persistent in-memory singleton object that controls the order of analysis and provides an interface for the language server.
+Pyright implements a [service](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/service.ts), a persistent in-memory object that controls the order of analysis and provides an interface for the language server. For multi-root workspaces, each workspace gets its own service instance.
 
 The service owns an instance of a [program](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/program.ts), which tracks the configuration file and all of the source files that make up the source base that is to be analyzed. A source file can be added to a program if it is a) referenced by the config file, b) currently open in the editor, or c) imported directly or indirectly by another source file. The program object is responsible for setting up file system watchers and updating the program as files are added, deleted, or edited. The program is also responsible for prioritizing all phases of analysis for all files, favoring files that are open in the editor (and their import dependencies).
 
