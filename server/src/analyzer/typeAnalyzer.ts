@@ -997,11 +997,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let allPathsRaise = tryScope.getAlwaysRaises();
         let allPathsRaiseOrReturn = tryScope.getAlwaysReturnsOrRaises();
 
-        // Clear the "always raises" and "always returns" flags for the try block
-        // because it may raise an exception before hitting these statements
-        // and cause code execution to resume within an except clause.
+        // Clear the "always raises", "always returns" and "always breaks" flags
+        // for the try block because it may raise an exception before hitting
+        // these statements and cause code execution to resume within an except
+        // clause.
         tryScope.clearAlwaysRaises();
         tryScope.clearAlwaysReturns();
+        tryScope.clearBreaks();
 
         // Unconditionally merge the try scope into its parent.
         this._mergeToCurrentScope(tryScope);
