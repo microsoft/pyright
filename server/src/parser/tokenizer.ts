@@ -279,6 +279,14 @@ export class Tokenizer {
         }
 
         switch (this._cs.currentChar) {
+            case Char.ByteOrderMarker:
+                // Skip the BOM if it's at the start of the file.
+                if (this._cs.position === 0) {
+                    return false;
+                }
+                this._handleInvalid();
+                break;
+
             case Char.CarriageReturn:
                 const length = this._cs.nextChar === Char.LineFeed ? 2 : 1;
                 const newLineType = length === 2 ?
@@ -305,7 +313,7 @@ export class Tokenizer {
                     return true;
                 }
                 this._handleInvalid();
-                return true;
+                return false;
 
             case Char.OpenParenthesis:
                 this._parenDepth++;
@@ -386,6 +394,7 @@ export class Tokenizer {
                 if (!this._tryIdentifier()) {
                     if (!this._tryOperator()) {
                         this._handleInvalid();
+                        return false;
                     }
                 }
                 return true;
