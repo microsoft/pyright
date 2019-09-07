@@ -12,7 +12,7 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import { DiagnosticAddendum } from '../common/diagnostic';
+import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
@@ -381,13 +381,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (param.typeAnnotation) {
                 annotatedType = this._getTypeOfAnnotation(param.typeAnnotation);
+                let isNoneWithoutOptional = false;
 
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
                 // of the specified type and 'None').
-                if (!this._fileInfo.diagnosticSettings.strictParameterNoneValue) {
-                    if (param.defaultValue instanceof ConstantNode) {
-                        if (param.defaultValue.token.keywordType === KeywordType.None) {
+                if (param.defaultValue instanceof ConstantNode) {
+                    if (param.defaultValue.token.keywordType === KeywordType.None) {
+                        isNoneWithoutOptional = true;
+
+                        if (!this._fileInfo.diagnosticSettings.strictParameterNoneValue) {
                             annotatedType = TypeUtils.combineTypes(
                                 [annotatedType, NoneType.create()]);
                         }
@@ -401,11 +404,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const diagAddendum = new DiagnosticAddendum();
 
                     if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum, undefined)) {
-                        this._addError(
+                        const diag = this._addError(
                             `Value of type '${ defaultValueType.asString() }' cannot` +
                                 ` be assiged to parameter of type '${ annotatedType.asString() }'` +
                                 diagAddendum.getString(),
                             param.defaultValue);
+
+                        if (isNoneWithoutOptional) {
+                            const addOptionalAction: AddMissingOptionalToParamAction = {
+                                action: 'pyright.addoptionalforparam',
+                                offsetOfTypeNode: param.typeAnnotation.start + 1
+                            };
+                            diag.addAction(addOptionalAction);
+                        }
                     }
                 }
 
@@ -3601,28 +3612,30 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _addWarning(message: string, range: TextRange) {
-        this._fileInfo.diagnosticSink.addWarningWithTextRange(message, range);
+        return this._fileInfo.diagnosticSink.addWarningWithTextRange(message, range);
     }
 
     private _addError(message: string, textRange: TextRange) {
-        this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
+        return this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
     }
 
     private _addUnusedCode(textRange: TextRange) {
-        this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange('Code is unreachable', textRange);
+        return this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange('Code is unreachable', textRange);
     }
 
     private _addUnusedName(nameNode: NameNode) {
-        this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+        return this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
             `'${ nameNode.nameToken.value }' is not accessed`, nameNode);
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
         if (diagLevel === 'error') {
-            this._addError(message, textRange);
+            return this._addError(message, textRange);
         } else if (diagLevel === 'warning') {
-            this._addWarning(message, textRange);
+            return this._addWarning(message, textRange);
         }
+
+        return undefined;
     }
 
     private _createEvaluator() {

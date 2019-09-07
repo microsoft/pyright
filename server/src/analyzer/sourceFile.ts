@@ -28,7 +28,7 @@ import { CompletionProvider, ModuleSymbolMap } from '../languageService/completi
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentSymbolProvider } from '../languageService/documentSymbolProvider';
 import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
-import { ImportSorter } from '../languageService/importSorter';
+import { performQuickAction } from '../languageService/quickActions';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ModuleNode } from '../parser/parseNodes';
@@ -595,7 +595,7 @@ export class SourceFile {
         return completionProvider.getCompletionsForPosition();
     }
 
-    sortImports(): TextEditAction[] | undefined {
+    performQuickAction(command: string, args: any[]): TextEditAction[] | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
             return undefined;
@@ -607,8 +607,7 @@ export class SourceFile {
             return undefined;
         }
 
-        const importSorter = new ImportSorter(this._analysisJob.parseResults);
-        return importSorter.sort();
+        return performQuickAction(command, args, this._analysisJob.parseResults);
     }
 
     getAnalysisPassCount() {

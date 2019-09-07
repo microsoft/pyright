@@ -15,11 +15,12 @@ import VSCodeUri from 'vscode-uri';
 
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
-import { CreateTypeStubFileAction, Diagnostic as AnalyzerDiagnostic, DiagnosticCategory,
-    DiagnosticTextPosition, DiagnosticTextRange } from './common/diagnostic';
+import { AddMissingOptionalToParamAction, CreateTypeStubFileAction, Diagnostic as AnalyzerDiagnostic,
+    DiagnosticCategory, DiagnosticTextPosition, DiagnosticTextRange } from './common/diagnostic';
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
 import StringMap from './common/stringMap';
-import { commandCreateTypeStub, commandOrderImports } from './languageService/commands';
+import { commandAddMissingOptionalToParam, commandCreateTypeStub,
+    commandOrderImports } from './languageService/commands';
 import { CompletionProvider } from './languageService/completionProvider';
 
 interface PythonSettings {
@@ -292,6 +293,24 @@ _connection.onCodeAction(params => {
                         workspace.rootPath, action.moduleName),
                     CodeActionKind.QuickFix);
                 codeActions.push(createTypeStubAction);
+            }
+        }
+
+        const addOptionalDiag = diags.find(d => {
+            const actions = d.getActions();
+            return actions && actions.find(a => a.action === commandAddMissingOptionalToParam);
+        });
+
+        if (addOptionalDiag) {
+            const action = addOptionalDiag.getActions()!.find(
+                a => a.action === commandAddMissingOptionalToParam) as AddMissingOptionalToParamAction;
+            if (action) {
+                const addMissingOptionalAction = CodeAction.create(
+                    `Add 'Optional' to type annotation’`,
+                    Command.create(`Add 'Optional' to type annotation’`, commandAddMissingOptionalToParam,
+                        action.offsetOfTypeNode),
+                    CodeActionKind.QuickFix);
+                codeActions.push(addMissingOptionalAction);
             }
         }
     }
@@ -601,12 +620,16 @@ _connection.onInitialized(() => {
 });
 
 _connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
-    if (cmdParams.command === commandOrderImports) {
+    if (cmdParams.command === commandOrderImports ||
+            cmdParams.command === commandAddMissingOptionalToParam) {
+
         if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
             const docUri = cmdParams.arguments[0];
+            const otherArgs = cmdParams.arguments.slice(1);
             const filePath = _convertUriToPath(docUri);
             const workspace = _getWorkspaceForFile(filePath);
-            const editActions = workspace.serviceInstance.sortImports(filePath);
+            const editActions = workspace.serviceInstance.performQuickAction(
+                filePath, cmdParams.command, otherArgs);
             if (!editActions) {
                 return [];
             }

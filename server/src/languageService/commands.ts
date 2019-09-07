@@ -9,3 +9,4 @@
 
 export const commandCreateTypeStub = 'pyright.createtypestub';
 export const commandOrderImports = 'pyright.organizeimports';
+export const commandAddMissingOptionalToParam = 'pyright.addoptionalforparam';

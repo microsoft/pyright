@@ -75,6 +75,11 @@ export interface CreateTypeStubFileAction extends DiagnosticAction {
     moduleName: string;
 }
 
+export interface AddMissingOptionalToParamAction extends DiagnosticAction {
+    action: 'pyright.addoptionalforparam';
+    offsetOfTypeNode: number;
+}
+
 // Represents a single error or warning.
 export class Diagnostic {
     private _actions: DiagnosticAction[] | undefined;

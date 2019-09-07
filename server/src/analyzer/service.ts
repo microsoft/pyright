@@ -167,10 +167,10 @@ export class AnalyzerService {
             this._configOptions, this._importResolver);
     }
 
-    sortImports(filePath: string): TextEditAction[] | undefined {
+    performQuickAction(filePath: string, command: string, args: any[]): TextEditAction[] | undefined {
         this._recordUserInteractionTime();
-        return this._program.sortImports(filePath, this._configOptions,
-            this._importResolver);
+        return this._program.performQuickAction(filePath, this._configOptions,
+            this._importResolver, command, args);
     }
 
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,

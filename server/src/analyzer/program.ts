@@ -927,8 +927,9 @@ export class Program {
             () => this._buildModuleSymbolsMap(sourceFileInfo));
     }
 
-    sortImports(filePath: string, options: ConfigOptions,
-            importResolver: ImportResolver): TextEditAction[] | undefined {
+    performQuickAction(filePath: string, options: ConfigOptions,
+            importResolver: ImportResolver, command: string,
+            args: any[]): TextEditAction[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
@@ -942,7 +943,8 @@ export class Program {
             });
         }
 
-        return sourceFileInfo.sourceFile.sortImports();
+        return sourceFileInfo.sourceFile.performQuickAction(
+            command, args);
     }
 
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,

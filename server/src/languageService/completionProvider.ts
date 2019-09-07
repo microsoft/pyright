@@ -8,8 +8,9 @@
 * a list of zero or more text completions that apply in the context.
 */
 
-import { CompletionItem, CompletionItemKind, CompletionList, MarkupKind,
-    Position, TextEdit } from 'vscode-languageserver';
+import { CompletionItem, CompletionItemKind, CompletionList,
+    MarkupKind,
+    TextEdit } from 'vscode-languageserver';
 
 import { ImportMap } from '../analyzer/analyzerFileInfo';
 import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
@@ -27,13 +28,14 @@ import { ClassType, FunctionType, ModuleType, ObjectType,
 import { TypeUtils } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
+import { TextEditAction } from '../common/editAction';
 import { getFileName, stripFileExtension } from '../common/pathUtils';
-import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
+import { convertPositionToOffset } from '../common/positionUtils';
 import { StringUtils } from '../common/stringUtils';
-import { AssignmentNode, ErrorExpressionCategory, ErrorExpressionNode,
+import { ErrorExpressionCategory, ErrorExpressionNode,
     ExpressionNode, ImportFromAsNode, ImportFromNode,
     MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode,
-    ParseNode, StatementListNode, StringListNode, SuiteNode  } from '../parser/parseNodes';
+    ParseNode, StringListNode, SuiteNode  } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
 
@@ -451,7 +453,7 @@ export class CompletionProvider {
                                         importSource = moduleNameAndType.moduleName;
                                     }
 
-                                    const autoImportTextEdits = this._getTextEditsForAutoImport(
+                                    const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
                                         name, importStatements, filePath, importSource,
                                         moduleNameAndType ? moduleNameAndType.importType : ImportType.Local);
 
@@ -475,161 +477,18 @@ export class CompletionProvider {
             filePath, execEnvironment);
     }
 
-    private _getTextEditsForAutoImport(symbolName: string, importStatements: ImportStatements,
-            filePath: string, moduleName: string, importType: ImportType): TextEdit[] {
-
-        const textEditList: TextEdit[] = [];
+    private _getTextEditsForAutoImportByFilePath(symbolName: string, importStatements: ImportStatements,
+            filePath: string, moduleName: string, importType: ImportType): TextEditAction[] {
 
         // Does an 'import from' statement already exist? If so, we'll reuse it.
         const importStatement = importStatements.mapByFilePath[filePath];
         if (importStatement && importStatement.node instanceof ImportFromNode) {
-            // Scan through the import symbols to find the right insertion point,
-            // assuming we want to keep the imports alphebetized.
-            let priorImport: ImportFromAsNode | undefined;
-            for (const curImport of importStatement.node.imports) {
-                if (priorImport && curImport.name.nameToken.value > symbolName) {
-                    break;
-                }
-
-                priorImport = curImport;
-            }
-
-            if (priorImport) {
-                const insertionOffset = priorImport.name.end;
-                const insertionPosition = convertOffsetToPosition(insertionOffset, this._parseResults.lines);
-
-                textEditList.push(TextEdit.insert(
-                    Position.create(insertionPosition.line, insertionPosition.column),
-                    ', ' + symbolName)
-                );
-            }
-        } else {
-            // We need to emit a new 'from import' statement.
-            let newImportStatement = `from ${ moduleName } import ${ symbolName }`;
-            let insertionPosition: Position;
-            if (importStatements.orderedImports.length > 0) {
-                let insertBefore = true;
-                let insertionImport = importStatements.orderedImports[0];
-
-                // Find a good spot to insert the new import statement. Follow
-                // the PEP8 standard sorting order whereby built-in imports are
-                // followed by third-party, which are followed by local.
-                let prevImportType = ImportType.BuiltIn;
-                for (const curImport of importStatements.orderedImports) {
-                    // If the import was resolved, use its import type. If it wasn't
-                    // resolved, assume that it's the same import type as the previous
-                    // one.
-                    const curImportType: ImportType = curImport.importResult ?
-                        curImport.importResult.importType : prevImportType;
-
-                    if (importType < curImportType) {
-                        if (!insertBefore && prevImportType < importType) {
-                            // Add an extra line to create a new group.
-                            newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
-                        }
-                        break;
-                    }
-
-                    if (importType === curImportType && curImport.moduleName > moduleName) {
-                        break;
-                    }
-
-                    // If we're about to hit the end of the import statements, don't go
-                    // any further.
-                    if (curImport.followsNonImportStatement) {
-                        if (importType > prevImportType) {
-                            // Add an extra line to create a new group.
-                            newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
-                        }
-                        break;
-                    }
-
-                    // If this is the last import, see if we need to create a new group.
-                    if (curImport === importStatements.orderedImports[importStatements.orderedImports.length - 1]) {
-
-                        if (importType > curImportType) {
-                            // Add an extra line to create a new group.
-                            newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
-                        }
-                    }
-
-                    // Are we starting a new group?
-                    if (!insertBefore && importType < prevImportType && importType === curImportType) {
-                        insertBefore = true;
-                    } else {
-                        insertBefore = false;
-                    }
-
-                    prevImportType = curImportType;
-                    insertionImport = curImport;
-                }
-
-                if (insertionImport) {
-                    if (insertBefore) {
-                        newImportStatement = newImportStatement + this._parseResults.predominantLineEndSequence;
-                    } else {
-                        newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
-                    }
-
-                    const position = convertOffsetToPosition(
-                        insertBefore ? insertionImport.node.start : insertionImport.node.end,
-                        this._parseResults.lines);
-                    insertionPosition = Position.create(position.line, position.column);
-                } else {
-                    insertionPosition = Position.create(0, 0);
-                }
-            } else {
-                // Insert at or near the top of the file. See if there's a doc string and
-                // copyright notice, etc. at the top. If so, move past those.
-                insertionPosition = Position.create(0, 0);
-                let addNewLineBefore = false;
-
-                for (const statement of this._parseResults.parseTree.statements) {
-                    let stopHere = true;
-                    if (statement instanceof StatementListNode && statement.statements.length === 1) {
-                        const simpleStatement = statement.statements[0];
-
-                        if (simpleStatement instanceof StringListNode) {
-                            // Assume that it's a file header doc string.
-                            stopHere = false;
-                        } else if (simpleStatement instanceof AssignmentNode) {
-                            if (simpleStatement.leftExpression instanceof NameNode) {
-                                if (SymbolUtils.isDunderName(simpleStatement.leftExpression.nameToken.value)) {
-                                    // Assume that it's an assignment of __copyright__, __author__, etc.
-                                    stopHere = false;
-                                }
-                            }
-                        }
-                    }
-
-                    if (stopHere) {
-                        const statementPosition = convertOffsetToPosition(statement.start,
-                            this._parseResults.lines);
-                        insertionPosition = Position.create(statementPosition.line, statementPosition.column);
-                        addNewLineBefore = false;
-                        break;
-                    } else {
-                        const statementPosition = convertOffsetToPosition(statement.end,
-                            this._parseResults.lines);
-                        insertionPosition = Position.create(statementPosition.line, statementPosition.column);
-                        addNewLineBefore = true;
-                    }
-                }
-
-                newImportStatement += this._parseResults.predominantLineEndSequence +
-                    this._parseResults.predominantLineEndSequence;
-
-                if (addNewLineBefore) {
-                    newImportStatement = this._parseResults.predominantLineEndSequence + newImportStatement;
-                } else {
-                    newImportStatement += this._parseResults.predominantLineEndSequence;
-                }
-            }
-
-            textEditList.push(TextEdit.insert(insertionPosition, newImportStatement));
+            return ImportStatementUtils.getTextEditsForAutoImportSymbolAddition(
+                symbolName, importStatement, this._parseResults);
         }
 
-        return textEditList;
+        return ImportStatementUtils.getTextEditsForAutoImportInsertion(symbolName,
+            importStatements, moduleName, importType, this._parseResults);
     }
 
     private _getImportFromCompletions(importFromNode: ImportFromNode,
@@ -724,7 +583,7 @@ export class CompletionProvider {
 
     private _addSymbol(name: string, symbol: Symbol,
             priorWord: string, completionList: CompletionList,
-            autoImportSource?: string, additionalTextEdits?: TextEdit[]) {
+            autoImportSource?: string, additionalTextEdits?: TextEditAction[]) {
 
         const declarations = symbol.getDeclarations();
 
@@ -785,7 +644,7 @@ export class CompletionProvider {
     private _addNameToCompletionList(name: string, itemKind: CompletionItemKind,
             filter: string, completionList: CompletionList, typeDetail?: string,
             documentation?: string, autoImportText?: string,
-            additionalTextEdits?: TextEdit[]) {
+            additionalTextEdits?: TextEditAction[]) {
 
         const similarity = StringUtils.computeCompletionSimilarity(filter, name);
 
@@ -840,7 +699,16 @@ export class CompletionProvider {
             }
 
             if (additionalTextEdits) {
-                completionItem.additionalTextEdits = additionalTextEdits;
+                completionItem.additionalTextEdits = additionalTextEdits.map(te => {
+                    const textEdit: TextEdit = {
+                        range: {
+                            start: { line: te.range.start.line, character: te.range.start.column },
+                            end: { line: te.range.end.line, character: te.range.end.column }
+                        },
+                        newText: te.replacementText
+                    };
+                    return textEdit;
+                });
             }
 
             completionList.items.push(completionItem);
