@@ -13,8 +13,9 @@ import * as fs from 'fs';
 import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     ClassNode, DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode,
     ImportFromNode, ImportNode, MemberAccessExpressionNode, ModuleNameNode, NameNode,
-    ParameterCategory, ParameterNode, ParseNode, StatementListNode,
-    StringListNode, StringNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
+    ParameterCategory, ParameterNode, ParseNode, ParseNodeType,
+    StatementListNode, StringListNode, StringNode, TryNode, TypeAnnotationExpressionNode,
+    WhileNode,
     WithNode } from '../parser/parseNodes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeUtils, PrintExpressionFlags } from './parseTreeUtils';
@@ -86,7 +87,7 @@ class ImportSymbolWalker extends ParseTreeWalker {
 
     visitString(node: StringNode) {
         if (this._treatStringsAsSymbols) {
-            const value = node.getValue();
+            const value = node.value;
             this._markNameAccessed(node, value);
         }
 
@@ -173,7 +174,7 @@ export class TypeStubWriter extends ParseTreeWalker {
 
         this._emitSuite(() => {
             this._classNestCount++;
-            this.walkChildren(node);
+            this.walk(node.suite);
             this._classNestCount--;
         });
 
@@ -228,7 +229,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             this._emitSuite(() => {
                 // Don't emit any nested functions.
                 this._functionNestCount++;
-                this.walkChildren(node);
+                this.walk(node.suite);
                 this._functionNestCount--;
             });
 
@@ -273,13 +274,18 @@ export class TypeStubWriter extends ParseTreeWalker {
             this._emittedSuite = true;
             this._emitLine('if ' + this._printExpression(node.testExpression) + ':');
             this._emitSuite(() => {
-                this.walkChildren(node.ifSuite);
+                this.walkMultiple(node.ifSuite.statements);
             });
 
-            if (node.elseSuite) {
+            const elseSuite = node.elseSuite;
+            if (elseSuite) {
                 this._emitLine('else:');
                 this._emitSuite(() => {
-                    this.walkChildren(node.elseSuite!);
+                    if (elseSuite.nodeType === ParseNodeType.If) {
+                        this.walkMultiple([elseSuite.testExpression, elseSuite.ifSuite, elseSuite.elseSuite]);
+                    } else {
+                        this.walkMultiple(elseSuite.statements);
+                    }
                 });
             }
             this._ifNestCount--;
@@ -291,7 +297,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     visitAssignment(node: AssignmentNode) {
         let line = '';
 
-        if (node.leftExpression instanceof NameNode) {
+        if (node.leftExpression.nodeType === ParseNodeType.Name) {
             if (this._functionNestCount === 0) {
                 line = this._printExpression(node.leftExpression);
             }
@@ -299,9 +305,9 @@ export class TypeStubWriter extends ParseTreeWalker {
             if (node.leftExpression.nameToken.value === '__all__') {
                 this._emitLine(this._printExpression(node, false, true));
             }
-        } else if (node.leftExpression instanceof MemberAccessExpressionNode) {
+        } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
             const baseExpression = node.leftExpression.leftExpression;
-            if (baseExpression instanceof NameNode) {
+            if (baseExpression.nodeType === ParseNodeType.Name) {
                 if (baseExpression.nameToken.value === 'self') {
                     const memberName = node.leftExpression.memberName.nameToken.value;
                     if (!SymbolUtils.isProtectedName(memberName) &&
@@ -342,7 +348,7 @@ export class TypeStubWriter extends ParseTreeWalker {
 
     visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode) {
         if (this._classNestCount === 0 && this._functionNestCount === 0) {
-            if (node.leftExpression instanceof NameNode) {
+            if (node.leftExpression.nodeType === ParseNodeType.Name) {
                 if (node.leftExpression.nameToken.value === '__all__') {
                     this._emitLine(this._printExpression(node, false, true));
                 }
@@ -355,11 +361,11 @@ export class TypeStubWriter extends ParseTreeWalker {
     visitTypeAnnotation(node: TypeAnnotationExpressionNode) {
         if (this._functionNestCount === 0) {
             let line = '';
-            if (node.valueExpression instanceof NameNode) {
+            if (node.valueExpression.nodeType === ParseNodeType.Name) {
                 line = this._printExpression(node.valueExpression);
-            } else if (node.valueExpression instanceof MemberAccessExpressionNode) {
+            } else if (node.valueExpression.nodeType === ParseNodeType.MemberAccess) {
                 const baseExpression = node.valueExpression.leftExpression;
-                if (baseExpression instanceof NameNode) {
+                if (baseExpression.nodeType === ParseNodeType.Name) {
                     if (baseExpression.nameToken.value === 'self') {
                         const memberName = node.valueExpression.memberName.nameToken.value;
                         if (!SymbolUtils.isProtectedName(memberName) &&
@@ -438,7 +444,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     visitStatementList(node: StatementListNode) {
-        if (node.statements.length > 0 && node.statements[0] instanceof StringListNode) {
+        if (node.statements.length > 0 && node.statements[0].nodeType === ParseNodeType.StringList) {
             // Is this the first statement in a suite? If it's a string
             // literal, assume it's a doc string and emit it.
             if (!this._emittedSuite && this._emitDocString) {
@@ -449,7 +455,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         // Don't emit a doc string after the first statement.
         this._emitDocString = false;
 
-        this.walkChildren(node);
+        this.walkMultiple(node.statements);
         return false;
     }
 

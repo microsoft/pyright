@@ -467,18 +467,14 @@ export class SourceFile {
                 this._analysisJob.parseResults.tokens, configOptions.diagnosticSettings,
                 useStrict);
         } catch (e) {
-            let message: string;
-            if (e instanceof Error) {
-                message = e.stack || e.message;
-            } else {
-                message = JSON.stringify(e);
-            }
-
+            const message: string = (e.stack ? e.stack.toString() : undefined) ||
+                (typeof e.message === 'string' ? e.message : undefined) ||
+                JSON.stringify(e);
             this._console.log(
                 `An internal error occurred while parsing ${ this.getFilePath() }: ` + message);
 
             this._analysisJob.parseResults = {
-                parseTree: new ModuleNode(new TextRange(0, 0)),
+                parseTree: ModuleNode.create({ start: 0, length: 0 }),
                 futureImports: new StringMap<boolean>(),
                 tokens: new TextRangeCollection<Token>([]),
                 lines: new TextRangeCollection<TextRange>([]),
@@ -650,13 +646,9 @@ export class SourceFile {
             assert(moduleType instanceof ModuleType);
             this._analysisJob.moduleType = moduleType as ModuleType;
         } catch (e) {
-            let message: string;
-            if (e instanceof Error) {
-                message = e.stack || e.message;
-            } else {
-                message = JSON.stringify(e);
-            }
-
+            const message: string = (e.stack ? e.stack.toString() : undefined) ||
+                (typeof e.message === 'string' ? e.message : undefined) ||
+                JSON.stringify(e);
             this._console.log(
                 `An internal error occurred while performing semantic analysis for ${ this.getFilePath() }: ` + message);
 
@@ -701,13 +693,9 @@ export class SourceFile {
                 }
             });
         } catch (e) {
-            let message: string;
-            if (e instanceof Error) {
-                message = e.stack || e.message;
-            } else {
-                message = JSON.stringify(e);
-            }
-
+            const message: string = (e.stack ? e.stack.toString() : undefined) ||
+                (typeof e.message === 'string' ? e.message : undefined) ||
+                JSON.stringify(e);
             this._console.log(
                 `An internal error occurred while while performing type analysis for ${ this.getFilePath() }: ` + message);
             const diagSink = new DiagnosticSink();

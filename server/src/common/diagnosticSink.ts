@@ -71,14 +71,14 @@ export class TextRangeDiagnosticSink extends DiagnosticSink {
     }
 
     addErrorWithTextRange(message: string, range: TextRange) {
-        return this.addError(message, convertOffsetsToRange(range.start, range.end, this._lines));
+        return this.addError(message, convertOffsetsToRange(range.start, range.start + range.length, this._lines));
     }
 
     addWarningWithTextRange(message: string, range: TextRange) {
-        return this.addWarning(message, convertOffsetsToRange(range.start, range.end, this._lines));
+        return this.addWarning(message, convertOffsetsToRange(range.start, range.start + range.length, this._lines));
     }
 
     addUnusedCodeWithTextRange(message: string, range: TextRange) {
-        return this.addUnusedCode(message, convertOffsetsToRange(range.start, range.end, this._lines));
+        return this.addUnusedCode(message, convertOffsetsToRange(range.start, range.start + range.length, this._lines));
     }
 }

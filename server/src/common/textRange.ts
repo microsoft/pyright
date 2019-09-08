@@ -7,43 +7,44 @@
 * Specifies the range of text within a larger string.
 */
 
-export class TextRange {
+export interface TextRange {
     start: number;
     length: number;
+}
 
-    constructor(start: number, length: number) {
+export namespace TextRange {
+    export function create(start: number, length: number): TextRange {
         if (start < 0) {
             throw new Error('start must be non-negative');
         }
         if (length < 0) {
             throw new Error('length must be non-negative');
         }
-        this.start = start;
-        this.length = length;
+        return { start, length };
     }
 
-    get end(): number {
-        return this.start + this.length;
+    export function getEnd(range: TextRange): number {
+        return range.start + range.length;
     }
 
-    contains(position: number): boolean {
-        return position >= this.start && position < this.end;
+    export function contains(range: TextRange, position: number): boolean {
+        return position >= range.start && position < getEnd(range);
     }
 
-    extend(range: TextRange | TextRange[] | undefined) {
-        if (range) {
-            if (Array.isArray(range)) {
-                range.forEach(r => {
-                    this.extend(r);
+    export function extend(range: TextRange, extension: TextRange | TextRange[] | undefined) {
+        if (extension) {
+            if (Array.isArray(extension)) {
+                extension.forEach(r => {
+                    extend(range, r);
                 });
             } else {
-                if (range.start < this.start) {
-                    this.length += this.start - range.start;
-                    this.start = range.start;
+                if (extension.start < range.start) {
+                    range.length += range.start - extension.start;
+                    range.start = extension.start;
                 }
 
-                if (range.end > this.end) {
-                    this.length += range.end - this.end;
+                if (getEnd(extension) > getEnd(range)) {
+                    range.length += getEnd(extension) - getEnd(range);
                 }
             }
         }

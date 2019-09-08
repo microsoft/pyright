@@ -23,11 +23,11 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { CreateTypeStubFileAction } from '../common/diagnostic';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AwaitExpressionNode, ClassNode, ErrorExpressionNode,
-    ExpressionNode, FunctionNode, GlobalNode, IfNode, LambdaNode, ModuleNameNode,
-    ModuleNode, NonlocalNode, RaiseNode, StatementListNode, StatementNode,
-    StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { AwaitExpressionNode, ClassNode, ErrorExpressionNode, ExpressionNode, FunctionNode,
+    GlobalNode, IfNode, LambdaNode, ModuleNameNode, ModuleNode, NonlocalNode, ParseNode,
+    ParseNodeType, RaiseNode, StatementNode, StringListNode, SuiteNode, TryNode,
+    TypeAnnotationExpressionNode, WhileNode, YieldExpressionNode,
+    YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -283,10 +283,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         // Find the function or module that contains this function and use its scope.
         // We can't simply use this._currentScope because functions within a class use
         // the scope of the containing function or module when they execute.
-        let functionOrModuleNode = node.parent;
+        let functionOrModuleNode: ParseNode | undefined = node.parent;
         while (functionOrModuleNode) {
-            if (functionOrModuleNode instanceof ModuleNode ||
-                    functionOrModuleNode instanceof FunctionNode) {
+            if (functionOrModuleNode.nodeType === ParseNodeType.Module ||
+                    functionOrModuleNode.nodeType === ParseNodeType.Function) {
                 break;
             }
 
@@ -399,7 +399,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
                 unescapedResult.unescapeErrors.forEach(error => {
                     const start = stringNode.token.start + stringNode.token.prefixLength +
                         stringNode.token.quoteMarkLength + error.offset;
-                    const textRange = new TextRange(start, error.length);
+                    const textRange = { start, length: error.length };
 
                     if (error.errorType === UnescapeErrorType.InvalidEscapeSequence) {
                         this._addDiagnostic(this._fileInfo.diagnosticSettings.reportInvalidStringEscapeSequence,
@@ -503,19 +503,19 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             return undefined;
         }
 
-        if (!(statemetns[0] instanceof StatementListNode)) {
+        if (statemetns[0].nodeType !== ParseNodeType.StatementList) {
             return undefined;
         }
 
         // If the first statement in the suite isn't a StringNode,
         // assume there is no docString.
-        const statementList = statemetns[0] as StatementListNode;
+        const statementList = statemetns[0];
         if (statementList.statements.length === 0 ||
-                !(statementList.statements[0] instanceof StringListNode)) {
+                statementList.statements[0].nodeType !== ParseNodeType.StringList) {
             return undefined;
         }
 
-        const docStringNode = statementList.statements[0] as StringListNode;
+        const docStringNode = statementList.statements[0];
         const docStringToken = docStringNode.strings[0].token;
 
         // Ignore f-strings.
@@ -532,7 +532,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         if (!functionNode) {
             this._addError(
                 `'yield' not allowed outside of a function`, node);
-        } else if (functionNode.isAsync && node instanceof YieldFromExpressionNode) {
+        } else if (functionNode.isAsync && node.nodeType === ParseNodeType.YieldFrom) {
             // PEP 525 indicates that 'yield from' is not allowed in an
             // async function.
             this._addError(
@@ -605,7 +605,8 @@ export class ModuleScopeAnalyzer extends SemanticAnalyzer {
         assert(nameBindings !== undefined);
         this._addNamesToScope(nameBindings!.getGlobalNames());
 
-        this.walkChildren(this._scopedNode);
+        const moduleNode = this._scopedNode as ModuleNode;
+        this.walkMultiple(moduleNode.statements);
 
         // Associate the module's scope with the module type.
         const moduleType = new ModuleType(this._currentScope.getSymbolTable(),

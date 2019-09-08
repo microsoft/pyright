@@ -12,7 +12,8 @@ import { ImportStatementUtils } from '../analyzer/importStatementUtils';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ImportFromNode, ParameterNode, ParseNode } from '../parser/parseNodes';
+import { TextRange } from '../common/textRange';
+import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { commandAddMissingOptionalToParam, commandOrderImports } from './commands';
 import { ImportSorter } from './importSorter';
@@ -40,7 +41,7 @@ function _addMissingOptionalToParam(parseResults: ParseResults,
 
     let node: ParseNode | undefined = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
     while (node) {
-        if (node instanceof ParameterNode) {
+        if (node.nodeType === ParseNodeType.Parameter) {
             break;
         }
 
@@ -56,7 +57,7 @@ function _addMissingOptionalToParam(parseResults: ParseResults,
     const startPos = convertOffsetToPosition(
         node.typeAnnotation.start, parseResults.lines);
     const endPos = convertOffsetToPosition(
-        node.typeAnnotation.end, parseResults.lines);
+        TextRange.getEnd(node.typeAnnotation), parseResults.lines);
 
     editActions.push({
         range: { start: startPos, end: startPos },
@@ -74,7 +75,7 @@ function _addMissingOptionalToParam(parseResults: ParseResults,
         imp => imp.moduleName === 'typing');
 
     // If there's an existing import statement, insert into it.
-    if (importStatement && importStatement.node instanceof ImportFromNode) {
+    if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
         const additionalEditActions = ImportStatementUtils.getTextEditsForAutoImportSymbolAddition(
             'Optional', importStatement, parseResults);
         editActions.push(...additionalEditActions);

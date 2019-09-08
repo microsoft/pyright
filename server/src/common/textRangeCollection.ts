@@ -25,7 +25,8 @@ export class TextRangeCollection<T extends TextRange> {
     }
 
     get end(): number {
-        return this._items.length > 0 ? this._items[this._items.length - 1].end : 0;
+        const lastItem = this._items[this._items.length - 1];
+        return this._items.length > 0 ? lastItem.start + lastItem.length : 0;
     }
 
     get length(): number {
@@ -102,10 +103,13 @@ export class TextRangeCollection<T extends TextRange> {
             const mid = Math.floor(min + (max - min) / 2);
             const item = this._items[mid];
 
-            if (item.contains(position)) {
+            if (TextRange.contains(item, position)) {
                 return mid;
             }
-            if (mid < this.count - 1 && item.end <= position && position < this._items[mid + 1].start) {
+
+            if (mid < this.count - 1 && TextRange.getEnd(item) <= position &&
+                    position < this._items[mid + 1].start) {
+
                 return -1;
             }
 

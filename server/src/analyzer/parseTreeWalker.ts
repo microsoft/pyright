@@ -17,9 +17,9 @@ import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpression
     ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode, IndexItemsNode,
     LambdaNode, ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode,
     ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
-    NumberNode, ParameterNode, ParseNode, ParseNodeArray, ParseNodeType, PassNode, RaiseNode,
-    ReturnNode, SetNode, SliceExpressionNode, StatementListNode, StringListNode, StringNode,
-    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    NumberNode, ParameterNode, ParseNode, ParseNodeArray, ParseNodeType, PassNode,
+    RaiseNode, ReturnNode, SetNode, SliceExpressionNode, StatementListNode, StringListNode,
+    StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
     WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 
@@ -27,8 +27,9 @@ import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpression
 // visitXXX methods that you want to handle.
 export class ParseTreeWalker {
     walk(node: ParseNode): void {
-        if (this.visitNode(node)) {
-            this.walkChildren(node);
+        const childrenToWalk = this.visitNode(node);
+        if (childrenToWalk.length > 0) {
+            this.walkMultiple(childrenToWalk);
         }
     }
 
@@ -40,207 +41,392 @@ export class ParseTreeWalker {
         });
     }
 
-    walkChildren(node: ParseNode) {
-        node.getChildren().forEach(node => {
-            if (node) {
-                this.walk(node);
-            }
-        });
-    }
-
-    visitNode(node: ParseNode): boolean {
+    // Calls the node-specific method (visitXXXX). If the method
+    // returns true, all child nodes for the node are returned.
+    // If the moethod returns false, we assume that the handler
+    // has already handled the child nodes, so an empty list is
+    // returned.
+    visitNode(node: ParseNode): ParseNodeArray {
         switch (node.nodeType) {
             case ParseNodeType.Argument:
-                return this.visitArgument(node as ArgumentNode);
+                if (this.visitArgument(node)) {
+                    return [node.valueExpression];
+                }
+                break;
 
             case ParseNodeType.Assert:
-                return this.visitAssert(node as AssertNode);
+                if (this.visitAssert(node)) {
+                    return [node.testExpression, node.exceptionExpression];
+                }
+                break;
 
             case ParseNodeType.Assignment:
-                return this.visitAssignment(node as AssignmentNode);
+                if (this.visitAssignment(node)) {
+                    return [node.leftExpression, node.rightExpression, node.typeAnnotationComment];
+                }
+                break;
 
             case ParseNodeType.AugmentedAssignment:
-                return this.visitAugmentedAssignment(node as AugmentedAssignmentExpressionNode);
+                if (this.visitAugmentedAssignment(node)) {
+                    return [node.leftExpression, node.rightExpression];
+                }
+                break;
 
             case ParseNodeType.Await:
-                return this.visitAwait(node as AwaitExpressionNode);
+                if (this.visitAwait(node)) {
+                    return [node.expression];
+                }
+                break;
 
             case ParseNodeType.BinaryOperation:
-                return this.visitBinaryOperation(node as BinaryExpressionNode);
+                if (this.visitBinaryOperation(node)) {
+                    return [node.leftExpression, node.rightExpression];
+                }
+                break;
 
             case ParseNodeType.Break:
-                return this.visitBreak(node as BreakNode);
+                if (this.visitBreak(node)) {
+                    return [];
+                }
+                break;
 
             case ParseNodeType.Call:
-                return this.visitCall(node as CallExpressionNode);
+                if (this.visitCall(node)) {
+                    return [node.leftExpression, ...node.arguments];
+                }
+                break;
 
             case ParseNodeType.Class:
-                return this.visitClass(node as ClassNode);
+                if (this.visitClass(node)) {
+                    return [...node.decorators, node.name, ...node.arguments, node.suite];
+                }
+                break;
 
             case ParseNodeType.Ternary:
-                return this.visitTernary(node as TernaryExpressionNode);
+                if (this.visitTernary(node)) {
+                    return [node.ifExpression, node.testExpression, node.elseExpression];
+                }
+                break;
 
             case ParseNodeType.Constant:
-                return this.visitConstant(node as ConstantNode);
+                if (this.visitConstant(node)) {
+                    return [];
+                }
+                break;
 
             case ParseNodeType.Continue:
-                return this.visitContinue(node as ContinueNode);
+                if (this.visitContinue(node)) {
+                    return [];
+                }
+                break;
 
             case ParseNodeType.Decorator:
-                return this.visitDecorator(node as DecoratorNode);
+                if (this.visitDecorator(node)) {
+                    return [node.leftExpression, ...(node.arguments || [])];
+                }
+                break;
 
             case ParseNodeType.Del:
-                return this.visitDel(node as DelNode);
+                if (this.visitDel(node)) {
+                    return node.expressions;
+                }
+                break;
 
             case ParseNodeType.Dictionary:
-                return this.visitDictionary(node as DictionaryNode);
+                if (this.visitDictionary(node)) {
+                    return node.entries;
+                }
+                break;
 
             case ParseNodeType.DictionaryKeyEntry:
-                return this.visitDictionaryKeyEntry(node as DictionaryKeyEntryNode);
+                if (this.visitDictionaryKeyEntry(node)) {
+                    return [node.keyExpression, node.valueExpression];
+                }
+                break;
 
             case ParseNodeType.DictionaryExpandEntry:
-                return this.visitDictionaryExpandEntry(node as DictionaryExpandEntryNode);
+                if (this.visitDictionaryExpandEntry(node)) {
+                    return [node.expandExpression];
+                }
+                break;
 
             case ParseNodeType.Error:
-                return this.visitError(node as ErrorExpressionNode);
+                if (this.visitError(node)) {
+                    return [node.child];
+                }
+                break;
 
             case ParseNodeType.If:
-                return this.visitIf(node as IfNode);
+                if (this.visitIf(node)) {
+                    return [node.testExpression, node.ifSuite, node.elseSuite];
+                }
+                break;
 
             case ParseNodeType.Import:
-                return this.visitImport(node as ImportNode);
+                if (this.visitImport(node)) {
+                    return node.list;
+                }
+                break;
 
             case ParseNodeType.ImportAs:
-                return this.visitImportAs(node as ImportAsNode);
+                if (this.visitImportAs(node)) {
+                    return [node.module, node.alias];
+                }
+                break;
 
             case ParseNodeType.ImportFrom:
-                return this.visitImportFrom(node as ImportFromNode);
+                if (this.visitImportFrom(node)) {
+                    return [node.module, ...node.imports];
+                }
+                break;
 
             case ParseNodeType.ImportFromAs:
-                return this.visitImportFromAs(node as ImportFromAsNode);
+                if (this.visitImportFromAs(node)) {
+                    return [node.name, node.alias];
+                }
+                break;
 
             case ParseNodeType.Index:
-                return this.visitIndex(node as IndexExpressionNode);
+                if (this.visitIndex(node)) {
+                    return [node.baseExpression, node.items];
+                }
+                break;
 
             case ParseNodeType.IndexItems:
-                return this.visitIndexItems(node as IndexItemsNode);
+                if (this.visitIndexItems(node)) {
+                    return node.items;
+                }
+                break;
 
             case ParseNodeType.Ellipsis:
-                return this.visitEllipsis(node as EllipsisNode);
+                if (this.visitEllipsis(node)) {
+                    return [];
+                }
+                break;
 
             case ParseNodeType.Except:
-                return this.visitExcept(node as ExceptNode);
+                if (this.visitExcept(node)) {
+                    return [node.typeExpression, node.name, node.exceptSuite];
+                }
+                break;
 
             case ParseNodeType.For:
-                return this.visitFor(node as ForNode);
+                if (this.visitFor(node)) {
+                    return [node.targetExpression, node.iterableExpression, node.forSuite, node.elseSuite];
+                }
+                break;
 
             case ParseNodeType.FormatString:
-                return this.visitFormatString(node as FormatStringNode);
+                if (this.visitFormatString(node)) {
+                    return node.expressions;
+                }
+                break;
 
             case ParseNodeType.Function:
-                return this.visitFunction(node as FunctionNode);
+                if (this.visitFunction(node)) {
+                    return [...node.decorators, node.name, ...node.parameters,
+                        node.returnTypeAnnotation, node.suite];
+                }
+                break;
 
             case ParseNodeType.Global:
-                return this.visitGlobal(node as GlobalNode);
+                if (this.visitGlobal(node)) {
+                    return node.nameList;
+                }
+                break;
 
             case ParseNodeType.Lambda:
-                return this.visitLambda(node as LambdaNode);
+                if (this.visitLambda(node)) {
+                    return [...node.parameters, node.expression];
+                }
+                break;
 
             case ParseNodeType.List:
-                return this.visitList(node as ListNode);
+                if (this.visitList(node)) {
+                    return node.entries;
+                }
+                break;
 
             case ParseNodeType.ListComprehension:
-                return this.visitListComprehension(node as ListComprehensionNode);
+                if (this.visitListComprehension(node)) {
+                    return [node.expression, ...node.comprehensions];
+                }
+                break;
 
             case ParseNodeType.ListComprehensionFor:
-                return this.visitListComprehensionFor(node as ListComprehensionForNode);
+                if (this.visitListComprehensionFor(node)) {
+                    return [node.targetExpression, node.iterableExpression];
+                }
+                break;
 
             case ParseNodeType.ListComprehensionIf:
-                return this.visitListComprehensionIf(node as ListComprehensionIfNode);
+                if (this.visitListComprehensionIf(node)) {
+                    return [node.testExpression];
+                }
+                break;
 
             case ParseNodeType.MemberAccess:
-                return this.visitMemberAccess(node as MemberAccessExpressionNode);
+                if (this.visitMemberAccess(node)) {
+                    return [node.leftExpression, node.memberName];
+                }
+                break;
 
             case ParseNodeType.Module:
-                return this.visitModule(node as ModuleNode);
+                if (this.visitModule(node)) {
+                    return [...node.statements];
+                }
+                break;
 
             case ParseNodeType.ModuleName:
-                return this.visitModuleName(node as ModuleNameNode);
+                if (this.visitModuleName(node)) {
+                    return [];
+                }
+                break;
 
             case ParseNodeType.Name:
-                return this.visitName(node as NameNode);
+                if (this.visitName(node)) {
+                    return [];
+                }
+                break;
 
             case ParseNodeType.Nonlocal:
-                return this.visitNonlocal(node as NonlocalNode);
+                if (this.visitNonlocal(node)) {
+                    return node.nameList;
+                }
+                break;
 
             case ParseNodeType.Number:
-                return this.visitNumber(node as NumberNode);
+                if (this.visitNumber(node)) {
+                    return [];
+                }
+                break;
 
             case ParseNodeType.Parameter:
-                return this.visitParameter(node as ParameterNode);
+                if (this.visitParameter(node)) {
+                    return [node.name, node.typeAnnotation, node.defaultValue];
+                }
+                break;
 
             case ParseNodeType.Pass:
-                return this.visitPass(node as PassNode);
+                if (this.visitPass(node)) {
+                    return [];
+                }
+                break;
 
             case ParseNodeType.Raise:
-                return this.visitRaise(node as RaiseNode);
+                if (this.visitRaise(node)) {
+                    return [node.typeExpression, node.valueExpression, node.tracebackExpression];
+                }
+                break;
 
             case ParseNodeType.Return:
-                return this.visitReturn(node as ReturnNode);
+                if (this.visitReturn(node)) {
+                    return [node.returnExpression];
+                }
+                break;
 
             case ParseNodeType.Set:
-                return this.visitSet(node as SetNode);
+                if (this.visitSet(node)) {
+                    return node.entries;
+                }
+                break;
 
             case ParseNodeType.Slice:
-                return this.visitSlice(node as SliceExpressionNode);
+                if (this.visitSlice(node)) {
+                    return [node.startValue, node.endValue, node.stepValue];
+                }
+                break;
 
             case ParseNodeType.StatementList:
-                return this.visitStatementList(node as StatementListNode);
+                if (this.visitStatementList(node)) {
+                    return node.statements;
+                }
+                break;
 
             case ParseNodeType.String:
-                return this.visitString(node as StringNode);
+                if (this.visitString(node)) {
+                    return [];
+                }
+                break;
 
             case ParseNodeType.StringList:
-                return this.visitStringList(node as StringListNode);
+                if (this.visitStringList(node)) {
+                    return [node.typeAnnotation, ...node.strings];
+                }
+                break;
 
             case ParseNodeType.Suite:
-                return this.visitSuite(node as SuiteNode);
+                if (this.visitSuite(node)) {
+                    return [...node.statements];
+                }
+                break;
 
             case ParseNodeType.Tuple:
-                return this.visitTuple(node as TupleExpressionNode);
+                if (this.visitTuple(node)) {
+                    return node.expressions;
+                }
+                break;
 
             case ParseNodeType.Try:
-                return this.visitTry(node as TryNode);
+                if (this.visitTry(node)) {
+                    return [node.trySuite, ...node.exceptClauses, node.elseSuite, node.finallySuite];
+                }
+                break;
 
             case ParseNodeType.TypeAnnotation:
-                return this.visitTypeAnnotation(node as TypeAnnotationExpressionNode);
+                if (this.visitTypeAnnotation(node)) {
+                    return [node.valueExpression, node.typeAnnotation];
+                }
+                break;
 
             case ParseNodeType.UnaryOperation:
-                return this.visitUnaryOperation(node as UnaryExpressionNode);
+                if (this.visitUnaryOperation(node)) {
+                    return [node.expression];
+                }
+                break;
 
             case ParseNodeType.Unpack:
-                return this.visitUnpack(node as UnpackExpressionNode);
+                if (this.visitUnpack(node)) {
+                    return [node.expression];
+                }
+                break;
 
             case ParseNodeType.While:
-                return this.visitWhile(node as WhileNode);
+                if (this.visitWhile(node)) {
+                    return [node.testExpression, node.whileSuite, node.elseSuite];
+                }
+                break;
 
             case ParseNodeType.With:
-                return this.visitWith(node as WithNode);
+                if (this.visitWith(node)) {
+                    return [...node.withItems, node.suite];
+                }
+                break;
 
             case ParseNodeType.WithItem:
-                return this.visitWithItem(node as WithItemNode);
+                if (this.visitWithItem(node)) {
+                    return [node.expression, node.target];
+                }
+                break;
 
             case ParseNodeType.Yield:
-                return this.visitYield(node as YieldExpressionNode);
+                if (this.visitYield(node)) {
+                    return [node.expression];
+                }
+                break;
 
             case ParseNodeType.YieldFrom:
-                return this.visitYieldFrom(node as YieldFromExpressionNode);
+                if (this.visitYieldFrom(node)) {
+                    return [node.expression];
+                }
+                break;
 
-            case ParseNodeType.None:
             default:
                 assert.fail('Unexpected node type');
-                return true;
+                break;
         }
+
+        return [];
     }
 
     // Override these methods as necessary.

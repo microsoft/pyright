@@ -9,8 +9,7 @@
 */
 
 import { CompletionItem, CompletionItemKind, CompletionList,
-    MarkupKind,
-    TextEdit } from 'vscode-languageserver';
+    MarkupKind, TextEdit } from 'vscode-languageserver';
 
 import { ImportMap } from '../analyzer/analyzerFileInfo';
 import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
@@ -32,10 +31,10 @@ import { TextEditAction } from '../common/editAction';
 import { getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { StringUtils } from '../common/stringUtils';
+import { TextRange } from '../common/textRange';
 import { ErrorExpressionCategory, ErrorExpressionNode,
-    ExpressionNode, ImportFromAsNode, ImportFromNode,
-    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode,
-    ParseNode, StringListNode, SuiteNode  } from '../parser/parseNodes';
+    ExpressionNode, ImportFromNode, isExpressionNode, ModuleNameNode,
+    ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
 
@@ -230,7 +229,7 @@ export class CompletionProvider {
         // precendence.
         let errorNode: ParseNode | undefined = node;
         while (errorNode) {
-            if (errorNode instanceof ErrorExpressionNode) {
+            if (errorNode.nodeType === ParseNodeType.Error) {
                 break;
             }
 
@@ -242,50 +241,50 @@ export class CompletionProvider {
         let curNode = errorNode || node;
         while (true) {
             // Don't offer completions inside of a string node.
-            if (curNode instanceof StringListNode) {
+            if (curNode.nodeType === ParseNodeType.StringList) {
                 return undefined;
             }
 
-            if (curNode instanceof ModuleNameNode) {
+            if (curNode.nodeType === ParseNodeType.ModuleName) {
                 return this._getImportModuleCompletions(curNode);
             }
 
-            if (curNode instanceof ErrorExpressionNode) {
+            if (curNode.nodeType === ParseNodeType.Error) {
                 return this._getExpressionErrorCompletions(curNode, priorWord);
             }
 
-            if (curNode instanceof MemberAccessExpressionNode) {
+            if (curNode.nodeType === ParseNodeType.MemberAccess) {
                 return this._getMemberAccessCompletions(curNode.leftExpression, priorWord);
             }
 
-            if (curNode instanceof NameNode) {
+            if (curNode.nodeType === ParseNodeType.Name) {
                 // Are we within a "from X import Y as Z" statement and
                 // more specifically within the "Y"?
-                if (curNode.parent instanceof ImportFromAsNode) {
+                if (curNode.parent && curNode.parent.nodeType === ParseNodeType.ImportFromAs) {
                     const parentNode = curNode.parent.parent;
 
-                    if (parentNode instanceof ImportFromNode) {
+                    if (parentNode && parentNode.nodeType === ParseNodeType.ImportFrom) {
                         if (curNode.parent.name === curNode) {
                             return this._getImportFromCompletions(parentNode, priorWord);
                         } else {
                             return this._getImportFromCompletions(parentNode, '');
                         }
                     }
-                } else if (curNode.parent instanceof MemberAccessExpressionNode) {
+                } else if (curNode.parent && curNode.parent.nodeType === ParseNodeType.MemberAccess) {
                     return this._getMemberAccessCompletions(
                         curNode.parent.leftExpression, priorWord);
                 }
             }
 
-            if (curNode instanceof ImportFromNode) {
+            if (curNode.nodeType === ParseNodeType.ImportFrom) {
                 return this._getImportFromCompletions(curNode, priorWord);
             }
 
-            if (curNode instanceof ExpressionNode) {
+            if (isExpressionNode(curNode)) {
                 return this._getExpressionCompletions(curNode, priorWord);
             }
 
-            if (curNode instanceof SuiteNode || curNode instanceof ModuleNode) {
+            if (curNode.nodeType === ParseNodeType.Suite || curNode.nodeType === ParseNodeType.Module) {
                 return this._getStatementCompletions(curNode, priorWord);
             }
 
@@ -312,7 +311,7 @@ export class CompletionProvider {
         }
 
         // If we're in the middle of a token, we're not in a comment.
-        if (offset > token.start && offset < token.end) {
+        if (offset > token.start && offset < TextRange.getEnd(token)) {
             return false;
         }
 
@@ -342,7 +341,7 @@ export class CompletionProvider {
             }
 
             case ErrorExpressionCategory.MissingMemberAccessName: {
-                if (node.child instanceof ExpressionNode) {
+                if (node.child && isExpressionNode(node.child)) {
                     return this._getMemberAccessCompletions(node.child, priorWord);
                 }
                 break;
@@ -482,7 +481,7 @@ export class CompletionProvider {
 
         // Does an 'import from' statement already exist? If so, we'll reuse it.
         const importStatement = importStatements.mapByFilePath[filePath];
-        if (importStatement && importStatement.node instanceof ImportFromNode) {
+        if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
             return ImportStatementUtils.getTextEditsForAutoImportSymbolAddition(
                 symbolName, importStatement, this._parseResults);
         }
@@ -804,7 +803,9 @@ export class CompletionProvider {
 
         // If we're in the middle of a "from X import Y" statement, offer
         // the "import" keyword as a completion.
-        if (!node.hasTrailingDot && node.parent instanceof ImportFromNode && node.parent.missingImportKeyword) {
+        if (!node.hasTrailingDot && node.parent && node.parent.nodeType === ParseNodeType.ImportFrom &&
+                node.parent.missingImportKeyword) {
+
             const keyword = 'import';
             const completionItem = CompletionItem.create(keyword);
             completionItem.kind = CompletionItemKind.Keyword;

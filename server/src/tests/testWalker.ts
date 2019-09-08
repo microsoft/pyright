@@ -7,19 +7,20 @@
 import * as assert from 'assert';
 
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
-import { AssignmentNode, ParseNode, ParseNodeArray, StringListNode } from '../parser/parseNodes';
+import { TextRange } from '../common/textRange';
+import { ParseNode, ParseNodeArray, ParseNodeType, StringListNode } from '../parser/parseNodes';
 
 export class TestWalker extends ParseTreeWalker {
     constructor() {
         super();
     }
 
-    visitNode(node: ParseNode): boolean {
-        const children = node.getChildren();
+    visitNode(node: ParseNode) {
+        const children = super.visitNode(node);
         this._verifyParentChildLinks(node, children);
         this._verifyChildRanges(node, children);
 
-        return super.visitNode(node);
+        return children;
     }
 
     // Make sure that all of the children point to their parent.
@@ -44,13 +45,13 @@ export class TestWalker extends ParseTreeWalker {
 
                 // There are a few exceptions we need to deal with here. Comment
                 // annotations can occur outside of an assignment node's range.
-                if (node instanceof AssignmentNode) {
+                if (node.nodeType === ParseNodeType.Assignment) {
                     if (child === node.typeAnnotationComment) {
                         skipCheck = true;
                     }
                 }
 
-                if (node instanceof StringListNode) {
+                if (node.nodeType === ParseNodeType.StringList) {
                     if (child === node.typeAnnotation) {
                         skipCheck = true;
                     }
@@ -58,10 +59,10 @@ export class TestWalker extends ParseTreeWalker {
 
                 if (!skipCheck) {
                     // Make sure the child is contained within the parent.
-                    assert(child.start >= node.start && child.end <= node.end);
+                    assert(child.start >= node.start && TextRange.getEnd(child) <= TextRange.getEnd(node));
                     if (prevNode) {
                         // Make sure the child is after the previous child.
-                        assert(child.start >= prevNode.end);
+                        assert(child.start >= TextRange.getEnd(prevNode));
                     }
 
                     prevNode = child;

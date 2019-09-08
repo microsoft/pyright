@@ -13,7 +13,8 @@ import { ImportStatement, ImportStatementUtils } from '../analyzer/importStateme
 import { DiagnosticTextRange } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode } from '../parser/parseNodes';
+import { TextRange } from '../common/textRange';
+import { ImportAsNode, ImportFromAsNode, ImportFromNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 const _maxLineLength = 80;
@@ -99,11 +100,12 @@ export class ImportSorter {
             statementLimit = statements.length;
         }
 
+        const lastStatement = statements[statementLimit - 1].node;
         return {
             start: convertOffsetToPosition(
                 statements[0].node.start, this._parseResults.lines),
             end: convertOffsetToPosition(
-                statements[statementLimit - 1].node.end, this._parseResults.lines)
+                TextRange.getEnd(lastStatement), this._parseResults.lines)
         };
     }
 
@@ -128,7 +130,7 @@ export class ImportSorter {
                         statements[secondaryBlockStart].node.start,
                         this._parseResults.lines),
                     end: convertOffsetToPosition(
-                        statements[secondaryBlockLimit - 1].node.end,
+                        TextRange.getEnd(statements[secondaryBlockLimit - 1].node),
                         this._parseResults.lines)
                 },
                 replacementText: ''
@@ -154,7 +156,7 @@ export class ImportSorter {
             }
 
             let importLine: string;
-            if (statement.node instanceof ImportNode) {
+            if (statement.node.nodeType === ParseNodeType.Import) {
                 importLine = this._formatImportNode(statement.subnode!,
                     statement.moduleName);
             } else {

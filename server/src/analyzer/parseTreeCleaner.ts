@@ -28,8 +28,8 @@ export class ParseTreeCleanerWalker extends ParseTreeWalker {
         this.walk(this._parseTree);
     }
 
-    visitNode(node: ParseNode): boolean {
+    visitNode(node: ParseNode) {
         AnalyzerNodeInfo.cleanNodeAnalysisInfo(node);
-        return true;
+        return  super.visitNode(node);
     }
 }

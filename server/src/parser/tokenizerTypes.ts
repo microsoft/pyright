@@ -158,25 +158,29 @@ export enum StringTokenFlags {
     Unterminated = 0x1000
 }
 
-export class Comment extends TextRange {
+export class Comment {
     readonly value: string;
+    readonly range: TextRange;
 
     constructor(start: number, length: number, value: string) {
-        super(start, length);
+        this.range = { start, length };
         this.value = value;
     }
 }
 
-export class Token extends TextRange implements Token {
+export class Token implements TextRange {
     readonly type: TokenType;
 
     // Comments prior to the token.
+    readonly start: number;
+    readonly length: number;
     readonly comments?: Comment[];
 
     constructor(type: TokenType, start: number, length: number,
             comments: Comment[] | undefined) {
 
-        super(start, length);
+        this.start = start;
+        this.length = length;
         this.type = type;
         this.comments = comments;
     }

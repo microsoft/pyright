@@ -12,10 +12,7 @@
 * None within that scope.
 */
 
-import { ArgumentCategory, BinaryExpressionNode, CallExpressionNode, ConstantNode,
-    ExpressionNode, MemberAccessExpressionNode, NameNode,
-    TypeAnnotationExpressionNode,
-    UnaryExpressionNode } from '../parser/parseNodes';
+import { ArgumentCategory, ExpressionNode, ParseNodeType } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { ClassType, NeverType, NoneType, ObjectType, Type, TypeCategory, UnionType } from './types';
 import { TypeUtils } from './typeUtils';
@@ -102,9 +99,9 @@ export class TypeConstraint {
     // For now, we support only simple names and member access chains
     // that include only simple names (e.g. "A.B.C.D").
     static isSupportedExpression(expression: ExpressionNode) {
-        if (expression instanceof NameNode) {
+        if (expression.nodeType === ParseNodeType.Name) {
             return true;
-        } else if (expression instanceof MemberAccessExpressionNode) {
+        } else if (expression.nodeType === ParseNodeType.MemberAccess) {
             if (!this.isSupportedExpression(expression.leftExpression)) {
                 return false;
             }
@@ -122,12 +119,12 @@ export class TypeConstraint {
     private _doesExpressionMatchRecursive(expression1: ExpressionNode,
             expression2: ExpressionNode): boolean {
 
-        if (expression1 instanceof NameNode) {
-            if (expression2 instanceof NameNode) {
+        if (expression1.nodeType === ParseNodeType.Name) {
+            if (expression2.nodeType === ParseNodeType.Name) {
                 return expression1.nameToken.value === expression2.nameToken.value;
             }
-        } else if (expression1 instanceof MemberAccessExpressionNode) {
-            if (expression2 instanceof MemberAccessExpressionNode) {
+        } else if (expression1.nodeType === ParseNodeType.MemberAccess) {
+            if (expression2.nodeType === ParseNodeType.MemberAccess) {
                 return this._doesExpressionMatchRecursive(expression1.leftExpression, expression2.leftExpression) &&
                     this._doesExpressionMatchRecursive(expression1.memberName, expression2.memberName);
             }
@@ -145,7 +142,7 @@ export class TypeConstraintBuilder {
             typeEvaluator: (node: ExpressionNode) => Type):
                 ConditionalTypeConstraintResults | undefined {
 
-        if (testExpression instanceof BinaryExpressionNode) {
+        if (testExpression.nodeType === ParseNodeType.BinaryOperation) {
             const results: ConditionalTypeConstraintResults = {
                 ifConstraints: [],
                 elseConstraints: []
@@ -157,7 +154,7 @@ export class TypeConstraintBuilder {
                 // Look for "X is None" or "X is not None". These are commonly-used
                 // patterns used in control flow.
                 if (TypeConstraint.isSupportedExpression(testExpression.leftExpression)) {
-                    if (testExpression.rightExpression instanceof ConstantNode &&
+                    if (testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
                             testExpression.rightExpression.token.keywordType === KeywordType.None) {
 
                         const originalType = typeEvaluator(testExpression.leftExpression);
@@ -175,7 +172,7 @@ export class TypeConstraintBuilder {
                 }
 
                 // Look for "type(X) is Y" or "type(X) is not Y".
-                if (testExpression.leftExpression instanceof CallExpressionNode) {
+                if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
                     const callType = typeEvaluator(testExpression.leftExpression.leftExpression);
                     if (callType instanceof ClassType && callType.isBuiltIn() &&
                             callType.getClassName() === 'type' &&
@@ -242,7 +239,7 @@ export class TypeConstraintBuilder {
                 }
                 return results;
             }
-        } else if (testExpression instanceof UnaryExpressionNode) {
+        } else if (testExpression.nodeType === ParseNodeType.UnaryOperation) {
             if (testExpression.operator === OperatorType.Not) {
                 const constraints = this.buildTypeConstraintsForConditional(
                     testExpression.expression, typeEvaluator);
@@ -255,8 +252,8 @@ export class TypeConstraintBuilder {
                     };
                 }
             }
-        } else if (testExpression instanceof NameNode ||
-                testExpression instanceof MemberAccessExpressionNode) {
+        } else if (testExpression.nodeType === ParseNodeType.Name ||
+                testExpression.nodeType === ParseNodeType.MemberAccess) {
 
             if (TypeConstraint.isSupportedExpression(testExpression)) {
                 const originalType = typeEvaluator(testExpression);
@@ -269,8 +266,8 @@ export class TypeConstraintBuilder {
                     elseConstraints: [falseConstraint]
                 };
             }
-        } else if (testExpression instanceof CallExpressionNode) {
-            if (testExpression.leftExpression instanceof NameNode &&
+        } else if (testExpression.nodeType === ParseNodeType.Call) {
+            if (testExpression.leftExpression.nodeType === ParseNodeType.Name &&
                     testExpression.leftExpression.nameToken.value === 'isinstance' &&
                     testExpression.arguments.length === 2) {
 
@@ -329,7 +326,7 @@ export class TypeConstraintBuilder {
     static buildTypeConstraintForAssignment(targetNode: ExpressionNode,
             assignmentType: Type): TypeConstraint | undefined {
 
-        if (targetNode instanceof TypeAnnotationExpressionNode) {
+        if (targetNode.nodeType === ParseNodeType.TypeAnnotation) {
             if (TypeConstraint.isSupportedExpression(targetNode.valueExpression)) {
                 return new TypeConstraint(targetNode.valueExpression, assignmentType);
             }

@@ -18,9 +18,9 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { NameBindings, NameBindingType } from '../parser/nameBindings';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, ClassNode, DelNode,
     ExpressionNode, ForNode, FunctionNode, GlobalNode, ImportAsNode,
-    ImportFromAsNode, ImportFromNode, LambdaNode, ListNode, ModuleNameNode, ModuleNode,
-    NameNode, NonlocalNode, ParseNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnpackExpressionNode, WithNode } from '../parser/parseNodes';
+    ImportFromAsNode, ImportFromNode, LambdaNode, ModuleNameNode, ModuleNode,
+    NonlocalNode, ParseNode, ParseNodeArray, ParseNodeType, TypeAnnotationExpressionNode,
+    WithNode } from '../parser/parseNodes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeWalker } from './parseTreeWalker';
 
@@ -62,17 +62,12 @@ export class PostParseWalker extends ParseTreeWalker {
         return this._importedModules;
     }
 
-    visitNode(node: ParseNode): boolean {
-        const children = node.getChildren();
+    visitNode(node: ParseNode) {
+        const children = super.visitNode(node);
 
-        // Add the parent link to each of the child nodes.
-        children.forEach(child => {
-            if (child) {
-                child.parent = node;
-            }
-        });
+        this._addParentLinks(node, children);
 
-        return super.visitNode(node);
+        return children;
     }
 
     visitImportAs(node: ImportAsNode): boolean {
@@ -110,22 +105,17 @@ export class PostParseWalker extends ParseTreeWalker {
             this._addName(node.name.nameToken.value);
         }
 
-        return false;
+        return true;
     }
 
     visitWith(node: WithNode): boolean {
-        node.withItems.forEach(item => {
-            this.walk(item);
-        });
-
         node.withItems.forEach(item => {
             if (item.target) {
                 this._addPossibleTupleNamedTarget(item.target);
             }
         });
 
-        this.walk(node.suite);
-        return false;
+        return true;
     }
 
     visitFunction(node: FunctionNode): boolean {
@@ -154,6 +144,12 @@ export class PostParseWalker extends ParseTreeWalker {
             this.walk(node.suite);
         });
 
+        // Because we're returning false here, we need to
+        // call addParentLinks ourselves.
+        const children = [...node.decorators, node.name, ...node.parameters,
+            node.returnTypeAnnotation, node.suite];
+        this._addParentLinks(node, children);
+
         return false;
     }
 
@@ -170,6 +166,11 @@ export class PostParseWalker extends ParseTreeWalker {
             this.walkMultiple(node.arguments);
             this.walk(node.suite);
         });
+
+        // Because we're returning false here, we need to
+        // call addParentLinks ourselves.
+        const children = [...node.decorators, node.name, ...node.arguments, node.suite];
+        this._addParentLinks(node, children);
 
         return false;
     }
@@ -191,6 +192,11 @@ export class PostParseWalker extends ParseTreeWalker {
 
             this.walk(node.expression);
         });
+
+        // Because we're returning false here, we need to
+        // call addParentLinks ourselves.
+        const children = [...node.parameters, node.expression];
+        this._addParentLinks(node, children);
 
         return false;
     }
@@ -264,20 +270,29 @@ export class PostParseWalker extends ParseTreeWalker {
         return true;
     }
 
+    private _addParentLinks(parentNode: ParseNode, children: ParseNodeArray) {
+        // Add the parent link to each of the child nodes.
+        children.forEach(child => {
+            if (child) {
+                child.parent = parentNode;
+            }
+        });
+    }
+
     private _addPossibleTupleNamedTarget(node: ExpressionNode) {
-        if (node instanceof NameNode) {
+        if (node.nodeType === ParseNodeType.Name) {
             this._addName(node.nameToken.value);
-        } else if (node instanceof TupleExpressionNode) {
+        } else if (node.nodeType === ParseNodeType.Tuple) {
             node.expressions.forEach(expr => {
                 this._addPossibleTupleNamedTarget(expr);
             });
-        } else if (node instanceof ListNode) {
+        } else if (node.nodeType === ParseNodeType.List) {
             node.entries.forEach(expr => {
                 this._addPossibleTupleNamedTarget(expr);
             });
-        } else if (node instanceof TypeAnnotationExpressionNode) {
+        } else if (node.nodeType === ParseNodeType.TypeAnnotation) {
             this._addPossibleTupleNamedTarget(node.valueExpression);
-        } else if (node instanceof UnpackExpressionNode) {
+        } else if (node.nodeType === ParseNodeType.Unpack) {
             this._addPossibleTupleNamedTarget(node.expression);
         }
     }

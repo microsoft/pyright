@@ -15,6 +15,7 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { Symbol } from '../analyzer/symbol';
 import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
+import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
@@ -75,7 +76,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
                         path: this._filePath,
                         range: {
                             start: convertOffsetToPosition(node.start, this._parseResults.lines),
-                            end: convertOffsetToPosition(node.end, this._parseResults.lines)
+                            end: convertOffsetToPosition(TextRange.getEnd(node), this._parseResults.lines)
                         }
                     });
                 }

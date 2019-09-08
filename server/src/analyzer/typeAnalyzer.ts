@@ -17,16 +17,16 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
-    BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode, ConstantNode,
+    BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
     ContinueNode, DecoratorNode, DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode,
-    FormatStringNode, ForNode, FunctionNode, IfNode, ImportAsNode,
-    ImportFromNode, IndexExpressionNode, LambdaNode, ListComprehensionForNode,
-    ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNode, NameNode,
-    ParameterCategory, ParseNode, RaiseNode, ReturnNode, SliceExpressionNode,
-    StringListNode, StringNode, SuiteNode, TernaryExpressionNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
-    UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+    FormatStringNode, ForNode, FunctionNode, IfNode,
+    ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
+    ListComprehensionNode, MemberAccessExpressionNode, ModuleNode,
+    NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType,
+    RaiseNode, ReturnNode, SliceExpressionNode, StringListNode,
+    SuiteNode, TernaryExpressionNode, TryNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
+    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode  } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -288,7 +288,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             node: node.name,
             declaredType: decoratedType,
             path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
+            range: convertOffsetsToRange(node.name.start,
+                TextRange.getEnd(node.name), this._fileInfo.lines)
         };
 
         this._assignTypeToNameNode(node.name, decoratedType, declaration);
@@ -366,7 +367,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        node.parameters.forEach((param, index) => {
+        node.parameters.forEach((param: ParameterNode, index) => {
             let annotatedType: Type | undefined;
             let defaultValueType: Type | undefined;
 
@@ -386,7 +387,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
                 // of the specified type and 'None').
-                if (param.defaultValue instanceof ConstantNode) {
+                if (param.defaultValue && param.defaultValue.nodeType === ParseNodeType.Constant) {
                     if (param.defaultValue.token.keywordType === KeywordType.None) {
                         isNoneWithoutOptional = true;
 
@@ -514,7 +515,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         category: DeclarationCategory.Parameter,
                         node: paramNode,
                         path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(paramNode.start, paramNode.end, this._fileInfo.lines),
+                        range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
+                            this._fileInfo.lines),
                         declaredType: specializedParamType
                     };
                     assert(paramNode !== undefined && paramNode.name !== undefined);
@@ -542,7 +544,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             category: containingClassNode ? DeclarationCategory.Method : DeclarationCategory.Function,
             node: node.name,
             path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines),
+            range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
+                this._fileInfo.lines),
             declaredType: decoratedType
         };
         this._assignTypeToNameNode(node.name, decoratedType, declaration);
@@ -579,7 +582,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         category: DeclarationCategory.Parameter,
                         node: param,
                         path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(param.start, param.end, this._fileInfo.lines)
+                        range: convertOffsetsToRange(param.start, TextRange.getEnd(param),
+                            this._fileInfo.lines)
                     };
                     const paramType = UnknownType.create();
                     this._addTypeSourceToNameNode(param.name, paramType, declaration);
@@ -602,7 +606,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             functionType.getInferredReturnType().addSource(
                 returnType, AnalyzerNodeInfo.getTypeSourceId(node.expression));
 
-            this.walkChildren(node.expression);
+            // Walk the children.
+            this.walkMultiple([...node.parameters, node.expression]);
         });
 
         // Cache the function type.
@@ -684,7 +689,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // when complete.
         this._enterTemporaryScope(() => {
             node.comprehensions.forEach(compr => {
-                if (compr instanceof ListComprehensionForNode) {
+                if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
                     this.walk(compr.iterableExpression);
 
                     const iteratorType = this._getTypeOfExpression(compr.iterableExpression);
@@ -987,7 +992,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     category: DeclarationCategory.Variable,
                     node: node.name,
                     path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(node.name.start, node.name.end, this._fileInfo.lines)
+                    range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
+                        this._fileInfo.lines)
                 };
                 this._addNamedTargetToCurrentScope(node.name);
                 this._assignTypeToNameNode(node.name, exceptionType, declaration);
@@ -1119,7 +1125,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // If this is an enum, transform the type as required.
         let effectiveType = srcType;
-        if (node.leftExpression instanceof NameNode && !node.typeAnnotationComment) {
+        if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
             effectiveType = this._transformTypeForPossibleEnumClass(
                 node.leftExpression, effectiveType);
         }
@@ -1139,7 +1145,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Did the caller pass an optional assert message as a second parameter?
         // If so, strip it off and include only the test.
-        if (node.testExpression instanceof TupleExpressionNode) {
+        if (node.testExpression.nodeType === ParseNodeType.Tuple) {
             assertTestExpression = node.testExpression.expressions[0];
         }
 
@@ -1217,7 +1223,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitFormatString(node: FormatStringNode): boolean {
         node.expressions.forEach(formatExpr => {
-            this._getTypeOfExpression(formatExpr.expression,
+            this._getTypeOfExpression(formatExpr,
                 EvaluatorFlags.AllowForwardReferences);
         });
 
@@ -1261,7 +1267,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._markExpressionAccessed(expr);
             this._evaluateExpressionForDeletion(expr);
 
-            if (expr instanceof NameNode) {
+            if (expr.nodeType === ParseNodeType.Name) {
                 const symbolWithScope = this._currentScope.lookUpSymbolRecursive(expr.nameToken.value);
                 if (symbolWithScope) {
                     if (symbolWithScope.symbol.hasDeclarations()) {
@@ -1507,7 +1513,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let typeHintType = this._getTypeOfAnnotation(node.typeAnnotation);
 
         // If this is within an enum, transform the type.
-        if (node.valueExpression instanceof NameNode) {
+        if (node.valueExpression && node.valueExpression.nodeType === ParseNodeType.Name) {
             typeHintType = this._transformTypeForPossibleEnumClass(
                 node.valueExpression, typeHintType);
         }
@@ -1552,8 +1558,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         // Create a text range that covers the next statement through
                         // the end of the suite.
                         const start = node.statements[index + 1].start;
-                        const end = node.statements[node.statements.length - 1].end;
-                        this._addUnusedCode(new TextRange(start, end - start));
+                        const lastStatement = node.statements[node.statements.length - 1];
+                        const end = TextRange.getEnd(lastStatement);
+                        this._addUnusedCode({ start, length: end - start });
                     }
 
                     // Note that we already reported this so we don't do it again.
@@ -1572,7 +1579,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return;
         }
 
-        if (!(node.leftExpression instanceof NameNode) ||
+        if (node.leftExpression.nodeType !== ParseNodeType.Name ||
                 node.leftExpression.nameToken.value !== 'isinstance' ||
                 node.arguments.length !== 2) {
             return;
@@ -1687,7 +1694,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return false;
         }
 
-        if (node.leftExpression instanceof NameNode) {
+        if (node.leftExpression.nodeType === ParseNodeType.Name) {
             const assignedName = node.leftExpression.nameToken.value;
             let specialType: Type | undefined;
 
@@ -1754,14 +1761,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     node: node.leftExpression,
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.leftExpression.start,
-                        node.leftExpression.end, this._fileInfo.lines)
+                        TextRange.getEnd(node.leftExpression), this._fileInfo.lines)
                 };
                 this._assignTypeToNameNode(node.leftExpression, specialType, declaration);
                 this._updateExpressionTypeForNode(node.leftExpression, specialType);
                 return true;
             }
-        } else if (node.leftExpression instanceof TypeAnnotationExpressionNode &&
-                node.leftExpression.valueExpression instanceof NameNode) {
+        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+                node.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
 
             const nameNode = node.leftExpression.valueExpression;
             const assignedName = nameNode.nameToken.value;
@@ -1804,7 +1811,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     node: nameNode,
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(nameNode.start,
-                        nameNode.end, this._fileInfo.lines)
+                        TextRange.getEnd(nameNode), this._fileInfo.lines)
                 };
                 this._assignTypeToNameNode(nameNode, specialType, declaration);
                 this._updateExpressionTypeForNode(nameNode, specialType);
@@ -1869,7 +1876,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let declarationHandled = false;
 
-        if (target instanceof NameNode) {
+        if (target.nodeType === ParseNodeType.Name) {
             const name = target.nameToken;
             const declaration: Declaration = {
                 category: DeclarationCategory.Variable,
@@ -1877,7 +1884,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 isConstant: SymbolUtils.isConstantName(name.value),
                 path: this._fileInfo.filePath,
                 declaredType,
-                range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
+                range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
             };
 
             const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
@@ -1886,11 +1893,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
             AnalyzerNodeInfo.setDeclarations(target, [declaration]);
             declarationHandled = true;
-        } else if (target instanceof MemberAccessExpressionNode) {
+        } else if (target.nodeType === ParseNodeType.MemberAccess) {
             const targetNode = target.leftExpression;
 
             // Handle member accesses (e.g. self.x or cls.y).
-            if (targetNode instanceof NameNode) {
+            if (targetNode && targetNode.nodeType === ParseNodeType.Name) {
 
                 // Determine whether we're writing to a class or instance member.
                 const enclosingClassNode = ParseTreeUtils.getEnclosingClass(target);
@@ -2028,14 +2035,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (primaryDeclaration.node &&
                 primaryDeclaration.node.parent &&
                 primaryDeclaration.node.parent === classOrModuleNode &&
-                classOrModuleNode instanceof ClassNode) {
+                classOrModuleNode.nodeType === ParseNodeType.Class) {
 
             classOrModuleNode = ParseTreeUtils.getEnclosingClassOrModule(classOrModuleNode);
         }
 
         // If it's a class member, check whether it's a legal protected access.
         let isProtectedAccess = false;
-        if (classOrModuleNode instanceof ClassNode) {
+        if (classOrModuleNode && classOrModuleNode.nodeType === ParseNodeType.Class) {
             if (isProtectedName) {
                 const declarationClassType = AnalyzerNodeInfo.getExpressionType(classOrModuleNode);
                 if (declarationClassType && declarationClassType instanceof ClassType) {
@@ -2065,7 +2072,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     `'${ nameValue }' is protected and used outside of a derived class`,
                     node);
             } else {
-                const scopeName = classOrModuleNode instanceof ClassNode ?
+                const scopeName = classOrModuleNode.nodeType === ParseNodeType.Class ?
                     'class' : 'module';
 
                 this._addDiagnostic(this._fileInfo.diagnosticSettings.reportPrivateUsage,
@@ -2325,7 +2332,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             // Handle property setters and deleters.
-            if (decoratorNode.leftExpression instanceof MemberAccessExpressionNode) {
+            if (decoratorNode.leftExpression.nodeType === ParseNodeType.MemberAccess) {
                 const baseType = this._getTypeOfExpression(decoratorNode.leftExpression.leftExpression);
                 if (baseType instanceof PropertyType) {
                     const memberName = decoratorNode.leftExpression.memberName.nameToken.value;
@@ -2736,7 +2743,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     node: node.memberName,
                     isConstant,
                     path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(node.memberName.start, node.memberName.end, this._fileInfo.lines)
+                    range: convertOffsetsToRange(node.memberName.start,
+                        node.memberName.start + node.memberName.length,
+                        this._fileInfo.lines)
                 };
 
                 if (typeAnnotationNode) {
@@ -3021,7 +3030,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _markExpressionAccessed(target: ExpressionNode) {
-        if (target instanceof NameNode) {
+        if (target.nodeType === ParseNodeType.Name) {
             const nameValue = target.nameToken.value;
             const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
@@ -3032,14 +3041,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _assignTypeToExpression(target: ExpressionNode, srcType: Type, srcExpr: ExpressionNode): void {
-        if (target instanceof NameNode) {
+        if (target.nodeType === ParseNodeType.Name) {
             const name = target.nameToken;
             const declaration: Declaration = {
                 category: DeclarationCategory.Variable,
                 node: target,
                 isConstant: SymbolUtils.isConstantName(name.value),
                 path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
+                range: convertOffsetsToRange(name.start, TextRange.getEnd(name),
+                    this._fileInfo.lines)
             };
 
             // Handle '__all__' as a special case in the module scope.
@@ -3047,10 +3057,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // It's common for modules to include the expression
                 // __all__ = ['a', 'b', 'c']
                 // We will mark the symbols referenced by these strings as accessed.
-                if (srcExpr instanceof ListNode) {
+                if (srcExpr.nodeType === ParseNodeType.List) {
                     srcExpr.entries.forEach(entryExpr => {
-                        if (entryExpr instanceof StringListNode || entryExpr instanceof StringNode) {
-                            const symbolName = entryExpr.getValue();
+                        if (entryExpr.nodeType === ParseNodeType.StringList || entryExpr.nodeType === ParseNodeType.String) {
+                            const symbolName = entryExpr.nodeType === ParseNodeType.String ?
+                                entryExpr.value :
+                                entryExpr.strings.map(s => s.value).join('');
                             const symbolInScope = this._currentScope.lookUpSymbolRecursive(symbolName);
                             if (symbolInScope) {
                                 this._setSymbolAccessed(symbolInScope.symbol);
@@ -3065,11 +3077,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 target, srcType, srcExpr);
 
             this._assignTypeToNameNode(target, srcType, declaration, srcExpr);
-        } else if (target instanceof MemberAccessExpressionNode) {
+        } else if (target.nodeType === ParseNodeType.MemberAccess) {
             const targetNode = target.leftExpression;
 
             // Handle member accesses (e.g. self.x or cls.y).
-            if (targetNode instanceof NameNode) {
+            if (targetNode.nodeType === ParseNodeType.Name) {
                 // Determine whether we're writing to a class or instance member.
                 const enclosingClassNode = ParseTreeUtils.getEnclosingClass(target);
 
@@ -3092,7 +3104,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
             }
-        } else if (target instanceof TupleExpressionNode) {
+        } else if (target.nodeType === ParseNodeType.Tuple) {
             // Initialize the array of target types, one for each target.
             const targetTypes: Type[][] = new Array(target.expressions.length);
             for (let i = 0; i < target.expressions.length; i++) {
@@ -3113,7 +3125,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
 
                     const targetEndsWithUnpackOperator = target.expressions.length > 0 &&
-                        target.expressions[target.expressions.length - 1] instanceof UnpackExpressionNode;
+                        target.expressions[target.expressions.length - 1].nodeType === ParseNodeType.Unpack;
 
                     if (targetEndsWithUnpackOperator) {
                         if (entryCount >= target.expressions.length) {
@@ -3169,7 +3181,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const targetType = typeList.length === 0 ? UnknownType.create() : TypeUtils.combineTypes(typeList);
                 this._assignTypeToExpression(expr, targetType, srcExpr);
             });
-        } else if (target instanceof TypeAnnotationExpressionNode) {
+        } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
             const typeHintType = this._getTypeOfAnnotation(target.typeAnnotation);
             const diagAddendum = new DiagnosticAddendum();
             if (TypeUtils.canAssignType(typeHintType, srcType, diagAddendum)) {
@@ -3177,15 +3189,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             this._assignTypeToExpression(target.valueExpression, srcType, srcExpr);
-        } else if (target instanceof UnpackExpressionNode) {
-            if (target.expression instanceof NameNode) {
+        } else if (target.nodeType === ParseNodeType.Unpack) {
+            if (target.expression.nodeType === ParseNodeType.Name) {
                 const name = target.expression.nameToken;
                 const declaration: Declaration = {
                     category: DeclarationCategory.Variable,
                     node: target.expression,
                     isConstant: SymbolUtils.isConstantName(name.value),
                     path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(name.start, name.end, this._fileInfo.lines)
+                    range: convertOffsetsToRange(name.start, TextRange.getEnd(name),
+                        this._fileInfo.lines)
                 };
 
                 if (!srcType.isAny()) {
@@ -3199,7 +3212,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
                 this._assignTypeToNameNode(target.expression, srcType, declaration, srcExpr);
             }
-        } else if (target instanceof ListNode) {
+        } else if (target.nodeType === ParseNodeType.List) {
             target.entries.forEach(entry => {
                 this._assignTypeToExpression(entry, UnknownType.create(), srcExpr);
             });
@@ -3210,20 +3223,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _addNamedTargetToCurrentScope(node: ExpressionNode) {
-        if (node instanceof NameNode) {
+        if (node.nodeType === ParseNodeType.Name) {
             const symbol = this._currentScope.addSymbol(node.nameToken.value, true);
 
             // Mark the symbol as accessed. These symbols are not persisted
             // between analysis passes, so we never have an opportunity to
             // mark them as accessed.
             symbol.setIsAcccessed();
-        } else if (node instanceof TypeAnnotationExpressionNode) {
+        } else if (node.nodeType === ParseNodeType.TypeAnnotation) {
             this._addNamedTargetToCurrentScope(node.valueExpression);
-        } else if (node instanceof TupleExpressionNode) {
+        } else if (node.nodeType === ParseNodeType.Tuple) {
             node.expressions.forEach(expr => {
                 this._addNamedTargetToCurrentScope(expr);
             });
-        } else if (node instanceof ListNode) {
+        } else if (node.nodeType === ParseNodeType.List) {
             node.entries.forEach(expr => {
                 this._addNamedTargetToCurrentScope(expr);
             });
@@ -3292,9 +3305,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // Is this module ever accessed?
                 if (targetSymbol && !targetSymbol.isAccessed()) {
                     const multipartName = nameParts.map(np => np.nameToken.value).join('.');
-                    const textRange = new TextRange(nameParts[0].start, nameParts[0].length);
+                    const textRange = { start: nameParts[0].start, length: nameParts[0].length };
                     if (nameParts.length > 1) {
-                        textRange.extend(nameParts[nameParts.length - 1]);
+                        TextRange.extend(textRange, nameParts[nameParts.length - 1]);
                     }
                     this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
                         `'${ multipartName }' is not accessed`, textRange);
@@ -3581,6 +3594,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const newScope = AnalyzerNodeInfo.getScope(node);
         assert(newScope !== undefined);
 
+        // Clear the defaultValueInitializerExpression because we want
+        // to allow calls within lambdas that are used to initialize
+        // parameters.
+        const wasDefaultValueInitizer = this._defaultValueInitializerExpression;
+        this._defaultValueInitializerExpression = false;
+
         let prevParent: Scope | undefined;
         if (!newScope!.isIndependentlyExecutable()) {
             // Temporary reparent the scope in case it is contained
@@ -3607,6 +3626,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (prevParent) {
             newScope!.setParent(prevParent);
         }
+
+        this._defaultValueInitializerExpression = wasDefaultValueInitizer;
 
         return newScope!;
     }

@@ -16,7 +16,8 @@ import { ClassType, FunctionType, ObjectType,
 import { ClassMemberLookupFlags, TypeUtils } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
-import { CallExpressionNode, ParseNode } from '../parser/parseNodes';
+import { TextRange } from '../common/textRange';
+import { CallExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface ParamInfo {
@@ -74,7 +75,7 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        if (offset > callNode.end) {
+        if (offset > TextRange.getEnd(callNode)) {
             return undefined;
         }
 
@@ -87,7 +88,7 @@ export class SignatureHelpProvider {
         let activeParameter = 0;
         const args = callNode.arguments;
         for (let i = args.length - 1; i >= 0; i--) {
-            if (offset > args[i].valueExpression.end) {
+            if (offset > TextRange.getEnd(args[i].valueExpression)) {
                 activeParameter = i + 1;
                 break;
             }
@@ -193,7 +194,7 @@ export class SignatureHelpProvider {
         let curNode: ParseNode | undefined = node;
 
         while (curNode !== undefined) {
-            if (curNode instanceof CallExpressionNode) {
+            if (curNode.nodeType === ParseNodeType.Call) {
                 return curNode;
             }
 

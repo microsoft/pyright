@@ -22,24 +22,19 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
-import { ArgumentCategory, ArgumentNode, AssertNode,
-    AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode,
-    BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
-    ConstantNode, ContinueNode, DecoratorNode, DelNode,
-    DictionaryEntryNode, DictionaryExpandEntryNode, DictionaryKeyEntryNode,
-    DictionaryNode, EllipsisNode, ErrorExpressionCategory, ErrorExpressionNode,
-    ExceptNode, ExpressionNode, FormatStringExpression, FormatStringNode, ForNode, FunctionNode,
-    GlobalNode, IfNode, ImportAsNode, ImportFromAsNode, ImportFromNode,
-    ImportNode, IndexExpressionNode, IndexItemsNode, LambdaNode,
-    ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionIterNode, ListComprehensionNode,
-    ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
-    NumberNode, ParameterCategory, ParameterNode, ParseNode, PassNode, RaiseNode,
-    ReturnNode, SetNode, SliceExpressionNode, StatementListNode,
-    StatementNode, StringListNode, StringNode, SuiteNode, TernaryExpressionNode,
-    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithItemNode, WithNode,
-    YieldExpressionNode,
-    YieldFromExpressionNode } from './parseNodes';
+import { ArgumentCategory, ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
+    AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
+    ConstantNode, ContinueNode, DecoratorNode, DelNode, DictionaryEntryNode, DictionaryExpandEntryNode,
+    DictionaryKeyEntryNode, DictionaryNode, EllipsisNode, ErrorExpressionCategory, ErrorExpressionNode,
+    ExceptNode, ExpressionNode, extendRange, FormatStringNode, ForNode, FunctionNode, GlobalNode, IfNode,
+    ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode, IndexItemsNode,
+    LambdaNode, ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionIterNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode,
+    NonlocalNode, NumberNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType,
+    PassNode, RaiseNode, ReturnNode, SetNode, SliceExpressionNode, StatementListNode, StatementNode,
+    StringListNode, StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithItemNode,
+    WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
 import { StringTokenUtils, UnescapedString } from './stringTokenUtils';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
@@ -97,7 +92,7 @@ export class Parser {
                 parseOptions, diagSink, cancelToken);
         });
 
-        const moduleNode = new ModuleNode(new TextRange(0, fileContents.length));
+        const moduleNode = ModuleNode.create({ start: 0, length: fileContents.length });
 
         timingStats.parseFileTime.timeOperation(() => {
             while (!this._atEof()) {
@@ -243,15 +238,15 @@ export class Parser {
 
         const test = this._parseTestExpression();
         const suite = this._parseSuite();
-        const ifNode = new IfNode(ifOrElifToken, test, suite);
+        const ifNode = IfNode.create(ifOrElifToken, test, suite);
 
         if (this._consumeTokenIfKeyword(KeywordType.Else)) {
             ifNode.elseSuite = this._parseSuite();
-            ifNode.extend(ifNode.elseSuite);
+            extendRange(ifNode, ifNode.elseSuite);
         } else if (this._peekKeywordType() === KeywordType.Elif) {
             // Recursively handle an "elif" statement.
             ifNode.elseSuite = this._parseIfStatement(KeywordType.Elif);
-            ifNode.extend(ifNode.elseSuite);
+            extendRange(ifNode, ifNode.elseSuite);
         }
 
         return ifNode;
@@ -274,7 +269,7 @@ export class Parser {
     // suite: ':' (simple_stmt | NEWLINE INDENT stmt+ DEDENT)
     private _parseSuite(): SuiteNode {
         const nextToken = this._peekToken();
-        const suite = new SuiteNode(nextToken);
+        const suite = SuiteNode.create(nextToken);
 
         if (!this._consumeTokenIfType(TokenType.Colon)) {
             this._addError('Expected ":"', nextToken);
@@ -320,7 +315,7 @@ export class Parser {
         }
 
         if (suite.statements.length > 0) {
-            suite.extend(suite.statements);
+            extendRange(suite, suite.statements[suite.statements.length - 1]);
         }
 
         return suite;
@@ -339,7 +334,7 @@ export class Parser {
         if (!this._consumeTokenIfKeyword(KeywordType.In)) {
             seqExpr = this._handleExpressionParseError(
                 ErrorExpressionCategory.MissingIn, 'Expected "in"');
-            forSuite = new SuiteNode(this._peekToken());
+            forSuite = SuiteNode.create(this._peekToken());
         } else {
             seqExpr = this._parseTestListAsExpression(
                 ErrorExpressionCategory.MissingExpression, 'Expected expression after "in"');
@@ -350,20 +345,22 @@ export class Parser {
             }
         }
 
-        const forNode = new ForNode(forToken, targetExpr, seqExpr, forSuite);
+        const forNode = ForNode.create(forToken, targetExpr, seqExpr, forSuite);
         forNode.elseSuite = elseSuite;
-        forNode.extend(elseSuite);
+        if (elseSuite) {
+            extendRange(forNode, elseSuite);
+        }
 
         if (asyncToken) {
             forNode.isAsync = true;
-            forNode.extend(asyncToken);
+            extendRange(forNode, asyncToken);
         }
 
         return forNode;
     }
 
     // comp_iter: comp_for | comp_if
-    private _tryParseListComprehension<T extends ParseNode>(target: T): ListComprehensionNode<T> | undefined {
+    private _tryParseListComprehension(target: ParseNode): ListComprehensionNode | undefined {
         const compFor = this._tryParseCompForStatement();
 
         if (!compFor) {
@@ -379,9 +376,11 @@ export class Parser {
             compList.push(compIter);
         }
 
-        const listCompNode = new ListComprehensionNode(target);
+        const listCompNode = ListComprehensionNode.create(target);
         listCompNode.comprehensions = compList;
-        listCompNode.extend(compList);
+        if (compList.length > 0) {
+            extendRange(listCompNode, compList[compList.length - 1]);
+        }
         return listCompNode;
     }
 
@@ -416,7 +415,7 @@ export class Parser {
             seqExpr = this._parseOrTest();
         }
 
-        const compForNode = new ListComprehensionForNode(asyncToken || forToken,
+        const compForNode = ListComprehensionForNode.create(asyncToken || forToken,
             targetExpr, seqExpr);
 
         if (asyncToken) {
@@ -436,7 +435,7 @@ export class Parser {
         const ifToken = this._getKeywordToken(KeywordType.If);
         const ifExpr = this._tryParseLambdaExpression() || this._parseOrTest();
 
-        const compIfNode = new ListComprehensionIfNode(ifToken, ifExpr);
+        const compIfNode = ListComprehensionIfNode.create(ifToken, ifExpr);
 
         return compIfNode;
     }
@@ -445,15 +444,14 @@ export class Parser {
     private _parseWhileStatement(): WhileNode {
         const whileToken = this._getKeywordToken(KeywordType.While);
 
-        const whileNode = new WhileNode(whileToken);
-
-        whileNode.testExpression = this._parseTestExpression();
-        whileNode.whileSuite = this._parseLoopSuite();
+        const whileNode = WhileNode.create(whileToken,
+            this._parseTestExpression(),
+            this._parseLoopSuite());
 
         if (this._consumeTokenIfKeyword(KeywordType.Else)) {
             whileNode.elseSuite = this._parseSuite();
+            extendRange(whileNode, whileNode.elseSuite);
         }
-        whileNode.extend(whileNode.elseSuite || whileNode.whileSuite);
 
         return whileNode;
     }
@@ -467,7 +465,7 @@ export class Parser {
     private _parseTryStatement(): TryNode {
         const tryToken = this._getKeywordToken(KeywordType.Try);
         const trySuite = this._parseSuite();
-        const tryNode = new TryNode(tryToken, trySuite);
+        const tryNode = TryNode.create(tryToken, trySuite);
         let sawCatchAllExcept = false;
 
         while (true) {
@@ -502,26 +500,28 @@ export class Parser {
             }
 
             const exceptSuite = this._parseSuite();
-            const exceptNode = new ExceptNode(exceptToken, exceptSuite);
+            const exceptNode = ExceptNode.create(exceptToken, exceptSuite);
             exceptNode.typeExpression = typeExpr;
             if (symbolName) {
-                exceptNode.name = new NameNode(symbolName);
+                exceptNode.name = NameNode.create(symbolName);
             }
 
             tryNode.exceptClauses.push(exceptNode);
         }
-        tryNode.extend(tryNode.exceptClauses);
+        if (tryNode.exceptClauses.length > 0) {
+            extendRange(tryNode, tryNode.exceptClauses[tryNode.exceptClauses.length - 1]);
+        }
 
         if (tryNode.exceptClauses.length > 0) {
             if (this._consumeTokenIfKeyword(KeywordType.Else)) {
                 tryNode.elseSuite = this._parseSuite();
-                tryNode.extend(tryNode.elseSuite);
+                extendRange(tryNode, tryNode.elseSuite);
             }
         }
 
         if (this._consumeTokenIfKeyword(KeywordType.Finally)) {
             tryNode.finallySuite = this._parseSuite();
-            tryNode.extend(tryNode.finallySuite);
+            extendRange(tryNode, tryNode.finallySuite);
         }
 
         return tryNode;
@@ -557,21 +557,21 @@ export class Parser {
 
         const suite = this._parseSuite();
 
-        const functionNode = new FunctionNode(defToken, new NameNode(nameToken), suite);
+        const functionNode = FunctionNode.create(defToken, NameNode.create(nameToken), suite);
         if (asyncToken) {
             functionNode.isAsync = true;
-            functionNode.extend(asyncToken);
+            extendRange(functionNode, asyncToken);
         }
         functionNode.parameters = paramList;
         if (decorators) {
             functionNode.decorators = decorators;
             if (decorators.length > 0) {
-                functionNode.extend(decorators[0]);
+                extendRange(functionNode, decorators[0]);
             }
         }
         if (returnType) {
             functionNode.returnTypeAnnotation = returnType;
-            functionNode.extend(returnType);
+            extendRange(functionNode, returnType);
         }
 
         return functionNode;
@@ -681,7 +681,7 @@ export class Parser {
         const paramName = this._getTokenIfIdentifier();
         if (!paramName) {
             if (starCount === 1) {
-                const paramNode = new ParameterNode(firstToken, ParameterCategory.VarArgList);
+                const paramNode = ParameterNode.create(firstToken, ParameterCategory.VarArgList);
                 return paramNode;
             }
             this._addError('Expected parameter name', this._peekToken());
@@ -693,22 +693,22 @@ export class Parser {
         } else if (starCount === 2) {
             paramType = ParameterCategory.VarArgDictionary;
         }
-        const paramNode = new ParameterNode(firstToken, paramType);
+        const paramNode = ParameterNode.create(firstToken, paramType);
         if (paramName) {
-            paramNode.name = new NameNode(paramName);
+            paramNode.name = NameNode.create(paramName);
+            extendRange(paramNode, paramName);
         }
-        paramNode.extend(paramName);
 
         if (allowAnnotations && this._consumeTokenIfType(TokenType.Colon)) {
             this._parseTypeAnnotation(() => {
                 paramNode.typeAnnotation = this._parseTestExpression();
-                paramNode.extend(paramNode.typeAnnotation);
+                extendRange(paramNode, paramNode.typeAnnotation);
             });
         }
 
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
             paramNode.defaultValue = this._parseTestExpression();
-            paramNode.extend(paramNode.defaultValue);
+            extendRange(paramNode, paramNode.defaultValue);
 
             if (starCount > 0) {
                 this._addError(`Parameter with '*' or '**' cannot have default value`,
@@ -733,10 +733,10 @@ export class Parser {
         }
 
         const withSuite = this._parseSuite();
-        const withNode = new WithNode(withToken, withSuite);
+        const withNode = WithNode.create(withToken, withSuite);
         if (asyncToken) {
             withNode.isAsync = true;
-            withNode.extend(asyncToken);
+            extendRange(withNode, asyncToken);
         }
         withNode.withItems = withItemList;
         return withNode;
@@ -745,11 +745,11 @@ export class Parser {
     // with_item: test ['as' expr]
     private _parseWithItem(): WithItemNode {
         const expr = this._parseTestExpression();
-        const itemNode = new WithItemNode(expr);
+        const itemNode = WithItemNode.create(expr);
 
         if (this._consumeTokenIfKeyword(KeywordType.As)) {
             itemNode.target = this._parseExpression(false);
-            itemNode.extend(itemNode.target);
+            extendRange(itemNode, itemNode.target);
         }
 
         return itemNode;
@@ -799,18 +799,18 @@ export class Parser {
             const namePart = this._getTokenIfIdentifier();
             if (!namePart) {
                 this._addError('Expected decorator name', this._peekToken());
-                callNameExpr = new ErrorExpressionNode(
+                callNameExpr = ErrorExpressionNode.create(
                     this._peekToken(),
                     ErrorExpressionCategory.MissingDecoratorCallName);
                 break;
             }
 
-            const namePartNode = new NameNode(namePart);
+            const namePartNode = NameNode.create(namePart);
 
             if (!callNameExpr) {
                 callNameExpr = namePartNode;
             } else {
-                callNameExpr = new MemberAccessExpressionNode(callNameExpr, namePartNode);
+                callNameExpr = MemberAccessExpressionNode.create(callNameExpr, namePartNode);
             }
 
             if (!this._consumeTokenIfType(TokenType.Dot)) {
@@ -818,7 +818,7 @@ export class Parser {
             }
         }
 
-        const decoratorNode = new DecoratorNode(atOperator, callNameExpr);
+        const decoratorNode = DecoratorNode.create(atOperator, callNameExpr);
 
         if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
             decoratorNode.arguments = this._parseArgList();
@@ -827,7 +827,7 @@ export class Parser {
             if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
                 this._addError('Expected ")"', this._peekToken());
             } else {
-                decoratorNode.extend(nextToken);
+                extendRange(decoratorNode, nextToken);
             }
         }
 
@@ -860,12 +860,12 @@ export class Parser {
 
         const suite = this._parseSuite();
 
-        const classNode = new ClassNode(classToken, new NameNode(nameToken), suite);
+        const classNode = ClassNode.create(classToken, NameNode.create(nameToken), suite);
         classNode.arguments = argList;
         if (decorators) {
             classNode.decorators = decorators;
             if (decorators.length > 0) {
-                classNode.extend(decorators[0]);
+                extendRange(classNode, decorators[0]);
             }
         }
 
@@ -873,7 +873,7 @@ export class Parser {
     }
 
     private _parsePassStatement(): PassNode {
-        return new PassNode(this._getKeywordToken(KeywordType.Pass));
+        return PassNode.create(this._getKeywordToken(KeywordType.Pass));
     }
 
     private _parseBreakStatement(): BreakNode {
@@ -884,7 +884,7 @@ export class Parser {
                 breakToken);
         }
 
-        return new BreakNode(breakToken);
+        return BreakNode.create(breakToken);
     }
 
     private _parseContinueStatement(): ContinueNode {
@@ -898,21 +898,21 @@ export class Parser {
                 continueToken);
         }
 
-        return new ContinueNode(continueToken);
+        return ContinueNode.create(continueToken);
     }
 
     // return_stmt: 'return' [testlist]
     private _parseReturnStatement(): ReturnNode {
         const returnToken = this._getKeywordToken(KeywordType.Return);
 
-        const returnNode = new ReturnNode(returnToken);
+        const returnNode = ReturnNode.create(returnToken);
 
         if (!this._isNextTokenNeverExpression()) {
             const returnExpr = this._parseTestListAsExpression(
                 ErrorExpressionCategory.MissingExpression,
                 'Expected expression after "return"');
             returnNode.returnExpression = returnExpr;
-            returnNode.extend(returnExpr);
+            extendRange(returnNode, returnExpr);
         }
 
         return returnNode;
@@ -926,7 +926,7 @@ export class Parser {
         const fromToken = this._getKeywordToken(KeywordType.From);
 
         const modName = this._parseDottedModuleName(true);
-        const importFromNode = new ImportFromNode(fromToken, modName);
+        const importFromNode = ImportFromNode.create(fromToken, modName);
 
         // Handle imports from __future__ specially because they can
         // change the way we interpret the rest of the file.
@@ -941,12 +941,12 @@ export class Parser {
                 importFromNode.missingImportKeyword = true;
             }
         } else {
-            importFromNode.extend(possibleInputToken);
+            extendRange(importFromNode, possibleInputToken);
 
             // Look for "*" token.
             const possibleStarToken = this._peekToken();
             if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
-                importFromNode.extend(possibleStarToken);
+                extendRange(importFromNode, possibleStarToken);
                 importFromNode.isWildcardImport = true;
             } else {
                 const inParen = this._consumeTokenIfType(TokenType.OpenParenthesis);
@@ -957,20 +957,20 @@ export class Parser {
                         break;
                     }
 
-                    const importFromAsNode = new ImportFromAsNode(new NameNode(importName));
+                    const importFromAsNode = ImportFromAsNode.create(NameNode.create(importName));
 
                     if (this._consumeTokenIfKeyword(KeywordType.As)) {
                         const aliasName = this._getTokenIfIdentifier();
                         if (!aliasName) {
                             this._addError('Expected alias symbol name', this._peekToken());
                         } else {
-                            importFromAsNode.alias = new NameNode(aliasName);
-                            importFromAsNode.extend(aliasName);
+                            importFromAsNode.alias = NameNode.create(aliasName);
+                            extendRange(importFromAsNode, aliasName);
                         }
                     }
 
                     importFromNode.imports.push(importFromAsNode);
-                    importFromNode.extend(importFromAsNode);
+                    extendRange(importFromNode, importFromAsNode);
 
                     if (isFutureImport) {
                         // Add the future import to the map.
@@ -993,7 +993,7 @@ export class Parser {
                     if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
                         this._addError('Expected ")"', this._peekToken());
                     } else {
-                        importFromNode.extend(nextToken);
+                        extendRange(importFromNode, nextToken);
                     }
                 }
             }
@@ -1008,17 +1008,17 @@ export class Parser {
     private _parseImportStatement(): ImportNode {
         const importToken = this._getKeywordToken(KeywordType.Import);
 
-        const importNode = new ImportNode(importToken);
+        const importNode = ImportNode.create(importToken);
 
         while (true) {
             const modName = this._parseDottedModuleName();
-            const importAsNode = new ImportAsNode(modName);
+            const importAsNode = ImportAsNode.create(modName);
 
             if (this._consumeTokenIfKeyword(KeywordType.As)) {
                 const aliasToken = this._getTokenIfIdentifier();
                 if (aliasToken) {
-                    importAsNode.alias = new NameNode(aliasToken);
-                    importAsNode.extend(importAsNode.alias);
+                    importAsNode.alias = NameNode.create(aliasToken);
+                    extendRange(importAsNode, importAsNode.alias);
                 } else {
                     this._addError('Expected identifier after "as"', this._peekToken());
                 }
@@ -1031,7 +1031,9 @@ export class Parser {
             }
         }
 
-        importNode.extend(importNode.list);
+        if (importNode.list.length > 0) {
+            extendRange(importNode, importNode.list[importNode.list.length - 1]);
+        }
 
         return importNode;
     }
@@ -1039,7 +1041,7 @@ export class Parser {
     // ('.' | '...')* dotted_name | ('.' | '...')+
     // dotted_name: NAME ('.' NAME)*
     private _parseDottedModuleName(allowJustDots = false): ModuleNameNode {
-        const moduleNameNode = new ModuleNameNode(this._peekToken());
+        const moduleNameNode = ModuleNameNode.create(this._peekToken());
 
         while (true) {
             if (this._consumeTokenIfType(TokenType.Ellipsis)) {
@@ -1061,8 +1063,8 @@ export class Parser {
                 break;
             }
 
-            moduleNameNode.nameParts.push(new NameNode(identifier));
-            moduleNameNode.extend(identifier);
+            moduleNameNode.nameParts.push(NameNode.create(identifier));
+            extendRange(moduleNameNode, identifier);
 
             const nextToken = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.Dot)) {
@@ -1070,7 +1072,7 @@ export class Parser {
             }
 
             // Extend the module name to include the dot.
-            moduleNameNode.extend(nextToken);
+            extendRange(moduleNameNode, nextToken);
         }
 
         return moduleNameNode;
@@ -1079,18 +1081,22 @@ export class Parser {
     private _parseGlobalStatement(): GlobalNode {
         const globalToken = this._getKeywordToken(KeywordType.Global);
 
-        const globalNode = new GlobalNode(globalToken);
+        const globalNode = GlobalNode.create(globalToken);
         globalNode.nameList = this._parseNameList();
-        globalNode.extend(globalNode.nameList);
+        if (globalNode.nameList.length > 0) {
+            extendRange(globalNode, globalNode.nameList[globalNode.nameList.length - 1]);
+        }
         return globalNode;
     }
 
     private _parseNonlocalStatement(): NonlocalNode {
         const nonlocalToken = this._getKeywordToken(KeywordType.Nonlocal);
 
-        const nonlocalNode = new NonlocalNode(nonlocalToken);
+        const nonlocalNode = NonlocalNode.create(nonlocalToken);
         nonlocalNode.nameList = this._parseNameList();
-        nonlocalNode.extend(nonlocalNode.nameList);
+        if (nonlocalNode.nameList.length > 0) {
+            extendRange(nonlocalNode, nonlocalNode.nameList[nonlocalNode.nameList.length - 1]);
+        }
         return nonlocalNode;
     }
 
@@ -1104,7 +1110,7 @@ export class Parser {
                 break;
             }
 
-            nameList.push(new NameNode(name));
+            nameList.push(NameNode.create(name));
 
             if (!this._consumeTokenIfType(TokenType.Comma)) {
                 break;
@@ -1119,23 +1125,23 @@ export class Parser {
     private _parseRaiseStatement(): RaiseNode {
         const raiseToken = this._getKeywordToken(KeywordType.Raise);
 
-        const raiseNode = new RaiseNode(raiseToken);
+        const raiseNode = RaiseNode.create(raiseToken);
         if (!this._isNextTokenNeverExpression()) {
             raiseNode.typeExpression = this._parseTestExpression();
-            raiseNode.extend(raiseNode.typeExpression);
+            extendRange(raiseNode, raiseNode.typeExpression);
 
             if (this._consumeTokenIfKeyword(KeywordType.From)) {
                 raiseNode.valueExpression = this._parseTestExpression();
-                raiseNode.extend(raiseNode.valueExpression);
+                extendRange(raiseNode, raiseNode.valueExpression);
             } else {
                 if (this._consumeTokenIfType(TokenType.Comma)) {
                     // Handle the Python 2.x variant
                     raiseNode.valueExpression = this._parseTestExpression();
-                    raiseNode.extend(raiseNode.valueExpression);
+                    extendRange(raiseNode, raiseNode.valueExpression);
 
                     if (this._consumeTokenIfType(TokenType.Comma)) {
                         raiseNode.tracebackExpression = this._parseTestExpression();
-                        raiseNode.extend(raiseNode.tracebackExpression);
+                        extendRange(raiseNode, raiseNode.tracebackExpression);
                     }
                 }
             }
@@ -1149,12 +1155,12 @@ export class Parser {
         const assertToken = this._getKeywordToken(KeywordType.Assert);
 
         const expr = this._parseTestExpression();
-        const assertNode = new AssertNode(assertToken, expr);
+        const assertNode = AssertNode.create(assertToken, expr);
 
         if (this._consumeTokenIfType(TokenType.Comma)) {
             const exceptionExpr = this._parseTestExpression();
             assertNode.exceptionExpression = exceptionExpr;
-            assertNode.extend(exceptionExpr);
+            extendRange(assertNode, exceptionExpr);
         }
 
         return assertNode;
@@ -1168,9 +1174,11 @@ export class Parser {
         if (!exprListResult.parseError && exprListResult.list.length === 0) {
             this._addError('Expected expression after "del"', this._peekToken());
         }
-        const delNode = new DelNode(delToken);
+        const delNode = DelNode.create(delToken);
         delNode.expressions = exprListResult.list;
-        delNode.extend(delNode.expressions);
+        if (delNode.expressions.length > 0) {
+            extendRange(delNode, delNode.expressions[delNode.expressions.length - 1]);
+        }
         return delNode;
     }
 
@@ -1186,13 +1194,13 @@ export class Parser {
                     `Use of 'yield from' requires Python 3.3 or newer`,
                     nextToken);
             }
-            return new YieldFromExpressionNode(yieldToken, this._parseTestExpression());
+            return YieldFromExpressionNode.create(yieldToken, this._parseTestExpression());
         }
 
         const exprListResult = this._parseTestExpressionList();
         const exprList = this._makeExpressionOrTuple(exprListResult);
 
-        return new YieldExpressionNode(yieldToken, exprList);
+        return YieldExpressionNode.create(yieldToken, exprList);
     }
 
     private _tryParseYieldExpression(): YieldExpressionNode | YieldFromExpressionNode | undefined {
@@ -1205,7 +1213,7 @@ export class Parser {
 
     // simple_stmt: small_stmt (';' small_stmt)* [';'] NEWLINE
     private _parseSimpleStatement(): StatementListNode {
-        const statement = new StatementListNode(this._peekToken());
+        const statement = StatementListNode.create(this._peekToken());
 
         while (true) {
             // Swallow invalid tokens to make sure we make forward progress.
@@ -1219,9 +1227,9 @@ export class Parser {
 
             const smallStatement = this._parseSmallStatement();
             statement.statements.push(smallStatement);
-            statement.extend(smallStatement);
+            extendRange(statement, smallStatement);
 
-            if (smallStatement instanceof ErrorExpressionNode) {
+            if (smallStatement.nodeType === ParseNodeType.Error) {
                 // No need to log an error here. We assume that
                 // it was already logged by _parseSmallStatement.
                 break;
@@ -1303,9 +1311,11 @@ export class Parser {
         const tupleStartRange: TextRange = exprListResult.list.length > 0 ?
             exprListResult.list[0] : this._peekToken(-1);
 
-        const tupleNode = new TupleExpressionNode(tupleStartRange);
+        const tupleNode = TupleExpressionNode.create(tupleStartRange);
         tupleNode.expressions = exprListResult.list;
-        tupleNode.extend(exprListResult.list);
+        if (exprListResult.list.length > 0) {
+            extendRange(tupleNode, exprListResult.list[exprListResult.list.length - 1]);
+        }
 
         return tupleNode;
     }
@@ -1353,7 +1363,7 @@ export class Parser {
             // Make sure that we don't have more than one star expression in the list.
             let sawStar = false;
             for (const expr of exprListResult.list) {
-                if (expr instanceof UnpackExpressionNode) {
+                if (expr.nodeType === ParseNodeType.Unpack) {
                     if (sawStar) {
                         this._addError('Only one unpack operation allowed in list', expr);
                         break;
@@ -1373,7 +1383,7 @@ export class Parser {
         const startToken = this._peekToken();
 
         if (allowUnpack && this._consumeTokenIfOperator(OperatorType.Multiply)) {
-            return new UnpackExpressionNode(startToken, this._parseExpression(false));
+            return UnpackExpressionNode.create(startToken, this._parseExpression(false));
         }
 
         return this._parseBitwiseOrExpression();
@@ -1395,7 +1405,7 @@ export class Parser {
         }
 
         const ifExpr = this._parseOrTest();
-        if (ifExpr instanceof ErrorExpressionNode) {
+        if (ifExpr.nodeType === ParseNodeType.Error) {
             return ifExpr;
         }
 
@@ -1404,7 +1414,7 @@ export class Parser {
         }
 
         const testExpr = this._parseOrTest();
-        if (testExpr instanceof ErrorExpressionNode) {
+        if (testExpr.nodeType === ParseNodeType.Error) {
             return testExpr;
         }
 
@@ -1414,23 +1424,23 @@ export class Parser {
         }
 
         const elseExpr = this._parseTestExpression();
-        if (elseExpr instanceof ErrorExpressionNode) {
+        if (elseExpr.nodeType === ParseNodeType.Error) {
             return elseExpr;
         }
 
-        return new TernaryExpressionNode(ifExpr, testExpr, elseExpr);
+        return TernaryExpressionNode.create(ifExpr, testExpr, elseExpr);
     }
 
     // or_test: and_test ('or' and_test)*
     private _parseOrTest(): ExpressionNode {
         let leftExpr = this._parseAndTest();
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
         while (this._consumeTokenIfKeyword(KeywordType.Or)) {
             const rightExpr = this._parseAndTest();
-            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.Or);
+            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.Or);
         }
 
         return leftExpr;
@@ -1439,13 +1449,13 @@ export class Parser {
     // and_test: not_test ('and' not_test)*
     private _parseAndTest(): ExpressionNode {
         let leftExpr = this._parseNotTest();
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
         while (this._consumeTokenIfKeyword(KeywordType.And)) {
             const rightExpr = this._parseNotTest();
-            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.And);
+            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.And);
         }
 
         return leftExpr;
@@ -1453,9 +1463,10 @@ export class Parser {
 
     // not_test: 'not' not_test | comparison
     private _parseNotTest(): ExpressionNode {
+        const notToken = this._peekToken();
         if (this._consumeTokenIfKeyword(KeywordType.Not)) {
             const notExpr = this._parseNotTest();
-            return new UnaryExpressionNode(notExpr, OperatorType.Not);
+            return UnaryExpressionNode.create(notToken, notExpr, OperatorType.Not);
         }
 
         return this._parseComparison();
@@ -1465,7 +1476,7 @@ export class Parser {
     // comp_op: '<'|'>'|'=='|'>='|'<='|'<>'|'!='|'in'|'not' 'in'|'is'|'is' 'not'
     private _parseComparison(): ExpressionNode {
         let leftExpr = this._parseBitwiseOrExpression();
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
@@ -1498,7 +1509,7 @@ export class Parser {
             }
 
             const rightExpr = this._parseBitwiseOrExpression();
-            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, comparisonOperator);
+            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, comparisonOperator);
         }
 
         return leftExpr;
@@ -1507,13 +1518,13 @@ export class Parser {
     // expr: xor_expr ('|' xor_expr)*
     private _parseBitwiseOrExpression(): ExpressionNode {
         let leftExpr = this._parseBitwiseXorExpression();
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
         while (this._consumeTokenIfOperator(OperatorType.BitwiseOr)) {
             const rightExpr = this._parseBitwiseXorExpression();
-            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.BitwiseOr);
+            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.BitwiseOr);
         }
 
         return leftExpr;
@@ -1522,13 +1533,13 @@ export class Parser {
     // xor_expr: and_expr ('^' and_expr)*
     private _parseBitwiseXorExpression(): ExpressionNode {
         let leftExpr = this._parseBitwiseAndExpression();
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
         while (this._consumeTokenIfOperator(OperatorType.BitwiseXor)) {
             const rightExpr = this._parseBitwiseAndExpression();
-            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.BitwiseXor);
+            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.BitwiseXor);
         }
 
         return leftExpr;
@@ -1537,13 +1548,13 @@ export class Parser {
     // and_expr: shift_expr ('&' shift_expr)*
     private _parseBitwiseAndExpression(): ExpressionNode {
         let leftExpr = this._parseShiftExpression();
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
         while (this._consumeTokenIfOperator(OperatorType.BitwiseAnd)) {
             const rightExpr = this._parseShiftExpression();
-            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.BitwiseAnd);
+            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.BitwiseAnd);
         }
 
         return leftExpr;
@@ -1552,7 +1563,7 @@ export class Parser {
     // shift_expr: arith_expr (('<<'|'>>') arith_expr)*
     private _parseShiftExpression(): ExpressionNode {
         let leftExpr = this._parseAirthmeticExpression();
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
@@ -1560,7 +1571,7 @@ export class Parser {
         while (nextOperator === OperatorType.LeftShift || nextOperator === OperatorType.RightShift) {
             this._getNextToken();
             const rightExpr = this._parseAirthmeticExpression();
-            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, nextOperator);
+            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, nextOperator);
             nextOperator = this._peekOperatorType();
         }
 
@@ -1570,7 +1581,7 @@ export class Parser {
     // arith_expr: term (('+'|'-') term)*
     private _parseAirthmeticExpression(): ExpressionNode {
         let leftExpr = this._parseAirthmeticTerm();
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
@@ -1578,11 +1589,11 @@ export class Parser {
         while (nextOperator === OperatorType.Add || nextOperator === OperatorType.Subtract) {
             this._getNextToken();
             const rightExpr = this._parseAirthmeticTerm();
-            if (rightExpr instanceof ErrorExpressionNode) {
+            if (rightExpr.nodeType === ParseNodeType.Error) {
                 return rightExpr;
             }
 
-            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, nextOperator);
+            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, nextOperator);
             nextOperator = this._peekOperatorType();
         }
 
@@ -1592,7 +1603,7 @@ export class Parser {
     // term: factor (('*'|'@'|'/'|'%'|'//') factor)*
     private _parseAirthmeticTerm(): ExpressionNode {
         let leftExpr = this._parseAirthmeticFactor();
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
@@ -1604,7 +1615,7 @@ export class Parser {
                 nextOperator === OperatorType.FloorDivide) {
             this._getNextToken();
             const rightExpr = this._parseAirthmeticFactor();
-            leftExpr = new BinaryExpressionNode(leftExpr, rightExpr, nextOperator);
+            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, nextOperator);
             nextOperator = this._peekOperatorType();
         }
 
@@ -1614,23 +1625,24 @@ export class Parser {
     // factor: ('+'|'-'|'~') factor | power
     // power: atom_expr ['**' factor]
     private _parseAirthmeticFactor(): ExpressionNode {
+        const nextToken = this._peekToken();
         const nextOperator = this._peekOperatorType();
         if (nextOperator === OperatorType.Add ||
                 nextOperator === OperatorType.Subtract ||
                 nextOperator === OperatorType.BitwiseInvert) {
             this._getNextToken();
             const expression = this._parseAirthmeticFactor();
-            return new UnaryExpressionNode(expression, nextOperator);
+            return UnaryExpressionNode.create(nextToken, expression, nextOperator);
         }
 
         const leftExpr = this._parseAtomExpression();
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
         if (this._consumeTokenIfOperator(OperatorType.Power)) {
             const rightExpr = this._parseAirthmeticFactor();
-            return new BinaryExpressionNode(leftExpr, rightExpr, OperatorType.Power);
+            return BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.Power);
         }
 
         return leftExpr;
@@ -1650,7 +1662,7 @@ export class Parser {
         }
 
         let atomExpression = this._parseAtom();
-        if (atomExpression instanceof ErrorExpressionNode) {
+        if (atomExpression.nodeType === ParseNodeType.Error) {
             return atomExpression;
         }
 
@@ -1661,9 +1673,11 @@ export class Parser {
             // Is it a function call?
             if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
                 const argList = this._parseArgList();
-                const callNode = new CallExpressionNode(atomExpression);
+                const callNode = CallExpressionNode.create(atomExpression);
                 callNode.arguments = argList;
-                callNode.extend(argList);
+                if (argList.length > 0) {
+                    extendRange(callNode, argList[argList.length - 1]);
+                }
 
                 const nextToken = this._peekToken();
                 if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
@@ -1675,10 +1689,10 @@ export class Parser {
 
                     // Extend the node's range to include the rest of the line.
                     // This helps the signatureHelpProvider.
-                    callNode.extend(this._peekToken());
+                    extendRange(callNode, this._peekToken());
                     return callNode;
                 } else {
-                    callNode.extend(nextToken);
+                    extendRange(callNode, nextToken);
                 }
 
                 atomExpression = callNode;
@@ -1686,14 +1700,14 @@ export class Parser {
                 // Is it an index operator?
                 const indexExpr = this._parseSubscriptList();
                 let expressions = [indexExpr];
-                if (indexExpr instanceof TupleExpressionNode) {
+                if (indexExpr.nodeType === ParseNodeType.Tuple) {
                     expressions = indexExpr.expressions;
                 }
 
                 const closingToken = this._peekToken();
-                const indexItemsNode = new IndexItemsNode(nextToken, closingToken, expressions);
-                const indexNode = new IndexExpressionNode(atomExpression, indexItemsNode);
-                indexNode.extend(indexNode);
+                const indexItemsNode = IndexItemsNode.create(nextToken, closingToken, expressions);
+                const indexNode = IndexExpressionNode.create(atomExpression, indexItemsNode);
+                extendRange(indexNode, indexNode);
 
                 if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
                     return this._handleExpressionParseError(
@@ -1710,15 +1724,15 @@ export class Parser {
                         ErrorExpressionCategory.MissingMemberAccessName,
                         'Expected member name after "."', atomExpression);
                 }
-                atomExpression = new MemberAccessExpressionNode(
-                        atomExpression, new NameNode(memberName));
+                atomExpression = MemberAccessExpressionNode.create(
+                        atomExpression, NameNode.create(memberName));
             } else {
                 break;
             }
         }
 
         if (awaitToken) {
-            return new AwaitExpressionNode(awaitToken, atomExpression);
+            return AwaitExpressionNode.create(awaitToken, atomExpression);
         }
 
         return atomExpression;
@@ -1779,11 +1793,14 @@ export class Parser {
             return sliceExpressions[0]!;
         }
 
-        const sliceNode = new SliceExpressionNode(firstToken);
+        const sliceNode = SliceExpressionNode.create(firstToken);
         sliceNode.startValue = sliceExpressions[0];
         sliceNode.endValue = sliceExpressions[1];
         sliceNode.stepValue = sliceExpressions[2];
-        sliceNode.extend(sliceExpressions[2] || sliceExpressions[1] || sliceExpressions[0]);
+        const extension = sliceExpressions[2] || sliceExpressions[1] || sliceExpressions[0];
+        if (extension) {
+            extendRange(sliceNode, extension);
+        }
 
         return sliceNode;
     }
@@ -1841,7 +1858,7 @@ export class Parser {
                 const nameExpr = valueExpr;
                 valueExpr = this._parseTestExpression();
 
-                if (nameExpr instanceof NameNode) {
+                if (nameExpr.nodeType === ParseNodeType.Name) {
                     nameIdentifier = nameExpr.nameToken;
                 } else {
                     this._addError('Expected parameter name', nameExpr);
@@ -1854,9 +1871,9 @@ export class Parser {
             }
         }
 
-        const argNode = new ArgumentNode(firstToken, valueExpr, argType);
+        const argNode = ArgumentNode.create(firstToken, valueExpr, argType);
         if (nameIdentifier) {
-            argNode.name = new NameNode(nameIdentifier);
+            argNode.name = NameNode.create(nameIdentifier);
         }
 
         return argNode;
@@ -1870,15 +1887,15 @@ export class Parser {
         const nextToken = this._peekToken();
 
         if (nextToken.type === TokenType.Ellipsis) {
-            return new EllipsisNode(this._getNextToken());
+            return EllipsisNode.create(this._getNextToken());
         }
 
         if (nextToken.type === TokenType.Number) {
-            return new NumberNode(this._getNextToken() as NumberToken);
+            return NumberNode.create(this._getNextToken() as NumberToken);
         }
 
         if (nextToken.type === TokenType.Identifier) {
-            return new NameNode(this._getNextToken() as IdentifierToken);
+            return NameNode.create(this._getNextToken() as IdentifierToken);
         }
 
         if (nextToken.type === TokenType.String) {
@@ -1899,13 +1916,13 @@ export class Parser {
                     keywordToken.keywordType === KeywordType.True ||
                     keywordToken.keywordType === KeywordType.Debug ||
                     keywordToken.keywordType === KeywordType.None) {
-                return new ConstantNode(this._getNextToken() as KeywordToken);
+                return ConstantNode.create(this._getNextToken() as KeywordToken);
             }
 
             // Make an identifier out of the keyword.
             const keywordAsIdentifier = this._getTokenIfIdentifier();
             if (keywordAsIdentifier) {
-                return new NameNode(keywordAsIdentifier);
+                return NameNode.create(keywordAsIdentifier);
             }
         }
 
@@ -1919,10 +1936,10 @@ export class Parser {
     // child node can be passed to help the completion provider determine
     // what to do.
     private _handleExpressionParseError(category: ErrorExpressionCategory,
-            errorMsg: string, childNode?: ParseNode): ErrorExpressionNode {
+            errorMsg: string, childNode?: ExpressionNode): ErrorExpressionNode {
 
         this._addError(errorMsg, this._peekToken());
-        const expr = new ErrorExpressionNode(this._peekToken(), category, childNode);
+        const expr = ErrorExpressionNode.create(this._peekToken(), category, childNode);
         this._consumeTokensUntilType(TokenType.NewLine);
         return expr;
     }
@@ -1944,7 +1961,7 @@ export class Parser {
             testExpr = this._tryParseLambdaExpression(false) || this._parseOrTest();
         }
 
-        const lambdaNode = new LambdaNode(labmdaToken, testExpr);
+        const lambdaNode = LambdaNode.create(labmdaToken, testExpr);
         lambdaNode.parameters = argList;
         return lambdaNode;
     }
@@ -1970,7 +1987,7 @@ export class Parser {
                     ErrorExpressionCategory.MissingTupleCloseParen,
                     'Expected ")"');
             } else {
-                yieldExpr.extend(this._getNextToken());
+                extendRange(yieldExpr, this._getNextToken());
             }
 
             return yieldExpr;
@@ -1984,7 +2001,7 @@ export class Parser {
                 ErrorExpressionCategory.MissingTupleCloseParen,
                 'Expected ")"');
         } else {
-            tupleOrExpression.extend(this._getNextToken());
+            extendRange(tupleOrExpression, this._getNextToken());
         }
 
         return tupleOrExpression;
@@ -2004,9 +2021,11 @@ export class Parser {
                 'Expected "]"');
         }
 
-        const listAtom = new ListNode(startBracket);
-        listAtom.extend(closeBracket);
-        listAtom.extend(exprListResult.list);
+        const listAtom = ListNode.create(startBracket);
+        extendRange(listAtom, closeBracket);
+        if (exprListResult.list.length > 0) {
+            extendRange(listAtom, exprListResult.list[exprListResult.list.length - 1]);
+        }
         listAtom.entries = exprListResult.list;
         return listAtom;
     }
@@ -2064,14 +2083,14 @@ export class Parser {
             }
 
             if (keyExpression && valueExpression) {
-                if (keyExpression instanceof UnpackExpressionNode) {
+                if (keyExpression.nodeType === ParseNodeType.Unpack) {
                     this._addError('Unpack operation not allowed in dictionaries', keyExpression);
                 }
 
                 if (isSet) {
                     this._addError('Key/value pairs are not allowed within a set', valueExpression);
                 } else {
-                    const keyEntryNode = new DictionaryKeyEntryNode(keyExpression, valueExpression);
+                    const keyEntryNode = DictionaryKeyEntryNode.create(keyExpression, valueExpression);
                     let dictEntry: DictionaryEntryNode = keyEntryNode;
                     const listComp = this._tryParseListComprehension(keyEntryNode);
                     if (listComp) {
@@ -2085,7 +2104,7 @@ export class Parser {
                 if (isSet) {
                     this._addError('Unpack operator not allowed within a set', doubleStarExpression);
                 } else {
-                    const listEntryNode = new DictionaryExpandEntryNode(doubleStarExpression);
+                    const listEntryNode = DictionaryExpandEntryNode.create(doubleStarExpression);
                     let expandEntryNode: DictionaryEntryNode = listEntryNode;
                     const listComp = this._tryParseListComprehension(listEntryNode);
                     if (listComp) {
@@ -2129,16 +2148,24 @@ export class Parser {
         }
 
         if (isSet) {
-            const setAtom = new SetNode(startBrace);
-            setAtom.extend(closeCurlyBrace);
-            setAtom.extend(setEntries);
+            const setAtom = SetNode.create(startBrace);
+            if (closeCurlyBrace) {
+                extendRange(setAtom, closeCurlyBrace);
+            }
+            if (setEntries.length > 0) {
+                extendRange(setAtom, setEntries[setEntries.length - 1]);
+            }
             setAtom.entries = setEntries;
             return setAtom;
         }
 
-        const dictionaryAtom = new DictionaryNode(startBrace);
-        dictionaryAtom.extend(closeCurlyBrace);
-        dictionaryAtom.extend(dictionaryEntries);
+        const dictionaryAtom = DictionaryNode.create(startBrace);
+        if (closeCurlyBrace) {
+            extendRange(dictionaryAtom, closeCurlyBrace);
+        }
+        if (dictionaryEntries.length > 0) {
+            extendRange(dictionaryAtom, dictionaryEntries[dictionaryEntries.length - 1]);
+        }
         dictionaryAtom.entries = dictionaryEntries;
         return dictionaryAtom;
     }
@@ -2157,7 +2184,7 @@ export class Parser {
             }
 
             const expr = parser();
-            if (expr instanceof ErrorExpressionNode) {
+            if (expr.nodeType === ParseNodeType.Error) {
                 parseError = expr;
                 break;
             }
@@ -2189,7 +2216,7 @@ export class Parser {
         let leftExpr = this._parseTestOrStarListAsExpression();
         let annotationExpr: ExpressionNode | undefined;
 
-        if (leftExpr instanceof ErrorExpressionNode) {
+        if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
 
@@ -2197,7 +2224,7 @@ export class Parser {
         if (this._consumeTokenIfType(TokenType.Colon)) {
             this._parseTypeAnnotation(() => {
                 annotationExpr = this._parseTestExpression();
-                leftExpr = new TypeAnnotationExpressionNode(leftExpr, annotationExpr);
+                leftExpr = TypeAnnotationExpressionNode.create(leftExpr, annotationExpr);
 
                 if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
                     this._addError('Type annotations for variables requires Python 3.6 or newer',
@@ -2210,7 +2237,7 @@ export class Parser {
             }
 
             const rightExpr = this._parseTestExpression();
-            return new AssignmentNode(leftExpr, rightExpr);
+            return AssignmentNode.create(leftExpr, rightExpr);
         }
 
         // Is this a simple assignment?
@@ -2225,7 +2252,7 @@ export class Parser {
                 this._parseTestListAsExpression(
                     ErrorExpressionCategory.MissingExpression,
                     'Expected expression to the right of operator');
-            return new AugmentedAssignmentExpressionNode(leftExpr, rightExpr, operatorToken.operatorType);
+            return AugmentedAssignmentExpressionNode.create(leftExpr, rightExpr, operatorToken.operatorType);
         }
 
         return leftExpr;
@@ -2240,25 +2267,25 @@ export class Parser {
                 'Expected expression to the right of "="');
         }
 
-        if (rightExpr instanceof ErrorExpressionNode) {
+        if (rightExpr.nodeType === ParseNodeType.Error) {
             return rightExpr;
         }
 
         // Recurse until we've consumed the entire chain.
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
             rightExpr = this._parseChainAssignments(rightExpr);
-            if (rightExpr instanceof ErrorExpressionNode) {
+            if (rightExpr.nodeType === ParseNodeType.Error) {
                 return rightExpr;
             }
         }
 
-        const assignmentNode = new AssignmentNode(leftExpr, rightExpr);
+        const assignmentNode = AssignmentNode.create(leftExpr, rightExpr);
 
         // Look for a type annotation comment at the end of the line.
         const typeAnnotationComment = this._getTypeAnnotationComment();
         if (typeAnnotationComment) {
             assignmentNode.typeAnnotationComment = typeAnnotationComment;
-            assignmentNode.extend(assignmentNode.typeAnnotationComment);
+            extendRange(assignmentNode, assignmentNode.typeAnnotationComment);
         }
 
         return assignmentNode;
@@ -2301,7 +2328,7 @@ export class Parser {
     private _makeStringNode(stringToken: StringToken): StringNode {
         const unescapedResult = StringTokenUtils.getUnescapedString(stringToken);
         this._reportStringTokenErrors(stringToken, unescapedResult);
-        return new StringNode(stringToken, unescapedResult.value, unescapedResult.unescapeErrors.length > 0);
+        return StringNode.create(stringToken, unescapedResult.value, unescapedResult.unescapeErrors.length > 0);
     }
 
     private _getTypeAnnotationComment(): ExpressionNode | undefined {
@@ -2312,11 +2339,12 @@ export class Parser {
         const curToken = this._tokenizerOutput!.tokens.getItemAt(this._tokenIndex - 1);
         const nextToken = this._tokenizerOutput!.tokens.getItemAt(this._tokenIndex);
 
-        if (curToken.end === nextToken.start) {
+        if (curToken.start + curToken.length === nextToken.start) {
             return undefined;
         }
 
-        const interTokenContents = this._fileContents!.substring(curToken.end, nextToken.start);
+        const interTokenContents = this._fileContents!.substring(
+            curToken.start + curToken.length, nextToken.start);
         const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
         const match = interTokenContents.match(commentRegEx);
         if (!match) {
@@ -2325,11 +2353,11 @@ export class Parser {
 
         // Synthesize a string token and StringNode.
         const typeString = match[2];
-        const tokenOffset = curToken.end + match[1].length;
+        const tokenOffset = curToken.start + curToken.length + match[1].length;
         const stringToken = new StringToken(tokenOffset,
             typeString.length, StringTokenFlags.None, typeString, 0, undefined);
         const stringNode = this._makeStringNode(stringToken);
-        const stringListNode = new StringListNode([stringNode]);
+        const stringListNode = StringListNode.create([stringNode]);
 
         const parser = new Parser();
         const parseResults = parser.parseTextExpression(this._fileContents!,
@@ -2352,7 +2380,7 @@ export class Parser {
         const unescapedResult = StringTokenUtils.getUnescapedString(stringToken);
         this._reportStringTokenErrors(stringToken, unescapedResult);
 
-        const formatExpressions: FormatStringExpression[] = [];
+        const formatExpressions: ExpressionNode[] = [];
 
         for (const segment of unescapedResult.formatStringSegments) {
             if (segment.isExpression) {
@@ -2372,20 +2400,18 @@ export class Parser {
                         stringToken.start) || stringToken.start;
                     const textRangeEnd = (diag.range ?
                         convertPositionToOffset(diag.range.end, this._tokenizerOutput!.lines) :
-                        stringToken.end) || stringToken.end;
-                    const textRange = new TextRange(textRangeStart, textRangeEnd - textRangeStart);
+                        stringToken.start + stringToken.length) || (stringToken.start + stringToken.length);
+                    const textRange = { start: textRangeStart, length: textRangeEnd - textRangeStart };
                     this._addError(diag.message, textRange);
                 });
 
                 if (parseResults.parseTree) {
-                    formatExpressions.push({
-                        expression: parseResults.parseTree
-                    });
+                    formatExpressions.push(parseResults.parseTree);
                 }
             }
         }
 
-        return new FormatStringNode(stringToken, unescapedResult.value,
+        return FormatStringNode.create(stringToken, unescapedResult.value,
             unescapedResult.unescapeErrors.length > 0, formatExpressions);
     }
 
@@ -2470,7 +2496,7 @@ export class Parser {
             }
         }
 
-        const stringNode = new StringListNode(stringList);
+        const stringNode = StringListNode.create(stringList);
 
         // If we're parsing a type annotation, parse the contents of the string.
         if (this._isParsingTypeAnnotation) {
@@ -2630,10 +2656,10 @@ export class Parser {
         if (nextToken.type === TokenType.Keyword) {
             const keywordType = this._peekKeywordType();
             if (!disallowedKeywords.find(type => type === keywordType)) {
-                const keywordText = this._fileContents!.substring(nextToken.start, nextToken.end);
+                const keywordText = this._fileContents!.substr(nextToken.start, nextToken.length);
                 this._getNextToken();
                 return new IdentifierToken(nextToken.start,
-                    nextToken.end - nextToken.start, keywordText, nextToken.comments);
+                    nextToken.length, keywordText, nextToken.comments);
             }
         }
 
@@ -2699,6 +2725,7 @@ export class Parser {
     private _addError(message: string, range: TextRange) {
         assert(range !== undefined);
         this._diagSink.addError(message,
-            convertOffsetsToRange(range.start, range.end, this._tokenizerOutput!.lines));
+            convertOffsetsToRange(range.start, range.start + range.length,
+            this._tokenizerOutput!.lines));
     }
 }

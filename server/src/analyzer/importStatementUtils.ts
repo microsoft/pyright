@@ -11,9 +11,9 @@
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
-import { AssignmentNode, ImportAsNode, ImportFromAsNode, ImportFromNode,
-    ImportNode, ModuleNameNode, ModuleNode, NameNode, StatementListNode,
-    StringListNode } from '../parser/parseNodes';
+import { TextRange } from '../common/textRange';
+import { ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode,
+    ModuleNameNode, ModuleNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ImportResult, ImportType } from './importResult';
@@ -46,13 +46,13 @@ export class ImportStatementUtils {
         let foundFirstImportStatement = false;
 
         parseTree.statements.forEach(statement => {
-            if (statement instanceof StatementListNode) {
+            if (statement.nodeType === ParseNodeType.StatementList) {
                 statement.statements.forEach(subStatement => {
-                    if (subStatement instanceof ImportNode) {
+                    if (subStatement.nodeType === ParseNodeType.Import) {
                         foundFirstImportStatement = true;
                         this._processImportNode(subStatement, localImports, followsNonImportStatement);
                         followsNonImportStatement = false;
-                    } else if (subStatement instanceof ImportFromNode) {
+                    } else if (subStatement.nodeType === ParseNodeType.ImportFrom) {
                         foundFirstImportStatement = true;
                         this._processImportFromNode(subStatement, localImports, followsNonImportStatement);
                         followsNonImportStatement = false;
@@ -77,7 +77,7 @@ export class ImportStatementUtils {
         // assuming we want to keep the imports alphebetized.
         let priorImport: ImportFromAsNode | undefined;
 
-        if (importStatement.node instanceof ImportFromNode) {
+        if (importStatement.node && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
             for (const curImport of importStatement.node.imports) {
                 if (priorImport && curImport.name.nameToken.value > symbolName) {
                     break;
@@ -87,7 +87,7 @@ export class ImportStatementUtils {
             }
 
             if (priorImport) {
-                const insertionOffset = priorImport.name.end;
+                const insertionOffset = TextRange.getEnd(priorImport.name);
                 const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.lines);
 
                 textEditList.push({
@@ -173,7 +173,7 @@ export class ImportStatementUtils {
                 }
 
                 insertionPosition = convertOffsetToPosition(
-                    insertBefore ? insertionImport.node.start : insertionImport.node.end,
+                    insertBefore ? insertionImport.node.start : TextRange.getEnd(insertionImport.node),
                     parseResults.lines);
             } else {
                 insertionPosition = { line: 0, column: 0 };
@@ -186,14 +186,14 @@ export class ImportStatementUtils {
 
             for (const statement of parseResults.parseTree.statements) {
                 let stopHere = true;
-                if (statement instanceof StatementListNode && statement.statements.length === 1) {
+                if (statement.nodeType === ParseNodeType.StatementList && statement.statements.length === 1) {
                     const simpleStatement = statement.statements[0];
 
-                    if (simpleStatement instanceof StringListNode) {
+                    if (simpleStatement.nodeType === ParseNodeType.StringList) {
                         // Assume that it's a file header doc string.
                         stopHere = false;
-                    } else if (simpleStatement instanceof AssignmentNode) {
-                        if (simpleStatement.leftExpression instanceof NameNode) {
+                    } else if (simpleStatement.nodeType === ParseNodeType.Assignment) {
+                        if (simpleStatement.leftExpression.nodeType === ParseNodeType.Name) {
                             if (SymbolUtils.isDunderName(simpleStatement.leftExpression.nameToken.value)) {
                                 // Assume that it's an assignment of __copyright__, __author__, etc.
                                 stopHere = false;
@@ -208,7 +208,8 @@ export class ImportStatementUtils {
                     addNewLineBefore = false;
                     break;
                 } else {
-                    insertionPosition = convertOffsetToPosition(statement.end,
+                    insertionPosition = convertOffsetToPosition(
+                        statement.start + statement.length,
                         parseResults.lines);
                     addNewLineBefore = true;
                 }
@@ -292,7 +293,9 @@ export class ImportStatementUtils {
             // Overwrite existing import statements because we always want to prefer
             // 'import from' over 'import'. Also, overwrite existing 'import from' if
             // the module name is shorter.
-            if (!prevEntry || prevEntry.node instanceof ImportNode || prevEntry.moduleName.length > localImport.moduleName.length) {
+            if (!prevEntry || prevEntry.node.nodeType === ParseNodeType.Import ||
+                    prevEntry.moduleName.length > localImport.moduleName.length) {
+
                 localImports.mapByFilePath[resolvedPath] = localImport;
             }
         }

@@ -15,7 +15,8 @@ import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
 import { DiagnosticTextPosition, DiagnosticTextRange, DocumentTextRange } from '../common/diagnostic';
 import { isFile } from '../common/pathUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
-import { ModuleNameNode } from '../parser/parseNodes';
+import { TextRange } from '../common/textRange';
+import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 const _startOfFilePosition: DiagnosticTextPosition = { line: 0, column: 0 };
@@ -35,7 +36,7 @@ export class DefinitionProvider {
             return undefined;
         }
 
-        if (node instanceof ModuleNameNode) {
+        if (node.nodeType === ParseNodeType.ModuleName) {
             // If this is an imported module name, try to map the position
             // to the resolved import path.
             const importInfo = AnalyzerNodeInfo.getImportInfo(node);
@@ -44,7 +45,7 @@ export class DefinitionProvider {
             }
 
             const pathOffset = node.nameParts.findIndex(range => {
-                return offset >= range.start && offset < range.end;
+                return offset >= range.start && offset < TextRange.getEnd(range);
             });
 
             if (pathOffset < 0) {

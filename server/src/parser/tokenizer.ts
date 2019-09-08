@@ -405,7 +405,7 @@ export class Tokenizer {
     private _addLineRange() {
         const lineLength = this._cs.position - this._prevLineStart;
         if (lineLength > 0) {
-            this._lineRanges.push(new TextRange(this._prevLineStart, lineLength));
+            this._lineRanges.push({ start: this._prevLineStart, length: lineLength });
         }
 
         this._prevLineStart = this._cs.position;
