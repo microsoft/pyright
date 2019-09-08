@@ -11,7 +11,7 @@
 */
 
 import { NameBindings } from '../parser/nameBindings';
-import { ParseNode, StringListNode } from '../parser/parseNodes';
+import { ParseNode, ParseNodeType, StringListNode } from '../parser/parseNodes';
 import { Declaration } from './declaration';
 import { ImportResult } from './importResult';
 import { TypeSourceId } from './inferredType';
@@ -54,10 +54,6 @@ export class AnalyzerNodeInfo {
     // Version that last accessed the cache.
     _expressionTypeReadVersion?: number;
 
-    // Information to resolve definition and hover requests from
-    // language service interface; used for NamedNode's.
-    _declarations?: Declaration[];
-
     // "Type source ID", a number that is unique per node within a
     // parse tree. for NameNode's.
     _typeSourceId?: TypeSourceId;
@@ -77,7 +73,6 @@ export class AnalyzerNodeInfo {
         delete analyzerNode._expressionType;
         delete analyzerNode._expressionTypeWriteVersion;
         delete analyzerNode._expressionTypeReadVersion;
-        delete analyzerNode._declarations;
         delete analyzerNode._typeSourceId;
         delete analyzerNode._ignoreTypeAnnotation;
     }
@@ -127,16 +122,6 @@ export class AnalyzerNodeInfo {
     static setImportInfo(node: ParseNode, importInfo: ImportResult) {
         const analyzerNode = node as AnalyzerNodeInfo;
         analyzerNode._importInfo = importInfo;
-    }
-
-    static getDeclarations(node: ParseNode): Declaration[] | undefined {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        return analyzerNode._declarations;
-    }
-
-    static setDeclarations(node: ParseNode, declarations: Declaration[]) {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        analyzerNode._declarations = declarations;
     }
 
     static getExpressionType(node: ParseNode): Type | undefined {

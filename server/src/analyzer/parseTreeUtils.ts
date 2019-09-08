@@ -71,6 +71,49 @@ export class ParseTreeUtils {
         return node;
     }
 
+    // Some nodes (like decorators) are contained within an inner parse
+    // node (like a function or class) but whose scope belongs to an
+    // outer node. This method handles these special cases and returns
+    // a parse node that can be used to determine the appropriate scope
+    // for evaluating the node.
+    static getScopeNodeForNode(node: ParseNode) {
+        let curNode = node.parent;
+
+        while (curNode) {
+            // The function name is evaluated within the scope of its container.
+            if (curNode.nodeType === ParseNodeType.Function && node === curNode.name) {
+                return curNode.parent;
+            }
+
+            if (curNode.nodeType === ParseNodeType.Decorator) {
+                // All decorators are contained within a function or class.
+                // Return the container of this function or class.
+                return curNode.parent!.parent;
+            }
+
+            if (curNode.nodeType === ParseNodeType.Parameter) {
+                // Is this a default value initializer for a function parameter?
+                // They are evaluated outside the scope of the function.
+                if (node !== curNode.name) {
+                    const paramParent = curNode.parent;
+                    if (paramParent && paramParent.nodeType === ParseNodeType.Function) {
+                        return paramParent.parent;
+                    }
+                }
+            }
+
+            if (curNode.nodeType === ParseNodeType.Function ||
+                    curNode.nodeType === ParseNodeType.Lambda ||
+                    curNode.nodeType === ParseNodeType.Class) {
+                break;
+            }
+
+            curNode = curNode.parent;
+        }
+
+        return node;
+    }
+
     static printExpression(node: ExpressionNode, flags = PrintExpressionFlags.None): string {
         if (node.nodeType === ParseNodeType.Name) {
             return node.nameToken.value;

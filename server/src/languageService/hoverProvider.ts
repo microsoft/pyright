@@ -12,14 +12,18 @@
 import { ImportMap } from '../analyzer/analyzerFileInfo';
 import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
 import { DeclarationCategory } from '../analyzer/declaration';
+import { DeclarationUtils } from '../analyzer/declarationUtils';
 import { ImportType } from '../analyzer/importResult';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
-import { ClassType, FunctionType, ModuleType, OverloadedFunctionType,
-    Type, UnknownType } from '../analyzer/types';
+import { Symbol } from '../analyzer/symbol';
+import { ClassType, FunctionType, ModuleType, ObjectType,
+    OverloadedFunctionType, Type, UnknownType } from '../analyzer/types';
+import { TypeUtils } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { MemberAccessExpressionNode, ModuleNameNode, NameNode, ParseNode,
+    ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface HoverTextPart {
@@ -55,154 +59,131 @@ export class HoverProvider {
         };
 
         if (node.nodeType === ParseNodeType.ModuleName) {
-            // If this is an imported module name, try to map the position
-            // to the resolved import path.
-            const importInfo = AnalyzerNodeInfo.getImportInfo(node);
-            if (!importInfo) {
-                return undefined;
+            this._addResultsForModuleNameNode(results.parts, node, offset, importMap);
+        } else if (node.nodeType === ParseNodeType.Name) {
+            const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
+            if (declarations && declarations.length > 0) {
+                this._addResultsForDeclaration(results.parts, declarations[0].category, node);
             }
 
-            let pathOffset = node.nameParts.findIndex(range => {
-                return offset >= range.start && offset < TextRange.getEnd(range);
-            });
-
-            if (pathOffset < 0) {
-                return undefined;
-            }
-
-            if (pathOffset >= importInfo.resolvedPaths.length) {
-                pathOffset = importInfo.resolvedPaths.length - 1;
-            }
-
-            if (importInfo.resolvedPaths[pathOffset]) {
-                const resolvedPath = importInfo.resolvedPaths[pathOffset];
-                this._addResultsPart(results, '(module) "' + resolvedPath + '"', true);
-
-                if (importInfo.importType === ImportType.ThirdParty && !importInfo.isStubFile) {
-                    this._addResultsPart(results,
-                        'No type stub found for this module. Imported symbol types are unknown.');
-                }
-
-                // If the module has been resolved and already analyzed,
-                // we can add the docString for it as well.
-                if (importMap[resolvedPath]) {
-                    const moduleType = importMap[resolvedPath];
-                    if (moduleType) {
-                        this._addDocumentationPartForType(results, moduleType);
-                    }
-                }
-
-                return results;
-            }
-
-            return undefined;
-        }
-
-        const declarations = AnalyzerNodeInfo.getDeclarations(node);
-
-        if (declarations && declarations.length > 0) {
-            const declaration = declarations[0];
-
-            switch (declaration.category) {
-                case DeclarationCategory.Variable: {
-                    if (node.nodeType === ParseNodeType.Name) {
-                        this._addResultsPart(results, '(variable) ' + node.nameToken.value +
-                            this._getTypeText(node), true);
-                        this._addDocumentationPart(results, node);
-                        return results;
-                    }
-                    break;
-                }
-
-                case DeclarationCategory.Parameter: {
-                    if (node.nodeType === ParseNodeType.Name) {
-                        this._addResultsPart(results, '(parameter) ' + node.nameToken.value +
-                            this._getTypeText(node), true);
-                        this._addDocumentationPart(results, node);
-                        return results;
-                    }
-                    break;
-                }
-
-                case DeclarationCategory.Class: {
-                    if (node.nodeType === ParseNodeType.Name) {
-                        this._addResultsPart(results, '(class) ' + this._getTypeText(node), true);
-                        this._addDocumentationPart(results, node);
-                        return results;
-                    }
-                    break;
-                }
-
-                case DeclarationCategory.Function: {
-                    if (node.nodeType === ParseNodeType.Name) {
-                        this._addResultsPart(results, '(function) ' + node.nameToken.value +
-                            this._getTypeText(node), true);
-                        this._addDocumentationPart(results, node);
-                        return results;
-                    }
-                    break;
-                }
-
-                case DeclarationCategory.Method: {
-                    if (node.nodeType === ParseNodeType.Name) {
-                        this._addResultsPart(results, '(method) ' + node.nameToken.value +
-                            this._getTypeText(node), true);
-                        this._addDocumentationPart(results, node);
-                        return results;
-                    }
-                    break;
-                }
-
-                case DeclarationCategory.Module: {
-                    if (node.nodeType === ParseNodeType.Name) {
-                        this._addResultsPart(results, '(module) ' + node.nameToken.value, true);
-                        this._addDocumentationPart(results, node);
-                        return results;
-                    }
-                    break;
-                }
+            // If we had no declaration, see if we can provide a minimal tooltip.
+            if (results.parts.length === 0) {
+                this._addResultsPart(results.parts, node.nameToken.value + this._getTypeText(node), true);
+                this._addDocumentationPart(results.parts, node);
             }
         }
 
-        // If we had no declaration, see if we can provide a minimal tooltip.
-        if (node.nodeType === ParseNodeType.Name) {
-            this._addResultsPart(results, node.nameToken.value + this._getTypeText(node), true);
-            this._addDocumentationPart(results, node);
-            return results;
+        return results.parts.length > 0 ? results : undefined;
+    }
+
+    private static _addResultsForDeclaration(parts: HoverTextPart[],
+            declCategory: DeclarationCategory, node: ParseNode): void {
+
+        switch (declCategory) {
+            case DeclarationCategory.Variable: {
+                if (node.nodeType === ParseNodeType.Name) {
+                    this._addResultsPart(parts, '(variable) ' + node.nameToken.value +
+                        this._getTypeText(node), true);
+                    this._addDocumentationPart(parts, node);
+                    return;
+                }
+                break;
+            }
+
+            case DeclarationCategory.Parameter: {
+                if (node.nodeType === ParseNodeType.Name) {
+                    this._addResultsPart(parts, '(parameter) ' + node.nameToken.value +
+                        this._getTypeText(node), true);
+                    this._addDocumentationPart(parts, node);
+                    return;
+                }
+                break;
+            }
+
+            case DeclarationCategory.Class: {
+                if (node.nodeType === ParseNodeType.Name) {
+                    this._addResultsPart(parts, '(class) ' + this._getTypeText(node), true);
+                    this._addDocumentationPart(parts, node);
+                    return;
+                }
+                break;
+            }
+
+            case DeclarationCategory.Function: {
+                if (node.nodeType === ParseNodeType.Name) {
+                    this._addResultsPart(parts, '(function) ' + node.nameToken.value +
+                        this._getTypeText(node), true);
+                    this._addDocumentationPart(parts, node);
+                    return;
+                }
+                break;
+            }
+
+            case DeclarationCategory.Method: {
+                if (node.nodeType === ParseNodeType.Name) {
+                    this._addResultsPart(parts, '(method) ' + node.nameToken.value +
+                        this._getTypeText(node), true);
+                    this._addDocumentationPart(parts, node);
+                    return;
+                }
+                break;
+            }
+
+            case DeclarationCategory.Module: {
+                if (node.nodeType === ParseNodeType.Name) {
+                    this._addResultsPart(parts, '(module) ' + node.nameToken.value, true);
+                    this._addDocumentationPart(parts, node);
+                    return;
+                }
+                break;
+            }
+        }
+    }
+
+    private static _addResultsForModuleNameNode(parts: HoverTextPart[], node: ModuleNameNode,
+            offset: number, importMap: ImportMap) {
+
+        // If this is an imported module name, try to map the position
+        // to the resolved import path.
+        const importInfo = AnalyzerNodeInfo.getImportInfo(node);
+        if (!importInfo) {
+            return;
         }
 
-        return undefined;
+        let pathOffset = node.nameParts.findIndex(range => {
+            return offset >= range.start && offset < TextRange.getEnd(range);
+        });
+
+        if (pathOffset < 0) {
+            return;
+        }
+
+        if (pathOffset >= importInfo.resolvedPaths.length) {
+            pathOffset = importInfo.resolvedPaths.length - 1;
+        }
+
+        if (importInfo.resolvedPaths[pathOffset]) {
+            const resolvedPath = importInfo.resolvedPaths[pathOffset];
+            this._addResultsPart(parts, '(module) "' + resolvedPath + '"', true);
+
+            if (importInfo.importType === ImportType.ThirdParty && !importInfo.isStubFile) {
+                this._addResultsPart(parts,
+                    'No type stub found for this module. Imported symbol types are unknown.');
+            }
+
+            // If the module has been resolved and already analyzed,
+            // we can add the docString for it as well.
+            if (importMap[resolvedPath]) {
+                const moduleType = importMap[resolvedPath];
+                if (moduleType) {
+                    this._addDocumentationPartForType(parts, moduleType);
+                }
+            }
+        }
     }
 
     private static _getTypeFromNode(node: ParseNode): Type | undefined {
-        let type = AnalyzerNodeInfo.getExpressionType(node);
-
-        // If there was no type information cached, see if we
-        // can get it from the declaration.
-        if (!type) {
-            const declTypes = this._getTypesFromDeclarations(node);
-            if (declTypes) {
-                type = declTypes[0];
-            }
-        }
-
-        return type;
-    }
-
-    private static _getTypesFromDeclarations(node: ParseNode): Type[] | undefined {
-        const declarations = AnalyzerNodeInfo.getDeclarations(node);
-        if (declarations && declarations.length > 0) {
-            const types: Type[] = [];
-            declarations.forEach(decl => {
-                if (decl.declaredType) {
-                    types.push(decl.declaredType);
-                }
-            });
-
-            return types.length > 0 ? types : undefined;
-        }
-
-        return undefined;
+        return AnalyzerNodeInfo.getExpressionType(node);
     }
 
     private static _getTypeText(node: ParseNode): string {
@@ -210,41 +191,41 @@ export class HoverProvider {
         return ': ' + type.asString();
     }
 
-    private static _addDocumentationPart(results: HoverResults, node: ParseNode) {
+    private static _addDocumentationPart(parts: HoverTextPart[], node: ParseNode) {
         const type = this._getTypeFromNode(node);
         if (type) {
-            this._addDocumentationPartForType(results, type);
+            this._addDocumentationPartForType(parts, type);
         }
     }
 
-    private static _addDocumentationPartForType(results: HoverResults, type: Type) {
+    private static _addDocumentationPartForType(parts: HoverTextPart[], type: Type) {
         if (type instanceof ModuleType) {
             const docString = type.getDocString();
             if (docString) {
-                this._addResultsPart(results, docString);
+                this._addResultsPart(parts, docString);
             }
         } else if (type instanceof ClassType) {
             const docString = type.getDocString();
             if (docString) {
-                this._addResultsPart(results, docString);
+                this._addResultsPart(parts, docString);
             }
         } else if (type instanceof FunctionType) {
             const docString = type.getDocString();
             if (docString) {
-                this._addResultsPart(results, docString);
+                this._addResultsPart(parts, docString);
             }
         } else if (type instanceof OverloadedFunctionType) {
             type.getOverloads().forEach(overload => {
                 const docString = overload.type.getDocString();
                 if (docString) {
-                    this._addResultsPart(results, docString);
+                    this._addResultsPart(parts, docString);
                 }
             });
         }
     }
 
-    private static _addResultsPart(results: HoverResults, text: string, python = false) {
-        results.parts.push({
+    private static _addResultsPart(parts: HoverTextPart[], text: string, python = false) {
+        parts.push({
             python,
             text
         });

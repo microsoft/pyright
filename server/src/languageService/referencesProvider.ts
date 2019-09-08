@@ -10,13 +10,16 @@
 
 import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationCategory } from '../analyzer/declaration';
+import { DeclarationUtils } from '../analyzer/declarationUtils';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { Symbol } from '../analyzer/symbol';
+import { ClassType, ModuleType, ObjectType } from '../analyzer/types';
+import { TypeUtils } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { NameNode, ParseNode } from '../parser/parseNodes';
+import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface ReferencesResult {
@@ -47,25 +50,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     }
 
     visitName(node: NameNode): boolean {
-        const scope = AnalyzerNodeInfo.getScopeRecursive(node);
-        let declarations: Declaration[] | undefined;
-
-        // Use the declarations from the symbol if we can find it. The
-        // symbol should contain all of the declarations, whereas the
-        // local node will contain only the declaration that is added
-        // within that line.
-        if (scope) {
-            const symbolWithScope = scope.lookUpSymbolRecursive(node.nameToken.value);
-            if (symbolWithScope) {
-                declarations = symbolWithScope.symbol.getDeclarations();
-            }
-        }
-
-        // If we couldn't find the symbol for some sort, use the local
-        // node's declarations instead.
-        if (!declarations) {
-            declarations = AnalyzerNodeInfo.getDeclarations(node);
-        }
+        const declarations = DeclarationUtils.getDeclarationsForNameNode(node );
 
         if (declarations && declarations.length > 0) {
             // Does this name share a declaration with the symbol of interest?
@@ -107,7 +92,11 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        const declarations = AnalyzerNodeInfo.getDeclarations(node);
+        if (node.nodeType !== ParseNodeType.Name) {
+            return undefined;
+        }
+
+        const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
         if (!declarations || declarations.length === 0) {
             return undefined;
         }
