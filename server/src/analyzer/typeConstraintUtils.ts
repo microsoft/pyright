@@ -14,16 +14,16 @@ import { TypeConstraint } from './typeConstraint';
 import { Type } from './types';
 import { TypeUtils } from './typeUtils';
 
-export class TypeConstraintUtils {
+export namespace TypeConstraintUtils {
     // Combines two type constraint lists that come from multiple
     // conditional scopes (e.g. an if/else scope pair). For expressions
     // that are common to all lists, it combines them. For expressions
     // that are not common to all lists, it marks them as conditional.
-    static combineTypeConstraints(tcLists: TypeConstraint[][]): TypeConstraint[] {
+    export function combineTypeConstraints(tcLists: TypeConstraint[][]): TypeConstraint[] {
         const combinedList: TypeConstraint[] = [];
 
         // Start by deduping the lists.
-        const dedupedLists = tcLists.map(tcList => this.dedupeTypeConstraints(tcList));
+        const dedupedLists = tcLists.map(tcList => dedupeTypeConstraints(tcList));
 
         for (let listIndex = 0; listIndex < tcLists.length; listIndex++) {
             while (dedupedLists[listIndex].length > 0) {
@@ -32,7 +32,7 @@ export class TypeConstraintUtils {
                 const typesToCombine: Type[] = [];
                 let isConditional = false;
 
-                const splits = dedupedLists.map(list => this._splitList(list, expression));
+                const splits = dedupedLists.map(list => _splitList(list, expression));
                 for (let splitIndex = 0; splitIndex < splits.length; splitIndex++) {
                     // Write back the remaining list (those that don't target this expression).
                     dedupedLists[splitIndex] = splits[splitIndex][1];
@@ -70,13 +70,15 @@ export class TypeConstraintUtils {
     // type constraints that apply to the same expression. For unconditional
     // type constraints, later constraints replace earlier. For conditional type
     // constraints, they are combined.
-    static dedupeTypeConstraints(tcList: TypeConstraint[], markConditional = false): TypeConstraint[] {
+    export function dedupeTypeConstraints(tcList: TypeConstraint[],
+            markConditional = false): TypeConstraint[] {
+
         let remainingList = tcList;
         const dedupedList: TypeConstraint[] = [];
 
         while (remainingList.length > 0) {
             const expression = remainingList[0].getExpression();
-            const [inList, outList] = this._splitList(remainingList, expression);
+            const [inList, outList] = _splitList(remainingList, expression);
 
             assert(inList.length > 0);
 
@@ -109,7 +111,9 @@ export class TypeConstraintUtils {
     // Splits a list into a tuple of two lists. The first contains all of the
     // type constraints associated with a particular expression. The second
     // contains the remainder.
-    private static _splitList(tcList: TypeConstraint[], expression: ExpressionNode): [TypeConstraint[], TypeConstraint[]] {
+    function _splitList(tcList: TypeConstraint[], expression: ExpressionNode):
+            [TypeConstraint[], TypeConstraint[]] {
+
         const inList: TypeConstraint[] = [];
         const outList: TypeConstraint[] = [];
 

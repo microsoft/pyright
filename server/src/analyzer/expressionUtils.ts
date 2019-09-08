@@ -12,46 +12,46 @@ import { ExecutionEnvironment } from '../common/configOptions';
 import { ExpressionNode, NumberNode, ParseNodeType, TupleExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
-export class ExpressionUtils {
+export namespace ExpressionUtils {
     // Returns undefined if the expression cannot be evaluated
     // statically or a value if it can.
-    static evaluateConstantExpression(node: ExpressionNode,
+    export function evaluateConstantExpression(node: ExpressionNode,
             execEnv: ExecutionEnvironment): boolean | undefined {
 
         if (node.nodeType === ParseNodeType.BinaryOperation) {
-            if (this._isSysVersionInfoExpression(node.leftExpression) &&
+            if (_isSysVersionInfoExpression(node.leftExpression) &&
                     node.rightExpression.nodeType === ParseNodeType.Tuple) {
 
                 // Handle the special case of "sys.version_info >= (3, x)"
-                const comparisonVersion = this._convertTupleToVersion(node.rightExpression);
-                return this._evaluateNumericBinaryOperation(node.operator,
+                const comparisonVersion = _convertTupleToVersion(node.rightExpression);
+                return _evaluateNumericBinaryOperation(node.operator,
                     execEnv.pythonVersion, comparisonVersion);
 
             } else if (node.leftExpression.nodeType === ParseNodeType.Index &&
-                    this._isSysVersionInfoExpression(node.leftExpression.baseExpression) &&
+                    _isSysVersionInfoExpression(node.leftExpression.baseExpression) &&
                     node.leftExpression.items.items.length === 1 &&
                     node.leftExpression.items.items[0].nodeType === ParseNodeType.Number &&
                     node.leftExpression.items.items[0].token.value === 0 &&
                     node.rightExpression.nodeType === ParseNodeType.Number) {
 
                 // Handle the special case of "sys.version_info[0] >= X"
-                return this._evaluateNumericBinaryOperation(node.operator,
+                return _evaluateNumericBinaryOperation(node.operator,
                     Math.floor(execEnv.pythonVersion / 256), node.rightExpression.token.value);
-            } else if (this._isSysPlatformInfoExpression(node.leftExpression) &&
+            } else if (_isSysPlatformInfoExpression(node.leftExpression) &&
                     node.rightExpression.nodeType === ParseNodeType.StringList) {
                 // Handle the special case of "sys.platform != 'X'"
                 const comparisonPlatform = node.rightExpression.strings.map(s => s.value).join('');
                 if (execEnv.pythonPlatform !== undefined) {
-                    return this._evaluateStringBinaryOperation(node.operator,
+                    return _evaluateStringBinaryOperation(node.operator,
                         execEnv.pythonPlatform, comparisonPlatform);
                 }
-            } else if (this._isOsNameInfoExpression(node.leftExpression) &&
+            } else if (_isOsNameInfoExpression(node.leftExpression) &&
                     node.rightExpression.nodeType === ParseNodeType.StringList) {
                 // Handle the special case of "os.name == 'X'"
                 const comparisonOsName = node.rightExpression.strings.map(s => s.value).join('');
-                const expectedOsName = this._getExpectedOsNameFromPlatform(execEnv);
+                const expectedOsName = _getExpectedOsNameFromPlatform(execEnv);
                 if (expectedOsName !== undefined) {
-                    return this._evaluateStringBinaryOperation(node.operator,
+                    return _evaluateStringBinaryOperation(node.operator,
                         expectedOsName, comparisonOsName);
                 }
             }
@@ -70,7 +70,7 @@ export class ExpressionUtils {
         return undefined;
     }
 
-    private static _convertTupleToVersion(node: TupleExpressionNode): number | undefined {
+    function _convertTupleToVersion(node: TupleExpressionNode): number | undefined {
         let comparisonVersion: number | undefined;
         if (node.expressions.length === 2) {
             if (node.expressions[0].nodeType === ParseNodeType.Number &&
@@ -87,7 +87,7 @@ export class ExpressionUtils {
         return comparisonVersion;
     }
 
-    private static _evaluateNumericBinaryOperation(operatorType: OperatorType, leftValue: number | undefined,
+    function _evaluateNumericBinaryOperation(operatorType: OperatorType, leftValue: number | undefined,
             rightValue: number | undefined): any | undefined {
         if (leftValue !== undefined && rightValue !== undefined) {
             if (operatorType === OperatorType.LessThan) {
@@ -108,7 +108,7 @@ export class ExpressionUtils {
         return undefined;
     }
 
-    private static _evaluateStringBinaryOperation(operatorType: OperatorType,
+    function _evaluateStringBinaryOperation(operatorType: OperatorType,
             leftValue: string | undefined, rightValue: string | undefined): any | undefined {
         if (leftValue !== undefined && rightValue !== undefined) {
             if (operatorType === OperatorType.Equals) {
@@ -121,7 +121,7 @@ export class ExpressionUtils {
         return undefined;
     }
 
-    private static _isSysVersionInfoExpression(node: ExpressionNode): boolean {
+    function _isSysVersionInfoExpression(node: ExpressionNode): boolean {
         if (node.nodeType === ParseNodeType.MemberAccess) {
             if (node.leftExpression.nodeType === ParseNodeType.Name &&
                     node.leftExpression.nameToken.value === 'sys' &&
@@ -133,7 +133,7 @@ export class ExpressionUtils {
         return false;
     }
 
-    private static _isSysPlatformInfoExpression(node: ExpressionNode): boolean {
+    function _isSysPlatformInfoExpression(node: ExpressionNode): boolean {
         if (node.nodeType === ParseNodeType.MemberAccess) {
             if (node.leftExpression.nodeType === ParseNodeType.Name &&
                     node.leftExpression.nameToken.value === 'sys' &&
@@ -145,7 +145,7 @@ export class ExpressionUtils {
         return false;
     }
 
-    private static _isOsNameInfoExpression(node: ExpressionNode): boolean {
+    function _isOsNameInfoExpression(node: ExpressionNode): boolean {
         if (node.nodeType === ParseNodeType.MemberAccess) {
             if (node.leftExpression.nodeType === ParseNodeType.Name &&
                     node.leftExpression.nameToken.value === 'os' &&
@@ -157,7 +157,7 @@ export class ExpressionUtils {
         return false;
     }
 
-    private static _getExpectedOsNameFromPlatform(execEnv: ExecutionEnvironment): string | undefined {
+    function _getExpectedOsNameFromPlatform(execEnv: ExecutionEnvironment): string | undefined {
         if (execEnv.pythonPlatform === 'Darwin') {
             return 'posix';
         } else if (execEnv.pythonPlatform === 'Windows') {

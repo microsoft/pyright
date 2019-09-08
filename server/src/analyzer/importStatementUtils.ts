@@ -33,10 +33,10 @@ export interface ImportStatements {
     mapByFilePath: { [filePath: string ]: ImportStatement };
 }
 
-export class ImportStatementUtils {
+export namespace ImportStatementUtils {
     // Looks for top-level 'import' and 'import from' statements and provides
     // an ordered list and a map (by file path).
-    static getTopLevelImports(parseTree: ModuleNode): ImportStatements {
+    export function getTopLevelImports(parseTree: ModuleNode): ImportStatements {
         const localImports: ImportStatements = {
             orderedImports: [],
             mapByFilePath: {}
@@ -50,11 +50,11 @@ export class ImportStatementUtils {
                 statement.statements.forEach(subStatement => {
                     if (subStatement.nodeType === ParseNodeType.Import) {
                         foundFirstImportStatement = true;
-                        this._processImportNode(subStatement, localImports, followsNonImportStatement);
+                        _processImportNode(subStatement, localImports, followsNonImportStatement);
                         followsNonImportStatement = false;
                     } else if (subStatement.nodeType === ParseNodeType.ImportFrom) {
                         foundFirstImportStatement = true;
-                        this._processImportFromNode(subStatement, localImports, followsNonImportStatement);
+                        _processImportFromNode(subStatement, localImports, followsNonImportStatement);
                         followsNonImportStatement = false;
                     } else {
                         followsNonImportStatement = foundFirstImportStatement;
@@ -68,7 +68,7 @@ export class ImportStatementUtils {
         return localImports;
     }
 
-    static getTextEditsForAutoImportSymbolAddition(symbolName: string,
+    export function getTextEditsForAutoImportSymbolAddition(symbolName: string,
             importStatement: ImportStatement, parseResults: ParseResults) {
 
         const textEditList: TextEditAction[] = [];
@@ -100,7 +100,7 @@ export class ImportStatementUtils {
         return textEditList;
     }
 
-    static getTextEditsForAutoImportInsertion(symbolName: string, importStatements: ImportStatements,
+    export function getTextEditsForAutoImportInsertion(symbolName: string, importStatements: ImportStatements,
             moduleName: string, importType: ImportType, parseResults: ParseResults): TextEditAction[] {
 
         const textEditList: TextEditAction[] = [];
@@ -233,7 +233,7 @@ export class ImportStatementUtils {
         return textEditList;
     }
 
-    private static _processImportNode(node: ImportNode, localImports: ImportStatements,
+    function _processImportNode(node: ImportNode, localImports: ImportStatements,
             followsNonImportStatement: boolean) {
 
         node.list.forEach(importAsNode => {
@@ -249,7 +249,7 @@ export class ImportStatementUtils {
                 subnode: importAsNode,
                 importResult,
                 resolvedPath,
-                moduleName: this._formatModuleName(importAsNode.module),
+                moduleName: _formatModuleName(importAsNode.module),
                 followsNonImportStatement
             };
 
@@ -267,7 +267,7 @@ export class ImportStatementUtils {
         });
     }
 
-    private static _processImportFromNode(node: ImportFromNode, localImports: ImportStatements,
+    function _processImportFromNode(node: ImportFromNode, localImports: ImportStatements,
             followsNonImportStatement: boolean) {
 
         const importResult = AnalyzerNodeInfo.getImportInfo(node.module);
@@ -281,7 +281,7 @@ export class ImportStatementUtils {
             node,
             importResult,
             resolvedPath,
-            moduleName: this._formatModuleName(node.module),
+            moduleName: _formatModuleName(node.module),
             followsNonImportStatement
         };
 
@@ -301,7 +301,7 @@ export class ImportStatementUtils {
         }
     }
 
-    private static _formatModuleName(node: ModuleNameNode): string {
+    function _formatModuleName(node: ModuleNameNode): string {
         let moduleName = '';
         for (let i = 0; i < node.leadingDots; i++) {
             moduleName = moduleName + '.';

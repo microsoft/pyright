@@ -16,8 +16,8 @@ import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
 
 const cachedSearchPaths: { [path: string]: string[] } = {};
 
-export class PythonPathUtils {
-    static getTypeShedFallbackPath() {
+export namespace PythonPathUtils {
+    export function getTypeShedFallbackPath() {
         // The entry point to the tool should have set the __rootDirectory
         // global variable to point to the directory that contains the
         // typeshed-fallback directory.
@@ -32,11 +32,11 @@ export class PythonPathUtils {
         return undefined;
     }
 
-    static getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean) {
+    export function getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean) {
         return combinePaths(typeshedPath, isStdLib ? 'stdlib' : 'third_party');
     }
 
-    static findPythonSearchPaths(configOptions: ConfigOptions, venv: string | undefined,
+    export function findPythonSearchPaths(configOptions: ConfigOptions, venv: string | undefined,
             importFailureInfo: string[]): string[] | undefined {
 
         importFailureInfo.push('Finding python search paths');
@@ -97,10 +97,10 @@ export class PythonPathUtils {
         }
 
         // Fall back on the python interpreter.
-        return this.getPythonPathFromPythonInterpreter(configOptions.pythonPath, importFailureInfo);
+        return getPythonPathFromPythonInterpreter(configOptions.pythonPath, importFailureInfo);
     }
 
-    static getPythonPathFromPythonInterpreter(interpreterPath: string | undefined,
+    export function getPythonPathFromPythonInterpreter(interpreterPath: string | undefined,
             importFailureInfo: string[]): string[] {
 
         const searchKey = interpreterPath || '';

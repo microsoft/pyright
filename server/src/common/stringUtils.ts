@@ -9,13 +9,13 @@
 
 import leven from 'leven';
 
-export class StringUtils {
+export namespace StringUtils {
     // Determines how closely a typed string matches a symbol
     // name. An exact match returns 1. A match that differs
     // only in case returns a slightly lower number. A match
     // that involves a few missing or added characters returns
     // an even lower number.
-    static computeCompletionSimilarity(typedValue: string, symbolName: string): number {
+    export function computeCompletionSimilarity(typedValue: string, symbolName: string): number {
         if (symbolName.startsWith(typedValue)) {
             return 1;
         }
@@ -54,7 +54,7 @@ export class StringUtils {
     }
 
     // This is a simple, non-cryptographic hash function for text.
-    static hashString(contents: string) {
+    export function hashString(contents: string) {
         let hash = 0;
 
         for (let i = 0; i < contents.length; i++) {

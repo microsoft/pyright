@@ -23,8 +23,8 @@ export enum PrintExpressionFlags {
     ForwardDeclarations = 0x01
 }
 
-export class ParseTreeUtils {
-    static getNodeDepth(node: ParseNode): number {
+export namespace ParseTreeUtils {
+    export function getNodeDepth(node: ParseNode): number {
         let depth = 0;
         let curNode: ParseNode | undefined = node;
 
@@ -37,7 +37,7 @@ export class ParseTreeUtils {
     }
 
     // Returns the deepest node that contains the specified position.
-    static findNodeByPosition(node: ParseNode, position: DiagnosticTextPosition,
+    export function findNodeByPosition(node: ParseNode, position: DiagnosticTextPosition,
             lines: TextRangeCollection<TextRange>): ParseNode | undefined {
 
         const offset = convertPositionToOffset(position, lines);
@@ -45,11 +45,11 @@ export class ParseTreeUtils {
             return undefined;
         }
 
-        return ParseTreeUtils.findNodeByOffset(node, offset);
+        return findNodeByOffset(node, offset);
     }
 
     // Returns the deepest node that contains the specified offset.
-    static findNodeByOffset(node: ParseNode, offset: number): ParseNode | undefined {
+    export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | undefined {
         if (offset < node.start || offset > TextRange.getEnd(node)) {
             return undefined;
         }
@@ -61,7 +61,7 @@ export class ParseTreeUtils {
         const children = parseTreeWalker.visitNode(node);
         for (const child of children) {
             if (child) {
-                const containingChild = ParseTreeUtils.findNodeByOffset(child, offset);
+                const containingChild = findNodeByOffset(child, offset);
                 if (containingChild) {
                     return containingChild;
                 }
@@ -76,7 +76,7 @@ export class ParseTreeUtils {
     // outer node. This method handles these special cases and returns
     // a parse node that can be used to determine the appropriate scope
     // for evaluating the node.
-    static getScopeNodeForNode(node: ParseNode) {
+    export function getScopeNodeForNode(node: ParseNode) {
         let curNode = node.parent;
 
         while (curNode) {
@@ -114,14 +114,14 @@ export class ParseTreeUtils {
         return node;
     }
 
-    static printExpression(node: ExpressionNode, flags = PrintExpressionFlags.None): string {
+    export function printExpression(node: ExpressionNode, flags = PrintExpressionFlags.None): string {
         if (node.nodeType === ParseNodeType.Name) {
             return node.nameToken.value;
         } else if (node.nodeType === ParseNodeType.MemberAccess) {
-            return ParseTreeUtils.printExpression(node.leftExpression, flags) + '.' +
+            return printExpression(node.leftExpression, flags) + '.' +
                 node.memberName.nameToken.value;
         } else if (node.nodeType === ParseNodeType.Call) {
-            return ParseTreeUtils.printExpression(node.leftExpression, flags) + '(' +
+            return printExpression(node.leftExpression, flags) + '(' +
                 node.arguments.map(arg => {
                     let argStr = '';
                     if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
@@ -132,29 +132,29 @@ export class ParseTreeUtils {
                     if (arg.name) {
                         argStr += arg.name.nameToken.value + '=';
                     }
-                    argStr += this.printExpression(arg.valueExpression, flags);
+                    argStr += printExpression(arg.valueExpression, flags);
                     return argStr;
                 }).join(', ') +
                 ')';
         } else if (node.nodeType === ParseNodeType.Index) {
-            return ParseTreeUtils.printExpression(node.baseExpression, flags) + '[' +
-                node.items.items.map(item => this.printExpression(item, flags)).join(', ') +
+            return printExpression(node.baseExpression, flags) + '[' +
+                node.items.items.map(item => printExpression(item, flags)).join(', ') +
                 ']';
         } else if (node.nodeType === ParseNodeType.UnaryOperation) {
-            return ParseTreeUtils.printOperator(node.operator) + ' ' +
-                ParseTreeUtils.printExpression(node.expression, flags);
+            return printOperator(node.operator) + ' ' +
+                printExpression(node.expression, flags);
         } else if (node.nodeType === ParseNodeType.BinaryOperation) {
-            return ParseTreeUtils.printExpression(node.leftExpression, flags) + ' ' +
-                ParseTreeUtils.printOperator(node.operator) + ' ' +
-                ParseTreeUtils.printExpression(node.rightExpression, flags);
+            return printExpression(node.leftExpression, flags) + ' ' +
+                printOperator(node.operator) + ' ' +
+                printExpression(node.rightExpression, flags);
         } else if (node.nodeType === ParseNodeType.Number) {
             return node.token.value.toString();
         } else if (node.nodeType === ParseNodeType.StringList) {
             if ((flags & PrintExpressionFlags.ForwardDeclarations) && node.typeAnnotation) {
-                return ParseTreeUtils.printExpression(node.typeAnnotation, flags);
+                return printExpression(node.typeAnnotation, flags);
             } else {
                 return node.strings.map(str => {
-                    return ParseTreeUtils.printExpression(str, flags);
+                    return printExpression(str, flags);
                 }).join(' ');
             }
         } else if (node.nodeType === ParseNodeType.String) {
@@ -191,50 +191,50 @@ export class ParseTreeUtils {
 
             return exprString;
         } else if (node.nodeType === ParseNodeType.Assignment) {
-            return ParseTreeUtils.printExpression(node.leftExpression, flags) + ' = ' +
-                ParseTreeUtils.printExpression(node.rightExpression, flags);
+            return printExpression(node.leftExpression, flags) + ' = ' +
+                printExpression(node.rightExpression, flags);
         } else if (node.nodeType === ParseNodeType.TypeAnnotation) {
-            return ParseTreeUtils.printExpression(node.valueExpression, flags) + ': ' +
-                ParseTreeUtils.printExpression(node.typeAnnotation, flags);
+            return printExpression(node.valueExpression, flags) + ': ' +
+                printExpression(node.typeAnnotation, flags);
         } else if (node.nodeType === ParseNodeType.AugmentedAssignment) {
-            return ParseTreeUtils.printExpression(node.leftExpression, flags) + ' ' +
-                ParseTreeUtils.printOperator(node.operator) + ' ' +
-                ParseTreeUtils.printExpression(node.rightExpression, flags);
+            return printExpression(node.leftExpression, flags) + ' ' +
+                printOperator(node.operator) + ' ' +
+                printExpression(node.rightExpression, flags);
         } else if (node.nodeType === ParseNodeType.Await) {
-            return 'await ' + ParseTreeUtils.printExpression(node.expression, flags);
+            return 'await ' + printExpression(node.expression, flags);
         } else if (node.nodeType === ParseNodeType.Ternary) {
-            return ParseTreeUtils.printExpression(node.ifExpression, flags) + ' if ' +
-                ParseTreeUtils.printExpression(node.testExpression, flags) + ' else ' +
-                ParseTreeUtils.printExpression(node.elseExpression, flags);
+            return printExpression(node.ifExpression, flags) + ' if ' +
+                printExpression(node.testExpression, flags) + ' else ' +
+                printExpression(node.elseExpression, flags);
         } else if (node.nodeType === ParseNodeType.List) {
             const expressions = node.entries.map(expr => {
-                return ParseTreeUtils.printExpression(expr, flags);
+                return printExpression(expr, flags);
             });
             return `[${ expressions.join(', ') }]`;
         } else if (node.nodeType === ParseNodeType.Unpack) {
-            return '*' + ParseTreeUtils.printExpression(node.expression, flags);
+            return '*' + printExpression(node.expression, flags);
         } else if (node.nodeType === ParseNodeType.Tuple) {
             const expressions = node.expressions.map(expr => {
-                return ParseTreeUtils.printExpression(expr, flags);
+                return printExpression(expr, flags);
             });
             if (expressions.length === 1) {
                 return `(${ expressions[0] }, )`;
             }
             return `(${ expressions.join(', ') })`;
         } else if (node.nodeType === ParseNodeType.Yield) {
-            return 'yield ' + ParseTreeUtils.printExpression(node.expression, flags);
+            return 'yield ' + printExpression(node.expression, flags);
         } else if (node.nodeType === ParseNodeType.YieldFrom) {
-            return 'yield from ' + ParseTreeUtils.printExpression(node.expression, flags);
+            return 'yield from ' + printExpression(node.expression, flags);
         } else if (node.nodeType === ParseNodeType.Ellipsis) {
             return '...';
         } else if (node.nodeType === ParseNodeType.ListComprehension) {
             let listStr = '<ListExpression>';
 
             if (isExpressionNode(node.expression)) {
-                listStr = ParseTreeUtils.printExpression(node.expression as ExpressionNode, flags);
+                listStr = printExpression(node.expression as ExpressionNode, flags);
             } else if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                const keyStr = ParseTreeUtils.printExpression(node.expression.keyExpression, flags);
-                const valueStr = ParseTreeUtils.printExpression(node.expression.valueExpression, flags);
+                const keyStr = printExpression(node.expression.keyExpression, flags);
+                const valueStr = printExpression(node.expression.valueExpression, flags);
                 listStr = `${ keyStr }: ${ valueStr }`;
             }
 
@@ -242,22 +242,22 @@ export class ParseTreeUtils {
                 node.comprehensions.map(expr => {
                     if (expr.nodeType === ParseNodeType.ListComprehensionFor) {
                         return `${ expr.isAsync ? 'async ' : '' }for ` +
-                            ParseTreeUtils.printExpression(expr.targetExpression, flags) +
-                            ` in ${ ParseTreeUtils.printExpression(expr.iterableExpression, flags) }`;
+                            printExpression(expr.targetExpression, flags) +
+                            ` in ${ printExpression(expr.iterableExpression, flags) }`;
                     } else {
-                        return `if ${ ParseTreeUtils.printExpression(expr.testExpression, flags) }`;
+                        return `if ${ printExpression(expr.testExpression, flags) }`;
                     }
                 }).join(' ');
         } else if (node.nodeType === ParseNodeType.Slice) {
             let result = '';
             if (node.startValue) {
-                result += ParseTreeUtils.printExpression(node.startValue, flags);
+                result += printExpression(node.startValue, flags);
             }
             if (node.endValue) {
-                result += ': ' + ParseTreeUtils.printExpression(node.endValue, flags);
+                result += ': ' + printExpression(node.endValue, flags);
             }
             if (node.stepValue) {
-                result += ': ' + ParseTreeUtils.printExpression(node.stepValue, flags);
+                result += ': ' + printExpression(node.stepValue, flags);
             }
             return result;
         } else if (node.nodeType === ParseNodeType.Lambda) {
@@ -275,10 +275,10 @@ export class ParseTreeUtils {
                 }
 
                 if (param.defaultValue) {
-                    paramStr += ' = ' + ParseTreeUtils.printExpression(param.defaultValue, flags);
+                    paramStr += ' = ' + printExpression(param.defaultValue, flags);
                 }
                 return paramStr;
-            }).join(', ') + ': ' + ParseTreeUtils.printExpression(node.expression, flags);
+            }).join(', ') + ': ' + printExpression(node.expression, flags);
         } else if (node.nodeType === ParseNodeType.Constant) {
             if (node.token.keywordType === KeywordType.True) {
                 return 'True';
@@ -292,22 +292,22 @@ export class ParseTreeUtils {
         } else if (node.nodeType === ParseNodeType.Dictionary) {
             return `{ ${ node.entries.map(entry => {
                 if (entry.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                    return `${ ParseTreeUtils.printExpression(entry.keyExpression, flags) }: ` +
-                        `${ ParseTreeUtils.printExpression(entry.valueExpression, flags) }`;
+                    return `${ printExpression(entry.keyExpression, flags) }: ` +
+                        `${ printExpression(entry.valueExpression, flags) }`;
                 } else {
-                    return ParseTreeUtils.printExpression(entry, flags);
+                    return printExpression(entry, flags);
                 }
             })} }`;
         } else if (node.nodeType === ParseNodeType.DictionaryExpandEntry) {
-            return `**${ ParseTreeUtils.printExpression(node.expandExpression, flags) }`;
+            return `**${ printExpression(node.expandExpression, flags) }`;
         } else if (node.nodeType === ParseNodeType.Set) {
-            return node.entries.map(entry => ParseTreeUtils.printExpression(entry, flags)).join(', ');
+            return node.entries.map(entry => printExpression(entry, flags)).join(', ');
         }
 
         return '<Expression>';
     }
 
-    static printOperator(operator: OperatorType): string {
+    export function printOperator(operator: OperatorType): string {
         const operatorMap: { [operator: number]: string } = {
             [OperatorType.Add]: '+',
             [OperatorType.AddEqual]: '+=',
@@ -359,7 +359,7 @@ export class ParseTreeUtils {
         return 'unknown';
     }
 
-    static getEnclosingClass(node: ParseNode, stopAtFunction = false): ClassNode | undefined {
+    export function getEnclosingClass(node: ParseNode, stopAtFunction = false): ClassNode | undefined {
         let curNode = node.parent;
         while (curNode) {
             if (curNode.nodeType === ParseNodeType.Class) {
@@ -382,7 +382,7 @@ export class ParseTreeUtils {
         return undefined;
     }
 
-    static getEnclosingClassOrModule(node: ParseNode,
+    export function getEnclosingClassOrModule(node: ParseNode,
             stopAtFunction = false): ClassNode | ModuleNode | undefined {
 
         let curNode = node.parent;
@@ -407,7 +407,7 @@ export class ParseTreeUtils {
         return undefined;
     }
 
-    static getEnclosingFunction(node: ParseNode): FunctionNode | undefined {
+    export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined {
         let curNode = node.parent;
         while (curNode) {
             if (curNode.nodeType === ParseNodeType.Function) {
@@ -424,7 +424,7 @@ export class ParseTreeUtils {
         return undefined;
     }
 
-    static isNodeContainedWithin(node: ParseNode, potentialContainer: ParseNode): boolean {
+    export function isNodeContainedWithin(node: ParseNode, potentialContainer: ParseNode): boolean {
         let curNode = node.parent;
         while (curNode) {
             if (curNode === potentialContainer) {

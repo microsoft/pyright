@@ -9,8 +9,8 @@
 * (https://www.python.org/dev/peps/pep-0257/).
 */
 
-export class DocStringUtils {
-    static decodeDocString(rawString: string): string {
+export namespace DocStringUtils {
+    export function decodeDocString(rawString: string): string {
         // Remove carriage returns and replace tabs.
         const unescaped = rawString.replace(/\r/g, '').replace(/\t/g, '        ');
 

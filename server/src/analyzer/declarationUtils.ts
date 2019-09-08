@@ -15,8 +15,8 @@ import { Symbol } from './symbol';
 import { ClassType, ModuleType, ObjectType } from './types';
 import { TypeUtils } from './typeUtils';
 
-export class DeclarationUtils {
-    static getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
+export namespace DeclarationUtils {
+    export function getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
         let declarations: Declaration[] | undefined;
         const nameValue = node.nameToken.value;
 
