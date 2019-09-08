@@ -5,66 +5,51 @@
 * Author: Eric Traut
 *
 * Provides a map between an arbitrary set of strings and some
-* other type. This wraps the normal JS map and handles reserved
-* keys like "prototype" and "constructor", which cannot be
-* entered into a normal JS map.
+* other type. This wraps the normal JS map and adds a few
+* more operations.
 */
 
-const _keyPrefix = '$';
-
 export default class StringMap<T> {
-    private _map: { [key: string]: T } = {};
+    private _map = new Map<string, T>();
 
     // Adds a new entry, replacing an existing entry.
     // Returns false if it was already present.
     set(key: string, value: T): boolean {
-        const encodedKey = this.encodeKey(key);
-        const wasPresent = this._map[encodedKey] !== undefined;
-
-        this._map[encodedKey] = value;
+        const wasPresent = this._map.has(key);
+        this._map.set(key, value);
         return !wasPresent;
     }
 
     // Adds a new entry if the key isn't already defined.
     // Returns false if it was already present.
     setIfUnique(key: string, value: T): boolean {
-        const encodedKey = this.encodeKey(key);
-        if (this._map[encodedKey] !== undefined) {
+        if (this._map.has(key)) {
             return false;
         }
 
-        this._map[encodedKey] = value;
+        this._map.set(key, value);
         return true;
     }
 
     get(key: string): T | undefined {
-        return this._map[this.encodeKey(key)];
+        return this._map.get(key);
     }
 
     delete(key: string) {
-        delete this._map[this.encodeKey(key)];
+        this._map.delete(key);
     }
 
-    encodeKey(key: string): string {
-        // Prepend a $ to avoid reserved keys like "constructor".
-        return _keyPrefix + key;
-    }
-
-    decodeKey(key: string): string {
-        return key.substr(_keyPrefix.length);
-    }
-
-    getKeys(): string[] {
-        return Object.keys(this._map).map(k => this.decodeKey(k));
+    getKeys() {
+        return Array.from(this._map.keys());
     }
 
     forEach(callback: (item: T, key: string) => void) {
-        Object.keys(this._map).forEach(key => {
-            callback(this._map[key], this.decodeKey(key));
+        this._map.forEach((value, key) => {
+            callback(value, key);
         });
     }
 
     isEmpty() {
-        return Object.keys(this._map).length === 0;
+        return this._map.size === 0;
     }
 }
