@@ -7,7 +7,7 @@
 * Interface that describes the output of the import resolver.
 */
 
-export enum ImportType {
+export const enum ImportType {
     BuiltIn,
     ThirdParty,
     Local

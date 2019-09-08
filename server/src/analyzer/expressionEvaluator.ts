@@ -62,7 +62,7 @@ interface ClassMemberLookup {
     isClassMember: boolean;
 }
 
-export enum EvaluatorFlags {
+export const enum EvaluatorFlags {
     None = 0,
 
     // Interpret an ellipsis type annotation to mean "Any".
@@ -83,7 +83,7 @@ interface EvaluatorUsage {
     setErrorNode?: ExpressionNode;
 }
 
-export enum MemberAccessFlags {
+export const enum MemberAccessFlags {
     None = 0,
 
     // By default, both class and instance members are considered.

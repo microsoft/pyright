@@ -16,7 +16,7 @@ import { ArgumentCategory, ClassNode, ExpressionNode, FunctionNode, isExpression
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { ParseTreeWalker } from './parseTreeWalker';
 
-export enum PrintExpressionFlags {
+export const enum PrintExpressionFlags {
     None = 0,
 
     // Don't use string literals for forward declarations.

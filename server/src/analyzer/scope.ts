@@ -19,7 +19,7 @@ import { setSymbolPreservingAccess, Symbol, SymbolTable } from './symbol';
 import { TypeConstraint } from './typeConstraint';
 import { TypeConstraintUtils } from './typeConstraintUtils';
 
-export enum ScopeType {
+export const enum ScopeType {
     // Temporary scopes are used temporarily during analysis
     // to represent conditional blocks.
     Temporary,

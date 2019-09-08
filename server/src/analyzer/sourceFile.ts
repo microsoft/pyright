@@ -51,7 +51,7 @@ import { ModuleType } from './types';
 
 const _maxImportCyclesPerFile = 4;
 
-export enum AnalysisPhase {
+export const enum AnalysisPhase {
     Parse = 0,
     SemanticAnalysis = 1,
     TypeAnalysis = 2,

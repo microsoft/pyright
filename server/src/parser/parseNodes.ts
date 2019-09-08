@@ -12,7 +12,7 @@ import { TextRange } from '../common/textRange';
 import { IdentifierToken, KeywordToken, NumberToken,
     OperatorType, StringToken, Token } from './tokenizerTypes';
 
-export enum ParseNodeType {
+export const enum ParseNodeType {
     Error, // 0
 
     Argument,
@@ -84,7 +84,7 @@ export enum ParseNodeType {
     YieldFrom
 }
 
-export enum ErrorExpressionCategory {
+export const enum ErrorExpressionCategory {
     MissingIn,
     MissingElse,
     MissingExpression,
@@ -352,7 +352,7 @@ export namespace FunctionNode {
     }
 }
 
-export enum ParameterCategory {
+export const enum ParameterCategory {
     Simple,
     VarArgList,
     VarArgDictionary
@@ -1197,7 +1197,7 @@ export namespace ListNode {
     }
 }
 
-export enum ArgumentCategory {
+export const enum ArgumentCategory {
     Simple,
     UnpackedList,
     UnpackedDictionary

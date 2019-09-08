@@ -16,7 +16,7 @@
 
 import StringMap from '../common/stringMap';
 
-export enum NameBindingType {
+export const enum NameBindingType {
     // Class or function
     Local,
 

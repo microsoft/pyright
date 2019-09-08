@@ -19,7 +19,7 @@ import { ParseResults } from '../parser/parser';
 
 const _maxLineLength = 80;
 
-export enum ImportGroup {
+export const enum ImportGroup {
     // The ordering here is important because this is the order
     // in which PEP8 specifies that imports should be ordered.
     BuiltIn = 0,

@@ -29,7 +29,7 @@ export interface FormatStringSegment {
     isExpression: boolean;
 }
 
-export enum UnescapeErrorType {
+export const enum UnescapeErrorType {
     InvalidEscapeSequence,
     EscapeWithinFormatExpression,
     SingleCloseBraceWithinFormatLiteral,

@@ -14,7 +14,7 @@ import { ParameterCategory } from '../parser/parseNodes';
 import { InferredType, TypeSourceId } from './inferredType';
 import { SymbolTable } from './symbol';
 
-export enum TypeCategory {
+export const enum TypeCategory {
     // Name is not bound to a value of any type.
     Unbound,
 
@@ -188,7 +188,7 @@ export class ModuleType extends Type {
     }
 }
 
-export enum ClassTypeFlags {
+export const enum ClassTypeFlags {
     None = 0x00,
 
     // Class is defined in the "builtins" or "typings" file.
@@ -671,7 +671,7 @@ export interface FunctionParameter {
     type: Type;
 }
 
-export enum FunctionTypeFlags {
+export const enum FunctionTypeFlags {
     None = 0,
     InstanceMethod = 1,
     ConstructorMethod = 2,

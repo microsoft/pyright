@@ -7,7 +7,7 @@
 * Class that represents errors and warnings.
 */
 
-export enum DiagnosticCategory {
+export const enum DiagnosticCategory {
     Error,
     Warning,
     UnusedCode

@@ -37,7 +37,7 @@ export interface ClassMember {
     isInstanceMember: boolean;
 }
 
-export enum ClassMemberLookupFlags {
+export const enum ClassMemberLookupFlags {
     Default = 0,
 
     // By default, the original (derived) class is searched along

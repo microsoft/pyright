@@ -13,7 +13,7 @@
 
 import { TextRange } from '../common/textRange';
 
-export enum TokenType {
+export const enum TokenType {
     Invalid,
     EndOfStream,
     NewLine,
@@ -38,14 +38,14 @@ export enum TokenType {
     Arrow
 }
 
-export enum NewLineType {
+export const enum NewLineType {
     CarriageReturn,
     LineFeed,
     CarriageReturnLineFeed,
     Implied
 }
 
-export enum OperatorType {
+export const enum OperatorType {
     // These operators are used with tokens
     // of type TokenType.Operator.
     Add,
@@ -94,14 +94,14 @@ export enum OperatorType {
     NotIn
 }
 
-export enum OperatorFlags {
+export const enum OperatorFlags {
     Unary = 0x1,
     Binary = 0x2,
     Assignment = 0x4,
     Comparison = 0x8
 }
 
-export enum KeywordType {
+export const enum KeywordType {
     And,
     As,
     Assert,
@@ -140,7 +140,7 @@ export enum KeywordType {
     Yield
 }
 
-export enum StringTokenFlags {
+export const enum StringTokenFlags {
     None = 0x0,
 
     // Quote types

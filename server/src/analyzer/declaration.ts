@@ -13,7 +13,7 @@ import { DiagnosticTextRange } from '../common/diagnostic';
 import { ParseNode } from '../parser/parseNodes';
 import { Type } from './types';
 
-export enum DeclarationCategory {
+export const enum DeclarationCategory {
     Variable,
     Parameter,
     Function,
