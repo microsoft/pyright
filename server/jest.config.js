@@ -17,6 +17,17 @@ module.exports = {
     'tsx',
     'js',
     'jsx'
-  ]
+  ],
+  globals: {
+    'ts-jest': {
+      tsConfig: {
+    		"target": "es6",
+
+        // Needed because jest calls tsc in a way that doesn't
+        // inline const enums.
+        "preserveConstEnums": true
+      }
+    }
+  }
 }
 
