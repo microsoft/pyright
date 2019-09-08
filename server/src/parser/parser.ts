@@ -535,7 +535,7 @@ export class Parser {
         let nameToken = this._getTokenIfIdentifier();
         if (!nameToken) {
             this._addError('Expected function name after "def"', defToken);
-            nameToken = new IdentifierToken(0, 0, '', undefined);
+            nameToken = IdentifierToken.create(0, 0, '', undefined);
         }
 
         if (!this._consumeTokenIfType(TokenType.OpenParenthesis)) {
@@ -846,7 +846,7 @@ export class Parser {
         let nameToken = this._getTokenIfIdentifier();
         if (!nameToken) {
             this._addError('Expected class name', this._peekToken());
-            nameToken = new IdentifierToken(0, 0, '', undefined);
+            nameToken = IdentifierToken.create(0, 0, '', undefined);
         }
 
         let argList: ArgumentNode[] = [];
@@ -2354,7 +2354,7 @@ export class Parser {
         // Synthesize a string token and StringNode.
         const typeString = match[2];
         const tokenOffset = curToken.start + curToken.length + match[1].length;
-        const stringToken = new StringToken(tokenOffset,
+        const stringToken = StringToken.create(tokenOffset,
             typeString.length, StringTokenFlags.None, typeString, 0, undefined);
         const stringNode = this._makeStringNode(stringToken);
         const stringListNode = StringListNode.create([stringNode]);
@@ -2658,7 +2658,7 @@ export class Parser {
             if (!disallowedKeywords.find(type => type === keywordType)) {
                 const keywordText = this._fileContents!.substr(nextToken.start, nextToken.length);
                 this._getNextToken();
-                return new IdentifierToken(nextToken.start,
+                return IdentifierToken.create(nextToken.start,
                     nextToken.length, keywordText, nextToken.comments);
             }
         }

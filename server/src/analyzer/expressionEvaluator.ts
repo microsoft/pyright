@@ -2133,7 +2133,7 @@ export class ExpressionEvaluator {
 
     private _getBooleanValue(node: ExpressionNode): boolean {
         if (node.nodeType === ParseNodeType.Constant) {
-            if (node.token instanceof KeywordToken) {
+            if (node.token.type === TokenType.Keyword) {
                 if (node.token.keywordType === KeywordType.False) {
                     return false;
                 } else if (node.token.keywordType === KeywordType.True) {

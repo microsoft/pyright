@@ -158,81 +158,136 @@ export enum StringTokenFlags {
     Unterminated = 0x1000
 }
 
-export class Comment {
+export interface Comment extends TextRange {
     readonly value: string;
-    readonly range: TextRange;
+    readonly start: number;
+    readonly length: number;
+}
 
-    constructor(start: number, length: number, value: string) {
-        this.range = { start, length };
-        this.value = value;
+export namespace Comment {
+    export function create(start: number, length: number, value: string) {
+        const comment: Comment = {
+            start,
+            length,
+            value
+        };
+
+        return comment;
     }
 }
 
-export class Token implements TextRange {
+export interface TokenBase extends TextRange {
     readonly type: TokenType;
 
     // Comments prior to the token.
-    readonly start: number;
-    readonly length: number;
     readonly comments?: Comment[];
+}
 
-    constructor(type: TokenType, start: number, length: number,
+export interface Token extends TokenBase {}
+
+export namespace Token {
+    export function create(type: TokenType, start: number, length: number,
             comments: Comment[] | undefined) {
 
-        this.start = start;
-        this.length = length;
-        this.type = type;
-        this.comments = comments;
+        const token: Token = {
+            start,
+            length,
+            type,
+            comments
+        };
+
+        return token;
     }
 }
 
-export class IndentToken extends Token {
+export interface IndentToken extends Token {
+    readonly type: TokenType.Indent;
     readonly indentAmount: number;
+}
 
-    constructor(start: number, length: number, indentAmount: number,
+export namespace IndentToken {
+    export function create(start: number, length: number, indentAmount: number,
             comments: Comment[] | undefined) {
 
-        super(TokenType.Indent, start, length, comments);
-        this.indentAmount = indentAmount;
+        const token: IndentToken = {
+            start,
+            length,
+            type: TokenType.Indent,
+            comments,
+            indentAmount
+        };
+
+        return token;
     }
 }
 
-export class DedentToken extends Token {
+export interface DedentToken extends Token {
+    readonly type: TokenType.Dedent;
     readonly indentAmount: number;
     readonly matchesIndent: boolean;
+}
 
-    constructor(start: number, length: number, indentAmount: number,
+export namespace DedentToken {
+    export function create(start: number, length: number, indentAmount: number,
             matchesIndent: boolean, comments: Comment[] | undefined) {
 
-        super(TokenType.Dedent, start, length, comments);
-        this.indentAmount = indentAmount;
-        this.matchesIndent = matchesIndent;
+        const token: DedentToken = {
+            start,
+            length,
+            type: TokenType.Dedent,
+            comments,
+            indentAmount,
+            matchesIndent
+        };
+
+        return token;
     }
 }
 
-export class NewLineToken extends Token {
+export interface NewLineToken extends Token {
+    readonly type: TokenType.NewLine;
     readonly newLineType: NewLineType;
+}
 
-    constructor(start: number, length: number, newLineType: NewLineType,
+export namespace NewLineToken {
+    export function create(start: number, length: number, newLineType: NewLineType,
             comments: Comment[] | undefined) {
 
-        super(TokenType.NewLine, start, length, comments);
-        this.newLineType = newLineType;
+        const token: NewLineToken = {
+            start,
+            length,
+            type: TokenType.NewLine,
+            comments,
+            newLineType
+        };
+
+        return token;
     }
 }
 
-export class KeywordToken extends Token {
+export interface KeywordToken extends Token {
+    readonly type: TokenType.Keyword;
     readonly keywordType: KeywordType;
+}
 
-    constructor(start: number, length: number, keywordType: KeywordType,
+export namespace KeywordToken {
+    export function create(start: number, length: number, keywordType: KeywordType,
             comments: Comment[] | undefined) {
 
-        super(TokenType.Keyword, start, length, comments);
-        this.keywordType = keywordType;
+        const token: KeywordToken = {
+            start,
+            length,
+            type: TokenType.Keyword,
+            comments,
+            keywordType
+        };
+
+        return token;
     }
 }
 
-export class StringToken extends Token {
+export interface StringToken extends Token {
+    readonly type: TokenType.String;
     readonly flags: StringTokenFlags;
 
     // Use StringTokenUtils to convert escaped value to unescaped value.
@@ -245,49 +300,88 @@ export class StringToken extends Token {
     // Number of characters in token that make up the quote
     // (either 1 or 3).
     readonly quoteMarkLength: number;
+}
 
-    constructor(start: number, length: number, flags: StringTokenFlags, escapedValue: string,
+export namespace StringToken {
+    export function create(start: number, length: number, flags: StringTokenFlags, escapedValue: string,
             prefixLength: number, comments: Comment[] | undefined) {
 
-        super(TokenType.String, start, length, comments);
-        this.flags = flags;
-        this.escapedValue = escapedValue;
-        this.prefixLength = prefixLength;
-        this.quoteMarkLength = (flags & StringTokenFlags.Triplicate) ? 3 : 1;
+        const token: StringToken = {
+            start,
+            length,
+            type: TokenType.String,
+            flags,
+            escapedValue,
+            prefixLength,
+            quoteMarkLength: (flags & StringTokenFlags.Triplicate) ? 3 : 1,
+            comments
+        };
+
+        return token;
     }
 }
 
-export class NumberToken extends Token {
+export interface NumberToken extends Token {
+    readonly type: TokenType.Number;
     readonly value: number;
     readonly isInteger: boolean;
+}
 
-    constructor(start: number, length: number, value: number, isInteger: boolean,
+export namespace NumberToken {
+    export function create(start: number, length: number, value: number, isInteger: boolean,
             comments: Comment[] | undefined) {
 
-        super(TokenType.Number, start, length, comments);
-        this.value = value;
-        this.isInteger = isInteger;
+        const token: NumberToken = {
+            start,
+            length,
+            type: TokenType.Number,
+            isInteger,
+            value,
+            comments
+        };
+
+        return token;
     }
 }
 
-export class OperatorToken extends Token {
+export interface OperatorToken extends Token {
+    readonly type: TokenType.Operator;
     readonly operatorType: OperatorType;
+}
 
-    constructor(start: number, length: number, operatorType: OperatorType,
+export namespace OperatorToken {
+    export function create(start: number, length: number, operatorType: OperatorType,
             comments: Comment[] | undefined) {
 
-        super(TokenType.Operator, start, length, comments);
-        this.operatorType = operatorType;
+        const token: OperatorToken = {
+            start,
+            length,
+            type: TokenType.Operator,
+            operatorType,
+            comments
+        };
+
+        return token;
     }
 }
 
-export class IdentifierToken extends Token {
+export interface IdentifierToken extends Token {
+    readonly type: TokenType.Identifier;
     readonly value: string;
+}
 
-    constructor(start: number, length: number, value: string,
+export namespace IdentifierToken {
+    export function create(start: number, length: number, value: string,
             comments: Comment[] | undefined) {
 
-        super(TokenType.Identifier, start, length, comments);
-        this.value = value;
+        const token: IdentifierToken = {
+            start,
+            length,
+            type: TokenType.Identifier,
+            value,
+            comments
+        };
+
+        return token;
     }
 }
