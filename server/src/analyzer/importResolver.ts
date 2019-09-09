@@ -601,7 +601,8 @@ export class ImportResolver {
                         resolvedPaths.push(pydFilePath);
                         isPydFile = true;
                     } else {
-                        importFailureInfo.push(`Did not find file '${ pyiFilePath }' or '${ pyFilePath }'`);
+                        importFailureInfo.push(`Did not find file '${ pyiFilePath }',` +
+                            ` '${ pyFilePath }' or '${ pydFilePath }'`);
                     }
                     break;
                 }
