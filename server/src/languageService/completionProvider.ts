@@ -405,10 +405,9 @@ export class CompletionProvider {
                 this._makeSortText(SortCategory.Keyword, keyword);
         });
 
-        // Add auto-import suggestions from other modules. Don't bother doing
-        // this expensive check unless/until we get at least two characters.
-        // Also, ignore this check for privates, since they are not imported.
-        if (priorWord.length > 2 && !priorWord.startsWith('_')) {
+        // Add auto-import suggestions from other modules.
+        // Ignore this check for privates, since they are not imported.
+        if (!priorWord.startsWith('_')) {
             this._getAutoImportCompletions(priorWord, completionList);
         }
 
