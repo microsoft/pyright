@@ -28,8 +28,9 @@ import { TypeUtils } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
-import { getFileName, stripFileExtension } from '../common/pathUtils';
+import { combinePaths, getDirectoryPath, getFileName, getPathComponents, stripFileExtension } from '../common/pathUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
+import StringMap from '../common/stringMap';
 import { StringUtils } from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
 import { ErrorExpressionCategory, ErrorExpressionNode,
@@ -462,6 +463,46 @@ export class CompletionProvider {
                         }
                     }
                 });
+
+                // See if this file should be offered as an implicit import.
+                const fileDir = getDirectoryPath(filePath);
+                const initPathPy = combinePaths(fileDir, '__init__.py');
+                const initPathPyi = initPathPy + 'i';
+
+                // If the current file is in a directory that also contains an "__init__.py[i]"
+                // file, we can use that directory name as an implicit import target.
+                if (moduleSymbolMap[initPathPy] || moduleSymbolMap[initPathPyi]) {
+                    const name = getFileName(fileDir);
+                    const moduleNameAndType = this._getModuleNameAndTypeFromFilePath(
+                        getDirectoryPath(fileDir));
+                    if (moduleNameAndType.moduleName) {
+                        const autoImportText = `Auto-import from ${ moduleNameAndType.moduleName }`;
+
+                        const isDuplicateEntry = completionList.items.find(item => {
+                            if (item.label === name) {
+                                // Don't add if there's already a local completion suggestion.
+                                if (!item.data.autoImport) {
+                                    return true;
+                                }
+
+                                // Don't add the same auto-import suggestion twice.
+                                if (item.data && item.data.autoImport === autoImportText) {
+                                    return true;
+                                }
+                            }
+
+                            return false;
+                        });
+
+                        if (!isDuplicateEntry) {
+                            const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
+                                name, importStatements, filePath, moduleNameAndType.moduleName,
+                                moduleNameAndType ? moduleNameAndType.importType : ImportType.Local);
+                            this._addNameToCompletionList(name, CompletionItemKind.Module, priorWord, completionList,
+                                name, '', autoImportText, autoImportTextEdits);
+                        }
+                    }
+                }
             }
         });
     }
@@ -673,7 +714,7 @@ export class CompletionProvider {
             if (autoImportText) {
                 markdownString += autoImportText;
                 markdownString += '\n\n';
-                completionItem.data.autoImport = true;
+                completionItem.data.autoImport = autoImportText;
             }
 
             if (typeDetail) {
