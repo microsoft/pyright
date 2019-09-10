@@ -36,6 +36,8 @@ export class ImportResolver {
     private _configOptions: ConfigOptions;
     private _cachedPythonSearchPaths: { [venv: string]: string[] } = {};
     private _cachedImportResults: { [execEnvRoot: string]: CachedImportResults } = {};
+    private _cachedTypeshedStdLibPath: string | undefined;
+    private _cachedTypeshedThirdPartyPath: string | undefined;
 
     constructor(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
@@ -458,6 +460,17 @@ export class ImportResolver {
     private _getTypeshedPath(isStdLib: boolean, execEnv: ExecutionEnvironment,
             importFailureInfo: string[]) {
 
+        // See if we have it cached.
+        if (isStdLib) {
+            if (this._cachedTypeshedStdLibPath !== undefined) {
+                return this._cachedTypeshedStdLibPath;
+            }
+        } else {
+            if (this._cachedTypeshedThirdPartyPath !== undefined) {
+                return this._cachedTypeshedThirdPartyPath;
+            }
+        }
+
         let typeshedPath = '';
 
         // Did the user specify a typeshed path? If not, we'll look in the
@@ -487,6 +500,13 @@ export class ImportResolver {
 
         if (!fs.existsSync(typeshedPath) || !isDirectory(typeshedPath)) {
             return undefined;
+        }
+
+        // Cache the results.
+        if (isStdLib) {
+            this._cachedTypeshedStdLibPath = typeshedPath;
+        } else {
+            this._cachedTypeshedThirdPartyPath = typeshedPath;
         }
 
         return typeshedPath;
