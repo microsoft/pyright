@@ -28,9 +28,8 @@ import { TypeUtils } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
-import { combinePaths, getDirectoryPath, getFileName, getPathComponents, stripFileExtension } from '../common/pathUtils';
+import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
-import StringMap from '../common/stringMap';
 import { StringUtils } from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
 import { ErrorExpressionCategory, ErrorExpressionNode,
@@ -429,7 +428,14 @@ export class CompletionProvider {
                 const symbolTable = moduleSymbolMap[filePath];
 
                 symbolTable.forEach((symbol, name) => {
-                    if (StringUtils.computeCompletionSimilarity(priorWord, name) > similarityLimit) {
+                    // For very short matching strings, we will require an exact match. Otherwise
+                    // we will tend to return a list that's too long. Once we get beyond two
+                    // characters, we can do a fuzzy match.
+                    const isSimilar = priorWord.length > 2 ?
+                        StringUtils.computeCompletionSimilarity(priorWord, name) > similarityLimit :
+                        name.startsWith(priorWord);
+
+                    if (isSimilar) {
                         if (!symbol.isExternallyHidden()) {
                             // If there's already a local completion suggestion with
                             // this name, don't add an auto-import suggestion with
