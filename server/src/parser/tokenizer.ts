@@ -104,6 +104,8 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
     [OperatorType.NotIn]: OperatorFlags.Binary
 };
 
+const _byteOrderMarker = 0xFEFF;
+
 export interface TokenizerOutput {
     tokens: TextRangeCollection<Token>;
     lines: TextRangeCollection<TextRange>;
@@ -279,7 +281,7 @@ export class Tokenizer {
         }
 
         switch (this._cs.currentChar) {
-            case Char.ByteOrderMarker:
+            case _byteOrderMarker:
                 // Skip the BOM if it's at the start of the file.
                 if (this._cs.position === 0) {
                     return false;
