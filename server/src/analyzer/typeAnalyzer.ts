@@ -1550,6 +1550,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return;
         }
 
+        // If this call is within an assert statement, we'll ignore it.
+        let curNode: ParseNode | undefined = node;
+        while (curNode) {
+            if (curNode.nodeType === ParseNodeType.Assert) {
+                return;
+            }
+            curNode = curNode.parent;
+        }
+
         if (node.leftExpression.nodeType !== ParseNodeType.Name ||
                 node.leftExpression.nameToken.value !== 'isinstance' ||
                 node.arguments.length !== 2) {
