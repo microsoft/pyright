@@ -220,6 +220,12 @@ function reportDiagnostics(fileDiagnostics: FileDiagnostics[]): DiagnosticResult
                 message += diag.category === DiagnosticCategory.Error ?
                     chalk.red('error') : chalk.green('warning');
                 message += `: ${ diag.message }`;
+
+                const rule = diag.getRule();
+                if (rule) {
+                    message += chalk.gray(` (${ rule })`);
+                }
+
                 console.log(message);
 
                 if (diag.category === DiagnosticCategory.Error) {

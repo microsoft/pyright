@@ -702,8 +702,14 @@ function _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
         const severity = diag.category === DiagnosticCategory.Error ?
             DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
 
+        let source = 'pyright';
+        const rule = diag.getRule();
+        if (rule) {
+            source = `${ source } (${ rule })`;
+        }
+
         const vsDiag = Diagnostic.create(_convertRange(diag.range), diag.message, severity,
-            undefined, 'pyright');
+            undefined, source);
 
         if (diag.category === DiagnosticCategory.UnusedCode) {
             vsDiag.tags = [DiagnosticTag.Unnecessary];

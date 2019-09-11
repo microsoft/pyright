@@ -83,6 +83,7 @@ export interface AddMissingOptionalToParamAction extends DiagnosticAction {
 // Represents a single error or warning.
 export class Diagnostic {
     private _actions: DiagnosticAction[] | undefined;
+    private _rule: string | undefined;
 
     constructor(readonly category: DiagnosticCategory, readonly message: string,
         readonly range: DiagnosticTextRange) {
@@ -98,6 +99,14 @@ export class Diagnostic {
 
     getActions() {
         return this._actions;
+    }
+
+    setRule(rule: string) {
+        this._rule = rule;
+    }
+
+    getRule() {
+        return this._rule;
     }
 }
 

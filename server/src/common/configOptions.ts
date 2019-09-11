@@ -10,6 +10,7 @@
 import { isAbsolute } from 'path';
 
 import { ConsoleInterface } from './console';
+import { DiagnosticRule } from './diagnosticRules';
 import { combinePaths, ensureTrailingDirectorySeparator, FileSpec,
     getFileSpec, normalizePath } from './pathUtils';
 import { latestStablePythonVersion, PythonVersion, versionFromString } from './pythonVersion';
@@ -150,42 +151,42 @@ export function cloneDiagnosticSettings(
 
 export function getBooleanDiagnosticSettings() {
     return [
-        'strictListInference',
-        'strictDictionaryInference',
-        'strictParameterNoneValue'
+        DiagnosticRule.strictListInference,
+        DiagnosticRule.strictDictionaryInference,
+        DiagnosticRule.strictParameterNoneValue
     ];
 }
 
 export function getDiagLevelSettings() {
     return [
-        'reportTypeshedErrors',
-        'reportMissingImports',
-        'reportMissingTypeStubs',
-        'reportImportCycles',
-        'reportUnusedImport',
-        'reportUnusedClass',
-        'reportUnusedFunction',
-        'reportUnusedVariable',
-        'reportOptionalSubscript',
-        'reportOptionalMemberAccess',
-        'reportOptionalCall',
-        'reportOptionalIterable',
-        'reportOptionalContextManager',
-        'reportOptionalOperand',
-        'reportUntypedFunctionDecorator',
-        'reportUntypedClassDecorator',
-        'reportUntypedBaseClass',
-        'reportUntypedNamedTuple',
-        'reportPrivateUsage',
-        'reportConstantRedefinition',
-        'reportIncompatibleMethodOverride',
-        'reportInvalidStringEscapeSequence',
-        'reportUnknownParameterType',
-        'reportUnknownVariableType',
-        'reportUnknownMemberType',
-        'reportCallInDefaultInitializer',
-        'reportUnnecessaryIsInstance',
-        'reportUnnecessaryCast'
+        DiagnosticRule.reportTypeshedErrors,
+        DiagnosticRule.reportMissingImports,
+        DiagnosticRule.reportMissingTypeStubs,
+        DiagnosticRule.reportImportCycles,
+        DiagnosticRule.reportUnusedImport,
+        DiagnosticRule.reportUnusedClass,
+        DiagnosticRule.reportUnusedFunction,
+        DiagnosticRule.reportUnusedVariable,
+        DiagnosticRule.reportOptionalSubscript,
+        DiagnosticRule.reportOptionalMemberAccess,
+        DiagnosticRule.reportOptionalCall,
+        DiagnosticRule.reportOptionalIterable,
+        DiagnosticRule.reportOptionalContextManager,
+        DiagnosticRule.reportOptionalOperand,
+        DiagnosticRule.reportUntypedFunctionDecorator,
+        DiagnosticRule.reportUntypedClassDecorator,
+        DiagnosticRule.reportUntypedBaseClass,
+        DiagnosticRule.reportUntypedNamedTuple,
+        DiagnosticRule.reportPrivateUsage,
+        DiagnosticRule.reportConstantRedefinition,
+        DiagnosticRule.reportIncompatibleMethodOverride,
+        DiagnosticRule.reportInvalidStringEscapeSequence,
+        DiagnosticRule.reportUnknownParameterType,
+        DiagnosticRule.reportUnknownVariableType,
+        DiagnosticRule.reportUnknownMemberType,
+        DiagnosticRule.reportCallInDefaultInitializer,
+        DiagnosticRule.reportUnnecessaryIsInstance,
+        DiagnosticRule.reportUnnecessaryCast
     ];
 }
 
@@ -441,158 +442,158 @@ export class ConfigOptions {
         this.diagnosticSettings = {
             // Use strict inference rules for list expressions?
             strictListInference: this._convertBoolean(
-                configObj.strictListInference, 'strictListInference',
+                configObj.strictListInference, DiagnosticRule.strictListInference,
                 defaultSettings.strictListInference),
 
             // Use strict inference rules for dictionary expressions?
             strictDictionaryInference: this._convertBoolean(
-                configObj.strictDictionaryInference, 'strictDictionaryInference',
+                configObj.strictDictionaryInference, DiagnosticRule.strictDictionaryInference,
                 defaultSettings.strictDictionaryInference),
 
             // Should a None default value imply that the parameter type
             // is Optional?
             strictParameterNoneValue: this._convertBoolean(
-                configObj.strictParameterNoneValue, 'strictParameterNoneValue',
+                configObj.strictParameterNoneValue, DiagnosticRule.strictParameterNoneValue,
                 defaultSettings.strictParameterNoneValue),
 
             // Read the "reportTypeshedErrors" entry.
             reportTypeshedErrors: this._convertDiagnosticLevel(
-                configObj.reportTypeshedErrors, 'reportTypeshedErrors',
+                configObj.reportTypeshedErrors, DiagnosticRule.reportTypeshedErrors,
                 defaultSettings.reportTypeshedErrors),
 
             // Read the "reportMissingImports" entry.
             reportMissingImports: this._convertDiagnosticLevel(
-                configObj.reportMissingImports, 'reportMissingImports',
+                configObj.reportMissingImports, DiagnosticRule.reportMissingImports,
                 defaultSettings.reportMissingImports),
 
             // Read the "reportUnusedImport" entry.
             reportUnusedImport: this._convertDiagnosticLevel(
-                configObj.reportUnusedImport, 'reportUnusedImport',
+                configObj.reportUnusedImport, DiagnosticRule.reportUnusedImport,
                 defaultSettings.reportUnusedImport),
 
             // Read the "reportUnusedClass" entry.
             reportUnusedClass: this._convertDiagnosticLevel(
-                configObj.reportUnusedClass, 'reportUnusedClass',
+                configObj.reportUnusedClass, DiagnosticRule.reportUnusedClass,
                 defaultSettings.reportUnusedClass),
 
             // Read the "reportUnusedFunction" entry.
             reportUnusedFunction: this._convertDiagnosticLevel(
-                configObj.reportUnusedFunction, 'reportUnusedFunction',
+                configObj.reportUnusedFunction, DiagnosticRule.reportUnusedFunction,
                 defaultSettings.reportUnusedFunction),
 
             // Read the "reportUnusedVariable" entry.
             reportUnusedVariable: this._convertDiagnosticLevel(
-                configObj.reportUnusedVariable, 'reportUnusedVariable',
+                configObj.reportUnusedVariable, DiagnosticRule.reportUnusedVariable,
                 defaultSettings.reportUnusedVariable),
 
             // Read the "reportMissingTypeStubs" entry.
             reportMissingTypeStubs: this._convertDiagnosticLevel(
-                configObj.reportMissingTypeStubs, 'reportMissingTypeStubs',
+                configObj.reportMissingTypeStubs, DiagnosticRule.reportMissingTypeStubs,
                 defaultSettings.reportMissingTypeStubs),
 
             // Read the "reportImportCycles" entry.
             reportImportCycles: this._convertDiagnosticLevel(
-                configObj.reportImportCycles, 'reportImportCycles',
+                configObj.reportImportCycles, DiagnosticRule.reportImportCycles,
                 defaultSettings.reportImportCycles),
 
             // Read the "reportOptionalSubscript" entry.
             reportOptionalSubscript: this._convertDiagnosticLevel(
-                configObj.reportOptionalSubscript, 'reportOptionalSubscript',
+                configObj.reportOptionalSubscript, DiagnosticRule.reportOptionalSubscript,
                 defaultSettings.reportOptionalSubscript),
 
             // Read the "reportOptionalMemberAccess" entry.
             reportOptionalMemberAccess: this._convertDiagnosticLevel(
-                configObj.reportOptionalMemberAccess, 'reportOptionalMemberAccess',
+                configObj.reportOptionalMemberAccess, DiagnosticRule.reportOptionalMemberAccess,
                 defaultSettings.reportOptionalMemberAccess),
 
             // Read the "reportOptionalCall" entry.
             reportOptionalCall: this._convertDiagnosticLevel(
-                configObj.reportOptionalCall, 'reportOptionalCall',
+                configObj.reportOptionalCall, DiagnosticRule.reportOptionalCall,
                 defaultSettings.reportOptionalCall),
 
             // Read the "reportOptionalIterable" entry.
             reportOptionalIterable: this._convertDiagnosticLevel(
-                configObj.reportOptionalIterable, 'reportOptionalIterable',
+                configObj.reportOptionalIterable, DiagnosticRule.reportOptionalIterable,
                 defaultSettings.reportOptionalIterable),
 
             // Read the "reportOptionalContextManager" entry.
             reportOptionalContextManager: this._convertDiagnosticLevel(
-                configObj.reportOptionalContextManager, 'reportOptionalContextManager',
+                configObj.reportOptionalContextManager, DiagnosticRule.reportOptionalContextManager,
                 defaultSettings.reportOptionalContextManager),
 
             // Read the "reportOptionalOperand" entry.
             reportOptionalOperand: this._convertDiagnosticLevel(
-                configObj.reportOptionalOperand, 'reportOptionalOperand',
+                configObj.reportOptionalOperand, DiagnosticRule.reportOptionalOperand,
                 defaultSettings.reportOptionalOperand),
 
             // Read the "reportUntypedFunctionDecorator" entry.
             reportUntypedFunctionDecorator: this._convertDiagnosticLevel(
-                configObj.reportUntypedFunctionDecorator, 'reportUntypedFunctionDecorator',
+                configObj.reportUntypedFunctionDecorator, DiagnosticRule.reportUntypedFunctionDecorator,
                 defaultSettings.reportUntypedFunctionDecorator),
 
             // Read the "reportUntypedClassDecorator" entry.
             reportUntypedClassDecorator: this._convertDiagnosticLevel(
-                configObj.reportUntypedClassDecorator, 'reportUntypedClassDecorator',
+                configObj.reportUntypedClassDecorator, DiagnosticRule.reportUntypedClassDecorator,
                 defaultSettings.reportUntypedClassDecorator),
 
             // Read the "reportUntypedBaseClass" entry.
             reportUntypedBaseClass: this._convertDiagnosticLevel(
-                configObj.reportUntypedBaseClass, 'reportUntypedBaseClass',
+                configObj.reportUntypedBaseClass, DiagnosticRule.reportUntypedBaseClass,
                 defaultSettings.reportUntypedBaseClass),
 
             // Read the "reportUntypedNamedTuple" entry.
             reportUntypedNamedTuple: this._convertDiagnosticLevel(
-                configObj.reportUntypedNamedTuple, 'reportUntypedNamedTuple',
+                configObj.reportUntypedNamedTuple, DiagnosticRule.reportUntypedNamedTuple,
                 defaultSettings.reportUntypedNamedTuple),
 
             // Read the "reportPrivateUsage" entry.
             reportPrivateUsage: this._convertDiagnosticLevel(
-                configObj.reportPrivateUsage, 'reportPrivateUsage',
+                configObj.reportPrivateUsage, DiagnosticRule.reportPrivateUsage,
                 defaultSettings.reportPrivateUsage),
 
             // Read the "reportConstantRedefinition" entry.
             reportConstantRedefinition: this._convertDiagnosticLevel(
-                configObj.reportConstantRedefinition, 'reportConstantRedefinition',
+                configObj.reportConstantRedefinition, DiagnosticRule.reportConstantRedefinition,
                 defaultSettings.reportConstantRedefinition),
 
             // Read the "reportIncompatibleMethodOverride" entry.
             reportIncompatibleMethodOverride: this._convertDiagnosticLevel(
-                configObj.reportIncompatibleMethodOverride, 'reportIncompatibleMethodOverride',
+                configObj.reportIncompatibleMethodOverride, DiagnosticRule.reportIncompatibleMethodOverride,
                 defaultSettings.reportIncompatibleMethodOverride),
 
             // Read the "reportInvalidStringEscapeSequence" entry.
             reportInvalidStringEscapeSequence: this._convertDiagnosticLevel(
-                configObj.reportInvalidStringEscapeSequence, 'reportInvalidStringEscapeSequence',
+                configObj.reportInvalidStringEscapeSequence, DiagnosticRule.reportInvalidStringEscapeSequence,
                 defaultSettings.reportInvalidStringEscapeSequence),
 
             // Read the "reportUnknownParameterType" entry.
             reportUnknownParameterType: this._convertDiagnosticLevel(
-                configObj.reportUnknownParameterType, 'reportUnknownParameterType',
+                configObj.reportUnknownParameterType, DiagnosticRule.reportUnknownParameterType,
                 defaultSettings.reportUnknownParameterType),
 
             // Read the "reportUnknownVariableType" entry.
             reportUnknownVariableType: this._convertDiagnosticLevel(
-                configObj.reportUnknownVariableType, 'reportUnknownVariableType',
+                configObj.reportUnknownVariableType, DiagnosticRule.reportUnknownVariableType,
                 defaultSettings.reportUnknownVariableType),
 
             // Read the "reportUnknownMemberType" entry.
             reportUnknownMemberType: this._convertDiagnosticLevel(
-                configObj.reportUnknownMemberType, 'reportUnknownMemberType',
+                configObj.reportUnknownMemberType, DiagnosticRule.reportUnknownMemberType,
                 defaultSettings.reportUnknownMemberType),
 
             // Read the "reportCallInDefaultInitializer" entry.
             reportCallInDefaultInitializer: this._convertDiagnosticLevel(
-                configObj.reportCallInDefaultInitializer, 'reportCallInDefaultInitializer',
+                configObj.reportCallInDefaultInitializer, DiagnosticRule.reportCallInDefaultInitializer,
                 defaultSettings.reportCallInDefaultInitializer),
 
             // Read the "reportUnnecessaryIsInstance" entry.
             reportUnnecessaryIsInstance: this._convertDiagnosticLevel(
-                configObj.reportUnnecessaryIsInstance, 'reportUnnecessaryIsInstance',
+                configObj.reportUnnecessaryIsInstance, DiagnosticRule.reportUnnecessaryIsInstance,
                 defaultSettings.reportUnnecessaryIsInstance),
 
             // Read the "reportUnnecessaryCast" entry.
             reportUnnecessaryCast: this._convertDiagnosticLevel(
-                configObj.reportUnnecessaryCast, 'reportUnnecessaryCast',
+                configObj.reportUnnecessaryCast, DiagnosticRule.reportUnnecessaryCast,
                 defaultSettings.reportUnnecessaryCast)
         };
 

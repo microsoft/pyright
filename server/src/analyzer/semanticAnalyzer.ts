@@ -21,6 +21,7 @@ import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
 import { CreateTypeStubFileAction } from '../common/diagnostic';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AwaitExpressionNode, ClassNode, ErrorExpressionNode, ExpressionNode, FunctionNode,
@@ -140,10 +141,12 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         if (importResult) {
             if (!importResult.isImportFound) {
                 this._addDiagnostic(this._fileInfo.diagnosticSettings.reportMissingImports,
+                    DiagnosticRule.reportMissingImports,
                     `Import '${ importResult.importName }' could not be resolved`, node);
             } else if (importResult.importType === ImportType.ThirdParty) {
                 if (!importResult.isStubFile) {
                     const diagnostic = this._addDiagnostic(this._fileInfo.diagnosticSettings.reportMissingTypeStubs,
+                        DiagnosticRule.reportMissingTypeStubs,
                         `Stub file not found for '${ importResult.importName }'`, node);
                     if (diagnostic) {
                         // Add a diagnostic action for resolving this diagnostic.
@@ -403,6 +406,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
                     if (error.errorType === UnescapeErrorType.InvalidEscapeSequence) {
                         this._addDiagnostic(this._fileInfo.diagnosticSettings.reportInvalidStringEscapeSequence,
+                            DiagnosticRule.reportInvalidStringEscapeSequence,
                             'Unsupported escape sequence in string literal', textRange);
                     } else if (error.errorType === UnescapeErrorType.EscapeWithinFormatExpression) {
                         this._addError(
@@ -570,11 +574,15 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         this._subscopesToAnalyze.push(analyzer);
     }
 
-    private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
+    private _addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {
         if (diagLevel === 'error') {
-            return this._addError(message, textRange);
+            const diagnostic = this._addError(message, textRange);
+            diagnostic.setRule(rule);
+            return diagnostic;
         } else if (diagLevel === 'warning') {
-            return this._addWarning(message, textRange);
+            const diagnostic = this._addWarning(message, textRange);
+            diagnostic.setRule(rule);
+            return diagnostic;
         }
         return undefined;
     }

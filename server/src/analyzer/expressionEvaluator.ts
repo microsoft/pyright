@@ -11,7 +11,8 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import { DiagnosticAddendum } from '../common/diagnostic';
+import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
+import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import StringMap from '../common/stringMap';
@@ -23,8 +24,7 @@ import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNo
     ParseNode, ParseNodeType, SetNode, SliceExpressionNode, TernaryExpressionNode,
     TupleExpressionNode, UnaryExpressionNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
-import { KeywordToken, KeywordType, OperatorType, StringTokenFlags,
-    TokenType } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
@@ -324,6 +324,7 @@ export class ExpressionEvaluator {
             if (errorNode) {
                 this._addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportOptionalIterable,
+                    DiagnosticRule.reportOptionalIterable,
                     `Object of type 'None' cannot be used as iterable value`,
                     errorNode);
             }
@@ -866,6 +867,7 @@ export class ExpressionEvaluator {
                 if (typeEntry instanceof NoneType) {
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportOptionalMemberAccess,
+                        DiagnosticRule.reportOptionalMemberAccess,
                         `'${ memberName }' is not a known member of 'None'`, node.memberName);
                 } else {
                     const typeResult = this._getTypeFromMemberAccessExpressionWithBaseType(node,
@@ -1204,6 +1206,7 @@ export class ExpressionEvaluator {
             } else if (subtype instanceof NoneType) {
                 this._addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportOptionalSubscript,
+                    DiagnosticRule.reportOptionalSubscript,
                     `Optional of type 'None' cannot be subscripted`,
                     node.baseExpression);
 
@@ -1548,6 +1551,7 @@ export class ExpressionEvaluator {
             if (callType.getBuiltInName() === 'namedtuple') {
                 this._addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportUntypedNamedTuple,
+                    DiagnosticRule.reportUntypedNamedTuple,
                     `'namedtuple' provides no types for tuple entries. Use 'NamedTuple' instead.`,
                     errorNode);
                 type = this._createNamedTupleType(errorNode, argList, false,
@@ -1582,6 +1586,7 @@ export class ExpressionEvaluator {
                         if (castToType.isSame(castFromType.getClassType())) {
                             this._addDiagnostic(
                                 this._fileInfo.diagnosticSettings.reportUnnecessaryCast,
+                                DiagnosticRule.reportUnnecessaryCast,
                                 `Unnecessary call to cast: type is already ${ castFromType.asString() }`,
                                 errorNode);
                         }
@@ -1629,6 +1634,7 @@ export class ExpressionEvaluator {
                 if (typeEntry instanceof NoneType) {
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportOptionalCall,
+                        DiagnosticRule.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
                         errorNode);
                 } else {
@@ -1806,6 +1812,7 @@ export class ExpressionEvaluator {
                 if (type instanceof NoneType) {
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportOptionalCall,
+                        DiagnosticRule.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
                         errorNode);
                 } else {
@@ -2566,6 +2573,7 @@ export class ExpressionEvaluator {
             if (TypeUtils.isOptionalType(exprType)) {
                 this._addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportOptionalOperand,
+                    DiagnosticRule.reportOptionalOperand,
                     `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                     `supported for 'None' type`,
                     node.expression);
@@ -2622,6 +2630,7 @@ export class ExpressionEvaluator {
                 if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportOptionalOperand,
+                        DiagnosticRule.reportOptionalOperand,
                         `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                         `supported for 'None' type`,
                         node.leftExpression);
@@ -3718,21 +3727,31 @@ export class ExpressionEvaluator {
 
     private _addWarning(message: string, range: TextRange) {
         if (this._diagnosticSink) {
-            this._diagnosticSink.addWarningWithTextRange(message, range);
+            return this._diagnosticSink.addWarningWithTextRange(message, range);
         }
+
+        return undefined;
     }
 
     private _addError(message: string, range: TextRange) {
         if (this._diagnosticSink) {
-            this._diagnosticSink.addErrorWithTextRange(message, range);
+            return this._diagnosticSink.addErrorWithTextRange(message, range);
         }
+
+        return undefined;
     }
 
-    private _addDiagnostic(diagLevel: DiagnosticLevel, message: string, textRange: TextRange) {
+    private _addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {
+        let diagnostic: Diagnostic | undefined;
+
         if (diagLevel === 'error') {
-            this._addError(message, textRange);
+            diagnostic = this._addError(message, textRange);
         } else if (diagLevel === 'warning') {
-            this._addWarning(message, textRange);
+            diagnostic = this._addWarning(message, textRange);
+        }
+
+        if (diagnostic) {
+            diagnostic.setRule(rule);
         }
     }
 }
