@@ -16,19 +16,28 @@ import { Declaration, DeclarationCategory } from '../analyzer/declaration';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
+import { StringUtils } from '../common/stringUtils';
 import { ClassNode, FunctionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+
+// We'll use a somewhat-arbitrary cutoff value here to determine
+// whether it's sufficiently similar.
+const similarityLimit = 0.5;
 
 class FindSymbolTreeWalker extends ParseTreeWalker {
     private _filePath: string;
     private _parseResults: ParseResults;
     private _symbolResults: SymbolInformation[];
+    private _query: string | undefined;
 
-    constructor(filePath: string, parseResults: ParseResults, results: SymbolInformation[]) {
+    constructor(filePath: string, parseResults: ParseResults,
+            results: SymbolInformation[], query: string | undefined) {
+
         super();
         this._filePath = filePath;
         this._parseResults = parseResults;
         this._symbolResults = results;
+        this._query = query;
     }
 
     findSymbols() {
@@ -79,6 +88,13 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
 
         if (declaration.path !== this._filePath) {
             return;
+        }
+
+        if (this._query !== undefined) {
+            const similarity = StringUtils.computeCompletionSimilarity(this._query, name);
+            if (similarity < similarityLimit) {
+                return;
+            }
         }
 
         let symbolKind: SymbolKind;
@@ -145,11 +161,11 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
 }
 
 export class DocumentSymbolProvider {
-    static getSymbolsForDocument(filePath: string, parseResults: ParseResults): SymbolInformation[] {
-        const results: SymbolInformation[] = [];
-        const symbolTreeWalker = new FindSymbolTreeWalker(filePath, parseResults, results);
-        symbolTreeWalker.findSymbols();
+    static addSymbolsForDocument(symbolList: SymbolInformation[], query: string | undefined,
+            filePath: string, parseResults: ParseResults) {
 
-        return results;
+        const symbolTreeWalker = new FindSymbolTreeWalker(filePath, parseResults,
+            symbolList, query);
+        symbolTreeWalker.findSymbols();
     }
 }

@@ -530,13 +530,13 @@ export class SourceFile {
             this._analysisJob.parseResults, this._filePath, referencesResult, includeDeclaration);
     }
 
-    getSymbolsForDocument(): SymbolInformation[] {
+    addSymbolsForDocument(symbolList: SymbolInformation[], query?: string) {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._analysisJob.parseResults) {
-            return [];
+            return;
         }
 
-        return DocumentSymbolProvider.getSymbolsForDocument(
+        DocumentSymbolProvider.addSymbolsForDocument(symbolList, query,
             this._filePath, this._analysisJob.parseResults);
     }
 

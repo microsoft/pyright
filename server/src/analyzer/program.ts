@@ -864,13 +864,23 @@ export class Program {
         return referencesResult.locations;
     }
 
-    getSymbolsForDocument(filePath: string): SymbolInformation[] {
+    addSymbolsForDocument(filePath: string, symbolList: SymbolInformation[]) {
         const sourceFileInfo = this._sourceFileMap[filePath];
-        if (!sourceFileInfo) {
-            return [];
+        if (sourceFileInfo) {
+            sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList);
+        }
+    }
+
+    addSymbolsForWorkspace(symbolList: SymbolInformation[], query: string) {
+        // Don't do a search if the query is empty. We'll return
+        // too many results in this case.
+        if (!query) {
+            return;
         }
 
-        return sourceFileInfo.sourceFile.getSymbolsForDocument();
+        for (const sourceFileInfo of this._sourceFileList) {
+            sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, query);
+        }
     }
 
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):

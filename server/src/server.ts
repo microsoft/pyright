@@ -8,7 +8,8 @@ import {
     CodeAction, CodeActionKind, Command, createConnection, Diagnostic,
     DiagnosticSeverity, DiagnosticTag, ExecuteCommandParams, IConnection,
     InitializeResult, IPCMessageReader, IPCMessageWriter, Location, ParameterInformation,
-    Position, Range, ResponseError, SignatureInformation, TextDocuments, TextEdit,
+    Position, Range, ResponseError, SignatureInformation, SymbolInformation, TextDocuments,
+    TextEdit,
     WorkspaceEdit
 } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
@@ -206,6 +207,7 @@ _connection.onInitialize((params): InitializeResult => {
             definitionProvider: true,
             referencesProvider: true,
             documentSymbolProvider: true,
+            workspaceSymbolProvider: true,
             hoverProvider: true,
             renameProvider: true,
             completionProvider: {
@@ -362,13 +364,27 @@ _connection.onReferences(params => {
 _connection.onDocumentSymbol(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
 
-    const worksspace = _getWorkspaceForFile(filePath);
-    if (worksspace.disableLanguageServices) {
-        return;
+    const workspace = _getWorkspaceForFile(filePath);
+    if (workspace.disableLanguageServices) {
+        return undefined;
     }
 
-    const symbols = worksspace.serviceInstance.getSymbolsForDocument(filePath);
-    return symbols;
+    const symbolList: SymbolInformation[] = [];
+    workspace.serviceInstance.addSymbolsForDocument(filePath, symbolList);
+    return symbolList;
+});
+
+_connection.onWorkspaceSymbol(params => {
+    const symbolList: SymbolInformation[] = [];
+
+    _workspaceMap.forEach(workspace => {
+        if (!workspace.disableLanguageServices) {
+            workspace.serviceInstance.addSymbolsForWorkspace(
+                symbolList, params.query);
+        }
+    });
+
+    return symbolList;
 });
 
 _connection.onHover(params => {

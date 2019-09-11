@@ -139,9 +139,14 @@ export class AnalyzerService {
             this._configOptions, this._importResolver, includeDeclaration);
     }
 
-    getSymbolsForDocument(filePath: string): SymbolInformation[] {
+    addSymbolsForDocument(filePath: string, symbolList: SymbolInformation[]) {
         this._recordUserInteractionTime();
-        return this._program.getSymbolsForDocument(filePath);
+        this._program.addSymbolsForDocument(filePath, symbolList);
+    }
+
+    addSymbolsForWorkspace(symbolList: SymbolInformation[], query: string) {
+        this._recordUserInteractionTime();
+        this._program.addSymbolsForWorkspace(symbolList, query);
     }
 
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
