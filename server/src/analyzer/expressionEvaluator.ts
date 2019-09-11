@@ -785,7 +785,7 @@ export class ExpressionEvaluator {
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (type instanceof ClassType) {
                 if (type.getTypeArguments() === undefined) {
-                    type = this._createSpecializeClassType(type, undefined, node);
+                    type = this._createSpecializedClassType(type, undefined, node);
                 }
             } else if (type instanceof ObjectType) {
                 // If this is an object that contains a Type[X], transform it
@@ -936,7 +936,7 @@ export class ExpressionEvaluator {
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (type instanceof ClassType) {
-                type = this._createSpecializeClassType(type, undefined, node);
+                type = this._createSpecializedClassType(type, undefined, node);
             }
         }
 
@@ -1199,7 +1199,7 @@ export class ExpressionEvaluator {
                     return Object(subtype);
                 } else {
                     const typeArgs = this._getTypeArgs(node.items);
-                    return this._createSpecializeClassType(subtype, typeArgs, node.items);
+                    return this._createSpecializedClassType(subtype, typeArgs, node.items);
                 }
             } else if (subtype instanceof ObjectType) {
                 return this._getTypeFromIndexedObject(node, subtype, usage);
@@ -1670,7 +1670,7 @@ export class ExpressionEvaluator {
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (type instanceof ClassType) {
-                type = this._createSpecializeClassType(type, undefined, errorNode);
+                type = this._createSpecializedClassType(type, undefined, errorNode);
             }
         }
 
@@ -3451,7 +3451,9 @@ export class ExpressionEvaluator {
         if (paramLimit !== undefined) {
             if (typeArgs && typeArgTypes.length > paramLimit) {
                 this._addError(
-                    `Expected at most ${ paramLimit } type arguments`, typeArgs[paramLimit].node);
+                    `Expected at most ${ paramLimit } type ` +
+                    `${ paramLimit === 1 ? 'argument' : 'arguments' }`,
+                    typeArgs[paramLimit].node);
                 typeArgTypes = typeArgTypes.slice(0, paramLimit);
             } else if (typeArgTypes.length < paramLimit) {
                 // Fill up the remainder of the slots with unknown types.
@@ -3525,66 +3527,6 @@ export class ExpressionEvaluator {
         return this._createSpecialType(classType, typeArgs);
     }
 
-    private _createSpecializedClassType(classType: ClassType, typeArgs?: TypeResult[]): Type {
-        let typeArgCount = typeArgs ? typeArgs.length : 0;
-
-        // Make sure the argument list count is correct.
-        const typeParameters = classType.getTypeParameters();
-
-        // If there are no type parameters or args, the class is already specialized.
-        // No need to do any more work.
-        if (typeParameters.length === 0 && typeArgCount === 0) {
-            return classType;
-        }
-
-        if (typeArgs && typeArgCount > typeParameters.length) {
-            if (typeParameters.length === 0) {
-                this._addError(`Expected no type arguments`,
-                    typeArgs[typeParameters.length].node);
-            } else {
-                this._addError(
-                    `Expected at most ${ typeParameters.length } type arguments`,
-                    typeArgs[typeParameters.length].node);
-            }
-            typeArgCount = typeParameters.length;
-        }
-
-        if (typeArgs) {
-            typeArgs.forEach(typeArg => {
-                // Verify that we didn't receive any inappropriate ellipses or modules.
-                if (TypeUtils.isEllipsisType(typeArg.type)) {
-                    this._addError(`'...' not allowed in this context`, typeArg.node);
-                } else if (typeArg.type instanceof ModuleType) {
-                    this._addError(`Module not allowed in this context`, typeArg.node);
-                }
-            });
-        }
-
-        // Fill in any missing type arguments with Any.
-        const typeArgTypes = typeArgs ? typeArgs.map(
-            t => TypeUtils.convertClassToObject(t.type)) : [];
-        const typeParams = classType.getTypeParameters();
-        for (let i = typeArgTypes.length; i < typeParams.length; i++) {
-            typeArgTypes.push(TypeUtils.specializeTypeVarType(typeParams[i]));
-        }
-
-        typeArgTypes.forEach((typeArgType, index) => {
-            if (index < typeArgCount) {
-                const diag = new DiagnosticAddendum();
-                if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
-                    this._addError(`Type '${ typeArgType.asString() }' ` +
-                            `cannot be assigned to type variable '${ typeParameters[index].getName() }'` +
-                            diag.getString(),
-                        typeArgs![index].node);
-                }
-            }
-        });
-
-        const specializedClass = classType.cloneForSpecialization(typeArgTypes);
-
-        return specializedClass;
-    }
-
     private _applyTypeConstraint(node: ExpressionNode, unconstrainedType: Type): Type {
         // Shortcut the process if the type is unknown.
         if (unconstrainedType.isAny()) {
@@ -3629,7 +3571,7 @@ export class ExpressionEvaluator {
     // the specified type arguments, reporting errors as appropriate.
     // Returns the specialized type and a boolean indicating whether
     // the type indicates a class type (true) or an object type (false).
-    private _createSpecializeClassType(classType: ClassType, typeArgs: TypeResult[] | undefined,
+    private _createSpecializedClassType(classType: ClassType, typeArgs: TypeResult[] | undefined,
             errorNode: ParseNode): Type {
 
         // Handle the special-case classes that are not defined
@@ -3684,8 +3626,64 @@ export class ExpressionEvaluator {
             }
         }
 
-        const specializedType = this._createSpecializedClassType(classType, typeArgs);
-        return specializedType;
+        let typeArgCount = typeArgs ? typeArgs.length : 0;
+
+        // Make sure the argument list count is correct.
+        const typeParameters = classType.getTypeParameters();
+
+        // If there are no type parameters or args, the class is already specialized.
+        // No need to do any more work.
+        if (typeParameters.length === 0 && typeArgCount === 0) {
+            return classType;
+        }
+
+        if (typeArgs && typeArgCount > typeParameters.length) {
+            if (typeParameters.length === 0) {
+                this._addError(`Expected no type arguments`,
+                    typeArgs[typeParameters.length].node);
+            } else {
+                this._addError(
+                    `Expected at most ${ typeParameters.length } ` +
+                        `type ${ typeParameters.length === 1 ? 'argument' : 'arguments' } `,
+                    typeArgs[typeParameters.length].node);
+            }
+            typeArgCount = typeParameters.length;
+        }
+
+        if (typeArgs) {
+            typeArgs.forEach(typeArg => {
+                // Verify that we didn't receive any inappropriate ellipses or modules.
+                if (TypeUtils.isEllipsisType(typeArg.type)) {
+                    this._addError(`'...' not allowed in this context`, typeArg.node);
+                } else if (typeArg.type instanceof ModuleType) {
+                    this._addError(`Module not allowed in this context`, typeArg.node);
+                }
+            });
+        }
+
+        // Fill in any missing type arguments with Any.
+        const typeArgTypes = typeArgs ? typeArgs.map(
+            t => TypeUtils.convertClassToObject(t.type)) : [];
+        const typeParams = classType.getTypeParameters();
+        for (let i = typeArgTypes.length; i < typeParams.length; i++) {
+            typeArgTypes.push(TypeUtils.specializeTypeVarType(typeParams[i]));
+        }
+
+        typeArgTypes.forEach((typeArgType, index) => {
+            if (index < typeArgCount) {
+                const diag = new DiagnosticAddendum();
+                if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
+                    this._addError(`Type '${ typeArgType.asString() }' ` +
+                            `cannot be assigned to type variable '${ typeParameters[index].getName() }'` +
+                            diag.getString(),
+                        typeArgs![index].node);
+                }
+            }
+        });
+
+        const specializedClass = classType.cloneForSpecialization(typeArgTypes);
+
+        return specializedClass;
     }
 
     private _useExpressionTypeConstraint(typeConstraints:
