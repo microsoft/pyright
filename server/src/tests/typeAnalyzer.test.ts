@@ -565,3 +565,9 @@ test('UnnecessaryCast', () => {
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryCast1.py'], configOptions);
     validateResults(analysisResults, 1);
 });
+
+test('RevealedType1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['revealedType1.py']);
+
+    validateResults(analysisResults, 0, 3);
+});

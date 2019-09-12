@@ -777,7 +777,10 @@ export class ExpressionEvaluator {
                 }
             }
         } else {
-            this._addError(`'${ name }' is not defined`, node);
+            // Handle the special case of "reveal_type".
+            if (name !== 'reveal_type') {
+                this._addError(`'${ name }' is not defined`, node);
+            }
             type = UnknownType.create();
         }
 
@@ -1391,6 +1394,22 @@ export class ExpressionEvaluator {
                 type: this._getTypeFromSuperCall(node),
                 node
             };
+        }
+
+        // Handle the special-case "reveal_type" call.
+        if (baseTypeResult.type.isAny() &&
+                node.leftExpression.nodeType === ParseNodeType.Name &&
+                node.leftExpression.nameToken.value === 'reveal_type' &&
+                node.arguments.length === 1 &&
+                node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
+                node.arguments[0].name === undefined) {
+
+            const type = this.getType(node.arguments[0].valueExpression);
+            const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
+            this._addWarning(
+                `Type of '${ exprString }' is '${ type.asString() }'`,
+                node.arguments[0]);
+            return { type: AnyType.create(), node };
         }
 
         const argList = node.arguments.map(arg => {
