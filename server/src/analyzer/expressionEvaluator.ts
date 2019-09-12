@@ -1174,7 +1174,32 @@ export class ExpressionEvaluator {
         const baseTypeResult = this._getTypeFromExpression(node.baseExpression,
             { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
 
-        const type = TypeUtils.doForSubtypes(baseTypeResult.type, subtype => {
+        const baseType = baseTypeResult.type;
+
+        // Handle the special case where we're we're specializing a generic
+        // union of class types.
+        if (baseType instanceof UnionType) {
+            const typeParameters: TypeVarType[] = [];
+            let isUnionOfClasses = true;
+
+            baseType.getTypes().forEach(subtype => {
+                if (subtype instanceof ClassType) {
+                    TypeUtils.addTypeVarsToListIfUnique(typeParameters,
+                        TypeUtils.getTypeVarArgumentsRecursive(subtype));
+                } else {
+                    isUnionOfClasses = false;
+                }
+            });
+
+            if (isUnionOfClasses) {
+                const typeArgs = this._getTypeArgs(node.items).map(t => t.type);
+                const typeVarMap = TypeUtils.buildTypeVarMap(typeParameters, typeArgs);
+                const type = TypeUtils.specializeType(baseType, typeVarMap);
+                return { type, node };
+            }
+        }
+
+        const type = TypeUtils.doForSubtypes(baseType, subtype => {
             if (subtype.isAny()) {
                 return subtype;
             } else if (subtype instanceof ClassType) {

@@ -151,6 +151,12 @@ test('Specialization1', () => {
     validateResults(analysisResults, 7);
 });
 
+test('Specialization2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialization2.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Expressions1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions1.py']);
 

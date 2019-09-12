@@ -1074,12 +1074,14 @@ export namespace TypeUtils {
     // specialized type is Dict[str, int], it returns a map that associates
     // _T1 with str and _T2 with int.
     export function buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeVarMap {
-        const typeArgMap = new TypeVarMap();
-
-        // Get the type parameters for the class.
         const typeParameters = classType.getTypeParameters();
         const typeArgs = classType.getTypeArguments();
 
+        return buildTypeVarMap(typeParameters, typeArgs);
+    }
+
+    export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] | undefined): TypeVarMap {
+        const typeArgMap = new TypeVarMap();
         typeParameters.forEach((typeParam, index) => {
             const typeVarName = typeParam.getName();
             let typeArgType: Type;
