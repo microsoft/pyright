@@ -308,8 +308,8 @@ _connection.onCodeAction(params => {
                 a => a.action === commandAddMissingOptionalToParam) as AddMissingOptionalToParamAction;
             if (action) {
                 const addMissingOptionalAction = CodeAction.create(
-                    `Add 'Optional' to type annotation’`,
-                    Command.create(`Add 'Optional' to type annotation’`, commandAddMissingOptionalToParam,
+                    `Add 'Optional' to type annotation`,
+                    Command.create(`Add 'Optional' to type annotation`, commandAddMissingOptionalToParam,
                         action.offsetOfTypeNode),
                     CodeActionKind.QuickFix);
                 codeActions.push(addMissingOptionalAction);
