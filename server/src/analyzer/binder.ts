@@ -27,15 +27,8 @@ import { NameBindings, NameBindingType } from '../parser/nameBindings';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode, ClassNode,
     DelNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
     ImportFromAsNode, LambdaNode, ModuleNameNode, ModuleNode, NonlocalNode, ParseNode,
-    ParseNodeArray, ParseNodeType, RaiseNode,
-    StatementNode,
-    StringListNode,
-    SuiteNode,
-    TryNode,
-    TypeAnnotationExpressionNode,
-    WhileNode,
-    WithNode,
-    YieldExpressionNode,
+    ParseNodeArray, ParseNodeType, RaiseNode, StatementNode, StringListNode, SuiteNode,
+    TryNode, TypeAnnotationExpressionNode, WhileNode, WithNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
