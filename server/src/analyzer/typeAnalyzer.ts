@@ -995,13 +995,27 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
                         this._fileInfo.lines)
                 };
-                this._addNamedTargetToCurrentScope(node.name);
-                this._assignTypeToNameNode(node.name, exceptionType, declaration);
+                this._addTypeSourceToNameNode(node.name, exceptionType, declaration);
                 this._updateExpressionTypeForNode(node.name, exceptionType);
             }
         }
 
-        return true;
+        this.walk(node.exceptSuite);
+
+        if (node.name) {
+            if (!this._currentScope.getAlwaysReturnsOrRaises()) {
+                // The named target is eplicitly unbound whenleaving this scope.
+                // Use the type source ID of the except node to avoid conflict with
+                // the node.name type source.
+                const unboundType = UnboundType.create();
+                this._addTypeSourceToName(node.name.nameToken.value, unboundType,
+                    AnalyzerNodeInfo.getTypeSourceId(node));
+
+                this._addAssignmentTypeConstraint(node.name, unboundType);
+            }
+        }
+
+        return false;
     }
 
     visitTry(node: TryNode): boolean {
@@ -3225,27 +3239,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Report any errors with assigning to this type.
         this._evaluateExpressionForAssignment(target, srcType, srcExpr);
-    }
-
-    private _addNamedTargetToCurrentScope(node: ExpressionNode) {
-        if (node.nodeType === ParseNodeType.Name) {
-            const symbol = this._currentScope.addSymbol(node.nameToken.value, true);
-
-            // Mark the symbol as accessed. These symbols are not persisted
-            // between analysis passes, so we never have an opportunity to
-            // mark them as accessed.
-            symbol.setIsAcccessed();
-        } else if (node.nodeType === ParseNodeType.TypeAnnotation) {
-            this._addNamedTargetToCurrentScope(node.valueExpression);
-        } else if (node.nodeType === ParseNodeType.Tuple) {
-            node.expressions.forEach(expr => {
-                this._addNamedTargetToCurrentScope(expr);
-            });
-        } else if (node.nodeType === ParseNodeType.List) {
-            node.entries.forEach(expr => {
-                this._addNamedTargetToCurrentScope(expr);
-            });
-        }
     }
 
     private _bindMultiPartModuleNameToType(nameParts: NameNode[], type: ModuleType,

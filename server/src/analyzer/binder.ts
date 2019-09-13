@@ -25,11 +25,11 @@ import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { NameBindings, NameBindingType } from '../parser/nameBindings';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode, ClassNode,
-    DelNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
-    ImportFromAsNode, LambdaNode, ListComprehensionNode, ModuleNameNode, ModuleNode, NonlocalNode,
-    ParseNode, ParseNodeArray, ParseNodeType, RaiseNode, StatementNode, StringListNode,
-    SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode, WithNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    DelNode, ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
+    ImportAsNode, ImportFromAsNode, LambdaNode, ListComprehensionNode, ModuleNameNode, ModuleNode,
+    NonlocalNode, ParseNode, ParseNodeArray, ParseNodeType, RaiseNode, StatementNode,
+    StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
+    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -389,6 +389,14 @@ export abstract class Binder extends ParseTreeWalker {
         this._addParentLinks(node, [node.testExpression, node.whileSuite, node.elseSuite]);
         this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite);
         return false;
+    }
+
+    visitExcept(node: ExceptNode): boolean {
+        if (node.name) {
+            this._bindName(node.name.nameToken.value);
+        }
+
+        return true;
     }
 
     visitRaise(node: RaiseNode): boolean {
