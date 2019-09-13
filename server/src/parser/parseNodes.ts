@@ -99,7 +99,7 @@ export const enum ErrorExpressionCategory {
 export interface ParseNodeBase extends TextRange {
     readonly nodeType: ParseNodeType;
 
-    // The parent field is filled in by the PostParseWalker,
+    // The parent field is filled in by the binder,
     // which isn't technically part of the parser.
     parent?: ParseNode;
 }

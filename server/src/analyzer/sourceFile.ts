@@ -43,7 +43,6 @@ import { CommentUtils } from './commentUtils';
 import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
-import { PostParseWalker } from './postParseWalker';
 import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 import { TypeAnalyzer } from './typeAnalyzer';
@@ -433,19 +432,10 @@ export class SourceFile {
             const parser = new Parser();
             const parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
 
-            // Convert the diagnostic sink into one that knows how to convert
-            // to line numbers.
-            const textRangeDiagSink = new TextRangeDiagnosticSink(parseResults.lines, diagSink.diagnostics);
-
-            // Fill in the parent links and get the list of imports.
-            const walker = new PostParseWalker(textRangeDiagSink, parseResults.parseTree);
-            timingStats.postParseWalkerTime.timeOperation(() => {
-                walker.analyze();
-            });
-
             // Save information in the analysis job.
             this._analysisJob.parseResults = parseResults;
 
+            // Resolve imports.
             timingStats.resolveImportsTime.timeOperation(() => {
                 [this._analysisJob.imports, this._analysisJob.builtinsImport, this._analysisJob.typingModulePath] =
                     this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);

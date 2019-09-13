@@ -23,10 +23,19 @@ import { CreateTypeStubFileAction } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AwaitExpressionNode, ClassNode, ExpressionNode, FunctionNode,
-    GlobalNode, IfNode, LambdaNode, ModuleNameNode, ModuleNode, NonlocalNode, ParseNode,
-    ParseNodeArray, ParseNodeType, RaiseNode, StatementNode, StringListNode, SuiteNode,
-    TryNode, WhileNode, YieldExpressionNode,
+import { NameBindings, NameBindingType } from '../parser/nameBindings';
+import { AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode, ClassNode,
+    DelNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
+    ImportFromAsNode, LambdaNode, ModuleNameNode, ModuleNode, NonlocalNode, ParseNode,
+    ParseNodeArray, ParseNodeType, RaiseNode,
+    StatementNode,
+    StringListNode,
+    SuiteNode,
+    TryNode,
+    TypeAnnotationExpressionNode,
+    WhileNode,
+    WithNode,
+    YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
@@ -65,13 +74,18 @@ export abstract class Binder extends ParseTreeWalker {
     // because it's in an unexecuted section of code.
     protected _isUnexecutedCode = false;
 
+    // Name binding information used within the current scope.
+    protected _nameBindings: NameBindings;
+
     constructor(node: ScopedNode, scopeType: ScopeType, parentScope: Scope | undefined,
+            nameBindingType: NameBindingType, parentBindings: NameBindings | undefined,
             fileInfo: AnalyzerFileInfo) {
 
         super();
 
         this._scopedNode = node;
         this._fileInfo = fileInfo;
+        this._nameBindings = new NameBindings(nameBindingType, parentBindings);
 
         // Allocate a new scope and associate it with the node
         // we've been asked to analyze.
@@ -185,6 +199,8 @@ export abstract class Binder extends ParseTreeWalker {
             AnalyzerNodeInfo.getTypeSourceId(node),
             this._getDocString(node.suite.statements));
 
+        this._bindName(node.name.nameToken.value);
+
         this.walkMultiple(node.arguments);
 
         let sawMetaclass = false;
@@ -226,7 +242,8 @@ export abstract class Binder extends ParseTreeWalker {
 
         AnalyzerNodeInfo.setExpressionType(node, classType);
 
-        const binder = new ClassScopeBinder(node, this._currentScope, classType, this._fileInfo);
+        const binder = new ClassScopeBinder(node, this._currentScope, classType,
+            this._nameBindings, this._fileInfo);
         this._queueSubScopeAnalyzer(binder);
 
         // Add the class symbol. We do this in the binder to speed
@@ -253,6 +270,8 @@ export abstract class Binder extends ParseTreeWalker {
 
         const functionType = new FunctionType(functionFlags,
             this._getDocString(node.suite.statements));
+
+        this._bindName(node.name.nameToken.value);
 
         this.walkMultiple(node.decorators);
         node.parameters.forEach(param => {
@@ -301,7 +320,8 @@ export abstract class Binder extends ParseTreeWalker {
         const functionOrModuleScope = AnalyzerNodeInfo.getScope(functionOrModuleNode!);
         assert(functionOrModuleScope !== undefined);
 
-        const binder = new FunctionScopeBinder(node, functionOrModuleScope!, this._fileInfo);
+        const binder = new FunctionScopeBinder(node, functionOrModuleScope!,
+            this._nameBindings, this._fileInfo);
         this._queueSubScopeAnalyzer(binder);
 
         return false;
@@ -321,10 +341,39 @@ export abstract class Binder extends ParseTreeWalker {
             }
         });
 
-        const binder = new LambdaScopeBinder(node, this._currentScope, this._fileInfo);
+        const binder = new LambdaScopeBinder(node, this._currentScope,
+            this._nameBindings, this._fileInfo);
         this._queueSubScopeAnalyzer(binder);
 
         return false;
+    }
+
+    visitAssignment(node: AssignmentNode) {
+        this._bindPossibleTupleNamedTarget(node.leftExpression);
+        return true;
+    }
+
+    visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode) {
+        this._bindPossibleTupleNamedTarget(node.leftExpression);
+        return true;
+    }
+
+    visitDel(node: DelNode) {
+        node.expressions.forEach(expr => {
+            this._bindPossibleTupleNamedTarget(expr);
+        });
+        return true;
+    }
+
+    visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
+        this._bindPossibleTupleNamedTarget(node.valueExpression);
+
+        return true;
+    }
+
+    visitFor(node: ForNode) {
+        this._bindPossibleTupleNamedTarget(node.targetExpression);
+        return true;
     }
 
     visitYield(node: YieldExpressionNode): boolean {
@@ -433,6 +482,23 @@ export abstract class Binder extends ParseTreeWalker {
 
     visitGlobal(node: GlobalNode): boolean {
         node.nameList.forEach(name => {
+            if (!this._nameBindings.addName(name.nameToken.value, NameBindingType.Global)) {
+                this._addError(`'${ name.nameToken.value }' is assigned before global declaration`,
+                    name);
+            }
+
+            // Add it to the global scope as well, in case it's not already added there.
+            if (this._nameBindings.getBindingType() !== NameBindingType.Global) {
+                let globalScope: NameBindings | undefined = this._nameBindings;
+                while (globalScope && globalScope.getBindingType() !== NameBindingType.Global) {
+                    globalScope = globalScope.getParentScope();
+                }
+
+                if (globalScope) {
+                    globalScope.addName(name.nameToken.value, NameBindingType.Global);
+                }
+            }
+
             const valueWithScope = this._currentScope.lookUpSymbolRecursive(name.nameToken.value);
 
             if (!valueWithScope || valueWithScope.scope.getType() !== ScopeType.Module) {
@@ -444,13 +510,49 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitNonlocal(node: NonlocalNode): boolean {
+        if (this._nameBindings.getBindingType() === NameBindingType.Global) {
+            this._addError('Nonlocal declaration not allowed at module level', node);
+        }
+
         node.nameList.forEach(name => {
+            if (!this._nameBindings.addName(name.nameToken.value, NameBindingType.Nonlocal)) {
+                this._addError(`'${ name.nameToken.value }' is assigned before nonlocal declaration`,
+                    name);
+            }
+
             const valueWithScope = this._currentScope.lookUpSymbolRecursive(name.nameToken.value);
 
             if (!valueWithScope || (valueWithScope.scope.getType() !== ScopeType.Function &&
                     valueWithScope.scope.getType() !== ScopeType.Class)) {
 
                 this._addError(`No binding for nonlocal '${ name.nameToken.value }' found`, name);
+            }
+        });
+
+        return true;
+    }
+
+    visitImportAs(node: ImportAsNode): boolean {
+        if (node.alias) {
+            this._bindName(node.alias.nameToken.value);
+        } else if (node.module.nameParts.length > 0) {
+            this._bindName(node.module.nameParts[0].nameToken.value);
+        }
+
+        return true;
+    }
+
+    visitImportFromAs(node: ImportFromAsNode): boolean {
+        const nameNode = node.alias || node.name;
+        this._bindName(nameNode.nameToken.value);
+
+        return true;
+    }
+
+    visitWith(node: WithNode): boolean {
+        node.withItems.forEach(item => {
+            if (item.target) {
+                this._bindPossibleTupleNamedTarget(item.target);
             }
         });
 
@@ -476,6 +578,33 @@ export abstract class Binder extends ParseTreeWalker {
         }
 
         this._subscopesToAnalyze = [];
+    }
+
+    protected _bindPossibleTupleNamedTarget(node: ExpressionNode) {
+        if (node.nodeType === ParseNodeType.Name) {
+            this._bindName(node.nameToken.value);
+        } else if (node.nodeType === ParseNodeType.Tuple) {
+            node.expressions.forEach(expr => {
+                this._bindPossibleTupleNamedTarget(expr);
+            });
+        } else if (node.nodeType === ParseNodeType.List) {
+            node.entries.forEach(expr => {
+                this._bindPossibleTupleNamedTarget(expr);
+            });
+        } else if (node.nodeType === ParseNodeType.TypeAnnotation) {
+            this._bindPossibleTupleNamedTarget(node.valueExpression);
+        } else if (node.nodeType === ParseNodeType.Unpack) {
+            this._bindPossibleTupleNamedTarget(node.expression);
+        }
+    }
+
+    protected _bindName(name: string) {
+        // Has this name already been added to the current scope? If not,
+        // add it with the appropriate binding type.
+        const bindingType = this._nameBindings.lookUpName(name);
+        if (bindingType === undefined) {
+            this._nameBindings.addName(name, this._nameBindings.getBindingType());
+        }
     }
 
     // Finds the nearest permanent scope (as opposed to temporary scope) and
@@ -621,7 +750,7 @@ export abstract class Binder extends ParseTreeWalker {
 export class ModuleScopeBinder extends Binder {
     constructor(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
         super(node, fileInfo.builtinsScope ? ScopeType.Module : ScopeType.BuiltIn,
-            fileInfo.builtinsScope, fileInfo);
+            fileInfo.builtinsScope, NameBindingType.Global, undefined, fileInfo);
     }
 
     bind() {
@@ -631,9 +760,6 @@ export class ModuleScopeBinder extends Binder {
 
     bindImmediate() {
         this._bindImplicitNames();
-        const nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
-        assert(nameBindings !== undefined);
-        this._addNamesToScope(nameBindings!.getGlobalNames());
 
         const moduleNode = this._scopedNode as ModuleNode;
         this._addParentLinks(moduleNode, moduleNode.statements);
@@ -643,6 +769,8 @@ export class ModuleScopeBinder extends Binder {
         const moduleType = new ModuleType(this._currentScope.getSymbolTable(),
             this._getDocString((this._scopedNode as ModuleNode).statements));
         AnalyzerNodeInfo.setExpressionType(this._scopedNode, moduleType);
+
+        this._addNamesToScope(this._nameBindings.getGlobalNames());
     }
 
     bindDeferred() {
@@ -667,16 +795,16 @@ export class ModuleScopeBinder extends Binder {
 export class ClassScopeBinder extends Binder {
     private _classType: ClassType;
 
-    constructor(node: ClassNode, parentScope: Scope, classType: ClassType, fileInfo: AnalyzerFileInfo) {
-        super(node, ScopeType.Class, parentScope, fileInfo);
+    constructor(node: ClassNode, parentScope: Scope, classType: ClassType,
+            parentNameBindings: NameBindings, fileInfo: AnalyzerFileInfo) {
+        super(node, ScopeType.Class, parentScope, NameBindingType.Local,
+                parentNameBindings, fileInfo);
+
         this._classType = classType;
     }
 
     bindImmediate() {
         this._bindImplicitNames();
-        const nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
-        assert(nameBindings !== undefined);
-        this._addNamesToScope(nameBindings!.getLocalNames());
 
         // Analyze the suite.
         const classNode = this._scopedNode as ClassNode;
@@ -685,7 +813,9 @@ export class ClassScopeBinder extends Binder {
 
         // Record the class fields for this class.
         this._classType.setClassFields(this._currentScope.getSymbolTable());
-    }
+
+        this._addNamesToScope(this._nameBindings.getLocalNames());
+}
 
     bindDeferred() {
         // Analyze any sub-scopes that were discovered during the earlier pass.
@@ -706,8 +836,10 @@ export class ClassScopeBinder extends Binder {
 }
 
 export class FunctionScopeBinder extends Binder {
-    constructor(node: FunctionNode, parentScope: Scope, fileInfo: AnalyzerFileInfo) {
-        super(node, ScopeType.Function, parentScope, fileInfo);
+    constructor(node: FunctionNode, parentScope: Scope, parentNameBindings: NameBindings,
+            fileInfo: AnalyzerFileInfo) {
+        super(node, ScopeType.Function, parentScope, NameBindingType.Local,
+                parentNameBindings, fileInfo);
     }
 
     bindImmediate() {
@@ -719,15 +851,16 @@ export class FunctionScopeBinder extends Binder {
     bindDeferred() {
         const functionNode = this._scopedNode as FunctionNode;
 
-        // Add the names for this scope. They are initially unbound. We
-        // do this because current versions of Python use static namespace
-        // resolution for functions.
-        const nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
-        assert(nameBindings !== undefined);
-        this._addNamesToScope(nameBindings!.getLocalNames());
+        functionNode.parameters.forEach(param => {
+            if (param.name) {
+                this._bindName(param.name.nameToken.value);
+            }
+        });
 
         // Walk the statements that make up the function.
         this.walk(functionNode.suite);
+
+        this._addNamesToScope(this._nameBindings.getLocalNames());
 
         // Analyze any sub-scopes that were discovered during the earlier pass.
         this._analyzeSubscopesDeferred();
@@ -752,8 +885,10 @@ export class FunctionScopeBinder extends Binder {
 }
 
 export class LambdaScopeBinder extends Binder {
-    constructor(node: LambdaNode, parentScope: Scope, fileInfo: AnalyzerFileInfo) {
-        super(node, ScopeType.Function, parentScope, fileInfo);
+    constructor(node: LambdaNode, parentScope: Scope, parentNameBindings: NameBindings,
+            fileInfo: AnalyzerFileInfo) {
+        super(node, ScopeType.Function, parentScope, NameBindingType.Local,
+                parentNameBindings, fileInfo);
     }
 
     bindImmediate() {
@@ -763,17 +898,18 @@ export class LambdaScopeBinder extends Binder {
     bindDeferred() {
         const lambdaNode = this._scopedNode as LambdaNode;
 
-        // Add the names for this scope. They are initially unbound. We
-        // do this because current versions of Python use static namespace
-        // resolution for functions.
-        const nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
-        assert(nameBindings !== undefined);
-        this._addNamesToScope(nameBindings!.getLocalNames());
+        lambdaNode.parameters.forEach(param => {
+            if (param.name) {
+                this._bindName(param.name.nameToken.value);
+            }
+        });
 
         // Walk the expression that make up the lambda body.
         this.walk(lambdaNode.expression);
 
         // Analyze any sub-scopes that were discovered during the earlier pass.
         this._analyzeSubscopesDeferred();
+
+        this._addNamesToScope(this._nameBindings.getLocalNames());
     }
 }

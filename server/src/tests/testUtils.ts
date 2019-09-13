@@ -14,7 +14,6 @@ import * as path from 'path';
 import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import { ModuleScopeBinder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
-import { PostParseWalker } from '../analyzer/postParseWalker';
 import { Program } from '../analyzer/program';
 import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { StandardConsole } from '../common/console';
@@ -57,16 +56,7 @@ export class TestUtils {
         parseOptions: ParseOptions = new ParseOptions()): ParseResults {
 
         const parser = new Parser();
-        const parseResults = parser.parseSourceFile(textToParse, parseOptions, diagSink);
-        const textRangeDiagSink = new TextRangeDiagnosticSink(parseResults.lines,
-            diagSink.diagnostics);
-
-        // Link the parents.
-        const parentWalker = new PostParseWalker(textRangeDiagSink,
-            parseResults.parseTree);
-        parentWalker.analyze();
-
-        return parseResults;
+        return parser.parseSourceFile(textToParse, parseOptions, diagSink);
     }
 
     static parseSampleFile(fileName: string, diagSink: DiagnosticSink,

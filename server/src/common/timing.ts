@@ -53,7 +53,6 @@ export class TimingStats {
     readFileTime = new TimingStat();
     tokenizeFileTime = new TimingStat();
     parseFileTime = new TimingStat();
-    postParseWalkerTime = new TimingStat();
     resolveImportsTime = new TimingStat();
     bindTime = new TimingStat();
     typeAnalyzerTime = new TimingStat();
@@ -69,7 +68,6 @@ export class TimingStats {
         console.log('Read Source Files:    ' + this.readFileTime.printTime());
         console.log('Tokenize:             ' + this.tokenizeFileTime.printTime());
         console.log('Parse:                ' + this.parseFileTime.printTime());
-        console.log('Post-parse Walker:    ' + this.postParseWalkerTime.printTime());
         console.log('Resolve Imports:      ' + this.resolveImportsTime.printTime());
         console.log('Binder:               ' + this.bindTime.printTime());
         console.log('Type Analyzer:        ' + this.typeAnalyzerTime.printTime());

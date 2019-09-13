@@ -10,9 +10,7 @@
 * language services (e.g. hover information).
 */
 
-import { NameBindings } from '../parser/nameBindings';
-import { ParseNode, ParseNodeType, StringListNode } from '../parser/parseNodes';
-import { Declaration } from './declaration';
+import { ParseNode, StringListNode } from '../parser/parseNodes';
 import { ImportResult } from './importResult';
 import { TypeSourceId } from './inferredType';
 import { Scope, ScopeType } from './scope';
@@ -22,14 +20,6 @@ import { Type } from './types';
 let _nextTypeSourceId: TypeSourceId = 1;
 
 export class AnalyzerNodeInfo {
-    //---------------------------------------------------------------
-    // Set by PostParseWalker
-
-    // Name bindings for nodes that introduce namespaces (modules,
-    // functions, classes and lambdas). It records the static binding
-    // type (local, non-local, global) for names used within that scope.
-    _nameBindings?: NameBindings;
-
     //---------------------------------------------------------------
     // Set as part of import resolution
 
@@ -78,16 +68,6 @@ export class AnalyzerNodeInfo {
         delete analyzerNode._expressionTypeReadVersion;
         delete analyzerNode._typeSourceId;
         delete analyzerNode._ignoreTypeAnnotation;
-    }
-
-    static getNameBindings(node: ParseNode): NameBindings | undefined {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        return analyzerNode._nameBindings;
-    }
-
-    static setNameBindings(node: ParseNode, nameBindings: NameBindings) {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        analyzerNode._nameBindings = nameBindings;
     }
 
     static getScope(node: ParseNode): Scope | undefined {
