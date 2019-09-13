@@ -974,18 +974,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
             exceptionType = this._getTypeOfExpression(node.typeExpression);
 
             if (node.name) {
-                // If more than one type was specified for the exception, we'll receive
-                // a specialized tuple object here.
-                const tupleType = TypeUtils.getSpecializedTupleType(exceptionType);
-                if (tupleType && tupleType.getTypeArguments()) {
-                    const entryTypes = tupleType.getTypeArguments()!.map(t => {
-                        return this._validateExceptionType(t, node.typeExpression!);
-                    });
-                    exceptionType = TypeUtils.combineTypes(entryTypes);
-                } else if (exceptionType instanceof ClassType) {
-                    exceptionType = this._validateExceptionType(
-                        exceptionType, node.typeExpression);
-                }
+                exceptionType = TypeUtils.doForSubtypes(exceptionType, subType => {
+                    // If more than one type was specified for the exception, we'll receive
+                    // a specialized tuple object here.
+                    const tupleType = TypeUtils.getSpecializedTupleType(subType);
+                    if (tupleType && tupleType.getTypeArguments()) {
+                        const entryTypes = tupleType.getTypeArguments()!.map(t => {
+                            return this._validateExceptionType(t, node.typeExpression!);
+                        });
+                        return TypeUtils.combineTypes(entryTypes);
+                    }
+
+                    return this._validateExceptionType(
+                        subType, node.typeExpression!);
+                });
 
                 const declaration: Declaration = {
                     category: DeclarationCategory.Variable,

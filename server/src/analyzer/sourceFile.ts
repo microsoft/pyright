@@ -443,13 +443,6 @@ export class SourceFile {
                 walker.analyze();
             });
 
-            // If we're in "test mode" (used for unit testing), run an additional
-            // "test walker" over the parse tree to validate its internal consistency.
-            if (configOptions.internalTestMode) {
-                const testWalker = new TestWalker();
-                testWalker.walk(parseResults.parseTree);
-            }
-
             // Save information in the analysis job.
             this._analysisJob.parseResults = parseResults;
 
@@ -638,6 +631,13 @@ export class SourceFile {
                     this._analysisJob.parseResults!.parseTree, fileInfo);
                 binder.bind();
             });
+
+            // If we're in "test mode" (used for unit testing), run an additional
+            // "test walker" over the parse tree to validate its internal consistency.
+            if (configOptions.internalTestMode) {
+                const testWalker = new TestWalker();
+                testWalker.walk(this._analysisJob.parseResults!.parseTree);
+            }
 
             this._analysisJob.bindDiagnostics = fileInfo.diagnosticSink.diagnostics;
             const moduleScope = AnalyzerNodeInfo.getScope(this._analysisJob.parseResults!.parseTree);

@@ -8,7 +8,7 @@ import * as assert from 'assert';
 
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TextRange } from '../common/textRange';
-import { ParseNode, ParseNodeArray, ParseNodeType, StringListNode } from '../parser/parseNodes';
+import { ParseNode, ParseNodeArray, ParseNodeType } from '../parser/parseNodes';
 
 export class TestWalker extends ParseTreeWalker {
     constructor() {

@@ -7,20 +7,17 @@
 * A parse tree walker that's used immediately after generating
 * the parse tree, effectively as an extension of the parser.
 * It does the following:
-*   Adds parent links to all parse tree nodes
 *   Builds nameBindings for module, class, function and lambda scopes
 *   Reports name binding inconsistencies (e.g. if a name is bound
 *       both locally and globally)
-*   Builds a list of imported modules
 */
 
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { NameBindings, NameBindingType } from '../parser/nameBindings';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, ClassNode, DelNode,
     ExpressionNode, ForNode, FunctionNode, GlobalNode, ImportAsNode,
-    ImportFromAsNode, LambdaNode, ModuleNode, NonlocalNode, ParseNode,
-    ParseNodeArray, ParseNodeType, TypeAnnotationExpressionNode,
-    WithNode } from '../parser/parseNodes';
+    ImportFromAsNode, LambdaNode, ModuleNode, NonlocalNode, ParseNodeType,
+    TypeAnnotationExpressionNode, WithNode } from '../parser/parseNodes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeWalker } from './parseTreeWalker';
 
@@ -36,8 +33,7 @@ export class PostParseWalker extends ParseTreeWalker {
         this._diagnosticSink = diagSink;
         this._parseTree = parseTree;
 
-        const moduleNameBindings = new NameBindings(
-            NameBindingType.Global, undefined);
+        const moduleNameBindings = new NameBindings(NameBindingType.Global, undefined);
         AnalyzerNodeInfo.setNameBindings(parseTree, moduleNameBindings);
         this._currentNameBindings = moduleNameBindings;
         this._currentBindingType = NameBindingType.Global;
@@ -45,14 +41,6 @@ export class PostParseWalker extends ParseTreeWalker {
 
     analyze() {
         this.walk(this._parseTree);
-    }
-
-    visitNode(node: ParseNode) {
-        const children = super.visitNode(node);
-
-        this._addParentLinks(node, children);
-
-        return children;
     }
 
     visitImportAs(node: ImportAsNode): boolean {
@@ -66,11 +54,8 @@ export class PostParseWalker extends ParseTreeWalker {
     }
 
     visitImportFromAs(node: ImportFromAsNode): boolean {
-        if (node.alias) {
-            this._addName(node.alias.nameToken.value);
-        } else {
-            this._addName(node.name.nameToken.value);
-        }
+        const nameNode = node.alias || node.name;
+        this._addName(nameNode.nameToken.value);
 
         return true;
     }
@@ -111,12 +96,6 @@ export class PostParseWalker extends ParseTreeWalker {
             this.walk(node.suite);
         });
 
-        // Because we're returning false here, we need to
-        // call addParentLinks ourselves.
-        const children = [...node.decorators, node.name, ...node.parameters,
-            node.returnTypeAnnotation, node.suite];
-        this._addParentLinks(node, children);
-
         return false;
     }
 
@@ -133,11 +112,6 @@ export class PostParseWalker extends ParseTreeWalker {
             this.walkMultiple(node.arguments);
             this.walk(node.suite);
         });
-
-        // Because we're returning false here, we need to
-        // call addParentLinks ourselves.
-        const children = [...node.decorators, node.name, ...node.arguments, node.suite];
-        this._addParentLinks(node, children);
 
         return false;
     }
@@ -159,11 +133,6 @@ export class PostParseWalker extends ParseTreeWalker {
 
             this.walk(node.expression);
         });
-
-        // Because we're returning false here, we need to
-        // call addParentLinks ourselves.
-        const children = [...node.parameters, node.expression];
-        this._addParentLinks(node, children);
 
         return false;
     }
@@ -235,15 +204,6 @@ export class PostParseWalker extends ParseTreeWalker {
             });
         }
         return true;
-    }
-
-    private _addParentLinks(parentNode: ParseNode, children: ParseNodeArray) {
-        // Add the parent link to each of the child nodes.
-        children.forEach(child => {
-            if (child) {
-                child.parent = parentNode;
-            }
-        });
     }
 
     private _addPossibleTupleNamedTarget(node: ExpressionNode) {

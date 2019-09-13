@@ -66,10 +66,6 @@ export class TestUtils {
             parseResults.parseTree);
         parentWalker.analyze();
 
-        // Walk the AST to verify internal consistency.
-        const testWalker = new TestWalker();
-        testWalker.walk(parseResults.parseTree);
-
         return parseResults;
     }
 
@@ -120,6 +116,10 @@ export class TestUtils {
         const fileInfo = this.buildAnalyzerFileInfo(filePath, parseResults, configOptions);
         const binder = new ModuleScopeBinder(parseResults.parseTree, fileInfo);
         binder.bind();
+
+        // Walk the AST to verify internal consistency.
+        const testWalker = new TestWalker();
+        testWalker.walk(parseResults.parseTree);
 
         return {
             filePath,

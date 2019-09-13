@@ -30,6 +30,9 @@ export class AnalyzerNodeInfo {
     // type (local, non-local, global) for names used within that scope.
     _nameBindings?: NameBindings;
 
+    //---------------------------------------------------------------
+    // Set as part of import resolution
+
     // Information about an import; used for import nodes only.
     _importInfo?: ImportResult;
 

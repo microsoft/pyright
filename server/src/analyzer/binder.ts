@@ -23,10 +23,10 @@ import { CreateTypeStubFileAction } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AwaitExpressionNode, ClassNode, ErrorExpressionNode, ExpressionNode, FunctionNode,
+import { AwaitExpressionNode, ClassNode, ExpressionNode, FunctionNode,
     GlobalNode, IfNode, LambdaNode, ModuleNameNode, ModuleNode, NonlocalNode, ParseNode,
-    ParseNodeType, RaiseNode, StatementNode, StringListNode, SuiteNode, TryNode,
-    TypeAnnotationExpressionNode, WhileNode, YieldExpressionNode,
+    ParseNodeArray, ParseNodeType, RaiseNode, StatementNode, StringListNode, SuiteNode,
+    TryNode, WhileNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
@@ -61,11 +61,9 @@ export abstract class Binder extends ParseTreeWalker {
     // Used to determine if a naked "raise" statement is allowed.
     private _nestedExceptDepth = 0;
 
-    // Indicates whether type annotations are evaluated at runtime
-    // in the order in which they are encountered or whether their
-    // evaluation is postponed. In type stub files, type annotations
-    // are never evaluated at runtime.
-    private _postponeAnnotationEvaluation: boolean;
+    // Indicates that any name that's encountered should be ignored
+    // because it's in an unexecuted section of code.
+    protected _isUnexecutedCode = false;
 
     constructor(node: ScopedNode, scopeType: ScopeType, parentScope: Scope | undefined,
             fileInfo: AnalyzerFileInfo) {
@@ -74,8 +72,6 @@ export abstract class Binder extends ParseTreeWalker {
 
         this._scopedNode = node;
         this._fileInfo = fileInfo;
-        this._postponeAnnotationEvaluation = fileInfo.isStubFile ||
-            fileInfo.futureImports.get('annotations') !== undefined;
 
         // Allocate a new scope and associate it with the node
         // we've been asked to analyze.
@@ -127,6 +123,14 @@ export abstract class Binder extends ParseTreeWalker {
     abstract bindImmediate(): void;
     abstract bindDeferred(): void;
 
+    visitNode(node: ParseNode) {
+        const children = super.visitNode(node);
+
+        this._addParentLinks(node, children);
+
+        return children;
+    }
+
     visitModule(node: ModuleNode): boolean {
         // Tree walking should start with the children of
         // the node, so we should never get here.
@@ -137,7 +141,8 @@ export abstract class Binder extends ParseTreeWalker {
     visitModuleName(node: ModuleNameNode): boolean {
         const importResult = AnalyzerNodeInfo.getImportInfo(node);
         assert(importResult !== undefined);
-        if (importResult) {
+
+        if (importResult && !this._isUnexecutedCode) {
             if (!importResult.isImportFound) {
                 this._addDiagnostic(this._fileInfo.diagnosticSettings.reportMissingImports,
                     DiagnosticRule.reportMissingImports,
@@ -163,6 +168,9 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitClass(node: ClassNode): boolean {
+        this._addParentLinks(node, [...node.decorators, node.name,
+            ...node.arguments, node.suite]);
+
         this.walkMultiple(node.decorators);
 
         let classFlags = ClassTypeFlags.None;
@@ -177,11 +185,7 @@ export abstract class Binder extends ParseTreeWalker {
             AnalyzerNodeInfo.getTypeSourceId(node),
             this._getDocString(node.suite.statements));
 
-        // Don't walk the arguments for stub files because of forward
-        // declarations.
-        if (!this._fileInfo.isStubFile) {
-            this.walkMultiple(node.arguments);
-        }
+        this.walkMultiple(node.arguments);
 
         let sawMetaclass = false;
         let nonMetaclassBaseClassCount = 0;
@@ -235,6 +239,9 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
+        this._addParentLinks(node, [...node.decorators, node.name, ...node.parameters,
+            node.returnTypeAnnotation, node.suite]);
+
         // The "__new__" magic method is not an instance method.
         // It acts as a static method instead.
         let functionFlags = FunctionTypeFlags.None;
@@ -249,6 +256,9 @@ export abstract class Binder extends ParseTreeWalker {
 
         this.walkMultiple(node.decorators);
         node.parameters.forEach(param => {
+            this._addParentLinks(param, [param.name, param.typeAnnotation,
+                param.defaultValue]);
+
             if (param.defaultValue) {
                 this.walk(param.defaultValue);
             }
@@ -262,21 +272,13 @@ export abstract class Binder extends ParseTreeWalker {
 
             functionType.addParameter(typeParam);
 
-            // If this is not a stub file, make sure the raw type annotation
-            // doesn't reference a type that hasn't yet been declared.
-            if (!this._postponeAnnotationEvaluation) {
-                if (param.typeAnnotation) {
-                    this.walk(param.typeAnnotation);
-                }
+            if (param.typeAnnotation) {
+                this.walk(param.typeAnnotation);
             }
         });
 
-        // If this is not a stub file, make sure the raw type annotation
-        // doesn't reference a type that hasn't yet been declared.
-        if (!this._postponeAnnotationEvaluation) {
-            if (node.returnTypeAnnotation) {
-                this.walk(node.returnTypeAnnotation);
-            }
+        if (node.returnTypeAnnotation) {
+            this.walk(node.returnTypeAnnotation);
         }
 
         AnalyzerNodeInfo.setExpressionType(node, functionType);
@@ -301,13 +303,19 @@ export abstract class Binder extends ParseTreeWalker {
 
         const binder = new FunctionScopeBinder(node, functionOrModuleScope!, this._fileInfo);
         this._queueSubScopeAnalyzer(binder);
+
         return false;
     }
 
     visitLambda(node: LambdaNode): boolean {
+        this._addParentLinks(node, [...node.parameters, node.expression]);
+
         // Analyze the parameter defaults in the context of the parent's scope
         // before we add any names from the function's scope.
         node.parameters.forEach(param => {
+            this._addParentLinks(param, [param.name, param.typeAnnotation,
+                param.defaultValue]);
+
             if (param.defaultValue) {
                 this.walk(param.defaultValue);
             }
@@ -315,15 +323,6 @@ export abstract class Binder extends ParseTreeWalker {
 
         const binder = new LambdaScopeBinder(node, this._currentScope, this._fileInfo);
         this._queueSubScopeAnalyzer(binder);
-
-        return false;
-    }
-
-    visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
-        this.walk(node.valueExpression);
-        if (!this._postponeAnnotationEvaluation) {
-            this.walk(node.typeAnnotation);
-        }
 
         return false;
     }
@@ -339,11 +338,13 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitIf(node: IfNode): boolean {
+        this._addParentLinks(node, [node.testExpression, node.ifSuite, node.elseSuite]);
         this._handleIfWhileCommon(node.testExpression, node.ifSuite, node.elseSuite);
         return false;
     }
 
     visitWhile(node: WhileNode): boolean {
+        this._addParentLinks(node, [node.testExpression, node.whileSuite, node.elseSuite]);
         this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite);
         return false;
     }
@@ -361,6 +362,9 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitTry(node: TryNode): boolean {
+        this._addParentLinks(node, [node.trySuite, ...node.exceptClauses,
+            node.elseSuite, node.finallySuite]);
+
         this.walk(node.trySuite);
 
         // Wrap the except clauses in a conditional scope
@@ -424,10 +428,7 @@ export abstract class Binder extends ParseTreeWalker {
             }
         }
 
-        // Don't explore the parsed forward reference in
-        // a string node because this pass of the analyzer
-        // isn't capable of handling forward references.
-        return false;
+        return true;
     }
 
     visitGlobal(node: GlobalNode): boolean {
@@ -438,6 +439,7 @@ export abstract class Binder extends ParseTreeWalker {
                 this._addError(`No binding for global '${ name.nameToken.value }' found`, name);
             }
         });
+
         return true;
     }
 
@@ -451,12 +453,8 @@ export abstract class Binder extends ParseTreeWalker {
                 this._addError(`No binding for nonlocal '${ name.nameToken.value }' found`, name);
             }
         });
-        return true;
-    }
 
-    visitError(node: ErrorExpressionNode) {
-        // Don't analyze an error node.
-        return false;
+        return true;
     }
 
     protected _addNamesToScope(namesToAdd: string[]) {
@@ -484,6 +482,10 @@ export abstract class Binder extends ParseTreeWalker {
     // adds a new symbol with the specified name if it doesn't already exist.
     protected _addSymbolToPermanentScope(nameValue: string, type: Type,
             typeSourceId = defaultTypeSourceId) {
+
+        if (this._isUnexecutedCode) {
+            return;
+        }
 
         const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
         assert(permanentScope.getType() !== ScopeType.Temporary);
@@ -529,6 +531,15 @@ export abstract class Binder extends ParseTreeWalker {
         return DocStringUtils.decodeDocString(docStringNode.strings[0].value);
     }
 
+    protected _addParentLinks(parentNode: ParseNode, children: ParseNodeArray) {
+        // Add the parent link to each of the child nodes.
+        children.forEach(child => {
+            if (child) {
+                child.parent = parentNode;
+            }
+        });
+    }
+
     private _validateYieldUsage(node: YieldExpressionNode | YieldFromExpressionNode) {
         const functionNode = ParseTreeUtils.getEnclosingFunction(node);
 
@@ -554,18 +565,30 @@ export abstract class Binder extends ParseTreeWalker {
             testExpression, this._fileInfo.executionEnvironment);
 
         // which variables have been assigned to conditionally.
-        if (constExprValue !== false) {
+        this._markNotExecuted(constExprValue === true, () => {
             this.walk(ifWhileSuite);
-        }
+        });
 
         // Now handle the else statement if it's present. If there
         // are chained "else if" statements, they'll be handled
         // recursively here.
-        if (elseSuite && constExprValue !== true) {
-            this.walk(elseSuite);
+        if (elseSuite) {
+            this._markNotExecuted(constExprValue === false, () => {
+                this.walk(elseSuite);
+            });
+        }
+    }
+
+    private _markNotExecuted(isExecutable: boolean, callback: () => void) {
+        const wasUnexecutedCode = this._isUnexecutedCode;
+
+        if (!isExecutable) {
+            this._isUnexecutedCode = true;
         }
 
-        return false;
+        callback();
+
+        this._isUnexecutedCode = wasUnexecutedCode;
     }
 
     private _queueSubScopeAnalyzer(binder: Binder) {
@@ -613,6 +636,7 @@ export class ModuleScopeBinder extends Binder {
         this._addNamesToScope(nameBindings!.getGlobalNames());
 
         const moduleNode = this._scopedNode as ModuleNode;
+        this._addParentLinks(moduleNode, moduleNode.statements);
         this.walkMultiple(moduleNode.statements);
 
         // Associate the module's scope with the module type.
