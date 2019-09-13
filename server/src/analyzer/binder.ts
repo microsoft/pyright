@@ -1,20 +1,19 @@
 /*
-* semanticAnalyzer.ts
+* binder.ts
 * Copyright (c) Microsoft Corporation.
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* A parse tree walker that performs general semantic analysis. It does
-* this at the scope level. A scope in Python is defined by a module,
-* class, function or lambda.
-* The analyzer walks the parse tree by scopes starting at the module
+* A parse tree walker that performs basic name binding (creation of
+* scopes and associated symbol tables).
+* The binder walks the parse tree by scopes starting at the module
 * level. When a new scope is detected, it is pushed onto a list and
-* analyzed separately at a later time. (The exception is a class scope,
-* which is immediately analyzed.) Walking the tree in this manner
+* walked separately at a later time. (The exception is a class scope,
+* which is immediately walked.) Walking the tree in this manner
 * simulates the order in which execution normally occurs in a Python
-* file. The analyzer attempts to statically detect runtime errors that
+* file. The binder attempts to statically detect runtime errors that
 * would be reported by the python interpreter when executing the code.
-* This analyzer doesn't perform any static type checking.
+* This binder doesn't perform any static type checking.
 */
 
 import * as assert from 'assert';
@@ -46,12 +45,12 @@ import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
 
 type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;
 
-export abstract class SemanticAnalyzer extends ParseTreeWalker {
+export abstract class Binder extends ParseTreeWalker {
     protected readonly _scopedNode: ScopedNode;
     protected readonly _fileInfo: AnalyzerFileInfo;
 
     // A queue of scoped nodes that need to be analyzed.
-    protected _subscopesToAnalyze: SemanticAnalyzer[] = [];
+    protected _subscopesToAnalyze: Binder[] = [];
 
     // The current scope in effect. This is either the base scope or a
     // "temporary scope", used for analyzing conditional code blocks. Their
@@ -125,8 +124,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     // We separate analysis into two passes. The first happens immediately when
     // the scope analyzer is created. The second happens after its parent scope
     // has been fully analyzed.
-    abstract analyzeImmediate(): void;
-    abstract analyzeDeferred(): void;
+    abstract bindImmediate(): void;
+    abstract bindDeferred(): void;
 
     visitModule(node: ModuleNode): boolean {
         // Tree walking should start with the children of
@@ -223,10 +222,10 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
 
         AnalyzerNodeInfo.setExpressionType(node, classType);
 
-        const analyzer = new ClassScopeAnalyzer(node, this._currentScope, classType, this._fileInfo);
-        this._queueSubScopeAnalyzer(analyzer);
+        const binder = new ClassScopeBinder(node, this._currentScope, classType, this._fileInfo);
+        this._queueSubScopeAnalyzer(binder);
 
-        // Add the class symbol. We do this in the semantic analyzer to speed
+        // Add the class symbol. We do this in the binder to speed
         // up overall analysis times. Without this, the type analyzer needs
         // to do more passes to resolve classes.
         this._addSymbolToPermanentScope(node.name.nameToken.value, classType,
@@ -300,8 +299,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         const functionOrModuleScope = AnalyzerNodeInfo.getScope(functionOrModuleNode!);
         assert(functionOrModuleScope !== undefined);
 
-        const analyzer = new FunctionScopeAnalyzer(node, functionOrModuleScope!, this._fileInfo);
-        this._queueSubScopeAnalyzer(analyzer);
+        const binder = new FunctionScopeBinder(node, functionOrModuleScope!, this._fileInfo);
+        this._queueSubScopeAnalyzer(binder);
         return false;
     }
 
@@ -314,8 +313,8 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
             }
         });
 
-        const analyzer = new LambdaScopeAnalyzer(node, this._currentScope, this._fileInfo);
-        this._queueSubScopeAnalyzer(analyzer);
+        const binder = new LambdaScopeBinder(node, this._currentScope, this._fileInfo);
+        this._queueSubScopeAnalyzer(binder);
 
         return false;
     }
@@ -475,7 +474,7 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     // Analyzes the subscopes that are discovered during the first analysis pass.
     protected _analyzeSubscopesDeferred() {
         for (const subscope of this._subscopesToAnalyze) {
-            subscope.analyzeDeferred();
+            subscope.bindDeferred();
         }
 
         this._subscopesToAnalyze = [];
@@ -569,9 +568,9 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    private _queueSubScopeAnalyzer(analyzer: SemanticAnalyzer) {
-        analyzer.analyzeImmediate();
-        this._subscopesToAnalyze.push(analyzer);
+    private _queueSubScopeAnalyzer(binder: Binder) {
+        binder.bindImmediate();
+        this._subscopesToAnalyze.push(binder);
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {
@@ -596,18 +595,18 @@ export abstract class SemanticAnalyzer extends ParseTreeWalker {
     }
 }
 
-export class ModuleScopeAnalyzer extends SemanticAnalyzer {
+export class ModuleScopeBinder extends Binder {
     constructor(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
         super(node, fileInfo.builtinsScope ? ScopeType.Module : ScopeType.BuiltIn,
             fileInfo.builtinsScope, fileInfo);
     }
 
-    analyze() {
-        this.analyzeImmediate();
-        this.analyzeDeferred();
+    bind() {
+        this.bindImmediate();
+        this.bindDeferred();
     }
 
-    analyzeImmediate() {
+    bindImmediate() {
         this._bindImplicitNames();
         const nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
@@ -622,7 +621,7 @@ export class ModuleScopeAnalyzer extends SemanticAnalyzer {
         AnalyzerNodeInfo.setExpressionType(this._scopedNode, moduleType);
     }
 
-    analyzeDeferred() {
+    bindDeferred() {
         // Analyze any sub-scopes that were discovered during the earlier pass.
         this._analyzeSubscopesDeferred();
     }
@@ -641,7 +640,7 @@ export class ModuleScopeAnalyzer extends SemanticAnalyzer {
     }
 }
 
-export class ClassScopeAnalyzer extends SemanticAnalyzer {
+export class ClassScopeBinder extends Binder {
     private _classType: ClassType;
 
     constructor(node: ClassNode, parentScope: Scope, classType: ClassType, fileInfo: AnalyzerFileInfo) {
@@ -649,7 +648,7 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
         this._classType = classType;
     }
 
-    analyzeImmediate() {
+    bindImmediate() {
         this._bindImplicitNames();
         const nameBindings = AnalyzerNodeInfo.getNameBindings(this._scopedNode);
         assert(nameBindings !== undefined);
@@ -664,7 +663,7 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
         this._classType.setClassFields(this._currentScope.getSymbolTable());
     }
 
-    analyzeDeferred() {
+    bindDeferred() {
         // Analyze any sub-scopes that were discovered during the earlier pass.
         this._analyzeSubscopesDeferred();
     }
@@ -682,18 +681,18 @@ export class ClassScopeAnalyzer extends SemanticAnalyzer {
     }
 }
 
-export class FunctionScopeAnalyzer extends SemanticAnalyzer {
+export class FunctionScopeBinder extends Binder {
     constructor(node: FunctionNode, parentScope: Scope, fileInfo: AnalyzerFileInfo) {
         super(node, ScopeType.Function, parentScope, fileInfo);
     }
 
-    analyzeImmediate() {
+    bindImmediate() {
         this._bindImplicitNames();
 
         // Functions don't get analyzed immediately. They are analyzed in a deferred manner.
     }
 
-    analyzeDeferred() {
+    bindDeferred() {
         const functionNode = this._scopedNode as FunctionNode;
 
         // Add the names for this scope. They are initially unbound. We
@@ -728,16 +727,16 @@ export class FunctionScopeAnalyzer extends SemanticAnalyzer {
     }
 }
 
-export class LambdaScopeAnalyzer extends SemanticAnalyzer {
+export class LambdaScopeBinder extends Binder {
     constructor(node: LambdaNode, parentScope: Scope, fileInfo: AnalyzerFileInfo) {
         super(node, ScopeType.Function, parentScope, fileInfo);
     }
 
-    analyzeImmediate() {
+    bindImmediate() {
         // Lambdas don't get analyzed immediately. They are analyzed in a deferred manner.
     }
 
-    analyzeDeferred() {
+    bindDeferred() {
         const lambdaNode = this._scopedNode as LambdaNode;
 
         // Add the names for this scope. They are initially unbound. We

@@ -20,9 +20,7 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
     getFileName, getFileSpec, getFileSystemEntries, isDirectory,
-    isFile,
-    normalizePath,
-    stripFileExtension } from '../common/pathUtils';
+    isFile, normalizePath, stripFileExtension } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';

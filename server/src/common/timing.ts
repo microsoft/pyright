@@ -55,7 +55,7 @@ export class TimingStats {
     parseFileTime = new TimingStat();
     postParseWalkerTime = new TimingStat();
     resolveImportsTime = new TimingStat();
-    semanticAnalyzerTime = new TimingStat();
+    bindTime = new TimingStat();
     typeAnalyzerTime = new TimingStat();
 
     printSummary(console: ConsoleInterface) {
@@ -71,7 +71,7 @@ export class TimingStats {
         console.log('Parse:                ' + this.parseFileTime.printTime());
         console.log('Post-parse Walker:    ' + this.postParseWalkerTime.printTime());
         console.log('Resolve Imports:      ' + this.resolveImportsTime.printTime());
-        console.log('Semantic Analyzer:    ' + this.semanticAnalyzerTime.printTime());
+        console.log('Binder:               ' + this.bindTime.printTime());
         console.log('Type Analyzer:        ' + this.typeAnalyzerTime.printTime());
     }
 }

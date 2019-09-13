@@ -139,7 +139,7 @@ export class Program {
 
         this._sourceFileList.forEach(fileInfo => {
             if (fileInfo.sourceFile.isParseRequired() ||
-                    fileInfo.sourceFile.isSemanticAnalysisRequired() ||
+                    fileInfo.sourceFile.isBindingRequired() ||
                     fileInfo.sourceFile.isTypeAnalysisRequired()) {
                 sourceFileCount++;
             }
@@ -291,9 +291,9 @@ export class Program {
                 }
             }
 
-            // Now do semantic analysis of the open files.
+            // Now do binding of the open files.
             for (const sourceFileInfo of openFiles) {
-                this._doSemanticAnalysis(sourceFileInfo, options, importResolver);
+                this._bindFile(sourceFileInfo, options, importResolver);
 
                 if (isTimeElapsedOpenFiles()) {
                     return true;
@@ -490,21 +490,21 @@ export class Program {
         }
     }
 
-    private _doSemanticAnalysis(fileToAnalyze: SourceFileInfo,
+    private _bindFile(fileToAnalyze: SourceFileInfo,
             options: ConfigOptions, importResolver: ImportResolver) {
 
-        if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isSemanticAnalysisRequired()) {
+        if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) {
             return;
         }
 
         this._parseFile(fileToAnalyze, options, importResolver);
 
-        // We need to parse and semantically analyze the builtins import first.
+        // We need to parse and bind the builtins import first.
         let builtinsScope: Scope | undefined;
         if (fileToAnalyze.builtinsImport) {
-            this._doSemanticAnalysis(fileToAnalyze.builtinsImport, options, importResolver);
+            this._bindFile(fileToAnalyze.builtinsImport, options, importResolver);
 
-            // Get the builtins scope to pass to the semantic analyzer pass.
+            // Get the builtins scope to pass to the binding pass.
             const parseResults = fileToAnalyze.builtinsImport.sourceFile.getParseResults();
             if (parseResults) {
                 builtinsScope = AnalyzerNodeInfo.getScope(parseResults.parseTree);
@@ -512,7 +512,7 @@ export class Program {
             }
         }
 
-        fileToAnalyze.sourceFile.doSemanticAnalysis(options, builtinsScope);
+        fileToAnalyze.sourceFile.bind(options, builtinsScope);
     }
 
     private _buildImportMap(sourceFileInfo: SourceFileInfo): ImportMap {
@@ -639,8 +639,8 @@ export class Program {
     }
 
     // Builds a map of files that includes fileToAnalyze and all of the files
-    // it imports (recursively) and ensures that all such files have been semantically
-    // analyzed in preparation for the type analysis phase. If any of these files have
+    // it imports (recursively) and ensures that all such files have completed
+    // binding in preparation for the type analysis phase. If any of these files have
     // already been finalized (they and their recursive imports have completed the
     // type analysis phase), they are not included in the results. Also builds a
     // prioritized queue of files to analyze. Returns true if it ran out of time before
@@ -670,8 +670,8 @@ export class Program {
             return false;
         }
 
-        // Make sure the file is parsed and semantically analyzed.
-        this._doSemanticAnalysis(fileToAnalyze, options, importResolver);
+        // Make sure the file is parsed and bound.
+        this._bindFile(fileToAnalyze, options, importResolver);
         if (timeElapsedCallback()) {
             return true;
         }

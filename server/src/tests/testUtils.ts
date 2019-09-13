@@ -12,10 +12,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
+import { ModuleScopeBinder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
 import { PostParseWalker } from '../analyzer/postParseWalker';
 import { Program } from '../analyzer/program';
-import { ModuleScopeAnalyzer } from '../analyzer/semanticAnalyzer';
 import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
@@ -109,7 +109,7 @@ export class TestUtils {
         return fileInfo;
     }
 
-    static semanticallyAnalyzeSampleFile(fileName: string,
+    static bindSampleFile(fileName: string,
             configOptions = new ConfigOptions('.')): FileAnalysisResult {
 
         const diagSink = new DiagnosticSink();
@@ -118,8 +118,8 @@ export class TestUtils {
         const parseResults = this.parseSampleFile(fileName, diagSink, execEnvironment);
 
         const fileInfo = this.buildAnalyzerFileInfo(filePath, parseResults, configOptions);
-        const scopeAnalyzer = new ModuleScopeAnalyzer(parseResults.parseTree, fileInfo);
-        scopeAnalyzer.analyze();
+        const binder = new ModuleScopeBinder(parseResults.parseTree, fileInfo);
+        binder.bind();
 
         return {
             filePath,

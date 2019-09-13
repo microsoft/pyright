@@ -18,26 +18,15 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { NameBindings, NameBindingType } from '../parser/nameBindings';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, ClassNode, DelNode,
     ExpressionNode, ForNode, FunctionNode, GlobalNode, ImportAsNode,
-    ImportFromAsNode, ImportFromNode, LambdaNode, ModuleNameNode, ModuleNode,
-    NonlocalNode, ParseNode, ParseNodeArray, ParseNodeType, TypeAnnotationExpressionNode,
+    ImportFromAsNode, LambdaNode, ModuleNode, NonlocalNode, ParseNode,
+    ParseNodeArray, ParseNodeType, TypeAnnotationExpressionNode,
     WithNode } from '../parser/parseNodes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeWalker } from './parseTreeWalker';
 
-export interface ModuleImport {
-    nameNode: ModuleNameNode;
-    leadingDots: number;
-    nameParts: string[];
-
-    // Used for "from X import Y" pattern. An empty
-    // array implies "from X import *".
-    importedSymbols: string[] | undefined;
-}
-
 export class PostParseWalker extends ParseTreeWalker {
     private _parseTree: ModuleNode;
     private _diagnosticSink: TextRangeDiagnosticSink;
-    private _importedModules: ModuleImport[] = [];
     private _currentNameBindings: NameBindings;
     private _currentBindingType: NameBindingType;
 
@@ -58,10 +47,6 @@ export class PostParseWalker extends ParseTreeWalker {
         this.walk(this._parseTree);
     }
 
-    getImportedModules(): ModuleImport[] {
-        return this._importedModules;
-    }
-
     visitNode(node: ParseNode) {
         const children = super.visitNode(node);
 
@@ -76,24 +61,6 @@ export class PostParseWalker extends ParseTreeWalker {
         } else if (node.module.nameParts.length > 0) {
             this._addName(node.module.nameParts[0].nameToken.value);
         }
-
-        this._importedModules.push({
-            nameNode: node.module,
-            leadingDots: node.module.leadingDots,
-            nameParts: node.module.nameParts.map(p => p.nameToken.value),
-            importedSymbols: undefined
-        });
-
-        return true;
-    }
-
-    visitImportFrom(node: ImportFromNode): boolean {
-        this._importedModules.push({
-            nameNode: node.module,
-            leadingDots: node.module.leadingDots,
-            nameParts: node.module.nameParts.map(p => p.nameToken.value),
-            importedSymbols: node.imports.map(imp => imp.name.nameToken.value)
-        });
 
         return true;
     }

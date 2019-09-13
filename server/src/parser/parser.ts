@@ -60,6 +60,7 @@ export class ParseOptions {
 
 export interface ParseResults {
     parseTree: ModuleNode;
+    importedModules: ModuleImport[];
     futureImports: StringMap<boolean>;
     tokens: TextRangeCollection<Token>;
     lines: TextRangeCollection<TextRange>;
@@ -70,6 +71,16 @@ export interface ParseResults {
 export interface ParseExpressionTextResults {
     parseTree?: ExpressionNode;
     diagnostics: Diagnostic[];
+}
+
+export interface ModuleImport {
+    nameNode: ModuleNameNode;
+    leadingDots: number;
+    nameParts: string[];
+
+    // Used for "from X import Y" pattern. An empty
+    // array implies "from X import *".
+    importedSymbols: string[] | undefined;
 }
 
 export class Parser {
@@ -83,6 +94,7 @@ export class Parser {
     private _isInFinally = false;
     private _isParsingTypeAnnotation = false;
     private _futureImportMap = new StringMap<boolean>();
+    private _importedModules: ModuleImport[] = [];
 
     parseSourceFile(fileContents: string, parseOptions: ParseOptions,
             diagSink: DiagnosticSink, cancelToken?: CancelToken): ParseResults {
@@ -120,6 +132,7 @@ export class Parser {
 
         return {
             parseTree: moduleNode,
+            importedModules: this._importedModules,
             futureImports: this._futureImportMap,
             tokens: this._tokenizerOutput!.tokens,
             lines: this._tokenizerOutput!.lines,
@@ -999,6 +1012,13 @@ export class Parser {
             }
         }
 
+        this._importedModules.push({
+            nameNode: importFromNode.module,
+            leadingDots: importFromNode.module.leadingDots,
+            nameParts: importFromNode.module.nameParts.map(p => p.nameToken.value),
+            importedSymbols: importFromNode.imports.map(imp => imp.name.nameToken.value)
+        });
+
         return importFromNode;
     }
 
@@ -1025,6 +1045,13 @@ export class Parser {
             }
 
             importNode.list.push(importAsNode);
+
+            this._importedModules.push({
+                nameNode: importAsNode.module,
+                leadingDots: importAsNode.module.leadingDots,
+                nameParts: importAsNode.module.nameParts.map(p => p.nameToken.value),
+                importedSymbols: undefined
+            });
 
             if (!this._consumeTokenIfType(TokenType.Comma)) {
                 break;

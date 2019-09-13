@@ -32,19 +32,19 @@ import { performQuickAction } from '../languageService/quickActions';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ModuleNode } from '../parser/parseNodes';
-import { ParseOptions, Parser, ParseResults } from '../parser/parser';
+import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
 import { TestWalker } from '../tests/testWalker';
 import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import { ModuleScopeBinder } from './binder';
 import { CircularDependency } from './circularDependency';
 import { CommentUtils } from './commentUtils';
 import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
-import { ModuleImport, PostParseWalker } from './postParseWalker';
+import { PostParseWalker } from './postParseWalker';
 import { Scope } from './scope';
-import { ModuleScopeAnalyzer } from './semanticAnalyzer';
 import { SymbolTable } from './symbol';
 import { TypeAnalyzer } from './typeAnalyzer';
 import { ModuleType } from './types';
@@ -53,10 +53,10 @@ const _maxImportCyclesPerFile = 4;
 
 export const enum AnalysisPhase {
     Parse = 0,
-    SemanticAnalysis = 1,
+    Bind = 1,
     TypeAnalysis = 2,
 
-    FirstAnalysisPhase = SemanticAnalysis,
+    FirstAnalysisPhase = Bind,
     LastAnalysisPhase = TypeAnalysis
 }
 
@@ -70,7 +70,7 @@ export interface AnalysisJob {
     moduleType?: ModuleType;
 
     parseDiagnostics: Diagnostic[];
-    semanticAnalysisDiagnostics: Diagnostic[];
+    bindDiagnostics: Diagnostic[];
     typeAnalysisLastPassDiagnostics: Diagnostic[];
     typeAnalysisFinalDiagnostics: Diagnostic[];
 
@@ -119,11 +119,11 @@ export class SourceFile {
     // of analysis.
     private _analysisJob: AnalysisJob = {
         fileContentsVersion: -1,
-        nextPhaseToRun: AnalysisPhase.SemanticAnalysis,
+        nextPhaseToRun: AnalysisPhase.Bind,
         parseTreeNeedsCleaning: false,
 
         parseDiagnostics: [],
-        semanticAnalysisDiagnostics: [],
+        bindDiagnostics: [],
         typeAnalysisLastPassDiagnostics: [],
         typeAnalysisFinalDiagnostics: [],
 
@@ -209,7 +209,7 @@ export class SourceFile {
         let diagList: Diagnostic[] = [];
         diagList = diagList.concat(
             this._analysisJob.parseDiagnostics,
-            this._analysisJob.semanticAnalysisDiagnostics,
+            this._analysisJob.bindDiagnostics,
             this._analysisJob.typeAnalysisFinalDiagnostics);
 
         if (options.diagnosticSettings.reportImportCycles !== 'none' && this._analysisJob.circularDependencies.length > 0) {
@@ -300,12 +300,12 @@ export class SourceFile {
     markDirty(): void {
         this._fileContentsVersion++;
         this._analysisJob.isTypeAnalysisFinalized = false;
-        this._analysisJob.nextPhaseToRun = AnalysisPhase.SemanticAnalysis;
+        this._analysisJob.nextPhaseToRun = AnalysisPhase.Bind;
     }
 
     markReanalysisRequired(): void {
         // Keep the parse info, but reset the analysis to the beginning.
-        this._analysisJob.nextPhaseToRun = AnalysisPhase.SemanticAnalysis;
+        this._analysisJob.nextPhaseToRun = AnalysisPhase.Bind;
         this._analysisJob.parseTreeNeedsCleaning = true;
         this._analysisJob.isTypeAnalysisFinalized = false;
     }
@@ -338,16 +338,16 @@ export class SourceFile {
         return this._analysisJob.fileContentsVersion !== this._fileContentsVersion;
     }
 
-    isSemanticAnalysisRequired() {
+    isBindingRequired() {
         if (this.isParseRequired()) {
             return true;
         }
 
-        return this._analysisJob.nextPhaseToRun <= AnalysisPhase.SemanticAnalysis;
+        return this._analysisJob.nextPhaseToRun <= AnalysisPhase.Bind;
     }
 
     isTypeAnalysisRequired() {
-        if (this.isSemanticAnalysisRequired()) {
+        if (this.isBindingRequired()) {
             return true;
         }
 
@@ -455,7 +455,7 @@ export class SourceFile {
 
             timingStats.resolveImportsTime.timeOperation(() => {
                 [this._analysisJob.imports, this._analysisJob.builtinsImport, this._analysisJob.typingModulePath] =
-                    this._resolveImports(importResolver, walker.getImportedModules(), execEnvironment);
+                    this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
             });
             this._analysisJob.parseDiagnostics = diagSink.diagnostics;
 
@@ -473,8 +473,10 @@ export class SourceFile {
             this._console.log(
                 `An internal error occurred while parsing ${ this.getFilePath() }: ` + message);
 
+            // Create dummy parse results.
             this._analysisJob.parseResults = {
                 parseTree: ModuleNode.create({ start: 0, length: 0 }),
+                importedModules: [],
                 futureImports: new StringMap<boolean>(),
                 tokens: new TextRangeCollection<Token>([]),
                 lines: new TextRangeCollection<TextRange>([]),
@@ -490,7 +492,7 @@ export class SourceFile {
         }
 
         this._analysisJob.fileContentsVersion = this._fileContentsVersion;
-        this._analysisJob.nextPhaseToRun = AnalysisPhase.SemanticAnalysis;
+        this._analysisJob.nextPhaseToRun = AnalysisPhase.Bind;
         this._analysisJob.parseTreeNeedsCleaning = false;
         this._analysisJob.hitMaxImportDepth = undefined;
         this._diagnosticVersion++;
@@ -619,25 +621,25 @@ export class SourceFile {
         this._analysisJob.isTypeAnalysisFinalized = false;
     }
 
-    doSemanticAnalysis(configOptions: ConfigOptions, builtinsScope?: Scope) {
+    bind(configOptions: ConfigOptions, builtinsScope?: Scope) {
         assert(!this.isParseRequired());
-        assert(this.isSemanticAnalysisRequired());
+        assert(this.isBindingRequired());
         assert(this._analysisJob.parseResults);
-        assert(this._analysisJob.nextPhaseToRun === AnalysisPhase.SemanticAnalysis);
+        assert(this._analysisJob.nextPhaseToRun === AnalysisPhase.Bind);
 
         const fileInfo = this._buildFileInfo(configOptions, undefined, builtinsScope);
 
         try {
             this._cleanParseTreeIfRequired();
 
-            // Perform semantic analysis.
-            const scopeAnalyzer = new ModuleScopeAnalyzer(
-                this._analysisJob.parseResults!.parseTree, fileInfo);
-            timingStats.semanticAnalyzerTime.timeOperation(() => {
-                scopeAnalyzer.analyze();
+            // Perform name binding.
+            timingStats.bindTime.timeOperation(() => {
+                const binder = new ModuleScopeBinder(
+                    this._analysisJob.parseResults!.parseTree, fileInfo);
+                binder.bind();
             });
 
-            this._analysisJob.semanticAnalysisDiagnostics = fileInfo.diagnosticSink.diagnostics;
+            this._analysisJob.bindDiagnostics = fileInfo.diagnosticSink.diagnostics;
             const moduleScope = AnalyzerNodeInfo.getScope(this._analysisJob.parseResults!.parseTree);
             assert(moduleScope !== undefined);
             this._analysisJob.moduleSymbolTable = moduleScope!.getSymbolTable();
@@ -650,12 +652,12 @@ export class SourceFile {
                 (typeof e.message === 'string' ? e.message : undefined) ||
                 JSON.stringify(e);
             this._console.log(
-                `An internal error occurred while performing semantic analysis for ${ this.getFilePath() }: ` + message);
+                `An internal error occurred while performing name binding for ${ this.getFilePath() }: ` + message);
 
             const diagSink = new DiagnosticSink();
-            diagSink.addError(`An internal error occurred while performing semantic analysis`,
+            diagSink.addError(`An internal error occurred while performing name binding`,
                 getEmptyRange());
-            this._analysisJob.semanticAnalysisDiagnostics = diagSink.diagnostics;
+            this._analysisJob.bindDiagnostics = diagSink.diagnostics;
         }
 
         // Prepare for the next stage of the analysis.
@@ -671,7 +673,7 @@ export class SourceFile {
 
     doTypeAnalysis(configOptions: ConfigOptions, importMap: ImportMap) {
         assert(!this.isParseRequired());
-        assert(!this.isSemanticAnalysisRequired());
+        assert(!this.isBindingRequired());
         assert(this.isTypeAnalysisRequired());
         assert(this._analysisJob.parseResults);
         assert(this._analysisJob.nextPhaseToRun === AnalysisPhase.TypeAnalysis);

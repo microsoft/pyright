@@ -34,7 +34,7 @@ export class AnalyzerNodeInfo {
     _importInfo?: ImportResult;
 
     //---------------------------------------------------------------
-    // Set by SemanticAnalyzer
+    // Set by Binder
 
     // Scope for nodes that introduce scopes: modules, functions,
     // classes, and lambdas. A scope is used to store symbol names

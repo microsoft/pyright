@@ -5,7 +5,7 @@
 * Author: Eric Traut
 *
 * A parse tree walker that performs static type checking. It assumes
-* that the semanticAnalyzer has already run and added information to
+* that the binder has already run and added information to
 * the parse nodes.
 */
 
@@ -134,7 +134,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitClass(node: ClassNode): boolean {
         // We should have already resolved most of the base class
-        // parameters in the semantic analyzer, but if these parameters
+        // parameters in the binder, but if these parameters
         // are variables, they may not have been resolved at that time.
         const classType = AnalyzerNodeInfo.getExpressionType(node) as ClassType;
         assert(classType instanceof ClassType);

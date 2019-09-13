@@ -1,4 +1,4 @@
-# This sample tests the semantic analyzer's handling of
+# This sample tests the name binder's handling of
 # try/except/raise statements
 
 
