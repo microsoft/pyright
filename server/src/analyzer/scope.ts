@@ -24,6 +24,9 @@ export const enum ScopeType {
     // to represent conditional blocks.
     Temporary,
 
+    // Used for list comprehension nodes.
+    ListComprehension,
+
     // Function scopes are used for lambdas and functions.
     Function,
 
@@ -35,7 +38,7 @@ export const enum ScopeType {
 
     // Built-in scopes are used for all ambient symbols provided
     // by the Python environment.
-    BuiltIn
+    Builtin
 }
 
 // Provides information for recursive scope lookups.

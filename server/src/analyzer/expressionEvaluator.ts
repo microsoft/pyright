@@ -3225,10 +3225,15 @@ export class ExpressionEvaluator {
     // Returns the type of one entry returned by the list comprehension,
     // as opposed to the entire list.
     private _getElementTypeFromListComprehensionExpression(node: ListComprehensionNode): Type {
-        // Create a temporary scope since list comprehension target
+        // Switch to a dedicated scope since list comprehension target
         // variables are private to the list comprehension expression.
         const prevScope = this._scope;
-        this._scope = new Scope(ScopeType.Temporary, this._scope);
+        this._scope = AnalyzerNodeInfo.getScope(node)!;
+
+        // Temporarily reparent the scope in case the prevScope was
+        // a temporary one.
+        const prevParent = this._scope.getParent();
+        this._scope.setParent(prevScope);
 
         // There are some variants that we may not understand. If so,
         // we will set this flag and fall back on Unkown.
@@ -3237,9 +3242,7 @@ export class ExpressionEvaluator {
         let typeConstraints: ConditionalTypeConstraintResults | undefined;
 
         // "Execute" the list comprehensions from start to finish.
-        for (let i = 0; i < node.comprehensions.length; i++) {
-            const comprehension = node.comprehensions[i];
-
+        for (const comprehension of node.comprehensions) {
             if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
                 const iterableType = TypeUtils.stripLiteralValue(
                     this.getType(comprehension.iterableExpression));
@@ -3281,6 +3284,7 @@ export class ExpressionEvaluator {
             }
         });
 
+        this._scope.setParent(prevParent);
         this._scope = prevScope;
 
         return type;

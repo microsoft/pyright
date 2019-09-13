@@ -685,7 +685,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // though they appear afterward in the syntax. We'll do so
         // within a temporary scope so we can throw away the target
         // when complete.
-        this._enterTemporaryScope(() => {
+        this._enterScope(node, () => {
             node.comprehensions.forEach(compr => {
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
                     this.walk(compr.iterableExpression);
@@ -700,7 +700,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const iteratedType = evaluator.getTypeFromIterable(
                         iteratorType, !!compr.isAsync, undefined, false);
 
-                    this._addNamedTargetToCurrentScope(compr.targetExpression);
                     this._assignTypeToExpression(compr.targetExpression, iteratedType, compr.iterableExpression);
                     this.walk(compr.targetExpression);
                 } else {

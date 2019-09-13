@@ -63,7 +63,7 @@ test('Builtins1', () => {
 
     const builtinsScope = moduleScope.getParent()!;
     assert.notEqual(builtinsScope, undefined);
-    assert.equal(builtinsScope.getType(), ScopeType.BuiltIn);
+    assert.equal(builtinsScope.getType(), ScopeType.Builtin);
 
     // Make sure all the expected symbols are present.
     const builtinsSymbolTable = builtinsScope.getSymbolTable();

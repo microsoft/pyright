@@ -19,7 +19,8 @@ export class ScopeUtils {
         // Starting at the current scope, find the built-in scope, which should
         // be the top-most parent.
         let builtInScope = currentScope;
-        while (builtInScope.getType() !== ScopeType.BuiltIn) {
+
+        while (builtInScope.getType() !== ScopeType.Builtin) {
             builtInScope = builtInScope.getParent()!;
         }
 

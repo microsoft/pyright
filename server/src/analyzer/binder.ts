@@ -26,10 +26,10 @@ import { TextRange } from '../common/textRange';
 import { NameBindings, NameBindingType } from '../parser/nameBindings';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode, ClassNode,
     DelNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
-    ImportFromAsNode, LambdaNode, ModuleNameNode, ModuleNode, NonlocalNode, ParseNode,
-    ParseNodeArray, ParseNodeType, RaiseNode, StatementNode, StringListNode, SuiteNode,
-    TryNode, TypeAnnotationExpressionNode, WhileNode, WithNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+    ImportFromAsNode, LambdaNode, ListComprehensionNode, ModuleNameNode, ModuleNode, NonlocalNode,
+    ParseNode, ParseNodeArray, ParseNodeType, RaiseNode, StatementNode, StringListNode,
+    SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode, WithNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
@@ -87,7 +87,7 @@ export abstract class Binder extends ParseTreeWalker {
         // If this is the built-in scope, we need to hide symbols
         // that are in the stub file but are not officially part of
         // the built-in list of symbols in Python.
-        if (scopeType === ScopeType.BuiltIn) {
+        if (scopeType === ScopeType.Builtin) {
             const builtinsToExport = [
                 'ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException',
                 'BlockingIOError', 'BrokenPipeError', 'BufferError', 'BytesWarning',
@@ -181,7 +181,7 @@ export abstract class Binder extends ParseTreeWalker {
         this.walkMultiple(node.decorators);
 
         let classFlags = ClassTypeFlags.None;
-        if (this._currentScope.getType() === ScopeType.BuiltIn ||
+        if (this._currentScope.getType() === ScopeType.Builtin ||
                 this._fileInfo.isTypingStubFile ||
                 this._fileInfo.isBuiltInStubFile) {
 
@@ -552,6 +552,40 @@ export abstract class Binder extends ParseTreeWalker {
         return true;
     }
 
+    visitListComprehension(node: ListComprehensionNode): boolean {
+        this._addParentLinks(node, [...node.comprehensions, node.expression]);
+
+        // Allocate a new scope.
+        const prevScope = this._currentScope;
+        this._currentScope = new Scope(ScopeType.ListComprehension, prevScope);
+        const prevNameBindings = this._nameBindings;
+        this._nameBindings = new NameBindings(NameBindingType.Local, prevNameBindings);
+
+        node.comprehensions.forEach(compr => {
+            if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
+                this._addParentLinks(compr, [compr.iterableExpression, compr.targetExpression]);
+
+                this.walk(compr.iterableExpression);
+
+                this._bindPossibleTupleNamedTarget(compr.targetExpression);
+                this.walk(compr.targetExpression);
+            } else {
+                this._addParentLinks(compr, [compr.testExpression]);
+                this.walk(compr.testExpression);
+            }
+        });
+
+        this.walk(node.expression);
+
+        AnalyzerNodeInfo.setScope(node, this._currentScope);
+        this._addNamesToScope(this._nameBindings.getLocalNames());
+
+        this._currentScope = prevScope;
+        this._nameBindings = prevNameBindings;
+
+        return false;
+    }
+
     protected _addNamesToScope(namesToAdd: string[]) {
         // Add the names for this scope. They are initially unbound.
         namesToAdd.forEach(name => {
@@ -742,7 +776,7 @@ export abstract class Binder extends ParseTreeWalker {
 
 export class ModuleScopeBinder extends Binder {
     constructor(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
-        super(node, fileInfo.builtinsScope ? ScopeType.Module : ScopeType.BuiltIn,
+        super(node, fileInfo.builtinsScope ? ScopeType.Module : ScopeType.Builtin,
             fileInfo.builtinsScope, NameBindingType.Global, undefined, fileInfo);
     }
 
