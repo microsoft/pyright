@@ -18,7 +18,7 @@ import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getRelativePath, makeDirectories, normalizePath, stripFileExtension } from '../common/pathUtils';
-import { Duration } from '../common/timing';
+import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
@@ -628,7 +628,9 @@ export class Program {
             // third-party modules are pretty convoluted.
             if (!this._allowThirdPartyImports) {
                 if (options.diagnosticSettings.reportImportCycles !== 'none') {
-                    this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
+                    timingStats.cycleDetectionTime.timeOperation(() => {
+                        this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
+                    });
                 }
             }
 
@@ -700,17 +702,17 @@ export class Program {
 
     private _detectAndReportImportCycles(sourceFileInfo: SourceFileInfo,
             dependencyChain: SourceFileInfo[] = [],
-            dependencyMap: { [path: string]: SourceFileInfo } = {}): boolean {
+            dependencyMap: { [path: string]: boolean } = {}): void {
 
         // Don't bother checking for typestub files.
         if (sourceFileInfo.sourceFile.isStubFile()) {
-            return false;
+            return;
         }
 
         // Don't bother checking files that are already finalized
         // because they've already been searched.
         if (sourceFileInfo.sourceFile.isAnalysisFinalized()) {
-            return false;
+            return;
         }
 
         const filePath = sourceFileInfo.sourceFile.getFilePath();
@@ -720,26 +722,29 @@ export class Program {
             // itself, but those are not interesting to report.
             if (dependencyChain.length > 1 && sourceFileInfo === dependencyChain[0]) {
                 this._logImportCycle(dependencyChain);
-                return true;
             }
-            return false;
         } else {
+            // If we've already checked this dependency along
+            // some other path, we can skip it.
+            if (dependencyMap[filePath] !== undefined) {
+                return;
+            }
+
             // We use both a map (for fast lookups) and a list
-            // (for ordering information).
-            dependencyMap[filePath] = sourceFileInfo;
+            // (for ordering information). Set the dependency map
+            // entry to true to indicate that we're actively exploring
+            // that dependency.
+            dependencyMap[filePath] = true;
             dependencyChain.push(sourceFileInfo);
 
-            let reportedCycle = false;
             for (const imp of sourceFileInfo.imports) {
-                if (this._detectAndReportImportCycles(imp, dependencyChain, dependencyMap)) {
-                    reportedCycle = true;
-                }
+                this._detectAndReportImportCycles(imp, dependencyChain, dependencyMap);
             }
 
-            delete dependencyMap[filePath];
+            // Set the dependencyMap entry to false to indicate that we have
+            // already explored this file and don't need to explore it again.
+            dependencyMap[filePath] = false;
             dependencyChain.pop();
-
-            return reportedCycle;
         }
     }
 

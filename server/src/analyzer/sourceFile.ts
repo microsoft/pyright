@@ -431,16 +431,14 @@ export class SourceFile {
             // Parse the token stream, building the abstract syntax tree.
             const parser = new Parser();
             const parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
-
-            // Save information in the analysis job.
             this._analysisJob.parseResults = parseResults;
 
             // Resolve imports.
             timingStats.resolveImportsTime.timeOperation(() => {
                 [this._analysisJob.imports, this._analysisJob.builtinsImport, this._analysisJob.typingModulePath] =
                     this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
+                this._analysisJob.parseDiagnostics = diagSink.diagnostics;
             });
-            this._analysisJob.parseDiagnostics = diagSink.diagnostics;
 
             // Is this file in a "strict" path?
             const useStrict = configOptions.strict.find(
@@ -610,33 +608,32 @@ export class SourceFile {
         assert(this._analysisJob.parseResults);
         assert(this._analysisJob.nextPhaseToRun === AnalysisPhase.Bind);
 
-        const fileInfo = this._buildFileInfo(configOptions, undefined, builtinsScope);
-
         try {
-            this._cleanParseTreeIfRequired();
-
             // Perform name binding.
             timingStats.bindTime.timeOperation(() => {
+                const fileInfo = this._buildFileInfo(configOptions, undefined, builtinsScope);
+                this._cleanParseTreeIfRequired();
+
                 const binder = new ModuleScopeBinder(
                     this._analysisJob.parseResults!.parseTree, fileInfo);
                 binder.bind();
+
+                // If we're in "test mode" (used for unit testing), run an additional
+                // "test walker" over the parse tree to validate its internal consistency.
+                if (configOptions.internalTestMode) {
+                    const testWalker = new TestWalker();
+                    testWalker.walk(this._analysisJob.parseResults!.parseTree);
+                }
+
+                this._analysisJob.bindDiagnostics = fileInfo.diagnosticSink.diagnostics;
+                const moduleScope = AnalyzerNodeInfo.getScope(this._analysisJob.parseResults!.parseTree);
+                assert(moduleScope !== undefined);
+                this._analysisJob.moduleSymbolTable = moduleScope!.getSymbolTable();
+                const moduleType = AnalyzerNodeInfo.getExpressionType(
+                    this._analysisJob.parseResults!.parseTree);
+                assert(moduleType && moduleType.category === TypeCategory.Module);
+                this._analysisJob.moduleType = moduleType as ModuleType;
             });
-
-            // If we're in "test mode" (used for unit testing), run an additional
-            // "test walker" over the parse tree to validate its internal consistency.
-            if (configOptions.internalTestMode) {
-                const testWalker = new TestWalker();
-                testWalker.walk(this._analysisJob.parseResults!.parseTree);
-            }
-
-            this._analysisJob.bindDiagnostics = fileInfo.diagnosticSink.diagnostics;
-            const moduleScope = AnalyzerNodeInfo.getScope(this._analysisJob.parseResults!.parseTree);
-            assert(moduleScope !== undefined);
-            this._analysisJob.moduleSymbolTable = moduleScope!.getSymbolTable();
-            const moduleType = AnalyzerNodeInfo.getExpressionType(
-                this._analysisJob.parseResults!.parseTree);
-            assert(moduleType && moduleType.category === TypeCategory.Module);
-            this._analysisJob.moduleType = moduleType as ModuleType;
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||
                 (typeof e.message === 'string' ? e.message : undefined) ||
@@ -668,15 +665,15 @@ export class SourceFile {
         assert(this._analysisJob.parseResults);
         assert(this._analysisJob.nextPhaseToRun === AnalysisPhase.TypeAnalysis);
 
-        const fileInfo = this._buildFileInfo(configOptions, importMap, undefined);
-
         try {
-            // Perform static type analysis.
-            const typeAnalyzer = new TypeAnalyzer(this._analysisJob.parseResults!.parseTree,
-                fileInfo, this._analysisJob.typeAnalysisPassNumber);
-            this._analysisJob.typeAnalysisPassNumber++;
-
             timingStats.typeAnalyzerTime.timeOperation(() => {
+                const fileInfo = this._buildFileInfo(configOptions, importMap, undefined);
+
+                // Perform static type analysis.
+                const typeAnalyzer = new TypeAnalyzer(this._analysisJob.parseResults!.parseTree,
+                    fileInfo, this._analysisJob.typeAnalysisPassNumber);
+                this._analysisJob.typeAnalysisPassNumber++;
+
                 // Repeatedly call the analyzer until everything converges.
                 this._analysisJob.isTypeAnalysisPassNeeded = typeAnalyzer.analyze();
                 this._analysisJob.typeAnalysisLastPassDiagnostics = fileInfo.diagnosticSink.diagnostics;

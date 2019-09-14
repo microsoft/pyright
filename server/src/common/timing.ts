@@ -54,6 +54,7 @@ export class TimingStats {
     tokenizeFileTime = new TimingStat();
     parseFileTime = new TimingStat();
     resolveImportsTime = new TimingStat();
+    cycleDetectionTime = new TimingStat();
     bindTime = new TimingStat();
     typeAnalyzerTime = new TimingStat();
 
@@ -71,6 +72,7 @@ export class TimingStats {
         console.log('Resolve Imports:      ' + this.resolveImportsTime.printTime());
         console.log('Bind:                 ' + this.bindTime.printTime());
         console.log('Analyze:              ' + this.typeAnalyzerTime.printTime());
+        console.log('Detect Cycles:        ' + this.cycleDetectionTime.printTime());
     }
 }
 
