@@ -8,8 +8,8 @@
 */
 
 import { ImportType } from '../analyzer/importResult';
-import { ImportStatementUtils } from '../analyzer/importStatementUtils';
-import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import * as ImportStatementUtils from '../analyzer/importStatementUtils';
+import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';

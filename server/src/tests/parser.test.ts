@@ -10,7 +10,7 @@
 import * as assert from 'assert';
 
 import { DiagnosticSink } from '../common/diagnosticSink';
-import { TestUtils } from './testUtils';
+import * as TestUtils from './testUtils';
 
 test('Empty', () => {
     const diagSink = new DiagnosticSink();

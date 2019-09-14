@@ -17,7 +17,7 @@ import { Declaration } from './declaration';
 import { InferredType } from './inferredType';
 import { setSymbolPreservingAccess, Symbol, SymbolTable } from './symbol';
 import { TypeConstraint } from './typeConstraint';
-import { TypeConstraintUtils } from './typeConstraintUtils';
+import * as TypeConstraintUtils from './typeConstraintUtils';
 
 export const enum ScopeType {
     // Temporary scopes are used temporarily during analysis

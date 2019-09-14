@@ -16,7 +16,7 @@ import { ArgumentCategory, ExpressionNode, ParseNodeType } from '../parser/parse
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { ClassType, combineTypes, isAnyOrUnknown, isNoneOrNever, NeverType, ObjectType,
     Type, TypeCategory } from './types';
-import { TypeUtils } from './typeUtils';
+import * as TypeUtils from './typeUtils';
 
 export interface ConditionalTypeConstraintResults {
     // Type constraints that apply in cases where the condition potentially

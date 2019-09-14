@@ -25,13 +25,13 @@ import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNo
     TupleExpressionNode, UnaryExpressionNode, YieldExpressionNode,
     YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
-import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationCategory } from './declaration';
 import { defaultTypeSourceId } from './inferredType';
-import { ParseTreeUtils } from './parseTreeUtils';
+import * as ParseTreeUtils from './parseTreeUtils';
 import { Scope } from './scope';
+import * as ScopeUtils from './scopeUtils';
 import { setSymbolPreservingAccess, Symbol } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
@@ -40,7 +40,7 @@ import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     isTypeSame, isUnbound, LiteralValue, NeverType, NoneType, ObjectType, OverloadedFunctionType,
     printType, removeAnyFromUnion, removeNoneFromUnion, requiresSpecialization,
     Type, TypeCategory, TypeVarMap, TypeVarType, UnknownType } from './types';
-import { ClassMember, ClassMemberLookupFlags, TypeUtils } from './typeUtils';
+import * as TypeUtils from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -555,7 +555,7 @@ export class ExpressionEvaluator {
 
     private _getSpecializedReturnType(objType: ObjectType, memberName: string) {
         const classMember = TypeUtils.lookUpObjectMember(objType, memberName,
-            ClassMemberLookupFlags.SkipInstanceVariables);
+            TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
         if (!classMember) {
             return undefined;
         }
@@ -581,7 +581,7 @@ export class ExpressionEvaluator {
 
         const classMember = TypeUtils.lookUpObjectMember(
             ObjectType.create(metaclass), memberName,
-            ClassMemberLookupFlags.SkipInstanceVariables);
+            TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
         if (!classMember) {
             return undefined;
         }
@@ -989,15 +989,15 @@ export class ExpressionEvaluator {
             classType = aliasClass;
         }
 
-        let classLookupFlags = ClassMemberLookupFlags.Default;
+        let classLookupFlags = TypeUtils.ClassMemberLookupFlags.Default;
         if (flags & MemberAccessFlags.SkipInstanceMembers) {
-            classLookupFlags |= ClassMemberLookupFlags.SkipInstanceVariables;
+            classLookupFlags |= TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables;
         }
         if (flags & MemberAccessFlags.SkipBaseClasses) {
-            classLookupFlags |= ClassMemberLookupFlags.SkipBaseClasses;
+            classLookupFlags |= TypeUtils.ClassMemberLookupFlags.SkipBaseClasses;
         }
         if (flags & MemberAccessFlags.SkipObjectBaseClass) {
-            classLookupFlags |= ClassMemberLookupFlags.SkipObjectBaseClass;
+            classLookupFlags |= TypeUtils.ClassMemberLookupFlags.SkipObjectBaseClass;
         }
         const memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
             classLookupFlags);
@@ -1076,7 +1076,7 @@ export class ExpressionEvaluator {
 
                     const memberClassType = type.classType;
                     const getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName,
-                        ClassMemberLookupFlags.SkipInstanceVariables);
+                        TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
                     if (getMember) {
                         if (getMember.symbolType.category === TypeCategory.Function) {
                             if (usage.method === 'get') {
@@ -1499,7 +1499,7 @@ export class ExpressionEvaluator {
         if (parentNode.nodeType === ParseNodeType.MemberAccess) {
             const memberName = parentNode.memberName.nameToken.value;
             const lookupResults = TypeUtils.lookUpClassMember(
-                targetClassType, memberName, ClassMemberLookupFlags.SkipOriginalClass);
+                targetClassType, memberName, TypeUtils.ClassMemberLookupFlags.SkipOriginalClass);
             if (lookupResults && lookupResults.classType.category === TypeCategory.Class) {
                 return ObjectType.create(lookupResults.classType);
             }
@@ -1563,7 +1563,7 @@ export class ExpressionEvaluator {
                 }
             } else if (ClassType.isAbstractClass(callType)) {
                 // If the class is abstract, it can't be instantiated.
-                const symbolTable = new StringMap<ClassMember>();
+                const symbolTable = new StringMap<TypeUtils.ClassMember>();
                 TypeUtils.getAbstractMethodsRecursive(callType, symbolTable);
 
                 const diagAddendum = new DiagnosticAddendum();
@@ -1574,9 +1574,9 @@ export class ExpressionEvaluator {
                     if (index === errorsToDisplay) {
                         diagAddendum.addMessage(`and ${ symbolTableKeys.length - errorsToDisplay } more...`);
                     } else if (index < errorsToDisplay) {
-                        const symbolWithClass = symbolTable.get(symbolName)!;
+                        const symbolWithClass = symbolTable.get(symbolName);
 
-                        if (symbolWithClass.classType.category === TypeCategory.Class) {
+                        if (symbolWithClass && symbolWithClass.classType.category === TypeCategory.Class) {
                             const className = ClassType.getClassName(symbolWithClass.classType);
                             diagAddendum.addMessage(`'${ className }.${ symbolName }' is abstract`);
                         }
@@ -2589,7 +2589,7 @@ export class ExpressionEvaluator {
 
                 // For True and False, we can create truthy and falsy
                 // versions of 'bool'.
-                if (type.category === TypeCategory.Object) {
+                if (type && type.category === TypeCategory.Object) {
                     if (node.token.keywordType === KeywordType.True) {
                         type = ObjectType.cloneWithLiteral(type, true);
                     } else if (node.token.keywordType === KeywordType.False) {
@@ -2634,6 +2634,9 @@ export class ExpressionEvaluator {
         // __not__ always returns a boolean.
         if (node.operator === OperatorType.Not) {
             type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
+            if (!type) {
+                type = UnknownType.create();
+            }
         } else {
             if (isAnyOrUnknown(exprType)) {
                 type = exprType;

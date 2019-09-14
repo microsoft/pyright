@@ -15,14 +15,14 @@ import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentExpr
     ImportFromNode, ImportNode, ModuleNameNode, NameNode, ParameterCategory, ParameterNode,
     ParseNode, ParseNodeType, StatementListNode, StringNode, TryNode, TypeAnnotationExpressionNode,
     WhileNode, WithNode } from '../parser/parseNodes';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { ParseTreeUtils, PrintExpressionFlags } from './parseTreeUtils';
+import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
-import { SymbolUtils } from './symbolUtils';
+import * as SymbolNameUtils from './symbolNameUtils';
 import { ClassType, FunctionType, isNoneOrNever, TypeCategory, UnknownType } from './types';
-import { TypeUtils } from './typeUtils';
+import * as TypeUtils from './typeUtils';
 
 class TrackedImport {
     constructor(public importName: string) {}
@@ -308,8 +308,8 @@ export class TypeStubWriter extends ParseTreeWalker {
             if (baseExpression.nodeType === ParseNodeType.Name) {
                 if (baseExpression.nameToken.value === 'self') {
                     const memberName = node.leftExpression.memberName.nameToken.value;
-                    if (!SymbolUtils.isProtectedName(memberName) &&
-                            !SymbolUtils.isPrivateName(memberName)) {
+                    if (!SymbolNameUtils.isProtectedName(memberName) &&
+                            !SymbolNameUtils.isPrivateName(memberName)) {
 
                         line = this._printExpression(node.leftExpression);
                     }
@@ -366,8 +366,8 @@ export class TypeStubWriter extends ParseTreeWalker {
                 if (baseExpression.nodeType === ParseNodeType.Name) {
                     if (baseExpression.nameToken.value === 'self') {
                         const memberName = node.valueExpression.memberName.nameToken.value;
-                        if (!SymbolUtils.isProtectedName(memberName) &&
-                                !SymbolUtils.isPrivateName(memberName)) {
+                        if (!SymbolNameUtils.isProtectedName(memberName) &&
+                                !SymbolNameUtils.isPrivateName(memberName)) {
                             line = this._printExpression(node.valueExpression);
                         }
                     }
@@ -602,7 +602,8 @@ export class TypeStubWriter extends ParseTreeWalker {
         importSymbolWalker.analyze(node);
 
         return ParseTreeUtils.printExpression(node,
-            isType ? PrintExpressionFlags.ForwardDeclarations : PrintExpressionFlags.None);
+            isType ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations :
+                ParseTreeUtils.PrintExpressionFlags.None);
     }
 
     private _printTrackedImports() {

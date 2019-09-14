@@ -26,7 +26,7 @@ import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
-import { PythonPathUtils } from './pythonPathUtils';
+import * as PythonPathUtils from './pythonPathUtils';
 
 const _defaultConfigFileName = 'pyrightconfig.json';
 

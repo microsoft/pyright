@@ -14,9 +14,9 @@ import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileExtension, getFileSystemEntries,
     getPathComponents, isDirectory, isFile, stripFileExtension, stripTrailingDirectorySeparator } from '../common/pathUtils';
 import { versionToString } from '../common/pythonVersion';
-import { StringUtils } from '../common/stringUtils';
+import * as StringUtils from '../common/stringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
-import { PythonPathUtils } from './pythonPathUtils';
+import * as PythonPathUtils from './pythonPathUtils';
 
 export interface ImportedModuleDescriptor {
     leadingDots: number;

@@ -9,11 +9,11 @@
 * arguments for the call.
 */
 
-import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
-import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
+import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ClassType, FunctionType, ObjectType, OverloadedFunctionType,
     printFunctionParts, TypeCategory } from '../analyzer/types';
-import { ClassMemberLookupFlags, TypeUtils } from '../analyzer/typeUtils';
+import * as TypeUtils from '../analyzer/typeUtils';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -146,7 +146,8 @@ export class SignatureHelpProvider {
         }
 
         const memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
+            TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables |
+                TypeUtils.ClassMemberLookupFlags.SkipObjectBaseClass);
 
         if (memberInfo) {
             const unboundMethodType = memberInfo.symbolType;

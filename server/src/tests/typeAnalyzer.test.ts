@@ -9,11 +9,11 @@
 
 import * as assert from 'assert';
 
-import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { ScopeType } from '../analyzer/scope';
 import { ConfigOptions } from '../common/configOptions';
 import StringMap from '../common/stringMap';
-import { FileAnalysisResult, TestUtils } from './testUtils';
+import * as TestUtils from './testUtils';
 
 test('Builtins1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['builtins1.py']);
@@ -91,7 +91,9 @@ test('Builtins1', () => {
     }
 });
 
-function validateResults(results: FileAnalysisResult[], errorCount: number, warningCount = 0) {
+function validateResults(results: TestUtils.FileAnalysisResult[],
+        errorCount: number, warningCount = 0) {
+
     assert.equal(results.length, 1);
     assert.equal(results[0].errors.length, errorCount);
     assert.equal(results[0].warnings.length, warningCount);

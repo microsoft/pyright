@@ -12,23 +12,23 @@ import { CompletionItem, CompletionItemKind, CompletionList,
     MarkupKind, TextEdit } from 'vscode-languageserver';
 
 import { ImportMap } from '../analyzer/analyzerFileInfo';
-import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { DeclarationCategory } from '../analyzer/declaration';
 import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
-import { ImportStatements, ImportStatementUtils } from '../analyzer/importStatementUtils';
-import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import * as ImportStatementUtils from '../analyzer/importStatementUtils';
+import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ScopeType } from '../analyzer/scope';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
-import { SymbolUtils } from '../analyzer/symbolUtils';
+import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { ClassType, FunctionType, printType, TypeCategory } from '../analyzer/types';
-import { TypeUtils } from '../analyzer/typeUtils';
+import * as TypeUtils from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
-import { StringUtils } from '../common/stringUtils';
+import * as StringUtils from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
 import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode, ImportFromNode,
     isExpressionNode, ModuleNameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
@@ -423,7 +423,7 @@ export class CompletionProvider {
 
             // Don't offer imports from files that are named with private
             // naming semantics like "_ast.py".
-            if (!SymbolUtils.isProtectedName(fileName) && !SymbolUtils.isPrivateName(fileName)) {
+            if (!SymbolNameUtils.isProtectedName(fileName) && !SymbolNameUtils.isPrivateName(fileName)) {
                 const symbolTable = moduleSymbolMap[filePath];
 
                 symbolTable.forEach((symbol, name) => {
@@ -521,8 +521,9 @@ export class CompletionProvider {
             filePath, execEnvironment);
     }
 
-    private _getTextEditsForAutoImportByFilePath(symbolName: string, importStatements: ImportStatements,
-            filePath: string, moduleName: string, importType: ImportType): TextEditAction[] {
+    private _getTextEditsForAutoImportByFilePath(symbolName: string,
+            importStatements: ImportStatementUtils.ImportStatements, filePath: string,
+            moduleName: string, importType: ImportType): TextEditAction[] {
 
         // Does an 'import from' statement already exist? If so, we'll reuse it.
         const importStatement = importStatements.mapByFilePath[filePath];
@@ -709,7 +710,7 @@ export class CompletionProvider {
                     autoImportText
                 };
                 completionItem.data = completionItemData;
-            } else if (SymbolUtils.isDunderName(name)) {
+            } else if (SymbolNameUtils.isDunderName(name)) {
                 // Force dunder-named symbols to appear after all other symbols.
                 completionItem.sortText =
                     this._makeSortText(SortCategory.DunderSymbol, name);

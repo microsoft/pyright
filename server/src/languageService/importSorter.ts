@@ -9,7 +9,7 @@
 */
 
 import { ImportType } from '../analyzer/importResult';
-import { ImportStatement, ImportStatementUtils } from '../analyzer/importStatementUtils';
+import * as ImportStatementUtils from '../analyzer/importStatementUtils';
 import { DiagnosticTextRange } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
@@ -60,7 +60,9 @@ export class ImportSorter {
         return actions;
     }
 
-    private _compareImportStatements(a: ImportStatement, b: ImportStatement) {
+    private _compareImportStatements(a: ImportStatementUtils.ImportStatement,
+            b: ImportStatementUtils.ImportStatement) {
+
         const aImportGroup = this._getImportGroup(a);
         const bImportGroup = this._getImportGroup(b);
 
@@ -73,7 +75,7 @@ export class ImportSorter {
         return (a.moduleName < b.moduleName) ? -1 : 1;
     }
 
-    private _getImportGroup(statement: ImportStatement): ImportGroup {
+    private _getImportGroup(statement: ImportStatementUtils.ImportStatement): ImportGroup {
         if (statement.importResult) {
             if (statement.importResult.importType === ImportType.BuiltIn) {
                 return ImportGroup.BuiltIn;
@@ -94,7 +96,9 @@ export class ImportSorter {
     // Determines the text range for the existing primary block of import statements.
     // If there are other blocks of import statements separated by other statements,
     // we'll ignore these other blocks for now.
-    private _getPrimaryReplacementRange(statements: ImportStatement[]): DiagnosticTextRange {
+    private _getPrimaryReplacementRange(statements: ImportStatementUtils.ImportStatement[]):
+            DiagnosticTextRange {
+
         let statementLimit = statements.findIndex(s => s.followsNonImportStatement);
         if (statementLimit < 0) {
             statementLimit = statements.length;
@@ -111,7 +115,9 @@ export class ImportSorter {
 
     // If import statements are separated by other statements, we will remove the old
     // secondary blocks.
-    private _addSecondaryReplacementRanges(statements: ImportStatement[], actions: TextEditAction[]) {
+    private _addSecondaryReplacementRanges(statements: ImportStatementUtils.ImportStatement[],
+            actions: TextEditAction[]) {
+
         let secondaryBlockStart = statements.findIndex(s => s.followsNonImportStatement);
         if (secondaryBlockStart < 0) {
             return;
@@ -143,7 +149,7 @@ export class ImportSorter {
         }
     }
 
-    private _generateSortedImportText(sortedStatements: ImportStatement[]): string {
+    private _generateSortedImportText(sortedStatements: ImportStatementUtils.ImportStatement[]): string {
         let importText = '';
         let prevImportGroup = this._getImportGroup(sortedStatements[0]);
 

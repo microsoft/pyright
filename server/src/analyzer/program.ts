@@ -23,7 +23,7 @@ import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportMap } from './analyzerFileInfo';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportType } from './importResult';

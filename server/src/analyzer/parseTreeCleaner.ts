@@ -12,7 +12,7 @@
 */
 
 import { ModuleNode, ParseNode } from '../parser/parseNodes';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ParseTreeWalker } from './parseTreeWalker';
 
 export class ParseTreeCleanerWalker extends ParseTreeWalker {

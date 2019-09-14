@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 
-import { TestUtils } from './testUtils';
+import * as TestUtils from './testUtils';
 
 test('TryExcept1', () => {
     const analysisResults = TestUtils.bindSampleFile('tryExcept1.py');

@@ -20,7 +20,7 @@ import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSin
 import { TextEditAction } from '../common/editAction';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
 import StringMap from '../common/stringMap';
-import { StringUtils } from '../common/stringUtils';
+import * as StringUtils from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
@@ -36,10 +36,10 @@ import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/pars
 import { Token } from '../parser/tokenizerTypes';
 import { TestWalker } from '../tests/testWalker';
 import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ModuleScopeBinder } from './binder';
 import { CircularDependency } from './circularDependency';
-import { CommentUtils } from './commentUtils';
+import * as CommentUtils from './commentUtils';
 import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';

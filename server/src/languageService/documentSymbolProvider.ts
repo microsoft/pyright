@@ -11,12 +11,12 @@
 import { Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
 
-import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationCategory } from '../analyzer/declaration';
-import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
-import { StringUtils } from '../common/stringUtils';
+import * as StringUtils from '../common/stringUtils';
 import { ClassNode, FunctionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 

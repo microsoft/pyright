@@ -8,14 +8,11 @@
 * by a location within a file.
 */
 
-import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationCategory } from '../analyzer/declaration';
-import { DeclarationUtils } from '../analyzer/declarationUtils';
-import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import * as DeclarationUtils from '../analyzer/declarationUtils';
+import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { Symbol } from '../analyzer/symbol';
-import { ClassType, ModuleType, ObjectType } from '../analyzer/types';
-import { TypeUtils } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';

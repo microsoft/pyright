@@ -10,11 +10,11 @@
 */
 
 import { ImportMap } from '../analyzer/analyzerFileInfo';
-import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { DeclarationCategory } from '../analyzer/declaration';
-import { DeclarationUtils } from '../analyzer/declarationUtils';
+import * as DeclarationUtils from '../analyzer/declarationUtils';
 import { ImportType } from '../analyzer/importResult';
-import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ClassType, FunctionType, printType, Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';

@@ -30,18 +30,18 @@ import { AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode,
     NonlocalNode, ParseNode, ParseNodeArray, ParseNodeType, RaiseNode, StatementNode,
     StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
     WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
-import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
+import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
-import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
-import { DocStringUtils } from './docStringUtils';
-import { ExpressionUtils } from './expressionUtils';
+import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import * as DocStringUtils from './docStringUtils';
+import * as ExpressionUtils from './expressionUtils';
 import { ImportType } from './importResult';
 import { defaultTypeSourceId } from './inferredType';
-import { ParseTreeUtils } from './parseTreeUtils';
+import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
+import * as ScopeUtils from './scopeUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, Type, TypeCategory, UnknownType } from './types';
 
@@ -457,19 +457,19 @@ export abstract class Binder extends ParseTreeWalker {
                         stringNode.token.quoteMarkLength + error.offset;
                     const textRange = { start, length: error.length };
 
-                    if (error.errorType === UnescapeErrorType.InvalidEscapeSequence) {
+                    if (error.errorType === StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence) {
                         this._addDiagnostic(this._fileInfo.diagnosticSettings.reportInvalidStringEscapeSequence,
                             DiagnosticRule.reportInvalidStringEscapeSequence,
                             'Unsupported escape sequence in string literal', textRange);
-                    } else if (error.errorType === UnescapeErrorType.EscapeWithinFormatExpression) {
+                    } else if (error.errorType === StringTokenUtils.UnescapeErrorType.EscapeWithinFormatExpression) {
                         this._addError(
                             'Escape sequence (backslash) not allowed in expression portion of f-string',
                             textRange);
-                    } else if (error.errorType === UnescapeErrorType.SingleCloseBraceWithinFormatLiteral) {
+                    } else if (error.errorType === StringTokenUtils.UnescapeErrorType.SingleCloseBraceWithinFormatLiteral) {
                         this._addError(
                             'Single close brace not allowed within f-string literal; use double close brace',
                             textRange);
-                    } else if (error.errorType === UnescapeErrorType.UnterminatedFormatExpression) {
+                    } else if (error.errorType === StringTokenUtils.UnescapeErrorType.UnterminatedFormatExpression) {
                         this._addError(
                             'Unterminated expression in f-string; missing close brace',
                             textRange);

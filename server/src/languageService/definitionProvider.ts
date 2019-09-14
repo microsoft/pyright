@@ -10,12 +10,12 @@
 * definition is the top of the resolved import file.
 */
 
-import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
-import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
+import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol } from '../analyzer/symbol';
 import { TypeCategory } from '../analyzer/types';
-import { TypeUtils } from '../analyzer/typeUtils';
+import * as TypeUtils from '../analyzer/typeUtils';
 import { DiagnosticTextPosition, DiagnosticTextRange, DocumentTextRange } from '../common/diagnostic';
 import { isFile } from '../common/pathUtils';
 import { convertPositionToOffset } from '../common/positionUtils';

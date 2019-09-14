@@ -12,13 +12,12 @@
 
 import * as assert from 'assert';
 
-import { TestUtils } from './testUtils';
-
-import { StringTokenUtils, UnescapeErrorType } from '../parser/stringTokenUtils';
+import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { Tokenizer } from '../parser/tokenizer';
 import { DedentToken, IdentifierToken, IndentToken, NewLineToken, NewLineType,
     NumberToken, OperatorToken, OperatorType, StringToken,
     StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
+import * as TestUtils from './testUtils';
 
 const _implicitTokenCount = 2;
 const _implicitTokenCountNoImplicitNewLine = 1;
@@ -406,7 +405,8 @@ test('Strings: f-string with single right brace', () => {
     assert.equal(unescapedValue.unescapeErrors.length, 1);
     assert.equal(unescapedValue.unescapeErrors[0].offset, 5);
     assert.equal(unescapedValue.unescapeErrors[0].length, 1);
-    assert.equal(unescapedValue.unescapeErrors[0].errorType, UnescapeErrorType.SingleCloseBraceWithinFormatLiteral);
+    assert.equal(unescapedValue.unescapeErrors[0].errorType,
+        StringTokenUtils.UnescapeErrorType.SingleCloseBraceWithinFormatLiteral);
 });
 
 test('Strings: f-string with escape in expression', () => {
@@ -423,7 +423,8 @@ test('Strings: f-string with escape in expression', () => {
     assert.equal(unescapedValue.unescapeErrors.length, 1);
     assert.equal(unescapedValue.unescapeErrors[0].offset, 8);
     assert.equal(unescapedValue.unescapeErrors[0].length, 1);
-    assert.equal(unescapedValue.unescapeErrors[0].errorType, UnescapeErrorType.EscapeWithinFormatExpression);
+    assert.equal(unescapedValue.unescapeErrors[0].errorType,
+        StringTokenUtils.UnescapeErrorType.EscapeWithinFormatExpression);
 });
 
 test('Strings: f-string with unterminated expression', () => {
@@ -439,7 +440,8 @@ test('Strings: f-string with unterminated expression', () => {
     assert.equal(unescapedValue.formatStringSegments.length, 2);
     assert.equal(unescapedValue.unescapeErrors.length, 1);
     assert.equal(unescapedValue.unescapeErrors[0].offset, 7);
-    assert.equal(unescapedValue.unescapeErrors[0].errorType, UnescapeErrorType.UnterminatedFormatExpression);
+    assert.equal(unescapedValue.unescapeErrors[0].errorType,
+        StringTokenUtils.UnescapeErrorType.UnterminatedFormatExpression);
 });
 
 test('Strings: escape at the end of single quoted string', () => {
@@ -604,10 +606,12 @@ test('Strings: invalid escape characters', () => {
     assert.equal(unescapedValue.unescapeErrors.length, 2);
     assert.equal(unescapedValue.unescapeErrors[0].offset, 0);
     assert.equal(unescapedValue.unescapeErrors[0].length, 2);
-    assert.equal(unescapedValue.unescapeErrors[0].errorType, UnescapeErrorType.InvalidEscapeSequence);
+    assert.equal(unescapedValue.unescapeErrors[0].errorType,
+        StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence);
     assert.equal(unescapedValue.unescapeErrors[1].offset, 4);
     assert.equal(unescapedValue.unescapeErrors[1].length, 2);
-    assert.equal(unescapedValue.unescapeErrors[1].errorType, UnescapeErrorType.InvalidEscapeSequence);
+    assert.equal(unescapedValue.unescapeErrors[1].errorType,
+        StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence);
 });
 
 test('Strings: good hex escapes', () => {

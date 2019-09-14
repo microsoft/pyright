@@ -19,7 +19,7 @@ import { Type } from './types';
 // An always-incrementing ID for assigning to nodes.
 let _nextTypeSourceId: TypeSourceId = 1;
 
-export class AnalyzerNodeInfo {
+interface AnalyzerNodeInfo {
     //---------------------------------------------------------------
     // Set as part of import resolution
 
@@ -54,105 +54,103 @@ export class AnalyzerNodeInfo {
     // Ignore the type annotation string for this node. Used to handle
     // type arguments for "Literal".
     _ignoreTypeAnnotation?: boolean;
+}
 
-    //---------------------------------------------------------------
+// Cleans out all fields that are added by the analyzer phases
+// (after the post-parse walker).
+export function cleanNodeAnalysisInfo(node: ParseNode) {
+    const analyzerNode = node as AnalyzerNodeInfo;
 
-    // Cleans out all fields that are added by the analyzer phases
-    // (after the post-parse walker).
-    static cleanNodeAnalysisInfo(node: ParseNode) {
-        const analyzerNode = node as AnalyzerNodeInfo;
+    delete analyzerNode._scope;
+    delete analyzerNode._expressionType;
+    delete analyzerNode._expressionTypeWriteVersion;
+    delete analyzerNode._expressionTypeReadVersion;
+    delete analyzerNode._typeSourceId;
+    delete analyzerNode._ignoreTypeAnnotation;
+}
 
-        delete analyzerNode._scope;
-        delete analyzerNode._expressionType;
-        delete analyzerNode._expressionTypeWriteVersion;
-        delete analyzerNode._expressionTypeReadVersion;
-        delete analyzerNode._typeSourceId;
-        delete analyzerNode._ignoreTypeAnnotation;
-    }
+export function getScope(node: ParseNode): Scope | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode._scope;
+}
 
-    static getScope(node: ParseNode): Scope | undefined {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        return analyzerNode._scope;
-    }
+export function setScope(node: ParseNode, scope: Scope) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode._scope = scope;
+}
 
-    static setScope(node: ParseNode, scope: Scope) {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        analyzerNode._scope = scope;
-    }
+export function getScopeRecursive(node: ParseNode, skipTemporary = true): Scope | undefined {
+    let curNode: ParseNode | undefined = node;
 
-    static getScopeRecursive(node: ParseNode, skipTemporary = true): Scope | undefined {
-        let curNode: ParseNode | undefined = node;
-
-        while (curNode) {
-            const scope = AnalyzerNodeInfo.getScope(curNode);
-            if (scope) {
-                if (!skipTemporary || scope.getType() !== ScopeType.Temporary) {
-                    return scope;
-                }
+    while (curNode) {
+        const scope = getScope(curNode);
+        if (scope) {
+            if (!skipTemporary || scope.getType() !== ScopeType.Temporary) {
+                return scope;
             }
-
-            curNode = curNode.parent;
         }
 
-        return undefined;
+        curNode = curNode.parent;
     }
 
-    static getImportInfo(node: ParseNode): ImportResult | undefined {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        return analyzerNode._importInfo;
+    return undefined;
+}
+
+export function getImportInfo(node: ParseNode): ImportResult | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode._importInfo;
+}
+
+export function setImportInfo(node: ParseNode, importInfo: ImportResult) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode._importInfo = importInfo;
+}
+
+export function getExpressionType(node: ParseNode): Type | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode._expressionType;
+}
+
+export function setExpressionType(node: ParseNode, typeAnnotation: Type) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode._expressionType = typeAnnotation;
+}
+
+export function getExpressionTypeWriteVersion(node: ParseNode): number | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode._expressionTypeWriteVersion;
+}
+
+export function setExpressionTypeWriteVersion(node: ParseNode, version: number) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode._expressionTypeWriteVersion = version;
+}
+
+export function getExpressionTypeReadVersion(node: ParseNode): number | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode._expressionTypeReadVersion;
+}
+
+export function setExpressionTypeReadVersion(node: ParseNode, version: number) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode._expressionTypeReadVersion = version;
+}
+
+export function getTypeSourceId(node: ParseNode): TypeSourceId {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    if (analyzerNode._typeSourceId === undefined) {
+        analyzerNode._typeSourceId = _nextTypeSourceId++;
     }
 
-    static setImportInfo(node: ParseNode, importInfo: ImportResult) {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        analyzerNode._importInfo = importInfo;
-    }
+    return analyzerNode._typeSourceId;
+}
 
-    static getExpressionType(node: ParseNode): Type | undefined {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        return analyzerNode._expressionType;
-    }
+export function setIgnoreTypeAnnotation(node: StringListNode) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode._ignoreTypeAnnotation = true;
+}
 
-    static setExpressionType(node: ParseNode, typeAnnotation: Type) {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        analyzerNode._expressionType = typeAnnotation;
-    }
-
-    static getExpressionTypeWriteVersion(node: ParseNode): number | undefined {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        return analyzerNode._expressionTypeWriteVersion;
-    }
-
-    static setExpressionTypeWriteVersion(node: ParseNode, version: number) {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        analyzerNode._expressionTypeWriteVersion = version;
-    }
-
-    static getExpressionTypeReadVersion(node: ParseNode): number | undefined {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        return analyzerNode._expressionTypeReadVersion;
-    }
-
-    static setExpressionTypeReadVersion(node: ParseNode, version: number) {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        analyzerNode._expressionTypeReadVersion = version;
-    }
-
-    static getTypeSourceId(node: ParseNode): TypeSourceId {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        if (analyzerNode._typeSourceId === undefined) {
-            analyzerNode._typeSourceId = _nextTypeSourceId++;
-        }
-
-        return analyzerNode._typeSourceId;
-    }
-
-    static setIgnoreTypeAnnotation(node: StringListNode) {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        analyzerNode._ignoreTypeAnnotation = true;
-    }
-
-    static getIgnoreTypeAnnotation(node: StringListNode) {
-        const analyzerNode = node as AnalyzerNodeInfo;
-        return !!analyzerNode._ignoreTypeAnnotation;
-    }
+export function getIgnoreTypeAnnotation(node: StringListNode) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return !!analyzerNode._ignoreTypeAnnotation;
 }

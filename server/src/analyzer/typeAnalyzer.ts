@@ -28,27 +28,27 @@ import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode, BinaryEx
     UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode,
     YieldFromExpressionNode  } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
-import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
-import { AnalyzerNodeInfo } from './analyzerNodeInfo';
+import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationCategory } from './declaration';
-import { DeclarationUtils } from './declarationUtils';
+import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
-import { ExpressionUtils } from './expressionUtils';
+import * as ExpressionUtils from './expressionUtils';
 import { ImportResult, ImportType } from './importResult';
 import { defaultTypeSourceId, TypeSourceId } from './inferredType';
-import { ParseTreeUtils } from './parseTreeUtils';
+import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
+import * as ScopeUtils from './scopeUtils';
 import { setSymbolPreservingAccess, Symbol, SymbolTable } from './symbol';
-import { SymbolUtils } from './symbolUtils';
+import * as SymbolNameUtils from './symbolNameUtils';
 import { ConditionalTypeConstraintResults, TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
     FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isTypeSame, ModuleType, NoneType,
     ObjectType, OverloadedFunctionType, printType, PropertyType, removeNoneFromUnion,
     removeUnboundFromUnion, removeUnknownFromUnion, Type, TypeCategory, TypeVarType, UnboundType,
     UnknownType  } from './types';
-import { ClassMemberLookupFlags, TypeUtils } from './typeUtils';
+import * as TypeUtils from './typeUtils';
 
 interface AliasMapEntry {
     alias: string;
@@ -263,7 +263,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // See if there's already a non-synthesized __init__ method.
                 // We shouldn't override it.
                 const initSymbol = TypeUtils.lookUpClassMember(classType, '__init__',
-                    ClassMemberLookupFlags.SkipBaseClasses);
+                    TypeUtils.ClassMemberLookupFlags.SkipBaseClasses);
                 if (initSymbol) {
                     if (initSymbol.symbolType.category === TypeCategory.Function) {
                         if (!FunctionType.isSynthesizedMethod(initSymbol.symbolType)) {
@@ -1898,7 +1898,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const declaration: Declaration = {
                 category: DeclarationCategory.Variable,
                 node: target,
-                isConstant: SymbolUtils.isConstantName(name.value),
+                isConstant: SymbolNameUtils.isConstantName(name.value),
                 path: this._fileInfo.filePath,
                 declaredType,
                 range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
@@ -1968,11 +1968,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
         // See if the symbol is private.
-        if (SymbolUtils.isPrivateName(nameValue)) {
+        if (SymbolNameUtils.isPrivateName(nameValue)) {
             return true;
         }
 
-        if (SymbolUtils.isProtectedName(nameValue)) {
+        if (SymbolNameUtils.isProtectedName(nameValue)) {
             // Protected names outside of a class scope are considered private.
             const isClassScope = scopeType === ScopeType.Class;
             return !isClassScope;
@@ -1992,7 +1992,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return;
         }
 
-        if (SymbolUtils.isDunderName(nameValue)) {
+        if (SymbolNameUtils.isDunderName(nameValue)) {
             return;
         }
 
@@ -2024,8 +2024,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         const nameValue = node.nameToken.value;
-        const isPrivateName = SymbolUtils.isPrivateName(nameValue);
-        const isProtectedName = SymbolUtils.isProtectedName(nameValue);
+        const isPrivateName = SymbolNameUtils.isPrivateName(nameValue);
+        const isProtectedName = SymbolNameUtils.isProtectedName(nameValue);
 
         // If it's not a protected or private name, don't bother with
         // any further checks.
@@ -2257,7 +2257,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _validateOveriddenMathods(classType: ClassType) {
         ClassType.getClassFields(classType).forEach((symbol, name) => {
             // Don't check magic functions.
-            if (!SymbolUtils.isDunderName(name)) {
+            if (!SymbolNameUtils.isDunderName(name)) {
                 const typeOfSymbol = TypeUtils.getEffectiveTypeOfSymbol(symbol);
                 if (typeOfSymbol.category === TypeCategory.Function) {
                     const baseClassAndSymbol = TypeUtils.getSymbolFromBaseClasses(classType, name);
@@ -2734,7 +2734,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             srcExprNode?: ExpressionNode) {
 
         const memberName = node.memberName.nameToken.value;
-        const isConstant = SymbolUtils.isConstantName(memberName);
+        const isConstant = SymbolNameUtils.isConstantName(memberName);
 
         // If the member name appears to be a constant, use the strict
         // source type. If it appears to be a variable, strip off any
@@ -2754,7 +2754,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const classType = AnalyzerNodeInfo.getExpressionType(classDef);
         if (classType && classType.category === TypeCategory.Class) {
             let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-                isInstanceMember ? ClassMemberLookupFlags.Default : ClassMemberLookupFlags.SkipInstanceVariables);
+                isInstanceMember ? TypeUtils.ClassMemberLookupFlags.Default :
+                    TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
 
             // A local helper function that creates a new declaration.
             const createDeclaration = () => {
@@ -2874,7 +2875,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             // Look up the member info again, now that we've potentially added a declared type.
             memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-                ClassMemberLookupFlags.DeclaredTypesOnly);
+                TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
             if (memberInfo) {
                 const declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
                 if (declaredType && !isAnyOrUnknown(declaredType)) {
@@ -3068,7 +3069,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const declaration: Declaration = {
                 category: DeclarationCategory.Variable,
                 node: target,
-                isConstant: SymbolUtils.isConstantName(name.value),
+                isConstant: SymbolNameUtils.isConstantName(name.value),
                 path: this._fileInfo.filePath,
                 range: convertOffsetsToRange(name.start, TextRange.getEnd(name),
                     this._fileInfo.lines)
@@ -3218,7 +3219,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const declaration: Declaration = {
                     category: DeclarationCategory.Variable,
                     node: target.expression,
-                    isConstant: SymbolUtils.isConstantName(name.value),
+                    isConstant: SymbolNameUtils.isConstantName(name.value),
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(name.start, TextRange.getEnd(name),
                         this._fileInfo.lines)
@@ -3480,7 +3481,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         } else if (baseType.category === TypeCategory.Class) {
             const classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue,
-                ClassMemberLookupFlags.SkipInstanceVariables);
+                TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
             if (classMemberInfo) {
                 if (classMemberInfo.symbol.hasDeclarations()) {
                     declarations = TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!;

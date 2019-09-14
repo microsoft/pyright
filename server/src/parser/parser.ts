@@ -35,7 +35,7 @@ import { ArgumentCategory, ArgumentNode, AssertNode, AssignmentNode, AugmentedAs
     StringListNode, StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithItemNode,
     WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
-import { StringTokenUtils, UnescapedString } from './stringTokenUtils';
+import * as StringTokenUtils from './stringTokenUtils';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
     NumberToken, OperatorToken, OperatorType, StringToken,
@@ -2328,7 +2328,7 @@ export class Parser {
         this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
     }
 
-    private _reportStringTokenErrors(stringToken: StringToken, unescapedResult: UnescapedString) {
+    private _reportStringTokenErrors(stringToken: StringToken, unescapedResult: StringTokenUtils.UnescapedString) {
         if (stringToken.flags & StringTokenFlags.Unterminated) {
             this._addError('String literal is unterminated', stringToken);
         }
