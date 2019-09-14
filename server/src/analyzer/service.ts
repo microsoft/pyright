@@ -619,10 +619,10 @@ export class AnalyzerService {
     }
 
     private _matchFiles(include: FileSpec[], exclude: FileSpec[]): string[] {
+        const includeFileRegex = /\.pyi?$/;
         const results: string[] = [];
 
         const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
-            const includeFileRegex = /\.pyi?$/;
             const { files, directories } = getFileSystemEntries(absolutePath);
 
             for (const file of files) {
@@ -648,13 +648,14 @@ export class AnalyzerService {
         include.forEach(includeSpec => {
             let foundFileSpec = false;
 
-            if (!this._isInExcludePath(includeSpec.wildcardRoot, exclude) &&
-                    fs.existsSync(includeSpec.wildcardRoot)) {
+            if (!this._isInExcludePath(includeSpec.wildcardRoot, exclude)) {
                 try {
                     const stat = fs.statSync(includeSpec.wildcardRoot);
                     if (stat.isFile()) {
-                        results.push(includeSpec.wildcardRoot);
-                        foundFileSpec = true;
+                        if (includeFileRegex.test(includeSpec.wildcardRoot)) {
+                            results.push(includeSpec.wildcardRoot);
+                            foundFileSpec = true;
+                        }
                     } else if (stat.isDirectory()) {
                         visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp);
                         foundFileSpec = true;
