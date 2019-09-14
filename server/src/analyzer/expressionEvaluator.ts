@@ -36,10 +36,10 @@ import { setSymbolPreservingAccess, Symbol } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
-    FunctionType, FunctionTypeFlags, isAnyOrUnknown, isPossiblyUnbound, isTypeSame,
-    isUnbound, LiteralValue, ModuleType, NeverType, NoneType,
-    ObjectType, OverloadedFunctionType, printType, PropertyType, removeAnyFromUnion,
-    removeNoneFromUnion, requiresSpecialization, Type, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
+    FunctionType, FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound,
+    isTypeSame, isUnbound, LiteralValue, NeverType, NoneType, ObjectType, OverloadedFunctionType,
+    printType, removeAnyFromUnion, removeNoneFromUnion, requiresSpecialization,
+    Type, TypeCategory, TypeVarMap, TypeVarType, UnknownType } from './types';
 import { ClassMember, ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
 interface TypeResult {
@@ -181,7 +181,7 @@ export class ExpressionEvaluator {
     }
 
     getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
-        let type = UnknownType.create();
+        let type: Type = UnknownType.create();
 
         if (flags & EvaluatorFlags.AllowForwardReferences) {
             this._suppressUnboundChecks(() => {
@@ -237,9 +237,11 @@ export class ExpressionEvaluator {
             objectType.classType, memberName, usage, memberAccessFlags);
 
         let resultType = memberInfo ? memberInfo.type : undefined;
-        if (resultType instanceof FunctionType || resultType instanceof OverloadedFunctionType) {
-            if (memberInfo!.isClassMember) {
-                resultType = TypeUtils.bindFunctionToClassOrObject(objectType, resultType);
+        if (resultType) {
+            if (resultType.category === TypeCategory.Function || resultType.category === TypeCategory.OverloadedFunction) {
+                if (memberInfo!.isClassMember) {
+                    resultType = TypeUtils.bindFunctionToClassOrObject(objectType, resultType);
+                }
             }
         }
 
@@ -255,9 +257,11 @@ export class ExpressionEvaluator {
             classType, memberName, usage, memberAccessFlags | MemberAccessFlags.SkipInstanceMembers);
 
         let resultType = memberInfo ? memberInfo.type : undefined;
-        if (resultType instanceof FunctionType || resultType instanceof OverloadedFunctionType) {
-            if (memberInfo!.isClassMember) {
-                resultType = TypeUtils.bindFunctionToClassOrObject(classType, resultType);
+        if (resultType) {
+            if (resultType.category === TypeCategory.Function || resultType.category === TypeCategory.OverloadedFunction) {
+                if (memberInfo!.isClassMember) {
+                    resultType = TypeUtils.bindFunctionToClassOrObject(classType, resultType);
+                }
             }
         }
 
@@ -281,7 +285,7 @@ export class ExpressionEvaluator {
                 return generatorReturnType;
             }
 
-            if (subtype instanceof ObjectType) {
+            if (subtype.category === TypeCategory.Object) {
                 const awaitReturnType = this._getSpecializedReturnType(
                     subtype, '__await__');
                 if (awaitReturnType) {
@@ -289,7 +293,7 @@ export class ExpressionEvaluator {
                         return awaitReturnType;
                     }
 
-                    if (awaitReturnType instanceof ObjectType) {
+                    if (awaitReturnType.category === TypeCategory.Object) {
                         const iterReturnType = this._getSpecializedReturnType(
                             awaitReturnType, '__iter__');
 
@@ -321,7 +325,7 @@ export class ExpressionEvaluator {
         const nextMethodName = isAsync ? '__anext__' : '__next__';
         const getItemMethodName = supportGetItem ? '__getitem__' : '';
 
-        if (type instanceof UnionType && type.subtypes.some(t => t instanceof NoneType)) {
+        if (type.category === TypeCategory.Union && type.subtypes.some(t => isNoneOrNever(t))) {
             if (errorNode) {
                 this._addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportOptionalIterable,
@@ -356,7 +360,7 @@ export class ExpressionEvaluator {
                     return iterReturnType;
                 }
 
-                if (iterReturnType instanceof ObjectType) {
+                if (iterReturnType.category === TypeCategory.Object) {
                     const nextReturnType = this._getSpecializedReturnType(
                         iterReturnType, nextMethodName);
 
@@ -386,17 +390,17 @@ export class ExpressionEvaluator {
             }
 
             const diag = new DiagnosticAddendum();
-            if (subtype instanceof ObjectType) {
+            if (subtype.category === TypeCategory.Object) {
                 const returnType = getIteratorReturnType(subtype, undefined, diag);
                 if (returnType) {
                     return returnType;
                 }
-            } else if (subtype instanceof ClassType) {
+            } else if (subtype.category === TypeCategory.Class) {
                 // Handle the case where the class itself is iterable.
                 // This is true for classes that derive from Enum, for example.
                 const metaclassType = TypeUtils.getMetaclass(subtype);
                 if (metaclassType) {
-                    if (metaclassType instanceof ClassType) {
+                    if (metaclassType.category === TypeCategory.Class) {
                         const returnType = getIteratorReturnType(
                             ObjectType.create(subtype), metaclassType, diag);
                         if (returnType) {
@@ -517,7 +521,7 @@ export class ExpressionEvaluator {
         }
 
         const moduleType = this._fileInfo.importMap[typingImportPath];
-        if (!(moduleType instanceof ModuleType)) {
+        if (!(moduleType.category === TypeCategory.Module)) {
             return undefined;
         }
 
@@ -534,7 +538,7 @@ export class ExpressionEvaluator {
             return type;
         }
 
-        if (type instanceof ObjectType) {
+        if (type.category === TypeCategory.Object) {
             // Is this a Generator? If so, return the third
             // type argument, which is the await response type.
             const classType = type.classType;
@@ -560,7 +564,7 @@ export class ExpressionEvaluator {
             return classMember.symbolType;
         }
 
-        if (classMember.symbolType instanceof FunctionType) {
+        if (classMember.symbolType.category === TypeCategory.Function) {
             const methodType = TypeUtils.bindFunctionToClassOrObject(objType,
                 classMember.symbolType) as FunctionType;
             return FunctionType.getEffectiveReturnType(methodType);
@@ -586,7 +590,7 @@ export class ExpressionEvaluator {
             return classMember.symbolType;
         }
 
-        if (classMember.symbolType instanceof FunctionType) {
+        if (classMember.symbolType.category === TypeCategory.Function) {
             const methodType = TypeUtils.bindFunctionToClassOrObject(
                 classType, classMember.symbolType, true) as FunctionType;
             return FunctionType.getEffectiveReturnType(methodType);
@@ -787,11 +791,11 @@ export class ExpressionEvaluator {
 
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
-            if (type instanceof ClassType) {
+            if (type.category === TypeCategory.Class) {
                 if (ClassType.getTypeArguments(type) === undefined) {
                     type = this._createSpecializedClassType(type, undefined, node);
                 }
-            } else if (type instanceof ObjectType) {
+            } else if (type.category === TypeCategory.Object) {
                 // If this is an object that contains a Type[X], transform it
                 // into class X.
                 const typeType = this._getClassFromPotentialTypeObject(type);
@@ -831,14 +835,14 @@ export class ExpressionEvaluator {
 
         if (isAnyOrUnknown(baseType)) {
             type = baseType;
-        } else if (baseType instanceof ClassType) {
+        } else if (baseType.category === TypeCategory.Class) {
             type = this.getTypeFromClassMember(node.memberName, baseType,
                 node.memberName.nameToken.value, usage);
 
             if (!type) {
                 diag.addMessage(`Member '${ memberName }' is unknown`);
             }
-        } else if (baseType instanceof ObjectType) {
+        } else if (baseType.category === TypeCategory.Object) {
             const classFromTypeObject = this._getClassFromPotentialTypeObject(baseType);
             if (classFromTypeObject) {
                 // Handle the case where the object is a 'Type' object, which
@@ -852,7 +856,7 @@ export class ExpressionEvaluator {
             if (!type) {
                 diag.addMessage(`Member '${ memberName }' is unknown`);
             }
-        } else if (baseType instanceof ModuleType) {
+        } else if (baseType.category === TypeCategory.Module) {
             const symbol = baseType.fields.get(memberName);
             if (symbol) {
                 if (usage.method === 'get') {
@@ -865,10 +869,10 @@ export class ExpressionEvaluator {
                 this._addError(`'${ memberName }' is not a known member of module`, node.memberName);
                 type = UnknownType.create();
             }
-        } else if (baseType instanceof UnionType) {
+        } else if (baseType.category === TypeCategory.Union) {
             const returnTypes: Type[] = [];
             baseType.subtypes.forEach(typeEntry => {
-                if (typeEntry instanceof NoneType) {
+                if (isNoneOrNever(typeEntry)) {
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportOptionalMemberAccess,
                         DiagnosticRule.reportOptionalMemberAccess,
@@ -891,7 +895,7 @@ export class ExpressionEvaluator {
             if (returnTypes.length > 0) {
                 type = combineTypes(returnTypes);
             }
-        } else if (baseType instanceof PropertyType) {
+        } else if (baseType.category === TypeCategory.Property) {
             if (memberName === 'getter' || memberName === 'setter' || memberName === 'deleter') {
                 // Synthesize a decorator.
                 const decoratorType = FunctionType.create(
@@ -906,10 +910,10 @@ export class ExpressionEvaluator {
             } else {
                 diag.addMessage(`Unknown property member`);
             }
-        } else if (baseType instanceof FunctionType || baseType instanceof OverloadedFunctionType) {
+        } else if (baseType.category === TypeCategory.Function || baseType.category === TypeCategory.OverloadedFunction) {
             // If we're assigning a value to the __defaults__ member of a function,
             // note that the default value processing for that function should be disabled.
-            if (baseType instanceof FunctionType && memberName === '__defaults__') {
+            if (baseType.category === TypeCategory.Function && memberName === '__defaults__') {
                 if (usage.method === 'set') {
                     FunctionType.setDefaultParameterCheckDisabled(baseType);
                 }
@@ -939,7 +943,7 @@ export class ExpressionEvaluator {
 
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
-            if (type instanceof ClassType) {
+            if (type.category === TypeCategory.Class) {
                 type = this._createSpecializedClassType(type, undefined, node);
             }
         }
@@ -959,11 +963,11 @@ export class ExpressionEvaluator {
 
                 // If the type arg is a type var itself, specialize it in
                 // case it's bound or constrained.
-                if (firstTypeArg instanceof TypeVarType) {
+                if (firstTypeArg.category === TypeCategory.TypeVar) {
                     firstTypeArg = TypeUtils.specializeTypeVarType(firstTypeArg);
                 }
 
-                if (firstTypeArg instanceof ObjectType) {
+                if (firstTypeArg.category === TypeCategory.Object) {
                     return firstTypeArg.classType;
                 }
             }
@@ -1016,7 +1020,7 @@ export class ExpressionEvaluator {
             }
 
             if (!(flags & MemberAccessFlags.SkipGetCheck)) {
-                if (type instanceof PropertyType) {
+                if (type.category === TypeCategory.Property) {
                     if (usage.method === 'get') {
                         // Use the property's getter function to determine
                         // the return type.
@@ -1057,7 +1061,7 @@ export class ExpressionEvaluator {
 
                         return undefined;
                     }
-                } else if (type instanceof ObjectType) {
+                } else if (type.category === TypeCategory.Object) {
                     // See if there's a magic "__get__", "__set__", or "__delete__"
                     // method on the object.
                     let accessMethodName: string;
@@ -1074,7 +1078,7 @@ export class ExpressionEvaluator {
                     const getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName,
                         ClassMemberLookupFlags.SkipInstanceVariables);
                     if (getMember) {
-                        if (getMember.symbolType instanceof FunctionType) {
+                        if (getMember.symbolType.category === TypeCategory.Function) {
                             if (usage.method === 'get') {
                                 type = FunctionType.getEffectiveReturnType(getMember.symbolType);
                             } else {
@@ -1097,7 +1101,7 @@ export class ExpressionEvaluator {
                 // off the original type. This is sometimes done for test
                 // purposes to override standard behaviors of specific methods.
                 if ((flags & MemberAccessFlags.SkipInstanceMembers) === 0) {
-                    if (!memberInfo.isInstanceMember && type instanceof FunctionType) {
+                    if (!memberInfo.isInstanceMember && type.category === TypeCategory.Function) {
                         if (FunctionType.isClassMethod(type) || FunctionType.isInstanceMethod(type)) {
                             effectiveType = TypeUtils.stripFirstParameter(type);
                         }
@@ -1128,7 +1132,7 @@ export class ExpressionEvaluator {
                         MemberAccessFlags.SkipForMethodLookup |
                         MemberAccessFlags.SkipObjectBaseClass);
 
-                if (getAttribType && getAttribType instanceof FunctionType) {
+                if (getAttribType && getAttribType.category === TypeCategory.Function) {
                     return {
                         type: FunctionType.getEffectiveReturnType(getAttribType),
                         isClassMember: false
@@ -1137,7 +1141,7 @@ export class ExpressionEvaluator {
 
                 const getAttrType = this.getTypeFromClassMember(errorNode, classType,
                     '__getattr__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
-                if (getAttrType && getAttrType instanceof FunctionType) {
+                if (getAttrType && getAttrType.category === TypeCategory.Function) {
                     return {
                         type: FunctionType.getEffectiveReturnType(getAttrType),
                         isClassMember: false
@@ -1182,12 +1186,12 @@ export class ExpressionEvaluator {
 
         // Handle the special case where we're we're specializing a generic
         // union of class types.
-        if (baseType instanceof UnionType) {
+        if (baseType.category === TypeCategory.Union) {
             const typeParameters: TypeVarType[] = [];
             let isUnionOfClasses = true;
 
             baseType.subtypes.forEach(subtype => {
-                if (subtype instanceof ClassType) {
+                if (subtype.category === TypeCategory.Class) {
                     TypeUtils.addTypeVarsToListIfUnique(typeParameters,
                         TypeUtils.getTypeVarArgumentsRecursive(subtype));
                 } else {
@@ -1206,7 +1210,7 @@ export class ExpressionEvaluator {
         const type = TypeUtils.doForSubtypes(baseType, subtype => {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
-            } else if (subtype instanceof ClassType) {
+            } else if (subtype.category === TypeCategory.Class) {
                 if (ClassType.isSpecialBuiltIn(subtype) && ClassType.getClassName(subtype) === 'Literal') {
                     // Special-case Literal types.
                     return this._createLiteralType(node);
@@ -1230,9 +1234,9 @@ export class ExpressionEvaluator {
                     const typeArgs = this._getTypeArgs(node.items);
                     return this._createSpecializedClassType(subtype, typeArgs, node.items);
                 }
-            } else if (subtype instanceof ObjectType) {
+            } else if (subtype.category === TypeCategory.Object) {
                 return this._getTypeFromIndexedObject(node, subtype, usage);
-            } else if (subtype instanceof NoneType) {
+            } else if (isNoneOrNever(subtype)) {
                 this._addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportOptionalSubscript,
                     DiagnosticRule.reportOptionalSubscript,
@@ -1294,7 +1298,7 @@ export class ExpressionEvaluator {
             // the exact type by indexing into the tuple type array.
             const baseTypeClass = baseType.classType;
 
-            if (baseTypeClass instanceof ClassType &&
+            if (baseTypeClass.category === TypeCategory.Class &&
                     ClassType.isBuiltIn(baseTypeClass) &&
                     ClassType.getClassName(baseTypeClass) === 'Tuple' &&
                     ClassType.getTypeArguments(baseTypeClass)) {
@@ -1314,7 +1318,7 @@ export class ExpressionEvaluator {
             // Handle the case where the index expression is a tuple. This
             // isn't used in most cases, but it is supported by the language.
             const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
-            if (builtInTupleType instanceof ClassType) {
+            if (builtInTupleType.category === TypeCategory.Class) {
                 indexType = TypeUtils.convertClassToObject(
                     ClassType.cloneForSpecialization(builtInTupleType, indexTypeList));
             } else {
@@ -1372,10 +1376,10 @@ export class ExpressionEvaluator {
             expr => TypeUtils.stripLiteralValue(this.getType(expr, usage))
         );
 
-        let type = UnknownType.create();
+        let type: Type = UnknownType.create();
         const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
 
-        if (builtInTupleType instanceof ClassType) {
+        if (builtInTupleType.category === TypeCategory.Class) {
             type = TypeUtils.convertClassToObject(
                 ClassType.cloneForSpecialization(builtInTupleType, entryTypes));
         }
@@ -1439,7 +1443,7 @@ export class ExpressionEvaluator {
         if (node.arguments.length > 0) {
             targetClassType = this._getTypeFromExpression(node.arguments[0].valueExpression).type;
 
-            if (!isAnyOrUnknown(targetClassType) && !(targetClassType instanceof ClassType)) {
+            if (!isAnyOrUnknown(targetClassType) && !(targetClassType.category === TypeCategory.Class)) {
                 this._addError(
                     `Expected class type as first argument to super() call but received ` +
                         `'${ printType(targetClassType) }'`,
@@ -1466,15 +1470,15 @@ export class ExpressionEvaluator {
 
             if (isAnyOrUnknown(constrainedClassType)) {
                 // Ignore unknown or any types.
-            } else if (constrainedClassType instanceof ObjectType) {
+            } else if (constrainedClassType.category === TypeCategory.Object) {
                 const childClassType = constrainedClassType.classType;
-                if (targetClassType instanceof ClassType) {
+                if (targetClassType.category === TypeCategory.Class) {
                     if (!TypeUtils.derivesFromClassRecursive(childClassType, targetClassType)) {
                         reportError = true;
                     }
                 }
-            } else if (constrainedClassType instanceof ClassType) {
-                if (targetClassType instanceof ClassType) {
+            } else if (constrainedClassType.category === TypeCategory.Class) {
+                if (targetClassType.category === TypeCategory.Class) {
                     if (!TypeUtils.derivesFromClassRecursive(constrainedClassType, targetClassType)) {
                         reportError = true;
                     }
@@ -1497,17 +1501,17 @@ export class ExpressionEvaluator {
             const memberName = parentNode.memberName.nameToken.value;
             const lookupResults = TypeUtils.lookUpClassMember(
                 targetClassType, memberName, ClassMemberLookupFlags.SkipOriginalClass);
-            if (lookupResults && lookupResults.classType instanceof ClassType) {
+            if (lookupResults && lookupResults.classType.category === TypeCategory.Class) {
                 return ObjectType.create(lookupResults.classType);
             }
 
             // If the lookup failed, try to return the first base class. An error
             // will be reported by the member lookup logic at a later time.
-            if (targetClassType instanceof ClassType) {
+            if (targetClassType.category === TypeCategory.Class) {
                 const baseClasses = ClassType.getBaseClasses(targetClassType);
                 if (baseClasses.length > 0 && !baseClasses[0].isMetaclass) {
                     const baseClassType = baseClasses[0].type;
-                    if (baseClassType instanceof ClassType) {
+                    if (baseClassType.category === TypeCategory.Class) {
                         return ObjectType.create(baseClassType);
                     }
                 }
@@ -1525,7 +1529,7 @@ export class ExpressionEvaluator {
         let type: Type | undefined;
         const callType = baseTypeResult.type;
 
-        if (callType instanceof ClassType) {
+        if (callType.category === TypeCategory.Class) {
             if (ClassType.isBuiltIn(callType)) {
                 const className = ClassType.getClassName(callType);
 
@@ -1533,7 +1537,7 @@ export class ExpressionEvaluator {
                     // Handle the 'type' call specially.
                     if (argList.length >= 1) {
                         const argType = argList[0].type;
-                        if (argType instanceof ObjectType) {
+                        if (argType.category === TypeCategory.Object) {
                             type = argType.classType;
                         }
                     }
@@ -1573,7 +1577,7 @@ export class ExpressionEvaluator {
                     } else if (index < errorsToDisplay) {
                         const symbolWithClass = symbolTable.get(symbolName)!;
 
-                        if (symbolWithClass.classType instanceof ClassType) {
+                        if (symbolWithClass.classType.category === TypeCategory.Class) {
                             const className = ClassType.getClassName(symbolWithClass.classType);
                             diagAddendum.addMessage(`'${ className }.${ symbolName }' is abstract`);
                         }
@@ -1590,7 +1594,7 @@ export class ExpressionEvaluator {
             if (!type) {
                 type = this._validateConstructorArguments(errorNode, argList, callType);
             }
-        } else if (callType instanceof FunctionType) {
+        } else if (callType.category === TypeCategory.Function) {
             // The stdlib collections/__init__.pyi stub file defines namedtuple
             // as a function rather than a class, so we need to check for it here.
             if (FunctionType.getBuiltInName(callType) === 'namedtuple') {
@@ -1618,7 +1622,7 @@ export class ExpressionEvaluator {
             if (!type) {
                 type = UnknownType.create();
             }
-        } else if (callType instanceof OverloadedFunctionType) {
+        } else if (callType.category === TypeCategory.OverloadedFunction) {
             // Determine which of the overloads (if any) match.
             const functionType = this._findOverloadedFunctionType(errorNode, argList, callType);
 
@@ -1627,7 +1631,7 @@ export class ExpressionEvaluator {
                     // Verify that the cast is necessary.
                     const castToType = argList[0].type;
                     const castFromType = argList[1].type;
-                    if (castToType instanceof ClassType && castFromType instanceof ObjectType) {
+                    if (castToType.category === TypeCategory.Class && castFromType.category === TypeCategory.Object) {
                         if (isTypeSame(castToType, castFromType.classType)) {
                             this._addDiagnostic(
                                 this._fileInfo.diagnosticSettings.reportUnnecessaryCast,
@@ -1653,13 +1657,13 @@ export class ExpressionEvaluator {
                     errorNode);
                 type = UnknownType.create();
             }
-        } else if (callType instanceof ObjectType) {
+        } else if (callType.category === TypeCategory.Object) {
             // Handle the "Type" object specially.
             const classFromTypeObject = this._getClassFromPotentialTypeObject(callType);
             if (classFromTypeObject) {
                 if (isAnyOrUnknown(classFromTypeObject)) {
                     type = classFromTypeObject;
-                } else if (classFromTypeObject instanceof ClassType) {
+                } else if (classFromTypeObject.category === TypeCategory.Class) {
                     type = this._validateConstructorArguments(errorNode,
                         argList, classFromTypeObject);
                 }
@@ -1673,10 +1677,10 @@ export class ExpressionEvaluator {
                     }
                 }
             }
-        } else if (callType instanceof UnionType) {
+        } else if (callType.category === TypeCategory.Union) {
             const returnTypes: Type[] = [];
             callType.subtypes.forEach(typeEntry => {
-                if (typeEntry instanceof NoneType) {
+                if (isNoneOrNever(typeEntry)) {
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportOptionalCall,
                         DiagnosticRule.reportOptionalCall,
@@ -1714,7 +1718,7 @@ export class ExpressionEvaluator {
 
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
-            if (type instanceof ClassType) {
+            if (type.category === TypeCategory.Class) {
                 type = this._createSpecializedClassType(type, undefined, errorNode);
             }
         }
@@ -1778,7 +1782,7 @@ export class ExpressionEvaluator {
                     let specializedClassType = type;
                     if (!typeVarMap.isEmpty()) {
                         specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
-                        assert(specializedClassType instanceof ClassType);
+                        assert(specializedClassType.category === TypeCategory.Class);
                     }
                     returnType = ObjectType.create(specializedClassType);
                 }
@@ -1815,9 +1819,9 @@ export class ExpressionEvaluator {
 
         if (isAnyOrUnknown(callType)) {
             returnType = callType;
-        } else if (callType instanceof FunctionType) {
+        } else if (callType.category === TypeCategory.Function) {
             returnType = this._validateFunctionArguments(errorNode, argList, callType, typeVarMap);
-        } else if (callType instanceof OverloadedFunctionType) {
+        } else if (callType.category === TypeCategory.OverloadedFunction) {
             const overloadedFunctionType = this._findOverloadedFunctionType(
                 errorNode, argList, callType);
             if (overloadedFunctionType) {
@@ -1832,7 +1836,7 @@ export class ExpressionEvaluator {
                     `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
                     errorNode);
             }
-        } else if (callType instanceof ClassType) {
+        } else if (callType.category === TypeCategory.Class) {
             if (!ClassType.isSpecialBuiltIn(callType)) {
                 returnType = this._validateConstructorArguments(errorNode, argList, callType);
             } else {
@@ -1840,21 +1844,21 @@ export class ExpressionEvaluator {
                     `'${ ClassType.getClassName(callType) }' cannot be instantiated`,
                     errorNode);
             }
-        } else if (callType instanceof ObjectType) {
+        } else if (callType.category === TypeCategory.Object) {
             const memberType = this.getTypeFromObjectMember(errorNode,
                 callType, '__call__', { method: 'get' },
                     MemberAccessFlags.SkipForMethodLookup);
 
-            if (memberType && memberType instanceof FunctionType) {
+            if (memberType && memberType.category === TypeCategory.Function) {
                 const callMethodType = TypeUtils.stripFirstParameter(memberType);
                 returnType = this._validateCallArguments(
                     errorNode, argList, callMethodType, typeVarMap);
             }
-        } else if (callType instanceof UnionType) {
+        } else if (callType.category === TypeCategory.Union) {
             const returnTypes: Type[] = [];
 
             for (const type of callType.subtypes) {
-                if (type instanceof NoneType) {
+                if (isNoneOrNever(type)) {
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportOptionalCall,
                         DiagnosticRule.reportOptionalCall,
@@ -2227,7 +2231,7 @@ export class ExpressionEvaluator {
         // Use the cached class type and update it if this isn't the first
         // analysis path. If this is the first pass, allocate a new ClassType.
         let classType = cachedCallType as ClassType;
-        if (!(classType instanceof ClassType)) {
+        if (!classType || classType.category !== TypeCategory.Class) {
             classType = ClassType.create(className, ClassTypeFlags.None,
                 AnalyzerNodeInfo.getTypeSourceId(errorNode));
 
@@ -2297,7 +2301,7 @@ export class ExpressionEvaluator {
             }
         }
 
-        if (argList.length >= 2 && argList[1].type instanceof ClassType) {
+        if (argList.length >= 2 && argList[1].type.category === TypeCategory.Class) {
             const baseClass = argList[1].type;
 
             // This is a hack to make named tuples work correctly. We don't want
@@ -2310,7 +2314,7 @@ export class ExpressionEvaluator {
             // Use the cached class type and update it if this isn't the first
             // analysis path. If this is the first pass, allocate a new ClassType.
             let classType = cachedCallType as ClassType;
-            if (!(classType instanceof ClassType)) {
+            if (!classType || classType.category !== TypeCategory.Class) {
                 classType = ClassType.create(className, ClassTypeFlags.None,
                     AnalyzerNodeInfo.getTypeSourceId(errorNode));
 
@@ -2355,7 +2359,7 @@ export class ExpressionEvaluator {
         // Use the cached class type and update it if this isn't the first
         // analysis path. If this is the first pass, allocate a new ClassType.
         let classType = cachedCallType as ClassType;
-        if (!(classType instanceof ClassType)) {
+        if (!classType || classType.category !== TypeCategory.Class) {
             classType = ClassType.create(className, ClassTypeFlags.None,
                 AnalyzerNodeInfo.getTypeSourceId(errorNode));
 
@@ -2370,7 +2374,7 @@ export class ExpressionEvaluator {
         const instanceFields = ClassType.getInstanceFields(classType);
 
         const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
-        if (builtInTupleType instanceof ClassType) {
+        if (builtInTupleType.category === TypeCategory.Class) {
             const constructorType = FunctionType.create(
                 FunctionTypeFlags.StaticMethod | FunctionTypeFlags.SynthesizedMethod);
             FunctionType.setDeclaredReturnType(constructorType, ObjectType.create(classType));
@@ -2586,7 +2590,7 @@ export class ExpressionEvaluator {
 
                 // For True and False, we can create truthy and falsy
                 // versions of 'bool'.
-                if (type instanceof ObjectType) {
+                if (type.category === TypeCategory.Object) {
                     if (node.token.keywordType === KeywordType.True) {
                         type = ObjectType.cloneWithLiteral(type, true);
                     } else if (node.token.keywordType === KeywordType.False) {
@@ -2743,7 +2747,7 @@ export class ExpressionEvaluator {
         if (arithmeticOperatorMap[operator]) {
             if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
                 // If either type is "Unknown" (versus Any), propagate the Unknown.
-                if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
+                if (leftType.category === TypeCategory.Unknown || rightType.category === TypeCategory.Unknown) {
                     type = UnknownType.create();
                 } else {
                     type = AnyType.create();
@@ -2754,7 +2758,7 @@ export class ExpressionEvaluator {
                 if (supportsBuiltInTypes) {
                     const simplifiedLeftType = removeAnyFromUnion(leftType);
                     const simplifiedRightType = removeAnyFromUnion(rightType);
-                    if (simplifiedLeftType instanceof ObjectType && simplifiedRightType instanceof ObjectType) {
+                    if (simplifiedLeftType.category === TypeCategory.Object && simplifiedRightType.category === TypeCategory.Object) {
                         const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
                         const getTypeMatch = (classType: ClassType): boolean[] => {
                             let foundMatch = false;
@@ -2800,16 +2804,16 @@ export class ExpressionEvaluator {
         } else if (bitwiseOperatorMap[operator]) {
             if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
                 // If either type is "Unknown" (versus Any), propagate the Unknown.
-                if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
+                if (leftType.category === TypeCategory.Unknown || rightType.category === TypeCategory.Unknown) {
                     type = UnknownType.create();
                 } else {
                     type = AnyType.create();
                 }
-            } else if (leftType instanceof ObjectType && rightType instanceof ObjectType) {
+            } else if (leftType.category === TypeCategory.Object && rightType.category === TypeCategory.Object) {
                 const intType = ScopeUtils.getBuiltInType(this._scope, 'int');
-                const leftIsInt = intType instanceof ClassType &&
+                const leftIsInt = intType.category === TypeCategory.Class &&
                     ClassType.isSameGenericClass(leftType.classType, intType);
-                const rightIsInt = intType instanceof ClassType &&
+                const rightIsInt = intType.category === TypeCategory.Class &&
                     ClassType.isSameGenericClass(rightType.classType, intType);
 
                 if (leftIsInt && rightIsInt) {
@@ -2826,7 +2830,7 @@ export class ExpressionEvaluator {
         } else if (comparisonOperatorMap[operator]) {
             if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
                 // If either type is "Unknown" (versus Any), propagate the Unknown.
-                if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
+                if (leftType.category === TypeCategory.Unknown || rightType.category === TypeCategory.Unknown) {
                     type = UnknownType.create();
                 } else {
                     type = AnyType.create();
@@ -2903,13 +2907,13 @@ export class ExpressionEvaluator {
                 return subtype;
             }
 
-            if (subtype instanceof ObjectType) {
+            if (subtype.category === TypeCategory.Object) {
                 return handleObjectSubtype(subtype);
-            } else if (subtype instanceof NoneType) {
+            } else if (isNoneOrNever(subtype)) {
                 // NoneType derives from 'object', so do the lookup on 'object'
                 // in this case.
                 const obj = ScopeUtils.getBuiltInObject(this._scope, 'object');
-                if (obj instanceof ObjectType) {
+                if (obj.category === TypeCategory.Object) {
                     return handleObjectSubtype(obj);
                 }
             }
@@ -2928,7 +2932,7 @@ export class ExpressionEvaluator {
     private _getBuiltInClassTypes(names: string[]): (ClassType | undefined)[] {
         return names.map(name => {
             const classType = ScopeUtils.getBuiltInType(this._scope, name);
-            return classType instanceof ClassType ? classType : undefined;
+            return classType.category === TypeCategory.Class ? classType : undefined;
         });
     }
 
@@ -2977,7 +2981,7 @@ export class ExpressionEvaluator {
                 if (isAnyOrUnknown(unexpandedType)) {
                     addUnknown = false;
                 } else {
-                    if (unexpandedType instanceof ObjectType) {
+                    if (unexpandedType.category === TypeCategory.Object) {
                         let classType = unexpandedType.classType;
                         const aliasClass = ClassType.getAliasClass(classType);
                         if (aliasClass) {
@@ -2999,7 +3003,7 @@ export class ExpressionEvaluator {
                     node.entries[0] as ListComprehensionNode);
 
                 // The result should be a Tuple
-                if (dictEntryType instanceof ObjectType) {
+                if (dictEntryType.category === TypeCategory.Object) {
                     const classType = dictEntryType.classType;
                     if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'Tuple') {
                         const typeArgs = ClassType.getTypeArguments(classType);
@@ -3091,8 +3095,8 @@ export class ExpressionEvaluator {
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction) {
-            const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction)! as FunctionType;
-            assert(functionType instanceof FunctionType);
+            const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction) as FunctionType;
+            assert(functionType.category === TypeCategory.Function);
             sentType = TypeUtils.getDeclaredGeneratorSendType(functionType);
         }
 
@@ -3108,8 +3112,8 @@ export class ExpressionEvaluator {
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction) {
-            const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction)! as FunctionType;
-            assert(functionType instanceof FunctionType);
+            const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction) as FunctionType;
+            assert(functionType.category === TypeCategory.Function);
             sentType = TypeUtils.getDeclaredGeneratorSendType(functionType);
         }
 
@@ -3134,10 +3138,10 @@ export class ExpressionEvaluator {
     private _getTypeFromListComprehensionExpression(node: ListComprehensionNode): TypeResult {
         const elementType = this._getElementTypeFromListComprehensionExpression(node);
 
-        let type = UnknownType.create();
+        let type: Type = UnknownType.create();
         const builtInIteratorType = this.getTypingType('Generator');
 
-        if (builtInIteratorType instanceof ClassType) {
+        if (builtInIteratorType && builtInIteratorType.category === TypeCategory.Class) {
             type = ObjectType.create(ClassType.cloneForSpecialization(builtInIteratorType, [elementType]));
         }
 
@@ -3264,7 +3268,7 @@ export class ExpressionEvaluator {
             }
         }
 
-        let type = UnknownType.create();
+        let type: Type = UnknownType.create();
         this._useExpressionTypeConstraint(typeConstraints, true, () => {
             if (understoodType) {
                 if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
@@ -3337,7 +3341,7 @@ export class ExpressionEvaluator {
                 typeArgs[0].typeList.forEach((entry, index) => {
                     if (TypeUtils.isEllipsisType(entry.type)) {
                         this._addError(`'...' not allowed in this context`, entry.node);
-                    } else if (entry.type instanceof ModuleType) {
+                    } else if (entry.type.category === TypeCategory.Module) {
                         this._addError(`Module not allowed in this context`, entry.node);
                     }
 
@@ -3359,7 +3363,7 @@ export class ExpressionEvaluator {
         if (typeArgs && typeArgs.length > 1) {
             if (TypeUtils.isEllipsisType(typeArgs[1].type)) {
                 this._addError(`'...' not allowed in this context`, typeArgs[1].node);
-            } else if (typeArgs[1].type instanceof ModuleType) {
+            } else if (typeArgs[1].type.category === TypeCategory.Module) {
                 this._addError(`Module not allowed in this context`, typeArgs[1].node);
             }
             FunctionType.setDeclaredReturnType(functionType, TypeUtils.convertClassToObject(typeArgs[1].type));
@@ -3383,7 +3387,7 @@ export class ExpressionEvaluator {
 
         if (TypeUtils.isEllipsisType(typeArgs[0].type)) {
             this._addError(`'...' not allowed in this context`, typeArgs[0].node);
-        } else if (typeArgs[0].type instanceof ModuleType) {
+        } else if (typeArgs[0].type.category === TypeCategory.Module) {
             this._addError(`Module not allowed in this context`, typeArgs[0].node);
         }
 
@@ -3394,7 +3398,7 @@ export class ExpressionEvaluator {
 
     private _cloneBuiltinTypeWithLiteral(builtInName: string, value: LiteralValue): Type {
         let type = ScopeUtils.getBuiltInObject(this._scope, builtInName);
-        if (type instanceof ObjectType) {
+        if (type.category === TypeCategory.Object) {
             type = ObjectType.cloneWithLiteral(type, value);
         }
 
@@ -3487,7 +3491,7 @@ export class ExpressionEvaluator {
                     if (!allowEllipsis || index !== typeArgs.length - 1) {
                         this._addError(`'...' not allowed in this context`, typeArgs[index].node);
                     }
-                    if (typeArg.type instanceof ModuleType) {
+                    if (typeArg.type.category === TypeCategory.Module) {
                         this._addError(`Module not allowed in this context`, typeArg.node);
                     }
                 }
@@ -3529,7 +3533,7 @@ export class ExpressionEvaluator {
                 // Verify that we didn't receive any inappropriate ellipses.
                 if (TypeUtils.isEllipsisType(typeArg.type)) {
                     this._addError(`'...' not allowed in this context`, typeArg.node);
-                } else if (typeArg.type instanceof ModuleType) {
+                } else if (typeArg.type.category === TypeCategory.Module) {
                     this._addError(`Module not allowed in this context`, typeArg.node);
                 }
             }
@@ -3557,7 +3561,7 @@ export class ExpressionEvaluator {
         const uniqueTypeVars: TypeVarType[] = [];
         if (typeArgs) {
             typeArgs.forEach(typeArg => {
-                if (!(typeArg.type instanceof TypeVarType)) {
+                if (!(typeArg.type.category === TypeCategory.TypeVar)) {
                     this._addError(
                         `Type argument for 'Generic' must be a type variable`, typeArg.node);
                 } else {
@@ -3705,7 +3709,7 @@ export class ExpressionEvaluator {
                 // Verify that we didn't receive any inappropriate ellipses or modules.
                 if (TypeUtils.isEllipsisType(typeArg.type)) {
                     this._addError(`'...' not allowed in this context`, typeArg.node);
-                } else if (typeArg.type instanceof ModuleType) {
+                } else if (typeArg.type.category === TypeCategory.Module) {
                     this._addError(`Module not allowed in this context`, typeArg.node);
                 }
             });

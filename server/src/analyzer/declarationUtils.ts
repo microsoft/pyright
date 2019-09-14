@@ -12,7 +12,7 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { Declaration } from './declaration';
 import { ParseTreeUtils } from './parseTreeUtils';
 import { Symbol } from './symbol';
-import { ClassType, ModuleType, ObjectType } from './types';
+import { TypeCategory } from './types';
 import { TypeUtils } from './typeUtils';
 
 export namespace DeclarationUtils {
@@ -29,17 +29,17 @@ export namespace DeclarationUtils {
                 TypeUtils.doForSubtypes(baseType, subtype => {
                     let symbol: Symbol | undefined;
 
-                    if (subtype instanceof ClassType) {
+                    if (subtype.category === TypeCategory.Class) {
                         const member = TypeUtils.lookUpClassMember(subtype, memberName);
                         if (member) {
                             symbol = member.symbol;
                         }
-                    } else if (subtype instanceof ObjectType) {
+                    } else if (subtype.category === TypeCategory.Object) {
                         const member = TypeUtils.lookUpObjectMember(subtype, memberName);
                         if (member) {
                             symbol = member.symbol;
                         }
-                    } else if (subtype instanceof ModuleType) {
+                    } else if (subtype.category === TypeCategory.Module) {
                         symbol = subtype.fields.get(memberName);
                     }
 

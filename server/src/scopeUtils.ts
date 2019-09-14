@@ -11,7 +11,7 @@
 import * as assert from 'assert';
 
 import { Scope, ScopeType } from './analyzer/scope';
-import { ClassType, ObjectType, Type, UnknownType } from './analyzer/types';
+import { ClassType, ObjectType, Type, TypeCategory, UnknownType } from './analyzer/types';
 import { TypeUtils } from './analyzer/typeUtils';
 
 export class ScopeUtils {
@@ -36,7 +36,7 @@ export class ScopeUtils {
             typeArguments?: Type[]): Type {
 
         const nameType = this.getBuiltInType(currentScope, className);
-        if (nameType instanceof ClassType) {
+        if (nameType.category === TypeCategory.Class) {
             let classType = nameType;
             if (typeArguments) {
                 classType = ClassType.cloneForSpecialization(classType, typeArguments);

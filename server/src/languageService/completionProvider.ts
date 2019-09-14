@@ -14,16 +14,14 @@ import { CompletionItem, CompletionItemKind, CompletionList,
 import { ImportMap } from '../analyzer/analyzerFileInfo';
 import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
 import { DeclarationCategory } from '../analyzer/declaration';
-import { ImportedModuleDescriptor, ImportResolver,
-    ModuleNameAndType } from '../analyzer/importResolver';
+import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import { ImportStatements, ImportStatementUtils } from '../analyzer/importStatementUtils';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
 import { ScopeType } from '../analyzer/scope';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import { SymbolUtils } from '../analyzer/symbolUtils';
-import { ClassType, FunctionType, ModuleType, ObjectType, OverloadedFunctionType,
-    printType } from '../analyzer/types';
+import { ClassType, FunctionType, printType, TypeCategory } from '../analyzer/types';
 import { TypeUtils } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
@@ -32,9 +30,8 @@ import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from 
 import { convertPositionToOffset } from '../common/positionUtils';
 import { StringUtils } from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
-import { ErrorExpressionCategory, ErrorExpressionNode,
-    ExpressionNode, ImportFromNode, isExpressionNode, ModuleNameNode,
-    ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode, ImportFromNode,
+    isExpressionNode, ModuleNameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
 
@@ -366,12 +363,14 @@ export class CompletionProvider {
         const leftType = AnalyzerNodeInfo.getExpressionType(leftExprNode);
         let symbolTable = new SymbolTable();
 
-        if (leftType instanceof ObjectType) {
-            TypeUtils.getMembersForClass(leftType.classType, symbolTable, true);
-        } else if (leftType instanceof ClassType) {
-            TypeUtils.getMembersForClass(leftType, symbolTable, false);
-        } else if (leftType instanceof ModuleType) {
-            symbolTable = leftType.fields;
+        if (leftType) {
+            if (leftType.category === TypeCategory.Object) {
+                TypeUtils.getMembersForClass(leftType.classType, symbolTable, true);
+            } else if (leftType.category === TypeCategory.Class) {
+                TypeUtils.getMembersForClass(leftType, symbolTable, false);
+            } else if (leftType.category === TypeCategory.Module) {
+                symbolTable = leftType.fields;
+            }
         }
 
         const completionList = CompletionList.create();
@@ -651,7 +650,7 @@ export class CompletionProvider {
 
                     case DeclarationCategory.Function:
                     case DeclarationCategory.Method:
-                        if (type instanceof OverloadedFunctionType) {
+                        if (type.category === TypeCategory.OverloadedFunction) {
                             typeDetail = type.overloads.map(overload =>
                                 name + printType(overload.type)).join('\n');
                         } else {
@@ -670,12 +669,14 @@ export class CompletionProvider {
                 }
             }
 
-            if (type instanceof ModuleType) {
-                documentation = type.docString;
-            } else if (type instanceof ClassType) {
-                documentation = ClassType.getDocString(type);
-            } else if (type instanceof FunctionType) {
-                documentation = FunctionType.getDocString(type);
+            if (type) {
+                if (type.category === TypeCategory.Module) {
+                    documentation = type.docString;
+                } else if (type.category === TypeCategory.Class) {
+                    documentation = ClassType.getDocString(type);
+                } else if (type.category === TypeCategory.Function) {
+                    documentation = FunctionType.getDocString(type);
+                }
             }
 
             let autoImportText: string | undefined;

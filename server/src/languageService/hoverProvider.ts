@@ -15,8 +15,7 @@ import { DeclarationCategory } from '../analyzer/declaration';
 import { DeclarationUtils } from '../analyzer/declarationUtils';
 import { ImportType } from '../analyzer/importResult';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
-import { ClassType, FunctionType, ModuleType, OverloadedFunctionType, printType,
-    Type, UnknownType } from '../analyzer/types';
+import { ClassType, FunctionType, printType, Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -196,22 +195,22 @@ export class HoverProvider {
     }
 
     private static _addDocumentationPartForType(parts: HoverTextPart[], type: Type) {
-        if (type instanceof ModuleType) {
+        if (type.category === TypeCategory.Module) {
             const docString = type.docString;
             if (docString) {
                 this._addResultsPart(parts, docString);
             }
-        } else if (type instanceof ClassType) {
+        } else if (type.category === TypeCategory.Class) {
             const docString = ClassType.getDocString(type);
             if (docString) {
                 this._addResultsPart(parts, docString);
             }
-        } else if (type instanceof FunctionType) {
+        } else if (type.category === TypeCategory.Function) {
             const docString = FunctionType.getDocString(type);
             if (docString) {
                 this._addResultsPart(parts, docString);
             }
-        } else if (type instanceof OverloadedFunctionType) {
+        } else if (type.category === TypeCategory.OverloadedFunction) {
             type.overloads.forEach(overload => {
                 const docString = FunctionType.getDocString(overload.type);
                 if (docString) {

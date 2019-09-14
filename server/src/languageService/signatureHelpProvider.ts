@@ -12,7 +12,7 @@
 import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
 import { ClassType, FunctionType, ObjectType, OverloadedFunctionType,
-    printFunctionParts } from '../analyzer/types';
+    printFunctionParts, TypeCategory } from '../analyzer/types';
 import { ClassMemberLookupFlags, TypeUtils } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
@@ -105,14 +105,14 @@ export class SignatureHelpProvider {
         };
 
         TypeUtils.doForSubtypes(callType, subtype => {
-            if (subtype instanceof FunctionType || subtype instanceof OverloadedFunctionType) {
+            if (subtype.category === TypeCategory.Function || subtype.category === TypeCategory.OverloadedFunction) {
                 this._addSignatureToResults(results, subtype);
-            } else if (subtype instanceof ClassType) {
+            } else if (subtype.category === TypeCategory.Class) {
                 const methodType = this._getBoundMethod(subtype, '__init__');
                 if (methodType) {
                     this._addSignatureToResults(results, methodType);
                 }
-            } else if (subtype instanceof ObjectType) {
+            } else if (subtype.category === TypeCategory.Object) {
                 const methodType = this._getBoundMethod(subtype.classType, '__call__');
                 if (methodType) {
                     this._addSignatureToResults(results, methodType);
@@ -128,9 +128,9 @@ export class SignatureHelpProvider {
     private static _addSignatureToResults(results: SignatureHelpResults,
             type: FunctionType | OverloadedFunctionType) {
 
-        if (type instanceof FunctionType) {
+        if (type.category === TypeCategory.Function) {
             results.signatures.push(this._makeSignature(type));
-        } else if (type instanceof OverloadedFunctionType) {
+        } else if (type.category === TypeCategory.OverloadedFunction) {
             type.overloads.forEach(overload => {
                 results.signatures.push(this._makeSignature(overload.type));
             });
@@ -150,10 +150,15 @@ export class SignatureHelpProvider {
 
         if (memberInfo) {
             const unboundMethodType = memberInfo.symbolType;
-            if (unboundMethodType instanceof FunctionType || unboundMethodType instanceof OverloadedFunctionType) {
+            if (unboundMethodType.category === TypeCategory.Function ||
+                    unboundMethodType.category === TypeCategory.OverloadedFunction) {
+
                 const boundMethod = TypeUtils.bindFunctionToClassOrObject(
                     ObjectType.create(classType), unboundMethodType);
-                if (boundMethod instanceof FunctionType || boundMethod instanceof OverloadedFunctionType) {
+
+                if (boundMethod.category === TypeCategory.Function ||
+                        boundMethod.category === TypeCategory.OverloadedFunction) {
+
                     return boundMethod;
                 }
             }

@@ -14,8 +14,8 @@
 
 import { ArgumentCategory, ExpressionNode, ParseNodeType } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { ClassType, combineTypes, isAnyOrUnknown, NeverType, NoneType, ObjectType, Type,
-    TypeCategory, UnionType } from './types';
+import { ClassType, combineTypes, isAnyOrUnknown, isNoneOrNever, NeverType, ObjectType,
+    Type, TypeCategory } from './types';
 import { TypeUtils } from './typeUtils';
 
 export interface ConditionalTypeConstraintResults {
@@ -78,7 +78,7 @@ export class TypeConstraint {
             // that processing with an assignment type constraint. By doing this, it
             // means that modules can't overwrite the values of special symbols like
             // Callable and Tuple.
-            if (this._type instanceof ClassType && ClassType.isSpecialBuiltIn(this._type)) {
+            if (this._type.category === TypeCategory.Class && ClassType.isSpecialBuiltIn(this._type)) {
                 if (type.category !== TypeCategory.Unbound) {
                     return type;
                 }
@@ -175,7 +175,7 @@ export class TypeConstraintBuilder {
                 // Look for "type(X) is Y" or "type(X) is not Y".
                 if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
                     const callType = typeEvaluator(testExpression.leftExpression.leftExpression);
-                    if (callType instanceof ClassType && ClassType.isBuiltIn(callType) &&
+                    if (callType.category === TypeCategory.Class && ClassType.isBuiltIn(callType) &&
                             ClassType.getClassName(callType) === 'type' &&
                             testExpression.leftExpression.arguments.length === 1 &&
                             testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
@@ -183,7 +183,7 @@ export class TypeConstraintBuilder {
                         const argExpression = testExpression.leftExpression.arguments[0].valueExpression;
                         if (TypeConstraint.isSupportedExpression(argExpression)) {
                             const classType = typeEvaluator(testExpression.rightExpression);
-                            if (classType instanceof ClassType) {
+                            if (classType.category === TypeCategory.Class) {
                                 const originalType = typeEvaluator(argExpression);
                                 const positiveType = this._transformTypeForIsTypeExpression(originalType, classType, true);
                                 const negativeType = this._transformTypeForIsTypeExpression(originalType, classType, false);
@@ -294,9 +294,9 @@ export class TypeConstraintBuilder {
                         };
                     };
 
-                    if (arg1Type instanceof ClassType) {
+                    if (arg1Type.category === TypeCategory.Class) {
                         return createIsInstanceTypeConstraint([arg1Type]);
-                    } else if (arg1Type instanceof ObjectType) {
+                    } else if (arg1Type.category === TypeCategory.Object) {
                         // The isinstance call supports a variation where the second
                         // parameter is a tuple of classes.
                         const objClass = arg1Type.classType;
@@ -306,7 +306,7 @@ export class TypeConstraintBuilder {
                             let foundNonClassType = false;
                             const classTypeList: ClassType[] = [];
                             ClassType.getTypeArguments(objClass)!.forEach(typeArg => {
-                                if (typeArg instanceof ClassType) {
+                                if (typeArg.category === TypeCategory.Class) {
                                     classTypeList.push(typeArg);
                                 } else {
                                     foundNonClassType = true;
@@ -352,7 +352,7 @@ export class TypeConstraintBuilder {
         }
 
         let types: Type[];
-        if (type instanceof UnionType) {
+        if (type.category === TypeCategory.Union) {
             types = type.subtypes;
         } else {
             types = [type];
@@ -369,7 +369,7 @@ export class TypeConstraintBuilder {
 
     // Represents an "is" or "is not" None test.
     private static _transformTypeForIsNoneExpression(type: Type, isPositiveTest: boolean): Type {
-        if (type instanceof UnionType) {
+        if (type.category === TypeCategory.Union) {
             const remainingTypes = type.subtypes.filter(t => {
                 if (isAnyOrUnknown(t)) {
                     // We need to assume that "Any" is always an instance and not an instance,
@@ -378,11 +378,11 @@ export class TypeConstraintBuilder {
                 }
 
                 // See if it's a match for None.
-                return (t instanceof NoneType) === isPositiveTest;
+                return (isNoneOrNever(t)) === isPositiveTest;
             });
 
             return combineTypes(remainingTypes);
-        } else if (type instanceof NoneType) {
+        } else if (isNoneOrNever(type)) {
             if (!isPositiveTest) {
                 // Use a "Never" type (which is a special form
                 // of None) to indicate that the condition will
@@ -399,14 +399,14 @@ export class TypeConstraintBuilder {
             isPositiveTest: boolean): Type {
 
         return TypeUtils.doForSubtypes(type, subtype => {
-            if (subtype instanceof ObjectType) {
+            if (subtype.category === TypeCategory.Object) {
                 const matches = ClassType.isSameGenericClass(subtype.classType, classType);
                 if (isPositiveTest) {
                     return matches ? subtype : undefined;
                 } else {
                     return matches ? undefined : subtype;
                 }
-            } else if (subtype instanceof NoneType) {
+            } else if (isNoneOrNever(subtype)) {
                 return isPositiveTest ? undefined : subtype;
             }
 
@@ -464,10 +464,10 @@ export class TypeConstraintBuilder {
             return combineTypes(types);
         };
 
-        if (type instanceof ObjectType) {
+        if (type.category === TypeCategory.Object) {
             const filteredType = filterType(type.classType);
             return finalizeFilteredTypeList(filteredType);
-        } else if (type instanceof UnionType) {
+        } else if (type.category === TypeCategory.Union) {
             let remainingTypes: Type[] = [];
 
             type.subtypes.forEach(t => {
@@ -475,7 +475,7 @@ export class TypeConstraintBuilder {
                     // Any types always remain for both positive and negative
                     // checks because we can't say anything about them.
                     remainingTypes.push(t);
-                } else if (t instanceof ObjectType) {
+                } else if (t.category === TypeCategory.Object) {
                     remainingTypes = remainingTypes.concat(
                         filterType(t.classType));
                 } else {

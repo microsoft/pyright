@@ -61,6 +61,10 @@ export const enum TypeCategory {
     TypeVar
 }
 
+export type Type = UnboundType | UnknownType | AnyType | NoneType | NeverType |
+    FunctionType | OverloadedFunctionType | PropertyType | ClassType |
+    ObjectType | ModuleType | UnionType | TypeVarType;
+
 export type LiteralValue = number | boolean | string;
 
 const _maxRecursionCount = 16;
@@ -69,16 +73,18 @@ export type InheritanceChain = (ClassType | UnknownType)[];
 
 export class TypeVarMap extends StringMap<Type> {}
 
-export abstract class Type {
-    abstract category: TypeCategory;
+interface TypeBase {
+    category: TypeCategory;
 }
 
-export class UnboundType extends Type {
-    category = TypeCategory.Unbound;
+export interface UnboundType extends TypeBase {
+    category: TypeCategory.Unbound;
 }
 
 export namespace UnboundType {
-    const _instance: UnboundType = new UnboundType();
+    const _instance: UnboundType = {
+        category: TypeCategory.Unbound
+    };
 
     export function create() {
         // All Unbound objects are the same, so use a shared instance.
@@ -86,12 +92,14 @@ export namespace UnboundType {
     }
 }
 
-export class UnknownType extends Type {
-    category = TypeCategory.Unknown;
+export interface UnknownType extends TypeBase {
+    category: TypeCategory.Unknown;
 }
 
 export namespace UnknownType {
-    const _instance: UnknownType = new UnknownType();
+    const _instance: UnknownType = {
+        category: TypeCategory.Unknown
+    };
 
     export function create() {
         // All Unknown objects are the same, so use a shared instance.
@@ -99,22 +107,25 @@ export namespace UnknownType {
     }
 }
 
-export class ModuleType extends Type {
-    category = TypeCategory.Module;
+export interface ModuleType extends TypeBase {
+    category: TypeCategory.Module;
     fields: SymbolTable;
     docString?: string;
 
     // A partial module is one that is not fully initialized
     // but contains only the symbols that have been imported
     // in a multi-part import (e.g. import a.b.c).
-    isPartialModule = false;
+    isPartialModule: boolean;
 }
 
 export namespace ModuleType {
     export function create(fields: SymbolTable, docString?: string) {
-        const newModuleType = new ModuleType();
-        newModuleType.fields = fields;
-        newModuleType.docString = docString;
+        const newModuleType: ModuleType = {
+            category: TypeCategory.Module,
+            fields,
+            docString,
+            isPartialModule: false
+        };
         return newModuleType;
     }
 }
@@ -159,8 +170,8 @@ interface ClassDetails {
     docString?: string;
 }
 
-export class ClassType extends Type {
-    category = TypeCategory.Class;
+export interface ClassType extends TypeBase {
+    category: TypeCategory.Class;
 
     details: ClassDetails;
 
@@ -174,22 +185,25 @@ export class ClassType extends Type {
 }
 
 export namespace ClassType {
-    export function create(name: string, flags: ClassTypeFlags, typeSourceId: TypeSourceId, docString?: string) {
-        const newClass = new ClassType();
+    export function create(name: string, flags: ClassTypeFlags,
+            typeSourceId: TypeSourceId, docString?: string) {
 
-        newClass.details = {
-            name,
-            flags,
-            typeSourceId,
-            baseClasses: [],
-            classFields: new SymbolTable(),
-            instanceFields: new SymbolTable(),
-            typeParameters: [],
-            isAbstractClass: false,
-            docString
+        const newClass: ClassType = {
+            category: TypeCategory.Class,
+            details: {
+                name,
+                flags,
+                typeSourceId,
+                baseClasses: [],
+                classFields: new SymbolTable(),
+                instanceFields: new SymbolTable(),
+                typeParameters: [],
+                isAbstractClass: false,
+                docString
+            },
+            skipAbstractClassTest: false
         };
 
-        newClass.skipAbstractClassTest = false;
         return newClass;
     }
 
@@ -224,7 +238,7 @@ export namespace ClassType {
     export function isProtocol(classType: ClassType) {
         // Does the class directly 'derive' from "Protocol"?
         return classType.details.baseClasses.find(bc => {
-            if (bc.type instanceof ClassType) {
+            if (bc.type.category === TypeCategory.Class) {
                 if (isBuiltIn(bc.type) && getClassName(bc.type) === 'Protocol') {
                     return true;
                 }
@@ -409,7 +423,7 @@ export namespace ClassType {
         }
 
         for (const baseClass of getBaseClasses(classType)) {
-            if (baseClass.type instanceof ClassType) {
+            if (baseClass.type.category === TypeCategory.Class) {
                 if (isDerivedFrom(baseClass.type, type2, inheritanceChain)) {
                     if (inheritanceChain) {
                         inheritanceChain.push(classType);
@@ -428,8 +442,8 @@ export namespace ClassType {
     }
 }
 
-export class ObjectType extends Type {
-    category = TypeCategory.Object;
+export interface ObjectType extends TypeBase {
+    category: TypeCategory.Object;
 
     classType: ClassType;
 
@@ -440,8 +454,10 @@ export class ObjectType extends Type {
 
 export namespace ObjectType {
     export function create(classType: ClassType) {
-        const newObjectType = new ObjectType();
-        newObjectType.classType = classType;
+        const newObjectType: ObjectType = {
+            category: TypeCategory.Object,
+            classType
+        };
         return newObjectType;
     }
 
@@ -485,8 +501,8 @@ export interface SpecializedFunctionTypes {
     returnType: Type;
 }
 
-export class FunctionType extends Type {
-    category = TypeCategory.Function;
+export interface FunctionType extends TypeBase {
+    category: TypeCategory.Function;
 
     details: FunctionDetails;
 
@@ -497,15 +513,16 @@ export class FunctionType extends Type {
 
 export namespace FunctionType {
     export function create(flags: FunctionTypeFlags, docString?: string) {
-        const newFunctionType = new FunctionType();
-        newFunctionType.details = {
-            flags,
-            parameters: [],
-            inferredReturnType: new InferredType(),
-            inferredYieldType: new InferredType(),
-            docString
+        const newFunctionType: FunctionType = {
+            category: TypeCategory.Function,
+            details: {
+                flags,
+                parameters: [],
+                inferredReturnType: new InferredType(),
+                inferredYieldType: new InferredType(),
+                docString
+            }
         };
-
         return newFunctionType;
     }
 
@@ -694,15 +711,18 @@ export interface OverloadedFunctionEntry {
     typeSourceId: TypeSourceId;
 }
 
-export class OverloadedFunctionType extends Type {
-    category = TypeCategory.OverloadedFunction;
-
-    overloads: OverloadedFunctionEntry[] = [];
+export interface OverloadedFunctionType extends TypeBase {
+    category: TypeCategory.OverloadedFunction;
+    overloads: OverloadedFunctionEntry[];
 }
 
 export namespace OverloadedFunctionType {
     export function create() {
-        return new OverloadedFunctionType();
+        const newType: OverloadedFunctionType = {
+            category: TypeCategory.OverloadedFunction,
+            overloads: []
+        };
+        return newType;
     }
 
     export function addOverload(type: OverloadedFunctionType, typeSourceId: TypeSourceId,
@@ -718,8 +738,8 @@ export namespace OverloadedFunctionType {
     }
 }
 
-export class PropertyType extends Type {
-    category = TypeCategory.Property;
+export interface PropertyType extends TypeBase {
+    category: TypeCategory.Property;
 
     getter: FunctionType;
     setter?: FunctionType;
@@ -728,63 +748,77 @@ export class PropertyType extends Type {
 
 export namespace PropertyType {
     export function create(getter: FunctionType) {
-        const newPropertyType = new PropertyType();
-        newPropertyType.getter = getter;
+        const newPropertyType: PropertyType = {
+            category: TypeCategory.Property,
+            getter
+        };
         return newPropertyType;
     }
 }
 
-export class NoneType extends Type {
-    category = TypeCategory.None;
+export interface NoneType extends TypeBase {
+    category: TypeCategory.None;
 }
 
 export namespace NoneType {
-    const _noneInstance = new NoneType();
+    const _noneInstance: NoneType = {
+        category: TypeCategory.None
+    };
 
     export function create() {
         return _noneInstance;
     }
 }
 
-export class NeverType extends NoneType {
-    category = TypeCategory.Never;
+export interface NeverType extends TypeBase {
+    category: TypeCategory.Never;
 }
 
 export namespace NeverType {
-    const _neverInstance = new NeverType();
+    const _neverInstance: NeverType = {
+        category: TypeCategory.Never
+    };
 
     export function create() {
         return _neverInstance;
     }
 }
 
-export class AnyType extends Type {
-    category = TypeCategory.Any;
+export interface AnyType extends TypeBase {
+    category: TypeCategory.Any;
     isEllipsis: boolean;
-
-    constructor(isEllipsis: boolean) {
-        super();
-        this.isEllipsis = isEllipsis;
-    }
-
 }
 
 export namespace AnyType {
-    const _anyInstance = new AnyType(false);
-    const _ellipsisInstance = new AnyType(true);
+    const _anyInstance: AnyType = {
+        category: TypeCategory.Any,
+        isEllipsis: false
+    };
+    const _ellipsisInstance: AnyType = {
+        category: TypeCategory.Any,
+        isEllipsis: true
+    };
 
     export function create(isEllipsis = false) {
         return isEllipsis ? _ellipsisInstance : _anyInstance;
     }
 }
 
-export class UnionType extends Type {
-    category = TypeCategory.Union;
-
-    subtypes: Type[] = [];
+export interface UnionType extends TypeBase {
+    category: TypeCategory.Union;
+    subtypes: Type[];
 }
 
 export namespace UnionType {
+    export function create() {
+        const newUnionType: UnionType = {
+            category: TypeCategory.Union,
+            subtypes: []
+        };
+
+        return newUnionType;
+    }
+
     export function addTypes(unionType: UnionType, subtypes: Type[]) {
         for (const newType of subtypes) {
             assert(newType.category !== TypeCategory.Union);
@@ -798,20 +832,25 @@ export namespace UnionType {
     }
 }
 
-export class TypeVarType extends Type {
-    category = TypeCategory.TypeVar;
+export interface TypeVarType extends TypeBase {
+    category: TypeCategory.TypeVar;
 
     name: string;
-    constraints: Type[] = [];
+    constraints: Type[];
     boundType?: Type;
-    isCovariant = false;
-    isContravariant = false;
+    isCovariant: boolean;
+    isContravariant: boolean;
 }
 
 export namespace TypeVarType {
     export function create(name: string) {
-        const newTypeVarType = new TypeVarType();
-        newTypeVarType.name = name;
+        const newTypeVarType: TypeVarType = {
+            category: TypeCategory.TypeVar,
+            name,
+            constraints: [],
+            isCovariant: false,
+            isContravariant: false
+        };
         return newTypeVarType;
     }
 
@@ -820,13 +859,18 @@ export namespace TypeVarType {
     }
 }
 
+export function isNoneOrNever(type: Type): boolean {
+    return type.category === TypeCategory.None ||
+        type.category === TypeCategory.Never;
+}
+
 export function isAnyOrUnknown(type: Type): boolean {
     if (type.category === TypeCategory.Any ||
             type.category === TypeCategory.Unknown) {
         return true;
     }
 
-    if (type instanceof UnionType) {
+    if (type.category === TypeCategory.Union) {
         return type.subtypes.find(t => !isAnyOrUnknown(t)) === undefined;
     }
 
@@ -842,7 +886,7 @@ export function isPossiblyUnbound(type: Type): boolean {
         return true;
     }
 
-    if (type instanceof UnionType) {
+    if (type.category === TypeCategory.Union) {
         return type.subtypes.find(t => isPossiblyUnbound(t)) !== undefined;
     }
 
@@ -850,67 +894,81 @@ export function isPossiblyUnbound(type: Type): boolean {
 }
 
 export function requiresSpecialization(type: Type, recursionCount = 0): boolean {
-    if (type instanceof ClassType) {
-        const typeArgs = ClassType.getTypeArguments(type);
-        if (typeArgs) {
+    switch (type.category) {
+        case TypeCategory.Class: {
+            const typeArgs = ClassType.getTypeArguments(type);
+            if (typeArgs) {
+                if (recursionCount > _maxRecursionCount) {
+                    return false;
+                }
+
+                return typeArgs.find(
+                    typeArg => requiresSpecialization(typeArg, recursionCount + 1)
+                ) !== undefined;
+            }
+
+            if (ClassType.getTypeParameters(type).length === 0) {
+                return false;
+            }
+
+            return true;
+        }
+
+        case TypeCategory.Object: {
             if (recursionCount > _maxRecursionCount) {
                 return false;
             }
 
-            return typeArgs.find(
-                typeArg => requiresSpecialization(typeArg, recursionCount + 1)
-            ) !== undefined;
+            return requiresSpecialization(type.classType, recursionCount + 1);
         }
 
-        if (ClassType.getTypeParameters(type).length === 0) {
-            return false;
-        }
+        case TypeCategory.Function: {
+            if (recursionCount > _maxRecursionCount) {
+                return false;
+            }
 
-        return true;
-    } else if (type instanceof ObjectType) {
-        if (recursionCount > _maxRecursionCount) {
-            return false;
-        }
+            for (let i = 0; i < FunctionType.getParameters(type).length; i ++) {
+                if (requiresSpecialization(FunctionType.getEffectiveParameterType(type, i), recursionCount + 1)) {
+                    return true;
+                }
+            }
 
-        return requiresSpecialization(type.classType, recursionCount + 1);
-    } else if (type instanceof FunctionType) {
-        if (recursionCount > _maxRecursionCount) {
-            return false;
-        }
-
-        for (let i = 0; i < FunctionType.getParameters(type).length; i ++) {
-            if (requiresSpecialization(FunctionType.getEffectiveParameterType(type, i), recursionCount + 1)) {
+            if (requiresSpecialization(FunctionType.getEffectiveReturnType(type), recursionCount + 1)) {
                 return true;
             }
+
+            return false;
         }
 
-        if (requiresSpecialization(FunctionType.getEffectiveReturnType(type), recursionCount + 1)) {
+        case TypeCategory.OverloadedFunction: {
+            return type.overloads.find(
+                overload => requiresSpecialization(overload.type, recursionCount + 1)) !== undefined;
+        }
+
+        case TypeCategory.Property: {
+            if (requiresSpecialization(type.getter, recursionCount + 1)) {
+                return true;
+            }
+
+            if (type.setter && requiresSpecialization(type.setter, recursionCount + 1)) {
+                return true;
+            }
+
+            if (type.deleter && requiresSpecialization(type.deleter, recursionCount + 1)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        case TypeCategory.Union: {
+            return type.subtypes.find(
+                type => requiresSpecialization(type, recursionCount + 1)) !== undefined;
+        }
+
+        case TypeCategory.TypeVar: {
             return true;
         }
-
-        return false;
-    } else if (type instanceof OverloadedFunctionType) {
-        return type.overloads.find(
-            overload => requiresSpecialization(overload.type, recursionCount + 1)) !== undefined;
-    } else if (type instanceof PropertyType) {
-        if (requiresSpecialization(type.getter, recursionCount + 1)) {
-            return true;
-        }
-
-        if (type.setter && requiresSpecialization(type.setter, recursionCount + 1)) {
-            return true;
-        }
-
-        if (type.deleter && requiresSpecialization(type.deleter, recursionCount + 1)) {
-            return true;
-        }
-
-        return false;
-    } else if (type instanceof UnionType) {
-        return type.subtypes.find(
-            type => requiresSpecialization(type, recursionCount + 1)) !== undefined;
-    } else if (type instanceof TypeVarType) {
-        return true;
     }
 
     return false;
@@ -925,146 +983,152 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
         return true;
     }
 
-    if (type1 instanceof ClassType) {
-        const classType2 = type2 as ClassType;
+    switch (type1.category) {
+        case TypeCategory.Class: {
+            const classType2 = type2 as ClassType;
 
-        // If the class details are common, it's the same class.
-        // In a few cases (e.g. with NamedTuple classes) we allocate a
-        // new class type for every type analysis pass. To detect this
-        // case, we will use the typeSourceId field.
-        if (ClassType.getTypeSourceId(type1) !== ClassType.getTypeSourceId(classType2)) {
-            return false;
-        }
+            // If the class details are common, it's the same class.
+            // In a few cases (e.g. with NamedTuple classes) we allocate a
+            // new class type for every type analysis pass. To detect this
+            // case, we will use the typeSourceId field.
+            if (ClassType.getTypeSourceId(type1) !== ClassType.getTypeSourceId(classType2)) {
+                return false;
+            }
 
-        // If neither of the classes have type arguments, they're the same.
-        const type1TypeArgs = ClassType.getTypeArguments(type1);
-        const type2TypeArgs = ClassType.getTypeArguments(classType2);
-        if (!type1TypeArgs && !type2TypeArgs) {
+            // If neither of the classes have type arguments, they're the same.
+            const type1TypeArgs = ClassType.getTypeArguments(type1);
+            const type2TypeArgs = ClassType.getTypeArguments(classType2);
+            if (!type1TypeArgs && !type2TypeArgs) {
+                return true;
+            }
+
+            // If one of them is missing type arguments, they're not the same.
+            if (!type1TypeArgs || !type2TypeArgs) {
+                return false;
+            }
+
+            const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
+
+            // Make sure the type args match.
+            for (let i = 0; i < typeArgCount; i++) {
+                const typeArg1 = i < type1TypeArgs.length ?
+                    type1TypeArgs[i] : AnyType.create();
+                const typeArg2 = i < type2TypeArgs.length ?
+                    type2TypeArgs[i] : AnyType.create();
+
+                if (!isTypeSame(typeArg1, typeArg2, recursionCount + 1)) {
+                    return false;
+                }
+            }
+
             return true;
         }
 
-        // If one of them is missing type arguments, they're not the same.
-        if (!type1TypeArgs || !type2TypeArgs) {
-            return false;
-        }
+        case TypeCategory.Object: {
+            const objType2 = type2 as ObjectType;
 
-        const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
-
-        // Make sure the type args match.
-        for (let i = 0; i < typeArgCount; i++) {
-            const typeArg1 = i < type1TypeArgs.length ?
-                type1TypeArgs[i] : AnyType.create();
-            const typeArg2 = i < type2TypeArgs.length ?
-                type2TypeArgs[i] : AnyType.create();
-
-            if ((typeArg1 instanceof Type) !== (typeArg2 instanceof Type)) {
+            if (type1.literalValue !== objType2.literalValue) {
                 return false;
             }
 
-            if (!isTypeSame(typeArg1, typeArg2, recursionCount + 1)) {
-                return false;
-            }
+            return isTypeSame(type1.classType, objType2.classType, recursionCount + 1);
         }
 
-        return true;
-    } else if (type1 instanceof ObjectType) {
-        const objType2 = type2 as ObjectType;
+        case TypeCategory.Function: {
+            // Make sure the parameter counts match.
+            const functionType2 = type2 as FunctionType;
+            const params1 = FunctionType.getParameters(type1);
+            const params2 = FunctionType.getParameters(functionType2);
 
-        if (type1.literalValue !== objType2.literalValue) {
-            return false;
-        }
-
-        return isTypeSame(type1.classType, objType2.classType, recursionCount + 1);
-    } else if (type1 instanceof FunctionType) {
-        // Make sure the parameter counts match.
-        const functionType2 = type2 as FunctionType;
-        const params1 = FunctionType.getParameters(type1);
-        const params2 = FunctionType.getParameters(functionType2);
-
-        if (params1.length !== params2.length) {
-            return false;
-        }
-
-        // Make sure the parameter details match.
-        for (let i = 0; i < params1.length; i++) {
-            const param1 = params1[i];
-            const param2 = params2[i];
-
-            if (param1.category !== param2.category) {
+            if (params1.length !== params2.length) {
                 return false;
             }
 
-            if (param1.name !== param2.name) {
+            // Make sure the parameter details match.
+            for (let i = 0; i < params1.length; i++) {
+                const param1 = params1[i];
+                const param2 = params2[i];
+
+                if (param1.category !== param2.category) {
+                    return false;
+                }
+
+                if (param1.name !== param2.name) {
+                    return false;
+                }
+
+                const param1Type = FunctionType.getEffectiveParameterType(type1, i);
+                const param2Type = FunctionType.getEffectiveParameterType(functionType2, i);
+                if (!isTypeSame(param1Type, param2Type, recursionCount + 1)) {
+                    return false;
+                }
+            }
+
+            // Make sure the return types match.
+            const return1Type = FunctionType.getEffectiveReturnType(type1);
+            const return2Type = FunctionType.getEffectiveReturnType(functionType2);
+            if (!isTypeSame(return1Type, return2Type, recursionCount + 1)) {
                 return false;
             }
 
-            const param1Type = FunctionType.getEffectiveParameterType(type1, i);
-            const param2Type = FunctionType.getEffectiveParameterType(functionType2, i);
-            if (!isTypeSame(param1Type, param2Type, recursionCount + 1)) {
+            return true;
+        }
+
+        case TypeCategory.Union: {
+            const unionType2 = type2 as UnionType;
+            const subtypes1 = type1.subtypes;
+            const subtypes2 = unionType2.subtypes;
+
+            if (subtypes1.length !== subtypes2.length) {
                 return false;
             }
+
+            // The types do not have a particular order, so we need to
+            // do the comparison in an order-independent manner.
+            return subtypes1.find(t => !UnionType.containsType(unionType2, t, recursionCount + 1)) === undefined;
         }
 
-        // Make sure the return types match.
-        const return1Type = FunctionType.getEffectiveReturnType(type1);
-        const return2Type = FunctionType.getEffectiveReturnType(functionType2);
-        if (!isTypeSame(return1Type, return2Type, recursionCount + 1)) {
-            return false;
-        }
+        case TypeCategory.TypeVar: {
+            const type2TypeVar = type2 as TypeVarType;
 
-        return true;
-    } else if (type1 instanceof UnionType) {
-        const unionType2 = type2 as UnionType;
-        const subtypes1 = type1.subtypes;
-        const subtypes2 = unionType2.subtypes;
-
-        if (subtypes1.length !== subtypes2.length) {
-            return false;
-        }
-
-        // The types do not have a particular order, so we need to
-        // do the comparison in an order-independent manner.
-        return subtypes1.find(t => !UnionType.containsType(unionType2, t, recursionCount + 1)) === undefined;
-    } else if (type1 instanceof TypeVarType) {
-        const type2TypeVar = type2 as TypeVarType;
-
-        if (type1.name !== type2TypeVar.name) {
-            return false;
-        }
-
-        const boundType1 = type1.boundType;
-        const boundType2 = type2TypeVar.boundType;
-        if (boundType1) {
-            if (!boundType2 || !isTypeSame(boundType1, boundType2, recursionCount + 1)) {
+            if (type1.name !== type2TypeVar.name) {
                 return false;
             }
-        } else {
-            if (boundType2) {
+
+            const boundType1 = type1.boundType;
+            const boundType2 = type2TypeVar.boundType;
+            if (boundType1) {
+                if (!boundType2 || !isTypeSame(boundType1, boundType2, recursionCount + 1)) {
+                    return false;
+                }
+            } else {
+                if (boundType2) {
+                    return false;
+                }
+            }
+
+            if (type1.isContravariant !== type2TypeVar.isContravariant) {
                 return false;
             }
-        }
 
-        if (type1.isContravariant !== type2TypeVar.isContravariant) {
-            return false;
-        }
-
-        if (type1.isCovariant !== type2TypeVar.isCovariant) {
-            return false;
-        }
-
-        const constraints1 = type1.constraints;
-        const constraints2 = type2TypeVar.constraints;
-        if (constraints1.length !== constraints2.length) {
-            return false;
-        }
-
-        for (let i = 0; i < constraints1.length; i++) {
-            if (!isTypeSame(constraints1[i], constraints2[i], recursionCount + 1)) {
+            if (type1.isCovariant !== type2TypeVar.isCovariant) {
                 return false;
             }
-        }
 
-        return true;
+            const constraints1 = type1.constraints;
+            const constraints2 = type2TypeVar.constraints;
+            if (constraints1.length !== constraints2.length) {
+                return false;
+            }
+
+            for (let i = 0; i < constraints1.length; i++) {
+                if (!isTypeSame(constraints1[i], constraints2[i], recursionCount + 1)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 
     return true;
@@ -1156,12 +1220,12 @@ export function printType(type: Type, recursionCount = 0): string {
         }
 
         case TypeCategory.Class: {
-            return 'Type[' + printObjectTypeForClass(type as ClassType,
+            return 'Type[' + printObjectTypeForClass(type,
                 recursionCount + 1) + ']';
         }
 
         case TypeCategory.Object: {
-            const objType = type as ObjectType;
+            const objType = type;
             if (objType.literalValue !== undefined) {
                 return printLiteralValue(objType);
             }
@@ -1171,19 +1235,19 @@ export function printType(type: Type, recursionCount = 0): string {
         }
 
         case TypeCategory.Function: {
-            const parts = printFunctionParts(type as FunctionType, recursionCount);
+            const parts = printFunctionParts(type, recursionCount);
             return `(${ parts[0].join(', ') }) -> ${ parts[1] }`;
         }
 
         case TypeCategory.OverloadedFunction: {
-            const overloadedType = type as OverloadedFunctionType;
+            const overloadedType = type;
             const overloads = overloadedType.overloads.map(overload =>
                 printType(overload.type, recursionCount + 1));
             return `Overload[${ overloads.join(', ') }]`;
         }
 
         case TypeCategory.Property: {
-            const propertyType = type as PropertyType;
+            const propertyType = type;
             const returnType = FunctionType.getEffectiveReturnType(propertyType.getter);
             const returnTypeString = recursionCount < _maxRecursionCount ?
                 printType(returnType, recursionCount + 1) : '';
@@ -1191,7 +1255,7 @@ export function printType(type: Type, recursionCount = 0): string {
         }
 
         case TypeCategory.Union: {
-            const unionType = type as UnionType;
+            const unionType = type;
             const subtypes = unionType.subtypes;
 
             if (subtypes.find(t => t.category === TypeCategory.None) !== undefined) {
@@ -1207,7 +1271,7 @@ export function printType(type: Type, recursionCount = 0): string {
         }
 
         case TypeCategory.TypeVar: {
-            const typeVarType = type as TypeVarType;
+            const typeVarType = type;
             const typeName = typeVarType.name;
 
             // Print the name in a simplified form if it's embedded
@@ -1233,7 +1297,7 @@ export function printType(type: Type, recursionCount = 0): string {
         }
 
         case TypeCategory.Any: {
-            const anyType = type as AnyType;
+            const anyType = type;
             return anyType.isEllipsis ? '...' : 'Any';
         }
     }
@@ -1266,7 +1330,7 @@ export function removeNoneFromUnion(type: Type): Type {
 }
 
 export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolean) {
-    if (type instanceof UnionType) {
+    if (type.category === TypeCategory.Union) {
         const remainingTypes = type.subtypes.filter(t => !removeFilter(t));
         if (remainingTypes.length < type.subtypes.length) {
             return combineTypes(remainingTypes);
@@ -1295,7 +1359,7 @@ export function combineTypes(types: Type[]): Type {
     // Expand all union types.
     let expandedTypes: Type[] = [];
     for (const type of types) {
-        if (type instanceof UnionType) {
+        if (type.category === TypeCategory.Union) {
             expandedTypes = expandedTypes.concat(type.subtypes);
         } else {
             expandedTypes.push(type);
@@ -1304,9 +1368,9 @@ export function combineTypes(types: Type[]): Type {
 
     // Sort all of the literal types to the end.
     expandedTypes = expandedTypes.sort((type1, type2) => {
-        if (type1 instanceof ObjectType && type1.literalValue !== undefined) {
+        if (type1.category === TypeCategory.Object && type1.literalValue !== undefined) {
             return 1;
-        } else if (type2 instanceof ObjectType && type2.literalValue !== undefined) {
+        } else if (type2.category === TypeCategory.Object && type2.literalValue !== undefined) {
             return -1;
         }
         return 0;
@@ -1323,7 +1387,7 @@ export function combineTypes(types: Type[]): Type {
         return resultingTypes[0];
     }
 
-    const unionType = new UnionType();
+    const unionType = UnionType.create();
     UnionType.addTypes(unionType, resultingTypes);
 
     return unionType;
@@ -1338,7 +1402,7 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
         return true;
     }
 
-    if (srcType instanceof ObjectType && srcType.literalValue !== undefined) {
+    if (srcType.category === TypeCategory.Object && srcType.literalValue !== undefined) {
         // Strip the literal.
         srcType = ObjectType.create(srcType.classType);
         return isTypeSame(destType, srcType);
@@ -1356,7 +1420,7 @@ function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
 
         // If the typeToAdd is a literal value and there's already
         // a non-literal type that matches, don't add the literal value.
-        if (type instanceof ObjectType && typeToAdd instanceof ObjectType) {
+        if (type.category === TypeCategory.Object && typeToAdd.category === TypeCategory.Object) {
             if (isSameWithoutLiteralValue(type, typeToAdd)) {
                 if (type.literalValue === undefined) {
                     return;

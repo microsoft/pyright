@@ -43,7 +43,7 @@ import { ParseTreeUtils } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, Type, UnknownType } from './types';
+    FunctionTypeFlags, ModuleType, Type, TypeCategory, UnknownType } from './types';
 
 type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;
 
@@ -859,7 +859,7 @@ export class ClassScopeBinder extends Binder {
 
     private _bindImplicitNames() {
         const classType = AnalyzerNodeInfo.getExpressionType(this._scopedNode);
-        assert(classType instanceof ClassType);
+        assert(classType && classType.category === TypeCategory.Class);
         this._addSymbolToPermanentScope('__class__', classType!);
         this._addSymbolToPermanentScope('__dict__', AnyType.create());
         this._addSymbolToPermanentScope('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));

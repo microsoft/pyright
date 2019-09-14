@@ -21,7 +21,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import { SymbolUtils } from './symbolUtils';
-import { ClassType, FunctionType, NoneType, ObjectType, UnknownType } from './types';
+import { ClassType, FunctionType, isNoneOrNever, TypeCategory, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 class TrackedImport {
@@ -198,7 +198,7 @@ export class TypeStubWriter extends ParseTreeWalker {
                 line += ' -> ' + this._printExpression(node.returnTypeAnnotation, true);
             } else {
                 const functionType = AnalyzerNodeInfo.getExpressionType(node);
-                if (functionType instanceof FunctionType) {
+                if (functionType && functionType.category === TypeCategory.Function) {
                     let inferredReturnType = FunctionType.getInferredReturnType(functionType).getType();
                     inferredReturnType = TypeUtils.stripLiteralValue(inferredReturnType);
 
@@ -206,7 +206,7 @@ export class TypeStubWriter extends ParseTreeWalker {
                     // the inferrence is probably incorrect. This occurs often when a base
                     // class is implemented with a NoReturn, but subclasses provide an
                     // actual return value.
-                    if (inferredReturnType instanceof ObjectType) {
+                    if (inferredReturnType.category === TypeCategory.Object) {
                         const classType = inferredReturnType.classType;
                         if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'NoReturn') {
                             inferredReturnType = UnknownType.create();
@@ -548,10 +548,10 @@ export class TypeStubWriter extends ParseTreeWalker {
             // Try to infer the param type based on the default value.
             const typeOfDefault = AnalyzerNodeInfo.getExpressionType(node.defaultValue);
             if (typeOfDefault && !TypeUtils.containsUnknown(typeOfDefault)) {
-                if (typeOfDefault instanceof NoneType) {
+                if (isNoneOrNever(typeOfDefault)) {
                     paramType = 'Optional[Any]';
                     this._addImplicitImportFrom('typing', ['Any', 'Optional']);
-                } else if (typeOfDefault instanceof ObjectType) {
+                } else if (typeOfDefault.category === TypeCategory.Object) {
                     const classType = typeOfDefault.classType;
                     if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'bool') {
                         paramType = 'bool';

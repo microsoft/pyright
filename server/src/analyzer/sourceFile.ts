@@ -46,7 +46,7 @@ import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 import { TypeAnalyzer } from './typeAnalyzer';
-import { ModuleType } from './types';
+import { ModuleType, TypeCategory } from './types';
 
 const _maxImportCyclesPerFile = 4;
 
@@ -635,7 +635,7 @@ export class SourceFile {
             this._analysisJob.moduleSymbolTable = moduleScope!.getSymbolTable();
             const moduleType = AnalyzerNodeInfo.getExpressionType(
                 this._analysisJob.parseResults!.parseTree);
-            assert(moduleType instanceof ModuleType);
+            assert(moduleType && moduleType.category === TypeCategory.Module);
             this._analysisJob.moduleType = moduleType as ModuleType;
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||

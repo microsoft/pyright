@@ -14,15 +14,13 @@ import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
 import { Symbol } from '../analyzer/symbol';
-import { ClassType, ModuleType, ObjectType } from '../analyzer/types';
+import { TypeCategory } from '../analyzer/types';
 import { TypeUtils } from '../analyzer/typeUtils';
-import { DiagnosticTextPosition, DiagnosticTextRange,
-    DocumentTextRange } from '../common/diagnostic';
+import { DiagnosticTextPosition, DiagnosticTextRange, DocumentTextRange } from '../common/diagnostic';
 import { isFile } from '../common/pathUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { MemberAccessExpressionNode, ModuleNameNode, NameNode,
-    ParseNodeType } from '../parser/parseNodes';
+import { MemberAccessExpressionNode, ModuleNameNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 const _startOfFilePosition: DiagnosticTextPosition = { line: 0, column: 0 };
@@ -73,17 +71,17 @@ export class DefinitionProvider {
         TypeUtils.doForSubtypes(baseType, subtype => {
             let symbol: Symbol | undefined;
 
-            if (subtype instanceof ClassType) {
+            if (subtype.category === TypeCategory.Class) {
                 const member = TypeUtils.lookUpClassMember(subtype, memberName);
                 if (member) {
                     symbol = member.symbol;
                 }
-            } else if (subtype instanceof ObjectType) {
+            } else if (subtype.category === TypeCategory.Object) {
                 const member = TypeUtils.lookUpObjectMember(subtype, memberName);
                 if (member) {
                     symbol = member.symbol;
                 }
-            } else if (subtype instanceof ModuleType) {
+            } else if (subtype.category === TypeCategory.Module) {
                 symbol = subtype.fields.get(memberName);
             }
 
