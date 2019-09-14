@@ -203,7 +203,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 if (argType instanceof UnknownType ||
-                        argType instanceof UnionType && argType.getTypes().some(t => t instanceof UnknownType)) {
+                        argType instanceof UnionType && argType.subtypes.some(t => t instanceof UnknownType)) {
 
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportUntypedBaseClass,
@@ -265,7 +265,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     ClassMemberLookupFlags.SkipBaseClasses);
                 if (initSymbol) {
                     if (initSymbol.symbolType instanceof FunctionType) {
-                        if (!initSymbol.symbolType.isSynthesizedMethod()) {
+                        if (!FunctionType.isSynthesizedMethod(initSymbol.symbolType)) {
                             skipSynthesizedInit = true;
                         }
                     } else {
@@ -315,7 +315,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Stash away the name of the function since we need to handle
             // 'namedtuple', 'abstractmethod', 'dataclass' and 'NewType'
             // specially.
-            functionType.setBuiltInName(node.name.nameToken.value);
+            FunctionType.setBuiltInName(functionType, node.name.nameToken.value);
         }
 
         let asyncType = functionType;
@@ -346,19 +346,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         // Mark the class as abstract if it contains at least one abstract method.
-        if (functionType.isAbstractMethod() && containingClassType) {
+        if (FunctionType.isAbstractMethod(functionType) && containingClassType) {
             ClassType.setIsAbstractClass(containingClassType);
         }
 
         if (containingClassNode) {
-            if (!functionType.isClassMethod() && !functionType.isStaticMethod()) {
+            if (!FunctionType.isClassMethod(functionType) && !FunctionType.isStaticMethod(functionType)) {
                 // Mark the function as an instance method.
-                functionType.setIsInstanceMethod();
+                FunctionType.setIsInstanceMethod(functionType);
 
                 // If there's a separate async version, mark it as an instance
                 // method as well.
                 if (functionType !== asyncType) {
-                    asyncType.setIsInstanceMethod();
+                    FunctionType.setIsInstanceMethod(asyncType);
                 }
             }
         }
@@ -417,38 +417,40 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
 
-                if (functionType.setParameterType(index, annotatedType)) {
+                if (FunctionType.setParameterType(functionType, index, annotatedType)) {
                     this._setAnalysisChanged('Function parameter type annotation changed');
                 }
 
                 this.walk(param.typeAnnotation);
             } else if (index === 0 && (
-                    functionType.isInstanceMethod() ||
-                    functionType.isClassMethod() ||
-                    functionType.isConstructorMethod())) {
+                    FunctionType.isInstanceMethod(functionType) ||
+                    FunctionType.isClassMethod(functionType) ||
+                    FunctionType.isConstructorMethod(functionType))) {
 
                 // Specify type of "self" or "cls" parameter for instance or class methods
                 // if the type is not explicitly provided.
                 if (containingClassType) {
-                    const paramType = functionType.getParameters()[0].type;
+                    const paramType = FunctionType.getParameters(functionType)[0].type;
 
                     if (paramType instanceof UnknownType) {
                         // Don't specialize the "self" for protocol classes because type
                         // comparisons will fail during structural typing analysis.
                         if (containingClassType && !ClassType.isProtocol(containingClassType)) {
-                            if (functionType.isInstanceMethod()) {
+                            if (FunctionType.isInstanceMethod(functionType)) {
                                 const specializedClassType = TypeUtils.selfSpecializeClassType(
                                     containingClassType);
-                                if (functionType.setParameterType(index, ObjectType.create(specializedClassType))) {
+                                if (FunctionType.setParameterType(functionType, index, ObjectType.create(specializedClassType))) {
                                     this._setAnalysisChanged('Specialized self changed');
                                 }
-                            } else if (functionType.isClassMethod() || functionType.isConstructorMethod()) {
+                            } else if (FunctionType.isClassMethod(functionType) ||
+                                    FunctionType.isConstructorMethod(functionType)) {
+
                                 // For class methods, the cls parameter is allowed to skip the
                                 // abstract class test because the caller is possibly passing
                                 // in a non-abstract subclass.
                                 const specializedClassType = TypeUtils.selfSpecializeClassType(
                                     containingClassType, true);
-                                if (functionType.setParameterType(index, specializedClassType)) {
+                                if (FunctionType.setParameterType(functionType, index, specializedClassType)) {
                                     this._setAnalysisChanged('Specialized cls changed');
                                 }
                             }
@@ -468,7 +470,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (node.returnTypeAnnotation) {
             const returnType = this._getTypeOfAnnotation(node.returnTypeAnnotation);
-            if (functionType.setDeclaredReturnType(returnType)) {
+            if (FunctionType.setDeclaredReturnType(functionType, returnType)) {
                 this._setAnalysisChanged('Function return type annotation changed');
             }
 
@@ -480,9 +482,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // If a return type annotation is missing in a stub file, assume
                 // it's an "unknown" type. In normal source files, we can infer the
                 // type from the implementation.
-                functionType.setDeclaredReturnType(inferredReturnType);
+                FunctionType.setDeclaredReturnType(functionType, inferredReturnType);
             } else {
-                inferredReturnType = functionType.getInferredReturnType().getType();
+                inferredReturnType = FunctionType.getInferredReturnType(functionType).getType();
             }
 
             // Include Any in this check. If "Any" really is desired, it should
@@ -500,7 +502,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         const functionScope = this._enterScope(node, () => {
-            const parameters = functionType.getParameters();
+            const parameters = FunctionType.getParameters(functionType);
             assert(parameters.length === node.parameters.length);
 
             // Add the parameters to the scope and bind their types.
@@ -567,7 +569,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitLambda(node: LambdaNode): boolean {
-        const functionType = new FunctionType(FunctionTypeFlags.None);
+        const functionType = FunctionType.create(FunctionTypeFlags.None);
 
         this._enterScope(node, () => {
             node.parameters.forEach(param => {
@@ -593,12 +595,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     hasDefault: !!param.defaultValue,
                     type: UnknownType.create()
                 };
-                functionType.addParameter(functionParam);
+                FunctionType.addParameter(functionType, functionParam);
             });
 
             // Infer the return type.
             const returnType = this._getTypeOfExpression(node.expression);
-            functionType.getInferredReturnType().addSource(
+            FunctionType.getInferredReturnType(functionType).addSource(
                 returnType, AnalyzerNodeInfo.getTypeSourceId(node.expression));
 
             // Walk the children.
@@ -755,7 +757,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     if (memberType) {
                         let memberReturnType: Type;
                         if (memberType instanceof FunctionType) {
-                            memberReturnType = memberType.getEffectiveReturnType();
+                            memberReturnType = FunctionType.getEffectiveReturnType(memberType);
                         } else {
                             memberReturnType = UnknownType.create();
                         }
@@ -798,15 +800,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (functionType) {
                 assert(functionType instanceof FunctionType);
 
-                if (functionType.isGenerator()) {
+                if (FunctionType.isGenerator(functionType)) {
                     declaredReturnType = TypeUtils.getDeclaredGeneratorReturnType(functionType);
                 } else {
-                    declaredReturnType = functionType.getDeclaredReturnType();
+                    declaredReturnType = FunctionType.getDeclaredReturnType(functionType);
                 }
 
                 // Ignore this check for abstract methods, which often
                 // don't actually return any value.
-                if (functionType.isAbstractMethod()) {
+                if (FunctionType.isAbstractMethod(functionType)) {
                     declaredReturnType = undefined;
                 }
             }
@@ -1658,7 +1660,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let remainingTypes: Type[] = [];
             let foundAnyType = false;
 
-            arg0Type.getTypes().forEach(t => {
+            arg0Type.subtypes.forEach(t => {
                 if (isAnyOrUnknown(t)) {
                     foundAnyType = true;
                 }
@@ -2101,7 +2103,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _createAwaitableFunction(functionType: FunctionType): FunctionType {
-        const returnType = functionType.getEffectiveReturnType();
+        const returnType = FunctionType.getEffectiveReturnType(functionType);
 
         let awaitableReturnType: Type | undefined;
         const evaluator = this._createEvaluator();
@@ -2144,8 +2146,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Clone the original function and replace its return type with an
         // Awaitable[<returnType>].
-        const awaitableFunctionType = functionType.clone();
-        awaitableFunctionType.setDeclaredReturnType(awaitableReturnType);
+        const awaitableFunctionType = FunctionType.clone(functionType);
+        FunctionType.setDeclaredReturnType(awaitableFunctionType, awaitableReturnType);
 
         return awaitableFunctionType;
     }
@@ -2160,12 +2162,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         // Add all of the return and yield types that were found within the function.
-        const inferredReturnType = functionType.getInferredReturnType();
+        const inferredReturnType = FunctionType.getInferredReturnType(functionType);
         if (inferredReturnType.addSources(functionScope.getReturnType())) {
             this._setAnalysisChanged('Function return inferred type changed');
         }
 
-        const inferredYieldType = functionType.getInferredYieldType();
+        const inferredYieldType = FunctionType.getInferredYieldType(functionType);
 
         // Inferred yield types need to be wrapped in a Generator to
         // produce the final result.
@@ -2187,13 +2189,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._setAnalysisChanged('Function inferred None changed');
             }
 
-            const declaredReturnType = functionType.isGenerator() ?
+            const declaredReturnType = FunctionType.isGenerator(functionType) ?
                 TypeUtils.getDeclaredGeneratorReturnType(functionType) :
-                functionType.getDeclaredReturnType();
+                FunctionType.getDeclaredReturnType(functionType);
 
             if (declaredReturnType && node.returnTypeAnnotation) {
                 // Skip this check for abstract methods and functions that are declared NoReturn.
-                if (!functionType.isAbstractMethod() && !TypeUtils.isNoReturnType(declaredReturnType)) {
+                if (!FunctionType.isAbstractMethod(functionType) && !TypeUtils.isNoReturnType(declaredReturnType)) {
                     const diagAddendum = new DiagnosticAddendum();
 
                     // If the declared type isn't compatible with 'None', flag an error.
@@ -2206,7 +2208,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         } else if (functionScope.getAlwaysRaises() &&
                 functionScope.getReturnType().getSources().length === 0 &&
-                !functionType.isAbstractMethod()) {
+                !FunctionType.isAbstractMethod(functionType)) {
 
             // If the function always raises and never returns, add
             // the "NoReturn" type. Skip this for abstract methods which
@@ -2224,7 +2226,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (node.returnTypeAnnotation) {
-            const declaredReturnType = functionType.getDeclaredReturnType();
+            const declaredReturnType = FunctionType.getDeclaredReturnType(functionType);
             if (declaredReturnType && TypeUtils.isNoReturnType(declaredReturnType)) {
                 if (!functionScope.getAlwaysRaises()) {
                     this._addError(`Function with declared type of 'NoReturn' cannot return 'None'`,
@@ -2286,8 +2288,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Is this a @dataclass?
         if (decoratorType instanceof OverloadedFunctionType) {
-            const overloads = decoratorType.getOverloads();
-            if (overloads.length > 0 && overloads[0].type.getBuiltInName() === 'dataclass') {
+            const overloads = decoratorType.overloads;
+            if (overloads.length > 0 && FunctionType.getBuiltInName(overloads[0].type) === 'dataclass') {
                 // Determine whether we should skip synthesizing the init method.
                 let skipSynthesizeInit = false;
 
@@ -2330,13 +2332,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (existingSymbol) {
                     const symbolType = TypeUtils.getEffectiveTypeOfSymbol(existingSymbol);
                     if (symbolType instanceof OverloadedFunctionType) {
-                        symbolType.addOverload(typeSourceId, inputFunctionType);
+                        OverloadedFunctionType.addOverload(symbolType, typeSourceId, inputFunctionType);
                         return symbolType;
                     }
                 }
 
                 const newOverloadType = new OverloadedFunctionType();
-                newOverloadType.addOverload(typeSourceId, inputFunctionType);
+                OverloadedFunctionType.addOverload(newOverloadType, typeSourceId, inputFunctionType);
                 return newOverloadType;
             }
         }
@@ -2346,8 +2348,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Check for some built-in decorator types with known semantics.
         if (decoratorType instanceof FunctionType) {
-            if (decoratorType.getBuiltInName() === 'abstractmethod') {
-                originalFunctionType.setIsAbstractMethod();
+            if (FunctionType.getBuiltInName(decoratorType) === 'abstractmethod') {
+                FunctionType.setIsAbstractMethod(originalFunctionType);
                 return inputFunctionType;
             }
 
@@ -2357,10 +2359,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (baseType instanceof PropertyType) {
                     const memberName = decoratorNode.leftExpression.memberName.nameToken.value;
                     if (memberName === 'setter') {
-                        baseType.setSetter(originalFunctionType);
+                        baseType.setter = originalFunctionType;
                         return baseType;
                     } else if (memberName === 'deleter') {
-                        baseType.setDeleter(originalFunctionType);
+                        baseType.deleter = originalFunctionType;
                         return baseType;
                     }
                 }
@@ -2370,12 +2372,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (ClassType.isBuiltIn(decoratorType)) {
                 switch (ClassType.getClassName(decoratorType)) {
                     case 'staticmethod': {
-                        originalFunctionType.setIsStaticMethod();
+                        FunctionType.setIsStaticMethod(originalFunctionType);
                         return inputFunctionType;
                     }
 
                     case 'classmethod': {
-                        originalFunctionType.setIsClassMethod();
+                        FunctionType.setIsClassMethod(originalFunctionType);
                         return inputFunctionType;
                     }
 
@@ -2388,7 +2390,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             if (oldPropertyType) {
                                 return oldPropertyType;
                             }
-                            const newProperty = new PropertyType(inputFunctionType);
+                            const newProperty = PropertyType.create(inputFunctionType);
                             AnalyzerNodeInfo.setExpressionType(decoratorNode, newProperty);
                             return newProperty;
                         }
@@ -2422,7 +2424,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     `The __init_subclass__ override should take a 'cls' parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name);
             }
-        } else if (functionType.isStaticMethod()) {
+        } else if (FunctionType.isStaticMethod(functionType)) {
             // Static methods should not have "self" or "cls" parameters.
             if (node.parameters.length > 0 && node.parameters[0].name) {
                 const paramName = node.parameters[0].name.nameToken.value;
@@ -2432,7 +2434,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         node.parameters[0].name);
                 }
             }
-        } else if (functionType.isClassMethod()) {
+        } else if (FunctionType.isClassMethod(functionType)) {
             let paramName = '';
             if (node.parameters.length > 0 && node.parameters[0].name) {
                 paramName = node.parameters[0].name.nameToken.value;
@@ -3486,7 +3488,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
         } else if (baseType instanceof UnionType) {
-            for (const t of baseType.getTypes()) {
+            for (const t of baseType.subtypes) {
                 declarations = declarations.concat(
                     this._getDeclarationsForMemberName(t, memberName));
             }

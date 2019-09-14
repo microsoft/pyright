@@ -488,51 +488,54 @@ export interface SpecializedFunctionTypes {
 export class FunctionType extends Type {
     category = TypeCategory.Function;
 
-    private _functionDetails: FunctionDetails;
+    details: FunctionDetails;
 
     // A function type can be specialized (i.e. generic type
     // variables replaced by a concrete type).
-    private _specializedTypes?: SpecializedFunctionTypes;
+    specializedTypes?: SpecializedFunctionTypes;
+}
 
-    constructor(flags: FunctionTypeFlags, docString?: string) {
-        super();
-        this._functionDetails = {
+export namespace FunctionType {
+    export function create(flags: FunctionTypeFlags, docString?: string) {
+        const newFunctionType = new FunctionType();
+        newFunctionType.details = {
             flags,
             parameters: [],
             inferredReturnType: new InferredType(),
             inferredYieldType: new InferredType(),
             docString
         };
+
+        return newFunctionType;
     }
 
     // Creates a deep copy of the function type, including a fresh
     // version of _functionDetails.
-    clone(deleteFirstParam = false): FunctionType {
-        const newFunction = new FunctionType(this._functionDetails.flags,
-            this._functionDetails.docString);
+    export function clone(type: FunctionType, deleteFirstParam = false): FunctionType {
+        const newFunction = create(type.details.flags, type.details.docString);
         const startParam = deleteFirstParam ? 1 : 0;
 
-        newFunction._functionDetails = {
-            flags: this._functionDetails.flags,
-            parameters: this._functionDetails.parameters.slice(startParam),
-            declaredReturnType: this._functionDetails.declaredReturnType,
-            inferredReturnType: this._functionDetails.inferredReturnType,
-            inferredYieldType: this._functionDetails.inferredYieldType,
-            builtInName: this._functionDetails.builtInName,
-            docString: this._functionDetails.docString
+        newFunction.details = {
+            flags: type.details.flags,
+            parameters: type.details.parameters.slice(startParam),
+            declaredReturnType: type.details.declaredReturnType,
+            inferredReturnType: type.details.inferredReturnType,
+            inferredYieldType: type.details.inferredYieldType,
+            builtInName: type.details.builtInName,
+            docString: type.details.docString
         };
 
         // If we strip off the first parameter, this is no longer an
         // instance method or class method.
         if (deleteFirstParam) {
-            newFunction._functionDetails.flags &= ~(FunctionTypeFlags.InstanceMethod |
+            newFunction.details.flags &= ~(FunctionTypeFlags.InstanceMethod |
                 FunctionTypeFlags.ClassMethod);
         }
 
-        if (this._specializedTypes) {
-            newFunction._specializedTypes = {
-                parameterTypes: this._specializedTypes.parameterTypes.slice(startParam),
-                returnType: this._specializedTypes.returnType
+        if (type.specializedTypes) {
+            newFunction.specializedTypes = {
+                parameterTypes: type.specializedTypes.parameterTypes.slice(startParam),
+                returnType: type.specializedTypes.returnType
             };
         }
 
@@ -542,146 +545,147 @@ export class FunctionType extends Type {
     // Creates a shallow copy of the function type with new
     // specialized types. The clone shares the _functionDetails
     // with the object being cloned.
-    cloneForSpecialization(specializedTypes: SpecializedFunctionTypes): FunctionType {
-        const newFunction = new FunctionType(this._functionDetails.flags,
-            this._functionDetails.docString);
-        newFunction._functionDetails = this._functionDetails;
+    export function cloneForSpecialization(type: FunctionType,
+            specializedTypes: SpecializedFunctionTypes): FunctionType {
 
-        assert(specializedTypes.parameterTypes.length === this._functionDetails.parameters.length);
-        newFunction._specializedTypes = specializedTypes;
+        const newFunction = create(type.details.flags, type.details.docString);
+        newFunction.details = type.details;
+
+        assert(specializedTypes.parameterTypes.length === type.details.parameters.length);
+        newFunction.specializedTypes = specializedTypes;
 
         return newFunction;
     }
 
-    isInstanceMethod(): boolean {
-        return (this._functionDetails.flags & FunctionTypeFlags.InstanceMethod) !== 0;
+    export function isInstanceMethod(type: FunctionType): boolean {
+        return (type.details.flags & FunctionTypeFlags.InstanceMethod) !== 0;
     }
 
-    setIsInstanceMethod() {
-        this._functionDetails.flags |= FunctionTypeFlags.InstanceMethod;
+    export function setIsInstanceMethod(type: FunctionType) {
+        type.details.flags |= FunctionTypeFlags.InstanceMethod;
     }
 
-    isConstructorMethod(): boolean {
-        return (this._functionDetails.flags & FunctionTypeFlags.ConstructorMethod) !== 0;
+    export function isConstructorMethod(type: FunctionType): boolean {
+        return (type.details.flags & FunctionTypeFlags.ConstructorMethod) !== 0;
     }
 
-    isStaticMethod(): boolean {
-        return (this._functionDetails.flags & FunctionTypeFlags.StaticMethod) !== 0;
+    export function isStaticMethod(type: FunctionType): boolean {
+        return (type.details.flags & FunctionTypeFlags.StaticMethod) !== 0;
     }
 
-    setIsStaticMethod() {
-        this._functionDetails.flags |= FunctionTypeFlags.StaticMethod;
+    export function setIsStaticMethod(type: FunctionType) {
+        type.details.flags |= FunctionTypeFlags.StaticMethod;
     }
 
-    isClassMethod(): boolean {
-        return (this._functionDetails.flags & FunctionTypeFlags.ClassMethod) !== 0;
+    export function isClassMethod(type: FunctionType): boolean {
+        return (type.details.flags & FunctionTypeFlags.ClassMethod) !== 0;
     }
 
-    setIsClassMethod() {
-        this._functionDetails.flags |= FunctionTypeFlags.ClassMethod;
+    export function setIsClassMethod(type: FunctionType) {
+        type.details.flags |= FunctionTypeFlags.ClassMethod;
     }
 
-    isAbstractMethod(): boolean {
-        return (this._functionDetails.flags & FunctionTypeFlags.AbstractMethod) !== 0;
+    export function isAbstractMethod(type: FunctionType): boolean {
+        return (type.details.flags & FunctionTypeFlags.AbstractMethod) !== 0;
     }
 
-    setIsAbstractMethod() {
-        this._functionDetails.flags |= FunctionTypeFlags.AbstractMethod;
+    export function setIsAbstractMethod(type: FunctionType) {
+        type.details.flags |= FunctionTypeFlags.AbstractMethod;
     }
 
-    isSynthesizedMethod(): boolean {
-        return (this._functionDetails.flags & FunctionTypeFlags.SynthesizedMethod) !== 0;
+    export function isSynthesizedMethod(type: FunctionType): boolean {
+        return (type.details.flags & FunctionTypeFlags.SynthesizedMethod) !== 0;
     }
 
-    getBuiltInName() {
-        return this._functionDetails.builtInName;
+    export function getBuiltInName(type: FunctionType) {
+        return type.details.builtInName;
     }
 
-    setBuiltInName(name: string) {
-        this._functionDetails.builtInName = name;
+    export function setBuiltInName(type: FunctionType, name: string) {
+        type.details.builtInName = name;
     }
 
-    getDocString() {
-        return this._functionDetails.docString;
+    export function getDocString(type: FunctionType) {
+        return type.details.docString;
     }
 
-    getParameters() {
-        return this._functionDetails.parameters;
+    export function getParameters(type: FunctionType) {
+        return type.details.parameters;
     }
 
-    getParameterCount() {
-        return this._functionDetails.parameters.length;
+    export function getParameterCount(type: FunctionType) {
+        return type.details.parameters.length;
     }
 
-    isDefaultParameterCheckDisabled() {
-        return (this._functionDetails.flags & FunctionTypeFlags.DisableDefaultChecks) !== 0;
+    export function isDefaultParameterCheckDisabled(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.DisableDefaultChecks) !== 0;
     }
 
-    setDefaultParameterCheckDisabled() {
-        this._functionDetails.flags |= FunctionTypeFlags.DisableDefaultChecks;
+    export function setDefaultParameterCheckDisabled(type: FunctionType) {
+        type.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
     }
 
-    setParameterType(index: number, type: Type): boolean {
-        assert(index < this._functionDetails.parameters.length);
-        const typeChanged = !isTypeSame(type, this._functionDetails.parameters[index].type);
-        this._functionDetails.parameters[index].type = type;
+    export function setParameterType(type: FunctionType, index: number, paramType: Type): boolean {
+        assert(index < type.details.parameters.length);
+        const typeChanged = !isTypeSame(paramType, type.details.parameters[index].type);
+        type.details.parameters[index].type = paramType;
         return typeChanged;
     }
 
-    getEffectiveParameterType(index: number): Type {
-        assert(index < this._functionDetails.parameters.length);
-        if (this._specializedTypes) {
-            return this._specializedTypes.parameterTypes[index];
+    export function getEffectiveParameterType(type: FunctionType, index: number): Type {
+        assert(index < type.details.parameters.length);
+        if (type.specializedTypes) {
+            return type.specializedTypes.parameterTypes[index];
         }
 
-        return this._functionDetails.parameters[index].type;
+        return type.details.parameters[index].type;
     }
 
-    addParameter(param: FunctionParameter) {
-        this._functionDetails.parameters.push(param);
+    export function addParameter(type: FunctionType, param: FunctionParameter) {
+        type.details.parameters.push(param);
     }
 
-    getDeclaredReturnType() {
-        return this._functionDetails.declaredReturnType;
+    export function getDeclaredReturnType(type: FunctionType) {
+        return type.details.declaredReturnType;
     }
 
-    getSpecializedReturnType() {
-        return this._specializedTypes ? this._specializedTypes.returnType :
-            this._functionDetails.declaredReturnType;
+    export function getSpecializedReturnType(type: FunctionType) {
+        return type.specializedTypes ? type.specializedTypes.returnType :
+            type.details.declaredReturnType;
     }
 
-    setDeclaredReturnType(type?: Type): boolean {
-        const typeChanged = !this._functionDetails.declaredReturnType || !type ||
-            !isTypeSame(this._functionDetails.declaredReturnType, type);
-        this._functionDetails.declaredReturnType = type;
+    export function setDeclaredReturnType(type: FunctionType, returnType?: Type): boolean {
+        const typeChanged = !type.details.declaredReturnType || !returnType ||
+            !isTypeSame(type.details.declaredReturnType, returnType);
+        type.details.declaredReturnType = returnType;
 
         return typeChanged;
     }
 
-    getInferredReturnType() {
-        return this._functionDetails.inferredReturnType;
+    export function getInferredReturnType(type: FunctionType) {
+        return type.details.inferredReturnType;
     }
 
-    getInferredYieldType() {
-        return this._functionDetails.inferredYieldType;
+    export function getInferredYieldType(type: FunctionType) {
+        return type.details.inferredYieldType;
     }
 
-    getEffectiveReturnType() {
-        const specializedReturnType = this.getSpecializedReturnType();
+    export function getEffectiveReturnType(type: FunctionType) {
+        const specializedReturnType = getSpecializedReturnType(type);
         if (specializedReturnType) {
             return specializedReturnType;
         }
 
-        if (this.isGenerator()) {
+        if (isGenerator(type)) {
             // Wrap this in an Iterator type.
-            return this._functionDetails.inferredYieldType.getType();
+            return type.details.inferredYieldType.getType();
         }
 
-        return this._functionDetails.inferredReturnType.getType();
+        return type.details.inferredReturnType.getType();
     }
 
-    isGenerator() {
-        return this._functionDetails.inferredYieldType.getSourceCount() > 0;
+    export function isGenerator(type: FunctionType) {
+        return type.details.inferredYieldType.getSourceCount() > 0;
     }
 }
 
@@ -693,23 +697,23 @@ export interface OverloadedFunctionEntry {
 export class OverloadedFunctionType extends Type {
     category = TypeCategory.OverloadedFunction;
 
-    private _overloads: OverloadedFunctionEntry[] = [];
+    overloads: OverloadedFunctionEntry[] = [];
+}
 
-    constructor() {
-        super();
+export namespace OverloadedFunctionType {
+    export function create() {
+        return new OverloadedFunctionType();
     }
 
-    getOverloads() {
-        return this._overloads;
-    }
+    export function addOverload(type: OverloadedFunctionType, typeSourceId: TypeSourceId,
+            functionType: FunctionType) {
 
-    addOverload(typeSourceId: TypeSourceId, type: FunctionType) {
         // Was this entry already added? If so, replace the type.
-        const index = this._overloads.findIndex(entry => entry.typeSourceId === typeSourceId);
+        const index = type.overloads.findIndex(entry => entry.typeSourceId === typeSourceId);
         if (index >= 0) {
-            this._overloads[index].type = type;
+            type.overloads[index].type = functionType;
         } else {
-            this._overloads.push({ typeSourceId, type});
+            type.overloads.push({ typeSourceId, type: functionType });
         }
     }
 }
@@ -717,163 +721,102 @@ export class OverloadedFunctionType extends Type {
 export class PropertyType extends Type {
     category = TypeCategory.Property;
 
-    private _getter: FunctionType;
-    private _setter?: FunctionType;
-    private _deleter?: FunctionType;
+    getter: FunctionType;
+    setter?: FunctionType;
+    deleter?: FunctionType;
+}
 
-    constructor(getter: FunctionType) {
-        super();
-        this._getter = getter;
-    }
-
-    getGetter() {
-        return this._getter;
-    }
-
-    hasSetter() {
-        return this._setter !== undefined;
-    }
-
-    getSetter() {
-        return this._setter;
-    }
-
-    setSetter(setter: FunctionType) {
-        this._setter = setter;
-    }
-
-    hasDeleter() {
-        return this._deleter !== undefined;
-    }
-
-    getDeleter() {
-        return this._deleter;
-    }
-
-    setDeleter(deleter: FunctionType) {
-        this._deleter = deleter;
-    }
-
-    getEffectiveReturnType() {
-        return this._getter.getEffectiveReturnType();
+export namespace PropertyType {
+    export function create(getter: FunctionType) {
+        const newPropertyType = new PropertyType();
+        newPropertyType.getter = getter;
+        return newPropertyType;
     }
 }
 
 export class NoneType extends Type {
     category = TypeCategory.None;
+}
 
-    private static _noneInstance = new NoneType();
-    static create() {
-        // Use a single instance to reduce memory allocation.
-        return this._noneInstance;
+export namespace NoneType {
+    const _noneInstance = new NoneType();
+
+    export function create() {
+        return _noneInstance;
     }
 }
 
 export class NeverType extends NoneType {
     category = TypeCategory.Never;
+}
 
-    private static _neverInstance = new NeverType();
-    static create() {
-        // Use a single instance to reduce memory allocation.
-        return this._neverInstance;
+export namespace NeverType {
+    const _neverInstance = new NeverType();
+
+    export function create() {
+        return _neverInstance;
     }
 }
 
 export class AnyType extends Type {
     category = TypeCategory.Any;
-    private _isEllipsis: boolean;
+    isEllipsis: boolean;
 
-    private static _anyInstance = new AnyType(false);
-    private static _ellipsisInstance = new AnyType(true);
-    static create(isEllipsis = false) {
-        // Use a single instance to reduce memory allocation.
-        return isEllipsis ? this._ellipsisInstance : this._anyInstance;
-    }
-
-    private constructor(isEllipsis: boolean) {
+    constructor(isEllipsis: boolean) {
         super();
-        this._isEllipsis = isEllipsis;
+        this.isEllipsis = isEllipsis;
     }
 
-    isEllipsis(): boolean {
-        return this._isEllipsis;
+}
+
+export namespace AnyType {
+    const _anyInstance = new AnyType(false);
+    const _ellipsisInstance = new AnyType(true);
+
+    export function create(isEllipsis = false) {
+        return isEllipsis ? _ellipsisInstance : _anyInstance;
     }
 }
 
 export class UnionType extends Type {
     category = TypeCategory.Union;
 
-    private _types: Type[] = [];
+    subtypes: Type[] = [];
+}
 
-    constructor() {
-        super();
-    }
-
-    getTypes() {
-        return this._types;
-    }
-
-    addTypes(types: Type[]) {
-        for (const newType of types) {
+export namespace UnionType {
+    export function addTypes(unionType: UnionType, subtypes: Type[]) {
+        for (const newType of subtypes) {
             assert(newType.category !== TypeCategory.Union);
             assert(newType.category !== TypeCategory.Never);
-            this._types.push(newType);
+            unionType.subtypes.push(newType);
         }
     }
 
-    containsType(type: Type, recursionCount = 0): boolean {
-        return this._types.find(t => isTypeSame(t, type, recursionCount + 1)) !== undefined;
+    export function containsType(unionType: UnionType, subtype: Type, recursionCount = 0): boolean {
+        return unionType.subtypes.find(t => isTypeSame(t, subtype, recursionCount + 1)) !== undefined;
     }
 }
 
 export class TypeVarType extends Type {
     category = TypeCategory.TypeVar;
 
-    private _name: string;
-    private _constraints: Type[] = [];
-    private _boundType?: Type;
-    private _isCovariant = false;
-    private _isContravariant = false;
+    name: string;
+    constraints: Type[] = [];
+    boundType?: Type;
+    isCovariant = false;
+    isContravariant = false;
+}
 
-    constructor(name: string) {
-        super();
-        this._name = name;
+export namespace TypeVarType {
+    export function create(name: string) {
+        const newTypeVarType = new TypeVarType();
+        newTypeVarType.name = name;
+        return newTypeVarType;
     }
 
-    getName() {
-        return this._name;
-    }
-
-    getConstraints() {
-        return this._constraints;
-    }
-
-    addConstraint(type: Type) {
-        this._constraints.push(type);
-    }
-
-    getBoundType() {
-        return this._boundType;
-    }
-
-    setBoundType(type?: Type) {
-        this._boundType = type;
-    }
-
-    isCovariant() {
-        return this._isCovariant;
-    }
-
-    setIsCovariant() {
-        this._isCovariant = true;
-    }
-
-    isContravariant() {
-        return this._isContravariant;
-    }
-
-    setIsContravariant() {
-        this._isContravariant = true;
+    export function addConstraint(typeVarType: TypeVarType, constraintType: Type) {
+        typeVarType.constraints.push(constraintType);
     }
 }
 
@@ -884,7 +827,7 @@ export function isAnyOrUnknown(type: Type): boolean {
     }
 
     if (type instanceof UnionType) {
-        return type.getTypes().find(t => !isAnyOrUnknown(t)) === undefined;
+        return type.subtypes.find(t => !isAnyOrUnknown(t)) === undefined;
     }
 
     return false;
@@ -900,7 +843,7 @@ export function isPossiblyUnbound(type: Type): boolean {
     }
 
     if (type instanceof UnionType) {
-        return type.getTypes().find(t => isPossiblyUnbound(t)) !== undefined;
+        return type.subtypes.find(t => isPossiblyUnbound(t)) !== undefined;
     }
 
     return false;
@@ -935,38 +878,36 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
             return false;
         }
 
-        for (let i = 0; i < type.getParameters().length; i ++) {
-            if (requiresSpecialization(type.getEffectiveParameterType(i), recursionCount + 1)) {
+        for (let i = 0; i < FunctionType.getParameters(type).length; i ++) {
+            if (requiresSpecialization(FunctionType.getEffectiveParameterType(type, i), recursionCount + 1)) {
                 return true;
             }
         }
 
-        if (requiresSpecialization(type.getEffectiveReturnType(), recursionCount + 1)) {
+        if (requiresSpecialization(FunctionType.getEffectiveReturnType(type), recursionCount + 1)) {
             return true;
         }
 
         return false;
     } else if (type instanceof OverloadedFunctionType) {
-        return type.getOverloads().find(
+        return type.overloads.find(
             overload => requiresSpecialization(overload.type, recursionCount + 1)) !== undefined;
     } else if (type instanceof PropertyType) {
-        if (requiresSpecialization(type.getGetter(), recursionCount + 1)) {
+        if (requiresSpecialization(type.getter, recursionCount + 1)) {
             return true;
         }
 
-        const setter = type.getSetter();
-        if (setter && requiresSpecialization(setter, recursionCount + 1)) {
+        if (type.setter && requiresSpecialization(type.setter, recursionCount + 1)) {
             return true;
         }
 
-        const deleter = type.getDeleter();
-        if (deleter && requiresSpecialization(deleter, recursionCount + 1)) {
+        if (type.deleter && requiresSpecialization(type.deleter, recursionCount + 1)) {
             return true;
         }
 
         return false;
     } else if (type instanceof UnionType) {
-        return type.getTypes().find(
+        return type.subtypes.find(
             type => requiresSpecialization(type, recursionCount + 1)) !== undefined;
     } else if (type instanceof TypeVarType) {
         return true;
@@ -1037,8 +978,8 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
     } else if (type1 instanceof FunctionType) {
         // Make sure the parameter counts match.
         const functionType2 = type2 as FunctionType;
-        const params1 = type1.getParameters();
-        const params2 = functionType2.getParameters();
+        const params1 = FunctionType.getParameters(type1);
+        const params2 = FunctionType.getParameters(functionType2);
 
         if (params1.length !== params2.length) {
             return false;
@@ -1057,16 +998,16 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 return false;
             }
 
-            const param1Type = type1.getEffectiveParameterType(i);
-            const param2Type = functionType2.getEffectiveParameterType(i);
+            const param1Type = FunctionType.getEffectiveParameterType(type1, i);
+            const param2Type = FunctionType.getEffectiveParameterType(functionType2, i);
             if (!isTypeSame(param1Type, param2Type, recursionCount + 1)) {
                 return false;
             }
         }
 
         // Make sure the return types match.
-        const return1Type = type1.getEffectiveReturnType();
-        const return2Type = functionType2.getEffectiveReturnType();
+        const return1Type = FunctionType.getEffectiveReturnType(type1);
+        const return2Type = FunctionType.getEffectiveReturnType(functionType2);
         if (!isTypeSame(return1Type, return2Type, recursionCount + 1)) {
             return false;
         }
@@ -1074,8 +1015,8 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
         return true;
     } else if (type1 instanceof UnionType) {
         const unionType2 = type2 as UnionType;
-        const subtypes1 = type1.getTypes();
-        const subtypes2 = unionType2.getTypes();
+        const subtypes1 = type1.subtypes;
+        const subtypes2 = unionType2.subtypes;
 
         if (subtypes1.length !== subtypes2.length) {
             return false;
@@ -1083,16 +1024,16 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
 
         // The types do not have a particular order, so we need to
         // do the comparison in an order-independent manner.
-        return subtypes1.find(t => !unionType2.containsType(t, recursionCount + 1)) === undefined;
+        return subtypes1.find(t => !UnionType.containsType(unionType2, t, recursionCount + 1)) === undefined;
     } else if (type1 instanceof TypeVarType) {
         const type2TypeVar = type2 as TypeVarType;
 
-        if (type1.getName() !== type2TypeVar.getName()) {
+        if (type1.name !== type2TypeVar.name) {
             return false;
         }
 
-        const boundType1 = type1.getBoundType();
-        const boundType2 = type2TypeVar.getBoundType();
+        const boundType1 = type1.boundType;
+        const boundType2 = type2TypeVar.boundType;
         if (boundType1) {
             if (!boundType2 || !isTypeSame(boundType1, boundType2, recursionCount + 1)) {
                 return false;
@@ -1103,16 +1044,16 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             }
         }
 
-        if (type1.isContravariant() !== type2TypeVar.isContravariant()) {
+        if (type1.isContravariant !== type2TypeVar.isContravariant) {
             return false;
         }
 
-        if (type1.isCovariant() !== type2TypeVar.isCovariant()) {
+        if (type1.isCovariant !== type2TypeVar.isCovariant) {
             return false;
         }
 
-        const constraints1 = type1.getConstraints();
-        const constraints2 = type2TypeVar.getConstraints();
+        const constraints1 = type1.constraints;
+        const constraints2 = type2TypeVar.constraints;
         if (constraints1.length !== constraints2.length) {
             return false;
         }
@@ -1173,7 +1114,7 @@ export function printLiteralValue(type: ObjectType): string {
 }
 
 export function printFunctionParts(type: FunctionType, recursionCount = 0): [string[], string] {
-    const paramTypeStrings = type.getParameters().map((param, index) => {
+    const paramTypeStrings = FunctionType.getParameters(type).map((param, index) => {
         let paramString = '';
         if (param.category === ParameterCategory.VarArgList) {
             paramString += '*';
@@ -1186,7 +1127,7 @@ export function printFunctionParts(type: FunctionType, recursionCount = 0): [str
         }
 
         if (param.category === ParameterCategory.Simple) {
-            const paramType = type.getEffectiveParameterType(index);
+            const paramType = FunctionType.getEffectiveParameterType(type, index);
             const paramTypeString = recursionCount < _maxRecursionCount ?
                 printType(paramType, recursionCount + 1) : '';
             paramString += ': ' + paramTypeString;
@@ -1194,7 +1135,7 @@ export function printFunctionParts(type: FunctionType, recursionCount = 0): [str
         return paramString;
     });
 
-    const returnType = type.getEffectiveReturnType();
+    const returnType = FunctionType.getEffectiveReturnType(type);
     const returnTypeString = recursionCount < _maxRecursionCount ?
         printType(returnType, recursionCount + 1) : '';
     return [paramTypeStrings, returnTypeString];
@@ -1236,14 +1177,14 @@ export function printType(type: Type, recursionCount = 0): string {
 
         case TypeCategory.OverloadedFunction: {
             const overloadedType = type as OverloadedFunctionType;
-            const overloads = overloadedType.getOverloads().map(overload =>
+            const overloads = overloadedType.overloads.map(overload =>
                 printType(overload.type, recursionCount + 1));
             return `Overload[${ overloads.join(', ') }]`;
         }
 
         case TypeCategory.Property: {
             const propertyType = type as PropertyType;
-            const returnType = propertyType.getGetter().getEffectiveReturnType();
+            const returnType = FunctionType.getEffectiveReturnType(propertyType.getter);
             const returnTypeString = recursionCount < _maxRecursionCount ?
                 printType(returnType, recursionCount + 1) : '';
             return returnTypeString;
@@ -1251,7 +1192,7 @@ export function printType(type: Type, recursionCount = 0): string {
 
         case TypeCategory.Union: {
             const unionType = type as UnionType;
-            const subtypes = unionType.getTypes();
+            const subtypes = unionType.subtypes;
 
             if (subtypes.find(t => t.category === TypeCategory.None) !== undefined) {
                 const optionalType = recursionCount < _maxRecursionCount ?
@@ -1267,7 +1208,7 @@ export function printType(type: Type, recursionCount = 0): string {
 
         case TypeCategory.TypeVar: {
             const typeVarType = type as TypeVarType;
-            const typeName = typeVarType.getName();
+            const typeName = typeVarType.name;
 
             // Print the name in a simplified form if it's embedded
             // inside another type string.
@@ -1276,7 +1217,7 @@ export function printType(type: Type, recursionCount = 0): string {
             }
             const params: string[] = [`'${ typeName }'`];
             if (recursionCount < _maxRecursionCount) {
-                for (const constraint of typeVarType.getConstraints()) {
+                for (const constraint of typeVarType.constraints) {
                     params.push(printType(constraint, recursionCount + 1));
                 }
             }
@@ -1293,7 +1234,7 @@ export function printType(type: Type, recursionCount = 0): string {
 
         case TypeCategory.Any: {
             const anyType = type as AnyType;
-            return anyType.isEllipsis() ? '...' : 'Any';
+            return anyType.isEllipsis ? '...' : 'Any';
         }
     }
 
@@ -1326,8 +1267,8 @@ export function removeNoneFromUnion(type: Type): Type {
 
 export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolean) {
     if (type instanceof UnionType) {
-        const remainingTypes = type.getTypes().filter(t => !removeFilter(t));
-        if (remainingTypes.length < type.getTypes().length) {
+        const remainingTypes = type.subtypes.filter(t => !removeFilter(t));
+        if (remainingTypes.length < type.subtypes.length) {
             return combineTypes(remainingTypes);
         }
     }
@@ -1355,7 +1296,7 @@ export function combineTypes(types: Type[]): Type {
     let expandedTypes: Type[] = [];
     for (const type of types) {
         if (type instanceof UnionType) {
-            expandedTypes = expandedTypes.concat(type.getTypes());
+            expandedTypes = expandedTypes.concat(type.subtypes);
         } else {
             expandedTypes.push(type);
         }
@@ -1383,7 +1324,7 @@ export function combineTypes(types: Type[]): Type {
     }
 
     const unionType = new UnionType();
-    unionType.addTypes(resultingTypes);
+    UnionType.addTypes(unionType, resultingTypes);
 
     return unionType;
 }

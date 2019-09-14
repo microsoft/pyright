@@ -72,7 +72,7 @@ export interface SymbolWithClass {
 export namespace TypeUtils {
     export function isOptionalType(type: Type): boolean {
         if (type instanceof UnionType) {
-            return type.getTypes().some(t => t instanceof NoneType);
+            return type.subtypes.some(t => t instanceof NoneType);
         }
 
         return false;
@@ -86,7 +86,7 @@ export namespace TypeUtils {
 
             return doForSubtypes(declaredType, subtype => {
                 if (assignedType instanceof UnionType) {
-                    if (!assignedType.getTypes().some(t => canAssignType(subtype, t, diagAddendum))) {
+                    if (!assignedType.subtypes.some(t => canAssignType(subtype, t, diagAddendum))) {
                         return undefined;
                     } else {
                         return subtype;
@@ -108,7 +108,7 @@ export namespace TypeUtils {
         if (type instanceof UnionType) {
             const newTypes: Type[] = [];
 
-            type.getTypes().forEach(typeEntry => {
+            type.subtypes.forEach(typeEntry => {
                 const transformedType = callback(typeEntry);
                 if (transformedType) {
                     newTypes.push(transformedType);
@@ -159,8 +159,8 @@ export namespace TypeUtils {
         }
 
         let canOverride = true;
-        const baseParams = baseMethod.getParameters();
-        const overrideParams = overrideMethod.getParameters();
+        const baseParams = FunctionType.getParameters(baseMethod);
+        const overrideParams = FunctionType.getParameters(overrideMethod);
 
         if (baseParams.length !== overrideParams.length) {
             diag.addMessage(`Parameter count mismatch: base method has ` +
@@ -178,8 +178,8 @@ export namespace TypeUtils {
                     `override parameter is named '${ overrideParam.name || '*' }'`);
                 canOverride = false;
             } else {
-                const baseParamType = baseMethod.getEffectiveParameterType(i);
-                const overrideParamType = overrideMethod.getEffectiveParameterType(i);
+                const baseParamType = FunctionType.getEffectiveParameterType(baseMethod, i);
+                const overrideParamType = FunctionType.getEffectiveParameterType(overrideMethod, i);
 
                 if (!canAssignType(baseParamType, overrideParamType,
                     diag.createAddendum())) {
@@ -192,8 +192,8 @@ export namespace TypeUtils {
             }
         }
 
-        const baseReturnType = baseMethod.getEffectiveReturnType();
-        const overrideReturnType = overrideMethod.getEffectiveReturnType();
+        const baseReturnType = FunctionType.getEffectiveReturnType(baseMethod);
+        const overrideReturnType = FunctionType.getEffectiveReturnType(overrideMethod);
         if (!canAssignType(baseReturnType, overrideReturnType, diag.createAddendum())) {
             diag.addMessage(`Return type mismatch: ` +
                 `base method returns type '${ printType(baseReturnType) }, ` +
@@ -224,7 +224,7 @@ export namespace TypeUtils {
                 // Strip any literal value first, since type matching never uses literals.
                 const noLiteralSrcType = stripLiteralValue(srcType);
 
-                const existingTypeVarMapping = typeVarMap.get(destType.getName());
+                const existingTypeVarMapping = typeVarMap.get(destType.name);
                 if (existingTypeVarMapping) {
                     if (existingTypeVarMapping === noLiteralSrcType) {
                         return true;
@@ -235,7 +235,7 @@ export namespace TypeUtils {
                 }
 
                 // Assign the type to the type var.
-                typeVarMap.set(destType.getName(), noLiteralSrcType);
+                typeVarMap.set(destType.name, noLiteralSrcType);
             }
 
             return canAssignToTypeVar(destType, srcType, diag);
@@ -263,7 +263,7 @@ export namespace TypeUtils {
             let isIncompatible = false;
 
             // For union sources, all of the types need to be assignable to the dest.
-            srcType.getTypes().forEach(t => {
+            srcType.subtypes.forEach(t => {
                 if (!canAssignType(destType, t, diag.createAddendum(), typeVarMap,
                         allowSubclasses, recursionCount + 1)) {
 
@@ -282,7 +282,7 @@ export namespace TypeUtils {
 
         if (destType instanceof UnionType) {
             // For union destinations, we just need to match one of the types.
-            const compatibleType = destType.getTypes().find(
+            const compatibleType = destType.subtypes.find(
                 t => canAssignType(t, srcType, diag.createAddendum(), typeVarMap,
                     allowSubclasses, recursionCount + 1));
             return (compatibleType !== undefined);
@@ -372,7 +372,7 @@ export namespace TypeUtils {
                 // Find first overloaded function that matches the parameters.
                 // We don't want to pollute the current typeVarMap, so we'll
                 // make a copy of the existing one if it's specified.
-                const overloads = srcType.getOverloads();
+                const overloads = srcType.overloads;
                 const overloadIndex = overloads.findIndex(overload => {
                     const typeVarMapClone = typeVarMap ?
                         cloneTypeVarMap(typeVarMap) : undefined;
@@ -395,28 +395,28 @@ export namespace TypeUtils {
                 }
             } else if (srcType instanceof ClassType) {
                 // Synthesize a function that represents the constructor for this class.
-                const constructorFunction = new FunctionType(
+                const constructorFunction = FunctionType.create(
                     FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod |
                     FunctionTypeFlags.SynthesizedMethod);
-                constructorFunction.setDeclaredReturnType(ObjectType.create(srcType));
+                FunctionType.setDeclaredReturnType(constructorFunction, ObjectType.create(srcType));
 
                 const newMemberInfo = lookUpClassMember(srcType, '__new__',
                     ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
                 if (newMemberInfo && newMemberInfo.symbolType instanceof FunctionType) {
-                    newMemberInfo.symbolType.getParameters().forEach((param, index) => {
+                    FunctionType.getParameters(newMemberInfo.symbolType).forEach((param, index) => {
                         // Skip the 'cls' parameter.
                         if (index > 0) {
-                            constructorFunction.addParameter(param);
+                            FunctionType.addParameter(constructorFunction, param);
                         }
                     });
                 } else {
                     const initMemberInfo = lookUpClassMember(srcType, '__init__',
                         ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
                     if (initMemberInfo && initMemberInfo.symbolType instanceof FunctionType) {
-                        initMemberInfo.symbolType.getParameters().forEach((param, index) => {
+                        FunctionType.getParameters(initMemberInfo.symbolType).forEach((param, index) => {
                             // Skip the 'self' parameter.
                             if (index > 0) {
-                                constructorFunction.addParameter(param);
+                                FunctionType.addParameter(constructorFunction, param);
                             }
                         });
                     } else {
@@ -514,19 +514,19 @@ export namespace TypeUtils {
         }
 
         // If there's a bound type, make sure the source is derived from it.
-        const boundType = destType.getBoundType();
+        const boundType = destType.boundType;
         if (boundType) {
             if (!canAssignType(boundType, effectiveSrcType, diag.createAddendum(),
                     undefined, undefined, recursionCount + 1)) {
 
                 diag.addMessage(`Type '${ printType(effectiveSrcType) }' is not compatible with ` +
-                    `bound type '${ printType(boundType) }' for TypeVar '${ destType.getName() }'`);
+                    `bound type '${ printType(boundType) }' for TypeVar '${ destType.name }'`);
                 return false;
             }
         }
 
         // If there are no constraints, we're done.
-        const constraints = destType.getConstraints();
+        const constraints = destType.constraints;
         if (constraints.length === 0) {
             return true;
         }
@@ -537,7 +537,7 @@ export namespace TypeUtils {
                 return true;
             } else if (effectiveSrcType instanceof UnionType) {
                 // Does it match at least one of the constraints?
-                if (effectiveSrcType.getTypes().find(
+                if (effectiveSrcType.subtypes.find(
                         t => isSameWithoutLiteralValue(constraint, t))) {
 
                     return true;
@@ -548,7 +548,7 @@ export namespace TypeUtils {
         }
 
         diag.addMessage(`Type '${ printType(effectiveSrcType) }' is not compatible with ` +
-            `constraints imposed by TypeVar '${ destType.getName() }'`);
+            `constraints imposed by TypeVar '${ destType.name }'`);
 
         return false;
     }
@@ -573,7 +573,7 @@ export namespace TypeUtils {
     export function isEllipsisType(type: Type): boolean {
         // Ellipses are translated into both a special form of "Any" or
         // a distinct class depending on the context.
-        if (type instanceof AnyType && type.isEllipsis()) {
+        if (type instanceof AnyType && type.isEllipsis) {
             return true;
         }
 
@@ -637,7 +637,7 @@ export namespace TypeUtils {
                 return _getConcreteTypeFromTypeVar(type, recursionLevel);
             }
 
-            const replacementType = typeVarMap.get(type.getName());
+            const replacementType = typeVarMap.get(type.name);
             if (replacementType) {
                 return replacementType;
             }
@@ -647,7 +647,7 @@ export namespace TypeUtils {
 
         if (type instanceof UnionType) {
             const subtypes: Type[] = [];
-            type.getTypes().forEach(typeEntry => {
+            type.subtypes.forEach(typeEntry => {
                 subtypes.push(specializeType(typeEntry, typeVarMap,
                     recursionLevel + 1));
             });
@@ -668,7 +668,7 @@ export namespace TypeUtils {
                         return firstTypeArg.classType;
                     } else if (firstTypeArg instanceof TypeVarType) {
                         if (typeVarMap) {
-                            const replacementType = typeVarMap.get(firstTypeArg.getName());
+                            const replacementType = typeVarMap.get(firstTypeArg.name);
                             if (replacementType && replacementType instanceof ObjectType) {
                                 return replacementType.classType;
                             }
@@ -717,12 +717,12 @@ export namespace TypeUtils {
             // first parameter. This is used in cases like constructors.
             if (!baseType) {
                 return stripFirstParameter(memberType);
-            } else if (memberType.isInstanceMethod() && !treatAsClassMember) {
+            } else if (FunctionType.isInstanceMethod(memberType) && !treatAsClassMember) {
                 if (baseType instanceof ObjectType) {
                     return _partiallySpecializeFunctionForBoundClassOrObject(
                         baseType, memberType);
                 }
-            } else if (memberType.isClassMethod() || treatAsClassMember) {
+            } else if (FunctionType.isClassMethod(memberType) || treatAsClassMember) {
                 if (baseType instanceof ClassType) {
                     return _partiallySpecializeFunctionForBoundClassOrObject(
                         baseType, memberType);
@@ -733,8 +733,8 @@ export namespace TypeUtils {
             }
         } else if (memberType instanceof OverloadedFunctionType) {
             const newOverloadType = new OverloadedFunctionType();
-            memberType.getOverloads().forEach(overload => {
-                newOverloadType.addOverload(overload.typeSourceId,
+            memberType.overloads.forEach(overload => {
+                OverloadedFunctionType.addOverload(newOverloadType, overload.typeSourceId,
                     bindFunctionToClassOrObject(baseType, overload.type,
                         treatAsClassMember) as FunctionType);
             });
@@ -892,12 +892,12 @@ export namespace TypeUtils {
     }
 
     export function addDefaultFunctionParameters(functionType: FunctionType) {
-        functionType.addParameter({
+        FunctionType.addParameter(functionType, {
             category: ParameterCategory.VarArgList,
             name: 'args',
             type: UnknownType.create()
         });
-        functionType.addParameter({
+        FunctionType.addParameter(functionType, {
             category: ParameterCategory.VarArgDictionary,
             name: 'kwargs',
             type: UnknownType.create()
@@ -973,7 +973,7 @@ export namespace TypeUtils {
             return getTypeVarsFromClass(type.classType);
         } else if (type instanceof UnionType) {
             const combinedList: TypeVarType[] = [];
-            for (const subtype of type.getTypes()) {
+            for (const subtype of type.subtypes) {
                 addTypeVarsToListIfUnique(combinedList,
                     getTypeVarArgumentsRecursive(subtype));
             }
@@ -996,7 +996,7 @@ export namespace TypeUtils {
 
     // Removes the first parameter of the function and returns a new function.
     export function stripFirstParameter(type: FunctionType): FunctionType {
-        return type.clone(true);
+        return FunctionType.clone(type, true);
     }
 
     // Builds a mapping between type parameters and their specialized
@@ -1013,7 +1013,7 @@ export namespace TypeUtils {
     export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] | undefined): TypeVarMap {
         const typeArgMap = new TypeVarMap();
         typeParameters.forEach((typeParam, index) => {
-            const typeVarName = typeParam.getName();
+            const typeVarName = typeParam.name;
             let typeArgType: Type;
 
             if (typeArgs) {
@@ -1036,11 +1036,11 @@ export namespace TypeUtils {
     // that fits the specified constraints.
     export function specializeTypeVarType(type: TypeVarType): Type {
         const subtypes: Type[] = [];
-        type.getConstraints().forEach(constraint => {
+        type.constraints.forEach(constraint => {
             subtypes.push(constraint);
         });
 
-        const boundType = type.getBoundType();
+        const boundType = type.boundType;
         if (boundType) {
             subtypes.push(boundType);
         }
@@ -1202,7 +1202,7 @@ export namespace TypeUtils {
                 const symbolType = getEffectiveTypeOfSymbol(symbol);
 
                 if (symbolType instanceof FunctionType) {
-                    if (symbolType.isAbstractMethod()) {
+                    if (FunctionType.isAbstractMethod(symbolType)) {
                         symbolTable.set(symbolName, {
                             symbol,
                             isInstanceMember: false,
@@ -1221,7 +1221,7 @@ export namespace TypeUtils {
     export function getDeclaredGeneratorYieldType(functionType: FunctionType,
             iteratorType: Type): Type | undefined {
 
-        const returnType = functionType.getSpecializedReturnType();
+        const returnType = FunctionType.getSpecializedReturnType(functionType);
         if (returnType) {
             const generatorTypeArgs = _getGeneratorReturnTypeArgs(returnType);
 
@@ -1244,7 +1244,7 @@ export namespace TypeUtils {
     // Returns the declared "send" type (the type returned from the yield
     // statement) if it was delcared, or undefined otherwise.
     export function getDeclaredGeneratorSendType(functionType: FunctionType): Type | undefined {
-        const returnType = functionType.getSpecializedReturnType();
+        const returnType = FunctionType.getSpecializedReturnType(functionType);
         if (returnType) {
             const generatorTypeArgs = _getGeneratorReturnTypeArgs(returnType);
 
@@ -1262,7 +1262,7 @@ export namespace TypeUtils {
     // Returns the declared "return" type (the type returned from a return statement)
     // if it was delcared, or undefined otherwise.
     export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type | undefined {
-        const returnType = functionType.getSpecializedReturnType();
+        const returnType = FunctionType.getSpecializedReturnType(functionType);
         if (returnType) {
             const generatorTypeArgs = _getGeneratorReturnTypeArgs(returnType);
 
@@ -1304,7 +1304,7 @@ export namespace TypeUtils {
 
         // See if a union contains an unknown type.
         if (type instanceof UnionType) {
-            for (const subtype of type.getTypes()) {
+            for (const subtype of type.subtypes) {
                 if (containsUnknown(subtype, recursionCount + 1)) {
                     return true;
                 }
@@ -1385,8 +1385,8 @@ export namespace TypeUtils {
             buildTypeVarMapFromSpecializedClass(classType) :
             new TypeVarMap();
 
-        if (memberType.getParameterCount() > 0) {
-            const firstParam = memberType.getParameters()[0];
+        if (FunctionType.getParameterCount(memberType) > 0) {
+            const firstParam = FunctionType.getParameters(memberType)[0];
 
             // Fill out the typeVarMap.
             canAssignType(firstParam.type, baseType, new DiagnosticAddendum(), typeVarMap);
@@ -1403,14 +1403,14 @@ export namespace TypeUtils {
 
         let canAssign = true;
 
-        const srcParamCount = srcType.getParameterCount();
-        const destParamCount = destType.getParameterCount();
+        const srcParamCount = FunctionType.getParameterCount(srcType);
+        const destParamCount = FunctionType.getParameterCount(destType);
         const minParamCount = Math.min(srcParamCount, destParamCount);
 
         // Match as many input parameters as we can.
         for (let paramIndex = 0; paramIndex < minParamCount; paramIndex++) {
-            const srcParam = srcType.getParameters()[paramIndex];
-            const destParam = destType.getParameters()[paramIndex];
+            const srcParam = FunctionType.getParameters(srcType)[paramIndex];
+            const destParam = FunctionType.getParameters(destType)[paramIndex];
             const paramDiag = diag.createAddendum();
 
             // If the dest or source involve var-args, no need to continue matching.
@@ -1419,8 +1419,8 @@ export namespace TypeUtils {
                 break;
             }
 
-            const srcParamType = srcType.getEffectiveParameterType(paramIndex);
-            const destParamType = destType.getEffectiveParameterType(paramIndex);
+            const srcParamType = FunctionType.getEffectiveParameterType(srcType, paramIndex);
+            const destParamType = FunctionType.getEffectiveParameterType(destType, paramIndex);
 
             // Call canAssignType once to perform any typeVarMap population.
             canAssignType(destParamType, srcParamType, paramDiag.createAddendum(), typeVarMap,
@@ -1439,8 +1439,8 @@ export namespace TypeUtils {
             }
         }
 
-        const srcParams = srcType.getParameters();
-        const destParams = destType.getParameters();
+        const srcParams = FunctionType.getParameters(srcType);
+        const destParams = FunctionType.getParameters(destType);
 
         const srcHasVarArgs = srcParams.find(
             param => param.category !== ParameterCategory.Simple) !== undefined;
@@ -1519,8 +1519,8 @@ export namespace TypeUtils {
         }
 
         // Match the return parameter.
-        const srcReturnType = srcType.getEffectiveReturnType();
-        const destReturnType = destType.getEffectiveReturnType();
+        const srcReturnType = FunctionType.getEffectiveReturnType(srcType);
+        const destReturnType = FunctionType.getEffectiveReturnType(destType);
 
         if (!canAssignType(destReturnType, srcReturnType, diag.createAddendum(),
                 typeVarMap, true, recursionCount + 1)) {
@@ -1698,12 +1698,12 @@ export namespace TypeUtils {
                             const typeParam = ancestorTypeParams[ancestorArgIndex];
                             const ancestorTypeArg = ancestorTypeArgs[ancestorArgIndex];
 
-                            if (typeParam.isCovariant()) {
+                            if (typeParam.isCovariant) {
                                 if (!canAssignType(ancestorTypeArg, srcTypeArg,
                                         diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
                                     return false;
                                 }
-                            } else if (typeParam.isContravariant()) {
+                            } else if (typeParam.isContravariant) {
                                 if (!canAssignType(srcTypeArg, ancestorTypeArg,
                                         diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
                                     return false;
@@ -1785,10 +1785,10 @@ export namespace TypeUtils {
             ClassType.getTypeParameters(classType).forEach(typeParam => {
                 let typeArgType: Type;
 
-                if (typeVarMap && typeVarMap.get(typeParam.getName())) {
+                if (typeVarMap && typeVarMap.get(typeParam.name)) {
                     // If the type var map already contains this type var, use
                     // the existing type.
-                    typeArgType = typeVarMap.get(typeParam.getName())!;
+                    typeArgType = typeVarMap.get(typeParam.name)!;
                     specializationNeeded = true;
                 } else {
                     // If the type var map wasn't provided or doesn't contain this
@@ -1812,12 +1812,12 @@ export namespace TypeUtils {
     }
 
     function _getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel: number): Type {
-        const boundType = type.getBoundType();
+        const boundType = type.boundType;
         if (boundType) {
             return specializeType(boundType, undefined, recursionLevel + 1);
         }
 
-        const constraints = type.getConstraints();
+        const constraints = type.constraints;
         if (constraints.length === 0) {
             return AnyType.create();
         }
@@ -1833,7 +1833,7 @@ export namespace TypeUtils {
             typeVarMap: TypeVarMap | undefined, recursionLevel: number): OverloadedFunctionType {
 
         // Specialize each of the functions in the overload.
-        const overloads = type.getOverloads().map(entry => {
+        const overloads = type.overloads.map(entry => {
             const newEntry: OverloadedFunctionEntry = {
                 type: _specializeFunctionType(entry.type, typeVarMap, recursionLevel),
                 typeSourceId: entry.typeSourceId
@@ -1845,7 +1845,7 @@ export namespace TypeUtils {
         // Construct a new overload with the specialized function types.
         const newOverloadType = new OverloadedFunctionType();
         overloads.forEach(overload => {
-            newOverloadType.addOverload(overload.typeSourceId, overload.type);
+            OverloadedFunctionType.addOverload(newOverloadType, overload.typeSourceId, overload.type);
         });
 
         return newOverloadType;
@@ -1854,7 +1854,7 @@ export namespace TypeUtils {
     function _specializeFunctionType(functionType: FunctionType,
             typeVarMap: TypeVarMap | undefined, recursionLevel: number): FunctionType {
 
-        const returnType = functionType.getEffectiveReturnType();
+        const returnType = FunctionType.getEffectiveReturnType(functionType);
         const specializedReturnType = specializeType(returnType,
             typeVarMap, recursionLevel + 1);
         let typesRequiredSpecialization = returnType !== specializedReturnType;
@@ -1864,8 +1864,8 @@ export namespace TypeUtils {
             returnType: specializedReturnType
         };
 
-        for (let i = 0; i < functionType.getParameterCount(); i++) {
-            const paramType = functionType.getEffectiveParameterType(i);
+        for (let i = 0; i < FunctionType.getParameterCount(functionType); i++) {
+            const paramType = FunctionType.getEffectiveParameterType(functionType, i);
             const specializedType = specializeType(paramType,
                 typeVarMap, recursionLevel + 1);
             specializedParameters.parameterTypes.push(specializedType);
@@ -1879,7 +1879,7 @@ export namespace TypeUtils {
             return functionType;
         }
 
-        return functionType.cloneForSpecialization(specializedParameters);
+        return FunctionType.cloneForSpecialization(functionType, specializedParameters);
     }
 
     // If the declared return type for the function is a Generator or AsyncGenerator,

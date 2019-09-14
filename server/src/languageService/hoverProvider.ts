@@ -207,13 +207,13 @@ export class HoverProvider {
                 this._addResultsPart(parts, docString);
             }
         } else if (type instanceof FunctionType) {
-            const docString = type.getDocString();
+            const docString = FunctionType.getDocString(type);
             if (docString) {
                 this._addResultsPart(parts, docString);
             }
         } else if (type instanceof OverloadedFunctionType) {
-            type.getOverloads().forEach(overload => {
-                const docString = overload.type.getDocString();
+            type.overloads.forEach(overload => {
+                const docString = FunctionType.getDocString(overload.type);
                 if (docString) {
                     this._addResultsPart(parts, docString);
                 }

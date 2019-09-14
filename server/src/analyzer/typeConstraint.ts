@@ -353,7 +353,7 @@ export class TypeConstraintBuilder {
 
         let types: Type[];
         if (type instanceof UnionType) {
-            types = type.getTypes();
+            types = type.subtypes;
         } else {
             types = [type];
         }
@@ -370,7 +370,7 @@ export class TypeConstraintBuilder {
     // Represents an "is" or "is not" None test.
     private static _transformTypeForIsNoneExpression(type: Type, isPositiveTest: boolean): Type {
         if (type instanceof UnionType) {
-            const remainingTypes = type.getTypes().filter(t => {
+            const remainingTypes = type.subtypes.filter(t => {
                 if (isAnyOrUnknown(t)) {
                     // We need to assume that "Any" is always an instance and not an instance,
                     // so it matches regardless of whether the test is positive or negative.
@@ -470,7 +470,7 @@ export class TypeConstraintBuilder {
         } else if (type instanceof UnionType) {
             let remainingTypes: Type[] = [];
 
-            type.getTypes().forEach(t => {
+            type.subtypes.forEach(t => {
                 if (isAnyOrUnknown(t)) {
                     // Any types always remain for both positive and negative
                     // checks because we can't say anything about them.

@@ -652,7 +652,7 @@ export class CompletionProvider {
                     case DeclarationCategory.Function:
                     case DeclarationCategory.Method:
                         if (type instanceof OverloadedFunctionType) {
-                            typeDetail = type.getOverloads().map(overload =>
+                            typeDetail = type.overloads.map(overload =>
                                 name + printType(overload.type)).join('\n');
                         } else {
                             typeDetail = name + printType(type);
@@ -675,7 +675,7 @@ export class CompletionProvider {
             } else if (type instanceof ClassType) {
                 documentation = ClassType.getDocString(type);
             } else if (type instanceof FunctionType) {
-                documentation = type.getDocString();
+                documentation = FunctionType.getDocString(type);
             }
 
             let autoImportText: string | undefined;

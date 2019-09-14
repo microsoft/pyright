@@ -261,7 +261,7 @@ export abstract class Binder extends ParseTreeWalker {
             functionFlags &= ~FunctionTypeFlags.InstanceMethod;
         }
 
-        const functionType = new FunctionType(functionFlags,
+        const functionType = FunctionType.create(functionFlags,
             this._getDocString(node.suite.statements));
 
         this._bindName(node.name.nameToken.value);
@@ -282,7 +282,7 @@ export abstract class Binder extends ParseTreeWalker {
                 type: UnknownType.create()
             };
 
-            functionType.addParameter(typeParam);
+            FunctionType.addParameter(functionType, typeParam);
 
             if (param.typeAnnotation) {
                 this.walk(param.typeAnnotation);

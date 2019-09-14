@@ -131,7 +131,7 @@ export class SignatureHelpProvider {
         if (type instanceof FunctionType) {
             results.signatures.push(this._makeSignature(type));
         } else if (type instanceof OverloadedFunctionType) {
-            type.getOverloads().forEach(overload => {
+            type.overloads.forEach(overload => {
                 results.signatures.push(this._makeSignature(overload.type));
             });
         }
@@ -184,7 +184,7 @@ export class SignatureHelpProvider {
         const sigInfo: SignatureInfo = {
             label,
             parameters,
-            documentation: functionType.getDocString()
+            documentation: FunctionType.getDocString(functionType)
         };
 
         return sigInfo;
