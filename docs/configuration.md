@@ -126,6 +126,8 @@ The following is an example of a pyright config file:
   ],
   
   "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
     "src/experimental",
     "src/web/node_modules",
     "src/typestubs"
