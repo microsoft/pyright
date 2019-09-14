@@ -228,7 +228,7 @@ export abstract class Binder extends ParseTreeWalker {
             const objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
             // Make sure we don't have 'object' derive from itself. Infinite
             // recursion will result.
-            if (!ClassType.isBuiltIn(classType) || ClassType.getClassName(classType) !== 'object') {
+            if (!ClassType.isBuiltIn(classType, 'object')) {
                 ClassType.addBaseClass(classType, objectType, false);
             }
         }

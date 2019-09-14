@@ -208,7 +208,7 @@ export class TypeStubWriter extends ParseTreeWalker {
                     // actual return value.
                     if (inferredReturnType.category === TypeCategory.Object) {
                         const classType = inferredReturnType.classType;
-                        if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'NoReturn') {
+                        if (ClassType.isBuiltIn(classType, 'NoReturn')) {
                             inferredReturnType = UnknownType.create();
                         }
                     }
@@ -553,7 +553,7 @@ export class TypeStubWriter extends ParseTreeWalker {
                     this._addImplicitImportFrom('typing', ['Any', 'Optional']);
                 } else if (typeOfDefault.category === TypeCategory.Object) {
                     const classType = typeOfDefault.classType;
-                    if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'bool') {
+                    if (ClassType.isBuiltIn(classType, 'bool')) {
                         paramType = 'bool';
                     }
                 }

@@ -69,8 +69,8 @@ export class TimingStats {
         console.log('Tokenize:             ' + this.tokenizeFileTime.printTime());
         console.log('Parse:                ' + this.parseFileTime.printTime());
         console.log('Resolve Imports:      ' + this.resolveImportsTime.printTime());
-        console.log('Binder:               ' + this.bindTime.printTime());
-        console.log('Type Analyzer:        ' + this.typeAnalyzerTime.printTime());
+        console.log('Bind:                 ' + this.bindTime.printTime());
+        console.log('Analyze:              ' + this.typeAnalyzerTime.printTime());
     }
 }
 

@@ -358,7 +358,7 @@ export namespace TypeUtils {
                 }
             } else if (srcType.category === TypeCategory.Module) {
                 // Is the destination the built-in "ModuleType"?
-                if (ClassType.isBuiltIn(destClassType) && ClassType.getClassName(destClassType) === 'ModuleType') {
+                if (ClassType.isBuiltIn(destClassType, 'ModuleType')) {
                     return true;
                 }
             }
@@ -436,7 +436,7 @@ export namespace TypeUtils {
         if (isNoneOrNever(srcType) || srcType.category === TypeCategory.Module) {
             if (destType.category === TypeCategory.Object) {
                 const destClassType = destType.classType;
-                if (ClassType.isBuiltIn(destClassType) && ClassType.getClassName(destClassType) === 'object') {
+                if (ClassType.isBuiltIn(destClassType, 'object')) {
                     return true;
                 }
             }
@@ -562,7 +562,7 @@ export namespace TypeUtils {
             classType = type.classType;
         }
 
-        if (classType && ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'Tuple') {
+        if (classType && ClassType.isBuiltIn(classType, 'Tuple')) {
             return classType;
         }
 
@@ -577,14 +577,13 @@ export namespace TypeUtils {
         }
 
         return (type.category === TypeCategory.Class &&
-            ClassType.isBuiltIn(type) &&
-            ClassType.getClassName(type) === 'ellipsis');
+            ClassType.isBuiltIn(type, 'ellipsis'));
     }
 
     export function isNoReturnType(type: Type): boolean {
         if (type.category === TypeCategory.Object) {
             const classType = type.classType;
-            if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'NoReturn') {
+            if (ClassType.isBuiltIn(classType, 'NoReturn')) {
                 return true;
             }
         }
@@ -659,7 +658,7 @@ export namespace TypeUtils {
                 typeVarMap, recursionLevel + 1);
 
             // Handle the "Type" special class.
-            if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'Type') {
+            if (ClassType.isBuiltIn(classType, 'Type')) {
                 const typeArgs = ClassType.getTypeArguments(classType);
                 if (typeArgs && typeArgs.length >= 1) {
                     const firstTypeArg = typeArgs[0];
@@ -770,7 +769,7 @@ export namespace TypeUtils {
         if (classType.category === TypeCategory.Class) {
             // Should we ignore members on the 'object' base class?
             if (flags & ClassMemberLookupFlags.SkipObjectBaseClass) {
-                if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'object') {
+                if (ClassType.isBuiltIn(classType, 'object')) {
                     return undefined;
                 }
             }
@@ -1595,8 +1594,7 @@ export namespace TypeUtils {
         }
 
         // Special-case int-to-float conversion.
-        if (ClassType.isBuiltIn(srcType) && ClassType.getClassName(srcType) === 'int' &&
-                ClassType.isBuiltIn(destType) && ClassType.getClassName(destType) === 'float') {
+        if (ClassType.isBuiltIn(srcType, 'int') && ClassType.isBuiltIn(destType, 'float')) {
             return true;
         }
 

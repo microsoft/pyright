@@ -227,19 +227,35 @@ export namespace ClassType {
             classType.typeArguments === undefined;
     }
 
-    export function isSpecialBuiltIn(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.SpecialBuiltIn);
+    export function isSpecialBuiltIn(classType: ClassType, className?: string) {
+        if (!(classType.details.flags & ClassTypeFlags.SpecialBuiltIn)) {
+            return false;
+        }
+
+        if (className !== undefined) {
+            return getClassName(classType) === className;
+        }
+
+        return true;
     }
 
-    export function isBuiltIn(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.BuiltInClass);
+    export function isBuiltIn(classType: ClassType, className?: string) {
+        if (!(classType.details.flags & ClassTypeFlags.BuiltInClass)) {
+            return false;
+        }
+
+        if (className !== undefined) {
+            return getClassName(classType) === className;
+        }
+
+        return true;
     }
 
     export function isProtocol(classType: ClassType) {
         // Does the class directly 'derive' from "Protocol"?
         return classType.details.baseClasses.find(bc => {
             if (bc.type.category === TypeCategory.Class) {
-                if (isBuiltIn(bc.type) && getClassName(bc.type) === 'Protocol') {
+                if (isBuiltIn(bc.type, 'Protocol')) {
                     return true;
                 }
             }
@@ -415,7 +431,7 @@ export namespace ClassType {
         // Handle built-in types like 'dict' and 'list', which are all
         // subclasses of object even though they are not explicitly declared
         // that way.
-        if (isBuiltIn(classType) && isBuiltIn(type2) && type2.details.name === 'object') {
+        if (isBuiltIn(classType) && isBuiltIn(type2, 'object')) {
             if (inheritanceChain) {
                 inheritanceChain.push(type2);
             }

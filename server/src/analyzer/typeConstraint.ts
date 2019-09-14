@@ -175,8 +175,8 @@ export class TypeConstraintBuilder {
                 // Look for "type(X) is Y" or "type(X) is not Y".
                 if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
                     const callType = typeEvaluator(testExpression.leftExpression.leftExpression);
-                    if (callType.category === TypeCategory.Class && ClassType.isBuiltIn(callType) &&
-                            ClassType.getClassName(callType) === 'type' &&
+                    if (callType.category === TypeCategory.Class &&
+                            ClassType.isBuiltIn(callType, 'type') &&
                             testExpression.leftExpression.arguments.length === 1 &&
                             testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
 
@@ -300,9 +300,7 @@ export class TypeConstraintBuilder {
                         // The isinstance call supports a variation where the second
                         // parameter is a tuple of classes.
                         const objClass = arg1Type.classType;
-                        if (ClassType.isBuiltIn(objClass) && ClassType.getClassName(objClass) === 'Tuple' &&
-                                ClassType.getTypeArguments(objClass)) {
-
+                        if (ClassType.isBuiltIn(objClass, 'Tuple') && ClassType.getTypeArguments(objClass)) {
                             let foundNonClassType = false;
                             const classTypeList: ClassType[] = [];
                             ClassType.getTypeArguments(objClass)!.forEach(typeArg => {

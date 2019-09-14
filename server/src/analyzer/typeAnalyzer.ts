@@ -161,7 +161,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         // See if this is a "Type[X]" object.
                         if (argType.category === TypeCategory.Object) {
                             const classType = argType.classType;
-                            if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'Type') {
+                            if (ClassType.isBuiltIn(classType, 'Type')) {
                                 const typeArgs = ClassType.getTypeArguments(classType);
                                 if (typeArgs && typeArgs.length >= 0) {
                                     argType = typeArgs[0];
@@ -181,7 +181,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 if (argType.category === TypeCategory.Class) {
-                    if (ClassType.isBuiltIn(argType) && ClassType.getClassName(argType) === 'Protocol') {
+                    if (ClassType.isBuiltIn(argType, 'Protocol')) {
                         if (!this._fileInfo.isStubFile && this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37) {
                             this._addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
                         }
@@ -190,7 +190,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // If the class directly derives from NamedTuple (in Python 3.6 or
                     // newer), it's considered a dataclass.
                     if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
-                        if (ClassType.isBuiltIn(argType) && ClassType.getClassName(argType) === 'NamedTuple') {
+                        if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
                             ClassType.setIsDataClass(classType, false);
                         }
                     }
@@ -1612,9 +1612,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // The isinstance call supports a variation where the second
             // parameter is a tuple of classes.
             const objClass = arg1Type.classType;
-            if (ClassType.isBuiltIn(objClass) && ClassType.getClassName(objClass) === 'Tuple' &&
-                    ClassType.getTypeArguments(objClass)) {
-
+            if (ClassType.isBuiltIn(objClass, 'Tuple') && ClassType.getTypeArguments(objClass)) {
                 ClassType.getTypeArguments(objClass)!.forEach(typeArg => {
                     if (typeArg.category === TypeCategory.Class) {
                         classTypeList.push(typeArg);
@@ -2511,7 +2509,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // true, false or None value.
             if (exprType.category === TypeCategory.Object) {
                 const exprClass = exprType.classType;
-                if (ClassType.isBuiltIn(exprClass) && ClassType.getClassName(exprClass) === 'bool') {
+                if (ClassType.isBuiltIn(exprClass, 'bool')) {
                     const literalValue = exprType.literalValue;
                     if (typeof literalValue === 'boolean') {
                         constExprValue = literalValue;

@@ -542,7 +542,7 @@ export class ExpressionEvaluator {
             // Is this a Generator? If so, return the third
             // type argument, which is the await response type.
             const classType = type.classType;
-            if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'Generator') {
+            if (ClassType.isBuiltIn(classType, 'Generator')) {
                 const typeArgs = ClassType.getTypeArguments(classType);
                 if (typeArgs && typeArgs.length >= 3) {
                     return typeArgs[2];
@@ -955,7 +955,7 @@ export class ExpressionEvaluator {
     // class that it represents and returns that class. Otherwise returns undefined.
     private _getClassFromPotentialTypeObject(potentialTypeObject: ObjectType): Type | undefined {
         const objectClass = potentialTypeObject.classType;
-        if (ClassType.isBuiltIn(objectClass) && ClassType.getClassName(objectClass) === 'Type') {
+        if (ClassType.isBuiltIn(objectClass, 'Type')) {
             const typeArgs = ClassType.getTypeArguments(objectClass);
 
             if (typeArgs && typeArgs.length > 0) {
@@ -1211,10 +1211,10 @@ export class ExpressionEvaluator {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             } else if (subtype.category === TypeCategory.Class) {
-                if (ClassType.isSpecialBuiltIn(subtype) && ClassType.getClassName(subtype) === 'Literal') {
+                if (ClassType.isSpecialBuiltIn(subtype, 'Literal')) {
                     // Special-case Literal types.
                     return this._createLiteralType(node);
-                } else if (ClassType.isBuiltIn(subtype) && ClassType.getClassName(subtype) === 'InitVar') {
+                } else if (ClassType.isBuiltIn(subtype, 'InitVar')) {
                     // Special-case InitVar, used in data classes.
                     const typeArgs = this._getTypeArgs(node.items);
                     if (typeArgs.length === 1) {
@@ -1299,8 +1299,7 @@ export class ExpressionEvaluator {
             const baseTypeClass = baseType.classType;
 
             if (baseTypeClass.category === TypeCategory.Class &&
-                    ClassType.isBuiltIn(baseTypeClass) &&
-                    ClassType.getClassName(baseTypeClass) === 'Tuple' &&
+                    ClassType.isBuiltIn(baseTypeClass, 'Tuple') &&
                     ClassType.getTypeArguments(baseTypeClass)) {
 
                 if (node.items.items[0].nodeType === ParseNodeType.Number) {
@@ -2988,7 +2987,7 @@ export class ExpressionEvaluator {
                             classType = aliasClass;
                         }
 
-                        if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'dict') {
+                        if (ClassType.isBuiltIn(classType, 'dict')) {
                             const typeArgs = ClassType.getTypeArguments(classType);
                             if (typeArgs && typeArgs.length >= 2) {
                                 keyTypes.push(typeArgs[0]);
@@ -3005,7 +3004,7 @@ export class ExpressionEvaluator {
                 // The result should be a Tuple
                 if (dictEntryType.category === TypeCategory.Object) {
                     const classType = dictEntryType.classType;
-                    if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'Tuple') {
+                    if (ClassType.isBuiltIn(classType, 'Tuple')) {
                         const typeArgs = ClassType.getTypeArguments(classType);
                         if (typeArgs && typeArgs.length === 2) {
                             keyTypes.push(typeArgs[0]);
