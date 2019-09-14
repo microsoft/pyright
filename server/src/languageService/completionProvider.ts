@@ -22,8 +22,8 @@ import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
 import { ScopeType } from '../analyzer/scope';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import { SymbolUtils } from '../analyzer/symbolUtils';
-import { ClassType, FunctionType, ModuleType, ObjectType,
-    OverloadedFunctionType } from '../analyzer/types';
+import { ClassType, FunctionType, ModuleType, ObjectType, OverloadedFunctionType,
+    printType } from '../analyzer/types';
 import { TypeUtils } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
@@ -646,16 +646,16 @@ export class CompletionProvider {
                 switch (declaration.category) {
                     case DeclarationCategory.Variable:
                     case DeclarationCategory.Parameter:
-                        typeDetail = name + ': ' + type.asString();
+                        typeDetail = name + ': ' + printType(type);
                         break;
 
                     case DeclarationCategory.Function:
                     case DeclarationCategory.Method:
                         if (type instanceof OverloadedFunctionType) {
                             typeDetail = type.getOverloads().map(overload =>
-                                name + overload.type.asString()).join('\n');
+                                name + printType(overload.type)).join('\n');
                         } else {
-                            typeDetail = name + type.asString();
+                            typeDetail = name + printType(type);
                         }
                         break;
 

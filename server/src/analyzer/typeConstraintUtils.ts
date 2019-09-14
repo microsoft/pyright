@@ -11,8 +11,7 @@ import * as assert from 'assert';
 
 import { ExpressionNode } from '../parser/parseNodes';
 import { TypeConstraint } from './typeConstraint';
-import { Type } from './types';
-import { TypeUtils } from './typeUtils';
+import { combineTypes, Type } from './types';
 
 export namespace TypeConstraintUtils {
     // Combines two type constraint lists that come from multiple
@@ -53,7 +52,7 @@ export namespace TypeConstraintUtils {
                 }
 
                 const combinedTc = new TypeConstraint(expression,
-                    TypeUtils.combineTypes(typesToCombine));
+                    combineTypes(typesToCombine));
 
                 if (isConditional) {
                     combinedTc.setIsConditional();
@@ -92,7 +91,7 @@ export namespace TypeConstraintUtils {
                         hitUnconditionalTc = true;
                     } else {
                         const types = [combinedTc.getType(), tc.getType()];
-                        combinedTc = new TypeConstraint(expression, TypeUtils.combineTypes(types));
+                        combinedTc = new TypeConstraint(expression, combineTypes(types));
                     }
                 }
             });

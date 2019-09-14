@@ -15,15 +15,12 @@ import { DeclarationCategory } from '../analyzer/declaration';
 import { DeclarationUtils } from '../analyzer/declarationUtils';
 import { ImportType } from '../analyzer/importResult';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
-import { Symbol } from '../analyzer/symbol';
-import { ClassType, FunctionType, ModuleType, ObjectType,
-    OverloadedFunctionType, Type, UnknownType } from '../analyzer/types';
-import { TypeUtils } from '../analyzer/typeUtils';
+import { ClassType, FunctionType, ModuleType, OverloadedFunctionType, printType,
+    Type, UnknownType } from '../analyzer/types';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { MemberAccessExpressionNode, ModuleNameNode, NameNode, ParseNode,
-    ParseNodeType } from '../parser/parseNodes';
+import { ModuleNameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface HoverTextPart {
@@ -188,7 +185,7 @@ export class HoverProvider {
 
     private static _getTypeText(node: ParseNode): string {
         const type = this._getTypeFromNode(node) || UnknownType.create();
-        return ': ' + type.asString();
+        return ': ' + printType(type);
     }
 
     private static _addDocumentationPart(parts: HoverTextPart[], node: ParseNode) {

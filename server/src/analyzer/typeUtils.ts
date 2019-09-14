@@ -15,11 +15,12 @@ import { ParameterCategory } from '../parser/parseNodes';
 import { Declaration } from './declaration';
 import { defaultTypeSourceId } from './inferredType';
 import { Symbol, SymbolTable } from './symbol';
-import { AnyType, ClassType, FunctionParameter,
-    FunctionType, FunctionTypeFlags, InheritanceChain, ModuleType, NeverType,
-    NoneType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,
-    SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType,
-    UnboundType, UnionType, UnknownType } from './types';
+import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType,
+    FunctionTypeFlags, InheritanceChain, isAnyOrUnknown, isSameWithoutLiteralValue,
+    isTypeSame, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionEntry,
+    OverloadedFunctionType, printLiteralValue, printType, requiresSpecialization,
+    SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap, TypeVarType, UnboundType,
+    UnionType, UnknownType } from './types';
 
 const _maxTypeRecursion = 20;
 
@@ -120,59 +121,6 @@ export namespace TypeUtils {
         return callback(type) || NeverType.create();
     }
 
-    // Combines multiple types into a single type. If the types are
-    // the same, only one is returned. If they differ, they
-    // are combined into a UnionType. NeverTypes are filtered out.
-    // If no types remain in the end, a NeverType is returned.
-    export function combineTypes(types: Type[]): Type {
-        // Filter out any "Never" types.
-        types = types.filter(type => type.category !== TypeCategory.Never);
-        if (types.length === 0) {
-            return NeverType.create();
-        }
-
-        // Handle the common case where there is only one type.
-        if (types.length === 1) {
-            return types[0];
-        }
-
-        // Expand all union types.
-        let expandedTypes: Type[] = [];
-        for (const type of types) {
-            if (type instanceof UnionType) {
-                expandedTypes = expandedTypes.concat(type.getTypes());
-            } else {
-                expandedTypes.push(type);
-            }
-        }
-
-        // Sort all of the literal types to the end.
-        expandedTypes = expandedTypes.sort((type1, type2) => {
-            if (type1 instanceof ObjectType && type1.getLiteralValue() !== undefined) {
-                return 1;
-            } else if (type2 instanceof ObjectType && type2.getLiteralValue() !== undefined) {
-                return -1;
-            }
-            return 0;
-        });
-
-        const resultingTypes = [expandedTypes[0]];
-        expandedTypes.forEach((t, index) => {
-            if (index > 0) {
-                _addTypeIfUnique(resultingTypes, t);
-            }
-        });
-
-        if (resultingTypes.length === 1) {
-            return resultingTypes[0];
-        }
-
-        const unionType = new UnionType();
-        unionType.addTypes(resultingTypes);
-
-        return unionType;
-    }
-
     // Determines if all of the types in the array are the same.
     export function areTypesSame(types: Type[]): boolean {
         if (types.length < 2) {
@@ -180,30 +128,12 @@ export namespace TypeUtils {
         }
 
         for (let i = 1; i < types.length; i++) {
-            if (!types[0].isSame(types[i])) {
+            if (!isTypeSame(types[0], types[i])) {
                 return false;
             }
         }
 
         return true;
-    }
-
-    // Determines whether the dest type is the same as the source type with
-    // the possible exception that the source type has a literal value when
-    // the dest does not.
-    export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolean {
-        // If it's the same with literals, great.
-        if (destType.isSame(srcType)) {
-            return true;
-        }
-
-        if (srcType instanceof ObjectType && srcType.getLiteralValue() !== undefined) {
-            // Strip the literal.
-            srcType = new ObjectType(srcType.getClassType());
-            return destType.isSame(srcType);
-        }
-
-        return false;
     }
 
     export function stripLiteralValue(type: Type): Type {
@@ -255,8 +185,8 @@ export namespace TypeUtils {
                     diag.createAddendum())) {
 
                     diag.addMessage(`Parameter ${ i + 1 } type mismatch: ` +
-                        `base method parameter is type '${ baseParamType.asString() }, ` +
-                        `override is type '${ overrideParamType.asString() }'`);
+                        `base method parameter is type '${ printType(baseParamType) }, ` +
+                        `override is type '${ printType(overrideParamType) }'`);
                     canOverride = false;
                 }
             }
@@ -266,8 +196,8 @@ export namespace TypeUtils {
         const overrideReturnType = overrideMethod.getEffectiveReturnType();
         if (!canAssignType(baseReturnType, overrideReturnType, diag.createAddendum())) {
             diag.addMessage(`Return type mismatch: ` +
-                `base method returns type '${ baseReturnType.asString() }, ` +
-                `override is type '${ overrideReturnType.asString() }'`);
+                `base method returns type '${ printType(baseReturnType) }, ` +
+                `override is type '${ printType(overrideReturnType) }'`);
 
             canOverride = false;
         }
@@ -311,7 +241,7 @@ export namespace TypeUtils {
             return canAssignToTypeVar(destType, srcType, diag);
         }
 
-        if (destType.isAny() || srcType.isAny()) {
+        if (isAnyOrUnknown(destType) || isAnyOrUnknown(srcType)) {
             return true;
         }
 
@@ -337,8 +267,8 @@ export namespace TypeUtils {
                 if (!canAssignType(destType, t, diag.createAddendum(), typeVarMap,
                         allowSubclasses, recursionCount + 1)) {
 
-                    diag.addMessage(`Type '${ t.asString() }' cannot be assigned to ` +
-                        `type '${ destType.asString() }'`);
+                    diag.addMessage(`Type '${ printType(t) }' cannot be assigned to ` +
+                        `type '${ printType(destType) }'`);
                     isIncompatible = true;
                 }
             });
@@ -403,8 +333,8 @@ export namespace TypeUtils {
                 if (destLiteral !== undefined) {
                     const srcLiteral = srcType.getLiteralValue();
                     if (srcLiteral !== destLiteral) {
-                        diag.addMessage(`'${ srcLiteral ? srcType.literalAsString() : srcType.asString() }' ` +
-                        `cannot be assigned to '${ destType.literalAsString() }'`);
+                        diag.addMessage(`'${ srcLiteral ? printLiteralValue(srcType) : printType(srcType) }' ` +
+                        `cannot be assigned to '${ printLiteralValue(destType) }'`);
 
                         return false;
                     }
@@ -450,7 +380,7 @@ export namespace TypeUtils {
                         typeVarMapClone, true, recursionCount + 1);
                 });
                 if (overloadIndex < 0) {
-                    diag.addMessage(`No overloaded function matches type '${ destType.asString() }'.`);
+                    diag.addMessage(`No overloaded function matches type '${ printType(destType) }'.`);
                     return false;
                 }
                 srcFunction = overloads[overloadIndex].type;
@@ -571,7 +501,7 @@ export namespace TypeUtils {
             return true;
         }
 
-        if (srcType.isAny()) {
+        if (isAnyOrUnknown(srcType)) {
             return true;
         }
 
@@ -589,8 +519,8 @@ export namespace TypeUtils {
             if (!canAssignType(boundType, effectiveSrcType, diag.createAddendum(),
                     undefined, undefined, recursionCount + 1)) {
 
-                diag.addMessage(`Type '${ effectiveSrcType.asString() }' is not compatible with ` +
-                    `bound type '${ boundType.asString() }' for TypeVar '${ destType.getName() }'`);
+                diag.addMessage(`Type '${ printType(effectiveSrcType) }' is not compatible with ` +
+                    `bound type '${ printType(boundType) }' for TypeVar '${ destType.getName() }'`);
                 return false;
             }
         }
@@ -603,7 +533,7 @@ export namespace TypeUtils {
 
         // Try to find a match among the constraints.
         for (const constraint of constraints) {
-            if (constraint.isAny()) {
+            if (isAnyOrUnknown(constraint)) {
                 return true;
             } else if (effectiveSrcType instanceof UnionType) {
                 // Does it match at least one of the constraints?
@@ -617,7 +547,7 @@ export namespace TypeUtils {
             }
         }
 
-        diag.addMessage(`Type '${ effectiveSrcType.asString() }' is not compatible with ` +
+        diag.addMessage(`Type '${ printType(effectiveSrcType) }' is not compatible with ` +
             `constraints imposed by TypeVar '${ destType.getName() }'`);
 
         return false;
@@ -690,11 +620,11 @@ export namespace TypeUtils {
         }
 
         // Shortcut the operation if possible.
-        if (!type.requiresSpecialization()) {
+        if (!requiresSpecialization(type)) {
             return type;
         }
 
-        if (type.isAny()) {
+        if (isAnyOrUnknown(type)) {
             return type;
         }
 
@@ -898,7 +828,7 @@ export namespace TypeUtils {
                     }
                 }
             }
-        } else if (classType.isAny()) {
+        } else if (isAnyOrUnknown(classType)) {
             // The class derives from an unknown type, so all bets are off
             // when trying to find a member. Return an unknown symbol.
             return {
@@ -1144,41 +1074,6 @@ export namespace TypeUtils {
         }
 
         return false;
-    }
-
-    // If the type is a union, remove any "unknown" or "any" type
-    // from the union, returning only the known types.
-    export function removeAnyFromUnion(type: Type): Type {
-        return removeFromUnion(type, (t: Type) => t.isAny());
-    }
-
-    // If the type is a union, remvoe an "unknown" type from the union,
-    // returning only the known types.
-    export function removeUnknownFromUnion(type: Type): Type {
-        return removeFromUnion(type, (t: Type) => t.category === TypeCategory.Unknown);
-    }
-
-    // If the type is a union, remvoe an "unbound" type from the union,
-    // returning only the known types.
-    export function removeUnboundFromUnion(type: Type): Type {
-        return removeFromUnion(type, (t: Type) => t.category === TypeCategory.Unbound);
-    }
-
-    // If the type is a union, remvoe an "None" type from the union,
-    // returning only the known types.
-    export function removeNoneFromUnion(type: Type): Type {
-        return removeFromUnion(type, (t: Type) => t.category === TypeCategory.None);
-    }
-
-    export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolean) {
-        if (type instanceof UnionType) {
-            const remainingTypes = type.getTypes().filter(t => !removeFilter(t));
-            if (remainingTypes.length < type.getTypes().length) {
-                return combineTypes(remainingTypes);
-            }
-        }
-
-        return type;
     }
 
     // Filters a type such that that it is guaranteed not to
@@ -1538,8 +1433,8 @@ export namespace TypeUtils {
             if (!canAssignType(srcParamType, specializedDestParamType, paramDiag.createAddendum(),
                     undefined, true, recursionCount + 1)) {
                 paramDiag.addMessage(`Parameter ${ paramIndex + 1 } of type ` +
-                    `'${ specializedDestParamType.asString() }' cannot be assigned to type ` +
-                    `'${ srcParamType.asString() }'`);
+                    `'${ printType(specializedDestParamType) }' cannot be assigned to type ` +
+                    `'${ printType(srcParamType) }'`);
                 canAssign = false;
             }
         }
@@ -1582,8 +1477,8 @@ export namespace TypeUtils {
                             if (!canAssignType(param.type, specializedDestParamType,
                                     paramDiag.createAddendum(), undefined, true, recursionCount + 1)) {
                                 paramDiag.addMessage(`Named parameter '${ param.name }' of type ` +
-                                    `'${ specializedDestParamType.asString() }' cannot be assigned to type ` +
-                                    `'${ param.type.asString() }'`);
+                                    `'${ printType(specializedDestParamType) }' cannot be assigned to type ` +
+                                    `'${ printType(param.type) }'`);
                                 canAssign = false;
                             }
                             destParamMap.delete(param.name);
@@ -1629,8 +1524,8 @@ export namespace TypeUtils {
 
         if (!canAssignType(destReturnType, srcReturnType, diag.createAddendum(),
                 typeVarMap, true, recursionCount + 1)) {
-            diag.addMessage(`Function return type '${ srcReturnType.asString() }' ` +
-                `is not compatible with type '${ destReturnType.asString() }'.`);
+            diag.addMessage(`Function return type '${ printType(srcReturnType) }' ` +
+                `is not compatible with type '${ printType(destReturnType) }'.`);
             canAssign = false;
         }
 
@@ -1649,7 +1544,7 @@ export namespace TypeUtils {
 
             // Some protocol definitions include recursive references to themselves.
             // We need to protect against infinite recursion, so we'll check for that here.
-            if (srcType.isSame(destType)) {
+            if (isTypeSame(srcType, destType)) {
                 return true;
             }
 
@@ -1689,8 +1584,8 @@ export namespace TypeUtils {
         if (!allowSubclasses && !srcType.isSameGenericClass(destType)) {
             const destErrorType = reportErrorsUsingObjType ? new ObjectType(destType) : destType;
             const srcErrorType = reportErrorsUsingObjType ? new ObjectType(srcType) : srcType;
-            diag.addMessage(`'${ srcErrorType.asString() }' is incompatible with ` +
-                `'${ destErrorType.asString() }'`);
+            diag.addMessage(`'${ printType(srcErrorType) }' is incompatible with ` +
+                `'${ printType(destErrorType) }'`);
             return false;
         }
 
@@ -1710,8 +1605,8 @@ export namespace TypeUtils {
 
         const destErrorType = reportErrorsUsingObjType ? new ObjectType(destType) : destType;
         const srcErrorType = reportErrorsUsingObjType ? new ObjectType(srcType) : srcType;
-        diag.addMessage(`'${ srcErrorType.asString() }' is incompatible with ` +
-            `'${ destErrorType.asString() }'`);
+        diag.addMessage(`'${ printType(srcErrorType) }' is incompatible with ` +
+            `'${ printType(destErrorType) }'`);
         return false;
     }
 
@@ -1726,7 +1621,7 @@ export namespace TypeUtils {
         for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
             const ancestorType = inheritanceChain[ancestorIndex];
 
-            if (ancestorType.isAny()) {
+            if (isAnyOrUnknown(ancestorType)) {
                 return true;
             }
 
@@ -2001,26 +1896,5 @@ export namespace TypeUtils {
         }
 
         return undefined;
-    }
-
-    function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
-        for (const type of types) {
-            // Does this type already exist in the types array?
-            if (type.isSame(typeToAdd)) {
-                return;
-            }
-
-            // If the typeToAdd is a literal value and there's already
-            // a non-literal type that matches, don't add the literal value.
-            if (type instanceof ObjectType && typeToAdd instanceof ObjectType) {
-                if (isSameWithoutLiteralValue(type, typeToAdd)) {
-                    if (type.getLiteralValue() === undefined) {
-                        return;
-                    }
-                }
-            }
-        }
-
-        types.push(typeToAdd);
     }
 }

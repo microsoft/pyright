@@ -11,8 +11,8 @@
 
 import { AnalyzerNodeInfo } from '../analyzer/analyzerNodeInfo';
 import { ParseTreeUtils } from '../analyzer/parseTreeUtils';
-import { ClassType, FunctionType, ObjectType,
-    OverloadedFunctionType } from '../analyzer/types';
+import { ClassType, FunctionType, ObjectType, OverloadedFunctionType,
+    printFunctionParts } from '../analyzer/types';
 import { ClassMemberLookupFlags, TypeUtils } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
@@ -163,7 +163,7 @@ export class SignatureHelpProvider {
     }
 
     private static _makeSignature(functionType: FunctionType): SignatureInfo {
-        const stringParts = functionType.asStringParts();
+        const stringParts = printFunctionParts(functionType);
         const parameters: ParamInfo[] = [];
         let label = '(';
 

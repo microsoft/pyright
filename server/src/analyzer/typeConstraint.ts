@@ -14,7 +14,8 @@
 
 import { ArgumentCategory, ExpressionNode, ParseNodeType } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { ClassType, NeverType, NoneType, ObjectType, Type, TypeCategory, UnionType } from './types';
+import { ClassType, combineTypes, isAnyOrUnknown, NeverType, NoneType, ObjectType, Type,
+    TypeCategory, UnionType } from './types';
 import { TypeUtils } from './typeUtils';
 
 export interface ConditionalTypeConstraintResults {
@@ -85,7 +86,7 @@ export class TypeConstraint {
 
             if (this._isConditional) {
                 const types = [this._type, type];
-                return TypeUtils.combineTypes(types);
+                return combineTypes(types);
             }
             return this._type;
         }
@@ -344,7 +345,7 @@ export class TypeConstraintBuilder {
     // Represents a simple check for truthiness. It eliminates the
     // possibility of "None" for a type.
     private static _transformTypeForTruthyExpression(type: Type, isPositiveTest: boolean): Type {
-        if (type.isAny()) {
+        if (isAnyOrUnknown(type)) {
             return type;
         }
 
@@ -361,14 +362,14 @@ export class TypeConstraintBuilder {
             types = types.filter(t => TypeUtils.canBeFalsy(t));
         }
 
-        return TypeUtils.combineTypes(types);
+        return combineTypes(types);
     }
 
     // Represents an "is" or "is not" None test.
     private static _transformTypeForIsNoneExpression(type: Type, isPositiveTest: boolean): Type {
         if (type instanceof UnionType) {
             const remainingTypes = type.getTypes().filter(t => {
-                if (t.isAny()) {
+                if (isAnyOrUnknown(t)) {
                     // We need to assume that "Any" is always an instance and not an instance,
                     // so it matches regardless of whether the test is positive or negative.
                     return true;
@@ -378,7 +379,7 @@ export class TypeConstraintBuilder {
                 return (t instanceof NoneType) === isPositiveTest;
             });
 
-            return TypeUtils.combineTypes(remainingTypes);
+            return combineTypes(remainingTypes);
         } else if (type instanceof NoneType) {
             if (!isPositiveTest) {
                 // Use a "Never" type (which is a special form
@@ -458,7 +459,7 @@ export class TypeConstraintBuilder {
         };
 
         const finalizeFilteredTypeList = (types: Type[]): Type => {
-            return TypeUtils.combineTypes(types);
+            return combineTypes(types);
         };
 
         if (type instanceof ObjectType) {
@@ -468,7 +469,7 @@ export class TypeConstraintBuilder {
             let remainingTypes: Type[] = [];
 
             type.getTypes().forEach(t => {
-                if (t.isAny()) {
+                if (isAnyOrUnknown(t)) {
                     // Any types always remain for both positive and negative
                     // checks because we can't say anything about them.
                     remainingTypes.push(t);

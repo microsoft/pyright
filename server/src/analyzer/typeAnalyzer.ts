@@ -18,17 +18,15 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
-    BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
-    ContinueNode, DecoratorNode, DelNode, ErrorExpressionNode, ExceptNode,
-    ExpressionNode, FormatStringNode, ForNode, FunctionNode, IfNode,
-    ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
-    ListComprehensionNode, MemberAccessExpressionNode, ModuleNode,
-    NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType,
-    RaiseNode, ReturnNode, SliceExpressionNode, StringListNode,
-    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
-    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode  } from '../parser/parseNodes';
+import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
+    BreakNode, CallExpressionNode, ClassNode, ContinueNode, DecoratorNode, DelNode,
+    ErrorExpressionNode, ExceptNode, ExpressionNode, FormatStringNode, ForNode, FunctionNode,
+    IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode, ListComprehensionNode,
+    MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParameterNode, ParseNode,
+    ParseNodeType, RaiseNode, ReturnNode, SliceExpressionNode, StringListNode, SuiteNode,
+    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
+    UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode,
+    YieldFromExpressionNode  } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { ScopeUtils } from '../scopeUtils';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -45,10 +43,10 @@ import { Scope, ScopeType } from './scope';
 import { setSymbolPreservingAccess, Symbol, SymbolTable } from './symbol';
 import { SymbolUtils } from './symbolUtils';
 import { ConditionalTypeConstraintResults, TypeConstraintBuilder } from './typeConstraint';
-import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, NeverType, NoneType,
-    ObjectType, OverloadedFunctionType, PropertyType, Type,
-    TypeVarType, UnboundType, UnionType, UnknownType } from './types';
+import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
+    FunctionTypeFlags, isAnyOrUnknown, isTypeSame, ModuleType, NeverType, NoneType, ObjectType,
+    OverloadedFunctionType, printType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion,
+    removeUnknownFromUnion, Type, TypeVarType, UnboundType, UnionType, UnknownType  } from './types';
 import { ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
 interface AliasMapEntry {
@@ -152,10 +150,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // on platform type). We'll assume that the conditional logic is correct
                 // and strip off the "unbound" union.
                 if (argType instanceof UnionType) {
-                    argType = TypeUtils.removeUnboundFromUnion(argType);
+                    argType = removeUnboundFromUnion(argType);
                 }
 
-                if (!argType.isAny()) {
+                if (!isAnyOrUnknown(argType)) {
                     if (!(argType instanceof ClassType)) {
                         let reportBaseClassError = true;
 
@@ -390,7 +388,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         isNoneWithoutOptional = true;
 
                         if (!this._fileInfo.diagnosticSettings.strictParameterNoneValue) {
-                            annotatedType = TypeUtils.combineTypes(
+                            annotatedType = combineTypes(
                                 [annotatedType, NoneType.create()]);
                         }
                     }
@@ -404,8 +402,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum, undefined)) {
                         const diag = this._addError(
-                            `Value of type '${ defaultValueType.asString() }' cannot` +
-                                ` be assiged to parameter of type '${ annotatedType.asString() }'` +
+                            `Value of type '${ printType(defaultValueType) }' cannot` +
+                                ` be assiged to parameter of type '${ printType(annotatedType) }'` +
                                 diagAddendum.getString(),
                             param.defaultValue);
 
@@ -489,14 +487,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             // Include Any in this check. If "Any" really is desired, it should
             // be made explicit through a type annotation.
-            if (inferredReturnType.isAny()) {
+            if (isAnyOrUnknown(inferredReturnType)) {
                 this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
                     `Inferred return type is unknown`, node.name);
             } else if (TypeUtils.containsUnknown(inferredReturnType)) {
                 this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
-                    `Return type '${ inferredReturnType.asString() }' is partially unknown`,
+                    `Return type '${ printType(inferredReturnType) }' is partially unknown`,
                     node.name);
             }
         }
@@ -739,13 +737,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     DiagnosticRule.reportOptionalContextManager,
                     `Object of type 'None' cannot be used with 'with'`,
                     item.expression);
-                exprType = TypeUtils.removeNoneFromUnion(exprType);
+                exprType = removeNoneFromUnion(exprType);
             }
 
             const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
 
             const scopedType = TypeUtils.doForSubtypes(exprType, subtype => {
-                if (subtype.isAny()) {
+                if (isAnyOrUnknown(subtype)) {
                     return subtype;
                 }
 
@@ -772,7 +770,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
 
-                this._addError(`Type ${ subtype.asString() } cannot be used ` +
+                this._addError(`Type ${ printType(subtype) } cannot be used ` +
                     `with 'with' because it does not implement '${ enterMethodName }'`,
                     item.expression);
                 return UnknownType.create();
@@ -837,8 +835,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const specializedDeclaredType = TypeUtils.specializeType(declaredReturnType, undefined);
                 if (!TypeUtils.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
                     this._addError(
-                        `Expression of type '${ returnType.asString() }' cannot be assigned ` +
-                            `to return type '${ specializedDeclaredType.asString() }'` +
+                        `Expression of type '${ printType(returnType) }' cannot be assigned ` +
+                            `to return type '${ printType(specializedDeclaredType) }'` +
                             diagAddendum.getString(),
                         node.returnExpression ? node.returnExpression : node);
                 }
@@ -911,17 +909,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const diagAddendum = new DiagnosticAddendum();
 
                 TypeUtils.doForSubtypes(exceptionType, subtype => {
-                    if (!subtype.isAny()) {
+                    if (!isAnyOrUnknown(subtype)) {
                         if (subtype instanceof ClassType) {
                             if (!TypeUtils.derivesFromClassRecursive(subtype, baseExceptionType)) {
-                                diagAddendum.addMessage(`'${ subtype.asString() }' does not derive from BaseException`);
+                                diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                             }
                         } else if (subtype instanceof ObjectType) {
                             if (!TypeUtils.derivesFromClassRecursive(subtype.getClassType(), baseExceptionType)) {
-                                diagAddendum.addMessage(`'${ subtype.asString() }' does not derive from BaseException`);
+                                diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                             }
                         } else {
-                            diagAddendum.addMessage(`'${ subtype.asString() }' does not derive from BaseException`);
+                            diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                         }
                     }
 
@@ -942,13 +940,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const diagAddendum = new DiagnosticAddendum();
 
                 TypeUtils.doForSubtypes(exceptionType, subtype => {
-                    if (!subtype.isAny() && !(subtype instanceof NoneType)) {
+                    if (!isAnyOrUnknown(subtype) && !(subtype instanceof NoneType)) {
                         if (subtype instanceof ObjectType) {
                             if (!TypeUtils.derivesFromClassRecursive(subtype.getClassType(), baseExceptionType)) {
-                                diagAddendum.addMessage(`'${ subtype.asString() }' does not derive from BaseException`);
+                                diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                             }
                         } else {
-                            diagAddendum.addMessage(`'${ subtype.asString() }' does not derive from BaseException`);
+                            diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                         }
                     }
 
@@ -981,7 +979,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         const entryTypes = tupleType.getTypeArguments()!.map(t => {
                             return this._validateExceptionType(t, node.typeExpression!);
                         });
-                        return TypeUtils.combineTypes(entryTypes);
+                        return combineTypes(entryTypes);
                     }
 
                     return this._validateExceptionType(
@@ -1598,7 +1596,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         const arg0Type = this._getTypeOfExpression(node.arguments[0].valueExpression);
-        if (arg0Type.isAny()) {
+        if (isAnyOrUnknown(arg0Type)) {
             return;
         }
 
@@ -1625,7 +1623,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         const finalizeFilteredTypeList = (types: Type[]): Type => {
-            return TypeUtils.combineTypes(types);
+            return combineTypes(types);
         };
 
         const filterType = (varType: ClassType): ObjectType[] => {
@@ -1659,7 +1657,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let foundAnyType = false;
 
             arg0Type.getTypes().forEach(t => {
-                if (t.isAny()) {
+                if (isAnyOrUnknown(t)) {
                     foundAnyType = true;
                 }
 
@@ -1681,22 +1679,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const getTestType = () => {
             const objTypeList = classTypeList.map(t => new ObjectType(t));
-            return TypeUtils.combineTypes(objTypeList);
+            return combineTypes(objTypeList);
         };
 
         if (filteredType instanceof NeverType) {
             this._addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
-                `Unnecessary isinstance call: '${ arg0Type.asString() }' ` +
-                    `is never instance of '${ getTestType().asString() }'`,
+                `Unnecessary isinstance call: '${ printType(arg0Type) }' ` +
+                    `is never instance of '${ printType(getTestType()) }'`,
                 node);
-        } else if (filteredType.isSame(arg0Type)) {
+        } else if (isTypeSame(filteredType, arg0Type)) {
             this._addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
-                `Unnecessary isinstance call: '${ arg0Type.asString() }' ` +
-                    `is always instance of '${ getTestType().asString() }'`,
+                `Unnecessary isinstance call: '${ printType(arg0Type) }' ` +
+                    `is always instance of '${ printType(getTestType()) }'`,
                 node);
         }
     }
@@ -1869,7 +1867,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         const nameValue = target.nameToken.value;
-        const simplifiedType = TypeUtils.removeUnboundFromUnion(type);
+        const simplifiedType = removeUnboundFromUnion(type);
         if (simplifiedType instanceof UnknownType) {
             this._addDiagnostic(diagLevel,
                 rule,
@@ -1880,7 +1878,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // to avoid confusion.
             this._addDiagnostic(diagLevel,
                 rule,
-                `Inferred type of '${ nameValue }', '${ simplifiedType.asString() }', ` +
+                `Inferred type of '${ nameValue }', '${ printType(simplifiedType) }', ` +
                 `is partially unknown`, srcExpr);
         }
     }
@@ -1954,9 +1952,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (declWithDefinedType && declaration.node !== declWithDefinedType.node) {
                 // If we're adding a declaration, make sure it's the same type as an existing declaration.
-                if (!declaration.declaredType.isSame(declWithDefinedType.declaredType!)) {
-                    this._addError(`Declared type '${ declaration.declaredType.asString() }' is not compatible ` +
-                        `with previous declared type '${ declWithDefinedType.declaredType!.asString() }'`,
+                if (!isTypeSame(declaration.declaredType, declWithDefinedType.declaredType!)) {
+                    this._addError(`Declared type '${ printType(declaration.declaredType) }' is not compatible ` +
+                        `with previous declared type '${ printType(declWithDefinedType.declaredType!) }'`,
                         errorNode);
                 }
             }
@@ -2197,7 +2195,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     // If the declared type isn't compatible with 'None', flag an error.
                     if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
-                        this._addError(`Function with declared type of '${ declaredReturnType.asString() }'` +
+                        this._addError(`Function with declared type of '${ printType(declaredReturnType) }'` +
                                 ` must return value` + diagAddendum.getString(),
                             node.returnTypeAnnotation);
                     }
@@ -2646,8 +2644,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const diagAddendum = new DiagnosticAddendum();
                 if (!TypeUtils.canAssignType(declaredYieldType, yieldType, diagAddendum)) {
                     this._addError(
-                        `Expression of type '${ yieldType.asString() }' cannot be assigned ` +
-                            `to yield type '${ declaredYieldType.asString() }'` + diagAddendum.getString(),
+                        `Expression of type '${ printType(yieldType) }' cannot be assigned ` +
+                            `to yield type '${ printType(declaredYieldType) }'` + diagAddendum.getString(),
                         node.expression);
                 }
             }
@@ -2670,13 +2668,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         let isValidExceptionType = true;
         let resultingExceptionType: Type | undefined;
 
-        if (exceptionType.isAny()) {
+        if (isAnyOrUnknown(exceptionType)) {
             resultingExceptionType = exceptionType;
         } else if (exceptionType instanceof ClassType) {
             if (!derivesFromBaseException(exceptionType)) {
                 isValidExceptionType = false;
                 diagAddendum.addMessage(
-                    `'${ exceptionType.asString() }' does not derive from BaseException`);
+                    `'${ printType(exceptionType) }' does not derive from BaseException`);
             }
             resultingExceptionType = new ObjectType(exceptionType);
         } else if (exceptionType instanceof ObjectType) {
@@ -2684,20 +2682,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const iterableType = evaluator.getTypeFromIterable(exceptionType, false, errorNode, false);
 
             resultingExceptionType = TypeUtils.doForSubtypes(iterableType, subtype => {
-                if (subtype.isAny()) {
+                if (isAnyOrUnknown(subtype)) {
                     return subtype;
                 } else if (subtype instanceof ClassType) {
                     if (!derivesFromBaseException(subtype)) {
                         isValidExceptionType = false;
                         diagAddendum.addMessage(
-                            `'${ exceptionType.asString() }' does not derive from BaseException`);
+                            `'${ printType(exceptionType) }' does not derive from BaseException`);
                     }
 
                     return new ObjectType(subtype);
                 } else {
                     isValidExceptionType = false;
                     diagAddendum.addMessage(
-                        `'${ exceptionType.asString() }' does not derive from BaseException`);
+                        `'${ printType(exceptionType) }' does not derive from BaseException`);
                     return UnknownType.create();
                 }
             });
@@ -2705,7 +2703,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (!isValidExceptionType) {
             this._addError(
-                `'${ exceptionType.asString() }' is not valid exception class` +
+                `'${ printType(exceptionType) }' is not valid exception class` +
                     diagAddendum.getString(),
                 errorNode);
         }
@@ -2715,7 +2713,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _addAssignmentTypeConstraint(node: ExpressionNode, assignmentType: Type) {
         // Don't propagate an "unbound" type to the target.
-        const typeWithoutUnbound = TypeUtils.removeUnboundFromUnion(assignmentType);
+        const typeWithoutUnbound = removeUnboundFromUnion(assignmentType);
         const typeConstraint = TypeConstraintBuilder.buildTypeConstraintForAssignment(
             node, typeWithoutUnbound);
 
@@ -2836,7 +2834,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                             // The class variable is accessed in this case.
                             this._setSymbolAccessed(memberInfo.symbol);
-                            srcType = TypeUtils.combineTypes([srcType, memberInfo.symbolType]);
+                            srcType = combineTypes([srcType, memberInfo.symbolType]);
                         }
 
                         addNewMemberToLocalClass = true;
@@ -2850,7 +2848,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (addNewMemberToLocalClass) {
                 const newSymbol = Symbol.createWithType(srcType, AnalyzerNodeInfo.getTypeSourceId(node.memberName));
 
-                // If this is an instance variable that has a corresponding class varible
+                // If this is an instance variable that has a corresponding class variable
                 // with a defined type, it should inherit that declaration (and declared type).
                 if (inheritedDeclaration) {
                     newSymbol.addDeclaration(inheritedDeclaration);
@@ -2873,7 +2871,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 ClassMemberLookupFlags.DeclaredTypesOnly);
             if (memberInfo) {
                 const declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
-                if (declaredType && !declaredType.isAny()) {
+                if (declaredType && !isAnyOrUnknown(declaredType)) {
                     if (declaredType instanceof FunctionType) {
                         // Overwriting an existing method.
                         // TODO - not sure what assumption to make here.
@@ -3021,7 +3019,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // as well.
         AnalyzerNodeInfo.setExpressionTypeReadVersion(node, this._analysisVersion);
 
-        if (!oldType || !oldType.isSame(exprType)) {
+        if (!oldType || !isTypeSame(oldType, exprType)) {
             let replaceType = true;
 
             // In rare cases, we can run into a situation where an "unknown"
@@ -3029,8 +3027,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // us from ever converging. Detect this rare condition here.
             if (this._analysisVersion > _checkForBeatingUnknownPassCount) {
                 if (oldType && exprType instanceof UnionType) {
-                    const simplifiedExprType = TypeUtils.removeUnknownFromUnion(exprType);
-                    if (oldType.isSame(simplifiedExprType)) {
+                    const simplifiedExprType = removeUnknownFromUnion(exprType);
+                    if (isTypeSame(oldType, simplifiedExprType)) {
                         replaceType = false;
                     }
                 }
@@ -3159,7 +3157,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 remainingTypes.push(entryType);
                             }
 
-                            targetTypes[target.expressions.length - 1].push(TypeUtils.combineTypes(remainingTypes));
+                            targetTypes[target.expressions.length - 1].push(combineTypes(remainingTypes));
                         } else {
                             this._addError(
                                 `Tuple size mismatch: expected at least ${ target.expressions.length } entries` +
@@ -3197,7 +3195,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             target.expressions.forEach((expr, index) => {
                 const typeList = targetTypes[index];
-                const targetType = typeList.length === 0 ? UnknownType.create() : TypeUtils.combineTypes(typeList);
+                const targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
                 this._assignTypeToExpression(expr, targetType, srcExpr);
             });
         } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
@@ -3220,7 +3218,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         this._fileInfo.lines)
                 };
 
-                if (!srcType.isAny()) {
+                if (!isAnyOrUnknown(srcType)) {
                     // Make a list type from the source.
                     const listType = ScopeUtils.getBuiltInType(this._currentScope, 'List');
                     if (listType instanceof ClassType) {
@@ -3344,8 +3342,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (declaredType && srcExpressionNode) {
             const diagAddendum = new DiagnosticAddendum();
             if (!TypeUtils.canAssignType(declaredType, srcType, diagAddendum)) {
-                this._addError(`Expression of type '${ srcType.asString() }' cannot be ` +
-                    `assigned to declared type '${ declaredType.asString() }'` + diagAddendum.getString(),
+                this._addError(`Expression of type '${ printType(srcType) }' cannot be ` +
+                    `assigned to declared type '${ printType(declaredType) }'` + diagAddendum.getString(),
                     srcExpressionNode || nameNode);
                 destType = declaredType;
             } else {

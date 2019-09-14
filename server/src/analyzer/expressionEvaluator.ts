@@ -31,14 +31,15 @@ import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { Declaration, DeclarationCategory } from './declaration';
 import { defaultTypeSourceId } from './inferredType';
 import { ParseTreeUtils } from './parseTreeUtils';
-import { Scope, ScopeType } from './scope';
+import { Scope } from './scope';
 import { setSymbolPreservingAccess, Symbol } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
-import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, LiteralValue, ModuleType, NeverType, NoneType,
-    ObjectType, OverloadedFunctionType, PropertyType, Type, TypeVarMap,
-    TypeVarType, UnionType, UnknownType } from './types';
+import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
+    FunctionType, FunctionTypeFlags, isAnyOrUnknown, isPossiblyUnbound, isTypeSame,
+    isUnbound, LiteralValue, ModuleType, NeverType, NoneType,
+    ObjectType, OverloadedFunctionType, printType, PropertyType, removeAnyFromUnion,
+    removeNoneFromUnion, requiresSpecialization, Type, TypeVarMap, TypeVarType, UnionType, UnknownType } from './types';
 import { ClassMember, ClassMemberLookupFlags, TypeUtils } from './typeUtils';
 
 interface TypeResult {
@@ -271,7 +272,7 @@ export class ExpressionEvaluator {
     // If errorNode is undefined, no errors are reported.
     getTypeFromAwaitable(type: Type, errorNode?: ParseNode): Type {
         return TypeUtils.doForSubtypes(type, subtype => {
-            if (subtype.isAny()) {
+            if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
 
@@ -284,7 +285,7 @@ export class ExpressionEvaluator {
                 const awaitReturnType = this._getSpecializedReturnType(
                     subtype, '__await__');
                 if (awaitReturnType) {
-                    if (awaitReturnType.isAny()) {
+                    if (isAnyOrUnknown(awaitReturnType)) {
                         return awaitReturnType;
                     }
 
@@ -304,7 +305,7 @@ export class ExpressionEvaluator {
             }
 
             if (errorNode) {
-                this._addError(`'${ subtype.asString() }' is not awaitable`, errorNode);
+                this._addError(`'${ printType(subtype) }' is not awaitable`, errorNode);
             }
 
             return UnknownType.create();
@@ -328,7 +329,7 @@ export class ExpressionEvaluator {
                     `Object of type 'None' cannot be used as iterable value`,
                     errorNode);
             }
-            type = TypeUtils.removeNoneFromUnion(type);
+            type = removeNoneFromUnion(type);
         }
 
         const getIteratorReturnType = (objType: ObjectType, metaclass: ClassType | undefined,
@@ -351,7 +352,7 @@ export class ExpressionEvaluator {
 
                 diag.addMessage(`'${ iterMethodName }' method not defined`);
             } else {
-                if (iterReturnType.isAny()) {
+                if (isAnyOrUnknown(iterReturnType)) {
                     return iterReturnType;
                 }
 
@@ -361,7 +362,7 @@ export class ExpressionEvaluator {
 
                     if (!nextReturnType) {
                         diag.addMessage(`'${ nextMethodName }' method not defined on type ` +
-                            `'${ iterReturnType.asString() }'`);
+                            `'${ printType(iterReturnType) }'`);
                     } else {
                         if (!isAsync) {
                             return nextReturnType;
@@ -380,7 +381,7 @@ export class ExpressionEvaluator {
         };
 
         return TypeUtils.doForSubtypes(type, subtype => {
-            if (subtype.isAny()) {
+            if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
 
@@ -406,7 +407,7 @@ export class ExpressionEvaluator {
             }
 
             if (errorNode) {
-                this._addError(`'${ subtype.asString() }' is not iterable` + diag.getString(),
+                this._addError(`'${ printType(subtype) }' is not iterable` + diag.getString(),
                     errorNode);
             }
 
@@ -529,7 +530,7 @@ export class ExpressionEvaluator {
     }
 
     private _getReturnTypeFromGenerator(type: Type): Type | undefined {
-        if (type.isAny()) {
+        if (isAnyOrUnknown(type)) {
             return type;
         }
 
@@ -555,7 +556,7 @@ export class ExpressionEvaluator {
             return undefined;
         }
 
-        if (classMember.symbolType.isAny()) {
+        if (isAnyOrUnknown(classMember.symbolType)) {
             return classMember.symbolType;
         }
 
@@ -581,7 +582,7 @@ export class ExpressionEvaluator {
             return undefined;
         }
 
-        if (classMember.symbolType.isAny()) {
+        if (isAnyOrUnknown(classMember.symbolType)) {
             return classMember.symbolType;
         }
 
@@ -764,9 +765,9 @@ export class ExpressionEvaluator {
                 // Apply type constraints to see if the unbound type is eliminated.
                 const initialType = TypeUtils.getInitialTypeOfSymbol(symbol);
                 const constrainedType = this._applyTypeConstraint(node, initialType);
-                if (constrainedType.isUnbound()) {
+                if (isUnbound(constrainedType)) {
                     this._addError(`'${ name }' is unbound`, node);
-                } else if (constrainedType.isPossiblyUnbound()) {
+                } else if (isPossiblyUnbound(constrainedType)) {
                     this._addError(`'${ name }' is possibly unbound`, node);
                 }
             }
@@ -828,7 +829,7 @@ export class ExpressionEvaluator {
 
         let type: Type | undefined;
 
-        if (baseType.isAny()) {
+        if (isAnyOrUnknown(baseType)) {
             type = baseType;
         } else if (baseType instanceof ClassType) {
             type = this.getTypeFromClassMember(node.memberName, baseType,
@@ -888,7 +889,7 @@ export class ExpressionEvaluator {
             });
 
             if (returnTypes.length > 0) {
-                type = TypeUtils.combineTypes(returnTypes);
+                type = combineTypes(returnTypes);
             }
         } else if (baseType instanceof PropertyType) {
             if (memberName === 'getter' || memberName === 'setter' || memberName === 'deleter') {
@@ -918,7 +919,7 @@ export class ExpressionEvaluator {
             // which have associated dictionaries.
             type = UnknownType.create();
         } else {
-            diag.addMessage(`Unsupported type '${ baseType.asString() }'`);
+            diag.addMessage(`Unsupported type '${ printType(baseType) }'`);
         }
 
         if (!type) {
@@ -931,7 +932,7 @@ export class ExpressionEvaluator {
 
             this._addError(
                 `Cannot ${ operationName } member '${ memberName }' ` +
-                `for type '${ baseType.asString() }'` + diag.getString(),
+                `for type '${ printType(baseType) }'` + diag.getString(),
                 node.memberName);
             type = UnknownType.create();
         }
@@ -1107,9 +1108,9 @@ export class ExpressionEvaluator {
                 const diag = new DiagnosticAddendum();
                 if (!TypeUtils.canAssignType(effectiveType, usage.setType!, diag.createAddendum())) {
                     this._addError(
-                        `Expression of type '${ usage.setType!.asString() }'` +
+                        `Expression of type '${ printType(usage.setType!) }'` +
                             ` cannot be assigned to member '${ memberName }'` +
-                            ` of class '${ classType.asString() }'` +
+                            ` of class '${ printType(classType) }'` +
                             diag.getString(),
                         errorNode);
                 }
@@ -1203,7 +1204,7 @@ export class ExpressionEvaluator {
         }
 
         const type = TypeUtils.doForSubtypes(baseType, subtype => {
-            if (subtype.isAny()) {
+            if (isAnyOrUnknown(subtype)) {
                 return subtype;
             } else if (subtype instanceof ClassType) {
                 if (subtype.isSpecialBuiltIn() && subtype.getClassName() === 'Literal') {
@@ -1241,7 +1242,7 @@ export class ExpressionEvaluator {
                 return UnknownType.create();
             } else {
                 this._addError(
-                    `Object of type '${ subtype.asString() }' cannot be subscripted`,
+                    `Object of type '${ printType(subtype) }' cannot be subscripted`,
                     node.baseExpression);
 
                 return UnknownType.create();
@@ -1276,7 +1277,7 @@ export class ExpressionEvaluator {
 
         if (!itemMethodType) {
             this._addError(
-                `Object of type '${ baseType.asString() }' does not define ` +
+                `Object of type '${ printType(baseType) }' does not define ` +
                     `'${ magicMethodName }'`,
                 node.baseExpression);
             return UnknownType.create();
@@ -1397,7 +1398,7 @@ export class ExpressionEvaluator {
         }
 
         // Handle the special-case "reveal_type" call.
-        if (baseTypeResult.type.isAny() &&
+        if (isAnyOrUnknown(baseTypeResult.type) &&
                 node.leftExpression.nodeType === ParseNodeType.Name &&
                 node.leftExpression.nameToken.value === 'reveal_type' &&
                 node.arguments.length === 1 &&
@@ -1407,7 +1408,7 @@ export class ExpressionEvaluator {
             const type = this.getType(node.arguments[0].valueExpression);
             const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
             this._addWarning(
-                `Type of '${ exprString }' is '${ type.asString() }'`,
+                `Type of '${ exprString }' is '${ printType(type) }'`,
                 node.arguments[0]);
             return { type: AnyType.create(), node };
         }
@@ -1438,10 +1439,10 @@ export class ExpressionEvaluator {
         if (node.arguments.length > 0) {
             targetClassType = this._getTypeFromExpression(node.arguments[0].valueExpression).type;
 
-            if (!targetClassType.isAny() && !(targetClassType instanceof ClassType)) {
+            if (!isAnyOrUnknown(targetClassType) && !(targetClassType instanceof ClassType)) {
                 this._addError(
                     `Expected class type as first argument to super() call but received ` +
-                        `'${ targetClassType.asString() }'`,
+                        `'${ printType(targetClassType) }'`,
                     node.arguments[0].valueExpression);
             }
         } else {
@@ -1463,7 +1464,7 @@ export class ExpressionEvaluator {
 
             let reportError = false;
 
-            if (constrainedClassType.isAny()) {
+            if (isAnyOrUnknown(constrainedClassType)) {
                 // Ignore unknown or any types.
             } else if (constrainedClassType instanceof ObjectType) {
                 const childClassType = constrainedClassType.getClassType();
@@ -1484,7 +1485,7 @@ export class ExpressionEvaluator {
 
             if (reportError) {
                 this._addError(
-                    `Second argument to super() call must be object or class that derives from '${ targetClassType.asString() }'`,
+                    `Second argument to super() call must be object or class that derives from '${ printType(targetClassType) }'`,
                     node.arguments[1].valueExpression);
             }
         }
@@ -1627,11 +1628,11 @@ export class ExpressionEvaluator {
                     const castToType = argList[0].type;
                     const castFromType = argList[1].type;
                     if (castToType instanceof ClassType && castFromType instanceof ObjectType) {
-                        if (castToType.isSame(castFromType.getClassType())) {
+                        if (isTypeSame(castToType, castFromType.getClassType())) {
                             this._addDiagnostic(
                                 this._fileInfo.diagnosticSettings.reportUnnecessaryCast,
                                 DiagnosticRule.reportUnnecessaryCast,
-                                `Unnecessary call to cast: type is already ${ castFromType.asString() }`,
+                                `Unnecessary call to cast: type is already ${ printType(castFromType) }`,
                                 errorNode);
                         }
                     }
@@ -1645,7 +1646,7 @@ export class ExpressionEvaluator {
             } else {
                 const exprString = ParseTreeUtils.printExpression(errorNode);
                 const diagAddendum = new DiagnosticAddendum();
-                const argTypes = argList.map(t => t.type.asString());
+                const argTypes = argList.map(t => printType(t.type));
                 diagAddendum.addMessage(`Argument types: (${ argTypes.join(', ') })`);
                 this._addError(
                     `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
@@ -1656,7 +1657,7 @@ export class ExpressionEvaluator {
             // Handle the "Type" object specially.
             const classFromTypeObject = this._getClassFromPotentialTypeObject(callType);
             if (classFromTypeObject) {
-                if (classFromTypeObject.isAny()) {
+                if (isAnyOrUnknown(classFromTypeObject)) {
                     type = classFromTypeObject;
                 } else if (classFromTypeObject instanceof ClassType) {
                     type = this._validateConstructorArguments(errorNode,
@@ -1697,16 +1698,16 @@ export class ExpressionEvaluator {
             });
 
             if (returnTypes.length > 0) {
-                type = TypeUtils.combineTypes(returnTypes);
+                type = combineTypes(returnTypes);
             }
-        } else if (callType.isAny()) {
+        } else if (isAnyOrUnknown(callType)) {
             type = callType;
         }
 
         if (!type) {
             this._addError(
                 `'${ ParseTreeUtils.printExpression(errorNode) }' has type ` +
-                `'${ callType.asString() }' and is not callable`,
+                `'${ printType(callType) }' and is not callable`,
                 errorNode);
             type = UnknownType.create();
         }
@@ -1812,7 +1813,7 @@ export class ExpressionEvaluator {
 
         let returnType: Type | undefined;
 
-        if (callType.isAny()) {
+        if (isAnyOrUnknown(callType)) {
             returnType = callType;
         } else if (callType instanceof FunctionType) {
             returnType = this._validateFunctionArguments(errorNode, argList, callType, typeVarMap);
@@ -1825,7 +1826,7 @@ export class ExpressionEvaluator {
             } else {
                 const exprString = ParseTreeUtils.printExpression(errorNode);
                 const diagAddendum = new DiagnosticAddendum();
-                const argTypes = argList.map(t => t.type.asString());
+                const argTypes = argList.map(t => printType(t.type));
                 diagAddendum.addMessage(`Argument types: (${ argTypes.join(', ') })`);
                 this._addError(
                     `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
@@ -1869,7 +1870,7 @@ export class ExpressionEvaluator {
             }
 
             if (returnTypes.length > 0) {
-                returnType = TypeUtils.combineTypes(returnTypes);
+                returnType = combineTypes(returnTypes);
             }
         }
 
@@ -2082,9 +2083,9 @@ export class ExpressionEvaluator {
         if (!TypeUtils.canAssignType(paramType, argType, diag.createAddendum(), typeVarMap)) {
             const optionalParamName = paramName ? `'${ paramName }' ` : '';
             this._addError(
-                `Argument of type '${ argType.asString() }'` +
+                `Argument of type '${ printType(argType) }'` +
                     ` cannot be assigned to parameter ${ optionalParamName }` +
-                    `of type '${ paramType.asString() }'` +
+                    `of type '${ printType(paramType) }'` +
                     diag.getString(),
                 errorNode);
             return false;
@@ -2129,7 +2130,7 @@ export class ExpressionEvaluator {
                             `A TypeVar cannot be both bound and constrained`,
                             argList[i].valueExpression || errorNode);
                     } else {
-                        if (argList[i].type.requiresSpecialization()) {
+                        if (requiresSpecialization(argList[i].type)) {
                             this._addError(
                                 `A TypeVar bound type cannot be generic`,
                                 argList[i].valueExpression || errorNode);
@@ -2169,7 +2170,7 @@ export class ExpressionEvaluator {
                         `A TypeVar cannot be both bound and constrained`,
                         argList[i].valueExpression || errorNode);
                 } else {
-                    if (argList[i].type.requiresSpecialization()) {
+                    if (requiresSpecialization(argList[i].type)) {
                         this._addError(
                             `A TypeVar constraint type cannot be generic`,
                             argList[i].valueExpression || errorNode);
@@ -2621,7 +2622,7 @@ export class ExpressionEvaluator {
                     `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                     `supported for 'None' type`,
                     node.expression);
-                exprType = TypeUtils.removeNoneFromUnion(exprType);
+                exprType = removeNoneFromUnion(exprType);
             }
         }
 
@@ -2629,7 +2630,7 @@ export class ExpressionEvaluator {
         if (node.operator === OperatorType.Not) {
             type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
         } else {
-            if (exprType.isAny()) {
+            if (isAnyOrUnknown(exprType)) {
                 type = exprType;
             } else {
                 const magicMethodName = unaryOperatorMap[node.operator];
@@ -2639,7 +2640,7 @@ export class ExpressionEvaluator {
 
             if (!type) {
                 this._addError(`Operator '${ ParseTreeUtils.printOperator(node.operator) }'` +
-                    ` not supported for type '${ exprType.asString() }'`,
+                    ` not supported for type '${ printType(exprType) }'`,
                     node);
                 type = UnknownType.create();
             }
@@ -2679,12 +2680,12 @@ export class ExpressionEvaluator {
                         `supported for 'None' type`,
                         node.leftExpression);
                 }
-                leftType = TypeUtils.removeNoneFromUnion(leftType);
+                leftType = removeNoneFromUnion(leftType);
             }
 
             // None is a valid operand for == and != even if the type stub says otherwise.
             if (node.operator === OperatorType.Equals || node.operator === OperatorType.NotEquals) {
-                rightType = TypeUtils.removeNoneFromUnion(rightType);
+                rightType = removeNoneFromUnion(rightType);
             }
         }
 
@@ -2716,7 +2717,7 @@ export class ExpressionEvaluator {
         const leftType = this.getType(node.leftExpression);
         const rightType = this.getType(node.rightExpression);
 
-        if (!leftType.isAny() && !rightType.isAny()) {
+        if (!isAnyOrUnknown(leftType) && !isAnyOrUnknown(rightType)) {
             const magicMethodName = operatorMap[node.operator][0];
             type = this._getTypeFromMagicMethodReturn(rightType, [leftType],
                 magicMethodName, node);
@@ -2738,7 +2739,7 @@ export class ExpressionEvaluator {
         let type: Type | undefined;
 
         if (arithmeticOperatorMap[operator]) {
-            if (leftType.isAny() || rightType.isAny()) {
+            if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
                 // If either type is "Unknown" (versus Any), propagate the Unknown.
                 if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
                     type = UnknownType.create();
@@ -2749,8 +2750,8 @@ export class ExpressionEvaluator {
                 const supportsBuiltInTypes = arithmeticOperatorMap[operator][2];
 
                 if (supportsBuiltInTypes) {
-                    const simplifiedLeftType = TypeUtils.removeAnyFromUnion(leftType);
-                    const simplifiedRightType = TypeUtils.removeAnyFromUnion(rightType);
+                    const simplifiedLeftType = removeAnyFromUnion(leftType);
+                    const simplifiedRightType = removeAnyFromUnion(rightType);
                     if (simplifiedLeftType instanceof ObjectType && simplifiedRightType instanceof ObjectType) {
                         const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
                         const getTypeMatch = (classType: ClassType): boolean[] => {
@@ -2795,7 +2796,7 @@ export class ExpressionEvaluator {
                 }
             }
         } else if (bitwiseOperatorMap[operator]) {
-            if (leftType.isAny() || rightType.isAny()) {
+            if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
                 // If either type is "Unknown" (versus Any), propagate the Unknown.
                 if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
                     type = UnknownType.create();
@@ -2821,7 +2822,7 @@ export class ExpressionEvaluator {
                     magicMethodName, errorNode);
             }
         } else if (comparisonOperatorMap[operator]) {
-            if (leftType.isAny() || rightType.isAny()) {
+            if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
                 // If either type is "Unknown" (versus Any), propagate the Unknown.
                 if (leftType instanceof UnknownType || rightType instanceof UnknownType) {
                     type = UnknownType.create();
@@ -2837,10 +2838,10 @@ export class ExpressionEvaluator {
         } else if (booleanOperatorMap[operator]) {
             if (operator === OperatorType.And) {
                 // If the operator is an AND or OR, we need to combine the two types.
-                type = TypeUtils.combineTypes([
+                type = combineTypes([
                     TypeUtils.removeTruthinessFromType(leftType), rightType]);
             } else if (operator === OperatorType.Or) {
-                type = TypeUtils.combineTypes([
+                type = combineTypes([
                     TypeUtils.removeFalsinessFromType(leftType), rightType]);
             } else {
                 // The other boolean operators always return a bool value.
@@ -2850,7 +2851,7 @@ export class ExpressionEvaluator {
 
         if (!type) {
             this._addError(`Operator '${ ParseTreeUtils.printOperator(operator) }' not ` +
-                `supported for types '${ leftType.asString() }' and '${ rightType.asString() }'`,
+                `supported for types '${ printType(leftType) }' and '${ printType(rightType) }'`,
                 errorNode);
             type = UnknownType.create();
         }
@@ -2896,7 +2897,7 @@ export class ExpressionEvaluator {
         };
 
         const returnType = TypeUtils.doForSubtypes(objType, subtype => {
-            if (subtype.isAny()) {
+            if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
 
@@ -2943,7 +2944,7 @@ export class ExpressionEvaluator {
         });
 
         const inferredEntryType = entryTypes.length > 0 ?
-            TypeUtils.combineTypes(entryTypes) :
+            combineTypes(entryTypes) :
             UnknownType.create();
 
         const type = ScopeUtils.getBuiltInObject(this._scope, 'set', [inferredEntryType]);
@@ -2971,7 +2972,7 @@ export class ExpressionEvaluator {
 
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
                 const unexpandedType = this.getType(entryNode.expandExpression);
-                if (unexpandedType.isAny()) {
+                if (isAnyOrUnknown(unexpandedType)) {
                     addUnknown = false;
                 } else {
                     if (unexpandedType instanceof ObjectType) {
@@ -3015,7 +3016,7 @@ export class ExpressionEvaluator {
             }
         });
 
-        keyType = keyTypes.length > 0 ? TypeUtils.combineTypes(keyTypes) : AnyType.create();
+        keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : AnyType.create();
 
         // If the value type differs and we're not using "strict inference mode",
         // we need to back off because we can't properly represent the mappings
@@ -3024,7 +3025,7 @@ export class ExpressionEvaluator {
         // be the same.
         if (valueTypes.length > 0) {
             if (this._fileInfo.diagnosticSettings.strictDictionaryInference) {
-                valueType = TypeUtils.combineTypes(valueTypes);
+                valueType = combineTypes(valueTypes);
             } else {
                 valueType = TypeUtils.areTypesSame(valueTypes) ? valueTypes[0] : UnknownType.create();
             }
@@ -3048,7 +3049,7 @@ export class ExpressionEvaluator {
 
             if (entryTypes.length > 0) {
                 if (this._fileInfo.diagnosticSettings.strictListInference) {
-                    listEntryType = TypeUtils.combineTypes(entryTypes);
+                    listEntryType = combineTypes(entryTypes);
                 } else {
                     // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
                     listEntryType = TypeUtils.areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
@@ -3079,7 +3080,7 @@ export class ExpressionEvaluator {
                 { method: 'get' }, flags);
         });
 
-        const type = TypeUtils.combineTypes([ifType!.type, elseType!.type]);
+        const type = combineTypes([ifType!.type, elseType!.type]);
         return { type, node };
     }
 
@@ -3204,7 +3205,7 @@ export class ExpressionEvaluator {
             // Assign the resulting types to the individual names in the tuple target expression.
             targetExpr.expressions.forEach((expr, index) => {
                 const typeList = targetTypes[index];
-                const targetType = typeList.length === 0 ? UnknownType.create() : TypeUtils.combineTypes(typeList);
+                const targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
                 if (!this._assignTypeToExpression(expr, targetType, srcExpr)) {
                     understoodType = false;
                 }
@@ -3292,7 +3293,7 @@ export class ExpressionEvaluator {
 
     private _getTypeFromSliceExpression(node: SliceExpressionNode): TypeResult {
         const intObject = ScopeUtils.getBuiltInObject(this._scope, 'int');
-        const optionalIntObject = TypeUtils.combineTypes([intObject, NoneType.create()]);
+        const optionalIntObject = combineTypes([intObject, NoneType.create()]);
 
         const validateIndexType = (indexExpr: ExpressionNode) => {
             const exprType = TypeUtils.stripLiteralValue(this.getType(indexExpr));
@@ -3385,7 +3386,7 @@ export class ExpressionEvaluator {
             this._addError(`Module not allowed in this context`, typeArgs[0].node);
         }
 
-        return TypeUtils.combineTypes([
+        return combineTypes([
             TypeUtils.convertClassToObject(typeArgs[0].type),
             NoneType.create()]);
     }
@@ -3448,7 +3449,7 @@ export class ExpressionEvaluator {
             literalTypes.push(type);
         }
 
-        return TypeUtils.convertClassToObject(TypeUtils.combineTypes(literalTypes));
+        return TypeUtils.convertClassToObject(combineTypes(literalTypes));
     }
 
     // Creates a ClassVar type.
@@ -3463,7 +3464,7 @@ export class ExpressionEvaluator {
 
         const type = typeArgs[0].type;
 
-        if (type.requiresSpecialization()) {
+        if (requiresSpecialization(type)) {
             this._addError(`ClassVar cannot contain generic type variables`,
                 typeArgs.length > 0 ? typeArgs[0].node : errorNode);
             return UnknownType.create();
@@ -3534,7 +3535,7 @@ export class ExpressionEvaluator {
         }
 
         if (types.length > 0) {
-            return TypeUtils.combineTypes(types);
+            return combineTypes(types);
         }
 
         return NeverType.create();
@@ -3577,7 +3578,7 @@ export class ExpressionEvaluator {
 
     private _applyTypeConstraint(node: ExpressionNode, unconstrainedType: Type): Type {
         // Shortcut the process if the type is unknown.
-        if (unconstrainedType.isAny()) {
+        if (isAnyOrUnknown(unconstrainedType)) {
             return unconstrainedType;
         }
 
@@ -3721,7 +3722,7 @@ export class ExpressionEvaluator {
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
                 if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
-                    this._addError(`Type '${ typeArgType.asString() }' ` +
+                    this._addError(`Type '${ printType(typeArgType) }' ` +
                             `cannot be assigned to type variable '${ typeParameters[index].getName() }'` +
                             diag.getString(),
                         typeArgs![index].node);

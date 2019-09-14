@@ -10,8 +10,7 @@
 * analysis proceeds.
 */
 
-import { ClassType, ObjectType, Type, UnknownType } from './types';
-import { TypeUtils } from './typeUtils';
+import { ClassType, combineTypes, isTypeSame, ObjectType, Type, UnknownType } from './types';
 
 // A type can be inferred from multiple sources. Each sources
 // has a type and a unique ID, which remains constant through
@@ -67,7 +66,7 @@ export class InferredType {
         // Is this source already known?
         const sourceIndex = this._sources.findIndex(src => src.sourceId === sourceId);
         if (sourceIndex >= 0) {
-            if (this._sources[sourceIndex].type.isSame(type)) {
+            if (isTypeSame(this._sources[sourceIndex].type, type)) {
                 return false;
             }
 
@@ -108,10 +107,10 @@ export class InferredType {
         if (sourceTypes.length === 0) {
             newCombinedType = UnknownType.create();
         } else {
-            newCombinedType = TypeUtils.combineTypes(sourceTypes);
+            newCombinedType = combineTypes(sourceTypes);
         }
 
-        if (!newCombinedType.isSame(this._combinedType)) {
+        if (!isTypeSame(newCombinedType, this._combinedType)) {
             this._combinedType = newCombinedType;
             return true;
         }
