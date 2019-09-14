@@ -111,6 +111,10 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
                 symbolKind = SymbolKind.Method;
                 break;
 
+            case DeclarationCategory.Property:
+                symbolKind = SymbolKind.Property;
+                break;
+
             case DeclarationCategory.Module:
                 symbolKind = SymbolKind.Module;
                 break;

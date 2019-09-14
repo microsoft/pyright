@@ -542,9 +542,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Validate that the function returns the declared type.
         this._validateFunctionReturn(node, functionType, functionScope);
+        const declarationCategory = decoratedType.category === TypeCategory.Property ?
+            DeclarationCategory.Property :
+            (containingClassNode ? DeclarationCategory.Method : DeclarationCategory.Function);
 
         const declaration: Declaration = {
-            category: containingClassNode ? DeclarationCategory.Method : DeclarationCategory.Function,
+            category: declarationCategory,
             node: node.name,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
@@ -1297,7 +1300,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitMemberAccess(node: MemberAccessExpressionNode) {
         this._getTypeOfExpression(node);
 
-        const leftExprType = this._getTypeOfExpression(node.leftExpression);
+        this._getTypeOfExpression(node.leftExpression);
         this._conditionallyReportPrivateUsage(node.memberName);
 
         // Walk the leftExpression but not the memberName.

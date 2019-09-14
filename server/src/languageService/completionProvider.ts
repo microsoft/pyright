@@ -650,6 +650,7 @@ export class CompletionProvider {
                         break;
 
                     case DeclarationCategory.Function:
+                    case DeclarationCategory.Property:
                     case DeclarationCategory.Method:
                         if (type.category === TypeCategory.OverloadedFunction) {
                             typeDetail = type.overloads.map(overload =>
@@ -828,6 +829,9 @@ export class CompletionProvider {
 
             case DeclarationCategory.Method:
                 return CompletionItemKind.Method;
+
+            case DeclarationCategory.Property:
+                return CompletionItemKind.Property;
 
             case DeclarationCategory.Class:
                 return CompletionItemKind.Class;

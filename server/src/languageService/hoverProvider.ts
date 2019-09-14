@@ -115,6 +115,16 @@ export class HoverProvider {
                 break;
             }
 
+            case DeclarationCategory.Property: {
+                if (node.nodeType === ParseNodeType.Name) {
+                    this._addResultsPart(parts, '(property) ' + node.nameToken.value +
+                        this._getTypeText(node), true);
+                    this._addDocumentationPart(parts, node);
+                    return;
+                }
+                break;
+            }
+
             case DeclarationCategory.Method: {
                 if (node.nodeType === ParseNodeType.Name) {
                     this._addResultsPart(parts, '(method) ' + node.nameToken.value +

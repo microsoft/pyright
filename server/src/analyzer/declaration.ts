@@ -18,6 +18,7 @@ export const enum DeclarationCategory {
     Parameter,
     Function,
     Method,
+    Property,
     Class,
     Module
 }
@@ -27,7 +28,7 @@ export interface Declaration {
     // Used by hover provider to display helpful text.
     category: DeclarationCategory;
 
-    // The node that contains the definition.
+    // The node that contains the declaration.
     node?: ParseNode;
 
     // Declared type (if specified) of the symbol.
