@@ -10,14 +10,10 @@
 * language services (e.g. hover information).
 */
 
-import { ParseNode, StringListNode } from '../parser/parseNodes';
+import { ParseNode } from '../parser/parseNodes';
 import { ImportResult } from './importResult';
-import { TypeSourceId } from './inferredType';
 import { Scope, ScopeType } from './scope';
 import { Type } from './types';
-
-// An always-incrementing ID for assigning to nodes.
-let _nextTypeSourceId: TypeSourceId = 1;
 
 interface AnalyzerNodeInfo {
     //---------------------------------------------------------------
@@ -41,15 +37,11 @@ interface AnalyzerNodeInfo {
     // avoid recomputing types repeatedly.
     _expressionType?: Type;
 
-    // Version of cached expressionType.
+    // Analysis pass that last wrote to the cache.
     _expressionTypeWriteVersion?: number;
 
-    // Version that last accessed the cache.
+    // Analysis pass that last accessed the cache.
     _expressionTypeReadVersion?: number;
-
-    // "Type source ID", a number that is unique per node within a
-    // parse tree. for NameNode's.
-    _typeSourceId?: TypeSourceId;
 }
 
 // Cleans out all fields that are added by the analyzer phases
@@ -61,7 +53,6 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
     delete analyzerNode._expressionType;
     delete analyzerNode._expressionTypeWriteVersion;
     delete analyzerNode._expressionTypeReadVersion;
-    delete analyzerNode._typeSourceId;
 }
 
 export function getScope(node: ParseNode): Scope | undefined {
@@ -129,13 +120,4 @@ export function getExpressionTypeReadVersion(node: ParseNode): number | undefine
 export function setExpressionTypeReadVersion(node: ParseNode, version: number) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode._expressionTypeReadVersion = version;
-}
-
-export function getTypeSourceId(node: ParseNode): TypeSourceId {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    if (analyzerNode._typeSourceId === undefined) {
-        analyzerNode._typeSourceId = _nextTypeSourceId++;
-    }
-
-    return analyzerNode._typeSourceId;
 }

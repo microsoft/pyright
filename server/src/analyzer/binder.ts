@@ -189,8 +189,7 @@ export abstract class Binder extends ParseTreeWalker {
         }
 
         const classType = ClassType.create(node.name.nameToken.value, classFlags,
-            AnalyzerNodeInfo.getTypeSourceId(node),
-            this._getDocString(node.suite.statements));
+            node.id, this._getDocString(node.suite.statements));
 
         this._bindName(node.name.nameToken.value);
 
@@ -242,8 +241,7 @@ export abstract class Binder extends ParseTreeWalker {
         // Add the class symbol. We do this in the binder to speed
         // up overall analysis times. Without this, the type analyzer needs
         // to do more passes to resolve classes.
-        this._addSymbolToPermanentScope(node.name.nameToken.value, classType,
-            AnalyzerNodeInfo.getTypeSourceId(node.name));
+        this._addSymbolToPermanentScope(node.name.nameToken.value, classType, node.name.id);
 
         return false;
     }

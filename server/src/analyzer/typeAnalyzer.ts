@@ -605,7 +605,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Infer the return type.
             const returnType = this._getTypeOfExpression(node.expression);
             FunctionType.getInferredReturnType(functionType).addSource(
-                returnType, AnalyzerNodeInfo.getTypeSourceId(node.expression));
+                returnType, node.expression.id);
 
             // Walk the children.
             this.walkMultiple([...node.parameters, node.expression]);
@@ -825,7 +825,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             returnType = NoneType.create();
         }
 
-        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
+        const typeSourceId = node.id;
         this._currentScope.getReturnType().addSource(returnType, typeSourceId);
 
         if (declaredReturnType) {
@@ -858,7 +858,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitYield(node: YieldExpressionNode) {
         let yieldType = this._getTypeOfExpression(node.expression);
-        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
+        const typeSourceId = node.expression.id;
         this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
         // Wrap the yield type in an Iterator.
@@ -876,7 +876,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitYieldFrom(node: YieldFromExpressionNode) {
         const yieldType = this._getTypeOfExpression(node.expression);
-        const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node.expression);
+        const typeSourceId = node.expression.id;
         this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
 
         this._validateYieldType(node, yieldType);
@@ -1012,9 +1012,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // Use the type source ID of the except node to avoid conflict with
                 // the node.name type source.
                 const unboundType = UnboundType.create();
-                this._addTypeSourceToName(node.name.nameToken.value, unboundType,
-                    AnalyzerNodeInfo.getTypeSourceId(node));
-
+                this._addTypeSourceToName(node.name.nameToken.value, unboundType, node.id);
                 this._addAssignmentTypeConstraint(node.name, unboundType);
             }
         }
@@ -1405,8 +1403,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     moduleFields.forEach((boundValue, fieldName) => {
                         this._addSymbolToPermanentScope(fieldName);
                         this._addTypeSourceToName(fieldName, TypeUtils.getEffectiveTypeOfSymbol(boundValue),
-                            AnalyzerNodeInfo.getTypeSourceId(node),
-                            boundValue.hasDeclarations() ? boundValue.getDeclarations()[0] : undefined);
+                            node.id, boundValue.hasDeclarations() ? boundValue.getDeclarations()[0] : undefined);
                     });
 
                     // Import the fields in the current permanent scope.
@@ -1414,8 +1411,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
                         if (moduleType) {
                             this._addSymbolToPermanentScope(implicitImport.name);
-                            this._addTypeSourceToName(implicitImport.name, moduleType,
-                                AnalyzerNodeInfo.getTypeSourceId(node));
+                            this._addTypeSourceToName(implicitImport.name, moduleType, node.id);
                         }
                     });
                 }
@@ -1798,7 +1794,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // Synthesize a class.
                 const specialClassType = ClassType.create(assignedName,
                     ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-                    AnalyzerNodeInfo.getTypeSourceId(node));
+                    node.id);
 
                 const aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
                     assignedName.toLowerCase());
@@ -2185,9 +2181,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Add the "None" type if the function doesn't always return.
         if (!functionScope.getAlwaysReturnsOrRaises()) {
-            if (inferredReturnType.addSource(NoneType.create(),
-                    AnalyzerNodeInfo.getTypeSourceId(node))) {
-
+            if (inferredReturnType.addSource(NoneType.create(), node.id)) {
                 this._setAnalysisChanged('Function inferred None changed');
             }
 
@@ -2216,13 +2210,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // the "NoReturn" type. Skip this for abstract methods which
             // often are implemented with "raise NotImplementedError()".
             const noReturnType = evaluator.getTypingType('NoReturn') as ClassType;
-            if (noReturnType && inferredReturnType.addSource(ObjectType.create(noReturnType),
-                    AnalyzerNodeInfo.getTypeSourceId(node))) {
-
+            if (noReturnType && inferredReturnType.addSource(ObjectType.create(noReturnType), node.id)) {
                 this._setAnalysisChanged('Function inferred NoReturn changed');
             }
         } else {
-            if (inferredReturnType.removeSource(AnalyzerNodeInfo.getTypeSourceId(node))) {
+            if (inferredReturnType.removeSource(node.id)) {
                 this._setAnalysisChanged('Function inferred return type changed');
             }
         }
@@ -2329,7 +2321,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (decoratorType.category === TypeCategory.Class && ClassType.getClassName(decoratorType) === 'overload') {
             const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
             const existingSymbol = permanentScope.lookUpSymbol(node.name.nameToken.value);
-            const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
+            const typeSourceId = node.id;
             if (inputFunctionType.category === TypeCategory.Function) {
                 if (existingSymbol) {
                     const symbolType = TypeUtils.getEffectiveTypeOfSymbol(existingSymbol);
@@ -2798,7 +2790,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // If an expression contains both a type annotation and an assigment, we want
                     // to generate two sources because the types may different, and the analysis
                     // won't converge if we use the same source ID for both.
-                    const sourceId = AnalyzerNodeInfo.getTypeSourceId(typeAnnotationNode || node.memberName);
+                    const sourceId = (typeAnnotationNode || node.memberName).id;
                     if (symbol!.setInferredTypeForSource(srcType, sourceId)) {
                         this._setAnalysisChanged('Class member inferred type changed');
                     }
@@ -2856,7 +2848,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (addNewMemberToLocalClass) {
-                const newSymbol = Symbol.createWithType(srcType, AnalyzerNodeInfo.getTypeSourceId(node.memberName));
+                const newSymbol = Symbol.createWithType(srcType, node.memberName.id);
 
                 // If this is an instance variable that has a corresponding class variable
                 // with a defined type, it should inherit that declaration (and declared type).
@@ -3375,9 +3367,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _addTypeSourceToNameNode(node: NameNode, type: Type, declaration?: Declaration) {
-        this._addTypeSourceToName(node.nameToken.value, type,
-            AnalyzerNodeInfo.getTypeSourceId(node), declaration);
-
+        this._addTypeSourceToName(node.nameToken.value, type, node.id, declaration);
         this._addAssignmentTypeConstraint(node, type);
     }
 

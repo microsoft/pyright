@@ -2251,8 +2251,7 @@ export class ExpressionEvaluator {
         // analysis path. If this is the first pass, allocate a new ClassType.
         let classType = cachedCallType as ClassType;
         if (!classType || classType.category !== TypeCategory.Class) {
-            classType = ClassType.create(className, ClassTypeFlags.None,
-                AnalyzerNodeInfo.getTypeSourceId(errorNode));
+            classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
 
             AnalyzerNodeInfo.setExpressionType(errorNode, classType);
             ClassType.addBaseClass(classType, enumClass, false);
@@ -2334,8 +2333,7 @@ export class ExpressionEvaluator {
             // analysis path. If this is the first pass, allocate a new ClassType.
             let classType = cachedCallType as ClassType;
             if (!classType || classType.category !== TypeCategory.Class) {
-                classType = ClassType.create(className, ClassTypeFlags.None,
-                    AnalyzerNodeInfo.getTypeSourceId(errorNode));
+                classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
 
                 AnalyzerNodeInfo.setExpressionType(errorNode, classType);
                 ClassType.addBaseClass(classType, baseClass, false);
@@ -2379,8 +2377,7 @@ export class ExpressionEvaluator {
         // analysis path. If this is the first pass, allocate a new ClassType.
         let classType = cachedCallType as ClassType;
         if (!classType || classType.category !== TypeCategory.Class) {
-            classType = ClassType.create(className, ClassTypeFlags.None,
-                AnalyzerNodeInfo.getTypeSourceId(errorNode));
+            classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
 
             AnalyzerNodeInfo.setExpressionType(errorNode, classType);
             const builtInNamedTuple = this.getTypingType('NamedTuple') || UnknownType.create();
@@ -3172,7 +3169,7 @@ export class ExpressionEvaluator {
 
     private _assignTypeToNameNode(targetExpr: NameNode, type: Type) {
         const symbol = this._scope.addSymbol(targetExpr.nameToken.value, false);
-        symbol.setInferredTypeForSource(type, AnalyzerNodeInfo.getTypeSourceId(targetExpr));
+        symbol.setInferredTypeForSource(type, targetExpr.id);
 
         // Mark the symbol as accessed. These symbols are not persisted
         // between analysis passes, so we never have an opportunity to
