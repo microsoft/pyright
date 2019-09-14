@@ -21,9 +21,9 @@ import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNo
     CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, DictionaryNode,
     ExpressionNode, IndexExpressionNode, IndexItemsNode, isExpressionNode, LambdaNode,
     ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode, ParameterCategory,
-    ParseNode, ParseNodeType, SetNode, SliceExpressionNode, TernaryExpressionNode,
-    TupleExpressionNode, UnaryExpressionNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+    ParseNode, ParseNodeType, SetNode, SliceExpressionNode, StringListNode,
+    TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -533,6 +533,26 @@ export class ExpressionEvaluator {
         return TypeUtils.getEffectiveTypeOfSymbol(symbol);
     }
 
+    // Determines whether the specified string literal is part
+    // of a Literal['xxx'] statement. If so, we will not treat
+    // the string as a normal forward-declared type annotation.
+    static isAnnotationLiteralValue(node: StringListNode): boolean {
+        if (node.parent && node.parent.nodeType === ParseNodeType.IndexItems) {
+            const indexItemsNode = node.parent;
+            if (indexItemsNode.parent && indexItemsNode.parent.nodeType === ParseNodeType.Index) {
+                const indexNode = indexItemsNode.parent;
+                const baseType = AnalyzerNodeInfo.getExpressionType(indexNode.baseExpression);
+                if (baseType && baseType.category === TypeCategory.Class) {
+                    if (ClassType.isSpecialBuiltIn(baseType, 'Literal')) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     private _getReturnTypeFromGenerator(type: Type): Type | undefined {
         if (isAnyOrUnknown(type)) {
             return type;
@@ -628,7 +648,7 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromConstantExpression(node);
         } else if (node.nodeType === ParseNodeType.StringList) {
             this._reportUsageErrorForReadOnly(node, usage);
-            if (node.typeAnnotation && !AnalyzerNodeInfo.getIgnoreTypeAnnotation(node)) {
+            if (node.typeAnnotation && !ExpressionEvaluator.isAnnotationLiteralValue(node)) {
                 let typeResult: TypeResult = { node, type: UnknownType.create() };
 
                 // Temporarily suppress checks for unbound variables, since forward
@@ -3423,11 +3443,6 @@ export class ExpressionEvaluator {
             let type: Type | undefined;
 
             if (item.nodeType === ParseNodeType.StringList) {
-                // Note that the contents of the string should not be treated
-                // as a type annotation, as they normally are for quoted type
-                // arguments.
-                AnalyzerNodeInfo.setIgnoreTypeAnnotation(item);
-
                 const isBytes = (item.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
                 const value = item.strings.map(s => s.value).join('');
                 if (isBytes) {

@@ -30,8 +30,8 @@ interface AnalyzerNodeInfo {
     // Set by Binder
 
     // Scope for nodes that introduce scopes: modules, functions,
-    // classes, and lambdas. A scope is used to store symbol names
-    // and their associated types and declarations.
+    // classes, lambdas, and list comprehensions. A scope is used
+    // to store symbol names and their associated types and declarations.
     _scope?: Scope;
 
     //---------------------------------------------------------------
@@ -50,10 +50,6 @@ interface AnalyzerNodeInfo {
     // "Type source ID", a number that is unique per node within a
     // parse tree. for NameNode's.
     _typeSourceId?: TypeSourceId;
-
-    // Ignore the type annotation string for this node. Used to handle
-    // type arguments for "Literal".
-    _ignoreTypeAnnotation?: boolean;
 }
 
 // Cleans out all fields that are added by the analyzer phases
@@ -66,7 +62,6 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
     delete analyzerNode._expressionTypeWriteVersion;
     delete analyzerNode._expressionTypeReadVersion;
     delete analyzerNode._typeSourceId;
-    delete analyzerNode._ignoreTypeAnnotation;
 }
 
 export function getScope(node: ParseNode): Scope | undefined {
@@ -143,14 +138,4 @@ export function getTypeSourceId(node: ParseNode): TypeSourceId {
     }
 
     return analyzerNode._typeSourceId;
-}
-
-export function setIgnoreTypeAnnotation(node: StringListNode) {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    analyzerNode._ignoreTypeAnnotation = true;
-}
-
-export function getIgnoreTypeAnnotation(node: StringListNode) {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    return !!analyzerNode._ignoreTypeAnnotation;
 }

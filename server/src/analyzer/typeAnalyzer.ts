@@ -1228,7 +1228,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitStringList(node: StringListNode): boolean {
         if (node.typeAnnotation) {
             // Should we ignore this type annotation?
-            if (AnalyzerNodeInfo.getIgnoreTypeAnnotation(node)) {
+            if (ExpressionEvaluator.isAnnotationLiteralValue(node)) {
                 return false;
             }
 
