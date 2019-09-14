@@ -40,7 +40,7 @@ export namespace DeclarationUtils {
                             symbol = member.symbol;
                         }
                     } else if (subtype instanceof ModuleType) {
-                        symbol = subtype.getFields().get(memberName);
+                        symbol = subtype.fields.get(memberName);
                     }
 
                     if (symbol) {

@@ -47,9 +47,9 @@ export class InferredType {
             return this._combinedType;
         }
 
-        const specializedClass = this._genericClassWrapper.cloneForSpecialization(
-            [this._combinedType]);
-        return new ObjectType(specializedClass);
+        const specializedClass = ClassType.cloneForSpecialization(
+            this._genericClassWrapper, [this._combinedType]);
+        return ObjectType.create(specializedClass);
     }
 
     getSources() {

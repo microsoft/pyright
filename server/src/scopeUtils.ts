@@ -39,10 +39,10 @@ export class ScopeUtils {
         if (nameType instanceof ClassType) {
             let classType = nameType;
             if (typeArguments) {
-                classType = classType.cloneForSpecialization(typeArguments);
+                classType = ClassType.cloneForSpecialization(classType, typeArguments);
             }
 
-            return new ObjectType(classType);
+            return ObjectType.create(classType);
         }
 
         return nameType;

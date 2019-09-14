@@ -188,7 +188,7 @@ export abstract class Binder extends ParseTreeWalker {
             classFlags |= ClassTypeFlags.BuiltInClass;
         }
 
-        const classType = new ClassType(node.name.nameToken.value, classFlags,
+        const classType = ClassType.create(node.name.nameToken.value, classFlags,
             AnalyzerNodeInfo.getTypeSourceId(node),
             this._getDocString(node.suite.statements));
 
@@ -216,7 +216,7 @@ export abstract class Binder extends ParseTreeWalker {
             }
 
             if (!isKeywordArg) {
-                classType.addBaseClass(UnknownType.create(), isMetaclass);
+                ClassType.addBaseClass(classType, UnknownType.create(), isMetaclass);
 
                 if (!isMetaclass) {
                     nonMetaclassBaseClassCount++;
@@ -228,8 +228,8 @@ export abstract class Binder extends ParseTreeWalker {
             const objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
             // Make sure we don't have 'object' derive from itself. Infinite
             // recursion will result.
-            if (!classType.isBuiltIn() || classType.getClassName() !== 'object') {
-                classType.addBaseClass(objectType, false);
+            if (!ClassType.isBuiltIn(classType) || ClassType.getClassName(classType) !== 'object') {
+                ClassType.addBaseClass(classType, objectType, false);
             }
         }
 
@@ -801,7 +801,7 @@ export class ModuleScopeBinder extends Binder {
         this.walkMultiple(moduleNode.statements);
 
         // Associate the module's scope with the module type.
-        const moduleType = new ModuleType(this._currentScope.getSymbolTable(),
+        const moduleType = ModuleType.create(this._currentScope.getSymbolTable(),
             this._getDocString((this._scopedNode as ModuleNode).statements));
         AnalyzerNodeInfo.setExpressionType(this._scopedNode, moduleType);
 
@@ -847,7 +847,7 @@ export class ClassScopeBinder extends Binder {
         this.walk(classNode.suite);
 
         // Record the class fields for this class.
-        this._classType.setClassFields(this._currentScope.getSymbolTable());
+        ClassType.setClassFields(this._classType, this._currentScope.getSymbolTable());
 
         this._addNamesToScope(this._nameBindings.getLocalNames());
 }

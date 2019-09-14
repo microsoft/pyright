@@ -159,13 +159,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                         // See if this is a "Type[X]" object.
                         if (argType instanceof ObjectType) {
-                            const classType = argType.getClassType();
-                            if (classType.isBuiltIn() && classType.getClassName() === 'Type') {
-                                const typeArgs = classType.getTypeArguments();
+                            const classType = argType.classType;
+                            if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'Type') {
+                                const typeArgs = ClassType.getTypeArguments(classType);
                                 if (typeArgs && typeArgs.length >= 0) {
                                     argType = typeArgs[0];
                                     if (argType instanceof ObjectType) {
-                                        argType = argType.getClassType();
+                                        argType = argType.classType;
                                         reportBaseClassError = false;
                                     }
                                 }
@@ -180,7 +180,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 if (argType instanceof ClassType) {
-                    if (argType.isBuiltIn() && argType.getClassName() === 'Protocol') {
+                    if (ClassType.isBuiltIn(argType) && ClassType.getClassName(argType) === 'Protocol') {
                         if (!this._fileInfo.isStubFile && this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37) {
                             this._addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
                         }
@@ -189,8 +189,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // If the class directly derives from NamedTuple (in Python 3.6 or
                     // newer), it's considered a dataclass.
                     if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
-                        if (argType.isBuiltIn() && argType.getClassName() === 'NamedTuple') {
-                            classType.setIsDataClass(false);
+                        if (ClassType.isBuiltIn(argType) && ClassType.getClassName(argType) === 'NamedTuple') {
+                            ClassType.setIsDataClass(classType, false);
                         }
                     }
 
@@ -212,7 +212,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         arg);
                 }
 
-                if (classType.updateBaseClassType(index, argType)) {
+                if (ClassType.updateBaseClassType(classType, index, argType)) {
                     this._setAnalysisChanged('Base class changed');
                 }
 
@@ -224,7 +224,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         // Update the type parameters for the class.
-        if (classType.setTypeParameters(typeParameters)) {
+        if (ClassType.setTypeParameters(classType, typeParameters)) {
             this._setAnalysisChanged('Class type parameters changed');
         }
 
@@ -254,10 +254,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (classType.isDataClass()) {
+        if (ClassType.isDataClass(classType)) {
             const evaluator = this._createEvaluator();
 
-            let skipSynthesizedInit = classType.isSkipSynthesizedInit();
+            let skipSynthesizedInit = ClassType.isSkipSynthesizedInit(classType);
             if (!skipSynthesizedInit) {
                 // See if there's already a non-synthesized __init__ method.
                 // We shouldn't override it.
@@ -347,7 +347,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Mark the class as abstract if it contains at least one abstract method.
         if (functionType.isAbstractMethod() && containingClassType) {
-            containingClassType.setIsAbstractClass();
+            ClassType.setIsAbstractClass(containingClassType);
         }
 
         if (containingClassNode) {
@@ -435,11 +435,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     if (paramType instanceof UnknownType) {
                         // Don't specialize the "self" for protocol classes because type
                         // comparisons will fail during structural typing analysis.
-                        if (containingClassType && !containingClassType.isProtocol()) {
+                        if (containingClassType && !ClassType.isProtocol(containingClassType)) {
                             if (functionType.isInstanceMethod()) {
                                 const specializedClassType = TypeUtils.selfSpecializeClassType(
                                     containingClassType);
-                                if (functionType.setParameterType(index, new ObjectType(specializedClassType))) {
+                                if (functionType.setParameterType(index, ObjectType.create(specializedClassType))) {
                                     this._setAnalysisChanged('Specialized self changed');
                                 }
                             } else if (functionType.isClassMethod() || functionType.isConstructorMethod()) {
@@ -858,7 +858,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Wrap the yield type in an Iterator.
         const iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
         if (iteratorType instanceof ClassType) {
-            yieldType = new ObjectType(iteratorType.cloneForSpecialization([yieldType]));
+            yieldType = ObjectType.create(ClassType.cloneForSpecialization(iteratorType, [yieldType]));
         } else {
             yieldType = UnknownType.create();
         }
@@ -915,7 +915,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                             }
                         } else if (subtype instanceof ObjectType) {
-                            if (!TypeUtils.derivesFromClassRecursive(subtype.getClassType(), baseExceptionType)) {
+                            if (!TypeUtils.derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
                                 diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                             }
                         } else {
@@ -942,7 +942,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 TypeUtils.doForSubtypes(exceptionType, subtype => {
                     if (!isAnyOrUnknown(subtype) && !(subtype instanceof NoneType)) {
                         if (subtype instanceof ObjectType) {
-                            if (!TypeUtils.derivesFromClassRecursive(subtype.getClassType(), baseExceptionType)) {
+                            if (!TypeUtils.derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
                                 diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                             }
                         } else {
@@ -975,8 +975,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // If more than one type was specified for the exception, we'll receive
                     // a specialized tuple object here.
                     const tupleType = TypeUtils.getSpecializedTupleType(subType);
-                    if (tupleType && tupleType.getTypeArguments()) {
-                        const entryTypes = tupleType.getTypeArguments()!.map(t => {
+                    if (tupleType && ClassType.getTypeArguments(tupleType)) {
+                        const entryTypes = ClassType.getTypeArguments(tupleType)!.map(t => {
                             return this._validateExceptionType(t, node.typeExpression!);
                         });
                         return combineTypes(entryTypes);
@@ -1118,7 +1118,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (constExprValue !== undefined) {
             const boolType = ScopeUtils.getBuiltInObject(this._currentScope, 'bool');
             if (boolType instanceof ObjectType) {
-                srcType = boolType.cloneWithLiteral(constExprValue);
+                srcType = ObjectType.cloneWithLiteral(boolType, constExprValue);
             }
         }
 
@@ -1317,7 +1317,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const implicitModuleType = this._getModuleTypeForImportPath(
                         importInfo, implicitImport.path);
                     if (implicitModuleType) {
-                        const moduleFields = moduleType.getFields();
+                        const moduleFields = moduleType.fields;
                         const importedModule = this._fileInfo.importMap[implicitImport.path];
 
                         if (importedModule) {
@@ -1395,7 +1395,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
                 if (moduleType) {
                     // Import the fields in the current permanent scope.
-                    const moduleFields = moduleType.getFields();
+                    const moduleFields = moduleType.fields;
                     moduleFields.forEach((boundValue, fieldName) => {
                         this._addSymbolToPermanentScope(fieldName);
                         this._addTypeSourceToName(fieldName, TypeUtils.getEffectiveTypeOfSymbol(boundValue),
@@ -1435,7 +1435,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     } else {
                         const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
                         if (moduleType) {
-                            const moduleFields = moduleType.getFields();
+                            const moduleFields = moduleType.fields;
                             const symbol = moduleFields.get(name);
 
                             // For imports of the form "from . import X", the symbol
@@ -1608,9 +1608,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         } else if (arg1Type instanceof ObjectType) {
             // The isinstance call supports a variation where the second
             // parameter is a tuple of classes.
-            const objClass = arg1Type.getClassType();
-            if (objClass.isBuiltIn() && objClass.getClassName() === 'Tuple' && objClass.getTypeArguments()) {
-                objClass.getTypeArguments()!.forEach(typeArg => {
+            const objClass = arg1Type.classType;
+            if (ClassType.isBuiltIn(objClass) && ClassType.getClassName(objClass) === 'Tuple' &&
+                    ClassType.getTypeArguments(objClass)) {
+
+                ClassType.getTypeArguments(objClass)!.forEach(typeArg => {
                     if (typeArg instanceof ClassType) {
                         classTypeList.push(typeArg);
                     } else {
@@ -1630,8 +1632,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const filteredTypes: ClassType[] = [];
 
             for (const filterType of classTypeList) {
-                const filterIsSuperclass = varType.isDerivedFrom(filterType);
-                const filterIsSubclass = filterType.isDerivedFrom(varType);
+                const filterIsSuperclass = ClassType.isDerivedFrom(varType, filterType);
+                const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
 
                 if (filterIsSuperclass) {
                     // If the variable type is a subclass of the isinstance
@@ -1645,12 +1647,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
 
-            return filteredTypes.map(t => new ObjectType(t));
+            return filteredTypes.map(t => ObjectType.create(t));
         };
 
         let filteredType: Type;
         if (arg0Type instanceof ObjectType) {
-            const remainingTypes = filterType(arg0Type.getClassType());
+            const remainingTypes = filterType(arg0Type.classType);
             filteredType = finalizeFilteredTypeList(remainingTypes);
         } else if (arg0Type instanceof UnionType) {
             let remainingTypes: Type[] = [];
@@ -1663,7 +1665,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                 if (t instanceof ObjectType) {
                     remainingTypes = remainingTypes.concat(
-                        filterType(t.getClassType()));
+                        filterType(t.classType));
                 }
             });
 
@@ -1678,7 +1680,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         const getTestType = () => {
-            const objTypeList = classTypeList.map(t => new ObjectType(t));
+            const objTypeList = classTypeList.map(t => ObjectType.create(t));
             return combineTypes(objTypeList);
         };
 
@@ -1728,7 +1730,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     };
 
                     // Synthesize a class.
-                    const specialClassType = new ClassType(assignedName,
+                    const specialClassType = ClassType.create(assignedName,
                         ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
                         defaultTypeSourceId);
 
@@ -1752,8 +1754,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         }
 
                         if (aliasClass instanceof ClassType) {
-                            specialClassType.addBaseClass(aliasClass, false);
-                            specialClassType.setAliasClass(aliasClass);
+                            ClassType.addBaseClass(specialClassType, aliasClass, false);
+                            ClassType.setAliasClass(specialClassType, aliasClass);
                             specialType = specialClassType;
                         } else {
                             // The alias class has not yet been created. Use an unknown
@@ -1790,23 +1792,23 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 'Type', 'ClassVar', 'Final', 'Literal'];
             if (specialTypes.find(t => t === assignedName)) {
                 // Synthesize a class.
-                const specialClassType = new ClassType(assignedName,
+                const specialClassType = ClassType.create(assignedName,
                     ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
                     AnalyzerNodeInfo.getTypeSourceId(node));
 
                 const aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
                     assignedName.toLowerCase());
                 if (aliasClass instanceof ClassType) {
-                    specialClassType.setAliasClass(aliasClass);
+                    ClassType.setAliasClass(specialClassType, aliasClass);
 
                     const specializedBaseClass = TypeUtils.specializeType(aliasClass, undefined);
-                    specialClassType.addBaseClass(specializedBaseClass, false);
+                    ClassType.addBaseClass(specialClassType, specializedBaseClass, false);
                     specialType = specialClassType;
                 } else {
                     // The other classes derive from 'object'.
                     const objBaseClass = ScopeUtils.getBuiltInType(this._currentScope, 'object');
                     if (objBaseClass instanceof ClassType) {
-                        specialClassType.addBaseClass(objBaseClass, false);
+                        ClassType.addBaseClass(specialClassType, objBaseClass, false);
                         specialType = specialClassType;
                     } else {
                         // The base class has not yet been created. Use an unknown
@@ -1841,7 +1843,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (paramCategory === ParameterCategory.VarArgList) {
             const listType = ScopeUtils.getBuiltInType(this._currentScope, 'List');
             if (listType instanceof ClassType) {
-                type = new ObjectType(listType.cloneForSpecialization([type]));
+                type = ObjectType.create(ClassType.cloneForSpecialization(listType, [type]));
             } else {
                 type = UnknownType.create();
             }
@@ -1849,7 +1851,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const dictType = ScopeUtils.getBuiltInType(this._currentScope, 'Dict');
             const strType = ScopeUtils.getBuiltInObject(this._currentScope, 'str');
             if (dictType instanceof ClassType && strType instanceof ObjectType) {
-                type = new ObjectType(dictType.cloneForSpecialization([strType, type]));
+                type = ObjectType.create(ClassType.cloneForSpecialization(dictType, [strType, type]));
             } else {
                 type = UnknownType.create();
             }
@@ -1920,13 +1922,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     if (classType && classType instanceof ClassType) {
                         const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression);
                         if (typeOfLeftExpr instanceof ObjectType) {
-                            if (typeOfLeftExpr.getClassType().isSameGenericClass(classType)) {
+                            if (ClassType.isSameGenericClass(typeOfLeftExpr.classType, classType)) {
                                 this._assignTypeToMemberVariable(target, declaredType, true,
                                     typeAnnotationNode, srcExprNode);
                                 declarationHandled = true;
                             }
                         } else if (typeOfLeftExpr instanceof ClassType) {
-                            if (typeOfLeftExpr.isSameGenericClass(classType)) {
+                            if (ClassType.isSameGenericClass(typeOfLeftExpr, classType)) {
                                 this._assignTypeToMemberVariable(target, declaredType, false,
                                     typeAnnotationNode, srcExprNode);
                                 declarationHandled = true;
@@ -2105,24 +2107,25 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const evaluator = this._createEvaluator();
 
         if (returnType instanceof ObjectType) {
-            const classType = returnType.getClassType();
-            if (classType.isBuiltIn()) {
-                if (classType.getClassName() === 'Generator') {
+            const classType = returnType.classType;
+            if (ClassType.isBuiltIn(classType)) {
+                if (ClassType.getClassName(classType) === 'Generator') {
                     // If the return type is a Generator, change it to an AsyncGenerator.
                     const asyncGeneratorType = evaluator.getTypingType('AsyncGenerator');
                     if (asyncGeneratorType instanceof ClassType) {
                         const typeArgs: Type[] = [];
-                        const generatorTypeArgs = classType.getTypeArguments();
+                        const generatorTypeArgs = ClassType.getTypeArguments(classType);
                         if (generatorTypeArgs && generatorTypeArgs.length > 0) {
                             typeArgs.push(generatorTypeArgs[0]);
                         }
                         if (generatorTypeArgs && generatorTypeArgs.length > 1) {
                             typeArgs.push(generatorTypeArgs[1]);
                         }
-                        awaitableReturnType = new ObjectType(asyncGeneratorType.cloneForSpecialization(typeArgs));
+                        awaitableReturnType = ObjectType.create(
+                            ClassType.cloneForSpecialization(asyncGeneratorType, typeArgs));
                     }
 
-                } else if (classType.getClassName() === 'AsyncGenerator') {
+                } else if (ClassType.getClassName(classType) === 'AsyncGenerator') {
                     // If it's already an AsyncGenerator, leave it as is.
                     awaitableReturnType = returnType;
                 }
@@ -2132,8 +2135,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (!awaitableReturnType) {
             const awaitableType = evaluator.getTypingType('Awaitable');
             if (awaitableType instanceof ClassType) {
-                awaitableReturnType = new ObjectType(awaitableType.cloneForSpecialization(
-                    [returnType]));
+                awaitableReturnType = ObjectType.create(
+                    ClassType.cloneForSpecialization(awaitableType, [returnType]));
             } else {
                 awaitableReturnType = UnknownType.create();
             }
@@ -2209,7 +2212,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // the "NoReturn" type. Skip this for abstract methods which
             // often are implemented with "raise NotImplementedError()".
             const noReturnType = evaluator.getTypingType('NoReturn') as ClassType;
-            if (noReturnType && inferredReturnType.addSource(new ObjectType(noReturnType),
+            if (noReturnType && inferredReturnType.addSource(ObjectType.create(noReturnType),
                     AnalyzerNodeInfo.getTypeSourceId(node))) {
 
                 this._setAnalysisChanged('Function inferred NoReturn changed');
@@ -2236,7 +2239,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // more abstract methods are not overridden.
     private _validateClassMethods(classType: ClassType) {
         if (TypeUtils.doesClassHaveAbstractMethods(classType)) {
-            classType.setIsAbstractClass();
+            ClassType.setIsAbstractClass(classType);
         }
 
         // Skip the overridden method check for stub files. Many of the built-in
@@ -2251,7 +2254,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _validateOveriddenMathods(classType: ClassType) {
-        classType.getClassFields().forEach((symbol, name) => {
+        ClassType.getClassFields(classType).forEach((symbol, name) => {
             // Don't check magic functions.
             if (!SymbolUtils.isDunderName(name)) {
                 const typeOfSymbol = TypeUtils.getEffectiveTypeOfSymbol(symbol);
@@ -2266,7 +2269,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             if (errorNode) {
                                 this._addDiagnostic(this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
                                     DiagnosticRule.reportIncompatibleMethodOverride,
-                                    `Method '${ name }' overrides class '${ baseClassAndSymbol.class.getClassName() }' ` +
+                                    `Method '${ name }' overrides class '${ ClassType.getClassName(baseClassAndSymbol.class) }' ` +
                                         `in an incompatible manner` + diagAddendum.getString(), errorNode);
                             }
                         }
@@ -2302,7 +2305,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     });
                 }
 
-                originalClassType.setIsDataClass(skipSynthesizeInit);
+                ClassType.setIsDataClass(originalClassType, skipSynthesizeInit);
                 return inputClassType;
             }
         }
@@ -2319,7 +2322,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression);
 
         // Special-case the "overload" because it has no definition.
-        if (decoratorType instanceof ClassType && decoratorType.getClassName() === 'overload') {
+        if (decoratorType instanceof ClassType && ClassType.getClassName(decoratorType) === 'overload') {
             const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
             const existingSymbol = permanentScope.lookUpSymbol(node.name.nameToken.value);
             const typeSourceId = AnalyzerNodeInfo.getTypeSourceId(node);
@@ -2364,8 +2367,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
         } else if (decoratorType instanceof ClassType) {
-            if (decoratorType.isBuiltIn()) {
-                switch (decoratorType.getClassName()) {
+            if (ClassType.isBuiltIn(decoratorType)) {
+                switch (ClassType.getClassName(decoratorType)) {
                     case 'staticmethod': {
                         originalFunctionType.setIsStaticMethod();
                         return inputFunctionType;
@@ -2504,9 +2507,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Handle the case where the expression evaluates to a known
             // true, false or None value.
             if (exprType instanceof ObjectType) {
-                const exprClass = exprType.getClassType();
-                if (exprClass.isBuiltIn() && exprClass.getClassName() === 'bool') {
-                    const literalValue = exprType.getLiteralValue();
+                const exprClass = exprType.classType;
+                if (ClassType.isBuiltIn(exprClass) && ClassType.getClassName(exprClass) === 'bool') {
+                    const literalValue = exprType.literalValue;
                     if (typeof literalValue === 'boolean') {
                         constExprValue = literalValue;
                     }
@@ -2615,7 +2618,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (collectionResults) {
             const moduleType = this._fileInfo.importMap[collectionResults];
-            return moduleType.getFields();
+            return moduleType.fields;
         }
 
         return undefined;
@@ -2676,7 +2679,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 diagAddendum.addMessage(
                     `'${ printType(exceptionType) }' does not derive from BaseException`);
             }
-            resultingExceptionType = new ObjectType(exceptionType);
+            resultingExceptionType = ObjectType.create(exceptionType);
         } else if (exceptionType instanceof ObjectType) {
             const evaluator = this._createEvaluator();
             const iterableType = evaluator.getTypeFromIterable(exceptionType, false, errorNode, false);
@@ -2691,7 +2694,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             `'${ printType(exceptionType) }' does not derive from BaseException`);
                     }
 
-                    return new ObjectType(subtype);
+                    return ObjectType.create(subtype);
                 } else {
                     isValidExceptionType = false;
                     diagAddendum.addMessage(
@@ -2772,16 +2775,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 return declaration;
             };
 
-            const memberFields = isInstanceMember ? classType.getInstanceFields() : classType.getClassFields();
+            const memberFields = isInstanceMember ?
+                ClassType.getInstanceFields(classType) :
+                ClassType.getClassFields(classType);
 
             let addNewMemberToLocalClass = false;
             let inheritedDeclaration: Declaration | undefined;
             if (memberInfo) {
                 if (memberInfo.classType instanceof ClassType &&
-                        classType.isSameGenericClass(memberInfo.classType) &&
+                        ClassType.isSameGenericClass(classType, memberInfo.classType) &&
                         memberInfo.isInstanceMember === isInstanceMember) {
 
-                    const symbol = memberFields.get(memberName)!;
+                    const symbol = memberFields.get(memberName);
                     assert(symbol !== undefined);
 
                     // If the type annotation node is provided, use it to generate a source ID.
@@ -2789,7 +2794,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // to generate two sources because the types may different, and the analysis
                     // won't converge if we use the same source ID for both.
                     const sourceId = AnalyzerNodeInfo.getTypeSourceId(typeAnnotationNode || node.memberName);
-                    if (symbol.setInferredTypeForSource(srcType, sourceId)) {
+                    if (symbol!.setInferredTypeForSource(srcType, sourceId)) {
                         this._setAnalysisChanged('Class member inferred type changed');
                     }
 
@@ -2800,8 +2805,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             node.memberName, srcType, srcExprNode);
                     }
 
-                    this._addDeclarationToSymbol(symbol, createDeclaration(), typeAnnotationNode || node);
-                    const primaryDecls = TypeUtils.getPrimaryDeclarationsForSymbol(symbol)!;
+                    this._addDeclarationToSymbol(symbol!, createDeclaration(), typeAnnotationNode || node);
+                    const primaryDecls = TypeUtils.getPrimaryDeclarationsForSymbol(symbol!)!;
 
                     // Check for an attempt to overwrite a constant member variable.
                     const primaryDecl = primaryDecls ? primaryDecls[0] : undefined;
@@ -2942,7 +2947,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // is not necessarily present. We'll synthesize a module type in
             // this case.
             const symbolTable = new SymbolTable();
-            const moduleType = new ModuleType(symbolTable);
+            const moduleType = ModuleType.create(symbolTable);
 
             // Add the implicit imports.
             importResult.implicitImports.forEach(implicitImport => {
@@ -3108,12 +3113,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     if (classType && classType instanceof ClassType) {
                         const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression);
                         if (typeOfLeftExpr instanceof ObjectType) {
-                            if (typeOfLeftExpr.getClassType().isSameGenericClass(classType)) {
+                            if (ClassType.isSameGenericClass(typeOfLeftExpr.classType, classType)) {
                                 this._assignTypeToMemberVariable(target, srcType, true,
                                     undefined, srcExpr);
                             }
                         } else if (typeOfLeftExpr instanceof ClassType) {
-                            if (typeOfLeftExpr.isSameGenericClass(classType)) {
+                            if (ClassType.isSameGenericClass(typeOfLeftExpr, classType)) {
                                 this._assignTypeToMemberVariable(target, srcType, false,
                                     undefined, srcExpr);
                             }
@@ -3131,8 +3136,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             TypeUtils.doForSubtypes(srcType, subtype => {
                 // Is this subtype a tuple?
                 const tupleType = TypeUtils.getSpecializedTupleType(subtype);
-                if (tupleType && tupleType.getTypeArguments()) {
-                    const entryTypes = tupleType.getTypeArguments()!;
+                if (tupleType && ClassType.getTypeArguments(tupleType)) {
+                    const entryTypes = ClassType.getTypeArguments(tupleType)!;
                     let entryCount = entryTypes.length;
 
                     const sourceEndsInEllipsis = entryCount > 0 &&
@@ -3222,7 +3227,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // Make a list type from the source.
                     const listType = ScopeUtils.getBuiltInType(this._currentScope, 'List');
                     if (listType instanceof ClassType) {
-                        srcType = new ObjectType(listType.cloneForSpecialization([srcType]));
+                        srcType = ObjectType.create(ClassType.cloneForSpecialization(listType, [srcType]));
                     } else {
                         srcType = UnknownType.create();
                     }
@@ -3259,14 +3264,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 TypeUtils.getEffectiveTypeOfSymbol(targetSymbol) : undefined;
 
             if (symbolType instanceof ModuleType) {
-                const moduleFields = symbolType.getFields();
+                const moduleFields = symbolType.fields;
 
                 // Are we replacing a partial module?
                 if (i === nameParts.length - 1 && symbolType.isPartialModule) {
                     // Combine the names in the existing partial module into
                     // the new module's symbol table.
                     moduleFields.getKeys().forEach(name => {
-                        setSymbolPreservingAccess(type.getFields(), name, moduleFields.get(name)!);
+                        setSymbolPreservingAccess(type.fields, name, moduleFields.get(name)!);
                     });
 
                     if (!targetSymbolTable.get(name)) {
@@ -3283,11 +3288,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             } else {
                 // Build a "partial module" to contain the references
                 // to the next part of the name.
-                const newPartialModule = new ModuleType(new SymbolTable());
-                newPartialModule.setIsPartialModule();
+                const newPartialModule = ModuleType.create(new SymbolTable());
+                newPartialModule.isPartialModule = true;
                 setSymbolPreservingAccess(targetSymbolTable, name,
                     Symbol.createWithType(newPartialModule, defaultTypeSourceId));
-                targetSymbolTable = newPartialModule.getFields();
+                targetSymbolTable = newPartialModule.fields;
                 symbolType = newPartialModule;
             }
 
@@ -3421,7 +3426,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (enumClass) {
             // The type of each enumerated item is an instance of the enum class.
-            return new ObjectType(enumClass);
+            return ObjectType.create(enumClass);
         }
 
         return typeOfExpr;
@@ -3438,7 +3443,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Handle several built-in classes specially. We don't
             // want to interpret their class variables as enumerations.
             if (this._fileInfo.isStubFile) {
-                const className = enumClass.getClassName();
+                const className = ClassType.getClassName(enumClass);
                 const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
                 if (builtInEnumClasses.find(c => c === className)) {
                     return undefined;
@@ -3459,14 +3464,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (baseType instanceof ObjectType) {
             const classMemberInfo = TypeUtils.lookUpClassMember(
-                baseType.getClassType(), memberNameValue);
+                baseType.classType, memberNameValue);
             if (classMemberInfo) {
                 if (classMemberInfo.symbol.hasDeclarations()) {
                     declarations = TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!;
                 }
             }
         } else if (baseType instanceof ModuleType) {
-            const moduleMemberInfo = baseType.getFields().get(memberNameValue);
+            const moduleMemberInfo = baseType.fields.get(memberNameValue);
             if (moduleMemberInfo) {
                 if (moduleMemberInfo.hasDeclarations()) {
                     declarations = TypeUtils.getPrimaryDeclarationsForSymbol(moduleMemberInfo)!;

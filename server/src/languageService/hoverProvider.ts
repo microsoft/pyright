@@ -197,12 +197,12 @@ export class HoverProvider {
 
     private static _addDocumentationPartForType(parts: HoverTextPart[], type: Type) {
         if (type instanceof ModuleType) {
-            const docString = type.getDocString();
+            const docString = type.docString;
             if (docString) {
                 this._addResultsPart(parts, docString);
             }
         } else if (type instanceof ClassType) {
-            const docString = type.getDocString();
+            const docString = ClassType.getDocString(type);
             if (docString) {
                 this._addResultsPart(parts, docString);
             }

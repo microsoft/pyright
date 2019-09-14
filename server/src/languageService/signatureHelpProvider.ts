@@ -113,7 +113,7 @@ export class SignatureHelpProvider {
                     this._addSignatureToResults(results, methodType);
                 }
             } else if (subtype instanceof ObjectType) {
-                const methodType = this._getBoundMethod(subtype.getClassType(), '__call__');
+                const methodType = this._getBoundMethod(subtype.classType, '__call__');
                 if (methodType) {
                     this._addSignatureToResults(results, methodType);
                 }
@@ -140,7 +140,7 @@ export class SignatureHelpProvider {
     private static _getBoundMethod(classType: ClassType, memberName: string):
             FunctionType | OverloadedFunctionType | undefined {
 
-        const aliasClass = classType.getAliasClass();
+        const aliasClass = ClassType.getAliasClass(classType);
         if (aliasClass) {
             classType = aliasClass;
         }
@@ -152,7 +152,7 @@ export class SignatureHelpProvider {
             const unboundMethodType = memberInfo.symbolType;
             if (unboundMethodType instanceof FunctionType || unboundMethodType instanceof OverloadedFunctionType) {
                 const boundMethod = TypeUtils.bindFunctionToClassOrObject(
-                    new ObjectType(classType), unboundMethodType);
+                    ObjectType.create(classType), unboundMethodType);
                 if (boundMethod instanceof FunctionType || boundMethod instanceof OverloadedFunctionType) {
                     return boundMethod;
                 }

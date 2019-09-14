@@ -71,66 +71,51 @@ export class TypeVarMap extends StringMap<Type> {}
 
 export abstract class Type {
     abstract category: TypeCategory;
-
-    protected constructor() {
-    }
 }
 
 export class UnboundType extends Type {
     category = TypeCategory.Unbound;
+}
 
-    private static _instance = new UnboundType();
-    static create() {
-        // Use a single instance to reduce memory allocation.
-        return this._instance;
-    }
+export namespace UnboundType {
+    const _instance: UnboundType = new UnboundType();
 
-    protected constructor() {
-        super();
+    export function create() {
+        // All Unbound objects are the same, so use a shared instance.
+        return _instance;
     }
 }
 
 export class UnknownType extends Type {
     category = TypeCategory.Unknown;
+}
 
-    private static _instance = new UnknownType();
-    static create() {
-        // Use a single instance to reduce memory allocation.
-        return this._instance;
+export namespace UnknownType {
+    const _instance: UnknownType = new UnknownType();
+
+    export function create() {
+        // All Unknown objects are the same, so use a shared instance.
+        return _instance;
     }
 }
 
 export class ModuleType extends Type {
     category = TypeCategory.Module;
-    private _fields: SymbolTable;
-    private _docString?: string;
+    fields: SymbolTable;
+    docString?: string;
 
     // A partial module is one that is not fully initialized
     // but contains only the symbols that have been imported
     // in a multi-part import (e.g. import a.b.c).
-    private _isPartialModule = false;
+    isPartialModule = false;
+}
 
-    constructor(symbolTable: SymbolTable, docString?: string) {
-        super();
-
-        this._fields = symbolTable;
-        this._docString = docString;
-    }
-
-    getFields() {
-        return this._fields;
-    }
-
-    getDocString() {
-        return this._docString;
-    }
-
-    setIsPartialModule() {
-        this._isPartialModule = true;
-    }
-
-    isPartialModule() {
-        return this._isPartialModule;
+export namespace ModuleType {
+    export function create(fields: SymbolTable, docString?: string) {
+        const newModuleType = new ModuleType();
+        newModuleType.fields = fields;
+        newModuleType.docString = docString;
+        return newModuleType;
     }
 }
 
@@ -177,20 +162,22 @@ interface ClassDetails {
 export class ClassType extends Type {
     category = TypeCategory.Class;
 
-    private _classDetails: ClassDetails;
+    details: ClassDetails;
 
     // A generic class that has been completely or partially
     // specialized will have type arguments that correspond to
     // some or all of the type parameters. Unspecified type
     // parameters are undefined.
-    private _typeArguments?: Type[];
+    typeArguments?: Type[];
 
-    private _skipAbstractClassTest = false;
+    skipAbstractClassTest: boolean;
+}
 
-    constructor(name: string, flags: ClassTypeFlags, typeSourceId: TypeSourceId, docString?: string) {
-        super();
+export namespace ClassType {
+    export function create(name: string, flags: ClassTypeFlags, typeSourceId: TypeSourceId, docString?: string) {
+        const newClass = new ClassType();
 
-        this._classDetails = {
+        newClass.details = {
             name,
             flags,
             typeSourceId,
@@ -201,39 +188,44 @@ export class ClassType extends Type {
             isAbstractClass: false,
             docString
         };
+
+        newClass.skipAbstractClassTest = false;
+        return newClass;
     }
 
-    cloneForSpecialization(typeArguments: Type[], skipAbstractClassTest = false): ClassType {
-        const newClassType = new ClassType(this._classDetails.name,
-            this._classDetails.flags, this._classDetails.typeSourceId);
-        newClassType._classDetails = this._classDetails;
-        newClassType.setTypeArguments(typeArguments);
+    export function cloneForSpecialization(classType: ClassType,
+            typeArguments: Type[], skipAbstractClassTest = false): ClassType {
+
+        const newClassType = create(classType.details.name,
+            classType.details.flags, classType.details.typeSourceId);
+        newClassType.details = classType.details;
+        newClassType.typeArguments = typeArguments;
         if (skipAbstractClassTest) {
-            newClassType._setSkipAbstracClassTest();
+            newClassType.skipAbstractClassTest = true;
         }
         return newClassType;
     }
 
     // Specifies whether the class type is generic (unspecialized)
     // or specialized.
-    isGeneric() {
-        return this._classDetails.typeParameters.length > 0 &&
-            this._typeArguments === undefined;
+    export function isGeneric(classType: ClassType) {
+        return classType.details.typeParameters.length > 0 &&
+            classType.typeArguments === undefined;
     }
 
-    isSpecialBuiltIn() {
-        return !!(this._classDetails.flags & ClassTypeFlags.SpecialBuiltIn);
+    export function isSpecialBuiltIn(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SpecialBuiltIn);
     }
 
-    isBuiltIn() {
-        return !!(this._classDetails.flags & ClassTypeFlags.BuiltInClass);
+    export function isBuiltIn(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.BuiltInClass);
     }
 
-    isProtocol() {
+    export function isProtocol(classType: ClassType) {
         // Does the class directly 'derive' from "Protocol"?
-        return this._classDetails.baseClasses.find(bc => {
+        return classType.details.baseClasses.find(bc => {
             if (bc.type instanceof ClassType) {
-                if (bc.type.isBuiltIn() && bc.type.getClassName() === 'Protocol') {
+                if (isBuiltIn(bc.type) && getClassName(bc.type) === 'Protocol') {
                     return true;
                 }
             }
@@ -241,153 +233,153 @@ export class ClassType extends Type {
         }) !== undefined;
     }
 
-    setIsAbstractClass() {
-        this._classDetails.isAbstractClass = true;
+    export function setIsAbstractClass(classType: ClassType) {
+        classType.details.isAbstractClass = true;
     }
 
-    isAbstractClass() {
-        return this._classDetails.isAbstractClass &&
-            !this._skipAbstractClassTest;
+    export function isAbstractClass(classType: ClassType) {
+        return classType.details.isAbstractClass &&
+            !classType.skipAbstractClassTest;
     }
 
-    getClassName() {
-        return this._classDetails.name;
+    export function getClassName(classType: ClassType) {
+        return classType.details.name;
     }
 
-    setIsDataClass(skipInit: boolean) {
-        this._classDetails.flags |= ClassTypeFlags.DataClass;
+    export function setIsDataClass(classType: ClassType, skipInit: boolean) {
+        classType.details.flags |= ClassTypeFlags.DataClass;
         if (skipInit) {
-            this._classDetails.flags |= ClassTypeFlags.SkipSynthesizedInit;
+            classType.details.flags |= ClassTypeFlags.SkipSynthesizedInit;
         }
     }
 
-    isDataClass() {
-        return !!(this._classDetails.flags & ClassTypeFlags.DataClass);
+    export function isDataClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.DataClass);
     }
 
-    isSkipSynthesizedInit() {
-        return !!(this._classDetails.flags & ClassTypeFlags.SkipSynthesizedInit);
+    export function isSkipSynthesizedInit(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedInit);
     }
 
-    getBaseClasses(): BaseClass[] {
-        return this._classDetails.baseClasses;
+    export function getBaseClasses(classType: ClassType): BaseClass[] {
+        return classType.details.baseClasses;
     }
 
-    setAliasClass(type: ClassType) {
-        this._classDetails.aliasClass = type;
+    export function setAliasClass(classType: ClassType, aliasType: ClassType) {
+        classType.details.aliasClass = aliasType;
     }
 
-    getAliasClass() {
-        return this._classDetails.aliasClass;
+    export function getAliasClass(classType: ClassType) {
+        return classType.details.aliasClass;
     }
 
-    getDocString() {
-        return this._classDetails.docString;
+    export function getDocString(classType: ClassType) {
+        return classType.details.docString;
     }
 
-    getTypeSourceId() {
-        return this._classDetails.typeSourceId;
+    export function getTypeSourceId(classType: ClassType) {
+        return classType.details.typeSourceId;
     }
 
-    addBaseClass(type: Type, isMetaclass: boolean) {
-        this._classDetails.baseClasses.push({ isMetaclass, type });
+    export function addBaseClass(classType: ClassType, baseClassType: Type, isMetaclass: boolean) {
+        classType.details.baseClasses.push({ isMetaclass, type: baseClassType });
     }
 
-    updateBaseClassType(index: number, type: Type) {
-        const didChange = !isTypeSame(type, this._classDetails.baseClasses[index].type);
-        this._classDetails.baseClasses[index].type = type;
+    export function updateBaseClassType(classType: ClassType, index: number, type: Type) {
+        const didChange = !isTypeSame(type, classType.details.baseClasses[index].type);
+        classType.details.baseClasses[index].type = type;
         return didChange;
     }
 
-    getClassFields(): SymbolTable {
-        return this._classDetails.classFields;
+    export function getClassFields(classType: ClassType): SymbolTable {
+        return classType.details.classFields;
     }
 
-    setClassFields(nameMap: SymbolTable) {
-        this._classDetails.classFields = nameMap;
+    export function setClassFields(classType: ClassType, nameMap: SymbolTable) {
+        classType.details.classFields = nameMap;
     }
 
-    getInstanceFields(): SymbolTable {
-        return this._classDetails.instanceFields;
+    export function getInstanceFields(classType: ClassType): SymbolTable {
+        return classType.details.instanceFields;
     }
 
-    setInstanceFields(nameMap: SymbolTable) {
-        this._classDetails.instanceFields = nameMap;
+    export function setInstanceFields(classType: ClassType, nameMap: SymbolTable) {
+        classType.details.instanceFields = nameMap;
     }
 
-    setTypeArguments(typeArgs: Type[]) {
+    export function setTypeArguments(classType: ClassType, typeArgs: Type[]) {
         // Special built-in types can have a variable number of type parameters, so
         // ignore those. For all others, verify that we have enough type arguments
         // to match all of the type parameters. It's possible in early phases of
         // analysis for there to be more type args than parameters because the parameters
         // have not yet been filled in for forward-declared classes.
-        if (!this.isSpecialBuiltIn()) {
-            if (typeArgs.length < this.getTypeParameters().length) {
-                while (typeArgs.length < this.getTypeParameters().length) {
+        if (!isSpecialBuiltIn(classType)) {
+            if (typeArgs.length < getTypeParameters(classType).length) {
+                while (typeArgs.length < getTypeParameters(classType).length) {
                     // Fill in any remaining type parameters with Any.
                     typeArgs.push(AnyType.create());
                 }
             }
         }
 
-        this._typeArguments = typeArgs;
+        classType.typeArguments = typeArgs;
     }
 
-    getTypeArguments() {
-        return this._typeArguments;
+    export function getTypeArguments(classType: ClassType) {
+        return classType.typeArguments;
     }
 
-    getTypeParameters() {
+    export function getTypeParameters(classType: ClassType) {
         // If this is a special class, use the alias class' type
         // parameters instead.
-        if (this._classDetails.aliasClass) {
-            return this._classDetails.aliasClass._classDetails.typeParameters;
+        if (classType.details.aliasClass) {
+            return classType.details.aliasClass.details.typeParameters;
         }
-        return this._classDetails.typeParameters;
+        return classType.details.typeParameters;
     }
 
-    setTypeParameters(params: TypeVarType[]): boolean {
+    export function setTypeParameters(classType: ClassType, params: TypeVarType[]): boolean {
         let didParametersChange = false;
 
-        if (this._classDetails.typeParameters.length !== params.length) {
+        if (classType.details.typeParameters.length !== params.length) {
             didParametersChange = true;
         } else {
             for (let i = 0; i < params.length; i++) {
-                if (!isTypeSame(params[i], this._classDetails.typeParameters[i])) {
+                if (!isTypeSame(params[i], classType.details.typeParameters[i])) {
                     didParametersChange = true;
                 }
             }
         }
 
-        this._classDetails.typeParameters = params;
+        classType.details.typeParameters = params;
 
         return didParametersChange;
     }
 
     // Same as isSame except that it doesn't compare type arguments.
-    isSameGenericClass(type2: ClassType) {
+    export function isSameGenericClass(classType: ClassType, type2: ClassType) {
         // If the class details match, it's definitely the same class.
-        if (this._classDetails === type2._classDetails) {
+        if (classType.details === type2.details) {
             return true;
         }
 
         // Special built-in classes generate new class details for
         // each instance, so we need to rely on a name comparison.
-        if (this.isSpecialBuiltIn() && type2.isSpecialBuiltIn() &&
-                this.getClassName() === type2.getClassName()) {
+        if (isSpecialBuiltIn(classType) && isSpecialBuiltIn(type2) &&
+                getClassName(classType) === getClassName(type2)) {
             return true;
         }
 
-        if (this.isAliasOf(type2) || type2.isAliasOf(this)) {
+        if (isAliasOf(classType, type2) || isAliasOf(type2, classType)) {
             return true;
         }
 
         return false;
     }
 
-    isAliasOf(type2: ClassType): boolean {
-        return type2._classDetails.aliasClass !== undefined &&
-            type2._classDetails.aliasClass._classDetails === this._classDetails;
+    export function isAliasOf(classType: ClassType, type2: ClassType): boolean {
+        return type2.details.aliasClass !== undefined &&
+            type2.details.aliasClass.details === classType.details;
     }
 
     // Determines whether this is a subclass (derived class)
@@ -395,9 +387,11 @@ export class ClassType extends Type {
     // array to inheritanceChain, it will be filled in by
     // the call to include the chain of inherited classes starting
     // with type2 and ending with this type.
-    isDerivedFrom(type2: ClassType, inheritanceChain?: InheritanceChain): boolean {
+    export function isDerivedFrom(classType: ClassType,
+            type2: ClassType, inheritanceChain?: InheritanceChain): boolean {
+
         // Is it the exact same class?
-        if (this.isSameGenericClass(type2)) {
+        if (isSameGenericClass(classType, type2)) {
             if (inheritanceChain) {
                 inheritanceChain.push(type2);
             }
@@ -407,24 +401,24 @@ export class ClassType extends Type {
         // Handle built-in types like 'dict' and 'list', which are all
         // subclasses of object even though they are not explicitly declared
         // that way.
-        if (this.isBuiltIn() && type2.isBuiltIn() && type2._classDetails.name === 'object') {
+        if (isBuiltIn(classType) && isBuiltIn(type2) && type2.details.name === 'object') {
             if (inheritanceChain) {
                 inheritanceChain.push(type2);
             }
             return true;
         }
 
-        for (const baseClass of this.getBaseClasses()) {
+        for (const baseClass of getBaseClasses(classType)) {
             if (baseClass.type instanceof ClassType) {
-                if (baseClass.type.isDerivedFrom(type2, inheritanceChain)) {
+                if (isDerivedFrom(baseClass.type, type2, inheritanceChain)) {
                     if (inheritanceChain) {
-                        inheritanceChain.push(this);
+                        inheritanceChain.push(classType);
                     }
                     return true;
                 }
             } else if (isAnyOrUnknown(baseClass.type)) {
                 if (inheritanceChain) {
-                    inheritanceChain.push(this);
+                    inheritanceChain.push(classType);
                 }
                 return true;
             }
@@ -432,40 +426,29 @@ export class ClassType extends Type {
 
         return false;
     }
-
-    private _setSkipAbstracClassTest() {
-        this._skipAbstractClassTest = true;
-    }
 }
 
 export class ObjectType extends Type {
     category = TypeCategory.Object;
 
-    private _classType: ClassType;
+    classType: ClassType;
 
     // Some types can be further constrained to have
     // literal types (e.g. true or 'string' or 3).
-    private _literalValue?: LiteralValue;
+    literalValue?: LiteralValue;
+}
 
-    constructor(classType: ClassType) {
-        super();
-
-        assert(classType instanceof ClassType);
-        this._classType = classType;
+export namespace ObjectType {
+    export function create(classType: ClassType) {
+        const newObjectType = new ObjectType();
+        newObjectType.classType = classType;
+        return newObjectType;
     }
 
-    cloneWithLiteral(value: LiteralValue): ObjectType {
-        const newType = new ObjectType(this._classType);
-        newType._literalValue = value;
+    export function cloneWithLiteral(objType: ObjectType, value: LiteralValue): ObjectType {
+        const newType = create(objType.classType);
+        newType.literalValue = value;
         return newType;
-    }
-
-    getLiteralValue(): LiteralValue | undefined {
-        return this._literalValue;
-    }
-
-    getClassType() {
-        return this._classType;
     }
 }
 
@@ -925,7 +908,7 @@ export function isPossiblyUnbound(type: Type): boolean {
 
 export function requiresSpecialization(type: Type, recursionCount = 0): boolean {
     if (type instanceof ClassType) {
-        const typeArgs = type.getTypeArguments();
+        const typeArgs = ClassType.getTypeArguments(type);
         if (typeArgs) {
             if (recursionCount > _maxRecursionCount) {
                 return false;
@@ -936,7 +919,7 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
             ) !== undefined;
         }
 
-        if (type.getTypeParameters().length === 0) {
+        if (ClassType.getTypeParameters(type).length === 0) {
             return false;
         }
 
@@ -946,7 +929,7 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
             return false;
         }
 
-        return requiresSpecialization(type.getClassType(), recursionCount + 1);
+        return requiresSpecialization(type.classType, recursionCount + 1);
     } else if (type instanceof FunctionType) {
         if (recursionCount > _maxRecursionCount) {
             return false;
@@ -1008,13 +991,13 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
         // In a few cases (e.g. with NamedTuple classes) we allocate a
         // new class type for every type analysis pass. To detect this
         // case, we will use the typeSourceId field.
-        if (type1.getTypeSourceId() !== classType2.getTypeSourceId()) {
+        if (ClassType.getTypeSourceId(type1) !== ClassType.getTypeSourceId(classType2)) {
             return false;
         }
 
         // If neither of the classes have type arguments, they're the same.
-        const type1TypeArgs = type1.getTypeArguments();
-        const type2TypeArgs = classType2.getTypeArguments();
+        const type1TypeArgs = ClassType.getTypeArguments(type1);
+        const type2TypeArgs = ClassType.getTypeArguments(classType2);
         if (!type1TypeArgs && !type2TypeArgs) {
             return true;
         }
@@ -1046,11 +1029,11 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
     } else if (type1 instanceof ObjectType) {
         const objType2 = type2 as ObjectType;
 
-        if (type1.getLiteralValue() !== objType2.getLiteralValue()) {
+        if (type1.literalValue !== objType2.literalValue) {
             return false;
         }
 
-        return isTypeSame(type1.getClassType(), objType2.getClassType(), recursionCount + 1);
+        return isTypeSame(type1.classType, objType2.classType, recursionCount + 1);
     } else if (type1 instanceof FunctionType) {
         // Make sure the parameter counts match.
         const functionType2 = type2 as FunctionType;
@@ -1147,10 +1130,10 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
 }
 
 export function printObjectTypeForClass(type: ClassType, recursionCount = 0): string {
-    let objName = type.getClassName();
+    let objName = ClassType.getClassName(type);
 
     // If there is a type arguments array, it's a specialized class.
-    const typeArgs = type.getTypeArguments();
+    const typeArgs = ClassType.getTypeArguments(type);
 
     if (typeArgs) {
         if (typeArgs.length > 0) {
@@ -1159,7 +1142,7 @@ export function printObjectTypeForClass(type: ClassType, recursionCount = 0): st
             }).join(', ') + ']';
         }
     } else {
-        const typeParams = type.getTypeParameters();
+        const typeParams = ClassType.getTypeParameters(type);
 
         if (typeParams.length > 0) {
             objName += '[' + typeParams.map(typeArg => {
@@ -1172,7 +1155,7 @@ export function printObjectTypeForClass(type: ClassType, recursionCount = 0): st
 }
 
 export function printLiteralValue(type: ObjectType): string {
-    const literalValue = type.getLiteralValue();
+    const literalValue = type.literalValue;
     if (literalValue === undefined) {
         return '';
     }
@@ -1238,11 +1221,11 @@ export function printType(type: Type, recursionCount = 0): string {
 
         case TypeCategory.Object: {
             const objType = type as ObjectType;
-            if (objType.getLiteralValue() !== undefined) {
+            if (objType.literalValue !== undefined) {
                 return printLiteralValue(objType);
             }
 
-            return printObjectTypeForClass(objType.getClassType(),
+            return printObjectTypeForClass(objType.classType,
                 recursionCount + 1);
         }
 
@@ -1380,9 +1363,9 @@ export function combineTypes(types: Type[]): Type {
 
     // Sort all of the literal types to the end.
     expandedTypes = expandedTypes.sort((type1, type2) => {
-        if (type1 instanceof ObjectType && type1.getLiteralValue() !== undefined) {
+        if (type1 instanceof ObjectType && type1.literalValue !== undefined) {
             return 1;
-        } else if (type2 instanceof ObjectType && type2.getLiteralValue() !== undefined) {
+        } else if (type2 instanceof ObjectType && type2.literalValue !== undefined) {
             return -1;
         }
         return 0;
@@ -1414,9 +1397,9 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
         return true;
     }
 
-    if (srcType instanceof ObjectType && srcType.getLiteralValue() !== undefined) {
+    if (srcType instanceof ObjectType && srcType.literalValue !== undefined) {
         // Strip the literal.
-        srcType = new ObjectType(srcType.getClassType());
+        srcType = ObjectType.create(srcType.classType);
         return isTypeSame(destType, srcType);
     }
 
@@ -1434,7 +1417,7 @@ function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
         // a non-literal type that matches, don't add the literal value.
         if (type instanceof ObjectType && typeToAdd instanceof ObjectType) {
             if (isSameWithoutLiteralValue(type, typeToAdd)) {
-                if (type.getLiteralValue() === undefined) {
+                if (type.literalValue === undefined) {
                     return;
                 }
             }

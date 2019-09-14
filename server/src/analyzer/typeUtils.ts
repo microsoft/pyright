@@ -138,8 +138,8 @@ export namespace TypeUtils {
 
     export function stripLiteralValue(type: Type): Type {
         if (type instanceof ObjectType) {
-            if (type.getLiteralValue() !== undefined) {
-                return new ObjectType(type.getClassType());
+            if (type.literalValue !== undefined) {
+                return ObjectType.create(type.classType);
             }
         } else if (type instanceof UnionType) {
             return doForSubtypes(type, subtype => {
@@ -301,18 +301,18 @@ export namespace TypeUtils {
         if (srcType instanceof ClassType) {
             // Is the dest a generic "type" object?
             if (destType instanceof ObjectType) {
-                const destClassType = destType.getClassType();
-                if (destClassType.isBuiltIn()) {
-                    const destClassName = destClassType.getClassName();
+                const destClassType = destType.classType;
+                if (ClassType.isBuiltIn(destClassType)) {
+                    const destClassName = ClassType.getClassName(destClassType);
                     if (destClassName === 'type') {
                         return true;
                     }
 
                     if (destClassName === 'Type') {
-                        const destTypeArgs = destClassType.getTypeArguments();
+                        const destTypeArgs = ClassType.getTypeArguments(destClassType);
                         if (destTypeArgs && destTypeArgs.length >= 1 && destTypeArgs[0] instanceof Type) {
                             return canAssignType(destTypeArgs[0],
-                                new ObjectType(srcType), diag.createAddendum(), typeVarMap,
+                                ObjectType.create(srcType), diag.createAddendum(), typeVarMap,
                                     allowSubclasses, recursionCount + 1);
                         }
                     }
@@ -326,12 +326,12 @@ export namespace TypeUtils {
         }
 
         if (destType instanceof ObjectType) {
-            const destClassType = destType.getClassType();
+            const destClassType = destType.classType;
 
             if (srcType instanceof ObjectType) {
-                const destLiteral = destType.getLiteralValue();
+                const destLiteral = destType.literalValue;
                 if (destLiteral !== undefined) {
-                    const srcLiteral = srcType.getLiteralValue();
+                    const srcLiteral = srcType.literalValue;
                     if (srcLiteral !== destLiteral) {
                         diag.addMessage(`'${ srcLiteral ? printLiteralValue(srcType) : printType(srcType) }' ` +
                         `cannot be assigned to '${ printLiteralValue(destType) }'`);
@@ -340,7 +340,7 @@ export namespace TypeUtils {
                     }
                 }
 
-                if (!_canAssignClass(destClassType, srcType.getClassType(),
+                if (!_canAssignClass(destClassType, srcType.classType,
                         diag, typeVarMap, allowSubclasses, recursionCount + 1, true)) {
 
                     return false;
@@ -359,7 +359,7 @@ export namespace TypeUtils {
                 }
             } else if (srcType instanceof ModuleType) {
                 // Is the destination the built-in "ModuleType"?
-                if (destClassType.isBuiltIn() && destClassType.getClassName() === 'ModuleType') {
+                if (ClassType.isBuiltIn(destClassType) && ClassType.getClassName(destClassType) === 'ModuleType') {
                     return true;
                 }
             }
@@ -398,7 +398,7 @@ export namespace TypeUtils {
                 const constructorFunction = new FunctionType(
                     FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod |
                     FunctionTypeFlags.SynthesizedMethod);
-                constructorFunction.setDeclaredReturnType(new ObjectType(srcType));
+                constructorFunction.setDeclaredReturnType(ObjectType.create(srcType));
 
                 const newMemberInfo = lookUpClassMember(srcType, '__new__',
                     ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
@@ -436,8 +436,8 @@ export namespace TypeUtils {
         // NoneType and ModuleType derive from object.
         if (srcType instanceof NoneType || srcType instanceof ModuleType) {
             if (destType instanceof ObjectType) {
-                const destClassType = destType.getClassType();
-                if (destClassType.isBuiltIn() && destClassType.getClassName() === 'object') {
+                const destClassType = destType.classType;
+                if (ClassType.isBuiltIn(destClassType) && ClassType.getClassName(destClassType) === 'object') {
                     return true;
                 }
             }
@@ -560,10 +560,10 @@ export namespace TypeUtils {
         if (type instanceof ClassType) {
             classType = type;
         } else if (type instanceof ObjectType) {
-            classType = type.getClassType();
+            classType = type.classType;
         }
 
-        if (classType && classType.isBuiltIn() && classType.getClassName() === 'Tuple') {
+        if (classType && ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'Tuple') {
             return classType;
         }
 
@@ -578,14 +578,14 @@ export namespace TypeUtils {
         }
 
         return (type instanceof ClassType &&
-            type.isBuiltIn() &&
-            type.getClassName() === 'ellipsis');
+            ClassType.isBuiltIn(type) &&
+            ClassType.getClassName(type) === 'ellipsis');
     }
 
     export function isNoReturnType(type: Type): boolean {
         if (type instanceof ObjectType) {
-            const classType = type.getClassType();
-            if (classType.isBuiltIn() && classType.getClassName() === 'NoReturn') {
+            const classType = type.classType;
+            if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'NoReturn') {
                 return true;
             }
         }
@@ -597,7 +597,7 @@ export namespace TypeUtils {
     export function partiallySpecializeType(type: Type, contextClassType: ClassType): Type {
         // If the context class is not specialized (or doesn't need specialization),
         // then there's no need to do any more work.
-        if (contextClassType.isGeneric()) {
+        if (ClassType.isGeneric(contextClassType)) {
             return type;
         }
 
@@ -656,21 +656,21 @@ export namespace TypeUtils {
         }
 
         if (type instanceof ObjectType) {
-            const classType = _specializeClassType(type.getClassType(),
+            const classType = _specializeClassType(type.classType,
                 typeVarMap, recursionLevel + 1);
 
             // Handle the "Type" special class.
-            if (classType.isBuiltIn() && classType.getClassName() === 'Type') {
-                const typeArgs = classType.getTypeArguments();
+            if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'Type') {
+                const typeArgs = ClassType.getTypeArguments(classType);
                 if (typeArgs && typeArgs.length >= 1) {
                     const firstTypeArg = typeArgs[0];
                     if (firstTypeArg instanceof ObjectType) {
-                        return firstTypeArg.getClassType();
+                        return firstTypeArg.classType;
                     } else if (firstTypeArg instanceof TypeVarType) {
                         if (typeVarMap) {
                             const replacementType = typeVarMap.get(firstTypeArg.getName());
                             if (replacementType && replacementType instanceof ObjectType) {
-                                return replacementType.getClassType();
+                                return replacementType.classType;
                             }
                         }
                     }
@@ -679,10 +679,10 @@ export namespace TypeUtils {
 
             // Don't allocate a new ObjectType class if the class
             // didn't need to be specialized.
-            if (classType === type.getClassType()) {
+            if (classType === type.classType) {
                 return type;
             }
-            return new ObjectType(classType);
+            return ObjectType.create(classType);
         }
 
         if (type instanceof ClassType) {
@@ -728,7 +728,7 @@ export namespace TypeUtils {
                         baseType, memberType);
                 } else {
                     return _partiallySpecializeFunctionForBoundClassOrObject(
-                        baseType.getClassType(), memberType);
+                        baseType.classType, memberType);
                 }
             }
         } else if (memberType instanceof OverloadedFunctionType) {
@@ -749,7 +749,7 @@ export namespace TypeUtils {
             flags = ClassMemberLookupFlags.Default): ClassMember | undefined {
 
         if (objectType instanceof ObjectType) {
-            return lookUpClassMember(objectType.getClassType(), memberName, flags);
+            return lookUpClassMember(objectType.classType, memberName, flags);
         }
 
         return undefined;
@@ -771,7 +771,7 @@ export namespace TypeUtils {
         if (classType instanceof ClassType) {
             // Should we ignore members on the 'object' base class?
             if (flags & ClassMemberLookupFlags.SkipObjectBaseClass) {
-                if (classType.isBuiltIn() && classType.getClassName() === 'object') {
+                if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'object') {
                     return undefined;
                 }
             }
@@ -779,7 +779,7 @@ export namespace TypeUtils {
             if ((flags & ClassMemberLookupFlags.SkipOriginalClass) === 0) {
                 // Look in the instance fields first if requested.
                 if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
-                    const instanceFields = classType.getInstanceFields();
+                    const instanceFields = ClassType.getInstanceFields(classType);
                     const instanceFieldEntry = instanceFields.get(memberName);
                     if (instanceFieldEntry) {
                         const symbol = instanceFieldEntry;
@@ -797,7 +797,7 @@ export namespace TypeUtils {
                 }
 
                 // Next look in the class fields.
-                const classFields = classType.getClassFields();
+                const classFields = ClassType.getClassFields(classType);
                 const classFieldEntry = classFields.get(memberName);
                 if (classFieldEntry) {
                     const symbol = classFieldEntry;
@@ -815,7 +815,7 @@ export namespace TypeUtils {
             }
 
             if ((flags & ClassMemberLookupFlags.SkipBaseClasses) === 0) {
-                for (const baseClass of classType.getBaseClasses()) {
+                for (const baseClass of ClassType.getBaseClasses(classType)) {
                     // Skip metaclasses.
                     if (!baseClass.isMetaclass) {
                         // Recursively perform search.
@@ -909,7 +909,7 @@ export namespace TypeUtils {
             return undefined;
         }
 
-        for (const base of type.getBaseClasses()) {
+        for (const base of ClassType.getBaseClasses(type)) {
             if (base.isMetaclass) {
                 if (base.type instanceof ClassType) {
                     return base.type;
@@ -951,7 +951,7 @@ export namespace TypeUtils {
     export function getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
         const getTypeVarsFromClass = (classType: ClassType) => {
             const combinedList: TypeVarType[] = [];
-            const typeArgs = classType.getTypeArguments();
+            const typeArgs = ClassType.getTypeArguments(classType);
 
             if (typeArgs) {
                 typeArgs.forEach(typeArg => {
@@ -970,7 +970,7 @@ export namespace TypeUtils {
         } else if (type instanceof ClassType) {
             return getTypeVarsFromClass(type);
         } else if (type instanceof ObjectType) {
-            return getTypeVarsFromClass(type.getClassType());
+            return getTypeVarsFromClass(type.classType);
         } else if (type instanceof UnionType) {
             const combinedList: TypeVarType[] = [];
             for (const subtype of type.getTypes()) {
@@ -986,12 +986,12 @@ export namespace TypeUtils {
     // type parameters are used as type arguments. This is useful
     // for typing "self" or "cls" within a class's implementation.
     export function selfSpecializeClassType(type: ClassType, setSkipAbstractClassTest = false): ClassType {
-        if (!type.isGeneric() && !setSkipAbstractClassTest) {
+        if (!ClassType.isGeneric(type) && !setSkipAbstractClassTest) {
             return type;
         }
 
-        const typeArgs = type.getTypeParameters();
-        return type.cloneForSpecialization(typeArgs, setSkipAbstractClassTest);
+        const typeArgs = ClassType.getTypeParameters(type);
+        return ClassType.cloneForSpecialization(type, typeArgs, setSkipAbstractClassTest);
     }
 
     // Removes the first parameter of the function and returns a new function.
@@ -1004,8 +1004,8 @@ export namespace TypeUtils {
     // specialized type is Dict[str, int], it returns a map that associates
     // _T1 with str and _T2 with int.
     export function buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeVarMap {
-        const typeParameters = classType.getTypeParameters();
-        const typeArgs = classType.getTypeArguments();
+        const typeParameters = ClassType.getTypeParameters(classType);
+        const typeArgs = ClassType.getTypeArguments(classType);
 
         return buildTypeVarMap(typeParameters, typeArgs);
     }
@@ -1061,11 +1061,11 @@ export namespace TypeUtils {
     }
 
     export function derivesFromClassRecursive(classType: ClassType, baseClassToFind: ClassType) {
-        if (classType.isSameGenericClass(baseClassToFind)) {
+        if (ClassType.isSameGenericClass(classType, baseClassToFind)) {
             return true;
         }
 
-        for (const baseClass of classType.getBaseClasses()) {
+        for (const baseClass of ClassType.getBaseClasses(classType)) {
             if (baseClass.type instanceof ClassType) {
                 if (derivesFromClassRecursive(baseClass.type, baseClassToFind)) {
                     return true;
@@ -1083,7 +1083,7 @@ export namespace TypeUtils {
     export function removeFalsinessFromType(type: Type): Type {
         return doForSubtypes(type, subtype => {
             if (subtype instanceof ObjectType) {
-                const truthyOrFalsy = subtype.getLiteralValue();
+                const truthyOrFalsy = subtype.literalValue;
                 if (truthyOrFalsy !== undefined) {
                     // If the object is already definitely truthy,
                     // it's fine to include.
@@ -1094,7 +1094,7 @@ export namespace TypeUtils {
                     // If the object is potentially falsy, mark it
                     // as definitely truthy here.
                     if (canBeFalsy(subtype)) {
-                        return subtype.cloneWithLiteral(true);
+                        return ObjectType.cloneWithLiteral(subtype, true);
                     }
                 }
             } else if (canBeTruthy(subtype)) {
@@ -1113,7 +1113,7 @@ export namespace TypeUtils {
     export function removeTruthinessFromType(type: Type): Type {
         return doForSubtypes(type, subtype => {
             if (subtype instanceof ObjectType) {
-                const truthyOrFalsy = subtype.getLiteralValue();
+                const truthyOrFalsy = subtype.literalValue;
                 if (truthyOrFalsy !== undefined) {
                     // If the object is already definitely falsy,
                     // it's fine to include.
@@ -1124,7 +1124,7 @@ export namespace TypeUtils {
                     // If the object is potentially truthy, mark it
                     // as definitely falsy here.
                     if (canBeTruthy(subtype)) {
-                        return subtype.cloneWithLiteral(false);
+                        return ObjectType.cloneWithLiteral(subtype, false);
                     }
                 }
             } else if (canBeFalsy(subtype)) {
@@ -1144,9 +1144,9 @@ export namespace TypeUtils {
             return undefined;
         }
 
-        for (const baseClass of classType.getBaseClasses()) {
+        for (const baseClass of ClassType.getBaseClasses(classType)) {
             if (baseClass.type instanceof ClassType) {
-                const classFields = baseClass.type.getClassFields();
+                const classFields = ClassType.getClassFields(baseClass.type);
                 const symbol = classFields.get(name);
                 if (symbol) {
                     return {
@@ -1183,9 +1183,9 @@ export namespace TypeUtils {
             return;
         }
 
-        for (const baseClass of classType.getBaseClasses()) {
+        for (const baseClass of ClassType.getBaseClasses(classType)) {
             if (baseClass.type instanceof ClassType) {
-                if (baseClass.type.isAbstractClass()) {
+                if (ClassType.isAbstractClass(baseClass.type)) {
                     // Recursively get abstract methods for subclasses.
                     getAbstractMethodsRecursive(baseClass.type,
                         symbolTable, recursiveCount + 1);
@@ -1195,8 +1195,8 @@ export namespace TypeUtils {
 
         // Remove any entries that are overridden in this class with
         // non-abstract methods.
-        if (symbolTable.getKeys().length > 0 || classType.isAbstractClass()) {
-            const classFields = classType.getClassFields();
+        if (symbolTable.getKeys().length > 0 || ClassType.isAbstractClass(classType)) {
+            const classFields = ClassType.getClassFields(classType);
             for (const symbolName of classFields.getKeys()) {
                 const symbol = classFields.get(symbolName)!;
                 const symbolType = getEffectiveTypeOfSymbol(symbol);
@@ -1229,8 +1229,8 @@ export namespace TypeUtils {
                     iteratorType instanceof ClassType) {
 
                 // The yield type is the first type arg. Wrap it in an iterator.
-                return new ObjectType(iteratorType.cloneForSpecialization(
-                    [generatorTypeArgs[0]]));
+                return ObjectType.create(ClassType.cloneForSpecialization(
+                    iteratorType, [generatorTypeArgs[0]]));
             }
 
             // If the return type isn't a Generator, assume that it's the
@@ -1280,7 +1280,7 @@ export namespace TypeUtils {
     export function convertClassToObject(type: Type): Type {
         return doForSubtypes(type, subtype => {
             if (subtype instanceof ClassType) {
-                return new ObjectType(subtype);
+                return ObjectType.create(subtype);
             }
 
             return subtype;
@@ -1315,11 +1315,11 @@ export namespace TypeUtils {
 
         // See if an object or class has an unknown type argument.
         if (type instanceof ObjectType) {
-            return containsUnknown(type.getClassType(), recursionCount + 1);
+            return containsUnknown(type.classType, recursionCount + 1);
         }
 
         if (type instanceof ClassType) {
-            const typeArgs = type.getTypeArguments();
+            const typeArgs = ClassType.getTypeArguments(type);
             if (typeArgs) {
                 for (const argType of typeArgs) {
                     if (containsUnknown(argType, recursionCount + 1)) {
@@ -1339,7 +1339,7 @@ export namespace TypeUtils {
         const metaclass = getMetaclass(classType);
 
         return metaclass instanceof ClassType &&
-            metaclass.getClassName() === 'EnumMeta';
+            ClassType.getClassName(metaclass) === 'EnumMeta';
     }
 
     function _getMembersForClassRecursive(classType: ClassType,
@@ -1352,7 +1352,7 @@ export namespace TypeUtils {
 
         // Add any new instance variables.
         if (includeInstanceVars) {
-            classType.getInstanceFields().forEach((symbol, name) => {
+            ClassType.getInstanceFields(classType).forEach((symbol, name) => {
                 if (!symbolTable.get(name)) {
                     symbolTable.set(name, symbol);
                 }
@@ -1360,13 +1360,13 @@ export namespace TypeUtils {
         }
 
         // Add any new class variables.
-        classType.getClassFields().forEach((symbol, name) => {
+        ClassType.getClassFields(classType).forEach((symbol, name) => {
             if (!symbolTable.get(name)) {
                 symbolTable.set(name, symbol);
             }
         });
 
-        classType.getBaseClasses().forEach(baseClassType => {
+        ClassType.getBaseClasses(classType).forEach(baseClassType => {
             if (!baseClassType.isMetaclass && baseClassType.type instanceof ClassType) {
                 _getMembersForClassRecursive(baseClassType.type,
                     symbolTable, includeInstanceVars, recursionCount + 1);
@@ -1377,11 +1377,11 @@ export namespace TypeUtils {
     function _partiallySpecializeFunctionForBoundClassOrObject(
             baseType: ClassType | ObjectType, memberType: FunctionType): Type {
 
-        const classType = baseType instanceof ClassType ? baseType : baseType.getClassType();
+        const classType = baseType instanceof ClassType ? baseType : baseType.classType;
 
         // If the class has already been specialized (fully or partially), use its
         // existing type arg mappings. If it hasn't, use a fresh type arg map.
-        const typeVarMap = classType.getTypeArguments() ?
+        const typeVarMap = ClassType.getTypeArguments(classType) ?
             buildTypeVarMapFromSpecializedClass(classType) :
             new TypeVarMap();
 
@@ -1539,8 +1539,8 @@ export namespace TypeUtils {
 
         // Is it a structural type (i.e. a protocol)? If so, we need to
         // perform a member-by-member check.
-        if (destType.isProtocol()) {
-            const destClassFields = destType.getClassFields();
+        if (ClassType.isProtocol(destType)) {
+            const destClassFields = ClassType.getClassFields(destType);
 
             // Some protocol definitions include recursive references to themselves.
             // We need to protect against infinite recursion, so we'll check for that here.
@@ -1581,16 +1581,16 @@ export namespace TypeUtils {
             return true;
         }
 
-        if (!allowSubclasses && !srcType.isSameGenericClass(destType)) {
-            const destErrorType = reportErrorsUsingObjType ? new ObjectType(destType) : destType;
-            const srcErrorType = reportErrorsUsingObjType ? new ObjectType(srcType) : srcType;
+        if (!allowSubclasses && !ClassType.isSameGenericClass(srcType, destType)) {
+            const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
+            const srcErrorType = reportErrorsUsingObjType ? ObjectType.create(srcType) : srcType;
             diag.addMessage(`'${ printType(srcErrorType) }' is incompatible with ` +
                 `'${ printType(destErrorType) }'`);
             return false;
         }
 
         const inheritanceChain: InheritanceChain = [];
-        if (srcType.isDerivedFrom(destType, inheritanceChain)) {
+        if (ClassType.isDerivedFrom(srcType, destType, inheritanceChain)) {
             assert(inheritanceChain.length > 0);
 
             return _canAssignClassWithTypeArgs(srcType, inheritanceChain,
@@ -1598,13 +1598,13 @@ export namespace TypeUtils {
         }
 
         // Special-case int-to-float conversion.
-        if (srcType.isBuiltIn() && srcType.getClassName() === 'int' &&
-                destType.isBuiltIn() && destType.getClassName() === 'float') {
+        if (ClassType.isBuiltIn(srcType) && ClassType.getClassName(srcType) === 'int' &&
+                ClassType.isBuiltIn(destType) && ClassType.getClassName(destType) === 'float') {
             return true;
         }
 
-        const destErrorType = reportErrorsUsingObjType ? new ObjectType(destType) : destType;
-        const srcErrorType = reportErrorsUsingObjType ? new ObjectType(srcType) : srcType;
+        const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
+        const srcErrorType = reportErrorsUsingObjType ? ObjectType.create(srcType) : srcType;
         diag.addMessage(`'${ printType(srcErrorType) }' is incompatible with ` +
             `'${ printType(destErrorType) }'`);
         return false;
@@ -1633,14 +1633,14 @@ export namespace TypeUtils {
                         ancestorType, recursionCount + 1);
                 }
 
-                if (ancestorType.isSpecialBuiltIn()) {
-                    assert(curSrcType.isSameGenericClass(ancestorType));
+                if (ClassType.isSpecialBuiltIn(ancestorType)) {
+                    assert(ClassType.isSameGenericClass(curSrcType, ancestorType));
 
                     // Handle built-in types that support arbitrary numbers
                     // of type parameters like Tuple.
-                    if (ancestorType.getClassName() === 'Tuple') {
-                        const ancestorTypeArgs = ancestorType.getTypeArguments() || [];
-                        const srcTypeArgs = curSrcType.getTypeArguments() || [];
+                    if (ClassType.getClassName(ancestorType) === 'Tuple') {
+                        const ancestorTypeArgs = ClassType.getTypeArguments(ancestorType) || [];
+                        const srcTypeArgs = ClassType.getTypeArguments(curSrcType) || [];
                         let destArgCount = ancestorTypeArgs.length;
                         const destAllowsMoreArgs = destArgCount &&
                             isEllipsisType(ancestorTypeArgs[destArgCount - 1]);
@@ -1669,14 +1669,14 @@ export namespace TypeUtils {
                 }
 
                 // If there are no type parameters on this class, we're done.
-                const ancestorTypeParams = ancestorType.getTypeParameters();
+                const ancestorTypeParams = ClassType.getTypeParameters(ancestorType);
                 if (ancestorTypeParams.length === 0) {
                     continue;
                 }
 
-                assert(curSrcType.isSameGenericClass(ancestorType));
+                assert(ClassType.isSameGenericClass(curSrcType, ancestorType));
 
-                const ancestorTypeArgs = ancestorType.getTypeArguments()!;
+                const ancestorTypeArgs = ClassType.getTypeArguments(ancestorType)!;
                 // If the dest type isn't specialized, there are no type
                 // args to validate.
                 if (!ancestorTypeArgs) {
@@ -1684,9 +1684,9 @@ export namespace TypeUtils {
                 }
 
                 // Validate that the type arguments match.
-                const srcTypeArgs = curSrcType.getTypeArguments();
+                const srcTypeArgs = ClassType.getTypeArguments(curSrcType);
                 if (srcTypeArgs) {
-                    if (srcType.isSpecialBuiltIn() || srcTypeArgs.length === ancestorTypeArgs.length) {
+                    if (ClassType.isSpecialBuiltIn(srcType) || srcTypeArgs.length === ancestorTypeArgs.length) {
                         for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
                             const srcTypeArg = srcTypeArgs[srcArgIndex];
 
@@ -1724,7 +1724,7 @@ export namespace TypeUtils {
     }
 
     function _getCallbackProtocolType(objType: ObjectType): FunctionType | undefined {
-        if (!objType.getClassType().isProtocol()) {
+        if (!ClassType.isProtocol(objType.classType)) {
             return undefined;
         }
 
@@ -1745,7 +1745,7 @@ export namespace TypeUtils {
     function _specializeForBaseClass(srcType: ClassType, baseClass: ClassType,
             recursionCount: number): ClassType {
 
-        const typeParams = baseClass.getTypeParameters();
+        const typeParams = ClassType.getTypeParameters(baseClass);
 
         // If there are no type parameters for the specified base class,
         // no specialization is required.
@@ -1763,11 +1763,11 @@ export namespace TypeUtils {
             recursionLevel: number): ClassType {
 
         // Handle the common case where the class has no type parameters.
-        if (classType.getTypeParameters().length === 0) {
+        if (ClassType.getTypeParameters(classType).length === 0) {
             return classType;
         }
 
-        const oldTypeArgs = classType.getTypeArguments();
+        const oldTypeArgs = ClassType.getTypeArguments(classType);
         let newTypeArgs: Type[] = [];
         let specializationNeeded = false;
 
@@ -1782,7 +1782,7 @@ export namespace TypeUtils {
                 return newTypeArgType;
             });
         } else {
-            classType.getTypeParameters().forEach(typeParam => {
+            ClassType.getTypeParameters(classType).forEach(typeParam => {
                 let typeArgType: Type;
 
                 if (typeVarMap && typeVarMap.get(typeParam.getName())) {
@@ -1808,7 +1808,7 @@ export namespace TypeUtils {
             return classType;
         }
 
-        return classType.cloneForSpecialization(newTypeArgs);
+        return ClassType.cloneForSpecialization(classType, newTypeArgs);
     }
 
     function _getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel: number): Type {
@@ -1886,11 +1886,11 @@ export namespace TypeUtils {
     // returns the type arguments for the type.
     function _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
         if (returnType instanceof ObjectType) {
-            const classType = returnType.getClassType();
-            if (classType.isBuiltIn()) {
-                const className = classType.getClassName();
+            const classType = returnType.classType;
+            if (ClassType.isBuiltIn(classType)) {
+                const className = ClassType.getClassName(classType);
                 if (className === 'Generator' || className === 'AsyncGenerator') {
-                    return classType.getTypeArguments();
+                    return ClassType.getTypeArguments(classType);
                 }
             }
         }

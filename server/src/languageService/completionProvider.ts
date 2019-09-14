@@ -367,11 +367,11 @@ export class CompletionProvider {
         let symbolTable = new SymbolTable();
 
         if (leftType instanceof ObjectType) {
-            TypeUtils.getMembersForClass(leftType.getClassType(), symbolTable, true);
+            TypeUtils.getMembersForClass(leftType.classType, symbolTable, true);
         } else if (leftType instanceof ClassType) {
             TypeUtils.getMembersForClass(leftType, symbolTable, false);
         } else if (leftType instanceof ModuleType) {
-            symbolTable = leftType.getFields();
+            symbolTable = leftType.fields;
         }
 
         const completionList = CompletionList.create();
@@ -561,7 +561,7 @@ export class CompletionProvider {
         if (importMap[resolvedPath]) {
             const moduleType = importMap[resolvedPath];
             if (moduleType) {
-                const moduleFields = moduleType.getFields();
+                const moduleFields = moduleType.fields;
                 this._addSymbolsForSymbolTable(moduleFields,
                     name => {
                         // Don't suggest symbols that have already been imported.
@@ -670,9 +670,11 @@ export class CompletionProvider {
                 }
             }
 
-            if (type instanceof ModuleType ||
-                    type instanceof ClassType ||
-                    type instanceof FunctionType) {
+            if (type instanceof ModuleType) {
+                documentation = type.docString;
+            } else if (type instanceof ClassType) {
+                documentation = ClassType.getDocString(type);
+            } else if (type instanceof FunctionType) {
                 documentation = type.getDocString();
             }
 

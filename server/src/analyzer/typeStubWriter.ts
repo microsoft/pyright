@@ -12,18 +12,16 @@ import * as fs from 'fs';
 
 import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     ClassNode, DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode,
-    ImportFromNode, ImportNode, MemberAccessExpressionNode, ModuleNameNode, NameNode,
-    ParameterCategory, ParameterNode, ParseNode, ParseNodeType,
-    StatementListNode, StringListNode, StringNode, TryNode, TypeAnnotationExpressionNode,
-    WhileNode,
-    WithNode } from '../parser/parseNodes';
+    ImportFromNode, ImportNode, ModuleNameNode, NameNode, ParameterCategory, ParameterNode,
+    ParseNode, ParseNodeType, StatementListNode, StringNode, TryNode, TypeAnnotationExpressionNode,
+    WhileNode, WithNode } from '../parser/parseNodes';
 import { AnalyzerNodeInfo } from './analyzerNodeInfo';
 import { ParseTreeUtils, PrintExpressionFlags } from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import { SymbolUtils } from './symbolUtils';
-import { FunctionType, NoneType, ObjectType, UnknownType } from './types';
+import { ClassType, FunctionType, NoneType, ObjectType, UnknownType } from './types';
 import { TypeUtils } from './typeUtils';
 
 class TrackedImport {
@@ -209,8 +207,8 @@ export class TypeStubWriter extends ParseTreeWalker {
                     // class is implemented with a NoReturn, but subclasses provide an
                     // actual return value.
                     if (inferredReturnType instanceof ObjectType) {
-                        const classType = inferredReturnType.getClassType();
-                        if (classType.isBuiltIn() && classType.getClassName() === 'NoReturn') {
+                        const classType = inferredReturnType.classType;
+                        if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'NoReturn') {
                             inferredReturnType = UnknownType.create();
                         }
                     }
@@ -554,8 +552,8 @@ export class TypeStubWriter extends ParseTreeWalker {
                     paramType = 'Optional[Any]';
                     this._addImplicitImportFrom('typing', ['Any', 'Optional']);
                 } else if (typeOfDefault instanceof ObjectType) {
-                    const classType = typeOfDefault.getClassType();
-                    if (classType.isBuiltIn() && classType.getClassName() === 'bool') {
+                    const classType = typeOfDefault.classType;
+                    if (ClassType.isBuiltIn(classType) && ClassType.getClassName(classType) === 'bool') {
                         paramType = 'bool';
                     }
                 }

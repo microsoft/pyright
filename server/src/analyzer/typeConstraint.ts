@@ -78,7 +78,7 @@ export class TypeConstraint {
             // that processing with an assignment type constraint. By doing this, it
             // means that modules can't overwrite the values of special symbols like
             // Callable and Tuple.
-            if (this._type instanceof ClassType && this._type.isSpecialBuiltIn()) {
+            if (this._type instanceof ClassType && ClassType.isSpecialBuiltIn(this._type)) {
                 if (type.category !== TypeCategory.Unbound) {
                     return type;
                 }
@@ -175,8 +175,8 @@ export class TypeConstraintBuilder {
                 // Look for "type(X) is Y" or "type(X) is not Y".
                 if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
                     const callType = typeEvaluator(testExpression.leftExpression.leftExpression);
-                    if (callType instanceof ClassType && callType.isBuiltIn() &&
-                            callType.getClassName() === 'type' &&
+                    if (callType instanceof ClassType && ClassType.isBuiltIn(callType) &&
+                            ClassType.getClassName(callType) === 'type' &&
                             testExpression.leftExpression.arguments.length === 1 &&
                             testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
 
@@ -299,11 +299,13 @@ export class TypeConstraintBuilder {
                     } else if (arg1Type instanceof ObjectType) {
                         // The isinstance call supports a variation where the second
                         // parameter is a tuple of classes.
-                        const objClass = arg1Type.getClassType();
-                        if (objClass.isBuiltIn() && objClass.getClassName() === 'Tuple' && objClass.getTypeArguments()) {
+                        const objClass = arg1Type.classType;
+                        if (ClassType.isBuiltIn(objClass) && ClassType.getClassName(objClass) === 'Tuple' &&
+                                ClassType.getTypeArguments(objClass)) {
+
                             let foundNonClassType = false;
                             const classTypeList: ClassType[] = [];
-                            objClass.getTypeArguments()!.forEach(typeArg => {
+                            ClassType.getTypeArguments(objClass)!.forEach(typeArg => {
                                 if (typeArg instanceof ClassType) {
                                     classTypeList.push(typeArg);
                                 } else {
@@ -398,7 +400,7 @@ export class TypeConstraintBuilder {
 
         return TypeUtils.doForSubtypes(type, subtype => {
             if (subtype instanceof ObjectType) {
-                const matches = subtype.getClassType().isSameGenericClass(classType);
+                const matches = ClassType.isSameGenericClass(subtype.classType, classType);
                 if (isPositiveTest) {
                     return matches ? subtype : undefined;
                 } else {
@@ -425,8 +427,8 @@ export class TypeConstraintBuilder {
 
             let foundSuperclass = false;
             for (const filterType of classTypeList) {
-                const filterIsSuperclass = varType.isDerivedFrom(filterType);
-                const filterIsSubclass = filterType.isDerivedFrom(varType);
+                const filterIsSuperclass = ClassType.isDerivedFrom(varType, filterType);
+                const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
 
                 if (filterIsSuperclass) {
                     foundSuperclass = true;
@@ -455,7 +457,7 @@ export class TypeConstraintBuilder {
                 filteredTypes.push(varType);
             }
 
-            return filteredTypes.map(t => new ObjectType(t));
+            return filteredTypes.map(t => ObjectType.create(t));
         };
 
         const finalizeFilteredTypeList = (types: Type[]): Type => {
@@ -463,7 +465,7 @@ export class TypeConstraintBuilder {
         };
 
         if (type instanceof ObjectType) {
-            const filteredType = filterType(type.getClassType());
+            const filteredType = filterType(type.classType);
             return finalizeFilteredTypeList(filteredType);
         } else if (type instanceof UnionType) {
             let remainingTypes: Type[] = [];
@@ -475,7 +477,7 @@ export class TypeConstraintBuilder {
                     remainingTypes.push(t);
                 } else if (t instanceof ObjectType) {
                     remainingTypes = remainingTypes.concat(
-                        filterType(t.getClassType()));
+                        filterType(t.classType));
                 } else {
                     // All other types are never instances of a class.
                     if (!isPositiveTest) {
