@@ -100,6 +100,10 @@ enum SortCategory {
     // A normal symbol.
     NormalSymbol,
 
+    // A symbol that starts with _ or __ (used only when there is
+    // no matching filter).
+    PrivateSymbol,
+
     // A symbol with a dunder name (e.g. __init__).
     DunderSymbol,
 
@@ -423,7 +427,7 @@ export class CompletionProvider {
 
             // Don't offer imports from files that are named with private
             // naming semantics like "_ast.py".
-            if (!SymbolNameUtils.isProtectedName(fileName) && !SymbolNameUtils.isPrivateName(fileName)) {
+            if (!SymbolNameUtils.isPrivateOrProtectedName(fileName)) {
                 const symbolTable = moduleSymbolMap[filePath];
 
                 symbolTable.forEach((symbol, name) => {
@@ -714,6 +718,12 @@ export class CompletionProvider {
                 // Force dunder-named symbols to appear after all other symbols.
                 completionItem.sortText =
                     this._makeSortText(SortCategory.DunderSymbol, name);
+            } else if (filter === '' && (SymbolNameUtils.isPrivateOrProtectedName(name))) {
+                // Distinguish between normal and private symbols only if there is
+                // currently no filter text. Once we get a single character to filter
+                // upon, we'll no longer differentiate.
+                completionItem.sortText =
+                    this._makeSortText(SortCategory.PrivateSymbol, name);
             } else {
                 completionItem.sortText =
                     this._makeSortText(SortCategory.NormalSymbol, name);
@@ -784,6 +794,7 @@ export class CompletionProvider {
                 sortCategory = SortCategory.RecentImportModuleName;
             } else if (sortCategory === SortCategory.Keyword ||
                     sortCategory === SortCategory.NormalSymbol ||
+                    sortCategory === SortCategory.PrivateSymbol ||
                     sortCategory === SortCategory.DunderSymbol) {
                 sortCategory = SortCategory.RecentKeywordOrSymbol;
             }

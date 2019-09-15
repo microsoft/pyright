@@ -24,6 +24,11 @@ export function isProtectedName(name: string) {
         !name.startsWith('__');
 }
 
+export function isPrivateOrProtectedName(name: string) {
+    return name.length > 1 &&
+        name.startsWith('_');
+}
+
 // "Dunder" names start and end with two underscores.
 export function isDunderName(name: string) {
     return name.length > 4 &&
