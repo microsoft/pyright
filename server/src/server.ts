@@ -260,6 +260,8 @@ _connection.onDidChangeConfiguration(change => {
 });
 
 _connection.onCodeAction(params => {
+    _recordUserInteractionTime();
+
     const sortImportsCodeAction = CodeAction.create(
         'Organize Imports', Command.create('Organize Imports', commandOrderImports),
         CodeActionKind.SourceOrganizeImports);
@@ -321,6 +323,8 @@ _connection.onCodeAction(params => {
 });
 
 _connection.onDefinition(params => {
+    _recordUserInteractionTime();
+
     const filePath = _convertUriToPath(params.textDocument.uri);
 
     const position: DiagnosticTextPosition = {
@@ -362,6 +366,8 @@ _connection.onReferences(params => {
 });
 
 _connection.onDocumentSymbol(params => {
+    _recordUserInteractionTime();
+
     const filePath = _convertUriToPath(params.textDocument.uri);
 
     const workspace = _getWorkspaceForFile(filePath);
@@ -525,6 +531,8 @@ _connection.onRenameRequest(params => {
 });
 
 _connection.onDidOpenTextDocument(params => {
+    _recordUserInteractionTime();
+
     const filePath = _convertUriToPath(params.textDocument.uri);
     const service = _getWorkspaceForFile(filePath).serviceInstance;
     service.setFileOpened(
@@ -534,6 +542,8 @@ _connection.onDidOpenTextDocument(params => {
 });
 
 _connection.onDidChangeTextDocument(params => {
+    _recordUserInteractionTime();
+
     const filePath = _convertUriToPath(params.textDocument.uri);
     const service = _getWorkspaceForFile(filePath).serviceInstance;
     service.updateOpenFileContents(
@@ -543,6 +553,8 @@ _connection.onDidChangeTextDocument(params => {
 });
 
 _connection.onDidCloseTextDocument(params => {
+    _recordUserInteractionTime();
+
     const filePath = _convertUriToPath(params.textDocument.uri);
     const service = _getWorkspaceForFile(filePath).serviceInstance;
     service.setFileClosed(filePath);
@@ -765,6 +777,15 @@ function _convertUriToPath(uriString: string): string {
 
 function _convertPathToUri(path: string): string {
     return VSCodeUri.file(path).toString();
+}
+
+function _recordUserInteractionTime() {
+    // Tell all of the services that the user is actively
+    // interacting with one or more editors, so they should
+    // back off from performing any work.
+    _workspaceMap.forEach(workspace => {
+        workspace.serviceInstance.recordUserInteractionTime();
+    });
 }
 
 // Listen on the connection

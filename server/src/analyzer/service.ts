@@ -99,13 +99,11 @@ export class AnalyzerService {
     }
 
     setFileOpened(path: string, version: number | null, contents: string) {
-        this._recordUserInteractionTime();
         this._program.setFileOpened(path, version, contents);
         this._scheduleReanalysis(false);
     }
 
     updateOpenFileContents(path: string, version: number | null, contents: string) {
-        this._recordUserInteractionTime();
         this._program.setFileOpened(path, version, contents);
         this._program.markFilesDirty([path]);
         this._scheduleReanalysis(false);
@@ -125,39 +123,33 @@ export class AnalyzerService {
     getDefinitionForPosition(filePath: string, position: DiagnosticTextPosition):
             DocumentTextRange[] | undefined {
 
-        this._recordUserInteractionTime();
         return this._program.getDefinitionsForPosition(filePath, position);
     }
 
     getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
             includeDeclaration: boolean): DocumentTextRange[] | undefined {
 
-        this._recordUserInteractionTime();
         return this._program.getReferencesForPosition(filePath, position,
             this._configOptions, this._importResolver, includeDeclaration);
     }
 
     addSymbolsForDocument(filePath: string, symbolList: SymbolInformation[]) {
-        this._recordUserInteractionTime();
         this._program.addSymbolsForDocument(filePath, symbolList);
     }
 
     addSymbolsForWorkspace(symbolList: SymbolInformation[], query: string) {
-        this._recordUserInteractionTime();
         this._program.addSymbolsForWorkspace(symbolList, query);
     }
 
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
             HoverResults | undefined {
 
-        this._recordUserInteractionTime();
         return this._program.getHoverForPosition(filePath, position);
     }
 
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition):
             SignatureHelpResults | undefined {
 
-        this._recordUserInteractionTime();
         return this._program.getSignatureHelpForPosition(filePath, position,
             this._configOptions, this._importResolver);
     }
@@ -165,13 +157,11 @@ export class AnalyzerService {
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition):
             CompletionList | undefined {
 
-        this._recordUserInteractionTime();
         return this._program.getCompletionsForPosition(filePath, position,
             this._configOptions, this._importResolver);
     }
 
     performQuickAction(filePath: string, command: string, args: any[]): TextEditAction[] | undefined {
-        this._recordUserInteractionTime();
         return this._program.performQuickAction(filePath, this._configOptions,
             this._importResolver, command, args);
     }
@@ -179,7 +169,6 @@ export class AnalyzerService {
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
             newName: string): FileEditAction[] | undefined {
 
-        this._recordUserInteractionTime();
         return this._program.renameSymbolAtPosition(filePath, position,
             newName, this._configOptions, this._importResolver);
     }
@@ -218,6 +207,16 @@ export class AnalyzerService {
 
     getDiagnosticsForRange(filePath: string, range: DiagnosticTextRange): Diagnostic[] {
         return this._program.getDiagnosticsForRange(filePath, this._configOptions, range);
+    }
+
+    recordUserInteractionTime() {
+        this._lastUserInteractionTime = Date.now();
+
+        // If we have a pending timer for reanalysis, cancel it
+        // and reschedule for some time in the future.
+        if (this._analyzeTimer) {
+            this._scheduleReanalysis(false);
+        }
     }
 
     // Calculates the effective options based on the command-line options,
@@ -800,11 +799,20 @@ export class AnalyzerService {
         // Remove any existing analysis timer.
         this._clearReanalysisTimer();
 
+        // How long has it been since the user interacted with the service?
+        // If the user is actively typing, back off to let him or herfinish.
+        const timeSinceLastUserIteractionInMs = Date.now() - this._lastUserInteractionTime;
+        const minBackoffTimeInMs = 500;
+
         // We choose a small non-zero value here. If this value
         // is too small (like zero), the VS Code extension becomes
         // unresponsive during heavy analysis. If this number is too
         // large, analysis takes longer.
-        const timeToNextAnalysisInMs = 20;
+        const minTimeBetweenAnalysisPassesInMs = 20;
+
+        const timeUntilNextAnalysisInMs = Math.max(
+            minBackoffTimeInMs - timeSinceLastUserIteractionInMs,
+            minTimeBetweenAnalysisPassesInMs);
 
         // Schedule a new timer.
         this._analyzeTimer = setTimeout(() => {
@@ -819,7 +827,7 @@ export class AnalyzerService {
             if (moreToAnalyze) {
                 this._scheduleReanalysis(false);
             }
-        }, timeToNextAnalysisInMs);
+        }, timeUntilNextAnalysisInMs);
     }
 
     // Determine whether the user appears to be interacting with
@@ -833,10 +841,6 @@ export class AnalyzerService {
         const interactiveTimeLimit = 1000;
 
         return curTime - this._lastUserInteractionTime < interactiveTimeLimit;
-    }
-
-    private _recordUserInteractionTime() {
-        this._lastUserInteractionTime = Date.now();
     }
 
     // Performs analysis for a while (up to this._maxAnalysisTimeInMs) before
