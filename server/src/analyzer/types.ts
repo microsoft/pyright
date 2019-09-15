@@ -1173,7 +1173,8 @@ export function printLiteralValue(type: ObjectType): string {
 
     let literalStr: string;
     if (typeof(literalValue) === 'string') {
-        literalStr = `'${ literalValue.toString() }'`;
+        const prefix = (type.classType.details.name === 'bytes') ? 'b' : '';
+        literalStr = `${ prefix }'${ literalValue.toString() }'`;
     } else if (typeof(literalValue) === 'boolean') {
         literalStr = literalValue ? 'True' : 'False';
     } else {
