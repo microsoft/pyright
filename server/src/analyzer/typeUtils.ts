@@ -460,7 +460,7 @@ export function canBeTruthy(type: Type): boolean {
 }
 
 // None is always falsy. All other types are generally truthy
-// unless they are objects that support the __nonzero__ or __len__
+// unless they are objects that support the __bool__ or __len__
 // methods.
 export function canBeFalsy(type: Type): boolean {
     if (type.category === TypeCategory.None) {
@@ -481,8 +481,8 @@ export function canBeFalsy(type: Type): boolean {
             return true;
         }
 
-        const nonZeroMethod = lookUpObjectMember(type, '__nonzero__');
-        if (nonZeroMethod) {
+        const boolethod = lookUpObjectMember(type, '__bool__');
+        if (boolethod) {
             return true;
         }
     }
