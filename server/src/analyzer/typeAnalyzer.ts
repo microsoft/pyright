@@ -40,7 +40,7 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
-import { setSymbolPreservingAccess, Symbol, SymbolTable } from './symbol';
+import { setSymbolPreservingAccess, Symbol, SymbolFlags, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { ConditionalTypeConstraintResults, TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
@@ -1330,7 +1330,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 }}
                             };
 
-                            const newSymbol = Symbol.createWithType(implicitModuleType, defaultTypeSourceId);
+                            const newSymbol = Symbol.createWithType(
+                                SymbolFlags.ClassMember, implicitModuleType, defaultTypeSourceId);
                             newSymbol.addDeclaration(declaration);
                             if (!moduleFields.get(implicitImport.name)) {
                                 setSymbolPreservingAccess(moduleFields, implicitImport.name, newSymbol);
@@ -2249,9 +2250,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _validateOveriddenMathods(classType: ClassType) {
-        ClassType.getClassFields(classType).forEach((symbol, name) => {
+        ClassType.getFields(classType).forEach((symbol, name) => {
             // Don't check magic functions.
-            if (!SymbolNameUtils.isDunderName(name)) {
+            if (symbol.isClassMember() && !SymbolNameUtils.isDunderName(name)) {
                 const typeOfSymbol = TypeUtils.getEffectiveTypeOfSymbol(symbol);
                 if (typeOfSymbol.category === TypeCategory.Function) {
                     const baseClassAndSymbol = TypeUtils.getSymbolFromBaseClasses(classType, name);
@@ -2771,10 +2772,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 return declaration;
             };
 
-            const memberFields = isInstanceMember ?
-                ClassType.getInstanceFields(classType) :
-                ClassType.getClassFields(classType);
-
+            const memberFields = ClassType.getFields(classType);
             let addNewMemberToLocalClass = false;
             let inheritedDeclaration: Declaration | undefined;
             if (memberInfo) {
@@ -2847,16 +2845,38 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (addNewMemberToLocalClass) {
-                const newSymbol = Symbol.createWithType(srcType, node.memberName.id);
+                // Is there an existing symbol in the local class? Perhaps it's a class
+                // member but we're adding an instance member. In that case, we'll reuse
+                // the existing symbol and simply update its flags and add new
+                // delcarations to it.
+                const existingSymbol = memberFields.get(memberName);
+                if (existingSymbol) {
+                    if (inheritedDeclaration) {
+                        existingSymbol.addDeclaration(inheritedDeclaration);
+                    }
 
-                // If this is an instance variable that has a corresponding class variable
-                // with a defined type, it should inherit that declaration (and declared type).
-                if (inheritedDeclaration) {
-                    newSymbol.addDeclaration(inheritedDeclaration);
+                    existingSymbol.addDeclaration(createDeclaration());
+
+                    if (isInstanceMember) {
+                        existingSymbol.setIsInstanceMember();
+                    } else {
+                        existingSymbol.setIsClassMember();
+                    }
+                } else {
+                    const newSymbol = Symbol.createWithType(
+                        isInstanceMember ? SymbolFlags.InstanceMember : SymbolFlags.ClassMember,
+                        srcType, node.memberName.id);
+
+                    // If this is an instance variable that has a corresponding class variable
+                    // with a defined type, it should inherit that declaration (and declared type).
+                    if (inheritedDeclaration) {
+                        newSymbol.addDeclaration(inheritedDeclaration);
+                    }
+
+                    newSymbol.addDeclaration(createDeclaration());
+                    setSymbolPreservingAccess(memberFields, memberName, newSymbol);
                 }
 
-                newSymbol.addDeclaration(createDeclaration());
-                setSymbolPreservingAccess(memberFields, memberName, newSymbol);
                 this._setAnalysisChanged('Class member added');
 
                 if (srcExprNode) {
@@ -2951,7 +2971,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     undefined, implicitImport.path);
                 if (implicitModuleType) {
                     setSymbolPreservingAccess(symbolTable, implicitImport.name,
-                        Symbol.createWithType(implicitModuleType, defaultTypeSourceId));
+                        Symbol.createWithType(
+                            SymbolFlags.ClassMember, implicitModuleType, defaultTypeSourceId));
                 }
             });
 
@@ -3248,7 +3269,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // table, which should include the first part of the name.
         const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
         let targetSymbolTable = permanentScope.getSymbolTable();
-        const symbol = Symbol.createWithType(type, defaultTypeSourceId);
+        const symbol = Symbol.createWithType(
+            SymbolFlags.ClassMember, type, defaultTypeSourceId);
         if (declaration) {
             symbol.addDeclaration(declaration);
         }
@@ -3287,7 +3309,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const newPartialModule = ModuleType.create(new SymbolTable());
                 newPartialModule.isPartialModule = true;
                 setSymbolPreservingAccess(targetSymbolTable, name,
-                    Symbol.createWithType(newPartialModule, defaultTypeSourceId));
+                    Symbol.createWithType(SymbolFlags.None, newPartialModule, defaultTypeSourceId));
                 targetSymbolTable = newPartialModule.fields;
                 symbolType = newPartialModule;
             }
@@ -3378,7 +3400,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let symbol = permanentScope.lookUpSymbol(name);
         if (!symbol) {
-            symbol = permanentScope.addSymbol(name, false);
+            symbol = permanentScope.addSymbol(name, SymbolFlags.ClassMember);
         }
 
         // Variables that are defined within a module or a class

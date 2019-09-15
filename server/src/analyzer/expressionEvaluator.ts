@@ -32,7 +32,7 @@ import { defaultTypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Scope } from './scope';
 import * as ScopeUtils from './scopeUtils';
-import { setSymbolPreservingAccess, Symbol } from './symbol';
+import { setSymbolPreservingAccess, Symbol, SymbolFlags } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
@@ -507,10 +507,12 @@ export class ExpressionEvaluator {
         });
 
         if (!skipSynthesizeInit) {
-            setSymbolPreservingAccess(ClassType.getClassFields(classType),
-                '__init__', Symbol.createWithType(initType, defaultTypeSourceId));
-            setSymbolPreservingAccess(ClassType.getClassFields(classType),
-                '__new__', Symbol.createWithType(newType, defaultTypeSourceId));
+            setSymbolPreservingAccess(ClassType.getFields(classType),
+                '__init__', Symbol.createWithType(
+                    SymbolFlags.ClassMember, initType, defaultTypeSourceId));
+            setSymbolPreservingAccess(ClassType.getFields(classType),
+                '__new__', Symbol.createWithType(
+                    SymbolFlags.ClassMember, newType, defaultTypeSourceId));
         }
     }
 
@@ -2257,9 +2259,9 @@ export class ExpressionEvaluator {
             ClassType.addBaseClass(classType, enumClass, false);
         }
 
-        const classFields = ClassType.getClassFields(classType);
+        const classFields = ClassType.getFields(classType);
         setSymbolPreservingAccess(classFields, '__class__',
-            Symbol.createWithType(classType, defaultTypeSourceId));
+            Symbol.createWithType(SymbolFlags.ClassMember, classType, defaultTypeSourceId));
 
         if (argList.length < 2) {
             this._addError('Expected enum item string as second parameter', errorNode);
@@ -2277,7 +2279,8 @@ export class ExpressionEvaluator {
                     if (entryName) {
                         const entryType = UnknownType.create();
 
-                        const newSymbol = Symbol.createWithType(entryType, defaultTypeSourceId);
+                        const newSymbol = Symbol.createWithType(
+                            SymbolFlags.ClassMember, entryType, defaultTypeSourceId);
 
                         // We need to associate the declaration with a parse node.
                         // In this case it's just part of a string literal value.
@@ -2384,10 +2387,9 @@ export class ExpressionEvaluator {
             ClassType.addBaseClass(classType, builtInNamedTuple, false);
         }
 
-        const classFields = ClassType.getClassFields(classType);
+        const classFields = ClassType.getFields(classType);
         setSymbolPreservingAccess(classFields, '__class__',
-            Symbol.createWithType(classType, defaultTypeSourceId));
-        const instanceFields = ClassType.getInstanceFields(classType);
+            Symbol.createWithType(SymbolFlags.ClassMember, classType, defaultTypeSourceId));
 
         const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
         if (builtInTupleType.category === TypeCategory.Class) {
@@ -2431,7 +2433,8 @@ export class ExpressionEvaluator {
                                 };
 
                                 FunctionType.addParameter(constructorType, paramInfo);
-                                const newSymbol = Symbol.createWithType(entryType, defaultTypeSourceId);
+                                const newSymbol = Symbol.createWithType(
+                                    SymbolFlags.InstanceMember, entryType, defaultTypeSourceId);
 
                                 // We need to associate the declaration with a parse node.
                                 // In this case it's just part of a string literal value.
@@ -2447,7 +2450,7 @@ export class ExpressionEvaluator {
                                         stringNode.start, TextRange.getEnd(stringNode), this._fileInfo.lines)
                                 };
                                 newSymbol.addDeclaration(declaration);
-                                setSymbolPreservingAccess(instanceFields, entryName, newSymbol);
+                                setSymbolPreservingAccess(classFields, entryName, newSymbol);
                             }
                         });
                     } else if (entriesArg.valueExpression && entriesArg.valueExpression.nodeType === ParseNodeType.List) {
@@ -2511,7 +2514,8 @@ export class ExpressionEvaluator {
 
                             FunctionType.addParameter(constructorType, paramInfo);
 
-                            const newSymbol = Symbol.createWithType(entryType, defaultTypeSourceId);
+                            const newSymbol = Symbol.createWithType(
+                                SymbolFlags.InstanceMember, entryType, defaultTypeSourceId);
                             if (entryNameNode) {
                                 const declaration: Declaration = {
                                     category: DeclarationCategory.Variable,
@@ -2524,7 +2528,7 @@ export class ExpressionEvaluator {
                                 };
                                 newSymbol.addDeclaration(declaration);
                             }
-                            setSymbolPreservingAccess(instanceFields, entryName, newSymbol);
+                            setSymbolPreservingAccess(classFields, entryName, newSymbol);
                         });
                     } else {
                         // A dynamic expression was used, so we can't evaluate
@@ -2548,24 +2552,24 @@ export class ExpressionEvaluator {
             TypeUtils.addDefaultFunctionParameters(initType);
 
             setSymbolPreservingAccess(classFields, '__new__',
-                Symbol.createWithType(constructorType, defaultTypeSourceId));
+                Symbol.createWithType(SymbolFlags.ClassMember, constructorType, defaultTypeSourceId));
             setSymbolPreservingAccess(classFields, '__init__',
-                Symbol.createWithType(initType, defaultTypeSourceId));
+                Symbol.createWithType(SymbolFlags.ClassMember, initType, defaultTypeSourceId));
 
             const keysItemType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
             FunctionType.setDeclaredReturnType(keysItemType, ScopeUtils.getBuiltInObject(this._scope, 'list',
                 [ScopeUtils.getBuiltInObject(this._scope, 'str')]));
             setSymbolPreservingAccess(classFields, 'keys',
-                Symbol.createWithType(keysItemType, defaultTypeSourceId));
+                Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType, defaultTypeSourceId));
             setSymbolPreservingAccess(classFields, 'items',
-                Symbol.createWithType(keysItemType, defaultTypeSourceId));
+                Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType, defaultTypeSourceId));
 
             const lenType = FunctionType.create(
                 FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
             FunctionType.setDeclaredReturnType(lenType, ScopeUtils.getBuiltInObject(this._scope, 'int'));
             FunctionType.addParameter(lenType, selfParameter);
             setSymbolPreservingAccess(classFields, '__len__',
-                Symbol.createWithType(lenType, defaultTypeSourceId));
+                Symbol.createWithType(SymbolFlags.ClassMember, lenType, defaultTypeSourceId));
 
             if (addGenericGetAttribute) {
                 const getAttribType = FunctionType.create(
@@ -2578,7 +2582,7 @@ export class ExpressionEvaluator {
                     type: ScopeUtils.getBuiltInObject(this._scope, 'str')
                 });
                 setSymbolPreservingAccess(classFields, '__getattribute__',
-                    Symbol.createWithType(getAttribType, defaultTypeSourceId));
+                    Symbol.createWithType(SymbolFlags.ClassMember, getAttribType, defaultTypeSourceId));
             }
         }
 
@@ -3168,7 +3172,8 @@ export class ExpressionEvaluator {
     }
 
     private _assignTypeToNameNode(targetExpr: NameNode, type: Type) {
-        const symbol = this._scope.addSymbol(targetExpr.nameToken.value, false);
+        const symbol = this._scope.lookUpSymbol(targetExpr.nameToken.value)!;
+        assert(symbol !== undefined);
         symbol.setInferredTypeForSource(type, targetExpr.id);
 
         // Mark the symbol as accessed. These symbols are not persisted

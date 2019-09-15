@@ -14,7 +14,7 @@ import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { Declaration } from './declaration';
 import { defaultTypeSourceId } from './inferredType';
-import { Symbol, SymbolTable } from './symbol';
+import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType, FunctionTypeFlags,
     InheritanceChain, isAnyOrUnknown, isNoneOrNever, isSameWithoutLiteralValue, isTypeSame,
     NeverType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType, printLiteralValue,
@@ -774,13 +774,12 @@ export function lookUpClassMember(classType: Type, memberName: string,
         }
 
         if ((flags & ClassMemberLookupFlags.SkipOriginalClass) === 0) {
-            // Look in the instance fields first if requested.
-            if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
-                const instanceFields = ClassType.getInstanceFields(classType);
-                const instanceFieldEntry = instanceFields.get(memberName);
-                if (instanceFieldEntry) {
-                    const symbol = instanceFieldEntry;
+            const memberFields = ClassType.getFields(classType);
 
+            // Look in the instance members first if requested.
+            if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
+                const symbol = memberFields.get(memberName);
+                if (symbol && symbol.isInstanceMember()) {
                     if (!declaredTypesOnly || getDeclaredTypeOfSymbol(symbol)) {
                         return {
                             symbol,
@@ -793,12 +792,9 @@ export function lookUpClassMember(classType: Type, memberName: string,
                 }
             }
 
-            // Next look in the class fields.
-            const classFields = ClassType.getClassFields(classType);
-            const classFieldEntry = classFields.get(memberName);
-            if (classFieldEntry) {
-                const symbol = classFieldEntry;
-
+            // Next look in the class members.
+            const symbol = memberFields.get(memberName);
+            if (symbol && symbol.isClassMember()) {
                 if (!declaredTypesOnly || getDeclaredTypeOfSymbol(symbol)) {
                     return {
                         symbol,
@@ -829,7 +825,7 @@ export function lookUpClassMember(classType: Type, memberName: string,
         // The class derives from an unknown type, so all bets are off
         // when trying to find a member. Return an unknown symbol.
         return {
-            symbol: Symbol.createWithType(UnknownType.create(), defaultTypeSourceId),
+            symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create(), defaultTypeSourceId),
             isInstanceMember: false,
             classType: UnknownType.create(),
             symbolType: UnknownType.create()
@@ -1141,9 +1137,9 @@ export function getSymbolFromBaseClasses(classType: ClassType, name: string,
 
     for (const baseClass of ClassType.getBaseClasses(classType)) {
         if (baseClass.type.category === TypeCategory.Class) {
-            const classFields = ClassType.getClassFields(baseClass.type);
-            const symbol = classFields.get(name);
-            if (symbol) {
+            const memberFields = ClassType.getFields(baseClass.type);
+            const symbol = memberFields.get(name);
+            if (symbol && symbol.isClassMember()) {
                 return {
                     class: baseClass.type,
                     symbol
@@ -1191,21 +1187,24 @@ export function getAbstractMethodsRecursive(classType: ClassType,
     // Remove any entries that are overridden in this class with
     // non-abstract methods.
     if (symbolTable.getKeys().length > 0 || ClassType.isAbstractClass(classType)) {
-        const classFields = ClassType.getClassFields(classType);
-        for (const symbolName of classFields.getKeys()) {
-            const symbol = classFields.get(symbolName)!;
-            const symbolType = getEffectiveTypeOfSymbol(symbol);
+        const memberFields = ClassType.getFields(classType);
+        for (const symbolName of memberFields.getKeys()) {
+            const symbol = memberFields.get(symbolName)!;
 
-            if (symbolType.category === TypeCategory.Function) {
-                if (FunctionType.isAbstractMethod(symbolType)) {
-                    symbolTable.set(symbolName, {
-                        symbol,
-                        isInstanceMember: false,
-                        classType,
-                        symbolType: getEffectiveTypeOfSymbol(symbol)
-                    });
-                } else {
-                    symbolTable.delete(symbolName);
+            if (symbol.isClassMember()) {
+                const symbolType = getEffectiveTypeOfSymbol(symbol);
+
+                if (symbolType.category === TypeCategory.Function) {
+                    if (FunctionType.isAbstractMethod(symbolType)) {
+                        symbolTable.set(symbolName, {
+                            symbol,
+                            isInstanceMember: false,
+                            classType,
+                            symbolType: getEffectiveTypeOfSymbol(symbol)
+                        });
+                    } else {
+                        symbolTable.delete(symbolName);
+                    }
                 }
             }
         }
@@ -1345,19 +1344,12 @@ function _getMembersForClassRecursive(classType: ClassType,
         return;
     }
 
-    // Add any new instance variables.
-    if (includeInstanceVars) {
-        ClassType.getInstanceFields(classType).forEach((symbol, name) => {
+    // Add any new member variables from this class.
+    ClassType.getFields(classType).forEach((symbol, name) => {
+        if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
             if (!symbolTable.get(name)) {
                 symbolTable.set(name, symbol);
             }
-        });
-    }
-
-    // Add any new class variables.
-    ClassType.getClassFields(classType).forEach((symbol, name) => {
-        if (!symbolTable.get(name)) {
-            symbolTable.set(name, symbol);
         }
     });
 
@@ -1535,7 +1527,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
     // Is it a structural type (i.e. a protocol)? If so, we need to
     // perform a member-by-member check.
     if (ClassType.isProtocol(destType)) {
-        const destClassFields = ClassType.getClassFields(destType);
+        const destClassFields = ClassType.getFields(destType);
 
         // Some protocol definitions include recursive references to themselves.
         // We need to protect against infinite recursion, so we'll check for that here.
@@ -1548,22 +1540,24 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
         const destClassTypeVarMap = buildTypeVarMapFromSpecializedClass(destType);
 
         destClassFields.forEach((symbol, name) => {
-            const memberInfo = lookUpClassMember(srcType, name,
-                ClassMemberLookupFlags.SkipInstanceVariables);
-            if (!memberInfo) {
-                diag.addMessage(`'${ name }' is not present`);
-                missingNames.push(name);
-            } else {
-                const primaryDecls = getPrimaryDeclarationsForSymbol(symbol);
-                if (primaryDecls && primaryDecls.length > 0 && primaryDecls[0].declaredType) {
-                    let destMemberType = primaryDecls[0].declaredType;
-                    destMemberType = specializeType(destMemberType, destClassTypeVarMap);
-                    const srcMemberType = memberInfo.symbolType;
+            if (symbol.isClassMember()) {
+                const memberInfo = lookUpClassMember(srcType, name,
+                    ClassMemberLookupFlags.SkipInstanceVariables);
+                if (!memberInfo) {
+                    diag.addMessage(`'${ name }' is not present`);
+                    missingNames.push(name);
+                } else {
+                    const primaryDecls = getPrimaryDeclarationsForSymbol(symbol);
+                    if (primaryDecls && primaryDecls.length > 0 && primaryDecls[0].declaredType) {
+                        let destMemberType = primaryDecls[0].declaredType;
+                        destMemberType = specializeType(destMemberType, destClassTypeVarMap);
+                        const srcMemberType = memberInfo.symbolType;
 
-                    if (!canAssignType(destMemberType, srcMemberType,
-                            diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
-                        diag.addMessage(`'${ name }' is an incompatible type`);
-                        wrongTypes.push(name);
+                        if (!canAssignType(destMemberType, srcMemberType,
+                                diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
+                            diag.addMessage(`'${ name }' is an incompatible type`);
+                            wrongTypes.push(name);
+                        }
                     }
                 }
             }

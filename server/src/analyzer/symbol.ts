@@ -9,10 +9,38 @@
 * in the program.
 */
 
+import * as assert from 'assert';
+
 import StringMap from '../common/stringMap';
 import { Declaration } from './declaration';
 import { InferredType, TypeSourceId } from './inferredType';
 import { Type } from './types';
+
+export enum SymbolFlags {
+    None = 0,
+
+    // Indicates that the symbol is unbound at the start of
+    // execution. Some symbols are initialized by the module
+    // loader, so they are bound even before the first statement
+    // in the module is executed.
+    InitiallyUnbound = 1 << 0,
+
+    // Indicates that the symbol is not visible from other files.
+    // Used for module-level symbols.
+    ExternallyHidden = 1 << 1,
+
+    // Indicates that someone read the value of the symbol at
+    // some point. This is used for unused symbol detection.
+    Accessed = 1 << 2,
+
+    // Indicates that the symbol is a class member (used for
+    // classes).
+    ClassMember = 1 << 3,
+
+    // Indicates that the symbol is a class member (used for
+    // classes).
+    InstanceMember = 1 << 4
+}
 
 export class Symbol {
     // Inferred type of the symbol.
@@ -24,24 +52,15 @@ export class Symbol {
     // properties, and functions (in the case of @overload).
     private _declarations?: Declaration[];
 
-    // Indicates that the symbol is initially unbound and can
-    // later be unbound through a delete operation.
-    private _isInitiallyUnbound: boolean;
+    // Flags that provide information about the symbol.
+    private _flags: SymbolFlags;
 
-    // Indicates that the symbol is not visible from other files.
-    // Used for module-level symbols.
-    private _isExternallyHidden = false;
-
-    // Indicates that someone read the value of the symbol at
-    // some point. This is used for unused symbol detection.
-    private _isAccessed = false;
-
-    constructor(isInitiallyUnbound: boolean) {
-        this._isInitiallyUnbound = isInitiallyUnbound;
+    constructor(flags = SymbolFlags.ClassMember) {
+        this._flags = flags;
     }
 
-    static createWithType(type: Type, typeSourceId: TypeSourceId) {
-        const newSymbol = new Symbol(true);
+    static createWithType(flags: SymbolFlags, type: Type, typeSourceId: TypeSourceId) {
+        const newSymbol = new Symbol(flags);
         newSymbol.setInferredTypeForSource(type, typeSourceId);
         return newSymbol;
     }
@@ -53,23 +72,43 @@ export class Symbol {
     }
 
     isInitiallyUnbound() {
-        return this._isInitiallyUnbound;
+        return !!(this._flags & SymbolFlags.InitiallyUnbound);
     }
 
     isExternallyHidden() {
-        return this._isExternallyHidden;
+        return !!(this._flags & SymbolFlags.ExternallyHidden);
     }
 
     setIsExternallyHidden(isHidden: boolean) {
-        this._isExternallyHidden = isHidden;
+        if (isHidden) {
+            this._flags |= SymbolFlags.ExternallyHidden;
+        } else {
+            this._flags &= ~SymbolFlags.ExternallyHidden;
+        }
     }
 
     setIsAcccessed() {
-        this._isAccessed = true;
+        this._flags |= SymbolFlags.Accessed;
     }
 
     isAccessed() {
-        return this._isAccessed;
+        return !!(this._flags & SymbolFlags.Accessed);
+    }
+
+    setIsClassMember() {
+        this._flags |= SymbolFlags.ClassMember;
+    }
+
+    isClassMember() {
+        return !!(this._flags & SymbolFlags.ClassMember);
+    }
+
+    setIsInstanceMember() {
+        this._flags |= SymbolFlags.InstanceMember;
+    }
+
+    isInstanceMember() {
+        return !!(this._flags & SymbolFlags.InstanceMember);
     }
 
     // Returns true if inferred type changed.

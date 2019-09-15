@@ -163,8 +163,7 @@ interface ClassDetails {
     typeSourceId: TypeSourceId;
     baseClasses: BaseClass[];
     aliasClass?: ClassType;
-    classFields: SymbolTable;
-    instanceFields: SymbolTable;
+    fields: SymbolTable;
     typeParameters: TypeVarType[];
     isAbstractClass: boolean;
     docString?: string;
@@ -195,8 +194,7 @@ export namespace ClassType {
                 flags,
                 typeSourceId,
                 baseClasses: [],
-                classFields: new SymbolTable(),
-                instanceFields: new SymbolTable(),
+                fields: new SymbolTable(),
                 typeParameters: [],
                 isAbstractClass: false,
                 docString
@@ -321,20 +319,12 @@ export namespace ClassType {
         return didChange;
     }
 
-    export function getClassFields(classType: ClassType): SymbolTable {
-        return classType.details.classFields;
+    export function getFields(classType: ClassType): SymbolTable {
+        return classType.details.fields;
     }
 
-    export function setClassFields(classType: ClassType, nameMap: SymbolTable) {
-        classType.details.classFields = nameMap;
-    }
-
-    export function getInstanceFields(classType: ClassType): SymbolTable {
-        return classType.details.instanceFields;
-    }
-
-    export function setInstanceFields(classType: ClassType, nameMap: SymbolTable) {
-        classType.details.instanceFields = nameMap;
+    export function setFields(classType: ClassType, fields: SymbolTable) {
+        classType.details.fields = fields;
     }
 
     export function setTypeArguments(classType: ClassType, typeArgs: Type[]) {
