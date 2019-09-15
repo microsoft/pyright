@@ -363,6 +363,12 @@ test('DataClass6', () => {
     validateResults(analysisResults, 2);
 });
 
+test('DataClass7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass7.py']);
+
+    validateResults(analysisResults, 2);
+});
+
 test('AbstractClass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass1.py']);
 

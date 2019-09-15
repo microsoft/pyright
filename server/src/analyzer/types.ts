@@ -167,6 +167,7 @@ interface ClassDetails {
     typeParameters: TypeVarType[];
     isAbstractClass: boolean;
     docString?: string;
+    dataClassParameters?: FunctionParameter[];
 }
 
 export interface ClassType extends TypeBase {
@@ -317,6 +318,28 @@ export namespace ClassType {
         const didChange = !isTypeSame(type, classType.details.baseClasses[index].type);
         classType.details.baseClasses[index].type = type;
         return didChange;
+    }
+
+    export function updateDataClassParameters(classType: ClassType, params: FunctionParameter[]) {
+        let didChange = false;
+        const oldParams = classType.details.dataClassParameters;
+        if (!oldParams) {
+            didChange = true;
+        } else if (oldParams.length !== params.length) {
+            didChange = true;
+        } else {
+            didChange = params.some((param, index) => {
+                return param.name !== params[index].name ||
+                    !isTypeSame(param.type, params[index].type);
+            });
+        }
+
+        classType.details.dataClassParameters = params;
+        return didChange;
+    }
+
+    export function getDataClassParameters(classType: ClassType): FunctionParameter[] {
+        return classType.details.dataClassParameters || [];
     }
 
     export function getFields(classType: ClassType): SymbolTable {

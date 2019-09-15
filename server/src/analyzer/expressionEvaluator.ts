@@ -430,7 +430,6 @@ export class ExpressionEvaluator {
             FunctionTypeFlags.StaticMethod | FunctionTypeFlags.SynthesizedMethod);
         const initType = FunctionType.create(
             FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
-        let sawDefaultValue = false;
 
         FunctionType.addParameter(newType, {
             category: ParameterCategory.Simple,
@@ -446,6 +445,13 @@ export class ExpressionEvaluator {
             name: 'self',
             type: ObjectType.create(classType)
         });
+
+        // Maintain a list of all dataclass parameters (including
+        // those from inherited classes) plus a list of only those
+        // parameters added by this class.
+        const localDataClassParameters: FunctionParameter[] = [];
+        const fullDataClassParameters: FunctionParameter[] = [];
+        this._addInheritedDataClassParametersRecursive(classType, fullDataClassParameters);
 
         node.suite.statements.forEach(statementList => {
             if (statementList.nodeType === ParseNodeType.StatementList) {
@@ -481,13 +487,6 @@ export class ExpressionEvaluator {
                     if (variableNameNode && variableType) {
                         const variableName = variableNameNode.nameToken.value;
 
-                        // If we've already seen a variable with a default value defined,
-                        // all subsequent variables must also have default values.
-                        if (!hasDefaultValue && sawDefaultValue) {
-                            this._addError(`Data fields without default value cannot appear after ` +
-                                `data fields with default values`, variableNameNode);
-                        }
-
                         // Add the new variable to the init function.
                         const paramInfo: FunctionParameter = {
                             category: ParameterCategory.Simple,
@@ -496,17 +495,42 @@ export class ExpressionEvaluator {
                             type: variableType
                         };
 
-                        FunctionType.addParameter(initType, paramInfo);
+                        // Add the new parameter to the local parameter list.
+                        let insertIndex = localDataClassParameters.findIndex(p => p.name === variableName);
+                        if (insertIndex >= 0) {
+                            localDataClassParameters[insertIndex] = paramInfo;
+                        } else {
+                            localDataClassParameters.push(paramInfo);
+                        }
 
-                        if (hasDefaultValue) {
-                            sawDefaultValue = true;
+                        // Add the new parameter to the full parameter list.
+                        insertIndex = fullDataClassParameters.findIndex(p => p.name === variableName);
+                        if (insertIndex >= 0) {
+                            fullDataClassParameters[insertIndex] = paramInfo;
+                        } else {
+                            fullDataClassParameters.push(paramInfo);
+                            insertIndex = fullDataClassParameters.length - 1;
+                        }
+
+                        // If we've already seen a variable with a default value defined,
+                        // all subsequent variables must also have default values.
+                        const firstDefaultValueIndex = fullDataClassParameters.findIndex(p => p.hasDefault);
+                        if (!hasDefaultValue && firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
+                            this._addError(`Data fields without default value cannot appear after ` +
+                                `data fields with default values`, variableNameNode);
                         }
                     }
                 });
             }
         });
 
+        ClassType.updateDataClassParameters(classType, localDataClassParameters);
+
         if (!skipSynthesizeInit) {
+            fullDataClassParameters.forEach(paramInfo => {
+                FunctionType.addParameter(initType, paramInfo);
+            });
+
             setSymbolPreservingAccess(ClassType.getFields(classType),
                 '__init__', Symbol.createWithType(
                     SymbolFlags.ClassMember, initType, defaultTypeSourceId));
@@ -553,6 +577,35 @@ export class ExpressionEvaluator {
         }
 
         return false;
+    }
+
+    // Builds a sorted list of dataclass parameters that are inherited by
+    // the specified class. These parameters must be unique and in reverse-MRO
+    // order.
+    private _addInheritedDataClassParametersRecursive(classType: ClassType, params: FunctionParameter[]) {
+        // Recursively call for reverse-MRO ordering.
+        ClassType.getBaseClasses(classType).forEach(baseClass => {
+            if (baseClass.type.category === TypeCategory.Class) {
+                this._addInheritedDataClassParametersRecursive(baseClass.type, params);
+            }
+        });
+
+        ClassType.getBaseClasses(classType).forEach(baseClass => {
+            if (baseClass.type.category === TypeCategory.Class) {
+                const dataClassParams = ClassType.getDataClassParameters(baseClass.type);
+
+                // Add the parameters to the end of the list, replacing same-named
+                // parameters if found.
+                dataClassParams.forEach(param => {
+                    const existingIndex = params.findIndex(p => p.name === param.name);
+                    if (existingIndex >= 0) {
+                        params[existingIndex] = param;
+                    } else {
+                        params.push(param);
+                    }
+                });
+            }
+        });
     }
 
     private _getReturnTypeFromGenerator(type: Type): Type | undefined {
