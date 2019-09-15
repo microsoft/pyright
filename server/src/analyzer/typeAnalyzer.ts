@@ -542,9 +542,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Validate that the function returns the declared type.
         this._validateFunctionReturn(node, functionType, functionScope);
-        const declarationCategory = decoratedType.category === TypeCategory.Property ?
-            DeclarationCategory.Property :
-            (containingClassNode ? DeclarationCategory.Method : DeclarationCategory.Function);
+        const declarationCategory = containingClassNode ?
+            DeclarationCategory.Method : DeclarationCategory.Function;
 
         const declaration: Declaration = {
             category: declarationCategory,

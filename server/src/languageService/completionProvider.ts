@@ -21,7 +21,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ScopeType } from '../analyzer/scope';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
-import { ClassType, FunctionType, printType, TypeCategory } from '../analyzer/types';
+import { ClassType, FunctionType, printType, Type, TypeCategory } from '../analyzer/types';
 import * as TypeUtils from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
@@ -638,10 +638,10 @@ export class CompletionProvider {
             let documentation: string | undefined;
 
             const declaration = declarations[0];
-            itemKind = this._convertDeclarationCategoryToItemKind(
-                declaration.category);
-
             const type = declaration.declaredType;
+            itemKind = this._convertDeclarationCategoryToItemKind(
+                declaration.category, type);
+
             if (type) {
                 switch (declaration.category) {
                     case DeclarationCategory.Variable:
@@ -650,7 +650,6 @@ export class CompletionProvider {
                         break;
 
                     case DeclarationCategory.Function:
-                    case DeclarationCategory.Property:
                     case DeclarationCategory.Method:
                         if (type.category === TypeCategory.OverloadedFunction) {
                             typeDetail = type.overloads.map(overload =>
@@ -816,8 +815,8 @@ export class CompletionProvider {
         return result;
     }
 
-    private _convertDeclarationCategoryToItemKind(
-                category: DeclarationCategory): CompletionItemKind {
+    private _convertDeclarationCategoryToItemKind(category: DeclarationCategory,
+            type?: Type): CompletionItemKind {
 
         switch (category) {
             case DeclarationCategory.Variable:
@@ -828,10 +827,10 @@ export class CompletionProvider {
                 return CompletionItemKind.Function;
 
             case DeclarationCategory.Method:
+                if (type && type.category === TypeCategory.Property) {
+                    return CompletionItemKind.Property;
+                }
                 return CompletionItemKind.Method;
-
-            case DeclarationCategory.Property:
-                return CompletionItemKind.Property;
 
             case DeclarationCategory.Class:
                 return CompletionItemKind.Class;

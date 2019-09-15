@@ -18,7 +18,6 @@ export const enum DeclarationCategory {
     Parameter,
     Function,
     Method,
-    Property,
     Class,
     Module
 }

@@ -15,6 +15,7 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationCategory } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
+import { TypeCategory } from '../analyzer/types';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import * as StringUtils from '../common/stringUtils';
 import { ClassNode, FunctionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
@@ -108,11 +109,11 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
                 break;
 
             case DeclarationCategory.Method:
-                symbolKind = SymbolKind.Method;
-                break;
-
-            case DeclarationCategory.Property:
-                symbolKind = SymbolKind.Property;
+                if (declaration.declaredType && declaration.declaredType.category === TypeCategory.Property) {
+                    symbolKind = SymbolKind.Property;
+                } else {
+                    symbolKind = SymbolKind.Method;
+                }
                 break;
 
             case DeclarationCategory.Module:

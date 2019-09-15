@@ -59,7 +59,8 @@ export class HoverProvider {
         } else if (node.nodeType === ParseNodeType.Name) {
             const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(results.parts, declarations[0].category, node);
+                this._addResultsForDeclaration(results.parts, declarations[0].category,
+                    node, declarations[0].declaredType);
             }
 
             // If we had no declaration, see if we can provide a minimal tooltip.
@@ -73,7 +74,8 @@ export class HoverProvider {
     }
 
     private static _addResultsForDeclaration(parts: HoverTextPart[],
-            declCategory: DeclarationCategory, node: ParseNode): void {
+            declCategory: DeclarationCategory, node: ParseNode,
+            declaredType?: Type): void {
 
         switch (declCategory) {
             case DeclarationCategory.Variable: {
@@ -115,19 +117,11 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationCategory.Property: {
-                if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(property) ' + node.nameToken.value +
-                        this._getTypeText(node), true);
-                    this._addDocumentationPart(parts, node);
-                    return;
-                }
-                break;
-            }
-
             case DeclarationCategory.Method: {
+                const label = declaredType && declaredType.category === TypeCategory.Property ?
+                    'property' : 'method';
                 if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(method) ' + node.nameToken.value +
+                    this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
                         this._getTypeText(node), true);
                     this._addDocumentationPart(parts, node);
                     return;
