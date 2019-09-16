@@ -165,6 +165,20 @@ export class Scope {
         this._parent = scope;
     }
 
+    getGlobalScope(): Scope {
+        let curScope: Scope | undefined = this;
+        while (curScope) {
+            if (curScope._scopeType === ScopeType.Module || curScope._scopeType === ScopeType.Builtin) {
+                return curScope;
+            }
+
+            curScope = curScope._parent;
+        }
+
+        assert(false, 'failed to find scope');
+        return this;
+    }
+
     getReturnType(): InferredType {
         return this._returnType;
     }
