@@ -35,13 +35,13 @@ import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import * as DocStringUtils from './docStringUtils';
-import * as ExpressionUtils from './expressionUtils';
 import { ImportType } from './importResult';
 import { defaultTypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
+import * as StaticExpressions from './staticExpressions';
 import { SymbolFlags } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, ModuleType, Type, TypeCategory, UnknownType } from './types';
@@ -744,7 +744,7 @@ export abstract class Binder extends ParseTreeWalker {
 
         // Determine if the if condition is always true or always false. If so,
         // we can treat either the if or the else clause as unconditional.
-        const constExprValue = ExpressionUtils.evaluateConstantExpression(
+        const constExprValue = StaticExpressions.evaluateStaticExpression(
             testExpression, this._fileInfo.executionEnvironment);
 
         // which variables have been assigned to conditionally.

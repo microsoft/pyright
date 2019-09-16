@@ -1,5 +1,5 @@
 /*
-* expressionUtils.ts
+* staticExpressions.ts
 * Copyright (c) Microsoft Corporation.
 * Licensed under the MIT license.
 * Author: Eric Traut
@@ -14,7 +14,7 @@ import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
 // Returns undefined if the expression cannot be evaluated
 // statically or a value if it can.
-export function evaluateConstantExpression(node: ExpressionNode,
+export function evaluateStaticExpression(node: ExpressionNode,
         execEnv: ExecutionEnvironment): boolean | undefined {
 
     if (node.nodeType === ParseNodeType.BinaryOperation) {

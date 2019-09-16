@@ -33,13 +33,13 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationCategory } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
-import * as ExpressionUtils from './expressionUtils';
 import { ImportResult, ImportType } from './importResult';
 import { defaultTypeSourceId, TypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
+import * as StaticExpressions from './staticExpressions';
 import { setSymbolPreservingAccess, Symbol, SymbolFlags, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { ConditionalTypeConstraintResults, TypeConstraintBuilder } from './typeConstraint';
@@ -1116,7 +1116,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Determine if the RHS is a constant boolean expression.
         // If so, assign it a literal type.
-        const constExprValue = ExpressionUtils.evaluateConstantExpression(node.rightExpression,
+        const constExprValue = StaticExpressions.evaluateStaticExpression(node.rightExpression,
             this._fileInfo.executionEnvironment);
         if (constExprValue !== undefined) {
             const boolType = ScopeUtils.getBuiltInObject(this._currentScope, 'bool');
@@ -2291,7 +2291,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     decoratorNode.arguments.forEach(arg => {
                         if (arg.name && arg.name.nameToken.value === 'init') {
                             if (arg.valueExpression) {
-                                const value = ExpressionUtils.evaluateConstantExpression(
+                                const value = StaticExpressions.evaluateStaticExpression(
                                     arg.valueExpression, this._fileInfo.executionEnvironment);
                                 if (!value) {
                                     skipSynthesizeInit = true;
@@ -2483,7 +2483,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Determine if the if condition is always true or always false. If so,
         // we can treat either the if or the else clause as unconditional.
-        let constExprValue = ExpressionUtils.evaluateConstantExpression(
+        let constExprValue = StaticExpressions.evaluateStaticExpression(
             testExpression, this._fileInfo.executionEnvironment);
 
         let typeConstraints: ConditionalTypeConstraintResults | undefined;
