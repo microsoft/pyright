@@ -134,8 +134,10 @@ export abstract class Binder extends ParseTreeWalker {
     // We separate binding into two passes. The first happens immediately when
     // the scope analyzer is created. The second happens after its parent scope
     // has been fully analyzed.
-    abstract bindImmediate(): void;
-    abstract bindDeferred(): void;
+    bindDeferred() {
+        // Analyze any sub-scopes that were discovered during the earlier pass.
+        this._analyzeSubscopesDeferred();
+    }
 
     visitNode(node: ParseNode) {
         const children = super.visitNode(node);
@@ -622,15 +624,6 @@ export abstract class Binder extends ParseTreeWalker {
         }
     }
 
-    // Analyzes the subscopes that are discovered during the first analysis pass.
-    protected _analyzeSubscopesDeferred() {
-        for (const subscope of this._subscopesToAnalyze) {
-            subscope.bindDeferred();
-        }
-
-        this._subscopesToAnalyze = [];
-    }
-
     protected _bindPossibleTupleNamedTarget(node: ExpressionNode) {
         if (node.nodeType === ParseNodeType.Name) {
             this._bindNameToScope(this._currentScope, node.nameToken.value);
@@ -721,6 +714,15 @@ export abstract class Binder extends ParseTreeWalker {
         });
     }
 
+    // Analyzes the subscopes that are discovered during the first analysis pass.
+    private _analyzeSubscopesDeferred() {
+        for (const subscope of this._subscopesToAnalyze) {
+            subscope.bindDeferred();
+        }
+
+        this._subscopesToAnalyze = [];
+    }
+
     private _validateYieldUsage(node: YieldExpressionNode | YieldFromExpressionNode) {
         const functionNode = ParseTreeUtils.getEnclosingFunction(node);
 
@@ -773,7 +775,6 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     private _queueSubScopeAnalyzer(binder: Binder) {
-        binder.bindImmediate();
         this._subscopesToAnalyze.push(binder);
     }
 
@@ -805,15 +806,18 @@ export class ModuleScopeBinder extends Binder {
     constructor(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
         super(node, fileInfo.builtinsScope ? ScopeType.Module : ScopeType.Builtin,
             fileInfo.builtinsScope, fileInfo);
-    }
 
-    bind() {
-        this.bindImmediate();
-        this.bindDeferred();
-    }
-
-    bindImmediate() {
-        this._bindImplicitNames();
+        // Bind implicit names.
+        // List taken from https://docs.python.org/3/reference/import.html#__name__
+        this._addSymbolToCurrentScope('__name__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToCurrentScope('__loader__', AnyType.create());
+        this._addSymbolToCurrentScope('__package__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToCurrentScope('__spec__', AnyType.create());
+        this._addSymbolToCurrentScope('__path__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToCurrentScope('__file__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addSymbolToCurrentScope('__cached__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
 
         const moduleNode = this._scopedNode as ModuleNode;
         this._addParentLinks(moduleNode, moduleNode.statements);
@@ -825,93 +829,41 @@ export class ModuleScopeBinder extends Binder {
         AnalyzerNodeInfo.setExpressionType(this._scopedNode, moduleType);
     }
 
-    bindDeferred() {
-        // Analyze any sub-scopes that were discovered during the earlier pass.
-        this._analyzeSubscopesDeferred();
-    }
-
-    private _bindImplicitNames() {
-        // List taken from https://docs.python.org/3/reference/import.html#__name__
-        this._addSymbolToCurrentScope('__name__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addSymbolToCurrentScope('__loader__', AnyType.create());
-        this._addSymbolToCurrentScope('__package__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addSymbolToCurrentScope('__spec__', AnyType.create());
-        this._addSymbolToCurrentScope('__path__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addSymbolToCurrentScope('__file__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addSymbolToCurrentScope('__cached__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+    bind() {
+        this.bindDeferred();
     }
 }
 
 export class ClassScopeBinder extends Binder {
-    private _classType: ClassType;
-
     constructor(node: ClassNode, parentScope: Scope, classType: ClassType,
             fileInfo: AnalyzerFileInfo) {
         super(node, ScopeType.Class, parentScope, fileInfo);
 
-        this._classType = classType;
-    }
+        // The scope for this class becomes the "fields" for the corresponding type.
+        ClassType.setFields(classType, this._currentScope.getSymbolTable());
 
-    bindImmediate() {
-        this._bindImplicitNames();
-
-        // Analyze the suite.
-        const classNode = this._scopedNode as ClassNode;
-
-        this.walk(classNode.suite);
-
-        // Record the class fields for this class.
-        ClassType.setFields(this._classType, this._currentScope.getSymbolTable());
-    }
-
-    bindDeferred() {
-        // Analyze any sub-scopes that were discovered during the earlier pass.
-        this._analyzeSubscopesDeferred();
-    }
-
-    private _bindImplicitNames() {
-        const classType = AnalyzerNodeInfo.getExpressionType(this._scopedNode);
+        // Bind implicit names.
         assert(classType && classType.category === TypeCategory.Class);
-        this._addSymbolToCurrentScope('__class__', classType!);
+        this._addSymbolToCurrentScope('__class__', classType);
         this._addSymbolToCurrentScope('__dict__', AnyType.create());
         this._addSymbolToCurrentScope('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         this._addSymbolToCurrentScope('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
             this._addSymbolToCurrentScope('__qualname__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         }
+
+        // Analyze the suite.
+        const classNode = this._scopedNode as ClassNode;
+
+        this.walk(classNode.suite);
     }
 }
 
 export class FunctionScopeBinder extends Binder {
     constructor(node: FunctionNode, parentScope: Scope, fileInfo: AnalyzerFileInfo) {
         super(node, ScopeType.Function, parentScope, fileInfo);
-    }
 
-    bindImmediate() {
-        this._bindImplicitNames();
-
-        // Functions don't get analyzed immediately. They are analyzed in a deferred manner.
-    }
-
-    bindDeferred() {
-        const functionNode = this._scopedNode as FunctionNode;
-
-        functionNode.parameters.forEach(param => {
-            if (param.name) {
-                this._bindNameToScope(this._currentScope, param.name.nameToken.value);
-            }
-        });
-
-        // Walk the statements that make up the function.
-        this.walk(functionNode.suite);
-
-        // Analyze any sub-scopes that were discovered during the earlier pass.
-        this._analyzeSubscopesDeferred();
-    }
-
-    private _bindImplicitNames() {
+        // Bind implicit names.
         // List taken from https://docs.python.org/3/reference/datamodel.html
         this._addSymbolToCurrentScope('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         this._addSymbolToCurrentScope('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
@@ -927,15 +879,27 @@ export class FunctionScopeBinder extends Binder {
         this._addSymbolToCurrentScope('__annotations__', AnyType.create());
         this._addSymbolToCurrentScope('__kwdefaults__', AnyType.create());
     }
+
+    bindDeferred() {
+        const functionNode = this._scopedNode as FunctionNode;
+
+        functionNode.parameters.forEach(param => {
+            if (param.name) {
+                this._bindNameToScope(this._currentScope, param.name.nameToken.value);
+            }
+        });
+
+        // Walk the statements that make up the function.
+        this.walk(functionNode.suite);
+
+        // Analyze any sub-scopes that were discovered during the earlier pass.
+        super.bindDeferred();
+    }
 }
 
 export class LambdaScopeBinder extends Binder {
     constructor(node: LambdaNode, parentScope: Scope, fileInfo: AnalyzerFileInfo) {
         super(node, ScopeType.Function, parentScope, fileInfo);
-    }
-
-    bindImmediate() {
-        // Lambdas don't get analyzed immediately. They are analyzed in a deferred manner.
     }
 
     bindDeferred() {
@@ -951,6 +915,6 @@ export class LambdaScopeBinder extends Binder {
         this.walk(lambdaNode.expression);
 
         // Analyze any sub-scopes that were discovered during the earlier pass.
-        this._analyzeSubscopesDeferred();
+        super.bindDeferred();
     }
 }
