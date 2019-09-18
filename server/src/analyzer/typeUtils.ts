@@ -240,7 +240,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
             typeVarMap.set(destType.name, noLiteralSrcType);
         }
 
-        return canAssignToTypeVar(destType, srcType, diag);
+        return canAssignToTypeVar(destType, srcType, diag, recursionCount + 1);
     }
 
     if (isAnyOrUnknown(destType) || isAnyOrUnknown(srcType)) {
