@@ -110,7 +110,7 @@ export class Scope {
     // expressions.
     private _typeConstraints: TypeConstraint[] = [];
 
-    // Groups of type constriants that are active at the time
+    // Groups of type constraints that are active at the time
     // a loop continuation is encountered. This can be an explicit
     // "continue" statement or an implicit continue at the bottom
     // of a loop. This is used only for looping scopes
@@ -412,7 +412,7 @@ export class Scope {
     combineContinueTypeConstraints() {
         const combinedTCs = TypeConstraintUtils.combineTypeConstraints(this._continueTypeConstraints);
 
-        // Dedup and mark conditional because continue type constraints
+        // Dedupe and mark conditional because continue type constraints
         // are always combined conditionally with incoming type constraints
         // at the top of the loop.
         return TypeConstraintUtils.dedupeTypeConstraints(combinedTCs, true);
@@ -473,9 +473,9 @@ export class Scope {
         // outermost scope moving inward.
         while (scopeList.length > 0) {
             const curScope = scopeList.pop()!;
-            let localContraints = curScope.getTypeConstraints();
-            localContraints = localContraints.map(c => isConditional ? c.cloneAsConditional() : c);
-            constraints.push(...localContraints);
+            let localConstraints = curScope.getTypeConstraints();
+            localConstraints = localConstraints.map(c => isConditional ? c.cloneAsConditional() : c);
+            constraints.push(...localConstraints);
 
             if (curScope.isConditional()) {
                 isConditional = true;

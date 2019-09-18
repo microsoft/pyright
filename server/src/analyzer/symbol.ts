@@ -87,7 +87,7 @@ export class Symbol {
         }
     }
 
-    setIsAcccessed() {
+    setIsAccessed() {
         this._flags |= SymbolFlags.Accessed;
     }
 
@@ -164,6 +164,6 @@ export function setSymbolPreservingAccess(symbolTable: SymbolTable, name: string
     const oldSymbol = symbolTable.get(name);
     symbolTable.set(name, symbol);
     if (oldSymbol && oldSymbol.isAccessed()) {
-        symbol.setIsAcccessed();
+        symbol.setIsAccessed();
     }
 }

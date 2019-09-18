@@ -181,7 +181,7 @@ export class TypeStubWriter extends ParseTreeWalker {
                     inferredReturnType = TypeUtils.stripLiteralValue(inferredReturnType);
 
                     // If the inferred return type is NoReturn, don't include it because
-                    // the inferrence is probably incorrect. This occurs often when a base
+                    // the inference is probably incorrect. This occurs often when a base
                     // class is implemented with a NoReturn, but subclasses provide an
                     // actual return value.
                     if (inferredReturnType.category === TypeCategory.Object) {

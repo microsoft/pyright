@@ -73,7 +73,7 @@ export function getTextEditsForAutoImportSymbolAddition(symbolName: string,
     const textEditList: TextEditAction[] = [];
 
     // Scan through the import symbols to find the right insertion point,
-    // assuming we want to keep the imports alphebetized.
+    // assuming we want to keep the imports alphabetized.
     let priorImport: ImportFromAsNode | undefined;
 
     if (importStatement.node && importStatement.node.nodeType === ParseNodeType.ImportFrom) {

@@ -404,7 +404,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum, undefined)) {
                         const diag = this._addError(
                             `Value of type '${ printType(defaultValueType) }' cannot` +
-                                ` be assiged to parameter of type '${ printType(annotatedType) }'` +
+                                ` be assigned to parameter of type '${ printType(annotatedType) }'` +
                                 diagAddendum.getString(),
                             param.defaultValue);
 
@@ -525,7 +525,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     // If the type contains type variables, specialize them now
                     // so we convert them to a concrete type (or unknown if there
-                    // is no bound or contraint).
+                    // is no bound or constraint).
                     const variadicParamType = this._getVariadicParamType(param.category, specializedParamType);
                     this._addTypeSourceToNameNode(paramNode.name, variadicParamType, declaration);
                     this._updateExpressionTypeForNode(paramNode.name, variadicParamType);
@@ -689,11 +689,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // within a temporary scope so we can throw away the target
         // when complete.
         this._enterScope(node, () => {
-            node.comprehensions.forEach(compr => {
-                if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
-                    this.walk(compr.iterableExpression);
+            node.comprehensions.forEach(comprehension => {
+                if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
+                    this.walk(comprehension.iterableExpression);
 
-                    const iteratorType = this._getTypeOfExpression(compr.iterableExpression);
+                    const iteratorType = this._getTypeOfExpression(comprehension.iterableExpression);
                     const evaluator = this._createEvaluator();
 
                     // Pass undefined for the error node so we don't report
@@ -701,12 +701,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // been evaluated and errors reported, and we don't want
                     // them to be reported twice.
                     const iteratedType = evaluator.getTypeFromIterable(
-                        iteratorType, !!compr.isAsync, undefined, false);
+                        iteratorType, !!comprehension.isAsync, undefined, false);
 
-                    this._assignTypeToExpression(compr.targetExpression, iteratedType, compr.iterableExpression);
-                    this.walk(compr.targetExpression);
+                    this._assignTypeToExpression(comprehension.targetExpression,
+                        iteratedType, comprehension.iterableExpression);
+                    this.walk(comprehension.targetExpression);
                 } else {
-                    this.walk(compr.testExpression);
+                    this.walk(comprehension.testExpression);
                 }
             });
 
@@ -1007,7 +1008,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (node.name) {
             if (!this._currentScope.getAlwaysReturnsOrRaises()) {
-                // The named target is eplicitly unbound whenleaving this scope.
+                // The named target is explicitly unbound when leaving this scope.
                 // Use the type source ID of the except node to avoid conflict with
                 // the node.name type source.
                 const unboundType = UnboundType.create();
@@ -1846,7 +1847,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     // Transforms the parameter type based on its category. If it's a simple parameter,
-    // no transform is applied. If it's a var-arg or keword-arg parameter, the type
+    // no transform is applied. If it's a var-arg or keyword-arg parameter, the type
     // is wrapped in a List or Dict.
     private _getVariadicParamType(paramCategory: ParameterCategory, type: Type): Type {
         if (paramCategory === ParameterCategory.VarArgList) {
@@ -1894,7 +1895,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    // Determines whether the specified expression is a symbol with a declard type
+    // Determines whether the specified expression is a symbol with a declared type
     // (either a simple name or a member variable). If so, the type is returned.
     private _getDeclaredTypeForExpression(expression: ExpressionNode): Type | undefined {
         let symbol: Symbol | undefined;
@@ -1909,7 +1910,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return this._getDeclaredTypeForExpression(expression.valueExpression);
         } else if (expression.nodeType === ParseNodeType.MemberAccess) {
             // Get the base type but don't cache the results because we're going to call again
-            // with a 'set' usage type below, and we don't want to skip thatlogic.
+            // with a 'set' usage type below, and we don't want to skip that logic.
             const baseType = this._getTypeOfExpression(expression.leftExpression, EvaluatorFlags.DoNotCache);
             let classMemberInfo: TypeUtils.ClassMember | undefined;
 
@@ -2310,12 +2311,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Skip this check (which is somewhat expensive) if it is disabled.
             if (this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride !== 'none') {
 
-                this._validateOveriddenMathods(classType);
+                this._validateOveriddenMethods(classType);
             }
         }
     }
 
-    private _validateOveriddenMathods(classType: ClassType) {
+    private _validateOveriddenMethods(classType: ClassType) {
         ClassType.getFields(classType).forEach((symbol, name) => {
             // Don't check magic functions.
             if (symbol.isClassMember() && !SymbolNameUtils.isDunderName(name)) {
@@ -2799,7 +2800,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const isPrivate = SymbolNameUtils.isPrivateOrProtectedName(memberName);
 
         // If the member name appears to be a constant, use the strict
-        // source type. If it's a member variable that can be overrideen
+        // source type. If it's a member variable that can be overridden
         // by a child class, use the more general version by stripping
         // off the literal.
         if (!isConstant && !isPrivate) {
@@ -2852,7 +2853,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     assert(symbol !== undefined);
 
                     // If the type annotation node is provided, use it to generate a source ID.
-                    // If an expression contains both a type annotation and an assigment, we want
+                    // If an expression contains both a type annotation and an assignment, we want
                     // to generate two sources because the types may different, and the analysis
                     // won't converge if we use the same source ID for both.
                     const sourceId = (typeAnnotationNode || node.memberName).id;
@@ -2916,7 +2917,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // Is there an existing symbol in the local class? Perhaps it's a class
                 // member but we're adding an instance member. In that case, we'll reuse
                 // the existing symbol and simply update its flags and add new
-                // delcarations to it.
+                // declarations to it.
                 const existingSymbol = memberFields.get(memberName);
                 if (existingSymbol) {
                     if (inheritedDeclaration) {
@@ -3414,7 +3415,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // If this is a member name (within a class scope) and the member name
         // appears to be a constant, use the strict source type. If it's a member
-        // variable that can be overrideen by a child class, use the more general
+        // variable that can be overridden by a child class, use the more general
         // version by stripping off the literal.
         if (ScopeUtils.getPermanentScope(this._currentScope).getType() === ScopeType.Class) {
             const isConstant = SymbolNameUtils.isConstantName(nameValue);
@@ -3648,12 +3649,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Clear the defaultValueInitializerExpression because we want
         // to allow calls within lambdas that are used to initialize
         // parameters.
-        const wasDefaultValueInitizer = this._defaultValueInitializerExpression;
+        const wasDefaultValueInitializer = this._defaultValueInitializerExpression;
         this._defaultValueInitializerExpression = false;
 
         let prevParent: Scope | undefined;
         if (!newScope!.isIndependentlyExecutable()) {
-            // Temporary reparent the scope in case it is contained
+            // Temporary re-parent the scope in case it is contained
             // within a temporary scope.
             prevParent = newScope!.getParent();
             newScope!.setParent(this._currentScope);
@@ -3678,7 +3679,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             newScope!.setParent(prevParent);
         }
 
-        this._defaultValueInitializerExpression = wasDefaultValueInitizer;
+        this._defaultValueInitializerExpression = wasDefaultValueInitializer;
 
         return newScope!;
     }
@@ -3730,7 +3731,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _setSymbolAccessed(symbol: Symbol) {
         if (!symbol.isAccessed()) {
             this._setAnalysisChanged('Symbol accessed flag set');
-            symbol.setIsAcccessed();
+            symbol.setIsAccessed();
         }
     }
 

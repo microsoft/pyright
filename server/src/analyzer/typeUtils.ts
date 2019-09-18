@@ -490,8 +490,8 @@ export function canBeFalsy(type: Type): boolean {
             return true;
         }
 
-        const boolethod = lookUpObjectMember(type, '__bool__');
-        if (boolethod) {
+        const boolMethod = lookUpObjectMember(type, '__bool__');
+        if (boolMethod) {
             return true;
         }
     }
@@ -818,7 +818,7 @@ export function lookUpClassMember(classType: Type, memberName: string,
 
         if ((flags & ClassMemberLookupFlags.SkipBaseClasses) === 0) {
             for (const baseClass of ClassType.getBaseClasses(classType)) {
-                // Skip metaclasses.
+                // Skip metaclass.
                 if (!baseClass.isMetaclass) {
                     // Recursively perform search.
                     const methodType = lookUpClassMember(
@@ -1245,7 +1245,7 @@ export function getDeclaredGeneratorYieldType(functionType: FunctionType,
 }
 
 // Returns the declared "send" type (the type returned from the yield
-// statement) if it was delcared, or undefined otherwise.
+// statement) if it was declared, or undefined otherwise.
 export function getDeclaredGeneratorSendType(functionType: FunctionType): Type | undefined {
     const returnType = FunctionType.getSpecializedReturnType(functionType);
     if (returnType) {
@@ -1263,7 +1263,7 @@ export function getDeclaredGeneratorSendType(functionType: FunctionType): Type |
 }
 
 // Returns the declared "return" type (the type returned from a return statement)
-// if it was delcared, or undefined otherwise.
+// if it was declared, or undefined otherwise.
 export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type | undefined {
     const returnType = FunctionType.getSpecializedReturnType(functionType);
     if (returnType) {
@@ -1496,7 +1496,7 @@ function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
     // If we didn't find a var-arg parameter, the number of dest params
     // must be enough to provide all of the non-default source params
     // with values. Plus, the number of source params must be enough to
-    // accept all of the dest argments.
+    // accept all of the dest arguments.
     if (!srcHasVarArgs && !destHasVarArgs) {
         const nonDefaultSrcParamCount = srcParams.filter(
             param => !param.hasDefault).length;

@@ -110,7 +110,7 @@ export interface TokenizerOutput {
     tokens: TextRangeCollection<Token>;
     lines: TextRangeCollection<TextRange>;
     predominantEndOfLineSequence: string;
-    predominantTabSequance: string;
+    predominantTabSequence: string;
 }
 
 interface StringScannerOutput {
@@ -137,11 +137,11 @@ export class Tokenizer {
     private _indentCount = 0;
 
     // Number of times an indent token is emitted and a tab character
-    // is present (used to determine predomininant tab sequence).
+    // is present (used to determine predominant tab sequence).
     private _indentTabCount = 0;
 
     // Number of spaces that are added for an indent token
-    // (used to determine predominnant tab sequence).
+    // (used to determine predominant tab sequence).
     private _indentSpacesTotal = 0;
 
     tokenize(text: string, start?: number, length?: number): TokenizerOutput {
@@ -197,11 +197,11 @@ export class Tokenizer {
             predominantEndOfLineSequence = '\r\n';
         }
 
-        let predominantTabSequance = '    ';
+        let predominantTabSequence = '    ';
         // If more than half of the indents use tab sequences,
         // assume we're using tabs rather than spaces.
         if (this._indentTabCount > this._indentCount / 2) {
-            predominantTabSequance = '\t';
+            predominantTabSequence = '\t';
         } else if (this._indentCount > 0) {
             // Compute the average number of spaces per indent
             // to estimate the predominant tab value.
@@ -212,9 +212,9 @@ export class Tokenizer {
             } else if (averageSpacePerIndent > 8) {
                 averageSpacePerIndent = 8;
             }
-            predominantTabSequance = '';
+            predominantTabSequence = '';
             for (let i = 0; i < averageSpacePerIndent; i++) {
-                predominantTabSequance += ' ';
+                predominantTabSequence += ' ';
             }
         }
 
@@ -222,7 +222,7 @@ export class Tokenizer {
             tokens: new TextRangeCollection(this._tokens),
             lines: new TextRangeCollection(this._lineRanges),
             predominantEndOfLineSequence,
-            predominantTabSequance
+            predominantTabSequence
         };
     }
 

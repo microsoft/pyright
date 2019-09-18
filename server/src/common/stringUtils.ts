@@ -43,7 +43,7 @@ export function computeCompletionSimilarity(typedValue: string, symbolName: stri
     // has typed more characters, and they largely match the symbol name,
     // it is considered more similar. If the the edit distance is similar
     // to the number of characters the user has typed, then there's almost
-    // no simiarlity.
+    // no similarity.
     if (smallestEditDistance >= typedValue.length) {
         return 0;
     }

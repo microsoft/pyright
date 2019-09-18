@@ -194,7 +194,7 @@ export class ImportResolver {
 
         // Is it a relative import?
         if (moduleDescriptor.leadingDots > 0) {
-            this._getCompletionSuggestsionsRelative(sourceFilePath,
+            this._getCompletionSuggestionsRelative(sourceFilePath,
                 moduleDescriptor, suggestions, similarityLimit);
         } else {
             // First check for a typeshed file.
@@ -538,7 +538,7 @@ export class ImportResolver {
         return this._filterImplicitImports(absImport, moduleDescriptor.importedSymbols);
     }
 
-    private _getCompletionSuggestsionsRelative(sourceFilePath: string,
+    private _getCompletionSuggestionsRelative(sourceFilePath: string,
             moduleDescriptor: ImportedModuleDescriptor, suggestions: string[],
             similarityLimit: number) {
 
@@ -837,6 +837,6 @@ export class ImportResolver {
             name += '.';
         }
 
-        return name + moduleDescriptor.nameParts.map(iden => iden).join('.');
+        return name + moduleDescriptor.nameParts.map(part => part).join('.');
     }
 }

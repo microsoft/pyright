@@ -672,19 +672,19 @@ export abstract class Binder extends ParseTreeWalker {
         symbol.setInferredTypeForSource(type, typeSourceId);
     }
 
-    protected _getDocString(statemetns: StatementNode[]): string | undefined {
+    protected _getDocString(statements: StatementNode[]): string | undefined {
         // See if the first statement in the suite is a triple-quote string.
-        if (statemetns.length === 0) {
+        if (statements.length === 0) {
             return undefined;
         }
 
-        if (statemetns[0].nodeType !== ParseNodeType.StatementList) {
+        if (statements[0].nodeType !== ParseNodeType.StatementList) {
             return undefined;
         }
 
         // If the first statement in the suite isn't a StringNode,
         // assume there is no docString.
-        const statementList = statemetns[0];
+        const statementList = statements[0];
         if (statementList.statements.length === 0 ||
                 statementList.statements[0].nodeType !== ParseNodeType.StringList) {
             return undefined;

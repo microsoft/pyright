@@ -137,7 +137,7 @@ export class Parser {
             tokens: this._tokenizerOutput!.tokens,
             lines: this._tokenizerOutput!.lines,
             predominantLineEndSequence: this._tokenizerOutput!.predominantEndOfLineSequence,
-            predominantTabSequence: this._tokenizerOutput!.predominantTabSequance
+            predominantTabSequence: this._tokenizerOutput!.predominantTabSequence
         };
     }
 
@@ -1589,7 +1589,7 @@ export class Parser {
 
     // shift_expr: arith_expr (('<<'|'>>') arith_expr)*
     private _parseShiftExpression(): ExpressionNode {
-        let leftExpr = this._parseAirthmeticExpression();
+        let leftExpr = this._parseArithmeticExpression();
         if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
@@ -1597,7 +1597,7 @@ export class Parser {
         let nextOperator = this._peekOperatorType();
         while (nextOperator === OperatorType.LeftShift || nextOperator === OperatorType.RightShift) {
             this._getNextToken();
-            const rightExpr = this._parseAirthmeticExpression();
+            const rightExpr = this._parseArithmeticExpression();
             leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, nextOperator);
             nextOperator = this._peekOperatorType();
         }
@@ -1606,8 +1606,8 @@ export class Parser {
     }
 
     // arith_expr: term (('+'|'-') term)*
-    private _parseAirthmeticExpression(): ExpressionNode {
-        let leftExpr = this._parseAirthmeticTerm();
+    private _parseArithmeticExpression(): ExpressionNode {
+        let leftExpr = this._parseArithmeticTerm();
         if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
@@ -1615,7 +1615,7 @@ export class Parser {
         let nextOperator = this._peekOperatorType();
         while (nextOperator === OperatorType.Add || nextOperator === OperatorType.Subtract) {
             this._getNextToken();
-            const rightExpr = this._parseAirthmeticTerm();
+            const rightExpr = this._parseArithmeticTerm();
             if (rightExpr.nodeType === ParseNodeType.Error) {
                 return rightExpr;
             }
@@ -1628,8 +1628,8 @@ export class Parser {
     }
 
     // term: factor (('*'|'@'|'/'|'%'|'//') factor)*
-    private _parseAirthmeticTerm(): ExpressionNode {
-        let leftExpr = this._parseAirthmeticFactor();
+    private _parseArithmeticTerm(): ExpressionNode {
+        let leftExpr = this._parseArithmeticFactor();
         if (leftExpr.nodeType === ParseNodeType.Error) {
             return leftExpr;
         }
@@ -1641,7 +1641,7 @@ export class Parser {
                 nextOperator === OperatorType.Mod ||
                 nextOperator === OperatorType.FloorDivide) {
             this._getNextToken();
-            const rightExpr = this._parseAirthmeticFactor();
+            const rightExpr = this._parseArithmeticFactor();
             leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, nextOperator);
             nextOperator = this._peekOperatorType();
         }
@@ -1651,14 +1651,14 @@ export class Parser {
 
     // factor: ('+'|'-'|'~') factor | power
     // power: atom_expr ['**' factor]
-    private _parseAirthmeticFactor(): ExpressionNode {
+    private _parseArithmeticFactor(): ExpressionNode {
         const nextToken = this._peekToken();
         const nextOperator = this._peekOperatorType();
         if (nextOperator === OperatorType.Add ||
                 nextOperator === OperatorType.Subtract ||
                 nextOperator === OperatorType.BitwiseInvert) {
             this._getNextToken();
-            const expression = this._parseAirthmeticFactor();
+            const expression = this._parseArithmeticFactor();
             return UnaryExpressionNode.create(nextToken, expression, nextOperator);
         }
 
@@ -1668,7 +1668,7 @@ export class Parser {
         }
 
         if (this._consumeTokenIfOperator(OperatorType.Power)) {
-            const rightExpr = this._parseAirthmeticFactor();
+            const rightExpr = this._parseArithmeticFactor();
             return BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.Power);
         }
 
@@ -1973,7 +1973,7 @@ export class Parser {
 
     // lambdef: 'lambda' [varargslist] ':' test
     private _parseLambdaExpression(allowConditional = true): LambdaNode {
-        const labmdaToken = this._getKeywordToken(KeywordType.Lambda);
+        const lambdaToken = this._getKeywordToken(KeywordType.Lambda);
 
         const argList = this._parseVarArgsList(TokenType.Colon, false);
 
@@ -1988,7 +1988,7 @@ export class Parser {
             testExpr = this._tryParseLambdaExpression(false) || this._parseOrTest();
         }
 
-        const lambdaNode = LambdaNode.create(labmdaToken, testExpr);
+        const lambdaNode = LambdaNode.create(lambdaToken, testExpr);
         lambdaNode.parameters = argList;
         return lambdaNode;
     }
@@ -2198,7 +2198,7 @@ export class Parser {
     }
 
     private _parseExpressionListGeneric(parser: () => ExpressionNode,
-            teminalCheck: () => boolean = () => this._isNextTokenNeverExpression(),
+            terminalCheck: () => boolean = () => this._isNextTokenNeverExpression(),
             finalEntryCheck: () => boolean = () => false):
                 ExpressionListResult {
         let trailingComma = false;
@@ -2206,7 +2206,7 @@ export class Parser {
         let parseError: ErrorExpressionNode | undefined;
 
         while (true) {
-            if (teminalCheck()) {
+            if (terminalCheck()) {
                 break;
             }
 
@@ -2298,7 +2298,7 @@ export class Parser {
             return rightExpr;
         }
 
-        // Recurse until we've consumed the entire chain.
+        // Recur until we've consumed the entire chain.
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
             rightExpr = this._parseChainAssignments(rightExpr);
             if (rightExpr.nodeType === ParseNodeType.Error) {

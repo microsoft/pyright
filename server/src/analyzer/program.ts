@@ -659,7 +659,7 @@ export class Program {
         }
 
         // If the file is already in the closure map, we found a cyclical
-        // dependency. Don't recurse further.
+        // dependency. Don't recur further.
         const filePath = fileToAnalyze.sourceFile.getFilePath();
         if (closureMap[filePath] !== undefined) {
             return false;
@@ -805,12 +805,12 @@ export class Program {
             return [];
         }
 
-        const unfilteredDiags = sourceFile.getDiagnostics(options);
-        if (!unfilteredDiags) {
+        const unfilteredDiagnostics = sourceFile.getDiagnostics(options);
+        if (!unfilteredDiagnostics) {
             return [];
         }
 
-        return unfilteredDiags.filter(diag => {
+        return unfilteredDiagnostics.filter(diag => {
             return doRangesOverlap(diag.range, range);
         });
     }

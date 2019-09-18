@@ -820,12 +820,12 @@ export class ExpressionEvaluator {
     }
 
     private _suppressUnboundChecks(callback: () => void) {
-        const wasSupprsesed = this._isUnboundCheckSuppressed;
+        const wasSuppressed = this._isUnboundCheckSuppressed;
         this._isUnboundCheckSuppressed = true;
 
         callback();
 
-        this._isUnboundCheckSuppressed = wasSupprsesed;
+        this._isUnboundCheckSuppressed = wasSuppressed;
     }
 
     private _getTypeFromName(node: NameNode, usage: EvaluatorUsage,
@@ -1131,7 +1131,7 @@ export class ExpressionEvaluator {
                             this._validateFunctionArguments(usage.setErrorNode || errorNode,
                                 argList, setterFunctionType, new TypeVarMap());
 
-                            // The return type isn't imporant here.
+                            // The return type isn't important here.
                             return makeClassMember(NoneType.create());
                         }
 
@@ -2610,7 +2610,7 @@ export class ExpressionEvaluator {
             }
 
             // Always use generic parameters for __init__. The __new__ method
-            // will handle propery type checking. We may need to disable default
+            // will handle property type checking. We may need to disable default
             // parameter processing for __new__ (see setDefaultParameterCheckDisabled),
             // and we don't want to do it for __init__ as well.
             const initType = FunctionType.create(
@@ -3047,7 +3047,7 @@ export class ExpressionEvaluator {
                 usage.expectedType, specificSetType);
 
             // Have we eliminated all of the expected subtypes? If not, return
-            // the remaining one(s) that match thespecific type.
+            // the remaining one(s) that match the specific type.
             if (remainingExpectedType.category !== TypeCategory.Never) {
                 return { type: remainingExpectedType, node };
             }
@@ -3134,7 +3134,7 @@ export class ExpressionEvaluator {
                 usage.expectedType, specificDictType);
 
             // Have we eliminated all of the expected subtypes? If not, return
-            // the remaining one(s) that match thespecific type.
+            // the remaining one(s) that match the specific type.
             if (remainingExpectedType.category !== TypeCategory.Never) {
                 return { type: remainingExpectedType, node };
             }
@@ -3184,7 +3184,7 @@ export class ExpressionEvaluator {
                     usage.expectedType, specificListType);
 
                 // Have we eliminated all of the expected subtypes? If not, return
-                // the remaining one(s) that match thespecific type.
+                // the remaining one(s) that match the specific type.
                 if (remainingExpectedType.category !== TypeCategory.Never) {
                     return { type: remainingExpectedType, node };
                 }
@@ -3299,7 +3299,7 @@ export class ExpressionEvaluator {
         // Mark the symbol as accessed. These symbols are not persisted
         // between analysis passes, so we never have an opportunity to
         // mark them as accessed.
-        symbol.setIsAcccessed();
+        symbol.setIsAccessed();
 
         const typeConstraint = TypeConstraintBuilder.buildTypeConstraintForAssignment(targetExpr, type);
         if (typeConstraint) {
@@ -3380,13 +3380,13 @@ export class ExpressionEvaluator {
         const prevScope = this._scope;
         this._scope = AnalyzerNodeInfo.getScope(node)!;
 
-        // Temporarily reparent the scope in case the prevScope was
+        // Temporarily re-parent the scope in case the prevScope was
         // a temporary one.
         const prevParent = this._scope.getParent();
         this._scope.setParent(prevScope);
 
         // There are some variants that we may not understand. If so,
-        // we will set this flag and fall back on Unkown.
+        // we will set this flag and fall back on Unknown.
         let understoodType = true;
 
         let typeConstraints: ConditionalTypeConstraintResults | undefined;
@@ -3742,7 +3742,7 @@ export class ExpressionEvaluator {
     private _applyScopeTypeConstraintRecursive(node: ExpressionNode, type: Type,
             scope = this._scope): Type {
 
-        // If we've hit a scope that is independently executable, don't recurse any further.
+        // If we've hit a scope that is independently executable, don't recur any further.
         if (!scope.isIndependentlyExecutable()) {
             // Recursively allow the parent scopes to apply their type constraints.
             const parentScope = scope.getParent();

@@ -182,7 +182,7 @@ function printUsage() {
         'Usage: ' + toolName + ' [options] files...\n' +
         '  Options:\n' +
         '  --createstub IMPORT              Create type stub file(s) for import\n' +
-        '  --dependencies                   Emit import dependecy information\n' +
+        '  --dependencies                   Emit import dependency information\n' +
         '  -h,--help                        Show this help message\n' +
         '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +
         '  --stats                          Print detailed performance stats\n' +

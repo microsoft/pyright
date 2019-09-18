@@ -31,7 +31,7 @@ export class CommandLineOptions {
     // Virtual environments directory.
     venvPath?: string;
 
-    // Path to python intepreter.
+    // Path to python interpreter.
     pythonPath?: string;
 
     // Path of typeshed stubs.

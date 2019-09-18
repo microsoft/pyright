@@ -111,7 +111,7 @@ enum SortCategory {
     AutoImport
 }
 
-// Completion items can have arbirary data hanging off them.
+// Completion items can have arbitrary data hanging off them.
 // This data allows the resolve handling to disambiguate
 // which item was selected.
 interface CompletionItemData {
@@ -227,7 +227,7 @@ export class CompletionProvider {
         }
 
         // See if the node is part of an error node. If so, that takes
-        // precendence.
+        // precedence.
         let errorNode: ParseNode | undefined = node;
         while (errorNode) {
             if (errorNode.nodeType === ParseNodeType.Error) {
@@ -316,7 +316,7 @@ export class CompletionProvider {
             return false;
         }
 
-        // See if the text that preceeds the current position contains
+        // See if the text that precedes the current position contains
         // a '#' character.
         return !!priorText.match(/#/);
     }

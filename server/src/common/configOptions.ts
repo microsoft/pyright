@@ -113,7 +113,7 @@ export interface DiagnosticSettings {
     // Report attempts to redefine variables that are in all-caps.
     reportConstantRedefinition: DiagnosticLevel;
 
-    // Report usage of method override that is incomatlble with
+    // Report usage of method override that is incompatible with
     // the base class method of the same name?
     reportIncompatibleMethodOverride: DiagnosticLevel;
 
@@ -278,7 +278,7 @@ export class ConfigOptions {
     // are based on this path.
     projectRoot: string;
 
-    // Path to python intepreter.
+    // Path to python interpreter.
     pythonPath?: string;
 
     // Path to use for typeshed definitions.
@@ -297,11 +297,11 @@ export class ConfigOptions {
     // within those directories are included.
     exclude: FileSpec[] = [];
 
-    // A list of file sepcs whose errors and warnings should be ignored even
+    // A list of file specs whose errors and warnings should be ignored even
     // if they are included in the transitive closure of included files.
     ignore: FileSpec[] = [];
 
-    // A list of file sepcs that should be analyzed using "strict" mode.
+    // A list of file specs that should be analyzed using "strict" mode.
     strict: FileSpec[] = [];
 
     // Emit verbose information to console?

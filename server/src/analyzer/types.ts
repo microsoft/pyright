@@ -1341,19 +1341,19 @@ export function removeAnyFromUnion(type: Type): Type {
     return removeFromUnion(type, (t: Type) => isAnyOrUnknown(t));
 }
 
-// If the type is a union, remvoe an "unknown" type from the union,
+// If the type is a union, remove an "unknown" type from the union,
 // returning only the known types.
 export function removeUnknownFromUnion(type: Type): Type {
     return removeFromUnion(type, (t: Type) => t.category === TypeCategory.Unknown);
 }
 
-// If the type is a union, remvoe an "unbound" type from the union,
+// If the type is a union, remove an "unbound" type from the union,
 // returning only the known types.
 export function removeUnboundFromUnion(type: Type): Type {
     return removeFromUnion(type, (t: Type) => t.category === TypeCategory.Unbound);
 }
 
-// If the type is a union, remvoe an "None" type from the union,
+// If the type is a union, remove an "None" type from the union,
 // returning only the known types.
 export function removeNoneFromUnion(type: Type): Type {
     return removeFromUnion(type, (t: Type) => t.category === TypeCategory.None);

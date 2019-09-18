@@ -43,7 +43,7 @@ export class ParseTreeWalker {
 
     // Calls the node-specific method (visitXXXX). If the method
     // returns true, all child nodes for the node are returned.
-    // If the moethod returns false, we assume that the handler
+    // If the method returns false, we assume that the handler
     // has already handled the child nodes, so an empty list is
     // returned.
     visitNode(node: ParseNode): ParseNodeArray {

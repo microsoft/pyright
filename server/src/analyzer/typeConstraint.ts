@@ -22,7 +22,7 @@ export interface ConditionalTypeConstraintResults {
     // Type constraints that apply in cases where the condition potentially
     // evaluates to true (if) or false (else). Note that these are not
     // necessarily symmetric. For example, if the type is declared
-    // as an "Union[int, None]", in the "if" case it is contrained to be
+    // as an "Union[int, None]", in the "if" case it is constrained to be
     // an int, but in the "else" case it is still a "Union[int, None]"
     // because an integer value of zero will evaluate to falsy.
     ifConstraints: TypeConstraint[];
@@ -36,7 +36,7 @@ export class TypeConstraint {
     // Resulting type if the expression matches.
     private _type: Type;
 
-    // Indiciates that the type should be applied conditionally.
+    // Indicates that the type should be applied conditionally.
     private _isConditional: boolean;
 
     constructor(expression: ExpressionNode, type: Type) {

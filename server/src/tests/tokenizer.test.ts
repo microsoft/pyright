@@ -144,7 +144,7 @@ test('Dots', () => {
     assert.equal(results.tokens.getItemAt(5).type, TokenType.Dot);
 });
 
-test('PunctiationTokens', () => {
+test('PunctuationTokens', () => {
     const t = new Tokenizer();
     const results = t.tokenize(':;,()[]{}->');
     assert.equal(results.tokens.count, 10 + _implicitTokenCount);
@@ -203,7 +203,7 @@ test('IndentDedentParen', () => {
     assert.equal(results.tokens.count, 8 + _implicitTokenCount);
 
     // Test that indent and dedent tokens are suppressed within
-    // a parnethetical clause.
+    // a parenthetical clause.
     assert.equal(results.tokens.getItemAt(0).type, TokenType.Identifier);
     assert.equal(results.tokens.getItemAt(1).type, TokenType.OpenParenthesis);
     assert.equal(results.tokens.getItemAt(2).type, TokenType.Identifier);

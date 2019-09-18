@@ -67,7 +67,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
         return true;
     }
 
-    private _addSymbolsForScope(node: ParseNode, constainerName: string) {
+    private _addSymbolsForScope(node: ParseNode, containerName: string) {
         const scope = AnalyzerNodeInfo.getScope(node);
         if (!scope) {
             return;
@@ -79,7 +79,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
             if (declarations && declarations.length > 0) {
                 const primaryDecl = declarations[0];
 
-                this._addSymbolFromDeclaration(key, primaryDecl, constainerName);
+                this._addSymbolFromDeclaration(key, primaryDecl, containerName);
             }
         });
     }

@@ -800,8 +800,8 @@ export class AnalyzerService {
         this._clearReanalysisTimer();
 
         // How long has it been since the user interacted with the service?
-        // If the user is actively typing, back off to let him or herfinish.
-        const timeSinceLastUserIteractionInMs = Date.now() - this._lastUserInteractionTime;
+        // If the user is actively typing, back off to let him or her finish.
+        const timeSinceLastUserInteractionInMs = Date.now() - this._lastUserInteractionTime;
         const minBackoffTimeInMs = 500;
 
         // We choose a small non-zero value here. If this value
@@ -811,7 +811,7 @@ export class AnalyzerService {
         const minTimeBetweenAnalysisPassesInMs = 20;
 
         const timeUntilNextAnalysisInMs = Math.max(
-            minBackoffTimeInMs - timeSinceLastUserIteractionInMs,
+            minBackoffTimeInMs - timeSinceLastUserInteractionInMs,
             minTimeBetweenAnalysisPassesInMs);
 
         // Schedule a new timer.
