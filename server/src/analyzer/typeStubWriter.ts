@@ -119,7 +119,7 @@ class ImportSymbolWalker extends ParseTreeWalker {
 
 export class TypeStubWriter extends ParseTreeWalker {
     private _indentAmount = 0;
-    private _includeAllImports = false;
+    private _includeAllImports = true;
     private _typeStubText = '';
     private _lineEnd = '\n';
     private _tab = '    ';
@@ -137,7 +137,9 @@ export class TypeStubWriter extends ParseTreeWalker {
         // As a heuristic, we'll include all of the import statements
         // in "__init__.pyi" files even if they're not locally referenced
         // because these are often used as ways to re-export symbols.
-        this._includeAllImports = this._typingsPath.endsWith('__init__.pyi');
+        if (this._typingsPath.endsWith('__init__.pyi')) {
+            this._includeAllImports = true;
+        }
     }
 
     write() {
@@ -296,12 +298,14 @@ export class TypeStubWriter extends ParseTreeWalker {
         let line = '';
 
         if (node.leftExpression.nodeType === ParseNodeType.Name) {
-            if (this._functionNestCount === 0) {
-                line = this._printExpression(node.leftExpression);
-            }
-
+            // Handle "__all__" assignments specially.
             if (node.leftExpression.nameToken.value === '__all__') {
                 this._emitLine(this._printExpression(node, false, true));
+                return false;
+            }
+
+            if (this._functionNestCount === 0) {
+                line = this._printExpression(node.leftExpression);
             }
         } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
             const baseExpression = node.leftExpression.leftExpression;
