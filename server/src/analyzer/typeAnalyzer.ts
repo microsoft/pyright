@@ -2209,7 +2209,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType,
             functionScope: Scope) {
 
-        // Stub files are allowed to not return an actual value,
+        // Stub files are allowed not to return an actual value,
         // so skip this if it's a stub file.
         if (this._fileInfo.isStubFile) {
             return;
@@ -2252,9 +2252,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     // If the declared type isn't compatible with 'None', flag an error.
                     if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
-                        this._addError(`Function with declared type of '${ printType(declaredReturnType) }'` +
-                                ` must return value` + diagAddendum.getString(),
-                            node.returnTypeAnnotation);
+                        // If the function consists entirely of "...", assume that it's
+                        // an abstract method or a protocol method and don't require that
+                        // the return type matches.
+                        if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
+                            this._addError(`Function with declared type of '${ printType(declaredReturnType) }'` +
+                                    ` must return value` + diagAddendum.getString(),
+                                node.returnTypeAnnotation);
+                        }
                     }
                 }
             }
@@ -2279,8 +2284,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const declaredReturnType = FunctionType.getDeclaredReturnType(functionType);
             if (declaredReturnType && TypeUtils.isNoReturnType(declaredReturnType)) {
                 if (!functionScope.getAlwaysRaises()) {
-                    this._addError(`Function with declared type of 'NoReturn' cannot return 'None'`,
-                        node.returnTypeAnnotation);
+                    // If the function consists entirely of "...", assume that it's
+                    // an abstract method or a protocol method and don't require that
+                    // the return type matches.
+                    if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
+                        this._addError(`Function with declared type of 'NoReturn' cannot return 'None'`,
+                            node.returnTypeAnnotation);
+                    }
                 }
             }
         }

@@ -12,7 +12,7 @@ import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { ArgumentCategory, ClassNode, ExpressionNode, FunctionNode, isExpressionNode,
-    ModuleNode, ParameterCategory, ParseNode, ParseNodeType } from '../parser/parseNodes';
+    ModuleNode, ParameterCategory, ParseNode, ParseNodeType, SuiteNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { ParseTreeWalker } from './parseTreeWalker';
 
@@ -434,4 +434,24 @@ export function isNodeContainedWithin(node: ParseNode, potentialContainer: Parse
     }
 
     return false;
+}
+
+export function isSuiteEmpty(node: SuiteNode): boolean {
+    for (const statement of node.statements) {
+        if (statement.nodeType === ParseNodeType.StatementList) {
+            for (const substatement of statement.statements) {
+                if (substatement.nodeType === ParseNodeType.Ellipsis) {
+                    // Allow an ellipsis
+                } else if (substatement.nodeType === ParseNodeType.StringList) {
+                    // Allow doc strings
+                } else {
+                    return false;
+                }
+            }
+        } else {
+            return false;
+        }
+    }
+
+    return true;
 }

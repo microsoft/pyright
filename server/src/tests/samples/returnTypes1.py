@@ -17,3 +17,9 @@ add(3.4, 5)
 
 # This should be fine
 addf(3, 5)
+
+# This should not produce any error because the function's suite is empty.
+def noReturnIsFine() -> bool:
+    "Doc strings are allowed"
+    ...
+
