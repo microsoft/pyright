@@ -504,23 +504,19 @@ export abstract class Binder extends ParseTreeWalker {
                 this._addError(`'${ nameValue }' was already declared nonlocal`, name);
             }
 
-            if (this._currentScope !== globalScope) {
-                this._notLocalBindings.set(nameValue, NameBindingType.Global);
-            }
-
             const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
             // Was the name already assigned within this scope before it was declared global?
             if (valueWithScope && valueWithScope.scope === this._currentScope) {
                 this._addError(`'${ nameValue }' is assigned before global declaration`, name);
-            } else if (this._currentScope !== globalScope) {
-                if (!valueWithScope || valueWithScope.scope !== globalScope) {
-                    this._addError(`No binding for global '${ nameValue }' found`, name);
-                }
             }
 
             // Add it to the global scope if it's not already added.
             this._bindNameToScope(globalScope, nameValue);
+
+            if (this._currentScope !== globalScope) {
+                this._notLocalBindings.set(nameValue, NameBindingType.Global);
+            }
         });
 
         return true;
@@ -540,8 +536,6 @@ export abstract class Binder extends ParseTreeWalker {
                     this._addError(`'${ nameValue }' was already declared global`, name);
                 }
 
-                this._notLocalBindings.set(nameValue, NameBindingType.Nonlocal);
-
                 const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
                 // Was the name already assigned within this scope before it was declared nonlocal?
@@ -550,6 +544,8 @@ export abstract class Binder extends ParseTreeWalker {
                 } else if (!valueWithScope || valueWithScope.scope === globalScope) {
                     this._addError(`No binding for nonlocal '${ nameValue }' found`, name);
                 }
+
+                this._notLocalBindings.set(nameValue, NameBindingType.Nonlocal);
             });
         }
 
