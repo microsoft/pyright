@@ -10,6 +10,7 @@
 
 import * as fs from 'fs';
 
+import StringMap from '../common/stringMap';
 import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     ClassNode, DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode,
     ImportFromNode, ImportNode, ModuleNameNode, NameNode, ParameterCategory, ParameterNode,
@@ -67,8 +68,7 @@ class TrackedImportFrom extends TrackedImport {
 
 class ImportSymbolWalker extends ParseTreeWalker {
     constructor(
-        private _trackedImportAs: { [importName: string]: TrackedImportAs },
-            private _trackedImportFrom: { [importName: string]: TrackedImportFrom },
+            private _accessedImportedSymbols: StringMap<boolean>,
             private _treatStringsAsSymbols: boolean) {
 
         super();
@@ -79,41 +79,16 @@ class ImportSymbolWalker extends ParseTreeWalker {
     }
 
     visitName(node: NameNode) {
-        this._markNameAccessed(node, node.nameToken.value);
+        this._accessedImportedSymbols.set(node.nameToken.value, true);
         return true;
     }
 
     visitString(node: StringNode) {
         if (this._treatStringsAsSymbols) {
-            const value = node.value;
-            this._markNameAccessed(node, value);
+            this._accessedImportedSymbols.set(node.value, true);
         }
 
         return true;
-    }
-
-    private _markNameAccessed(node: ParseNode, name: string) {
-        const currentScope = AnalyzerNodeInfo.getScopeRecursive(node);
-        if (currentScope) {
-            const symbolInfo = currentScope.lookUpSymbolRecursive(name);
-            if (symbolInfo) {
-                Object.keys(this._trackedImportAs).forEach(implName => {
-                    const impl = this._trackedImportAs[implName];
-                    if (impl.symbol === symbolInfo.symbol) {
-                        impl.isAccessed = true;
-                    }
-                });
-
-                Object.keys(this._trackedImportFrom).forEach(implName => {
-                    const impl = this._trackedImportFrom[implName];
-                    impl.symbols.forEach(symbol => {
-                        if (symbol.symbol === symbolInfo.symbol) {
-                            symbol.isAccessed = true;
-                        }
-                    });
-                });
-            }
-        }
     }
 }
 
@@ -130,6 +105,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _emitDocString = true;
     private _trackedImportAs: { [importName: string]: TrackedImportAs } = {};
     private _trackedImportFrom: { [importName: string]: TrackedImportFrom } = {};
+    private _accessedImportedSymbols: StringMap<boolean> = new StringMap<boolean>();
 
     constructor(private _typingsPath: string, private _sourceFile: SourceFile) {
         super();
@@ -597,8 +573,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             treatStringsAsSymbols = false): string {
 
         const importSymbolWalker = new ImportSymbolWalker(
-            this._trackedImportAs,
-            this._trackedImportFrom,
+            this._accessedImportedSymbols,
             treatStringsAsSymbols);
         importSymbolWalker.analyze(node);
 
@@ -614,6 +589,10 @@ export class TypeStubWriter extends ParseTreeWalker {
         // Emit the "import" statements.
         Object.keys(this._trackedImportAs).forEach(impName => {
             const imp = this._trackedImportAs[impName];
+            if (this._accessedImportedSymbols.get(imp.alias || imp.importName)) {
+                imp.isAccessed = true;
+            }
+
             if (imp.isAccessed || this._includeAllImports) {
                 importStr += `import ${ imp.importName }`;
                 if (imp.alias) {
@@ -627,6 +606,12 @@ export class TypeStubWriter extends ParseTreeWalker {
         // Emit the "import from" statements.
         Object.keys(this._trackedImportFrom).forEach(impName => {
             const imp = this._trackedImportFrom[impName];
+
+            imp.symbols.forEach(s => {
+                if (this._accessedImportedSymbols.get(s.alias || s.name)) {
+                    s.isAccessed = true;
+                }
+            });
 
             if (imp.isWildcardImport) {
                 importStr += `from ${ imp.importName } import *` + this._lineEnd;
