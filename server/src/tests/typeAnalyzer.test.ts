@@ -471,6 +471,12 @@ test('Literals1', () => {
     validateResults(analysisResults, 6);
 });
 
+test('Literals2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals2.py']);
+
+    validateResults(analysisResults, 3);
+});
+
 test('TypeAlias1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias1.py']);
 

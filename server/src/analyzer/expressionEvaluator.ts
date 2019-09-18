@@ -75,13 +75,21 @@ export const enum EvaluatorFlags {
     DoNotSpecialize = 2,
 
     // Allow forward references. Don't report unbound errors.
-    AllowForwardReferences = 4
+    AllowForwardReferences = 4,
+
+    // Don't cache the results.
+    DoNotCache = 8
 }
 
 interface EvaluatorUsage {
     method: 'get' | 'set' | 'del';
+
+    // Used only for set methods
     setType?: Type;
     setErrorNode?: ExpressionNode;
+
+    // Used only for get methods
+    expectedType?: Type;
 }
 
 export const enum MemberAccessFlags {
@@ -741,7 +749,7 @@ export class ExpressionEvaluator {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromAugmentedExpression(node);
         } else if (node.nodeType === ParseNodeType.List) {
-            typeResult = this._getTypeFromListExpression(node);
+            typeResult = this._getTypeFromListExpression(node, usage);
         } else if (node.nodeType === ParseNodeType.Slice) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromSliceExpression(node);
@@ -754,19 +762,19 @@ export class ExpressionEvaluator {
             };
         } else if (node.nodeType === ParseNodeType.Ternary) {
             this._reportUsageErrorForReadOnly(node, usage);
-            typeResult = this._getTypeFromTernaryExpression(node, flags);
+            typeResult = this._getTypeFromTernaryExpression(node, flags, usage);
         } else if (node.nodeType === ParseNodeType.ListComprehension) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromListComprehensionExpression(node);
         } else if (node.nodeType === ParseNodeType.Dictionary) {
             this._reportUsageErrorForReadOnly(node, usage);
-            typeResult = this._getTypeFromDictionaryExpression(node);
+            typeResult = this._getTypeFromDictionaryExpression(node, usage);
         } else if (node.nodeType === ParseNodeType.Lambda) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromLambdaExpression(node);
         } else if (node.nodeType === ParseNodeType.Set) {
             this._reportUsageErrorForReadOnly(node, usage);
-            typeResult = this._getTypeFromSetExpression(node);
+            typeResult = this._getTypeFromSetExpression(node, usage);
         } else if (node.nodeType === ParseNodeType.Assignment) {
             this._reportUsageErrorForReadOnly(node, usage);
 
@@ -804,7 +812,7 @@ export class ExpressionEvaluator {
             typeResult = { type: UnknownType.create(), node };
         }
 
-        if (this._writeTypeToCache) {
+        if (this._writeTypeToCache && (flags & EvaluatorFlags.DoNotCache) === 0) {
             this._writeTypeToCache(node, typeResult.type);
         }
 
@@ -3012,7 +3020,7 @@ export class ExpressionEvaluator {
         });
     }
 
-    private _getTypeFromSetExpression(node: SetNode): TypeResult {
+    private _getTypeFromSetExpression(node: SetNode, usage: EvaluatorUsage): TypeResult {
         const entryTypes: Type[] = [];
 
         // Infer the set type based on the entries.
@@ -3025,31 +3033,45 @@ export class ExpressionEvaluator {
             }
         });
 
+        // If there is an expected type, see if we can match any parts of it.
+        if (usage.expectedType && entryTypes.length > 0) {
+            const specificSetType = ScopeUtils.getBuiltInObject(
+                this._scope, 'set', [combineTypes(entryTypes)]);
+            const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                usage.expectedType, specificSetType);
+
+            // Have we eliminated all of the expected subtypes? If not, return
+            // the remaining one(s) that match thespecific type.
+            if (remainingExpectedType.category !== TypeCategory.Never) {
+                return { type: remainingExpectedType, node };
+            }
+
+            return { type: specificSetType, node };
+        }
+
         const inferredEntryType = entryTypes.length > 0 ?
-            combineTypes(entryTypes) :
-            UnknownType.create();
+            combineTypes(entryTypes.map(t => TypeUtils.stripLiteralValue(t))) :
+            AnyType.create();
 
         const type = ScopeUtils.getBuiltInObject(this._scope, 'set', [inferredEntryType]);
 
         return { type, node };
     }
 
-    private _getTypeFromDictionaryExpression(node: DictionaryNode): TypeResult {
+    private _getTypeFromDictionaryExpression(node: DictionaryNode, usage: EvaluatorUsage): TypeResult {
         let valueType: Type = AnyType.create();
         let keyType: Type = AnyType.create();
 
-        const keyTypes: Type[] = [];
-        const valueTypes: Type[] = [];
+        let keyTypes: Type[] = [];
+        let valueTypes: Type[] = [];
 
         // Infer the key and value types if possible.
         node.entries.forEach(entryNode => {
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                keyTypes.push(TypeUtils.stripLiteralValue(
-                    this.getType(entryNode.keyExpression)));
-                valueTypes.push(TypeUtils.stripLiteralValue(
-                    this.getType(entryNode.valueExpression)));
+                keyTypes.push(this.getType(entryNode.keyExpression));
+                valueTypes.push(this.getType(entryNode.valueExpression));
                 addUnknown = false;
 
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
@@ -3098,6 +3120,26 @@ export class ExpressionEvaluator {
             }
         });
 
+        // If there is an expected type, see if we can match any parts of it.
+        if (usage.expectedType && keyTypes.length > 0) {
+            const specificDictType = ScopeUtils.getBuiltInObject(
+                this._scope, 'dict', [combineTypes(keyTypes), combineTypes(valueTypes)]);
+            const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                usage.expectedType, specificDictType);
+
+            // Have we eliminated all of the expected subtypes? If not, return
+            // the remaining one(s) that match thespecific type.
+            if (remainingExpectedType.category !== TypeCategory.Never) {
+                return { type: remainingExpectedType, node };
+            }
+
+            return { type: specificDictType, node };
+        }
+
+        // Strip any literal values.
+        keyTypes = keyTypes.map(t => TypeUtils.stripLiteralValue(t));
+        valueTypes = valueTypes.map(t => TypeUtils.stripLiteralValue(t));
+
         keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : AnyType.create();
 
         // If the value type differs and we're not using "strict inference mode",
@@ -3120,14 +3162,31 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromListExpression(node: ListNode): TypeResult {
+    private _getTypeFromListExpression(node: ListNode, usage: EvaluatorUsage): TypeResult {
         let listEntryType: Type = AnyType.create();
 
         if (node.entries.length === 1 && node.entries[0].nodeType === ParseNodeType.ListComprehension) {
             listEntryType = this._getElementTypeFromListComprehensionExpression(node.entries[0]);
         } else {
-            const entryTypes = node.entries.map(
-                entry => TypeUtils.stripLiteralValue(this.getType(entry)));
+            let entryTypes = node.entries.map(entry => this.getType(entry));
+
+            // If there is an expected type, see if we can match any parts of it.
+            if (usage.expectedType && entryTypes.length > 0) {
+                const specificListType = ScopeUtils.getBuiltInObject(
+                    this._scope, 'list', [combineTypes(entryTypes)]);
+                const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                    usage.expectedType, specificListType);
+
+                // Have we eliminated all of the expected subtypes? If not, return
+                // the remaining one(s) that match thespecific type.
+                if (remainingExpectedType.category !== TypeCategory.Never) {
+                    return { type: remainingExpectedType, node };
+                }
+
+                return { type: specificListType, node };
+            }
+
+            entryTypes = entryTypes.map(t => TypeUtils.stripLiteralValue(t));
 
             if (entryTypes.length > 0) {
                 if (this._fileInfo.diagnosticSettings.strictListInference) {
@@ -3144,7 +3203,9 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromTernaryExpression(node: TernaryExpressionNode, flags: EvaluatorFlags): TypeResult {
+    private _getTypeFromTernaryExpression(node: TernaryExpressionNode, flags: EvaluatorFlags,
+            usage: EvaluatorUsage): TypeResult {
+
         this._getTypeFromExpression(node.testExpression);
 
         // Apply the type constraint when evaluating the if and else clauses.

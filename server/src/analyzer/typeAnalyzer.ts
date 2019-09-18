@@ -1109,10 +1109,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return false;
         }
 
+        // If a type declaration comment was provided, associate the type
+        // declaration with the symbol.
+        if (node.typeAnnotationComment) {
+            const annotatedType = this._getTypeOfAnnotation(node.typeAnnotationComment);
+            this._declareTypeForExpression(node.leftExpression, annotatedType,
+                node.typeAnnotationComment, node.rightExpression);
+        }
+
+        // Determine whether there is a declared type.
+        const declaredType = this._getDeclaredTypeForExpression(node.leftExpression);
+
         // Evaluate the type of the right-hand side.
         // An assignment of ellipsis means "Any" within a type stub file.
         let srcType = this._getTypeOfExpression(node.rightExpression,
-            this._fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined);
+            this._fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined,
+            declaredType);
 
         // Determine if the RHS is a constant boolean expression.
         // If so, assign it a literal type.
@@ -1125,16 +1137,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        // If a type declaration was provided, note it here.
-        if (node.typeAnnotationComment) {
-            const typeHintType = this._getTypeOfAnnotation(node.typeAnnotationComment);
-            this._declareTypeForExpression(node.leftExpression, typeHintType,
-                node.typeAnnotationComment, node.rightExpression);
-
+        // If there was a declared type, make sure the RHS value is compatible.
+        if (declaredType) {
             const diagAddendum = new DiagnosticAddendum();
-            if (TypeUtils.canAssignType(typeHintType, srcType, diagAddendum)) {
+            if (TypeUtils.canAssignType(declaredType, srcType, diagAddendum)) {
                 // Constrain the resulting type to match the declared type.
-                srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(typeHintType, srcType);
+                srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                    declaredType, srcType);
             }
         }
 
@@ -1513,12 +1522,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
-        let typeHintType = this._getTypeOfAnnotation(node.typeAnnotation);
+        let declaredType = this._getTypeOfAnnotation(node.typeAnnotation);
 
         // If this is within an enum, transform the type.
         if (node.valueExpression && node.valueExpression.nodeType === ParseNodeType.Name) {
-            typeHintType = this._transformTypeForPossibleEnumClass(
-                node.valueExpression, typeHintType);
+            declaredType = this._transformTypeForPossibleEnumClass(
+                node.valueExpression, declaredType);
         }
 
         // Class and global variables should always be marked as accessed.
@@ -1526,11 +1535,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._markExpressionAccessed(node.valueExpression);
         }
 
-        this._declareTypeForExpression(node.valueExpression, typeHintType,
+        this._declareTypeForExpression(node.valueExpression, declaredType,
             node.typeAnnotation);
 
         if (this._fileInfo.isStubFile) {
-            this._assignTypeToExpression(node.valueExpression, typeHintType,
+            this._assignTypeToExpression(node.valueExpression, declaredType,
                 node.typeAnnotation);
         }
 
@@ -1883,6 +1892,53 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 `Inferred type of '${ nameValue }', '${ printType(simplifiedType) }', ` +
                 `is partially unknown`, srcExpr);
         }
+    }
+
+    // Determines whether the specified expression is a symbol with a declard type
+    // (either a simple name or a member variable). If so, the type is returned.
+    private _getDeclaredTypeForExpression(expression: ExpressionNode): Type | undefined {
+        let symbol: Symbol | undefined;
+        let classOrObjectBase: ClassType | ObjectType | undefined;
+
+        if (expression.nodeType === ParseNodeType.Name) {
+            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(expression.nameToken.value);
+            if (symbolWithScope) {
+                symbol = symbolWithScope.symbol;
+            }
+        } else if (expression.nodeType === ParseNodeType.TypeAnnotation) {
+            return this._getDeclaredTypeForExpression(expression.valueExpression);
+        } else if (expression.nodeType === ParseNodeType.MemberAccess) {
+            // Get the base type but don't cache the results because we're going to call again
+            // with a 'set' usage type below, and we don't want to skip thatlogic.
+            const baseType = this._getTypeOfExpression(expression.leftExpression, EvaluatorFlags.DoNotCache);
+            let classMemberInfo: TypeUtils.ClassMember | undefined;
+
+            if (baseType.category === TypeCategory.Object) {
+                classMemberInfo = TypeUtils.lookUpObjectMember(baseType, expression.memberName.nameToken.value);
+                classOrObjectBase = baseType;
+            } else if (baseType.category === TypeCategory.Class) {
+                classMemberInfo = TypeUtils.lookUpClassMember(baseType, expression.memberName.nameToken.value);
+                classOrObjectBase = baseType;
+            }
+
+            if (classMemberInfo) {
+                symbol = classMemberInfo.symbol;
+            }
+        }
+
+        if (symbol) {
+            let declaredType = TypeUtils.getDeclaredTypeOfSymbol(symbol);
+            if (declaredType) {
+                if (classOrObjectBase) {
+                    declaredType = TypeUtils.bindFunctionToClassOrObject(classOrObjectBase,
+                        declaredType);
+                }
+
+                return declaredType;
+            }
+        }
+
+        return undefined;
     }
 
     // Assigns a declared type (as opposed to an inferred type) to an expression
@@ -2998,14 +3054,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
             evaluator.getType(node, { method: 'get' }, evaluatorFlags));
     }
 
-    private _getTypeOfExpression(node: ExpressionNode, flags?: EvaluatorFlags): Type {
+    private _getTypeOfExpression(node: ExpressionNode, flags?: EvaluatorFlags, expectedType?: Type): Type {
         const evaluator = this._createEvaluator();
 
         // If the caller didn't specify the flags, use the defaults.
         if (flags === undefined) {
             flags = EvaluatorFlags.None;
         }
-        return evaluator.getType(node, { method: 'get' }, flags);
+        return evaluator.getType(node, { method: 'get', expectedType }, flags);
     }
 
     private _evaluateExpressionForAssignment(node: ExpressionNode, type: Type, errorNode: ExpressionNode) {
@@ -3472,43 +3528,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return undefined;
-    }
-
-    private _getDeclarationsForMemberName(baseType: Type, memberName: NameNode): Declaration[] {
-        const memberNameValue = memberName.nameToken.value;
-        let declarations: Declaration[] = [];
-
-        if (baseType.category === TypeCategory.Object) {
-            const classMemberInfo = TypeUtils.lookUpClassMember(
-                baseType.classType, memberNameValue);
-            if (classMemberInfo) {
-                if (classMemberInfo.symbol.hasDeclarations()) {
-                    declarations = TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!;
-                }
-            }
-        } else if (baseType.category === TypeCategory.Module) {
-            const moduleMemberInfo = baseType.fields.get(memberNameValue);
-            if (moduleMemberInfo) {
-                if (moduleMemberInfo.hasDeclarations()) {
-                    declarations = TypeUtils.getPrimaryDeclarationsForSymbol(moduleMemberInfo)!;
-                }
-            }
-        } else if (baseType.category === TypeCategory.Class) {
-            const classMemberInfo = TypeUtils.lookUpClassMember(baseType, memberNameValue,
-                TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
-            if (classMemberInfo) {
-                if (classMemberInfo.symbol.hasDeclarations()) {
-                    declarations = TypeUtils.getPrimaryDeclarationsForSymbol(classMemberInfo.symbol)!;
-                }
-            }
-        } else if (baseType.category === TypeCategory.Union) {
-            for (const t of baseType.subtypes) {
-                declarations = declarations.concat(
-                    this._getDeclarationsForMemberName(t, memberName));
-            }
-        }
-
-        return declarations;
     }
 
     private _buildConditionalTypeConstraints(node: ExpressionNode) {

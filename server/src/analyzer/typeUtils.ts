@@ -79,9 +79,9 @@ export function isOptionalType(type: Type): boolean {
 // When a variable with a declared type is assigned and the declared
 // type is a union, we may be able to further constrain the type.
 export function constrainDeclaredTypeBasedOnAssignedType(declaredType: Type, assignedType: Type): Type {
-    if (declaredType.category === TypeCategory.Union) {
-        const diagAddendum = new DiagnosticAddendum();
+    const diagAddendum = new DiagnosticAddendum();
 
+    if (declaredType.category === TypeCategory.Union) {
         return doForSubtypes(declaredType, subtype => {
             if (assignedType.category === TypeCategory.Union) {
                 if (!assignedType.subtypes.some(t => canAssignType(subtype, t, diagAddendum))) {
@@ -95,6 +95,10 @@ export function constrainDeclaredTypeBasedOnAssignedType(declaredType: Type, ass
                 return subtype;
             }
         });
+    }
+
+    if (!canAssignType(declaredType, assignedType, diagAddendum)) {
+        return NeverType.create();
     }
 
     return declaredType;
@@ -280,10 +284,15 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
 
     if (destType.category === TypeCategory.Union) {
         // For union destinations, we just need to match one of the types.
+        const diagAddendum = new DiagnosticAddendum();
         const compatibleType = destType.subtypes.find(
-            t => canAssignType(t, srcType, diag.createAddendum(), typeVarMap,
+            t => canAssignType(t, srcType, diagAddendum, typeVarMap,
                 allowSubclasses, recursionCount + 1));
-        return (compatibleType !== undefined);
+        if (!compatibleType) {
+            diag.addAddendum(diagAddendum);
+            return false;
+        }
+        return true;
     }
 
     if (destType.category === TypeCategory.Unbound ||

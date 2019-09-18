@@ -123,7 +123,7 @@ export class DiagnosticAddendum {
     // Create a new (nested) addendum to which messages can be added.
     createAddendum() {
         const newAddendum = new DiagnosticAddendum();
-        this._addAddendum(newAddendum);
+        this.addAddendum(newAddendum);
         return newAddendum;
     }
 
@@ -147,7 +147,7 @@ export class DiagnosticAddendum {
         return this._messages.length;
     }
 
-    private _addAddendum(addendum: DiagnosticAddendum) {
+    addAddendum(addendum: DiagnosticAddendum) {
         this._childAddenda.push(addendum);
     }
 
