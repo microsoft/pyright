@@ -30,6 +30,7 @@ The VS Code extension supports many time-saving language features including:
 * Find Definitions to quickly go to the location of a symbol’s definition
 * Find References to find all references to a symbol within a code base
 * Rename Symbol to rename all references to a symbol within a code base
+* Find Symbols within the current document or within the entire workspace
 * Organize Imports command for automatically ordering imports according to PEP8 rules
 * Type stub generation for third-party libraries
 
