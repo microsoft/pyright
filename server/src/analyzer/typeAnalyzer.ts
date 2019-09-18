@@ -2788,19 +2788,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     // Associates a member variable with a specified type.
-    // If typeAnnotationNode is provided, assumes that the specified
-    // type is declared (rather than inferred).
+    // If typeAnnotationNode is provided, it assumes that the
+    // specified type is declared (rather than inferred).
     private _assignTypeToMemberVariable(node: MemberAccessExpressionNode, srcType: Type,
             isInstanceMember: boolean, typeAnnotationNode?: ExpressionNode,
             srcExprNode?: ExpressionNode) {
 
         const memberName = node.memberName.nameToken.value;
         const isConstant = SymbolNameUtils.isConstantName(memberName);
+        const isPrivate = SymbolNameUtils.isPrivateOrProtectedName(memberName);
 
         // If the member name appears to be a constant, use the strict
-        // source type. If it appears to be a variable, strip off any
-        // literal to allow other values to be assigned to it later.
-        if (!isConstant || this._fileInfo.diagnosticSettings.reportConstantRedefinition === 'none') {
+        // source type. If it's a member variable that can be overrideen
+        // by a child class, use the more general version by stripping
+        // off the literal.
+        if (!isConstant && !isPrivate) {
             srcType = TypeUtils.stripLiteralValue(srcType);
         }
 
@@ -3409,6 +3411,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
             srcExpressionNode?: ParseNode) {
 
         const nameValue = nameNode.nameToken.value;
+
+        // If this is a member name (within a class scope) and the member name
+        // appears to be a constant, use the strict source type. If it's a member
+        // variable that can be overrideen by a child class, use the more general
+        // version by stripping off the literal.
+        if (ScopeUtils.getPermanentScope(this._currentScope).getType() === ScopeType.Class) {
+            const isConstant = SymbolNameUtils.isConstantName(nameValue);
+            const isPrivate = SymbolNameUtils.isPrivateOrProtectedName(nameValue);
+            if (!isConstant && !isPrivate) {
+                srcType = TypeUtils.stripLiteralValue(srcType);
+            }
+        }
 
         // Determine if there's a declared type for this symbol.
         let declaredType: Type | undefined = declaration ? declaration.declaredType : undefined;
