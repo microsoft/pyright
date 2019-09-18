@@ -44,10 +44,13 @@ For rich Python editing and debugging capabilities with Visual Studio Code, be s
 
 
 ## Installation
+### VS Code Extension
 You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
 
+### Vim
 For vim/neovim users, you can install [coc-pyright](https://github.com/fannheyward/coc-pyright), Pyright extension for coc.nvim.
 
+### Command-line
 The latest version of the command-line tool can be installed with npm, which is part of node. If you don't have a recent version of node on your system, install that first from [nodejs.org](nodejs.org). 
 
 To install pyright globally:
@@ -83,11 +86,7 @@ Pyright currently provides support for Python 3.0 and newer. There is currently 
 ## FAQ
 **Q:** What is the difference between pyright and the [Microsoft Python Visual Studio Code plugin](https://github.com/Microsoft/vscode-python)?
 
-**A:** Pyright is focused on type checking. The Python VS Code plugin is Microsoft’s officially-supported extension for VS Code and provides a diverse array of features including auto-complete, debugging, linter plugins, type-checking plugins, and much more. Pyright can be used alongide the Microsoft Python extension.
-
-**Q:** What is the difference between Pyright and the [Microsoft Python Language Server](https://github.com/Microsoft/python-language-server)?
-
-**A:** The Microsoft Python Language Server is a [language server protocol (LSP)](https://microsoft.github.io/language-server-protocol/) implementation that works with the Microsoft Python VS Code plugin. It is officially supported by a team of Microsoft engineers. It focuses on providing core editing capabilities such as auto-completion, code navigation and documentation. Pyright is focused on providing fast syntax and type checking with features such as more configurabilty and command-line execution.
+**A:** Pyright is focused on type checking. The Python VS Code plugin is Microsoft’s officially-supported extension for VS Code and provides a diverse array of features including debugging, test case management, linter plugins, and more. Pyright can be used alongide the Microsoft Python extension.
 
 **Q:** What is the long-term plan for Pyright?
 
