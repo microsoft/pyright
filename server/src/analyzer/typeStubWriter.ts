@@ -119,7 +119,7 @@ class ImportSymbolWalker extends ParseTreeWalker {
 
 export class TypeStubWriter extends ParseTreeWalker {
     private _indentAmount = 0;
-    private _includeAllImports = true;
+    private _includeAllImports = false;
     private _typeStubText = '';
     private _lineEnd = '\n';
     private _tab = '    ';
