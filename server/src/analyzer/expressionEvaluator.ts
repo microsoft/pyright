@@ -1294,6 +1294,14 @@ export class ExpressionEvaluator {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             } else if (subtype.category === TypeCategory.Class) {
+                // Setting the value of an indexed class will always result
+                // in an exception.
+                if (usage.method === 'set') {
+                    this._addError(`Generic class type cannot be assigned`, node.baseExpression);
+                } else if (usage.method === 'del') {
+                    this._addError(`Generic class type cannot be deleted`, node.baseExpression);
+                }
+
                 if (ClassType.isSpecialBuiltIn(subtype, 'Literal')) {
                     // Special-case Literal types.
                     return this._createLiteralType(node);
