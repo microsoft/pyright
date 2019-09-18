@@ -1454,9 +1454,7 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromTupleExpression(node: TupleExpressionNode, usage: EvaluatorUsage): TypeResult {
-        const entryTypes = node.expressions.map(
-            expr => TypeUtils.stripLiteralValue(this.getType(expr, usage))
-        );
+        const entryTypes = node.expressions.map(expr => this.getType(expr, usage));
 
         let type: Type = UnknownType.create();
         const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
