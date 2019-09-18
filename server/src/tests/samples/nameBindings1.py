@@ -14,8 +14,6 @@ def func1():
     global a
 
 def func2():
-    # This should generate an error because c doesn't exist
-    # in the global scope.
     global c
 
 def func3():
@@ -36,8 +34,6 @@ def func3():
         # locally before its name binding is declared.
         nonlocal h
 
-        # This should generate an error because e is not available
-        # in the global scope.
         global e
 
         # This should generate an error because f is not available
