@@ -673,6 +673,10 @@ export class SourceFile {
                 const typeAnalyzer = new TypeAnalyzer(this._analysisJob.parseResults!.parseTree,
                     fileInfo, this._analysisJob.typeAnalysisPassNumber);
                 this._analysisJob.typeAnalysisPassNumber++;
+                if (typeAnalyzer.isAtMaxAnalysisPassCount()) {
+                    this._console.log(
+                        `Hit max analysis pass count for ${ this._filePath }`);
+                }
 
                 // Repeatedly call the analyzer until everything converges.
                 this._analysisJob.isTypeAnalysisPassNeeded = typeAnalyzer.analyze();
@@ -729,8 +733,7 @@ export class SourceFile {
             filePath: this._filePath,
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
-            isBuiltInStubFile: this._isBuiltInStubFile,
-            console: this._console
+            isBuiltInStubFile: this._isBuiltInStubFile
         };
         return fileInfo;
     }

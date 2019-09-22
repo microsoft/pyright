@@ -8,7 +8,6 @@
 */
 
 import { DiagnosticSettings, ExecutionEnvironment } from '../common/configOptions';
-import { ConsoleInterface } from '../common/console';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
@@ -32,5 +31,4 @@ export interface AnalyzerFileInfo {
     isStubFile: boolean;
     isTypingStubFile: boolean;
     isBuiltInStubFile: boolean;
-    console: ConsoleInterface;
 }

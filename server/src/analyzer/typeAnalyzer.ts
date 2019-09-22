@@ -13,7 +13,8 @@ import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
 import { AddMissingOptionalToParamAction, Diagnostic,
-    DiagnosticAddendum } from '../common/diagnostic';
+    DiagnosticAddendum,
+    getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -118,13 +119,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // If we've already analyzed the file the max number of times,
         // just give up and admit defeat. This should happen only in
         // the case of analyzer bugs.
-        if (this._analysisVersion >= _maxAnalysisPassCount) {
-            this._fileInfo.console.log(
-                `Hit max analysis pass count for ${ this._fileInfo.filePath }`);
+        if (this.isAtMaxAnalysisPassCount()) {
             return false;
         }
 
         return this._didAnalysisChange;
+    }
+
+    isAtMaxAnalysisPassCount() {
+        return this._analysisVersion >= _maxAnalysisPassCount;
     }
 
     getLastReanalysisReason() {
@@ -519,7 +522,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
                             this._fileInfo.lines),
-                        declaredType: specializedParamType
+                        declaredType: paramNode.typeAnnotation ? specializedParamType : undefined
                     };
                     assert(paramNode !== undefined && paramNode.name !== undefined);
 
@@ -1337,7 +1340,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             const declaration: Declaration = {
                                 category: DeclarationCategory.Module,
                                 path: implicitImport.path,
-                                range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 }}
+                                range: getEmptyRange()
                             };
 
                             const newSymbol = Symbol.createWithType(
@@ -1355,7 +1358,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     moduleDeclaration = {
                         category: DeclarationCategory.Module,
                         path: resolvedPath,
-                        range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } }
+                        range: getEmptyRange()
                     };
                 }
 
@@ -1441,7 +1444,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             declaration = {
                                 category: DeclarationCategory.Module,
                                 path: implicitImport.path,
-                                range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } }
+                                range: getEmptyRange()
                             };
                         }
                     } else {
@@ -2798,12 +2801,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const memberName = node.memberName.nameToken.value;
         const isConstant = SymbolNameUtils.isConstantName(memberName);
         const isPrivate = SymbolNameUtils.isPrivateOrProtectedName(memberName);
+        const honorPrivateNaming = this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
 
         // If the member name appears to be a constant, use the strict
         // source type. If it's a member variable that can be overridden
         // by a child class, use the more general version by stripping
         // off the literal.
-        if (!isConstant && !isPrivate) {
+        if (!isConstant && (!isPrivate || !honorPrivateNaming)) {
             srcType = TypeUtils.stripLiteralValue(srcType);
         }
 
@@ -3420,7 +3424,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (ScopeUtils.getPermanentScope(this._currentScope).getType() === ScopeType.Class) {
             const isConstant = SymbolNameUtils.isConstantName(nameValue);
             const isPrivate = SymbolNameUtils.isPrivateOrProtectedName(nameValue);
-            if (!isConstant && !isPrivate) {
+            const honorPrivateNaming = this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
+
+            if (!isConstant && (!isPrivate || !honorPrivateNaming)) {
                 srcType = TypeUtils.stripLiteralValue(srcType);
             }
         }
