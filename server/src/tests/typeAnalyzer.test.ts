@@ -267,6 +267,12 @@ test('Operators1', () => {
     validateResults(analysisResults, 3);
 });
 
+test('Operators2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators2.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions('.');
 

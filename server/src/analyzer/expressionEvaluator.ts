@@ -2750,7 +2750,20 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromBinaryExpression(node: BinaryExpressionNode): TypeResult {
-        let leftType = this.getType(node.leftExpression);
+        let leftExpression = node.leftExpression;
+
+        // If this is a comparison and the left expression is also a comparison,
+        // we need to change the behavior to accommodate python's "chained
+        // comparisons" feature.
+        if (comparisonOperatorMap[node.operator]) {
+            if (node.leftExpression.nodeType === ParseNodeType.BinaryOperation &&
+                    comparisonOperatorMap[node.leftExpression.operator]) {
+
+                leftExpression = node.leftExpression.rightExpression;
+            }
+        }
+
+        let leftType = this.getType(leftExpression);
 
         // Is this an AND operator? If so, we can assume that the
         // rightExpression won't be evaluated at runtime unless the
@@ -2813,7 +2826,6 @@ export class ExpressionEvaluator {
         };
 
         let type: Type | undefined;
-
         const leftType = this.getType(node.leftExpression);
         const rightType = this.getType(node.rightExpression);
 
