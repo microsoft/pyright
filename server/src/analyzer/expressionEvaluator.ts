@@ -1615,7 +1615,11 @@ export class ExpressionEvaluator {
             specializeReturnType = true): TypeResult {
 
         let type: Type | undefined;
-        const callType = baseTypeResult.type;
+        let callType = baseTypeResult.type;
+
+        if (callType.category === TypeCategory.TypeVar) {
+            callType = TypeUtils.specializeType(callType, undefined);
+        }
 
         if (callType.category === TypeCategory.Class) {
             if (ClassType.isBuiltIn(callType)) {
