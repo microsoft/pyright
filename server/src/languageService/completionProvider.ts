@@ -436,7 +436,7 @@ export class CompletionProvider {
                     // characters, we can do a fuzzy match.
                     const isSimilar = priorWord.length > 2 ?
                         StringUtils.computeCompletionSimilarity(priorWord, name) > similarityLimit :
-                        name.startsWith(priorWord);
+                        priorWord.length > 0 && name.startsWith(priorWord);
 
                     if (isSimilar) {
                         if (!symbol.isExternallyHidden()) {
