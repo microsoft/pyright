@@ -2398,9 +2398,7 @@ export class Parser {
             return undefined;
         }
 
-        stringListNode.typeAnnotation = parseResults.parseTree;
-
-        return stringListNode;
+        return parseResults.parseTree;
     }
 
     private _parseFormatString(stringToken: StringToken): FormatStringNode {
