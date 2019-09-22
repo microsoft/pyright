@@ -18,6 +18,22 @@ export function evaluateStaticExpression(node: ExpressionNode,
         execEnv: ExecutionEnvironment): boolean | undefined {
 
     if (node.nodeType === ParseNodeType.BinaryOperation) {
+        // Is it an OR or AND expression?
+        if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
+            const leftValue = evaluateStaticExpression(node.leftExpression, execEnv);
+            const rightValue = evaluateStaticExpression(node.rightExpression, execEnv);
+
+            if (leftValue === undefined || rightValue === undefined) {
+                return undefined;
+            }
+
+            if (node.operator === OperatorType.Or) {
+                return leftValue || rightValue;
+            } else {
+                return leftValue && rightValue;
+            }
+        }
+
         if (_isSysVersionInfoExpression(node.leftExpression) &&
                 node.rightExpression.nodeType === ParseNodeType.Tuple) {
 
@@ -162,7 +178,7 @@ function _getExpectedOsNameFromPlatform(execEnv: ExecutionEnvironment): string |
     } else if (execEnv.pythonPlatform === 'Windows') {
         return 'nt';
     } else if (execEnv.pythonPlatform === 'Linux') {
-        return 'linux';
+        return 'posix';
     }
 
     return undefined;
