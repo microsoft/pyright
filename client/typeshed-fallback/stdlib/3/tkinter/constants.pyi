@@ -1,79 +1,79 @@
 from typing import Any
 
-NO = ...  # type: Any
-YES = ...  # type: Any
-TRUE = ...  # type: Any
-FALSE = ...  # type: Any
-ON = ...  # type: Any
-OFF = ...  # type: Any
-N = ...  # type: Any
-S = ...  # type: Any
-W = ...  # type: Any
-E = ...  # type: Any
-NW = ...  # type: Any
-SW = ...  # type: Any
-NE = ...  # type: Any
-SE = ...  # type: Any
-NS = ...  # type: Any
-EW = ...  # type: Any
-NSEW = ...  # type: Any
-CENTER = ...  # type: Any
-NONE = ...  # type: Any
-X = ...  # type: Any
-Y = ...  # type: Any
-BOTH = ...  # type: Any
-LEFT = ...  # type: Any
-TOP = ...  # type: Any
-RIGHT = ...  # type: Any
-BOTTOM = ...  # type: Any
-RAISED = ...  # type: Any
-SUNKEN = ...  # type: Any
-FLAT = ...  # type: Any
-RIDGE = ...  # type: Any
-GROOVE = ...  # type: Any
-SOLID = ...  # type: Any
-HORIZONTAL = ...  # type: Any
-VERTICAL = ...  # type: Any
-NUMERIC = ...  # type: Any
-CHAR = ...  # type: Any
-WORD = ...  # type: Any
-BASELINE = ...  # type: Any
-INSIDE = ...  # type: Any
-OUTSIDE = ...  # type: Any
-SEL = ...  # type: Any
-SEL_FIRST = ...  # type: Any
-SEL_LAST = ...  # type: Any
-END = ...  # type: Any
-INSERT = ...  # type: Any
-CURRENT = ...  # type: Any
-ANCHOR = ...  # type: Any
-ALL = ...  # type: Any
-NORMAL = ...  # type: Any
-DISABLED = ...  # type: Any
-ACTIVE = ...  # type: Any
-HIDDEN = ...  # type: Any
-CASCADE = ...  # type: Any
-CHECKBUTTON = ...  # type: Any
-COMMAND = ...  # type: Any
-RADIOBUTTON = ...  # type: Any
-SEPARATOR = ...  # type: Any
-SINGLE = ...  # type: Any
-BROWSE = ...  # type: Any
-MULTIPLE = ...  # type: Any
-EXTENDED = ...  # type: Any
-DOTBOX = ...  # type: Any
-UNDERLINE = ...  # type: Any
-PIESLICE = ...  # type: Any
-CHORD = ...  # type: Any
-ARC = ...  # type: Any
-FIRST = ...  # type: Any
-LAST = ...  # type: Any
-BUTT = ...  # type: Any
-PROJECTING = ...  # type: Any
-ROUND = ...  # type: Any
-BEVEL = ...  # type: Any
-MITER = ...  # type: Any
-MOVETO = ...  # type: Any
-SCROLL = ...  # type: Any
-UNITS = ...  # type: Any
-PAGES = ...  # type: Any
+NO: Any
+YES: Any
+TRUE: Any
+FALSE: Any
+ON: Any
+OFF: Any
+N: Any
+S: Any
+W: Any
+E: Any
+NW: Any
+SW: Any
+NE: Any
+SE: Any
+NS: Any
+EW: Any
+NSEW: Any
+CENTER: Any
+NONE: Any
+X: Any
+Y: Any
+BOTH: Any
+LEFT: Any
+TOP: Any
+RIGHT: Any
+BOTTOM: Any
+RAISED: Any
+SUNKEN: Any
+FLAT: Any
+RIDGE: Any
+GROOVE: Any
+SOLID: Any
+HORIZONTAL: Any
+VERTICAL: Any
+NUMERIC: Any
+CHAR: Any
+WORD: Any
+BASELINE: Any
+INSIDE: Any
+OUTSIDE: Any
+SEL: Any
+SEL_FIRST: Any
+SEL_LAST: Any
+END: Any
+INSERT: Any
+CURRENT: Any
+ANCHOR: Any
+ALL: Any
+NORMAL: Any
+DISABLED: Any
+ACTIVE: Any
+HIDDEN: Any
+CASCADE: Any
+CHECKBUTTON: Any
+COMMAND: Any
+RADIOBUTTON: Any
+SEPARATOR: Any
+SINGLE: Any
+BROWSE: Any
+MULTIPLE: Any
+EXTENDED: Any
+DOTBOX: Any
+UNDERLINE: Any
+PIESLICE: Any
+CHORD: Any
+ARC: Any
+FIRST: Any
+LAST: Any
+BUTT: Any
+PROJECTING: Any
+ROUND: Any
+BEVEL: Any
+MITER: Any
+MOVETO: Any
+SCROLL: Any
+UNITS: Any
+PAGES: Any

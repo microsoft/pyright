@@ -10,74 +10,74 @@ if sys.version_info < (3,):
 else:
     from builtins import str as _str
 
-CODESET = ...  # type: int
-D_T_FMT = ...  # type: int
-D_FMT = ...  # type: int
-T_FMT = ...  # type: int
-T_FMT_AMPM = ...  # type: int
+CODESET: int
+D_T_FMT: int
+D_FMT: int
+T_FMT: int
+T_FMT_AMPM: int
 
-DAY_1 = ...  # type: int
-DAY_2 = ...  # type: int
-DAY_3 = ...  # type: int
-DAY_4 = ...  # type: int
-DAY_5 = ...  # type: int
-DAY_6 = ...  # type: int
-DAY_7 = ...  # type: int
-ABDAY_1 = ...  # type: int
-ABDAY_2 = ...  # type: int
-ABDAY_3 = ...  # type: int
-ABDAY_4 = ...  # type: int
-ABDAY_5 = ...  # type: int
-ABDAY_6 = ...  # type: int
-ABDAY_7 = ...  # type: int
+DAY_1: int
+DAY_2: int
+DAY_3: int
+DAY_4: int
+DAY_5: int
+DAY_6: int
+DAY_7: int
+ABDAY_1: int
+ABDAY_2: int
+ABDAY_3: int
+ABDAY_4: int
+ABDAY_5: int
+ABDAY_6: int
+ABDAY_7: int
 
-MON_1 = ...  # type: int
-MON_2 = ...  # type: int
-MON_3 = ...  # type: int
-MON_4 = ...  # type: int
-MON_5 = ...  # type: int
-MON_6 = ...  # type: int
-MON_7 = ...  # type: int
-MON_8 = ...  # type: int
-MON_9 = ...  # type: int
-MON_10 = ...  # type: int
-MON_11 = ...  # type: int
-MON_12 = ...  # type: int
-ABMON_1 = ...  # type: int
-ABMON_2 = ...  # type: int
-ABMON_3 = ...  # type: int
-ABMON_4 = ...  # type: int
-ABMON_5 = ...  # type: int
-ABMON_6 = ...  # type: int
-ABMON_7 = ...  # type: int
-ABMON_8 = ...  # type: int
-ABMON_9 = ...  # type: int
-ABMON_10 = ...  # type: int
-ABMON_11 = ...  # type: int
-ABMON_12 = ...  # type: int
+MON_1: int
+MON_2: int
+MON_3: int
+MON_4: int
+MON_5: int
+MON_6: int
+MON_7: int
+MON_8: int
+MON_9: int
+MON_10: int
+MON_11: int
+MON_12: int
+ABMON_1: int
+ABMON_2: int
+ABMON_3: int
+ABMON_4: int
+ABMON_5: int
+ABMON_6: int
+ABMON_7: int
+ABMON_8: int
+ABMON_9: int
+ABMON_10: int
+ABMON_11: int
+ABMON_12: int
 
-RADIXCHAR = ...  # type: int
-THOUSEP = ...  # type: int
-YESEXPR = ...  # type: int
-NOEXPR = ...  # type: int
-CRNCYSTR = ...  # type: int
+RADIXCHAR: int
+THOUSEP: int
+YESEXPR: int
+NOEXPR: int
+CRNCYSTR: int
 
-ERA = ...  # type: int
-ERA_D_T_FMT = ...  # type: int
-ERA_D_FMT = ...  # type: int
-ERA_T_FMT = ...  # type: int
+ERA: int
+ERA_D_T_FMT: int
+ERA_D_FMT: int
+ERA_T_FMT: int
 
-ALT_DIGITS = ...  # type: int
+ALT_DIGITS: int
 
-LC_CTYPE = ...  # type: int
-LC_COLLATE = ...  # type: int
-LC_TIME = ...  # type: int
-LC_MONETARY = ...  # type: int
-LC_MESSAGES = ...  # type: int
-LC_NUMERIC = ...  # type: int
-LC_ALL = ...  # type: int
+LC_CTYPE: int
+LC_COLLATE: int
+LC_TIME: int
+LC_MONETARY: int
+LC_MESSAGES: int
+LC_NUMERIC: int
+LC_ALL: int
 
-CHAR_MAX = ...  # type: int
+CHAR_MAX: int
 
 class Error(Exception): ...
 
@@ -95,10 +95,10 @@ def strxfrm(string: _str) -> _str: ...
 def format(format: _str, val: Union[float, Decimal], grouping: bool = ...,
            monetary: bool = ...) -> _str: ...
 if sys.version_info >= (3, 7):
-    def format_string(format: _str, val: Sequence[Any],
+    def format_string(format: _str, val: Any,
                       grouping: bool = ..., monetary: bool = ...) -> _str: ...
 else:
-    def format_string(format: _str, val: Sequence[Any],
+    def format_string(format: _str, val: Any,
                       grouping: bool = ...) -> _str: ...
 def currency(val: Union[int, float, Decimal], symbol: bool = ..., grouping: bool = ...,
              international: bool = ...) -> _str: ...

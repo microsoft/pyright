@@ -1,36 +1,36 @@
 from typing import overload
 
-LOG_ALERT = ...  # type: int
-LOG_AUTH = ...  # type: int
-LOG_CONS = ...  # type: int
-LOG_CRIT = ...  # type: int
-LOG_CRON = ...  # type: int
-LOG_DAEMON = ...  # type: int
-LOG_DEBUG = ...  # type: int
-LOG_EMERG = ...  # type: int
-LOG_ERR = ...  # type: int
-LOG_INFO = ...  # type: int
-LOG_KERN = ...  # type: int
-LOG_LOCAL0 = ...  # type: int
-LOG_LOCAL1 = ...  # type: int
-LOG_LOCAL2 = ...  # type: int
-LOG_LOCAL3 = ...  # type: int
-LOG_LOCAL4 = ...  # type: int
-LOG_LOCAL5 = ...  # type: int
-LOG_LOCAL6 = ...  # type: int
-LOG_LOCAL7 = ...  # type: int
-LOG_LPR = ...  # type: int
-LOG_MAIL = ...  # type: int
-LOG_NDELAY = ...  # type: int
-LOG_NEWS = ...  # type: int
-LOG_NOTICE = ...  # type: int
-LOG_NOWAIT = ...  # type: int
-LOG_PERROR = ...  # type: int
-LOG_PID = ...  # type: int
-LOG_SYSLOG = ...  # type: int
-LOG_USER = ...  # type: int
-LOG_UUCP = ...  # type: int
-LOG_WARNING = ...  # type: int
+LOG_ALERT: int
+LOG_AUTH: int
+LOG_CONS: int
+LOG_CRIT: int
+LOG_CRON: int
+LOG_DAEMON: int
+LOG_DEBUG: int
+LOG_EMERG: int
+LOG_ERR: int
+LOG_INFO: int
+LOG_KERN: int
+LOG_LOCAL0: int
+LOG_LOCAL1: int
+LOG_LOCAL2: int
+LOG_LOCAL3: int
+LOG_LOCAL4: int
+LOG_LOCAL5: int
+LOG_LOCAL6: int
+LOG_LOCAL7: int
+LOG_LPR: int
+LOG_MAIL: int
+LOG_NDELAY: int
+LOG_NEWS: int
+LOG_NOTICE: int
+LOG_NOWAIT: int
+LOG_PERROR: int
+LOG_PID: int
+LOG_SYSLOG: int
+LOG_USER: int
+LOG_UUCP: int
+LOG_WARNING: int
 
 def LOG_MASK(a: int) -> int: ...
 def LOG_UPTO(a: int) -> int: ...

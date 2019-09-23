@@ -1,7 +1,7 @@
 from typing import Any
 import io
 
-BUFFER_SIZE = ...  # type: Any
+BUFFER_SIZE: Any
 
 class BaseStream(io.BufferedIOBase): ...
 

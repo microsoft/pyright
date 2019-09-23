@@ -5,7 +5,7 @@
 # Note: these stubs are incomplete. The more complex type
 # signatures are currently omitted.
 
-from typing import Any, Optional, SupportsFloat
+from typing import Any, Optional, SupportsFloat, overload
 from abc import ABCMeta, abstractmethod
 import sys
 
@@ -70,7 +70,11 @@ class Real(Complex, SupportsFloat):
         @abstractmethod
         def __ceil__(self) -> int: ...
         @abstractmethod
-        def __round__(self, ndigits: Optional[int] = ...): ...
+        @overload
+        def __round__(self, ndigits: None = ...): ...
+        @abstractmethod
+        @overload
+        def __round__(self, ndigits: int): ...
     def __divmod__(self, other): ...
     def __rdivmod__(self, other): ...
     @abstractmethod

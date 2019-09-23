@@ -54,6 +54,10 @@ from asyncio.tasks import (
     wait_for as wait_for,
     Task as Task,
 )
+from asyncio.base_events import (
+    BaseEventLoop as BaseEventLoop,
+    Server as Server
+)
 from asyncio.events import (
     AbstractEventLoopPolicy as AbstractEventLoopPolicy,
     AbstractEventLoop as AbstractEventLoop,
@@ -83,14 +87,11 @@ from asyncio.locks import (
     BoundedSemaphore as BoundedSemaphore,
 )
 
-if sys.version_info < (3, 5):
-    from asyncio.queues import JoinableQueue as JoinableQueue
-else:
-    from asyncio.futures import isfuture as isfuture
-    from asyncio.events import (
-        _set_running_loop as _set_running_loop,
-        _get_running_loop as _get_running_loop,
-    )
+from asyncio.futures import isfuture as isfuture
+from asyncio.events import (
+    _set_running_loop as _set_running_loop,
+    _get_running_loop as _get_running_loop,
+)
 if sys.platform != 'win32':
     from asyncio.streams import (
         open_unix_connection as open_unix_connection,
@@ -114,10 +115,10 @@ if sys.version_info >= (3, 7):
 # TODO: It should be possible to instantiate these classes, but mypy
 # currently disallows this.
 # See https://github.com/python/mypy/issues/1843
-SelectorEventLoop = ...  # type: Type[AbstractEventLoop]
+SelectorEventLoop: Type[AbstractEventLoop]
 if sys.platform == 'win32':
-    ProactorEventLoop = ...  # type: Type[AbstractEventLoop]
-DefaultEventLoopPolicy = ...  # type: Type[AbstractEventLoopPolicy]
+    ProactorEventLoop: Type[AbstractEventLoop]
+DefaultEventLoopPolicy: Type[AbstractEventLoopPolicy]
 
 # TODO: AbstractChildWatcher (UNIX only)
 

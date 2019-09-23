@@ -8,9 +8,9 @@ if sys.version_info >= (3,):
 else:
     _Text = Union[str, unicode]
 
-NO_DEFAULT = ...  # type: Tuple[_Text, ...]
-SUPPRESS_HELP = ...  # type: _Text
-SUPPRESS_USAGE = ...  # type: _Text
+NO_DEFAULT: Tuple[_Text, ...]
+SUPPRESS_HELP: _Text
+SUPPRESS_USAGE: _Text
 
 def check_builtin(option: Option, opt: Any, value: _Text) -> Any: ...
 def check_choice(option: Option, opt: Any, value: _Text) -> Any: ...
@@ -18,20 +18,20 @@ if sys.version_info < (3,):
     def isbasestring(x: Any) -> bool: ...
 
 class OptParseError(Exception):
-    msg = ...  # type: _Text
+    msg: _Text
     def __init__(self, msg: _Text) -> None: ...
 
 class BadOptionError(OptParseError):
-    opt_str = ...  # type: _Text
+    opt_str: _Text
     def __init__(self, opt_str: _Text) -> None: ...
 
 class AmbiguousOptionError(BadOptionError):
-    possibilities = ...  # type: Iterable[_Text]
+    possibilities: Iterable[_Text]
     def __init__(self, opt_str: _Text, possibilities: Sequence[_Text]) -> None: ...
 
 class OptionError(OptParseError):
-    msg = ...  # type: _Text
-    option_id = ...  # type: _Text
+    msg: _Text
+    option_id: _Text
     def __init__(self, msg: _Text, option: Option) -> None: ...
 
 class OptionConflictError(OptionError): ...
@@ -40,20 +40,20 @@ class OptionValueError(OptParseError): ...
 
 
 class HelpFormatter:
-    NO_DEFAULT_VALUE = ...  # type: _Text
-    _long_opt_fmt = ...  # type: _Text
-    _short_opt_fmt = ...  # type: _Text
-    current_indent = ...  # type: int
-    default_tag = ...  # type: _Text
-    help_position = ...  # type: Any
-    help_width = ...  # type: Any
-    indent_increment = ...  # type: int
-    level = ...  # type: int
-    max_help_position = ...  # type: int
-    option_strings = ...  # type: Dict[Option, _Text]
-    parser = ...  # type: OptionParser
-    short_first = ...  # type: Any
-    width = ...  # type: int
+    NO_DEFAULT_VALUE: _Text
+    _long_opt_fmt: _Text
+    _short_opt_fmt: _Text
+    current_indent: int
+    default_tag: _Text
+    help_position: Any
+    help_width: Any
+    indent_increment: int
+    level: int
+    max_help_position: int
+    option_strings: Dict[Option, _Text]
+    parser: OptionParser
+    short_first: Any
+    width: int
     def __init__(self, indent_increment: int, max_help_position: int, width: Optional[int], short_first: int) -> None: ...
     def _format__Text(self, _Text: _Text) -> _Text: ...
     def dedent(self) -> None: ...
@@ -89,21 +89,21 @@ class TitledHelpFormatter(HelpFormatter):
     def format_usage(self, usage: _Text) -> _Text: ...
 
 class Option:
-    ACTIONS = ...  # type: Tuple[_Text, ...]
-    ALWAYS_TYPED_ACTIONS = ...  # type: Tuple[_Text, ...]
-    ATTRS = ...  # type: List[_Text]
-    CHECK_METHODS = ...  # type: Optional[List[Callable]]
-    CONST_ACTIONS = ...  # type: Tuple[_Text, ...]
-    STORE_ACTIONS = ...  # type: Tuple[_Text, ...]
-    TYPED_ACTIONS = ...  # type: Tuple[_Text, ...]
-    TYPES = ...  # type: Tuple[_Text, ...]
-    TYPE_CHECKER = ...  # type: Dict[_Text, Callable]
-    _long_opts = ...  # type: List[_Text]
-    _short_opts = ...  # type: List[_Text]
-    action = ...  # type: _Text
-    dest = ...  # type: Optional[_Text]
-    nargs = ...  # type: int
-    type = ...  # type: Any
+    ACTIONS: Tuple[_Text, ...]
+    ALWAYS_TYPED_ACTIONS: Tuple[_Text, ...]
+    ATTRS: List[_Text]
+    CHECK_METHODS: Optional[List[Callable]]
+    CONST_ACTIONS: Tuple[_Text, ...]
+    STORE_ACTIONS: Tuple[_Text, ...]
+    TYPED_ACTIONS: Tuple[_Text, ...]
+    TYPES: Tuple[_Text, ...]
+    TYPE_CHECKER: Dict[_Text, Callable]
+    _long_opts: List[_Text]
+    _short_opts: List[_Text]
+    action: _Text
+    dest: Optional[_Text]
+    nargs: int
+    type: Any
     def __init__(self, *opts, **attrs) -> None: ...
     def _check_action(self) -> None: ...
     def _check_callback(self) -> None: ...
@@ -125,12 +125,12 @@ class Option:
 make_option = Option
 
 class OptionContainer:
-    _long_opt = ...  # type: Dict[_Text, Option]
-    _short_opt = ...  # type: Dict[_Text, Option]
-    conflict_handler = ...  # type: _Text
-    defaults = ...  # type: Dict[_Text, Any]
-    description = ...  # type: Any
-    option_class = ...  # type: Any
+    _long_opt: Dict[_Text, Option]
+    _short_opt: Dict[_Text, Option]
+    conflict_handler: _Text
+    defaults: Dict[_Text, Any]
+    description: Any
+    option_class: Any
     def __init__(self, option_class: Option, conflict_handler: Any, description: Any) -> None: ...
     def _check_conflict(self, option: Any) -> None: ...
     def _create_option_mappings(self) -> None: ...
@@ -149,9 +149,9 @@ class OptionContainer:
     def set_description(self, description: Any) -> None: ...
 
 class OptionGroup(OptionContainer):
-    option_list = ...  # type: List[Option]
-    parser = ...  # type: OptionParser
-    title = ...  # type: _Text
+    option_list: List[Option]
+    parser: OptionParser
+    title: _Text
     def __init__(self, parser: OptionParser, title: _Text, description: Optional[_Text] = ...) -> None: ...
     def _create_option_list(self) -> None: ...
     def set_title(self, title: _Text) -> None: ...
@@ -168,19 +168,19 @@ class Values:
     def __setattr__(self, name: str, value: Any) -> None: ...
 
 class OptionParser(OptionContainer):
-    allow_interspersed_args = ...  # type: bool
-    epilog = ...  # type: Optional[_Text]
-    formatter = ...  # type: HelpFormatter
-    largs = ...  # type: Optional[List[_Text]]
-    option_groups = ...  # type: List[OptionParser]
-    option_list = ...  # type: List[Option]
-    process_default_values = ...  # type: Any
-    prog = ...  # type: Optional[_Text]
-    rargs = ...  # type: Optional[List[Any]]
-    standard_option_list = ...  # type: List[Option]
-    usage = ...  # type: Optional[_Text]
-    values = ...  # type: Optional[Values]
-    version = ...  # type: _Text
+    allow_interspersed_args: bool
+    epilog: Optional[_Text]
+    formatter: HelpFormatter
+    largs: Optional[List[_Text]]
+    option_groups: List[OptionParser]
+    option_list: List[Option]
+    process_default_values: Any
+    prog: Optional[_Text]
+    rargs: Optional[List[Any]]
+    standard_option_list: List[Option]
+    usage: Optional[_Text]
+    values: Optional[Values]
+    version: _Text
     def __init__(self,
                  usage: Optional[_Text] = ...,
                  option_list: Iterable[Option] = ...,

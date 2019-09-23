@@ -1,9 +1,9 @@
 # Stubs for unicodedata (Python 2.7 and 3.4)
 from typing import Any, Text, TypeVar, Union
 
-ucd_3_2_0 = ...  # type: UCD
-ucnhash_CAPI = ...  # type: Any
-unidata_version = ...  # type: str
+ucd_3_2_0: UCD
+ucnhash_CAPI: Any
+unidata_version: str
 
 _default = TypeVar('_default')
 
@@ -23,7 +23,7 @@ def numeric(__chr: Text, __default: _default = ...) -> Union[float, _default]: .
 class UCD(object):
     # The methods below are constructed from the same array in C
     # (unicodedata_functions) and hence identical to the methods above.
-    unidata_version = ...  # type: str
+    unidata_version: str
     def bidirectional(self, __chr: Text) -> str: ...
     def category(self, __chr: Text) -> str: ...
     def combining(self, __chr: Text) -> int: ...

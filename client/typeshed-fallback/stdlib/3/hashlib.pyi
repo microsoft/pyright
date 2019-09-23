@@ -6,13 +6,13 @@ from typing import AbstractSet, Optional, Union
 _DataType = Union[bytes, bytearray, memoryview]
 
 class _Hash(object):
-    digest_size = ...  # type: int
-    block_size = ...  # type: int
+    digest_size: int
+    block_size: int
 
     # [Python documentation note] Changed in version 3.4: The name attribute has
     # been present in CPython since its inception, but until Python 3.4 was not
     # formally specified, so may not exist on some platforms
-    name = ...  # type: str
+    name: str
 
     def __init__(self, data: _DataType = ...) -> None: ...
 
@@ -30,16 +30,16 @@ def sha512(arg: _DataType = ...) -> _Hash: ...
 
 def new(name: str, data: _DataType = ...) -> _Hash: ...
 
-algorithms_guaranteed = ...  # type: AbstractSet[str]
-algorithms_available = ...  # type: AbstractSet[str]
+algorithms_guaranteed: AbstractSet[str]
+algorithms_available: AbstractSet[str]
 
 def pbkdf2_hmac(hash_name: str, password: _DataType, salt: _DataType, iterations: int, dklen: Optional[int] = ...) -> bytes: ...
 
 if sys.version_info >= (3, 6):
     class _VarLenHash(object):
-        digest_size = ...  # type: int
-        block_size = ...  # type: int
-        name = ...  # type: str
+        digest_size: int
+        block_size: int
+        name: str
 
         def __init__(self, data: _DataType = ...) -> None: ...
 
@@ -58,10 +58,10 @@ if sys.version_info >= (3, 6):
     def scrypt(password: _DataType, *, salt: _DataType, n: int, r: int, p: int, maxmem: int = ..., dklen: int = ...) -> bytes: ...
 
     class _BlakeHash(_Hash):
-        MAX_DIGEST_SIZE = ...  # type: int
-        MAX_KEY_SIZE = ...  # type: int
-        PERSON_SIZE = ...  # type: int
-        SALT_SIZE = ...  # type: int
+        MAX_DIGEST_SIZE: int
+        MAX_KEY_SIZE: int
+        PERSON_SIZE: int
+        SALT_SIZE: int
 
         def __init__(self, data: _DataType = ..., digest_size: int = ..., key: _DataType = ..., salt: _DataType = ..., person: _DataType = ..., fanout: int = ..., depth: int = ..., leaf_size: int = ..., node_offset: int = ..., node_depth: int = ..., inner_size: int = ..., last_node: bool = ...) -> None: ...
 

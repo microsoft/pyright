@@ -20,10 +20,10 @@ else:
 
 class HMAC:
     if sys.version_info >= (3,):
-        digest_size = ...  # type: int
+        digest_size: int
     if sys.version_info >= (3, 4):
-        block_size = ...  # type: int
-        name = ...  # type: str
+        block_size: int
+        name: str
     def update(self, msg: _B) -> None: ...
     def digest(self) -> bytes: ...
     def hexdigest(self) -> str: ...

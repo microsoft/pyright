@@ -2,34 +2,34 @@ import sys
 
 from typing import Any, Iterable, Iterator, List, Optional, Sequence, Text
 
-QUOTE_ALL = ...  # type: int
-QUOTE_MINIMAL = ...  # type: int
-QUOTE_NONE = ...  # type: int
-QUOTE_NONNUMERIC = ...  # type: int
+QUOTE_ALL: int
+QUOTE_MINIMAL: int
+QUOTE_NONE: int
+QUOTE_NONNUMERIC: int
 
 class Error(Exception): ...
 
 class Dialect:
-    delimiter = ...  # type: str
-    quotechar = ...  # type: Optional[str]
-    escapechar = ...  # type: Optional[str]
-    doublequote = ...  # type: bool
-    skipinitialspace = ...  # type: bool
-    lineterminator = ...  # type: str
-    quoting = ...  # type: int
-    strict = ...  # type: int
+    delimiter: str
+    quotechar: Optional[str]
+    escapechar: Optional[str]
+    doublequote: bool
+    skipinitialspace: bool
+    lineterminator: str
+    quoting: int
+    strict: int
     def __init__(self) -> None: ...
 
 class _reader(Iterator[List[str]]):
-    dialect = ...  # type: Dialect
-    line_num = ...  # type: int
+    dialect: Dialect
+    line_num: int
     if sys.version_info >= (3, 0):
         def __next__(self) -> List[str]: ...
     else:
         def next(self) -> List[str]: ...
 
 class _writer:
-    dialect = ...  # type: Dialect
+    dialect: Dialect
 
     if sys.version_info >= (3, 5):
         def writerow(self, row: Iterable[Any]) -> None: ...

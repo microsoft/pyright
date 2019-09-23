@@ -8,15 +8,15 @@ from typing import (
 
 class Error(Exception): ...
 
-REASONABLY_LARGE = ...  # type: int
-LINELEN = ...  # type: int
-RUNCHAR = ...  # type: bytes
+REASONABLY_LARGE: int
+LINELEN: int
+RUNCHAR: bytes
 
 class FInfo:
     def __init__(self) -> None: ...
-    Type = ...  # type: str
-    Creator = ...  # type: str
-    Flags = ...  # type: int
+    Type: str
+    Creator: str
+    Flags: int
 
 _FileInfoTuple = Tuple[str, FInfo, int, int]
 _FileHandleUnion = Union[str, IO[bytes]]

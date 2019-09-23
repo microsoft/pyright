@@ -3,128 +3,128 @@
 from typing import Mapping
 import sys
 
-errorcode = ...  # type: Mapping[int, str]
+errorcode: Mapping[int, str]
 
-EPERM = ...  # type: int
-ENOENT = ...  # type: int
-ESRCH = ...  # type: int
-EINTR = ...  # type: int
-EIO = ...  # type: int
-ENXIO = ...  # type: int
-E2BIG = ...  # type: int
-ENOEXEC = ...  # type: int
-EBADF = ...  # type: int
-ECHILD = ...  # type: int
-EAGAIN = ...  # type: int
-ENOMEM = ...  # type: int
-EACCES = ...  # type: int
-EFAULT = ...  # type: int
-ENOTBLK = ...  # type: int
-EBUSY = ...  # type: int
-EEXIST = ...  # type: int
-EXDEV = ...  # type: int
-ENODEV = ...  # type: int
-ENOTDIR = ...  # type: int
-EISDIR = ...  # type: int
-EINVAL = ...  # type: int
-ENFILE = ...  # type: int
-EMFILE = ...  # type: int
-ENOTTY = ...  # type: int
-ETXTBSY = ...  # type: int
-EFBIG = ...  # type: int
-ENOSPC = ...  # type: int
-ESPIPE = ...  # type: int
-EROFS = ...  # type: int
-EMLINK = ...  # type: int
-EPIPE = ...  # type: int
-EDOM = ...  # type: int
-ERANGE = ...  # type: int
-EDEADLCK = ...  # type: int
-ENAMETOOLONG = ...  # type: int
-ENOLCK = ...  # type: int
-ENOSYS = ...  # type: int
-ENOTEMPTY = ...  # type: int
-ELOOP = ...  # type: int
-EWOULDBLOCK = ...  # type: int
-ENOMSG = ...  # type: int
-EIDRM = ...  # type: int
-ECHRNG = ...  # type: int
-EL2NSYNC = ...  # type: int
-EL3HLT = ...  # type: int
-EL3RST = ...  # type: int
-ELNRNG = ...  # type: int
-EUNATCH = ...  # type: int
-ENOCSI = ...  # type: int
-EL2HLT = ...  # type: int
-EBADE = ...  # type: int
-EBADR = ...  # type: int
-EXFULL = ...  # type: int
-ENOANO = ...  # type: int
-EBADRQC = ...  # type: int
-EBADSLT = ...  # type: int
-EDEADLOCK = ...  # type: int
-EBFONT = ...  # type: int
-ENOSTR = ...  # type: int
-ENODATA = ...  # type: int
-ETIME = ...  # type: int
-ENOSR = ...  # type: int
-ENONET = ...  # type: int
-ENOPKG = ...  # type: int
-EREMOTE = ...  # type: int
-ENOLINK = ...  # type: int
-EADV = ...  # type: int
-ESRMNT = ...  # type: int
-ECOMM = ...  # type: int
-EPROTO = ...  # type: int
-EMULTIHOP = ...  # type: int
-EDOTDOT = ...  # type: int
-EBADMSG = ...  # type: int
-EOVERFLOW = ...  # type: int
-ENOTUNIQ = ...  # type: int
-EBADFD = ...  # type: int
-EREMCHG = ...  # type: int
-ELIBACC = ...  # type: int
-ELIBBAD = ...  # type: int
-ELIBSCN = ...  # type: int
-ELIBMAX = ...  # type: int
-ELIBEXEC = ...  # type: int
-EILSEQ = ...  # type: int
-ERESTART = ...  # type: int
-ESTRPIPE = ...  # type: int
-EUSERS = ...  # type: int
-ENOTSOCK = ...  # type: int
-EDESTADDRREQ = ...  # type: int
-EMSGSIZE = ...  # type: int
-EPROTOTYPE = ...  # type: int
-ENOPROTOOPT = ...  # type: int
-EPROTONOSUPPORT = ...  # type: int
-ESOCKTNOSUPPORT = ...  # type: int
-ENOTSUP = ...  # type: int
-EOPNOTSUPP = ...  # type: int
-EPFNOSUPPORT = ...  # type: int
-EAFNOSUPPORT = ...  # type: int
-EADDRINUSE = ...  # type: int
-EADDRNOTAVAIL = ...  # type: int
-ENETDOWN = ...  # type: int
-ENETUNREACH = ...  # type: int
-ENETRESET = ...  # type: int
-ECONNABORTED = ...  # type: int
-ECONNRESET = ...  # type: int
-ENOBUFS = ...  # type: int
-EISCONN = ...  # type: int
-ENOTCONN = ...  # type: int
-ESHUTDOWN = ...  # type: int
-ETOOMANYREFS = ...  # type: int
-ETIMEDOUT = ...  # type: int
-ECONNREFUSED = ...  # type: int
-EHOSTDOWN = ...  # type: int
-EHOSTUNREACH = ...  # type: int
-EALREADY = ...  # type: int
-EINPROGRESS = ...  # type: int
-ESTALE = ...  # type: int
-EUCLEAN = ...  # type: int
-ENOTNAM = ...  # type: int
-ENAVAIL = ...  # type: int
-EISNAM = ...  # type: int
-EREMOTEIO = ...  # type: int
-EDQUOT = ...  # type: int
+EPERM: int
+ENOENT: int
+ESRCH: int
+EINTR: int
+EIO: int
+ENXIO: int
+E2BIG: int
+ENOEXEC: int
+EBADF: int
+ECHILD: int
+EAGAIN: int
+ENOMEM: int
+EACCES: int
+EFAULT: int
+ENOTBLK: int
+EBUSY: int
+EEXIST: int
+EXDEV: int
+ENODEV: int
+ENOTDIR: int
+EISDIR: int
+EINVAL: int
+ENFILE: int
+EMFILE: int
+ENOTTY: int
+ETXTBSY: int
+EFBIG: int
+ENOSPC: int
+ESPIPE: int
+EROFS: int
+EMLINK: int
+EPIPE: int
+EDOM: int
+ERANGE: int
+EDEADLCK: int
+ENAMETOOLONG: int
+ENOLCK: int
+ENOSYS: int
+ENOTEMPTY: int
+ELOOP: int
+EWOULDBLOCK: int
+ENOMSG: int
+EIDRM: int
+ECHRNG: int
+EL2NSYNC: int
+EL3HLT: int
+EL3RST: int
+ELNRNG: int
+EUNATCH: int
+ENOCSI: int
+EL2HLT: int
+EBADE: int
+EBADR: int
+EXFULL: int
+ENOANO: int
+EBADRQC: int
+EBADSLT: int
+EDEADLOCK: int
+EBFONT: int
+ENOSTR: int
+ENODATA: int
+ETIME: int
+ENOSR: int
+ENONET: int
+ENOPKG: int
+EREMOTE: int
+ENOLINK: int
+EADV: int
+ESRMNT: int
+ECOMM: int
+EPROTO: int
+EMULTIHOP: int
+EDOTDOT: int
+EBADMSG: int
+EOVERFLOW: int
+ENOTUNIQ: int
+EBADFD: int
+EREMCHG: int
+ELIBACC: int
+ELIBBAD: int
+ELIBSCN: int
+ELIBMAX: int
+ELIBEXEC: int
+EILSEQ: int
+ERESTART: int
+ESTRPIPE: int
+EUSERS: int
+ENOTSOCK: int
+EDESTADDRREQ: int
+EMSGSIZE: int
+EPROTOTYPE: int
+ENOPROTOOPT: int
+EPROTONOSUPPORT: int
+ESOCKTNOSUPPORT: int
+ENOTSUP: int
+EOPNOTSUPP: int
+EPFNOSUPPORT: int
+EAFNOSUPPORT: int
+EADDRINUSE: int
+EADDRNOTAVAIL: int
+ENETDOWN: int
+ENETUNREACH: int
+ENETRESET: int
+ECONNABORTED: int
+ECONNRESET: int
+ENOBUFS: int
+EISCONN: int
+ENOTCONN: int
+ESHUTDOWN: int
+ETOOMANYREFS: int
+ETIMEDOUT: int
+ECONNREFUSED: int
+EHOSTDOWN: int
+EHOSTUNREACH: int
+EALREADY: int
+EINPROGRESS: int
+ESTALE: int
+EUCLEAN: int
+ENOTNAM: int
+ENAVAIL: int
+EISNAM: int
+EREMOTEIO: int
+EDQUOT: int

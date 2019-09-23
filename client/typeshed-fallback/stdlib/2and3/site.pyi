@@ -3,10 +3,10 @@
 from typing import List, Iterable, Optional
 import sys
 
-PREFIXES = ...  # type: List[str]
-ENABLE_USER_SITE = ...  # type: Optional[bool]
-USER_SITE = ...  # type: Optional[str]
-USER_BASE = ...  # type: Optional[str]
+PREFIXES: List[str]
+ENABLE_USER_SITE: Optional[bool]
+USER_SITE: Optional[str]
+USER_BASE: Optional[str]
 
 if sys.version_info < (3,):
     def main() -> None: ...

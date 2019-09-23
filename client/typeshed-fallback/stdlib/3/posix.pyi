@@ -65,8 +65,7 @@ if sys.version_info >= (3, 6):
 NGROUPS_MAX: int
 
 O_APPEND: int
-if sys.version_info >= (3, 4):
-    O_ACCMODE: int
+O_ACCMODE: int
 O_ASYNC: int
 O_CREAT: int
 O_DIRECT: int

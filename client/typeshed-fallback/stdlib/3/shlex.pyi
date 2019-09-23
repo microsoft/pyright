@@ -14,22 +14,22 @@ def quote(s: str) -> str: ...
 _SLT = TypeVar('_SLT', bound=shlex)
 
 class shlex(Iterable[str]):
-    commenters = ...  # type: str
-    wordchars = ...  # type: str
-    whitespace = ...  # type: str
-    escape = ...  # type: str
-    quotes = ...  # type: str
-    escapedquotes = ...  # type: str
-    whitespace_split = ...  # type: bool
-    infile = ...  # type: str
-    instream = ...  # type: TextIO
-    source = ...  # type: str
+    commenters: str
+    wordchars: str
+    whitespace: str
+    escape: str
+    quotes: str
+    escapedquotes: str
+    whitespace_split: bool
+    infile: str
+    instream: TextIO
+    source: str
     debug = 0
     lineno = 0
-    token = ...  # type: str
-    eof = ...  # type: str
+    token: str
+    eof: str
     if sys.version_info >= (3, 6):
-        punctuation_chars = ...  # type: str
+        punctuation_chars: str
 
     if sys.version_info >= (3, 6):
         def __init__(self, instream: Union[str, TextIO] = ..., infile: Optional[str] = ...,

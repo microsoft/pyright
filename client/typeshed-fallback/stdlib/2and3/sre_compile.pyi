@@ -5,7 +5,7 @@ import sys
 from sre_parse import SubPattern
 from typing import Any, List, Pattern, Tuple, Type, TypeVar, Union
 
-MAXCODE = ...  # type: int
+MAXCODE: int
 if sys.version_info < (3, 0):
     STRING_TYPES: Tuple[Type[str], Type[unicode]]
     _IsStringType = int

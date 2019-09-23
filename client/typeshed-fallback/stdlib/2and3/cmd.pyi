@@ -3,23 +3,23 @@
 from typing import Any, Optional, Text, IO, List, Callable, Tuple
 
 class Cmd:
-    prompt = ...  # type: str
-    identchars = ...  # type: str
-    ruler = ...  # type: str
-    lastcmd = ...  # type: str
-    intro = ...  # type: Optional[Any]
-    doc_leader = ...  # type: str
-    doc_header = ...  # type: str
-    misc_header = ...  # type: str
-    undoc_header = ...  # type: str
-    nohelp = ...  # type: str
-    use_rawinput = ...  # type: bool
-    stdin = ...  # type: IO[str]
-    stdout = ...  # type: IO[str]
-    cmdqueue = ...  # type: List[str]
-    completekey = ...  # type: str
+    prompt: str
+    identchars: str
+    ruler: str
+    lastcmd: str
+    intro: Optional[Any]
+    doc_leader: str
+    doc_header: str
+    misc_header: str
+    undoc_header: str
+    nohelp: str
+    use_rawinput: bool
+    stdin: IO[str]
+    stdout: IO[str]
+    cmdqueue: List[str]
+    completekey: str
     def __init__(self, completekey: str = ..., stdin: Optional[IO[str]] = ..., stdout: Optional[IO[str]] = ...) -> None: ...
-    old_completer = ...  # type: Optional[Callable[[str, int], Optional[str]]]
+    old_completer: Optional[Callable[[str, int], Optional[str]]]
     def cmdloop(self, intro: Optional[Any] = ...) -> None: ...
     def precmd(self, line: str) -> str: ...
     def postcmd(self, stop: bool, line: str) -> bool: ...
@@ -31,7 +31,7 @@ class Cmd:
     def default(self, line: str) -> bool: ...
     def completedefault(self, *ignored: Any) -> List[str]: ...
     def completenames(self, text: str, *ignored: Any) -> List[str]: ...
-    completion_matches = ...  # type: Optional[List[str]]
+    completion_matches: Optional[List[str]]
     def complete(self, text: str, state: int) -> Optional[List[str]]: ...
     def get_names(self) -> List[str]: ...
     # Only the first element of args matters.

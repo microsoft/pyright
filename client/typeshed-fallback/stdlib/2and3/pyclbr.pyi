@@ -2,12 +2,12 @@ from typing import List, Union, Sequence, Optional, Dict
 
 
 class Class:
-    module = ...  # type: str
-    name = ...  # type: str
-    super = ...  # type: Optional[List[Union[Class, str]]]
-    methods = ...  # type: Dict[str, int]
-    file = ...  # type: int
-    lineno = ...  # type: int
+    module: str
+    name: str
+    super: Optional[List[Union[Class, str]]]
+    methods: Dict[str, int]
+    file: int
+    lineno: int
 
     def __init__(self,
                  module: str,
@@ -18,10 +18,10 @@ class Class:
 
 
 class Function:
-    module = ...  # type: str
-    name = ...  # type: str
-    file = ...  # type: int
-    lineno = ...  # type: int
+    module: str
+    name: str
+    file: int
+    lineno: int
 
     def __init__(self,
                  module: str,

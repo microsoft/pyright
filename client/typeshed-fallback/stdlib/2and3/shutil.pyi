@@ -26,7 +26,7 @@ else:
     _Path = Text
     _AnyStr = TypeVar("_AnyStr", str, unicode)
     _AnyPath = TypeVar("_AnyPath", str, unicode)
-    _PathReturn = None
+    _PathReturn = Type[None]
 
 if sys.version_info >= (3,):
     class Error(OSError): ...

@@ -3,9 +3,10 @@ from builtins import open as _builtin_open
 import sys
 from token import *  # noqa: F403
 
-COMMENT = ...  # type: int
-NL = ...  # type: int
-ENCODING = ...  # type: int
+if sys.version_info < (3, 7):
+    COMMENT: int
+    NL: int
+    ENCODING: int
 
 _Position = Tuple[int, int]
 
@@ -28,10 +29,10 @@ class TokenError(Exception): ...
 class StopTokenizing(Exception): ...
 
 class Untokenizer:
-    tokens = ...  # type: List[str]
-    prev_row = ...  # type: int
-    prev_col = ...  # type: int
-    encoding = ...  # type: Optional[str]
+    tokens: List[str]
+    prev_row: int
+    prev_col: int
+    encoding: Optional[str]
     def __init__(self) -> None: ...
     def add_whitespace(self, start: _Position) -> None: ...
     def untokenize(self, iterable: Iterable[_Token]) -> str: ...

@@ -8,7 +8,7 @@ def getopt(args: List[str], shortopts: str, longopts: List[str] = ...) -> Tuple[
 def gnu_getopt(args: List[str], shortopts: str, longopts: List[str] = ...) -> Tuple[List[Tuple[str, str]], List[str]]: ...
 
 class GetoptError(Exception):
-    msg = ...  # type: str
-    opt = ...  # type: str
+    msg: str
+    opt: str
 
 error = GetoptError

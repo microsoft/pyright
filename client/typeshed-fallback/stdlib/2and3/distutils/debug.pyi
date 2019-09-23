@@ -1,3 +1,3 @@
 # Stubs for distutils.debug
 
-DEBUG = ...  # type: bool
+DEBUG: bool

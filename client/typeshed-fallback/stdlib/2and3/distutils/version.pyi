@@ -2,7 +2,7 @@ import sys
 from abc import abstractmethod
 from typing import Any, Optional, TypeVar, Union, Pattern, Text, Tuple
 
-_T = TypeVar('_T', bound='Version')
+_T = TypeVar('_T', bound=Version)
 
 class Version:
     def __repr__(self) -> str: ...

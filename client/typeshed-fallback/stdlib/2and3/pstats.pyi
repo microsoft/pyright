@@ -5,7 +5,7 @@ import sys
 from typing import Any, Dict, IO, Iterable, List, Text, Tuple, TypeVar, Union, overload
 
 _Selector = Union[str, float, int]
-_T = TypeVar('_T', bound='Stats')
+_T = TypeVar('_T', bound=Stats)
 if sys.version_info >= (3, 6):
     _Path = Union[bytes, Text, os.PathLike[Any]]
 else:

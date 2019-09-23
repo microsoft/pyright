@@ -2,25 +2,25 @@ import sys
 from typing import (Optional, Sequence, Union, Generic, overload,
                     Iterable, Iterator, Sized, ContextManager, AnyStr)
 
-ACCESS_DEFAULT = ...  # type: int
-ACCESS_READ = ...  # type: int
-ACCESS_WRITE = ...  # type: int
-ACCESS_COPY = ...  # type: int
+ACCESS_DEFAULT: int
+ACCESS_READ: int
+ACCESS_WRITE: int
+ACCESS_COPY: int
 
-ALLOCATIONGRANULARITY = ...  # type: int
+ALLOCATIONGRANULARITY: int
 
 if sys.platform != 'win32':
-    MAP_ANON = ...  # type: int
-    MAP_ANONYMOUS = ...  # type: int
-    MAP_DENYWRITE = ...  # type: int
-    MAP_EXECUTABLE = ...  # type: int
-    MAP_PRIVATE = ...  # type: int
-    MAP_SHARED = ...  # type: int
-    PROT_EXEC = ...  # type: int
-    PROT_READ = ...  # type: int
-    PROT_WRITE = ...  # type: int
+    MAP_ANON: int
+    MAP_ANONYMOUS: int
+    MAP_DENYWRITE: int
+    MAP_EXECUTABLE: int
+    MAP_PRIVATE: int
+    MAP_SHARED: int
+    PROT_EXEC: int
+    PROT_READ: int
+    PROT_WRITE: int
 
-    PAGESIZE = ...  # type: int
+    PAGESIZE: int
 
 class _mmap(Generic[AnyStr]):
     if sys.platform == 'win32':
@@ -50,7 +50,7 @@ class _mmap(Generic[AnyStr]):
 
 if sys.version_info >= (3,):
     class mmap(_mmap, ContextManager[mmap], Iterable[bytes], Sized):
-        closed = ...  # type: bool
+        closed: bool
         def rfind(self, sub: bytes, start: int = ..., stop: int = ...) -> int: ...
         @overload
         def __getitem__(self, index: int) -> int: ...

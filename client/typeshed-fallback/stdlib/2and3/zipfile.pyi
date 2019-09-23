@@ -1,7 +1,8 @@
 # Stubs for zipfile
 
-from typing import Callable, Dict, IO, Iterable, List, Optional, Text, Tuple, Type, Union
+from typing import Callable, Dict, IO, Iterable, List, Optional, Text, Tuple, Type, Union, Sequence, Pattern
 from types import TracebackType
+import io
 import os
 import sys
 
@@ -23,18 +24,39 @@ error = BadZipfile
 
 class LargeZipFile(Exception): ...
 
+class ZipExtFile(io.BufferedIOBase):
+    MAX_N: int = ...
+    MIN_READ_SIZE: int = ...
+
+    if sys.version_info < (3, 6):
+        PATTERN: Pattern = ...
+
+    if sys.version_info >= (3, 7):
+        MAX_SEEK_READ: int = ...
+
+    newlines: Optional[List[bytes]]
+    mode: str
+    name: str
+
+    def __init__(self, fileobj: IO[bytes], mode: str, zipinfo: ZipInfo, decrypter: Optional[Callable[[Sequence[int]], bytes]] = ..., close_fileobj: bool = ...) -> None: ...
+    def __repr__(self) -> str: ...
+    def peek(self, n: int = ...) -> bytes: ...
+    def read1(self, n: Optional[int]) -> bytes: ...  # type: ignore
+
 class ZipFile:
-    debug = ...  # type: int
-    comment = ...  # type: bytes
-    filelist = ...  # type: List[ZipInfo]
-    fp = ...  # type: IO[bytes]
-    NameToInfo = ...  # type: Dict[Text, ZipInfo]
+    filename: Optional[Text]
+    debug: int
+    comment: bytes
+    filelist: List[ZipInfo]
+    fp: IO[bytes]
+    NameToInfo: Dict[Text, ZipInfo]
+    start_dir: int  # undocumented
     def __init__(self, file: Union[_Path, IO[bytes]], mode: Text = ..., compression: int = ...,
                  allowZip64: bool = ...) -> None: ...
     def __enter__(self) -> ZipFile: ...
     def __exit__(self, exc_type: Optional[Type[BaseException]],
                  exc_val: Optional[BaseException],
-                 exc_tb: Optional[TracebackType]) -> bool: ...
+                 exc_tb: Optional[TracebackType]) -> None: ...
     def close(self) -> None: ...
     def getinfo(self, name: Text) -> ZipInfo: ...
     def infolist(self) -> List[ZipInfo]: ...
@@ -72,23 +94,23 @@ class PyZipFile(ZipFile):
                     pathname: Text, basename: Text = ...) -> None: ...
 
 class ZipInfo:
-    filename = ...  # type: Text
-    date_time = ...  # type: _DT
-    compress_type = ...  # type: int
-    comment = ...  # type: bytes
-    extra = ...  # type: bytes
-    create_system = ...  # type: int
-    create_version = ...  # type: int
-    extract_version = ...  # type: int
-    reserved = ...  # type: int
-    flag_bits = ...  # type: int
-    volume = ...  # type: int
-    internal_attr = ...  # type: int
-    external_attr = ...  # type: int
-    header_offset = ...  # type: int
-    CRC = ...  # type: int
-    compress_size = ...  # type: int
-    file_size = ...  # type: int
+    filename: Text
+    date_time: _DT
+    compress_type: int
+    comment: bytes
+    extra: bytes
+    create_system: int
+    create_version: int
+    extract_version: int
+    reserved: int
+    flag_bits: int
+    volume: int
+    internal_attr: int
+    external_attr: int
+    header_offset: int
+    CRC: int
+    compress_size: int
+    file_size: int
     def __init__(self, filename: Optional[Text] = ...,
                  date_time: Optional[_DT] = ...) -> None: ...
     if sys.version_info >= (3, 6):
@@ -98,8 +120,8 @@ class ZipInfo:
 
 def is_zipfile(filename: Union[_Path, IO[bytes]]) -> bool: ...
 
-ZIP_STORED = ...  # type: int
-ZIP_DEFLATED = ...  # type: int
+ZIP_STORED: int
+ZIP_DEFLATED: int
 if sys.version_info >= (3, 3):
-    ZIP_BZIP2 = ...  # type: int
-    ZIP_LZMA = ...  # type: int
+    ZIP_BZIP2: int
+    ZIP_LZMA: int

@@ -9,11 +9,11 @@ from typing import (Any, BinaryIO, Generic, Iterable, Iterator, List, MutableSeq
 _T = TypeVar('_T', int, float, Text)
 
 if sys.version_info >= (3,):
-    typecodes = ...  # type: str
+    typecodes: str
 
 class array(MutableSequence[_T], Generic[_T]):
-    typecode = ...  # type: str
-    itemsize = ...  # type: int
+    typecode: str
+    itemsize: int
     def __init__(self, typecode: str,
                  __initializer: Union[bytes, Iterable[_T]] = ...) -> None: ...
     def append(self, x: _T) -> None: ...

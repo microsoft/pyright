@@ -8,7 +8,6 @@ import os
 import sys
 from types import TracebackType
 
-
 if sys.version_info >= (3, 6):
     _Path = Union[bytes, str, os.PathLike]
 elif sys.version_info >= (3,):
@@ -16,27 +15,27 @@ elif sys.version_info >= (3,):
 else:
     _Path = Union[str, unicode]
 
-ENCODING = ...  # type: str
+ENCODING: str
 
-USTAR_FORMAT = ...  # type: int
-GNU_FORMAT = ...  # type: int
-PAX_FORMAT = ...  # type: int
-DEFAULT_FORMAT = ...  # type: int
+USTAR_FORMAT: int
+GNU_FORMAT: int
+PAX_FORMAT: int
+DEFAULT_FORMAT: int
 
-REGTYPE = ...  # type: bytes
-AREGTYPE = ...  # type: bytes
-LNKTYPE = ...  # type: bytes
-SYMTYPE = ...  # type: bytes
-DIRTYPE = ...  # type: bytes
-FIFOTYPE = ...  # type: bytes
-CONTTYPE = ...  # type: bytes
-CHRTYPE = ...  # type: bytes
-BLKTYPE = ...  # type: bytes
-GNUTYPE_SPARSE = ...  # type: bytes
+REGTYPE: bytes
+AREGTYPE: bytes
+LNKTYPE: bytes
+SYMTYPE: bytes
+DIRTYPE: bytes
+FIFOTYPE: bytes
+CONTTYPE: bytes
+CHRTYPE: bytes
+BLKTYPE: bytes
+GNUTYPE_SPARSE: bytes
 
 if sys.version_info < (3,):
-    TAR_PLAIN = ...  # type: int
-    TAR_GZIPPED = ...  # type: int
+    TAR_PLAIN: int
+    TAR_GZIPPED: int
 
 def open(name: Optional[_Path] = ..., mode: str = ...,
          fileobj: Optional[IO[bytes]] = ..., bufsize: int = ...,
@@ -49,22 +48,21 @@ def open(name: Optional[_Path] = ..., mode: str = ...,
          errorlevel: Optional[int] = ...,
          compresslevel: Optional[int] = ...) -> TarFile: ...
 
-
 class TarFile(Iterable[TarInfo]):
-    name = ...  # type: Optional[_Path]
-    mode = ...  # type: str
-    fileobj = ...  # type: Optional[IO[bytes]]
-    format = ...  # type: Optional[int]
-    tarinfo = ...  # type: Optional[TarInfo]
-    dereference = ...  # type: Optional[bool]
-    ignore_zeros = ...  # type: Optional[bool]
-    encoding = ...  # type: Optional[str]
-    errors = ...  # type: str
-    pax_headers = ...  # type: Optional[Mapping[str, str]]
-    debug = ...  # type: Optional[int]
-    errorlevel = ...  # type: Optional[int]
+    name: Optional[_Path]
+    mode: str
+    fileobj: Optional[IO[bytes]]
+    format: Optional[int]
+    tarinfo: Optional[TarInfo]
+    dereference: Optional[bool]
+    ignore_zeros: Optional[bool]
+    encoding: Optional[str]
+    errors: str
+    pax_headers: Optional[Mapping[str, str]]
+    debug: Optional[int]
+    errorlevel: Optional[int]
     if sys.version_info < (3,):
-        posix = ...  # type: bool
+        posix: bool
     def __init__(self, name: Optional[_Path] = ..., mode: str = ...,
                  fileobj: Optional[IO[bytes]] = ...,
                  format: Optional[int] = ..., tarinfo: Optional[TarInfo] = ...,
@@ -79,7 +77,7 @@ class TarFile(Iterable[TarInfo]):
     def __exit__(self,
                  exc_type: Optional[Type[BaseException]],
                  exc_val: Optional[BaseException],
-                 exc_tb: Optional[TracebackType]) -> bool: ...
+                 exc_tb: Optional[TracebackType]) -> None: ...
     def __iter__(self) -> Iterator[TarInfo]: ...
     @classmethod
     def open(cls, name: Optional[_Path] = ..., mode: str = ...,
@@ -111,9 +109,6 @@ class TarFile(Iterable[TarInfo]):
         def extract(self, member: Union[str, TarInfo], path: _Path = ...,
                     set_attrs: bool = ...,
                     *, numeric_owner: bool = ...) -> None: ...
-    elif sys.version_info >= (3,):
-        def extract(self, member: Union[str, TarInfo], path: _Path = ...,
-                    set_attrs: bool = ...) -> None: ...
     else:
         def extract(self, member: Union[str, TarInfo],
                     path: _Path = ...) -> None: ...
@@ -140,15 +135,15 @@ class TarFile(Iterable[TarInfo]):
                    fileobj: Optional[IO[bytes]] = ...) -> TarInfo: ...
     def close(self) -> None: ...
 
-
 def is_tarfile(name: str) -> bool: ...
 
+if sys.version_info < (3, 8):
+    def filemode(mode: int) -> str: ...  # undocumented
 
 if sys.version_info < (3,):
     class TarFileCompat:
         def __init__(self, filename: str, mode: str = ...,
                      compression: int = ...) -> None: ...
-
 
 class TarError(Exception): ...
 class ReadError(TarError): ...
@@ -157,19 +152,18 @@ class StreamError(TarError): ...
 class ExtractError(TarError): ...
 class HeaderError(TarError): ...
 
-
 class TarInfo:
-    name = ...  # type: str
-    size = ...  # type: int
-    mtime = ...  # type: int
-    mode = ...  # type: int
-    type = ...  # type: bytes
-    linkname = ...  # type: str
-    uid = ...  # type: int
-    gid = ...  # type: int
-    uname = ...  # type: str
-    gname = ...  # type: str
-    pax_headers = ...  # type: Mapping[str, str]
+    name: str
+    size: int
+    mtime: int
+    mode: int
+    type: bytes
+    linkname: str
+    uid: int
+    gid: int
+    uname: str
+    gname: str
+    pax_headers: Mapping[str, str]
     def __init__(self, name: str = ...) -> None: ...
     if sys.version_info >= (3,):
         @classmethod

@@ -34,7 +34,7 @@ class Field(Generic[_T]):
     hash: Optional[bool]
     init: bool
     compare: bool
-    metadata: Optional[Mapping[str, Any]]
+    metadata: Mapping[str, Any]
 
 
 # NOTE: Actual return type is 'Field[_T]', but we want to help type checkers

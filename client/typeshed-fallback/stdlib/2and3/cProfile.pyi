@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Optional, Text, TypeVar, Union
 def run(statement: str, filename: Optional[str] = ..., sort: Union[str, int] = ...) -> None: ...
 def runctx(statement: str, globals: Dict[str, Any], locals: Dict[str, Any], filename: Optional[str] = ..., sort: Union[str, int] = ...) -> None: ...
 
-_SelfT = TypeVar('_SelfT', bound='Profile')
+_SelfT = TypeVar('_SelfT', bound=Profile)
 _T = TypeVar('_T')
 if sys.version_info >= (3, 6):
     _Path = Union[bytes, Text, os.PathLike[Any]]

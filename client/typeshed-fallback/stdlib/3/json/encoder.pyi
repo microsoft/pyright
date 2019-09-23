@@ -1,15 +1,15 @@
 from typing import Any, Callable, Iterator, Optional, Tuple
 
 class JSONEncoder:
-    item_separator = ...  # type: str
-    key_separator = ...  # type: str
+    item_separator: str
+    key_separator: str
 
-    skipkeys = ...  # type: bool
-    ensure_ascii = ...  # type: bool
-    check_circular = ...  # type: bool
-    allow_nan = ...  # type: bool
-    sort_keys = ...  # type: bool
-    indent = ...  # type: int
+    skipkeys: bool
+    ensure_ascii: bool
+    check_circular: bool
+    allow_nan: bool
+    sort_keys: bool
+    indent: int
 
     def __init__(self, skipkeys: bool = ..., ensure_ascii: bool = ...,
                  check_circular: bool = ..., allow_nan: bool = ..., sort_keys: bool = ...,

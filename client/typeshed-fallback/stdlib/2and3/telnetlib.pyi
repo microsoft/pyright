@@ -4,84 +4,84 @@ import socket
 import sys
 from typing import Any, Callable, Match, Optional, Pattern, Sequence, Tuple, Union
 
-DEBUGLEVEL = ...  # type: int
-TELNET_PORT = ...  # type: int
+DEBUGLEVEL: int
+TELNET_PORT: int
 
-IAC = ...  # type: bytes
-DONT = ...  # type: bytes
-DO = ...  # type: bytes
-WONT = ...  # type: bytes
-WILL = ...  # type: bytes
-theNULL = ...  # type: bytes
+IAC: bytes
+DONT: bytes
+DO: bytes
+WONT: bytes
+WILL: bytes
+theNULL: bytes
 
-SE = ...  # type: bytes
-NOP = ...  # type: bytes
-DM = ...  # type: bytes
-BRK = ...  # type: bytes
-IP = ...  # type: bytes
-AO = ...  # type: bytes
-AYT = ...  # type: bytes
-EC = ...  # type: bytes
-EL = ...  # type: bytes
-GA = ...  # type: bytes
-SB = ...  # type: bytes
+SE: bytes
+NOP: bytes
+DM: bytes
+BRK: bytes
+IP: bytes
+AO: bytes
+AYT: bytes
+EC: bytes
+EL: bytes
+GA: bytes
+SB: bytes
 
-BINARY = ...  # type: bytes
-ECHO = ...  # type: bytes
-RCP = ...  # type: bytes
-SGA = ...  # type: bytes
-NAMS = ...  # type: bytes
-STATUS = ...  # type: bytes
-TM = ...  # type: bytes
-RCTE = ...  # type: bytes
-NAOL = ...  # type: bytes
-NAOP = ...  # type: bytes
-NAOCRD = ...  # type: bytes
-NAOHTS = ...  # type: bytes
-NAOHTD = ...  # type: bytes
-NAOFFD = ...  # type: bytes
-NAOVTS = ...  # type: bytes
-NAOVTD = ...  # type: bytes
-NAOLFD = ...  # type: bytes
-XASCII = ...  # type: bytes
-LOGOUT = ...  # type: bytes
-BM = ...  # type: bytes
-DET = ...  # type: bytes
-SUPDUP = ...  # type: bytes
-SUPDUPOUTPUT = ...  # type: bytes
-SNDLOC = ...  # type: bytes
-TTYPE = ...  # type: bytes
-EOR = ...  # type: bytes
-TUID = ...  # type: bytes
-OUTMRK = ...  # type: bytes
-TTYLOC = ...  # type: bytes
-VT3270REGIME = ...  # type: bytes
-X3PAD = ...  # type: bytes
-NAWS = ...  # type: bytes
-TSPEED = ...  # type: bytes
-LFLOW = ...  # type: bytes
-LINEMODE = ...  # type: bytes
-XDISPLOC = ...  # type: bytes
-OLD_ENVIRON = ...  # type: bytes
-AUTHENTICATION = ...  # type: bytes
-ENCRYPT = ...  # type: bytes
-NEW_ENVIRON = ...  # type: bytes
+BINARY: bytes
+ECHO: bytes
+RCP: bytes
+SGA: bytes
+NAMS: bytes
+STATUS: bytes
+TM: bytes
+RCTE: bytes
+NAOL: bytes
+NAOP: bytes
+NAOCRD: bytes
+NAOHTS: bytes
+NAOHTD: bytes
+NAOFFD: bytes
+NAOVTS: bytes
+NAOVTD: bytes
+NAOLFD: bytes
+XASCII: bytes
+LOGOUT: bytes
+BM: bytes
+DET: bytes
+SUPDUP: bytes
+SUPDUPOUTPUT: bytes
+SNDLOC: bytes
+TTYPE: bytes
+EOR: bytes
+TUID: bytes
+OUTMRK: bytes
+TTYLOC: bytes
+VT3270REGIME: bytes
+X3PAD: bytes
+NAWS: bytes
+TSPEED: bytes
+LFLOW: bytes
+LINEMODE: bytes
+XDISPLOC: bytes
+OLD_ENVIRON: bytes
+AUTHENTICATION: bytes
+ENCRYPT: bytes
+NEW_ENVIRON: bytes
 
-TN3270E = ...  # type: bytes
-XAUTH = ...  # type: bytes
-CHARSET = ...  # type: bytes
-RSP = ...  # type: bytes
-COM_PORT_OPTION = ...  # type: bytes
-SUPPRESS_LOCAL_ECHO = ...  # type: bytes
-TLS = ...  # type: bytes
-KERMIT = ...  # type: bytes
-SEND_URL = ...  # type: bytes
-FORWARD_X = ...  # type: bytes
-PRAGMA_LOGON = ...  # type: bytes
-SSPI_LOGON = ...  # type: bytes
-PRAGMA_HEARTBEAT = ...  # type: bytes
-EXOPL = ...  # type: bytes
-NOOPT = ...  # type: bytes
+TN3270E: bytes
+XAUTH: bytes
+CHARSET: bytes
+RSP: bytes
+COM_PORT_OPTION: bytes
+SUPPRESS_LOCAL_ECHO: bytes
+TLS: bytes
+KERMIT: bytes
+SEND_URL: bytes
+FORWARD_X: bytes
+PRAGMA_LOGON: bytes
+SSPI_LOGON: bytes
+PRAGMA_HEARTBEAT: bytes
+EXOPL: bytes
+NOOPT: bytes
 
 class Telnet:
     def __init__(self, host: Optional[str] = ..., port: int = ...,

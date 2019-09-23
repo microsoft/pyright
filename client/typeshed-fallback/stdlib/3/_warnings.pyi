@@ -1,8 +1,8 @@
 from typing import Any, List, Optional, Type
 
-_defaultaction = ...  # type: str
-_onceregistry = ...  # type: dict
-filters = ...  # type: List[tuple]
+_defaultaction: str
+_onceregistry: dict
+filters: List[tuple]
 
 def warn(message: Warning, category: Optional[Type[Warning]] = ..., stacklevel: int = ...) -> None: ...
 def warn_explicit(message: Warning, category: Optional[Type[Warning]],

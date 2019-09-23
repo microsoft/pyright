@@ -1,219 +1,222 @@
+import sys
 from typing import Any, BinaryIO, IO, Optional, Tuple, Union, overload
 
 _chtype = Union[str, bytes, int]
 
-ALL_MOUSE_EVENTS = ...  # type: int
-A_ALTCHARSET = ...  # type: int
-A_ATTRIBUTES = ...  # type: int
-A_BLINK = ...  # type: int
-A_BOLD = ...  # type: int
-A_CHARTEXT = ...  # type: int
-A_COLOR = ...  # type: int
-A_DIM = ...  # type: int
-A_HORIZONTAL = ...  # type: int
-A_INVIS = ...  # type: int
-A_LEFT = ...  # type: int
-A_LOW = ...  # type: int
-A_NORMAL = ...  # type: int
-A_PROTECT = ...  # type: int
-A_REVERSE = ...  # type: int
-A_RIGHT = ...  # type: int
-A_STANDOUT = ...  # type: int
-A_TOP = ...  # type: int
-A_UNDERLINE = ...  # type: int
-A_VERTICAL = ...  # type: int
-BUTTON1_CLICKED = ...  # type: int
-BUTTON1_DOUBLE_CLICKED = ...  # type: int
-BUTTON1_PRESSED = ...  # type: int
-BUTTON1_RELEASED = ...  # type: int
-BUTTON1_TRIPLE_CLICKED = ...  # type: int
-BUTTON2_CLICKED = ...  # type: int
-BUTTON2_DOUBLE_CLICKED = ...  # type: int
-BUTTON2_PRESSED = ...  # type: int
-BUTTON2_RELEASED = ...  # type: int
-BUTTON2_TRIPLE_CLICKED = ...  # type: int
-BUTTON3_CLICKED = ...  # type: int
-BUTTON3_DOUBLE_CLICKED = ...  # type: int
-BUTTON3_PRESSED = ...  # type: int
-BUTTON3_RELEASED = ...  # type: int
-BUTTON3_TRIPLE_CLICKED = ...  # type: int
-BUTTON4_CLICKED = ...  # type: int
-BUTTON4_DOUBLE_CLICKED = ...  # type: int
-BUTTON4_PRESSED = ...  # type: int
-BUTTON4_RELEASED = ...  # type: int
-BUTTON4_TRIPLE_CLICKED = ...  # type: int
-BUTTON_ALT = ...  # type: int
-BUTTON_CTRL = ...  # type: int
-BUTTON_SHIFT = ...  # type: int
-COLOR_BLACK = ...  # type: int
-COLOR_BLUE = ...  # type: int
-COLOR_CYAN = ...  # type: int
-COLOR_GREEN = ...  # type: int
-COLOR_MAGENTA = ...  # type: int
-COLOR_RED = ...  # type: int
-COLOR_WHITE = ...  # type: int
-COLOR_YELLOW = ...  # type: int
-ERR = ...  # type: int
-KEY_A1 = ...  # type: int
-KEY_A3 = ...  # type: int
-KEY_B2 = ...  # type: int
-KEY_BACKSPACE = ...  # type: int
-KEY_BEG = ...  # type: int
-KEY_BREAK = ...  # type: int
-KEY_BTAB = ...  # type: int
-KEY_C1 = ...  # type: int
-KEY_C3 = ...  # type: int
-KEY_CANCEL = ...  # type: int
-KEY_CATAB = ...  # type: int
-KEY_CLEAR = ...  # type: int
-KEY_CLOSE = ...  # type: int
-KEY_COMMAND = ...  # type: int
-KEY_COPY = ...  # type: int
-KEY_CREATE = ...  # type: int
-KEY_CTAB = ...  # type: int
-KEY_DC = ...  # type: int
-KEY_DL = ...  # type: int
-KEY_DOWN = ...  # type: int
-KEY_EIC = ...  # type: int
-KEY_END = ...  # type: int
-KEY_ENTER = ...  # type: int
-KEY_EOL = ...  # type: int
-KEY_EOS = ...  # type: int
-KEY_EXIT = ...  # type: int
-KEY_F0 = ...  # type: int
-KEY_F1 = ...  # type: int
-KEY_F10 = ...  # type: int
-KEY_F11 = ...  # type: int
-KEY_F12 = ...  # type: int
-KEY_F13 = ...  # type: int
-KEY_F14 = ...  # type: int
-KEY_F15 = ...  # type: int
-KEY_F16 = ...  # type: int
-KEY_F17 = ...  # type: int
-KEY_F18 = ...  # type: int
-KEY_F19 = ...  # type: int
-KEY_F2 = ...  # type: int
-KEY_F20 = ...  # type: int
-KEY_F21 = ...  # type: int
-KEY_F22 = ...  # type: int
-KEY_F23 = ...  # type: int
-KEY_F24 = ...  # type: int
-KEY_F25 = ...  # type: int
-KEY_F26 = ...  # type: int
-KEY_F27 = ...  # type: int
-KEY_F28 = ...  # type: int
-KEY_F29 = ...  # type: int
-KEY_F3 = ...  # type: int
-KEY_F30 = ...  # type: int
-KEY_F31 = ...  # type: int
-KEY_F32 = ...  # type: int
-KEY_F33 = ...  # type: int
-KEY_F34 = ...  # type: int
-KEY_F35 = ...  # type: int
-KEY_F36 = ...  # type: int
-KEY_F37 = ...  # type: int
-KEY_F38 = ...  # type: int
-KEY_F39 = ...  # type: int
-KEY_F4 = ...  # type: int
-KEY_F40 = ...  # type: int
-KEY_F41 = ...  # type: int
-KEY_F42 = ...  # type: int
-KEY_F43 = ...  # type: int
-KEY_F44 = ...  # type: int
-KEY_F45 = ...  # type: int
-KEY_F46 = ...  # type: int
-KEY_F47 = ...  # type: int
-KEY_F48 = ...  # type: int
-KEY_F49 = ...  # type: int
-KEY_F5 = ...  # type: int
-KEY_F50 = ...  # type: int
-KEY_F51 = ...  # type: int
-KEY_F52 = ...  # type: int
-KEY_F53 = ...  # type: int
-KEY_F54 = ...  # type: int
-KEY_F55 = ...  # type: int
-KEY_F56 = ...  # type: int
-KEY_F57 = ...  # type: int
-KEY_F58 = ...  # type: int
-KEY_F59 = ...  # type: int
-KEY_F6 = ...  # type: int
-KEY_F60 = ...  # type: int
-KEY_F61 = ...  # type: int
-KEY_F62 = ...  # type: int
-KEY_F63 = ...  # type: int
-KEY_F7 = ...  # type: int
-KEY_F8 = ...  # type: int
-KEY_F9 = ...  # type: int
-KEY_FIND = ...  # type: int
-KEY_HELP = ...  # type: int
-KEY_HOME = ...  # type: int
-KEY_IC = ...  # type: int
-KEY_IL = ...  # type: int
-KEY_LEFT = ...  # type: int
-KEY_LL = ...  # type: int
-KEY_MARK = ...  # type: int
-KEY_MAX = ...  # type: int
-KEY_MESSAGE = ...  # type: int
-KEY_MIN = ...  # type: int
-KEY_MOUSE = ...  # type: int
-KEY_MOVE = ...  # type: int
-KEY_NEXT = ...  # type: int
-KEY_NPAGE = ...  # type: int
-KEY_OPEN = ...  # type: int
-KEY_OPTIONS = ...  # type: int
-KEY_PPAGE = ...  # type: int
-KEY_PREVIOUS = ...  # type: int
-KEY_PRINT = ...  # type: int
-KEY_REDO = ...  # type: int
-KEY_REFERENCE = ...  # type: int
-KEY_REFRESH = ...  # type: int
-KEY_REPLACE = ...  # type: int
-KEY_RESET = ...  # type: int
-KEY_RESIZE = ...  # type: int
-KEY_RESTART = ...  # type: int
-KEY_RESUME = ...  # type: int
-KEY_RIGHT = ...  # type: int
-KEY_SAVE = ...  # type: int
-KEY_SBEG = ...  # type: int
-KEY_SCANCEL = ...  # type: int
-KEY_SCOMMAND = ...  # type: int
-KEY_SCOPY = ...  # type: int
-KEY_SCREATE = ...  # type: int
-KEY_SDC = ...  # type: int
-KEY_SDL = ...  # type: int
-KEY_SELECT = ...  # type: int
-KEY_SEND = ...  # type: int
-KEY_SEOL = ...  # type: int
-KEY_SEXIT = ...  # type: int
-KEY_SF = ...  # type: int
-KEY_SFIND = ...  # type: int
-KEY_SHELP = ...  # type: int
-KEY_SHOME = ...  # type: int
-KEY_SIC = ...  # type: int
-KEY_SLEFT = ...  # type: int
-KEY_SMESSAGE = ...  # type: int
-KEY_SMOVE = ...  # type: int
-KEY_SNEXT = ...  # type: int
-KEY_SOPTIONS = ...  # type: int
-KEY_SPREVIOUS = ...  # type: int
-KEY_SPRINT = ...  # type: int
-KEY_SR = ...  # type: int
-KEY_SREDO = ...  # type: int
-KEY_SREPLACE = ...  # type: int
-KEY_SRESET = ...  # type: int
-KEY_SRIGHT = ...  # type: int
-KEY_SRSUME = ...  # type: int
-KEY_SSAVE = ...  # type: int
-KEY_SSUSPEND = ...  # type: int
-KEY_STAB = ...  # type: int
-KEY_SUNDO = ...  # type: int
-KEY_SUSPEND = ...  # type: int
-KEY_UNDO = ...  # type: int
-KEY_UP = ...  # type: int
-OK = ...  # type: int
-REPORT_MOUSE_POSITION = ...  # type: int
-_C_API = ...  # type: Any
-version = ...  # type: bytes
+ALL_MOUSE_EVENTS: int
+A_ALTCHARSET: int
+A_ATTRIBUTES: int
+A_BLINK: int
+A_BOLD: int
+A_CHARTEXT: int
+A_COLOR: int
+A_DIM: int
+A_HORIZONTAL: int
+A_INVIS: int
+if sys.version_info >= (3, 7):
+    A_ITALIC: int
+A_LEFT: int
+A_LOW: int
+A_NORMAL: int
+A_PROTECT: int
+A_REVERSE: int
+A_RIGHT: int
+A_STANDOUT: int
+A_TOP: int
+A_UNDERLINE: int
+A_VERTICAL: int
+BUTTON1_CLICKED: int
+BUTTON1_DOUBLE_CLICKED: int
+BUTTON1_PRESSED: int
+BUTTON1_RELEASED: int
+BUTTON1_TRIPLE_CLICKED: int
+BUTTON2_CLICKED: int
+BUTTON2_DOUBLE_CLICKED: int
+BUTTON2_PRESSED: int
+BUTTON2_RELEASED: int
+BUTTON2_TRIPLE_CLICKED: int
+BUTTON3_CLICKED: int
+BUTTON3_DOUBLE_CLICKED: int
+BUTTON3_PRESSED: int
+BUTTON3_RELEASED: int
+BUTTON3_TRIPLE_CLICKED: int
+BUTTON4_CLICKED: int
+BUTTON4_DOUBLE_CLICKED: int
+BUTTON4_PRESSED: int
+BUTTON4_RELEASED: int
+BUTTON4_TRIPLE_CLICKED: int
+BUTTON_ALT: int
+BUTTON_CTRL: int
+BUTTON_SHIFT: int
+COLOR_BLACK: int
+COLOR_BLUE: int
+COLOR_CYAN: int
+COLOR_GREEN: int
+COLOR_MAGENTA: int
+COLOR_RED: int
+COLOR_WHITE: int
+COLOR_YELLOW: int
+ERR: int
+KEY_A1: int
+KEY_A3: int
+KEY_B2: int
+KEY_BACKSPACE: int
+KEY_BEG: int
+KEY_BREAK: int
+KEY_BTAB: int
+KEY_C1: int
+KEY_C3: int
+KEY_CANCEL: int
+KEY_CATAB: int
+KEY_CLEAR: int
+KEY_CLOSE: int
+KEY_COMMAND: int
+KEY_COPY: int
+KEY_CREATE: int
+KEY_CTAB: int
+KEY_DC: int
+KEY_DL: int
+KEY_DOWN: int
+KEY_EIC: int
+KEY_END: int
+KEY_ENTER: int
+KEY_EOL: int
+KEY_EOS: int
+KEY_EXIT: int
+KEY_F0: int
+KEY_F1: int
+KEY_F10: int
+KEY_F11: int
+KEY_F12: int
+KEY_F13: int
+KEY_F14: int
+KEY_F15: int
+KEY_F16: int
+KEY_F17: int
+KEY_F18: int
+KEY_F19: int
+KEY_F2: int
+KEY_F20: int
+KEY_F21: int
+KEY_F22: int
+KEY_F23: int
+KEY_F24: int
+KEY_F25: int
+KEY_F26: int
+KEY_F27: int
+KEY_F28: int
+KEY_F29: int
+KEY_F3: int
+KEY_F30: int
+KEY_F31: int
+KEY_F32: int
+KEY_F33: int
+KEY_F34: int
+KEY_F35: int
+KEY_F36: int
+KEY_F37: int
+KEY_F38: int
+KEY_F39: int
+KEY_F4: int
+KEY_F40: int
+KEY_F41: int
+KEY_F42: int
+KEY_F43: int
+KEY_F44: int
+KEY_F45: int
+KEY_F46: int
+KEY_F47: int
+KEY_F48: int
+KEY_F49: int
+KEY_F5: int
+KEY_F50: int
+KEY_F51: int
+KEY_F52: int
+KEY_F53: int
+KEY_F54: int
+KEY_F55: int
+KEY_F56: int
+KEY_F57: int
+KEY_F58: int
+KEY_F59: int
+KEY_F6: int
+KEY_F60: int
+KEY_F61: int
+KEY_F62: int
+KEY_F63: int
+KEY_F7: int
+KEY_F8: int
+KEY_F9: int
+KEY_FIND: int
+KEY_HELP: int
+KEY_HOME: int
+KEY_IC: int
+KEY_IL: int
+KEY_LEFT: int
+KEY_LL: int
+KEY_MARK: int
+KEY_MAX: int
+KEY_MESSAGE: int
+KEY_MIN: int
+KEY_MOUSE: int
+KEY_MOVE: int
+KEY_NEXT: int
+KEY_NPAGE: int
+KEY_OPEN: int
+KEY_OPTIONS: int
+KEY_PPAGE: int
+KEY_PREVIOUS: int
+KEY_PRINT: int
+KEY_REDO: int
+KEY_REFERENCE: int
+KEY_REFRESH: int
+KEY_REPLACE: int
+KEY_RESET: int
+KEY_RESIZE: int
+KEY_RESTART: int
+KEY_RESUME: int
+KEY_RIGHT: int
+KEY_SAVE: int
+KEY_SBEG: int
+KEY_SCANCEL: int
+KEY_SCOMMAND: int
+KEY_SCOPY: int
+KEY_SCREATE: int
+KEY_SDC: int
+KEY_SDL: int
+KEY_SELECT: int
+KEY_SEND: int
+KEY_SEOL: int
+KEY_SEXIT: int
+KEY_SF: int
+KEY_SFIND: int
+KEY_SHELP: int
+KEY_SHOME: int
+KEY_SIC: int
+KEY_SLEFT: int
+KEY_SMESSAGE: int
+KEY_SMOVE: int
+KEY_SNEXT: int
+KEY_SOPTIONS: int
+KEY_SPREVIOUS: int
+KEY_SPRINT: int
+KEY_SR: int
+KEY_SREDO: int
+KEY_SREPLACE: int
+KEY_SRESET: int
+KEY_SRIGHT: int
+KEY_SRSUME: int
+KEY_SSAVE: int
+KEY_SSUSPEND: int
+KEY_STAB: int
+KEY_SUNDO: int
+KEY_SUSPEND: int
+KEY_UNDO: int
+KEY_UP: int
+OK: int
+REPORT_MOUSE_POSITION: int
+_C_API: Any
+version: bytes
 
 def baudrate() -> int: ...
 def beep() -> None: ...
@@ -283,17 +286,20 @@ def tigetstr(capname: str) -> bytes: ...
 def tparm(fmt: bytes, i1: int = ..., i2: int = ..., i3: int = ..., i4: int = ..., i5: int = ..., i6: int = ..., i7: int = ..., i8: int = ..., i9: int = ...) -> bytes: ...
 def typeahead(fd: int) -> None: ...
 def unctrl(ch: _chtype) -> bytes: ...
-def unget_wch(ch: _chtype) -> None: ...
+if sys.version_info >= (3, 3):
+    def unget_wch(ch: Union[int, str]) -> None: ...
 def ungetch(ch: _chtype) -> None: ...
 def ungetmouse(id: int, x: int, y: int, z: int, bstate: int) -> None: ...
-def update_lines_cols() -> int: ...
+if sys.version_info >= (3, 5):
+    def update_lines_cols() -> int: ...
 def use_default_colors() -> None: ...
 def use_env(flag: bool) -> None: ...
 
 class error(Exception): ...
 
 class _CursesWindow:
-    encoding = ...  # type: str
+    if sys.version_info >= (3, 3):
+        encoding: str
     @overload
     def addch(self, ch: _chtype, attr: int = ...) -> None: ...
     @overload
@@ -344,13 +350,14 @@ class _CursesWindow:
     def getbegyx(self) -> Tuple[int, int]: ...
     def getbkgd(self) -> Tuple[int, int]: ...
     @overload
-    def getch(self) -> _chtype: ...
+    def getch(self) -> int: ...
     @overload
-    def getch(self, y: int, x: int) -> _chtype: ...
-    @overload
-    def get_wch(self) -> _chtype: ...
-    @overload
-    def get_wch(self, y: int, x: int) -> _chtype: ...
+    def getch(self, y: int, x: int) -> int: ...
+    if sys.version_info >= (3, 3):
+        @overload
+        def get_wch(self) -> Union[int, str]: ...
+        @overload
+        def get_wch(self, y: int, x: int) -> Union[int, str]: ...
     @overload
     def getkey(self) -> str: ...
     @overload

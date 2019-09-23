@@ -6,16 +6,17 @@
 import sys
 from typing import Any, Tuple, Text, Union, Iterator
 from array import array
+from mmap import mmap
 
 class error(Exception): ...
 
 _FmtType = Union[bytes, Text]
 if sys.version_info >= (3,):
-    _BufferType = Union[array[int], bytes, bytearray, memoryview]
-    _WriteBufferType = Union[array, bytearray, memoryview]
+    _BufferType = Union[array[int], bytes, bytearray, memoryview, mmap]
+    _WriteBufferType = Union[array, bytearray, memoryview, mmap]
 else:
-    _BufferType = Union[array[int], bytes, bytearray, buffer, memoryview]
-    _WriteBufferType = Union[array[Any], bytearray, buffer, memoryview]
+    _BufferType = Union[array[int], bytes, bytearray, buffer, memoryview, mmap]
+    _WriteBufferType = Union[array[Any], bytearray, buffer, memoryview, mmap]
 
 def pack(fmt: _FmtType, *v: Any) -> bytes: ...
 def pack_into(fmt: _FmtType, buffer: _WriteBufferType, offset: int, *v: Any) -> None: ...
@@ -31,7 +32,7 @@ class Struct:
         format: str
     else:
         format: bytes
-    size = ...  # type: int
+    size: int
 
     def __init__(self, format: _FmtType) -> None: ...
 

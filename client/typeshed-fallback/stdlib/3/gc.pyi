@@ -3,13 +3,13 @@
 from typing import Any, Dict, List, Tuple
 
 
-DEBUG_COLLECTABLE = ...  # type: int
-DEBUG_LEAK = ...  # type: int
-DEBUG_SAVEALL = ...  # type: int
-DEBUG_STATS = ...  # type: int
-DEBUG_UNCOLLECTABLE = ...  # type: int
-callbacks = ...  # type: List[Any]
-garbage = ...  # type: List[Any]
+DEBUG_COLLECTABLE: int
+DEBUG_LEAK: int
+DEBUG_SAVEALL: int
+DEBUG_STATS: int
+DEBUG_UNCOLLECTABLE: int
+callbacks: List[Any]
+garbage: List[Any]
 
 def collect(generations: int = ...) -> int: ...
 def disable() -> None: ...

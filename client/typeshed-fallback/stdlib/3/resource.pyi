@@ -4,26 +4,26 @@
 
 from typing import Tuple, Optional, NamedTuple
 
-RLIMIT_AS = ...  # type: int
-RLIMIT_CORE = ...  # type: int
-RLIMIT_CPU = ...  # type: int
-RLIMIT_DATA = ...  # type: int
-RLIMIT_FSIZE = ...  # type: int
-RLIMIT_MEMLOCK = ...  # type: int
-RLIMIT_MSGQUEUE = ...  # type: int
-RLIMIT_NICE = ...  # type: int
-RLIMIT_NOFILE = ...  # type: int
-RLIMIT_NPROC = ...  # type: int
-RLIMIT_OFILE = ...  # type: int
-RLIMIT_RSS = ...  # type: int
-RLIMIT_RTPRIO = ...  # type: int
-RLIMIT_RTTIME = ...  # type: int
-RLIMIT_SIGPENDING = ...  # type: int
-RLIMIT_STACK = ...  # type: int
-RLIM_INFINITY = ...  # type: int
-RUSAGE_CHILDREN = ...  # type: int
-RUSAGE_SELF = ...  # type: int
-RUSAGE_THREAD = ...  # type: int
+RLIMIT_AS: int
+RLIMIT_CORE: int
+RLIMIT_CPU: int
+RLIMIT_DATA: int
+RLIMIT_FSIZE: int
+RLIMIT_MEMLOCK: int
+RLIMIT_MSGQUEUE: int
+RLIMIT_NICE: int
+RLIMIT_NOFILE: int
+RLIMIT_NPROC: int
+RLIMIT_OFILE: int
+RLIMIT_RSS: int
+RLIMIT_RTPRIO: int
+RLIMIT_RTTIME: int
+RLIMIT_SIGPENDING: int
+RLIMIT_STACK: int
+RLIM_INFINITY: int
+RUSAGE_CHILDREN: int
+RUSAGE_SELF: int
+RUSAGE_THREAD: int
 
 _RUsage = NamedTuple('_RUsage', [('ru_utime', float), ('ru_stime', float), ('ru_maxrss', int),
                                  ('ru_ixrss', int), ('ru_idrss', int), ('ru_isrss', int),

@@ -1,23 +1,23 @@
 # Stubs for zlib
 import sys
 
-DEFLATED = ...  # type: int
-DEF_MEM_LEVEL = ...  # type: int
-MAX_WBITS = ...  # type: int
-ZLIB_VERSION = ...  # type: str
-Z_BEST_COMPRESSION = ...  # type: int
-Z_BEST_SPEED = ...  # type: int
-Z_DEFAULT_COMPRESSION = ...  # type: int
-Z_DEFAULT_STRATEGY = ...  # type: int
-Z_FILTERED = ...  # type: int
-Z_FINISH = ...  # type: int
-Z_FULL_FLUSH = ...  # type: int
-Z_HUFFMAN_ONLY = ...  # type: int
-Z_NO_FLUSH = ...  # type: int
-Z_SYNC_FLUSH = ...  # type: int
+DEFLATED: int
+DEF_MEM_LEVEL: int
+MAX_WBITS: int
+ZLIB_VERSION: str
+Z_BEST_COMPRESSION: int
+Z_BEST_SPEED: int
+Z_DEFAULT_COMPRESSION: int
+Z_DEFAULT_STRATEGY: int
+Z_FILTERED: int
+Z_FINISH: int
+Z_FULL_FLUSH: int
+Z_HUFFMAN_ONLY: int
+Z_NO_FLUSH: int
+Z_SYNC_FLUSH: int
 if sys.version_info >= (3,):
-    DEF_BUF_SIZE = ...  # type: int
-    ZLIB_RUNTIME_VERSION = ...  # type: str
+    DEF_BUF_SIZE: int
+    ZLIB_RUNTIME_VERSION: str
 
 class error(Exception): ...
 
@@ -29,10 +29,10 @@ class _Compress:
 
 
 class _Decompress:
-    unused_data = ...  # type: bytes
-    unconsumed_tail = ...  # type: bytes
+    unused_data: bytes
+    unconsumed_tail: bytes
     if sys.version_info >= (3,):
-        eof = ...  # type: bool
+        eof: bool
     def decompress(self, data: bytes, max_length: int = ...) -> bytes: ...
     def flush(self, length: int = ...) -> bytes: ...
     def copy(self) -> _Decompress: ...

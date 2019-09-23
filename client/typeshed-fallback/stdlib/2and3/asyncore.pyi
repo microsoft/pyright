@@ -33,13 +33,13 @@ def loop(timeout: float = ..., use_poll: bool = ..., map: _maptype = ..., count:
 # It is not covariant to it.
 class dispatcher:
 
-    debug = ...  # type: bool
-    connected = ...  # type: bool
-    accepting = ...  # type: bool
-    connecting = ...  # type: bool
-    closing = ...  # type: bool
-    ignore_log_types = ...  # type: frozenset[str]
-    socket = ...  # type: Optional[SocketType] # undocumented
+    debug: bool
+    connected: bool
+    accepting: bool
+    connecting: bool
+    closing: bool
+    ignore_log_types: frozenset[str]
+    socket: Optional[SocketType]
 
     def __init__(self, sock: Optional[SocketType] = ..., map: _maptype = ...) -> None: ...
     def add_channel(self, map: _maptype = ...) -> None: ...
@@ -122,7 +122,7 @@ def close_all(map: _maptype = ..., ignore_all: bool = ...) -> None: ...
 # if os.name == 'posix':
 #    import fcntl
 class file_wrapper:
-    fd = ...  # type: int
+    fd: int
 
     def __init__(self, fd: int) -> None: ...
     def recv(self, bufsize: int, flags: int = ...) -> bytes: ...

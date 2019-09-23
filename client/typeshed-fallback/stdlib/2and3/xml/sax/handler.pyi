@@ -1,6 +1,6 @@
 from typing import Any
 
-version = ...  # type: Any
+version: Any
 
 class ErrorHandler:
     def error(self, exception): ...
@@ -30,17 +30,17 @@ class DTDHandler:
 class EntityResolver:
     def resolveEntity(self, publicId, systemId): ...
 
-feature_namespaces = ...  # type: Any
-feature_namespace_prefixes = ...  # type: Any
-feature_string_interning = ...  # type: Any
-feature_validation = ...  # type: Any
-feature_external_ges = ...  # type: Any
-feature_external_pes = ...  # type: Any
-all_features = ...  # type: Any
-property_lexical_handler = ...  # type: Any
-property_declaration_handler = ...  # type: Any
-property_dom_node = ...  # type: Any
-property_xml_string = ...  # type: Any
-property_encoding = ...  # type: Any
-property_interning_dict = ...  # type: Any
-all_properties = ...  # type: Any
+feature_namespaces: Any
+feature_namespace_prefixes: Any
+feature_string_interning: Any
+feature_validation: Any
+feature_external_ges: Any
+feature_external_pes: Any
+all_features: Any
+property_lexical_handler: Any
+property_declaration_handler: Any
+property_dom_node: Any
+property_xml_string: Any
+property_encoding: Any
+property_interning_dict: Any
+all_properties: Any

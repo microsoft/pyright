@@ -6,237 +6,237 @@ _FD = Union[int, IO[str]]
 _Attr = List[Union[int, List[bytes]]]
 
 # TODO constants not really documented
-B0 = ...  # type: int
-B1000000 = ...  # type: int
-B110 = ...  # type: int
-B115200 = ...  # type: int
-B1152000 = ...  # type: int
-B1200 = ...  # type: int
-B134 = ...  # type: int
-B150 = ...  # type: int
-B1500000 = ...  # type: int
-B1800 = ...  # type: int
-B19200 = ...  # type: int
-B200 = ...  # type: int
-B2000000 = ...  # type: int
-B230400 = ...  # type: int
-B2400 = ...  # type: int
-B2500000 = ...  # type: int
-B300 = ...  # type: int
-B3000000 = ...  # type: int
-B3500000 = ...  # type: int
-B38400 = ...  # type: int
-B4000000 = ...  # type: int
-B460800 = ...  # type: int
-B4800 = ...  # type: int
-B50 = ...  # type: int
-B500000 = ...  # type: int
-B57600 = ...  # type: int
-B576000 = ...  # type: int
-B600 = ...  # type: int
-B75 = ...  # type: int
-B921600 = ...  # type: int
-B9600 = ...  # type: int
-BRKINT = ...  # type: int
-BS0 = ...  # type: int
-BS1 = ...  # type: int
-BSDLY = ...  # type: int
-CBAUD = ...  # type: int
-CBAUDEX = ...  # type: int
-CDSUSP = ...  # type: int
-CEOF = ...  # type: int
-CEOL = ...  # type: int
-CEOT = ...  # type: int
-CERASE = ...  # type: int
-CFLUSH = ...  # type: int
-CIBAUD = ...  # type: int
-CINTR = ...  # type: int
-CKILL = ...  # type: int
-CLNEXT = ...  # type: int
-CLOCAL = ...  # type: int
-CQUIT = ...  # type: int
-CR0 = ...  # type: int
-CR1 = ...  # type: int
-CR2 = ...  # type: int
-CR3 = ...  # type: int
-CRDLY = ...  # type: int
-CREAD = ...  # type: int
-CRPRNT = ...  # type: int
-CRTSCTS = ...  # type: int
-CS5 = ...  # type: int
-CS6 = ...  # type: int
-CS7 = ...  # type: int
-CS8 = ...  # type: int
-CSIZE = ...  # type: int
-CSTART = ...  # type: int
-CSTOP = ...  # type: int
-CSTOPB = ...  # type: int
-CSUSP = ...  # type: int
-CWERASE = ...  # type: int
-ECHO = ...  # type: int
-ECHOCTL = ...  # type: int
-ECHOE = ...  # type: int
-ECHOK = ...  # type: int
-ECHOKE = ...  # type: int
-ECHONL = ...  # type: int
-ECHOPRT = ...  # type: int
-EXTA = ...  # type: int
-EXTB = ...  # type: int
-FF0 = ...  # type: int
-FF1 = ...  # type: int
-FFDLY = ...  # type: int
-FIOASYNC = ...  # type: int
-FIOCLEX = ...  # type: int
-FIONBIO = ...  # type: int
-FIONCLEX = ...  # type: int
-FIONREAD = ...  # type: int
-FLUSHO = ...  # type: int
-HUPCL = ...  # type: int
-ICANON = ...  # type: int
-ICRNL = ...  # type: int
-IEXTEN = ...  # type: int
-IGNBRK = ...  # type: int
-IGNCR = ...  # type: int
-IGNPAR = ...  # type: int
-IMAXBEL = ...  # type: int
-INLCR = ...  # type: int
-INPCK = ...  # type: int
-IOCSIZE_MASK = ...  # type: int
-IOCSIZE_SHIFT = ...  # type: int
-ISIG = ...  # type: int
-ISTRIP = ...  # type: int
-IUCLC = ...  # type: int
-IXANY = ...  # type: int
-IXOFF = ...  # type: int
-IXON = ...  # type: int
-NCC = ...  # type: int
-NCCS = ...  # type: int
-NL0 = ...  # type: int
-NL1 = ...  # type: int
-NLDLY = ...  # type: int
-NOFLSH = ...  # type: int
-N_MOUSE = ...  # type: int
-N_PPP = ...  # type: int
-N_SLIP = ...  # type: int
-N_STRIP = ...  # type: int
-N_TTY = ...  # type: int
-OCRNL = ...  # type: int
-OFDEL = ...  # type: int
-OFILL = ...  # type: int
-OLCUC = ...  # type: int
-ONLCR = ...  # type: int
-ONLRET = ...  # type: int
-ONOCR = ...  # type: int
-OPOST = ...  # type: int
-PARENB = ...  # type: int
-PARMRK = ...  # type: int
-PARODD = ...  # type: int
-PENDIN = ...  # type: int
-TAB0 = ...  # type: int
-TAB1 = ...  # type: int
-TAB2 = ...  # type: int
-TAB3 = ...  # type: int
-TABDLY = ...  # type: int
-TCFLSH = ...  # type: int
-TCGETA = ...  # type: int
-TCGETS = ...  # type: int
-TCIFLUSH = ...  # type: int
-TCIOFF = ...  # type: int
-TCIOFLUSH = ...  # type: int
-TCION = ...  # type: int
-TCOFLUSH = ...  # type: int
-TCOOFF = ...  # type: int
-TCOON = ...  # type: int
-TCSADRAIN = ...  # type: int
-TCSAFLUSH = ...  # type: int
-TCSANOW = ...  # type: int
-TCSBRK = ...  # type: int
-TCSBRKP = ...  # type: int
-TCSETA = ...  # type: int
-TCSETAF = ...  # type: int
-TCSETAW = ...  # type: int
-TCSETS = ...  # type: int
-TCSETSF = ...  # type: int
-TCSETSW = ...  # type: int
-TCXONC = ...  # type: int
-TIOCCONS = ...  # type: int
-TIOCEXCL = ...  # type: int
-TIOCGETD = ...  # type: int
-TIOCGICOUNT = ...  # type: int
-TIOCGLCKTRMIOS = ...  # type: int
-TIOCGPGRP = ...  # type: int
-TIOCGSERIAL = ...  # type: int
-TIOCGSOFTCAR = ...  # type: int
-TIOCGWINSZ = ...  # type: int
-TIOCINQ = ...  # type: int
-TIOCLINUX = ...  # type: int
-TIOCMBIC = ...  # type: int
-TIOCMBIS = ...  # type: int
-TIOCMGET = ...  # type: int
-TIOCMIWAIT = ...  # type: int
-TIOCMSET = ...  # type: int
-TIOCM_CAR = ...  # type: int
-TIOCM_CD = ...  # type: int
-TIOCM_CTS = ...  # type: int
-TIOCM_DSR = ...  # type: int
-TIOCM_DTR = ...  # type: int
-TIOCM_LE = ...  # type: int
-TIOCM_RI = ...  # type: int
-TIOCM_RNG = ...  # type: int
-TIOCM_RTS = ...  # type: int
-TIOCM_SR = ...  # type: int
-TIOCM_ST = ...  # type: int
-TIOCNOTTY = ...  # type: int
-TIOCNXCL = ...  # type: int
-TIOCOUTQ = ...  # type: int
-TIOCPKT = ...  # type: int
-TIOCPKT_DATA = ...  # type: int
-TIOCPKT_DOSTOP = ...  # type: int
-TIOCPKT_FLUSHREAD = ...  # type: int
-TIOCPKT_FLUSHWRITE = ...  # type: int
-TIOCPKT_NOSTOP = ...  # type: int
-TIOCPKT_START = ...  # type: int
-TIOCPKT_STOP = ...  # type: int
-TIOCSCTTY = ...  # type: int
-TIOCSERCONFIG = ...  # type: int
-TIOCSERGETLSR = ...  # type: int
-TIOCSERGETMULTI = ...  # type: int
-TIOCSERGSTRUCT = ...  # type: int
-TIOCSERGWILD = ...  # type: int
-TIOCSERSETMULTI = ...  # type: int
-TIOCSERSWILD = ...  # type: int
-TIOCSER_TEMT = ...  # type: int
-TIOCSETD = ...  # type: int
-TIOCSLCKTRMIOS = ...  # type: int
-TIOCSPGRP = ...  # type: int
-TIOCSSERIAL = ...  # type: int
-TIOCSSOFTCAR = ...  # type: int
-TIOCSTI = ...  # type: int
-TIOCSWINSZ = ...  # type: int
-TOSTOP = ...  # type: int
-VDISCARD = ...  # type: int
-VEOF = ...  # type: int
-VEOL = ...  # type: int
-VEOL2 = ...  # type: int
-VERASE = ...  # type: int
-VINTR = ...  # type: int
-VKILL = ...  # type: int
-VLNEXT = ...  # type: int
-VMIN = ...  # type: int
-VQUIT = ...  # type: int
-VREPRINT = ...  # type: int
-VSTART = ...  # type: int
-VSTOP = ...  # type: int
-VSUSP = ...  # type: int
-VSWTC = ...  # type: int
-VSWTCH = ...  # type: int
-VT0 = ...  # type: int
-VT1 = ...  # type: int
-VTDLY = ...  # type: int
-VTIME = ...  # type: int
-VWERASE = ...  # type: int
-XCASE = ...  # type: int
-XTABS = ...  # type: int
+B0: int
+B1000000: int
+B110: int
+B115200: int
+B1152000: int
+B1200: int
+B134: int
+B150: int
+B1500000: int
+B1800: int
+B19200: int
+B200: int
+B2000000: int
+B230400: int
+B2400: int
+B2500000: int
+B300: int
+B3000000: int
+B3500000: int
+B38400: int
+B4000000: int
+B460800: int
+B4800: int
+B50: int
+B500000: int
+B57600: int
+B576000: int
+B600: int
+B75: int
+B921600: int
+B9600: int
+BRKINT: int
+BS0: int
+BS1: int
+BSDLY: int
+CBAUD: int
+CBAUDEX: int
+CDSUSP: int
+CEOF: int
+CEOL: int
+CEOT: int
+CERASE: int
+CFLUSH: int
+CIBAUD: int
+CINTR: int
+CKILL: int
+CLNEXT: int
+CLOCAL: int
+CQUIT: int
+CR0: int
+CR1: int
+CR2: int
+CR3: int
+CRDLY: int
+CREAD: int
+CRPRNT: int
+CRTSCTS: int
+CS5: int
+CS6: int
+CS7: int
+CS8: int
+CSIZE: int
+CSTART: int
+CSTOP: int
+CSTOPB: int
+CSUSP: int
+CWERASE: int
+ECHO: int
+ECHOCTL: int
+ECHOE: int
+ECHOK: int
+ECHOKE: int
+ECHONL: int
+ECHOPRT: int
+EXTA: int
+EXTB: int
+FF0: int
+FF1: int
+FFDLY: int
+FIOASYNC: int
+FIOCLEX: int
+FIONBIO: int
+FIONCLEX: int
+FIONREAD: int
+FLUSHO: int
+HUPCL: int
+ICANON: int
+ICRNL: int
+IEXTEN: int
+IGNBRK: int
+IGNCR: int
+IGNPAR: int
+IMAXBEL: int
+INLCR: int
+INPCK: int
+IOCSIZE_MASK: int
+IOCSIZE_SHIFT: int
+ISIG: int
+ISTRIP: int
+IUCLC: int
+IXANY: int
+IXOFF: int
+IXON: int
+NCC: int
+NCCS: int
+NL0: int
+NL1: int
+NLDLY: int
+NOFLSH: int
+N_MOUSE: int
+N_PPP: int
+N_SLIP: int
+N_STRIP: int
+N_TTY: int
+OCRNL: int
+OFDEL: int
+OFILL: int
+OLCUC: int
+ONLCR: int
+ONLRET: int
+ONOCR: int
+OPOST: int
+PARENB: int
+PARMRK: int
+PARODD: int
+PENDIN: int
+TAB0: int
+TAB1: int
+TAB2: int
+TAB3: int
+TABDLY: int
+TCFLSH: int
+TCGETA: int
+TCGETS: int
+TCIFLUSH: int
+TCIOFF: int
+TCIOFLUSH: int
+TCION: int
+TCOFLUSH: int
+TCOOFF: int
+TCOON: int
+TCSADRAIN: int
+TCSAFLUSH: int
+TCSANOW: int
+TCSBRK: int
+TCSBRKP: int
+TCSETA: int
+TCSETAF: int
+TCSETAW: int
+TCSETS: int
+TCSETSF: int
+TCSETSW: int
+TCXONC: int
+TIOCCONS: int
+TIOCEXCL: int
+TIOCGETD: int
+TIOCGICOUNT: int
+TIOCGLCKTRMIOS: int
+TIOCGPGRP: int
+TIOCGSERIAL: int
+TIOCGSOFTCAR: int
+TIOCGWINSZ: int
+TIOCINQ: int
+TIOCLINUX: int
+TIOCMBIC: int
+TIOCMBIS: int
+TIOCMGET: int
+TIOCMIWAIT: int
+TIOCMSET: int
+TIOCM_CAR: int
+TIOCM_CD: int
+TIOCM_CTS: int
+TIOCM_DSR: int
+TIOCM_DTR: int
+TIOCM_LE: int
+TIOCM_RI: int
+TIOCM_RNG: int
+TIOCM_RTS: int
+TIOCM_SR: int
+TIOCM_ST: int
+TIOCNOTTY: int
+TIOCNXCL: int
+TIOCOUTQ: int
+TIOCPKT: int
+TIOCPKT_DATA: int
+TIOCPKT_DOSTOP: int
+TIOCPKT_FLUSHREAD: int
+TIOCPKT_FLUSHWRITE: int
+TIOCPKT_NOSTOP: int
+TIOCPKT_START: int
+TIOCPKT_STOP: int
+TIOCSCTTY: int
+TIOCSERCONFIG: int
+TIOCSERGETLSR: int
+TIOCSERGETMULTI: int
+TIOCSERGSTRUCT: int
+TIOCSERGWILD: int
+TIOCSERSETMULTI: int
+TIOCSERSWILD: int
+TIOCSER_TEMT: int
+TIOCSETD: int
+TIOCSLCKTRMIOS: int
+TIOCSPGRP: int
+TIOCSSERIAL: int
+TIOCSSOFTCAR: int
+TIOCSTI: int
+TIOCSWINSZ: int
+TOSTOP: int
+VDISCARD: int
+VEOF: int
+VEOL: int
+VEOL2: int
+VERASE: int
+VINTR: int
+VKILL: int
+VLNEXT: int
+VMIN: int
+VQUIT: int
+VREPRINT: int
+VSTART: int
+VSTOP: int
+VSUSP: int
+VSWTC: int
+VSWTCH: int
+VT0: int
+VT1: int
+VTDLY: int
+VTIME: int
+VWERASE: int
+XCASE: int
+XTABS: int
 
 def tcgetattr(fd: _FD) -> _Attr: ...
 def tcsetattr(fd: _FD, when: int, attributes: _Attr) -> None: ...
@@ -244,3 +244,5 @@ def tcsendbreak(fd: _FD, duration: int) -> None: ...
 def tcdrain(fd: _FD) -> None: ...
 def tcflush(fd: _FD, queue: int) -> None: ...
 def tcflow(fd: _FD, action: int) -> None: ...
+
+class error(Exception): ...

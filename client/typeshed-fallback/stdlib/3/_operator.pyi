@@ -57,8 +57,8 @@ from operator import (
     itemgetter as itemgetter,
     attrgetter as attrgetter,
     methodcaller as methodcaller,
+    matmul as matmul,
+    imatmul as imatmul,
 )
-if sys.version_info >= (3, 5):
-    from operator import matmul as matmul, imatmul as imatmul
 
 def _compare_digest(a: AnyStr, b: AnyStr) -> bool: ...

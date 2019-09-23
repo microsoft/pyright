@@ -1,9 +1,10 @@
 import sys
-from typing import Any, Optional, Sequence, Tuple, Iterable, List, Union
+from typing import Any, Iterable, List, Optional, Protocol, Sequence, Tuple, Union
 
-# When we have protocols, this should change to a protocol with a fileno method
-# See https://docs.python.org/3/c-api/file.html#c.PyObject_AsFileDescriptor
-_FileDescriptor = Union[int, Any]
+class _HasFileno(Protocol):
+    def fileno(self) -> int: ...
+
+_FileDescriptor = Union[int, _HasFileno]
 
 EPOLLERR: int
 EPOLLET: int

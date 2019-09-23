@@ -7,7 +7,7 @@ _FontType = Tuple[str, bool, bool, bool]
 _StylesType = Tuple[Any, ...]
 
 class NullFormatter:
-    writer = ...  # type: Optional[NullWriter]
+    writer: Optional[NullWriter]
     def __init__(self, writer: Optional[NullWriter] = ...) -> None: ...
     def end_paragraph(self, blankline: int) -> None: ...
     def add_line_break(self) -> None: ...
@@ -28,19 +28,19 @@ class NullFormatter:
     def assert_line_data(self, flag: int = ...) -> None: ...
 
 class AbstractFormatter:
-    writer = ...  # type: NullWriter
-    align = ...  # type: Optional[str]
-    align_stack = ...  # type: List[Optional[str]]
-    font_stack = ...  # type: List[_FontType]
-    margin_stack = ...  # type: List[int]
-    spacing = ...  # type: Optional[str]
-    style_stack = ...  # type: Any
-    nospace = ...  # type: int
-    softspace = ...  # type: int
-    para_end = ...  # type: int
-    parskip = ...  # type: int
-    hard_break = ...  # type: int
-    have_label = ...  # type: int
+    writer: NullWriter
+    align: Optional[str]
+    align_stack: List[Optional[str]]
+    font_stack: List[_FontType]
+    margin_stack: List[int]
+    spacing: Optional[str]
+    style_stack: Any
+    nospace: int
+    softspace: int
+    para_end: int
+    parskip: int
+    hard_break: int
+    have_label: int
     def __init__(self, writer: NullWriter) -> None: ...
     def end_paragraph(self, blankline: int) -> None: ...
     def add_line_break(self) -> None: ...
@@ -92,8 +92,8 @@ class AbstractWriter(NullWriter):
     def send_literal_data(self, data: str) -> None: ...
 
 class DumbWriter(NullWriter):
-    file = ...  # type: IO
-    maxcol = ...  # type: int
+    file: IO
+    maxcol: int
     def __init__(self, file: Optional[IO] = ..., maxcol: int = ...) -> None: ...
     def reset(self) -> None: ...
     def send_paragraph(self, blankline: int) -> None: ...

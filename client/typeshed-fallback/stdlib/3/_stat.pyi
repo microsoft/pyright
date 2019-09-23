@@ -1,56 +1,56 @@
 """Stub file for the '_stat' module."""
 
-SF_APPEND = ...  # type: int
-SF_ARCHIVED = ...  # type: int
-SF_IMMUTABLE = ...  # type: int
-SF_NOUNLINK = ...  # type: int
-SF_SNAPSHOT = ...  # type: int
-ST_ATIME = ...  # type: int
-ST_CTIME = ...  # type: int
-ST_DEV = ...  # type: int
-ST_GID = ...  # type: int
-ST_INO = ...  # type: int
-ST_MODE = ...  # type: int
-ST_MTIME = ...  # type: int
-ST_NLINK = ...  # type: int
-ST_SIZE = ...  # type: int
-ST_UID = ...  # type: int
-S_ENFMT = ...  # type: int
-S_IEXEC = ...  # type: int
-S_IFBLK = ...  # type: int
-S_IFCHR = ...  # type: int
-S_IFDIR = ...  # type: int
-S_IFDOOR = ...  # type: int
-S_IFIFO = ...  # type: int
-S_IFLNK = ...  # type: int
-S_IFPORT = ...  # type: int
-S_IFREG = ...  # type: int
-S_IFSOCK = ...  # type: int
-S_IFWHT = ...  # type: int
-S_IREAD = ...  # type: int
-S_IRGRP = ...  # type: int
-S_IROTH = ...  # type: int
-S_IRUSR = ...  # type: int
-S_IRWXG = ...  # type: int
-S_IRWXO = ...  # type: int
-S_IRWXU = ...  # type: int
-S_ISGID = ...  # type: int
-S_ISUID = ...  # type: int
-S_ISVTX = ...  # type: int
-S_IWGRP = ...  # type: int
-S_IWOTH = ...  # type: int
-S_IWRITE = ...  # type: int
-S_IWUSR = ...  # type: int
-S_IXGRP = ...  # type: int
-S_IXOTH = ...  # type: int
-S_IXUSR = ...  # type: int
-UF_APPEND = ...  # type: int
-UF_COMPRESSED = ...  # type: int
-UF_HIDDEN = ...  # type: int
-UF_IMMUTABLE = ...  # type: int
-UF_NODUMP = ...  # type: int
-UF_NOUNLINK = ...  # type: int
-UF_OPAQUE = ...  # type: int
+SF_APPEND: int
+SF_ARCHIVED: int
+SF_IMMUTABLE: int
+SF_NOUNLINK: int
+SF_SNAPSHOT: int
+ST_ATIME: int
+ST_CTIME: int
+ST_DEV: int
+ST_GID: int
+ST_INO: int
+ST_MODE: int
+ST_MTIME: int
+ST_NLINK: int
+ST_SIZE: int
+ST_UID: int
+S_ENFMT: int
+S_IEXEC: int
+S_IFBLK: int
+S_IFCHR: int
+S_IFDIR: int
+S_IFDOOR: int
+S_IFIFO: int
+S_IFLNK: int
+S_IFPORT: int
+S_IFREG: int
+S_IFSOCK: int
+S_IFWHT: int
+S_IREAD: int
+S_IRGRP: int
+S_IROTH: int
+S_IRUSR: int
+S_IRWXG: int
+S_IRWXO: int
+S_IRWXU: int
+S_ISGID: int
+S_ISUID: int
+S_ISVTX: int
+S_IWGRP: int
+S_IWOTH: int
+S_IWRITE: int
+S_IWUSR: int
+S_IXGRP: int
+S_IXOTH: int
+S_IXUSR: int
+UF_APPEND: int
+UF_COMPRESSED: int
+UF_HIDDEN: int
+UF_IMMUTABLE: int
+UF_NODUMP: int
+UF_NOUNLINK: int
+UF_OPAQUE: int
 
 def S_IMODE(mode: int) -> int: ...
 def S_IFMT(mode: int) -> int: ...

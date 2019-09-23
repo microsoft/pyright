@@ -84,16 +84,16 @@ class WindowsRegistryFinder(importlib.abc.MetaPathFinder):
 
 class PathFinder(importlib.abc.MetaPathFinder): ...
 
-SOURCE_SUFFIXES = ...  # type: List[str]
-DEBUG_BYTECODE_SUFFIXES = ...  # type: List[str]
-OPTIMIZED_BYTECODE_SUFFIXES = ...  # type: List[str]
-BYTECODE_SUFFIXES = ...  # type: List[str]
-EXTENSION_SUFFIXES = ...  # type: List[str]
+SOURCE_SUFFIXES: List[str]
+DEBUG_BYTECODE_SUFFIXES: List[str]
+OPTIMIZED_BYTECODE_SUFFIXES: List[str]
+BYTECODE_SUFFIXES: List[str]
+EXTENSION_SUFFIXES: List[str]
 
 def all_suffixes() -> List[str]: ...
 
 class FileFinder(importlib.abc.PathEntryFinder):
-    path = ...  # type: str
+    path: str
     def __init__(
         self, path: str,
         *loader_details: Tuple[importlib.abc.Loader, List[str]]

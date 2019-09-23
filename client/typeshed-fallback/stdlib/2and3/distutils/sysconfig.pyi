@@ -3,8 +3,8 @@
 from typing import Mapping, Optional, Union
 from distutils.ccompiler import CCompiler
 
-PREFIX = ...  # type: str
-EXEC_PREFIX = ...  # type: str
+PREFIX: str
+EXEC_PREFIX: str
 
 def get_config_var(name: str) -> Union[int, str, None]: ...
 def get_config_vars(*args: str) -> Mapping[str, Union[int, str]]: ...

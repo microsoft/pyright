@@ -4,20 +4,20 @@
 
 from typing import Mapping, Sequence, Any, Optional, Union, List, Tuple, Iterable
 
-ascii_letters = ...  # type: str
-ascii_lowercase = ...  # type: str
-ascii_uppercase = ...  # type: str
-digits = ...  # type: str
-hexdigits = ...  # type: str
-octdigits = ...  # type: str
-punctuation = ...  # type: str
-printable = ...  # type: str
-whitespace = ...  # type: str
+ascii_letters: str
+ascii_lowercase: str
+ascii_uppercase: str
+digits: str
+hexdigits: str
+octdigits: str
+punctuation: str
+printable: str
+whitespace: str
 
 def capwords(s: str, sep: str = ...) -> str: ...
 
 class Template:
-    template = ...  # type: str
+    template: str
 
     def __init__(self, template: str) -> None: ...
     def substitute(self, mapping: Mapping[str, str] = ..., **kwds: str) -> str: ...

@@ -1,6 +1,6 @@
 from collections import OrderedDict
 import sys
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Union
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Type, Union
 
 from _csv import (_reader,
                   _writer,
@@ -18,38 +18,38 @@ from _csv import (_reader,
                   Error as Error,
                   )
 
-_Dialect = Union[str, Dialect]
+_Dialect = Union[str, Dialect, Type[Dialect]]
 _DictRow = Mapping[str, Any]
 
 class Dialect(object):
-    delimiter = ...  # type: str
-    quotechar = ...  # type: Optional[str]
-    escapechar = ...  # type: Optional[str]
-    doublequote = ...  # type: bool
-    skipinitialspace = ...  # type: bool
-    lineterminator = ...  # type: str
-    quoting = ...  # type: int
+    delimiter: str
+    quotechar: Optional[str]
+    escapechar: Optional[str]
+    doublequote: bool
+    skipinitialspace: bool
+    lineterminator: str
+    quoting: int
     def __init__(self) -> None: ...
 
 class excel(Dialect):
-    delimiter = ...  # type: str
-    quotechar = ...  # type: str
-    doublequote = ...  # type: bool
-    skipinitialspace = ...  # type: bool
-    lineterminator = ...  # type: str
-    quoting = ...  # type: int
+    delimiter: str
+    quotechar: str
+    doublequote: bool
+    skipinitialspace: bool
+    lineterminator: str
+    quoting: int
 
 class excel_tab(excel):
-    delimiter = ...  # type: str
+    delimiter: str
 
 if sys.version_info >= (3,):
     class unix_dialect(Dialect):
-        delimiter = ...  # type: str
-        quotechar = ...  # type: str
-        doublequote = ...  # type: bool
-        skipinitialspace = ...  # type: bool
-        lineterminator = ...  # type: str
-        quoting = ...  # type: int
+        delimiter: str
+        quotechar: str
+        doublequote: bool
+        skipinitialspace: bool
+        lineterminator: str
+        quoting: int
 
 if sys.version_info >= (3, 6):
     _DRMapping = OrderedDict[str, str]
@@ -58,13 +58,13 @@ else:
 
 
 class DictReader(Iterator[_DRMapping]):
-    restkey = ...  # type: Optional[str]
-    restval = ...  # type: Optional[str]
-    reader = ...  # type: _reader
-    dialect = ...  # type: _Dialect
-    line_num = ...  # type: int
-    fieldnames = ...  # type: Iterable[str]
-    def __init__(self, f: Iterable[str], fieldnames: Iterable[str] = ...,
+    restkey: Optional[str]
+    restval: Optional[str]
+    reader: _reader
+    dialect: _Dialect
+    line_num: int
+    fieldnames: Sequence[str]
+    def __init__(self, f: Iterable[str], fieldnames: Sequence[str] = ...,
                  restkey: Optional[str] = ..., restval: Optional[str] = ..., dialect: _Dialect = ...,
                  *args: Any, **kwds: Any) -> None: ...
     def __iter__(self) -> DictReader: ...
@@ -75,10 +75,10 @@ class DictReader(Iterator[_DRMapping]):
 
 
 class DictWriter(object):
-    fieldnames = ...  # type: Iterable[str]
-    restval = ...  # type: Optional[Any]
-    extrasaction = ...  # type: str
-    writer = ...  # type: _writer
+    fieldnames: Sequence[str]
+    restval: Optional[Any]
+    extrasaction: str
+    writer: _writer
     def __init__(self, f: Any, fieldnames: Iterable[str],
                  restval: Optional[Any] = ..., extrasaction: str = ..., dialect: _Dialect = ...,
                  *args: Any, **kwds: Any) -> None: ...
@@ -87,7 +87,7 @@ class DictWriter(object):
     def writerows(self, rowdicts: Iterable[_DictRow]) -> None: ...
 
 class Sniffer(object):
-    preferred = ...  # type: List[str]
+    preferred: List[str]
     def __init__(self) -> None: ...
-    def sniff(self, sample: str, delimiters: Optional[str] = ...) -> Dialect: ...
+    def sniff(self, sample: str, delimiters: Optional[str] = ...) -> Type[Dialect]: ...
     def has_header(self, sample: str) -> bool: ...

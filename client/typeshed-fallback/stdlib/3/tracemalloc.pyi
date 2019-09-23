@@ -15,22 +15,22 @@ def take_snapshot() -> Snapshot: ...
 
 if sys.version_info >= (3, 6):
     class DomainFilter:
-        inclusive = ...  # type: bool
-        domain = ...  # type: int
+        inclusive: bool
+        domain: int
         def __init__(self, inclusive: bool, domain: int) -> None: ...
 
 class Filter:
     if sys.version_info >= (3, 6):
-        domain = ...  # type: Optional[int]
-    inclusive = ...  # type: bool
-    lineno = ...  # type: Optional[int]
-    filename_pattern = ...  # type: str
-    all_frames = ...  # type: bool
+        domain: Optional[int]
+    inclusive: bool
+    lineno: Optional[int]
+    filename_pattern: str
+    all_frames: bool
     def __init__(self, inclusive: bool, filename_pattern: str, lineno: Optional[int] = ..., all_frames: bool = ..., domain: Optional[int] = ...) -> None: ...
 
 class Frame:
-    filename = ...  # type: str
-    lineno = ...  # type: int
+    filename: str
+    lineno: int
 
 class Snapshot:
     def compare_to(self, old_snapshot: Snapshot, key_type: str, cumulative: bool = ...) -> List[StatisticDiff]: ...
@@ -42,24 +42,24 @@ class Snapshot:
     @classmethod
     def load(cls, filename: str) -> Snapshot: ...
     def statistics(self, key_type: str, cumulative: bool = ...) -> List[Statistic]: ...
-    traceback_limit = ...  # type: int
-    traces = ...  # type: Sequence[Trace]
+    traceback_limit: int
+    traces: Sequence[Trace]
 
 class Statistic:
-    count = ...  # type: int
-    size = ...  # type: int
-    traceback = ...  # type: Traceback
+    count: int
+    size: int
+    traceback: Traceback
 
 class StatisticDiff:
-    count = ...  # type: int
-    count_diff = ...  # type: int
-    size = ...  # type: int
-    size_diff = ...  # type: int
-    traceback = ...  # type: Traceback
+    count: int
+    count_diff: int
+    size: int
+    size_diff: int
+    traceback: Traceback
 
 class Trace:
-    size = ...  # type: int
-    traceback = ...  # type: Traceback
+    size: int
+    traceback: Traceback
 
 class Traceback(Sequence[Frame]):
     def format(self, limit: Optional[int] = ...) -> List[str]: ...

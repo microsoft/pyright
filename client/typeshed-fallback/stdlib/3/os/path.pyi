@@ -27,7 +27,10 @@ supports_unicode_filenames: bool
 curdir: str
 pardir: str
 sep: str
-altsep: str
+if sys.platform == 'win32':
+    altsep: str
+else:
+    altsep: Optional[str]
 extsep: str
 pathsep: str
 defpath: str

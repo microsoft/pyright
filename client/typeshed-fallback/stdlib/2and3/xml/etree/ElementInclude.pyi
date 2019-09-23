@@ -3,9 +3,9 @@
 from typing import Union, Optional, Callable
 from xml.etree.ElementTree import Element
 
-XINCLUDE = ...  # type: str
-XINCLUDE_INCLUDE = ...  # type: str
-XINCLUDE_FALLBACK = ...  # type: str
+XINCLUDE: str
+XINCLUDE_INCLUDE: str
+XINCLUDE_FALLBACK: str
 
 class FatalIncludeError(SyntaxError): ...
 

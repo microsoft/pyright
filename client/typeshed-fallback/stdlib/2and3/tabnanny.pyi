@@ -9,8 +9,8 @@ if sys.version_info >= (3, 6):
 else:
     _Path = Union[str, bytes]
 
-verbose = ...  # type: int
-filename_only = ...  # type: int
+verbose: int
+filename_only: int
 
 class NannyNag(Exception):
     def __init__(self, lineno: int, msg: str, line: str) -> None: ...

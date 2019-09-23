@@ -25,44 +25,44 @@ else:
 
 class MiniFieldStorage:
     # The first five "Any" attributes here are always None, but mypy doesn't support that
-    filename = ...  # type: Any
-    list = ...  # type: Any
-    type = ...  # type: Any
-    file = ...  # type: Optional[IO[bytes]]  # Always None
-    type_options = ...  # type: Dict[Any, Any]
-    disposition = ...  # type: Any
-    disposition_options = ...  # type: Dict[Any, Any]
-    headers = ...  # type: Dict[Any, Any]
-    name = ...  # type: Any
-    value = ...  # type: Any
+    filename: Any
+    list: Any
+    type: Any
+    file: Optional[IO[bytes]]
+    type_options: Dict[Any, Any]
+    disposition: Any
+    disposition_options: Dict[Any, Any]
+    headers: Dict[Any, Any]
+    name: Any
+    value: Any
 
     def __init__(self, name: Any, value: Any) -> None: ...
     def __repr__(self) -> str: ...
 
 
 class FieldStorage(object):
-    FieldStorageClass = ...  # type: Optional[type]
-    keep_blank_values = ...  # type: int
-    strict_parsing = ...  # type: int
-    qs_on_post = ...  # type: Optional[str]
-    headers = ...  # type: Mapping[str, str]
-    fp = ...  # type: IO[bytes]
-    encoding = ...  # type: str
-    errors = ...  # type: str
-    outerboundary = ...  # type: bytes
-    bytes_read = ...  # type: int
-    limit = ...  # type: Optional[int]
-    disposition = ...  # type: str
-    disposition_options = ...  # type: Dict[str, str]
-    filename = ...  # type: Optional[str]
-    file = ...  # type: Optional[IO[bytes]]
-    type = ...  # type: str
-    type_options = ...  # type: Dict[str, str]
-    innerboundary = ...  # type: bytes
-    length = ...  # type: int
-    done = ...  # type: int
-    list = ...  # type: Optional[List[Any]]
-    value = ...  # type: Union[None, bytes, List[Any]]
+    FieldStorageClass: Optional[type]
+    keep_blank_values: int
+    strict_parsing: int
+    qs_on_post: Optional[str]
+    headers: Mapping[str, str]
+    fp: IO[bytes]
+    encoding: str
+    errors: str
+    outerboundary: bytes
+    bytes_read: int
+    limit: Optional[int]
+    disposition: str
+    disposition_options: Dict[str, str]
+    filename: Optional[str]
+    file: Optional[IO[bytes]]
+    type: str
+    type_options: Dict[str, str]
+    innerboundary: bytes
+    length: int
+    done: int
+    list: Optional[List[Any]]
+    value: Union[None, bytes, List[Any]]
 
     if sys.version_info >= (3, 0):
         def __init__(self, fp: IO[Any] = ..., headers: Mapping[str, str] = ..., outerboundary: bytes = ...,
@@ -102,7 +102,7 @@ if sys.version_info < (3, 0):
     from UserDict import UserDict
 
     class FormContentDict(UserDict):
-        query_string = ...  # type: str
+        query_string: str
         def __init__(self, environ: Mapping[str, str] = ..., keep_blank_values: int = ..., strict_parsing: int = ...) -> None: ...
 
     class SvFormContentDict(FormContentDict):

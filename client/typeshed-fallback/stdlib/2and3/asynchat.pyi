@@ -10,8 +10,8 @@ class simple_producer:
     def more(self) -> bytes: ...
 
 class async_chat(asyncore.dispatcher):
-    ac_in_buffer_size = ...  # type: int
-    ac_out_buffer_size = ...  # type: int
+    ac_in_buffer_size: int
+    ac_out_buffer_size: int
     def __init__(self, sock: Optional[socket.socket] = ..., map: Optional[asyncore._maptype] = ...) -> None: ...
 
     @abstractmethod

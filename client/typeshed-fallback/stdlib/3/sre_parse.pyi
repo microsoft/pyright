@@ -6,25 +6,25 @@ from typing import (
 )
 from sre_constants import _NamedIntConstant as NIC, error as _Error
 
-SPECIAL_CHARS = ...  # type: str
-REPEAT_CHARS = ...  # type: str
-DIGITS = ...  # type: FrozenSet[str]
-OCTDIGITS = ...  # type: FrozenSet[str]
-HEXDIGITS = ...  # type: FrozenSet[str]
-ASCIILETTERS = ...  # type: FrozenSet[str]
-WHITESPACE = ...  # type: FrozenSet[str]
-ESCAPES = ...  # type: Dict[str, Tuple[NIC, int]]
-CATEGORIES = ...  # type: Dict[str, Union[Tuple[NIC, NIC], Tuple[NIC, List[Tuple[NIC, NIC]]]]]
-FLAGS = ...  # type: Dict[str, int]
-GLOBAL_FLAGS = ...  # type: int
+SPECIAL_CHARS: str
+REPEAT_CHARS: str
+DIGITS: FrozenSet[str]
+OCTDIGITS: FrozenSet[str]
+HEXDIGITS: FrozenSet[str]
+ASCIILETTERS: FrozenSet[str]
+WHITESPACE: FrozenSet[str]
+ESCAPES: Dict[str, Tuple[NIC, int]]
+CATEGORIES: Dict[str, Union[Tuple[NIC, NIC], Tuple[NIC, List[Tuple[NIC, NIC]]]]]
+FLAGS: Dict[str, int]
+GLOBAL_FLAGS: int
 
 class Verbose(Exception): ...
 
 class Pattern:
-    flags = ...  # type: int
-    groupdict = ...  # type: Dict[str, int]
-    groupwidths = ...  # type: List[Optional[int]]
-    lookbehindgroups = ...  # type: Optional[int]
+    flags: int
+    groupdict: Dict[str, int]
+    groupwidths: List[Optional[int]]
+    lookbehindgroups: Optional[int]
     def __init__(self) -> None: ...
     @property
     def groups(self) -> int: ...
@@ -43,9 +43,9 @@ _CodeType = Tuple[NIC, _AvType]
 
 
 class SubPattern:
-    pattern = ...  # type: Pattern
-    data = ...  # type: List[_CodeType]
-    width = ...  # type: Optional[int]
+    pattern: Pattern
+    data: List[_CodeType]
+    width: Optional[int]
     def __init__(self, pattern: Pattern, data: List[_CodeType] = ...) -> None: ...
     def dump(self, level: int = ...) -> None: ...
     def __len__(self) -> int: ...
@@ -58,11 +58,11 @@ class SubPattern:
 
 
 class Tokenizer:
-    istext = ...  # type: bool
-    string = ...  # type: Any
-    decoded_string = ...  # type: str
-    index = ...  # type: int
-    next = ...  # type: Optional[str]
+    istext: bool
+    string: Any
+    decoded_string: str
+    index: int
+    next: Optional[str]
     def __init__(self, string: Any) -> None: ...
     def match(self, char: str) -> bool: ...
     def get(self) -> Optional[str]: ...

@@ -1,6 +1,6 @@
 # NB: third_party/2/enum.pyi and stdlib/3.4/enum.pyi must remain consistent!
 import sys
-from typing import Any, Iterator, List, Mapping, Type, TypeVar, Union
+from typing import Any, Dict, Iterator, List, Mapping, Type, TypeVar, Union
 from abc import ABCMeta
 
 _T = TypeVar('_T')
@@ -25,6 +25,9 @@ class Enum(metaclass=EnumMeta):
     value: Any
     _name_: str
     _value_: Any
+    _member_names_: List[str]  # undocumented
+    _member_map_: Dict[str, Enum]  # undocumented
+    _value2member_map_: Dict[int, Enum]  # undocumented
     if sys.version_info >= (3, 7):
         _ignore_: Union[str, List[str]]
     if sys.version_info >= (3, 6):

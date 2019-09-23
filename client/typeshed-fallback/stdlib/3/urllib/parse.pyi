@@ -5,13 +5,13 @@ import sys
 _Str = Union[bytes, str]
 
 
-uses_relative = ...  # type: List[str]
-uses_netloc = ...  # type: List[str]
-uses_params = ...  # type: List[str]
-non_hierarchical = ...  # type: List[str]
-uses_query = ...  # type: List[str]
-uses_fragment = ...  # type: List[str]
-scheme_chars = ...  # type: str
+uses_relative: List[str]
+uses_netloc: List[str]
+uses_params: List[str]
+non_hierarchical: List[str]
+uses_query: List[str]
+uses_fragment: List[str]
+scheme_chars: str
 MAX_CACHE_SIZE = 0
 
 class _ResultMixinBase(Generic[AnyStr]):
@@ -26,18 +26,18 @@ class _ResultMixinBytes(_ResultMixinBase[str]):
 
 
 class _NetlocResultMixinBase(Generic[AnyStr]):
-    username = ...  # type: AnyStr
-    password = ...  # type: AnyStr
-    hostname = ...  # type: AnyStr
-    port = ...  # type: int
+    username: AnyStr
+    password: AnyStr
+    hostname: AnyStr
+    port: int
 
 class _NetlocResultMixinStr(_NetlocResultMixinBase[str], _ResultMixinStr): ...
 
 class _NetlocResultMixinBytes(_NetlocResultMixinBase[bytes], _ResultMixinBytes): ...
 
 class _DefragResultBase(tuple, Generic[AnyStr]):
-    url = ...  # type: AnyStr
-    fragment = ...  # type: AnyStr
+    url: AnyStr
+    fragment: AnyStr
 
 
 _SplitResultBase = NamedTuple(
@@ -109,19 +109,14 @@ def urldefrag(url: str) -> DefragResult: ...
 @overload
 def urldefrag(url: bytes) -> DefragResultBytes: ...
 
-if sys.version_info >= (3, 5):
-    def urlencode(query: Union[Mapping[Any, Any],
-                               Mapping[Any, Sequence[Any]],
-                               Sequence[Tuple[Any, Any]],
-                               Sequence[Tuple[Any, Sequence[Any]]]],
-                  doseq: bool = ..., safe: AnyStr = ..., encoding: str = ..., errors: str = ...,
-                  quote_via: Callable[[str, AnyStr, str, str], str] = ...) -> str: ...
-else:
-    def urlencode(query: Union[Mapping[Any, Any],
-                               Mapping[Any, Sequence[Any]],
-                               Sequence[Tuple[Any, Any]],
-                               Sequence[Tuple[Any, Sequence[Any]]]],
-                  doseq: bool = ..., safe: AnyStr = ..., encoding: str = ..., errors: str = ...) -> str: ...
+def urlencode(
+    query: Union[Mapping[Any, Any], Mapping[Any, Sequence[Any]], Sequence[Tuple[Any, Any]], Sequence[Tuple[Any, Sequence[Any]]]],
+    doseq: bool = ...,
+    safe: AnyStr = ...,
+    encoding: str = ...,
+    errors: str = ...,
+    quote_via: Callable[[str, AnyStr, str, str], str] = ...,
+) -> str: ...
 
 def urljoin(base: AnyStr, url: Optional[AnyStr], allow_fragments: bool = ...) -> AnyStr: ...
 

@@ -98,25 +98,25 @@ class LocaleHTMLCalendar(HTMLCalendar):
     def formatweekday(self, day: int) -> str: ...
     def formatmonthname(self, theyear: int, themonth: int, withyear: bool = ...) -> str: ...
 
-c = ...  # type: TextCalendar
+c: TextCalendar
 def setfirstweekday(firstweekday: int) -> None: ...
 def format(cols: int, colwidth: int = ..., spacing: int = ...) -> str: ...
 def formatstring(cols: int, colwidth: int = ..., spacing: int = ...) -> str: ...
 def timegm(tuple: Union[Tuple[int, ...], struct_time]) -> int: ...
 
 # Data attributes
-day_name = ...  # type: Sequence[str]
-day_abbr = ...  # type: Sequence[str]
-month_name = ...  # type: Sequence[str]
-month_abbr = ...  # type: Sequence[str]
+day_name: Sequence[str]
+day_abbr: Sequence[str]
+month_name: Sequence[str]
+month_abbr: Sequence[str]
 
 # Below constants are not in docs or __all__, but enough people have used them
 # they are now effectively public.
 
-MONDAY = ...  # type: int
-TUESDAY = ...  # type: int
-WEDNESDAY = ...  # type: int
-THURSDAY = ...  # type: int
-FRIDAY = ...  # type: int
-SATURDAY = ...  # type: int
-SUNDAY = ...  # type: int
+MONDAY: int
+TUESDAY: int
+WEDNESDAY: int
+THURSDAY: int
+FRIDAY: int
+SATURDAY: int
+SUNDAY: int

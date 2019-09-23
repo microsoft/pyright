@@ -4,14 +4,14 @@
 from typing import IO
 
 class Chunk:
-    closed = ...  # type: bool
-    align = ...  # type: bool
-    file = ...  # type: IO[bytes]
-    chunkname = ...  # type: bytes
-    chunksize = ...  # type: int
-    size_read = ...  # type: int
-    offset = ...  # type: int
-    seekable = ...  # type: bool
+    closed: bool
+    align: bool
+    file: IO[bytes]
+    chunkname: bytes
+    chunksize: int
+    size_read: int
+    offset: int
+    seekable: bool
     def __init__(self, file: IO[bytes], align: bool = ..., bigendian: bool = ..., inclheader: bool = ...) -> None: ...
     def getname(self) -> bytes: ...
     def getsize(self) -> int: ...

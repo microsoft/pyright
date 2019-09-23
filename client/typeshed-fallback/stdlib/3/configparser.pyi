@@ -102,23 +102,26 @@ class RawConfigParser(_parser):
 
     # These get* methods are partially applied (with the same names) in
     # SectionProxy; the stubs should be kept updated together
-    def getint(self, section: str, option: str, *, raw: bool = ..., vars: _section = ..., fallback: int = ...) -> int: ...
+    def getint(self, section: str, option: str, *, raw: bool = ..., vars: Optional[_section] = ..., fallback: int = ...) -> int: ...
 
-    def getfloat(self, section: str, option: str, *, raw: bool = ..., vars: _section = ..., fallback: float = ...) -> float: ...
+    def getfloat(self, section: str, option: str, *, raw: bool = ..., vars: Optional[_section] = ..., fallback: float = ...) -> float: ...
 
-    def getboolean(self, section: str, option: str, *, raw: bool = ..., vars: _section = ..., fallback: bool = ...) -> bool: ...
+    def getboolean(self, section: str, option: str, *, raw: bool = ..., vars: Optional[_section] = ..., fallback: bool = ...) -> bool: ...
 
-    def _get_conv(self, section: str, option: str, conv: Callable[[str], _T], *, raw: bool = ..., vars: _section = ..., fallback: _T = ...) -> _T: ...
+    def _get_conv(self, section: str, option: str, conv: Callable[[str], _T], *, raw: bool = ..., vars: Optional[_section] = ..., fallback: _T = ...) -> _T: ...
 
     # This is incompatible with MutableMapping so we ignore the type
-    def get(self, section: str, option: str, *, raw: bool = ..., vars: _section = ..., fallback: str = ...) -> str:  # type: ignore
-        ...
+    @overload  # type: ignore
+    def get(self, section: str, option: str, *, raw: bool = ..., vars: Optional[_section] = ...) -> str: ...
+
+    @overload  # type: ignore
+    def get(self, section: str, option: str, *, raw: bool = ..., vars: Optional[_section] = ..., fallback: _T) -> Union[str, _T]: ...
 
     @overload
-    def items(self, *, raw: bool = ..., vars: _section = ...) -> AbstractSet[Tuple[str, SectionProxy]]: ...
+    def items(self, *, raw: bool = ..., vars: Optional[_section] = ...) -> AbstractSet[Tuple[str, SectionProxy]]: ...
 
     @overload
-    def items(self, section: str, raw: bool = ..., vars: _section = ...) -> List[Tuple[str, str]]: ...
+    def items(self, section: str, raw: bool = ..., vars: Optional[_section] = ...) -> List[Tuple[str, str]]: ...
 
     def set(self, section: str, option: str, value: str) -> None: ...
 
@@ -165,9 +168,9 @@ class SectionProxy(MutableMapping[str, str]):
 
     # These are partially-applied version of the methods with the same names in
     # RawConfigParser; the stubs should be kept updated together
-    def getint(self, option: str, *, raw: bool = ..., vars: _section = ..., fallback: int = ...) -> int: ...
-    def getfloat(self, option: str, *, raw: bool = ..., vars: _section = ..., fallback: float = ...) -> float: ...
-    def getboolean(self, option: str, *, raw: bool = ..., vars: _section = ..., fallback: bool = ...) -> bool: ...
+    def getint(self, option: str, *, raw: bool = ..., vars: Optional[_section] = ..., fallback: int = ...) -> int: ...
+    def getfloat(self, option: str, *, raw: bool = ..., vars: Optional[_section] = ..., fallback: float = ...) -> float: ...
+    def getboolean(self, option: str, *, raw: bool = ..., vars: Optional[_section] = ..., fallback: bool = ...) -> bool: ...
 
     # SectionProxy can have arbitrary attributes when custon converters are used
     def __getattr__(self, key: str) -> Callable[..., Any]: ...
@@ -189,43 +192,43 @@ class NoSectionError(Error): ...
 
 
 class DuplicateSectionError(Error):
-    section = ...  # type: str
-    source = ...   # type: Optional[str]
-    lineno = ...   # type: Optional[int]
+    section: str
+    source: Optional[str]
+    lineno: Optional[int]
 
 
 class DuplicateOptionError(Error):
-    section = ...  # type: str
-    option = ...   # type: str
-    source = ...   # type: Optional[str]
-    lineno = ...   # type: Optional[int]
+    section: str
+    option: str
+    source: Optional[str]
+    lineno: Optional[int]
 
 
 class NoOptionError(Error):
-    section = ...  # type: str
-    option = ...   # type: str
+    section: str
+    option: str
 
 
 class InterpolationError(Error):
-    section = ...  # type: str
-    option = ...   # type: str
+    section: str
+    option: str
 
 
 class InterpolationDepthError(InterpolationError): ...
 
 
 class InterpolationMissingOptionError(InterpolationError):
-    reference = ...  # type: str
+    reference: str
 
 
 class InterpolationSyntaxError(InterpolationError): ...
 
 
 class ParsingError(Error):
-    source = ...  # type: str
-    errors = ...  # type: Sequence[Tuple[int, str]]
+    source: str
+    errors: Sequence[Tuple[int, str]]
 
 
 class MissingSectionHeaderError(ParsingError):
-    lineno = ...  # type: int
-    line = ...    # type: str
+    lineno: int
+    line: str
