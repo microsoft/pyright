@@ -1725,7 +1725,20 @@ export class Parser {
                 atomExpression = callNode;
             } else if (this._consumeTokenIfType(TokenType.OpenBracket)) {
                 // Is it an index operator?
+
+                // This is an unfortunate hack that's necessary to accommodate 'Literal'
+                // type annotations properly. We need to suspend treating strings as
+                // type annotatinos within a Literal subscript.
+                const isLiteralSubscript = atomExpression.nodeType === ParseNodeType.Name &&
+                        atomExpression.nameToken.value === 'Literal';
+
+                const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
+                if (isLiteralSubscript) {
+                    this._isParsingTypeAnnotation = false;
+                }
                 const indexExpr = this._parseSubscriptList();
+                this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
+
                 let expressions = [indexExpr];
                 if (indexExpr.nodeType === ParseNodeType.Tuple) {
                     expressions = indexExpr.expressions;
