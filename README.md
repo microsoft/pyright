@@ -17,6 +17,7 @@ Pyright supports:
 * [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
 * [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
+* [PEP 589](https://www.python.org/dev/peps/pep-0589/) typed dictionaries
 * Type inference for function return values, instance variables, class variables, and globals
 * Smart type constraints that understand conditional code flow constructs like if/else statements
 

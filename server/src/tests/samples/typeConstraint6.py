@@ -1,5 +1,5 @@
 # This sample tests the type analyzer's handling of type constraints
-# relating to brek and continue statements and while test expressions.
+# relating to break and continue statements and while test expressions.
 
 from typing import List, Optional
 

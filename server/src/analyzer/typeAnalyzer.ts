@@ -53,7 +53,7 @@ import * as TypeUtils from './typeUtils';
 
 interface AliasMapEntry {
     alias: string;
-    module: 'builtins' | 'collections';
+    module: 'builtins' | 'collections' | 'self';
 }
 
 // At some point, we'll cut off the analysis passes and assume
@@ -146,7 +146,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const typeParameters: TypeVarType[] = [];
 
         node.arguments.forEach((arg, index) => {
-            // Ignore keyword parameters other than metaclass.
+            // Ignore keyword parameters other than metaclass or total.
             if (!arg.name || arg.name.nameToken.value === 'metaclass') {
                 let argType = this._getTypeOfExpression(arg.valueExpression);
 
@@ -158,7 +158,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 if (!isAnyOrUnknown(argType)) {
-                    if (!(argType.category === TypeCategory.Class)) {
+                    if (argType.category !== TypeCategory.Class) {
                         let reportBaseClassError = true;
 
                         // See if this is a "Type[X]" object.
@@ -198,6 +198,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         }
                     }
 
+                    // If the class directly derives from TypedDict or from a class that is
+                    // a TypedDict, it is considered a TypedDict.
+                    if (ClassType.isBuiltIn(argType, 'TypedDict') || ClassType.isTypedDictClass(argType)) {
+                        ClassType.setIsTypedDict(classType);
+                    } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
+                        // TypedDict classes must derive only from other
+                        // TypedDict classes.
+                        this._addError(`All base classes for TypedDict classes must ` +
+                            'als be TypedDict classes', arg);
+                    }
+
                     // Validate that the class isn't deriving from itself, creating a
                     // circular dependency.
                     if (TypeUtils.derivesFromClassRecursive(argType, classType)) {
@@ -224,6 +235,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // are unique type vars but have conflicting names.
                 TypeUtils.addTypeVarsToListIfUnique(typeParameters,
                     TypeUtils.getTypeVarArgumentsRecursive(argType));
+            } else if (arg.name.nameToken.value === 'total') {
+                // The "total" parameter name applies only for TypedDict classes.
+                if (ClassType.isTypedDictClass(classType)) {
+                    // PEP 589 specifies that the parameter must be either True or False.
+                    const constArgValue = StaticExpressions.evaluateStaticExpression(
+                            arg.valueExpression, this._fileInfo.executionEnvironment);
+                    if (constArgValue === undefined) {
+                        this._addError('Value for total parameter must be True or False', arg.valueExpression);
+                    } else if (!constArgValue) {
+                        ClassType.setCanOmitDictValues(classType);
+                    }
+                }
             }
         });
 
@@ -281,6 +304,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             evaluator.synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
         }
 
+        if (ClassType.isTypedDictClass(classType)) {
+            const evaluator = this._createEvaluator();
+            evaluator.synthesizeTypedDictClassMethods(classType);
+        }
+
         const declaration: Declaration = {
             category: DeclarationCategory.Class,
             node: node.name,
@@ -302,6 +330,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._fileInfo.diagnosticSettings.reportUnusedClass,
             DiagnosticRule.reportUnusedClass,
             `Class '${ node.name.nameToken.value }' is not accessed`);
+
+        if (ClassType.isTypedDictClass(classType)) {
+            this._validateTypedDictClassSuite(node.suite);
+        }
 
         return false;
     }
@@ -822,7 +854,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (node.returnExpression) {
-            returnType = this._getTypeOfExpression(node.returnExpression);
+            returnType = this._getTypeOfExpression(node.returnExpression,
+                EvaluatorFlags.None, declaredReturnType);
         } else {
             // There is no return expression, so "None" is assumed.
             returnType = NoneType.create();
@@ -1801,34 +1834,48 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const assignedName = nameNode.nameToken.value;
             let specialType: Type | undefined;
 
-            const specialTypes = ['Tuple', 'Generic', 'Protocol', 'Callable',
-                'Type', 'ClassVar', 'Final', 'Literal'];
-            if (specialTypes.find(t => t === assignedName)) {
+            const specialTypes: { [name: string ]: AliasMapEntry } = {
+                'Tuple': { alias: 'tuple', module: 'builtins' },
+                'Generic': { alias: '', module: 'builtins' },
+                'Protocol': { alias: '', module: 'builtins' },
+                'Callable': { alias: '', module: 'builtins' },
+                'Type': { alias: 'type', module: 'builtins' },
+                'ClassVar': { alias: '', module: 'builtins' },
+                'Final': { alias: '', module: 'builtins' },
+                'Literal': { alias: '', module: 'builtins' },
+                'TypedDict': { alias: '_TypedDict', module: 'self' }
+            };
+
+            if (specialTypes[assignedName]) {
                 // Synthesize a class.
                 const specialClassType = ClassType.create(assignedName,
                     ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
                     node.id);
 
-                const aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
-                    assignedName.toLowerCase());
-                if (aliasClass.category === TypeCategory.Class) {
-                    ClassType.setAliasClass(specialClassType, aliasClass);
+                let aliasClass: Type | undefined;
+                if (specialTypes[assignedName].module === 'builtins') {
+                    aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
+                        specialTypes[assignedName].alias || 'object');
+                } else {
+                    const symbol = this._currentScope.lookUpSymbol(specialTypes[assignedName].alias);
+                    if (symbol) {
+                        aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+                    }
+                }
+
+                if (aliasClass && aliasClass.category === TypeCategory.Class) {
+                    if (specialTypes[assignedName].alias) {
+                        ClassType.setAliasClass(specialClassType, aliasClass);
+                    }
 
                     const specializedBaseClass = TypeUtils.specializeType(aliasClass, undefined);
                     ClassType.addBaseClass(specialClassType, specializedBaseClass, false);
                     specialType = specialClassType;
                 } else {
-                    // The other classes derive from 'object'.
-                    const objBaseClass = ScopeUtils.getBuiltInType(this._currentScope, 'object');
-                    if (objBaseClass.category === TypeCategory.Class) {
-                        ClassType.addBaseClass(specialClassType, objBaseClass, false);
-                        specialType = specialClassType;
-                    } else {
-                        // The base class has not yet been created. Use an unknown
-                        // type and hope that in the next analysis pass we'll get
-                        // the real type.
-                        specialType = UnknownType.create();
-                    }
+                    // The base class has not yet been created. Use an unknown
+                    // type and hope that in the next analysis pass we'll get
+                    // the real type.
+                    specialType = UnknownType.create();
                 }
             }
 
@@ -2158,6 +2205,32 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     node);
             }
         }
+    }
+
+    // Verifies the rules specified in PEP 589 about TypedDict classes.
+    // They cannot have statements other than type annotations, doc
+    // strings, and "pass" statements or ellipses.
+    private _validateTypedDictClassSuite(suiteNode: SuiteNode) {
+        const emitBadStatementError = (node: ParseNode) => {
+            this._addError(`TypedDict classes can contain only type annotations`,
+                node);
+        };
+
+        suiteNode.statements.forEach(statement => {
+            if (statement.nodeType === ParseNodeType.StatementList) {
+                for (const substatement of statement.statements) {
+                    if (substatement.nodeType !== ParseNodeType.TypeAnnotation &&
+                            substatement.nodeType !== ParseNodeType.Ellipsis &&
+                            substatement.nodeType !== ParseNodeType.StringList &&
+                            substatement.nodeType !== ParseNodeType.Pass) {
+
+                        emitBadStatementError(substatement);
+                    }
+                }
+            } else {
+                emitBadStatementError(statement);
+            }
+        });
     }
 
     private _createAwaitableFunction(functionType: FunctionType): FunctionType {

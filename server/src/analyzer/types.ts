@@ -148,8 +148,16 @@ export const enum ClassTypeFlags {
 
     // Flags that control whether methods should be
     // synthesized for a dataclass class.
-    SkipSynthesizedInit = 0x08
+    SkipSynthesizedInit = 0x08,
 
+    // Introduced in PEP 589, TypedDict classes provide a way
+    // to specify type hints for dictionaries with different
+    // value types and a limited set of static keys.
+    TypedDictClass = 0x10,
+
+    // Used in conjunction with TypedDictClass, indicates that
+    // the dictionary values can be omitted.
+    CanOmitDictValues = 0x20
 }
 
 export interface BaseClass {
@@ -288,6 +296,22 @@ export namespace ClassType {
 
     export function isSkipSynthesizedInit(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedInit);
+    }
+
+    export function setIsTypedDict(classType: ClassType) {
+        classType.details.flags |= ClassTypeFlags.TypedDictClass;
+    }
+
+    export function isTypedDictClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.TypedDictClass);
+    }
+
+    export function setCanOmitDictValues(classType: ClassType) {
+        classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
+    }
+
+    export function isCanOmitDictValues(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.CanOmitDictValues);
     }
 
     export function getBaseClasses(classType: ClassType): BaseClass[] {

@@ -603,3 +603,33 @@ test('GenericTypes1', () => {
 
     validateResults(analysisResults, 2);
 });
+
+test('TypedDict1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
+
+    validateResults(analysisResults, 6);
+});
+
+test('TypedDict2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict2.py']);
+
+    validateResults(analysisResults, 4);
+});
+
+test('TypedDict3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict3.py']);
+
+    validateResults(analysisResults, 4);
+});
+
+test('TypedDict4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict4.py']);
+
+    validateResults(analysisResults, 7);
+});
+
+test('TypedDict5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict5.py']);
+
+    validateResults(analysisResults, 3);
+});

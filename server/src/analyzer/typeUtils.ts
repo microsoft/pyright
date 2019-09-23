@@ -12,7 +12,7 @@ import * as assert from 'assert';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
-import { Declaration } from './declaration';
+import { Declaration, DeclarationCategory } from './declaration';
 import { defaultTypeSourceId } from './inferredType';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType, FunctionTypeFlags,
@@ -66,6 +66,12 @@ export const enum ClassMemberLookupFlags {
 export interface SymbolWithClass {
     class: ClassType;
     symbol: Symbol;
+}
+
+export interface TypedDictEntry {
+    valueType: Type;
+    isRequired: boolean;
+    isProvided: boolean;
 }
 
 export function isOptionalType(type: Type): boolean {
@@ -1357,6 +1363,107 @@ export function isEnumClass(classType: ClassType): boolean {
         ClassType.getClassName(metaclass) === 'EnumMeta';
 }
 
+// Determines whether the specified keys and values can be assigned to
+// a typed dictionary class. The caller should have already validated
+// that the class is indeed a typed dict.
+export function canAssignToTypedDict(classType: ClassType, keyTypes: Type[], valueTypes: Type[]): boolean {
+    assert(ClassType.isTypedDictClass(classType));
+    assert(keyTypes.length === valueTypes.length);
+
+    let isMatch = true;
+
+    const symbolMap = new StringMap<TypedDictEntry>();
+    getTypedDictMembersForClassRecursive(classType, symbolMap);
+    const diag = new DiagnosticAddendum();
+
+    keyTypes.forEach((keyType, index) => {
+        if (keyType.category !== TypeCategory.Object ||
+                !ClassType.isBuiltIn(keyType.classType, 'str') ||
+                !keyType.literalValue) {
+
+            isMatch = false;
+        } else {
+            const keyValue = keyType.literalValue as string;
+            const symbolEntry = symbolMap.get(keyValue);
+
+            if (!symbolEntry) {
+                // The provided key name doesn't exist.
+                isMatch = false;
+            } else {
+                // Can we assign the value to the declared type?
+                if (!canAssignType(symbolEntry.valueType, valueTypes[index], diag)) {
+                    isMatch = false;
+                }
+                symbolEntry.isProvided = true;
+            }
+        }
+    });
+
+    if (!isMatch) {
+        return false;
+    }
+
+    // See if any required keys are missing.
+    symbolMap.forEach(entry => {
+        if (entry.isRequired && !entry.isProvided) {
+            isMatch = false;
+        }
+    });
+
+    return isMatch;
+}
+
+export function getTypedDictMembersForClassRecursive(classType: ClassType,
+        keyMap: StringMap<TypedDictEntry>, recursionCount = 0) {
+
+    assert(ClassType.isTypedDictClass(classType));
+    if (recursionCount > _maxTypeRecursion) {
+        return;
+    }
+
+    ClassType.getBaseClasses(classType).forEach(baseClassType => {
+        if (!baseClassType.isMetaclass && baseClassType.type.category === TypeCategory.Class &&
+                ClassType.isTypedDictClass(baseClassType.type)) {
+
+            getTypedDictMembersForClassRecursive(baseClassType.type,
+                keyMap, recursionCount + 1);
+        }
+    });
+
+    // Add any new typed dict entries from this class.
+    ClassType.getFields(classType).forEach((symbol, name) => {
+        const declarations = symbol.getDeclarations();
+        if (declarations.length > 0) {
+            const primaryDecl = declarations[0];
+            if (primaryDecl.category === DeclarationCategory.Variable &&
+                    primaryDecl.node && primaryDecl.declaredType) {
+
+                keyMap.set(name, {
+                    valueType: primaryDecl.declaredType,
+                    isRequired: !ClassType.isCanOmitDictValues(classType),
+                    isProvided: false
+                });
+            }
+        }
+    });
+}
+
+// Within TypedDict classes, member variables are not accessible as
+// normal attributes. Instead, they are accessed through index operations.
+function _isTypedDictMemberAccessedThroughIndex(symbol: Symbol): boolean {
+    const declarations = symbol.getDeclarations();
+    if (declarations.length > 0) {
+        const primaryDecl = declarations[0];
+        if (primaryDecl.category === DeclarationCategory.Variable &&
+                primaryDecl.node && primaryDecl.declaredType) {
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function _getMembersForClassRecursive(classType: ClassType,
         symbolTable: SymbolTable, includeInstanceVars: boolean,
         recursionCount = 0) {
@@ -1365,19 +1472,22 @@ function _getMembersForClassRecursive(classType: ClassType,
         return;
     }
 
-    // Add any new member variables from this class.
-    ClassType.getFields(classType).forEach((symbol, name) => {
-        if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
-            if (!symbolTable.get(name)) {
-                symbolTable.set(name, symbol);
-            }
-        }
-    });
-
     ClassType.getBaseClasses(classType).forEach(baseClassType => {
         if (!baseClassType.isMetaclass && baseClassType.type.category === TypeCategory.Class) {
             _getMembersForClassRecursive(baseClassType.type,
                 symbolTable, includeInstanceVars, recursionCount + 1);
+        }
+    });
+
+    // Add any new member variables from this class.
+    const isClassTypedDict = ClassType.isTypedDictClass(classType);
+    ClassType.getFields(classType).forEach((symbol, name) => {
+        if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
+            if (!isClassTypedDict || !_isTypedDictMemberAccessedThroughIndex(symbol)) {
+                if (!symbolTable.get(name)) {
+                    symbolTable.set(name, symbol);
+                }
+            }
         }
     });
 }
@@ -1556,8 +1666,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
             return true;
         }
 
-        const missingNames: string[] = [];
-        const wrongTypes: string[] = [];
+        let typesAreConsistent = true;
         const destClassTypeVarMap = buildTypeVarMapFromSpecializedClass(destType);
 
         destClassFields.forEach((symbol, name) => {
@@ -1566,7 +1675,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
                     ClassMemberLookupFlags.SkipInstanceVariables);
                 if (!memberInfo) {
                     diag.addMessage(`'${ name }' is not present`);
-                    missingNames.push(name);
+                    typesAreConsistent = false;
                 } else {
                     const primaryDecls = getPrimaryDeclarationsForSymbol(symbol);
                     if (primaryDecls && primaryDecls.length > 0 && primaryDecls[0].declaredType) {
@@ -1577,18 +1686,48 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
                         if (!canAssignType(destMemberType, srcMemberType,
                                 diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
                             diag.addMessage(`'${ name }' is an incompatible type`);
-                            wrongTypes.push(name);
+                            typesAreConsistent = false;
                         }
                     }
                 }
             }
         });
 
-        if (missingNames.length > 0 || wrongTypes.length > 0) {
-            return false;
-        }
+        return typesAreConsistent;
+    }
 
-        return true;
+    // Handle typed dicts. They also use a form of structural typing for type
+    // checking, as defined in PEP 589.
+    if (ClassType.isTypedDictClass(destType) && ClassType.isTypedDictClass(srcType)) {
+        let typesAreConsistent = true;
+        const destEntries = new StringMap<TypedDictEntry>();
+        getTypedDictMembersForClassRecursive(destType, destEntries);
+
+        const srcEntries = new StringMap<TypedDictEntry>();
+        getTypedDictMembersForClassRecursive(srcType, srcEntries);
+
+        destEntries.forEach((destEntry, name) => {
+            const srcEntry = srcEntries.get(name);
+            if (!srcEntry) {
+                diag.addMessage(`'${ name }' is missing from ${ printType(srcType) }`);
+                typesAreConsistent = false;
+            } else {
+                if (destEntry.isRequired && !srcEntry.isRequired) {
+                    diag.addMessage(`'${ name }' is required in ${ printType(destType) }`);
+                    typesAreConsistent = false;
+                } else if (!destEntry.isRequired && srcEntry.isRequired) {
+                    diag.addMessage(`'${ name }' is not required in ${ printType(destType) }`);
+                    typesAreConsistent = false;
+                }
+
+                if (!isTypeSame(destEntry.valueType, srcEntry.valueType, recursionCount + 1)) {
+                    diag.addMessage(`'${ name }' is an incompatible type`);
+                    typesAreConsistent = false;
+                }
+            }
+        });
+
+        return typesAreConsistent;
     }
 
     if (!allowSubclasses && !ClassType.isSameGenericClass(srcType, destType)) {

@@ -548,6 +548,54 @@ export class ExpressionEvaluator {
         }
     }
 
+    synthesizeTypedDictClassMethods(classType: ClassType) {
+        assert(ClassType.isTypedDictClass(classType));
+
+        // Synthesize a __new__ method.
+        const newType = FunctionType.create(
+            FunctionTypeFlags.StaticMethod | FunctionTypeFlags.SynthesizedMethod);
+        FunctionType.addParameter(newType, {
+            category: ParameterCategory.Simple,
+            name: 'cls',
+            type: classType
+        });
+        TypeUtils.addDefaultFunctionParameters(newType);
+        FunctionType.setDeclaredReturnType(newType, ObjectType.create(classType));
+
+        // Synthesize an __init__ method.
+        const initType = FunctionType.create(
+            FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
+        FunctionType.addParameter(initType, {
+            category: ParameterCategory.Simple,
+            name: 'self',
+            type: ObjectType.create(classType)
+        });
+
+        // All parameters must be named, so insert an empty "*".
+        FunctionType.addParameter(initType, {
+            category: ParameterCategory.VarArgList,
+            type: AnyType.create()
+        });
+
+        const entries = new StringMap<TypeUtils.TypedDictEntry>();
+        TypeUtils.getTypedDictMembersForClassRecursive(classType, entries);
+        entries.forEach((entry, name) => {
+            FunctionType.addParameter(initType, {
+                category: ParameterCategory.Simple,
+                name,
+                hasDefault: !entry.isRequired,
+                type: entry.valueType
+            });
+        });
+
+        setSymbolPreservingAccess(ClassType.getFields(classType),
+            '__init__', Symbol.createWithType(
+                SymbolFlags.ClassMember, initType, defaultTypeSourceId));
+        setSymbolPreservingAccess(ClassType.getFields(classType),
+            '__new__', Symbol.createWithType(
+                SymbolFlags.ClassMember, newType, defaultTypeSourceId));
+    }
+
     getTypingType(symbolName: string): Type | undefined {
         const typingImportPath = this._fileInfo.typingModulePath;
         if (!typingImportPath) {
@@ -686,7 +734,7 @@ export class ExpressionEvaluator {
             flags = EvaluatorFlags.None): TypeResult {
 
         // Is this type already cached?
-        if (this._readTypeFromCache) {
+        if (this._readTypeFromCache && (flags & EvaluatorFlags.DoNotCache) === 0) {
             const cachedType = this._readTypeFromCache(node);
             if (cachedType) {
                 return { type: cachedType, node };
@@ -1095,6 +1143,14 @@ export class ExpressionEvaluator {
 
             let type = memberInfo.symbolType;
 
+            // Don't include variables within typed dict classes.
+            if (ClassType.isTypedDictClass(classType)) {
+                const decls = TypeUtils.getPrimaryDeclarationsForSymbol(memberInfo.symbol);
+                if (decls && decls.length > 0 && decls[0].category === DeclarationCategory.Variable) {
+                    return undefined;
+                }
+            }
+
             if (usage.method === 'get') {
                 // Mark the member accessed if it's not coming from a parent class.
                 if (memberInfo.classType === classType && this._setSymbolAccessed) {
@@ -1355,6 +1411,64 @@ export class ExpressionEvaluator {
 
     private _getTypeFromIndexedObject(node: IndexExpressionNode,
             baseType: ObjectType, usage: EvaluatorUsage): Type {
+
+        // Handle index operations for TypedDict classes specially.
+        if (ClassType.isTypedDictClass(baseType.classType)) {
+            if (node.items.items.length !== 1) {
+                this._addError('Expected a one index argument', node);
+                return UnknownType.create();
+            }
+
+            const entries = new StringMap<TypeUtils.TypedDictEntry>();
+            TypeUtils.getTypedDictMembersForClassRecursive(baseType.classType, entries);
+
+            const indexType = this.getType(node.items.items[0]);
+            const diag = new DiagnosticAddendum();
+            const resultingType = TypeUtils.doForSubtypes(indexType, subtype => {
+                if (isAnyOrUnknown(subtype)) {
+                    return subtype;
+                }
+
+                if (subtype.category === TypeCategory.Object &&
+                        ClassType.isBuiltIn(subtype.classType, 'str') &&
+                        !!subtype.literalValue) {
+
+                    // Look up the entry in the typed dict to get its type.
+                    const entryName = subtype.literalValue as string;
+                    const entry = entries.get(entryName);
+                    if (!entry) {
+                        diag.addMessage(
+                            `'${ entryName }' is not a defined key in '${ printType(baseType) }'`);
+                        return UnknownType.create();
+                    }
+
+                    if (usage.method === 'set') {
+                        TypeUtils.canAssignType(entry.valueType, usage.setType!, diag);
+                    } else if (usage.method === 'del' && entry.isRequired) {
+                        this._addError(
+                            `'${ entryName }' is a required key and cannot be deleted`, node);
+                    }
+
+                    return entry.valueType;
+                }
+
+                diag.addMessage(`'${ printType(subtype) }' is not a string literal`);
+                return UnknownType.create();
+            });
+
+            if (diag.getMessageCount() > 0) {
+                let operationName = 'get';
+                if (usage.method === 'set') {
+                    operationName = 'set';
+                } else if (usage.method === 'del') {
+                    operationName = 'delete';
+                }
+                this._addError(`Could not ${ operationName } item in TypedDict` + diag.getString(),
+                    node);
+            }
+
+            return resultingType;
+        }
 
         let magicMethodName: string;
         if (usage.method === 'get') {
@@ -2072,14 +2186,14 @@ export class ExpressionEvaluator {
             } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
                 if (!this._validateArgType(paramType, argList[argIndex].type,
                         argList[argIndex].valueExpression || errorNode, typeVarMap,
-                        typeParams[paramIndex].name)) {
+                        typeParams[paramIndex].name, argList[argIndex].valueExpression)) {
                     reportedArgError = true;
                 }
                 argIndex++;
             } else {
                 if (!this._validateArgType(paramType, argList[argIndex].type,
                         argList[argIndex].valueExpression || errorNode, typeVarMap,
-                        typeParams[paramIndex].name)) {
+                        typeParams[paramIndex].name, argList[argIndex].valueExpression)) {
                     reportedArgError = true;
                 }
 
@@ -2125,14 +2239,14 @@ export class ExpressionEvaluator {
                                 const paramType = FunctionType.getEffectiveParameterType(type, paramInfoIndex);
                                 if (!this._validateArgType(paramType, argList[argIndex].type,
                                         argList[argIndex].valueExpression || errorNode, typeVarMap,
-                                        paramNameValue)) {
+                                        paramNameValue, argList[argIndex].valueExpression)) {
                                     reportedArgError = true;
                                 }
                             }
                         } else if (varArgDictParam) {
                             if (!this._validateArgType(varArgDictParam.type, argList[argIndex].type,
                                     argList[argIndex].valueExpression || errorNode, typeVarMap,
-                                    paramNameValue)) {
+                                    paramNameValue, argList[argIndex].valueExpression)) {
                                 reportedArgError = true;
                             }
                         } else {
@@ -2175,7 +2289,26 @@ export class ExpressionEvaluator {
     }
 
     private _validateArgType(paramType: Type, argType: Type, errorNode: ExpressionNode,
-            typeVarMap: TypeVarMap, paramName?: string): boolean {
+            typeVarMap: TypeVarMap, paramName?: string, valueExpression?: ExpressionNode): boolean {
+
+        // The argType should reflect the type of the valueExpression, but
+        // it may be too conservative a type. Now that we know the expected
+        // type of the parameter, we can re-evaluate the argType with the
+        // expected type in mind. We'll do this only for certain literal
+        // expression types (dictionaries, sets, lists).
+        if (valueExpression) {
+            if (valueExpression.nodeType === ParseNodeType.Dictionary ||
+                    valueExpression.nodeType === ParseNodeType.Set ||
+                    valueExpression.nodeType === ParseNodeType.List) {
+
+                this._silenceDiagnostics(() => {
+                    const exprType = this._getTypeFromExpression(valueExpression,
+                        { method: 'get', expectedType: paramType },
+                        EvaluatorFlags.DoNotCache);
+                    argType = exprType.type;
+                });
+            }
+        }
 
         const diag = new DiagnosticAddendum();
         if (!TypeUtils.canAssignType(paramType, argType, diag.createAddendum(), typeVarMap)) {
@@ -3143,19 +3276,41 @@ export class ExpressionEvaluator {
         });
 
         // If there is an expected type, see if we can match any parts of it.
-        if (usage.expectedType && keyTypes.length > 0) {
-            const specificDictType = ScopeUtils.getBuiltInObject(
-                this._scope, 'dict', [combineTypes(keyTypes), combineTypes(valueTypes)]);
-            const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
-                usage.expectedType, specificDictType);
+        if (usage.expectedType) {
+            const filteredTypedDict = TypeUtils.doForSubtypes(usage.expectedType, subtype => {
+                if (subtype.category !== TypeCategory.Object) {
+                    return undefined;
+                }
 
-            // Have we eliminated all of the expected subtypes? If not, return
-            // the remaining one(s) that match the specific type.
-            if (remainingExpectedType.category !== TypeCategory.Never) {
-                return { type: remainingExpectedType, node };
+                if (!ClassType.isTypedDictClass(subtype.classType)) {
+                    return undefined;
+                }
+
+                if (TypeUtils.canAssignToTypedDict(subtype.classType, keyTypes, valueTypes)) {
+                    return subtype;
+                }
+
+                return undefined;
+            });
+
+            if (filteredTypedDict.category !== TypeCategory.Never) {
+                return { type: filteredTypedDict, node };
             }
 
-            return { type: specificDictType, node };
+            if (keyTypes.length > 0) {
+                const specificDictType = ScopeUtils.getBuiltInObject(
+                    this._scope, 'dict', [combineTypes(keyTypes), combineTypes(valueTypes)]);
+                const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                    usage.expectedType, specificDictType);
+
+                // Have we eliminated all of the expected subtypes? If not, return
+                // the remaining one(s) that match the specific type.
+                if (remainingExpectedType.category !== TypeCategory.Never) {
+                    return { type: remainingExpectedType, node };
+                }
+
+                return { type: specificDictType, node };
+            }
         }
 
         // Strip any literal values.
