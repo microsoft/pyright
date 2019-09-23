@@ -306,10 +306,10 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
     }
 
     if (srcType.category === TypeCategory.Class) {
-        // Is the dest a generic "type" object?
         if (destType.category === TypeCategory.Object) {
             const destClassType = destType.classType;
             if (ClassType.isBuiltIn(destClassType)) {
+                // Is the dest a generic "type" object?
                 const destClassName = ClassType.getClassName(destClassType);
                 if (destClassName === 'type') {
                     return true;
@@ -322,6 +322,11 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                             ObjectType.create(srcType), diag.createAddendum(), typeVarMap,
                                 allowSubclasses, recursionCount + 1);
                     }
+                }
+
+                // All classes derive from object.
+                if (destClassName === 'object') {
+                    return true;
                 }
             }
         }
@@ -362,6 +367,13 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                         diag.createAddendum(), typeVarMap, recursionCount + 1, true)) {
                     return false;
                 }
+                return true;
+            }
+
+            // All functions are assignable to "object".
+            if (ClassType.isBuiltIn(destType.classType) &&
+                    ClassType.getClassName(destType.classType) === 'object') {
+
                 return true;
             }
         } else if (srcType.category === TypeCategory.Module) {
