@@ -3827,6 +3827,12 @@ export class ExpressionEvaluator {
             }
         }
 
+        // If no type args are provided and ellipses are allowed,
+        // default to ellipses. For example, Tuple is equivalent to Tuple[...]
+        if (!typeArgs && allowEllipsis) {
+            typeArgTypes.push(AnyType.create(true));
+        }
+
         const specializedType = ClassType.cloneForSpecialization(classType, typeArgTypes);
 
         return specializedType;
