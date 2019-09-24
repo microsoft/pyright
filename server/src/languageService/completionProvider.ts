@@ -191,22 +191,25 @@ export class CompletionProvider {
         // node.
         const initialNode = node;
         const initialDepth = node ? ParseTreeUtils.getNodeDepth(node) : 0;
-        let curOffset = offset;
-        while (curOffset >= 0) {
-            curOffset--;
 
-            // Stop scanning backward if we hit certain stop characters.
-            const curChar = this._fileContents.substr(curOffset, 1);
-            if (curChar === '(' || curChar === '\n') {
-                break;
-            }
+        if (!initialNode || initialNode.nodeType !== ParseNodeType.Name) {
+            let curOffset = offset;
+            while (curOffset >= 0) {
+                curOffset--;
 
-            const curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, curOffset);
-            if (curNode && curNode !== initialNode) {
-                if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
-                    node = curNode;
+                // Stop scanning backward if we hit certain stop characters.
+                const curChar = this._fileContents.substr(curOffset, 1);
+                if (curChar === '(' || curChar === '\n') {
+                    break;
                 }
-                break;
+
+                const curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, curOffset);
+                if (curNode && curNode !== initialNode) {
+                    if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
+                        node = curNode;
+                    }
+                    break;
+                }
             }
         }
 
