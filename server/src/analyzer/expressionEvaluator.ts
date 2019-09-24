@@ -1765,6 +1765,9 @@ export class ExpressionEvaluator {
                         className === 'Flag' || className === 'IntFlag') {
                     type = this._createEnumType(errorNode, callType, argList,
                         cachedExpressionNode);
+                } else if (className === 'TypedDict') {
+                    type = this._createTypedDictType(errorNode, callType, argList,
+                        cachedExpressionNode);
                 } else if (className === 'auto' && argList.length === 0) {
                     type = ScopeUtils.getBuiltInObject(this._scope, 'int');
                 }
@@ -2552,6 +2555,138 @@ export class ExpressionEvaluator {
         }
 
         return undefined;
+    }
+
+    // Creates a new custom TypedDict factory class.
+    // Supports both typed and untyped variants.
+    private _createTypedDictType(errorNode: ExpressionNode, typedDictClass: ClassType,
+            argList: FunctionArgument[], cachedExpressionNode?: ExpressionNode): ClassType {
+
+        let className = 'TypedDict';
+        if (argList.length === 0) {
+            this._addError('Expected TypedDict class name as first parameter', errorNode);
+        } else {
+            const nameArg = argList[0];
+            if (nameArg.argumentCategory !== ArgumentCategory.Simple ||
+                    !nameArg.valueExpression ||
+                    nameArg.valueExpression.nodeType !== ParseNodeType.StringList) {
+                this._addError('Expected TypedDict class name as first parameter',
+                    argList[0].valueExpression || errorNode);
+            } else {
+                className = nameArg.valueExpression.strings.map(s => s.value).join('');
+            }
+        }
+
+        // This is a hack to make TypedDict classes work correctly. We don't want
+        // to create a new ClassType for every analysis pass. Instead, we'll
+        // use the cached version and update it after the first pass.
+        const cachedCallType = cachedExpressionNode ?
+            AnalyzerNodeInfo.getExpressionType(cachedExpressionNode) :
+            undefined;
+
+        // Use the cached class type and update it if this isn't the first
+        // analysis path. If this is the first pass, allocate a new ClassType.
+        let classType = cachedCallType as ClassType;
+        if (!classType || classType.category !== TypeCategory.Class) {
+            classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
+
+            AnalyzerNodeInfo.setExpressionType(errorNode, classType);
+            ClassType.addBaseClass(classType, typedDictClass, false);
+            ClassType.setIsTypedDict(classType);
+        }
+
+        if (argList.length >= 3) {
+            if (!argList[2].name ||
+                    argList[2].name.nameToken.value !== 'total' ||
+                    !argList[2].valueExpression ||
+                    argList[2].valueExpression.nodeType !== ParseNodeType.Constant ||
+                    !(argList[2].valueExpression.token.keywordType === KeywordType.False ||
+                        argList[2].valueExpression.token.keywordType === KeywordType.True)) {
+
+                this._addError(`Expected 'total' parameter to have a value of 'True' or 'False'`,
+                    argList[2].valueExpression || errorNode);
+            } else if (argList[2].valueExpression.token.keywordType === KeywordType.False) {
+                ClassType.setCanOmitDictValues(classType);
+            }
+        }
+
+        if (argList.length > 3) {
+            this._addError('Extra TypedDict arguments not supported', argList[3].valueExpression || errorNode);
+        }
+
+        const classFields = ClassType.getFields(classType);
+        setSymbolPreservingAccess(classFields, '__class__',
+            Symbol.createWithType(SymbolFlags.ClassMember, classType, defaultTypeSourceId));
+
+        if (argList.length < 2) {
+            this._addError('Expected dict as second parameter', errorNode);
+        } else {
+            const entriesArg = argList[1];
+            if (entriesArg.argumentCategory !== ArgumentCategory.Simple ||
+                    !entriesArg.valueExpression ||
+                    entriesArg.valueExpression.nodeType !== ParseNodeType.Dictionary) {
+                this._addError('Expected dict as second parameter', errorNode);
+            } else {
+                const entryDict = entriesArg.valueExpression;
+                const entryMap = new StringMap<boolean>();
+
+                entryDict.entries.forEach(entry => {
+                    if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
+                        this._addError('Expected simple dictionary entry', entry);
+                        return;
+                    }
+
+                    let entryType: Type | undefined;
+                    const entryTypeInfo = this._getTypeFromExpression(entry.valueExpression);
+                    if (entryTypeInfo) {
+                        entryType = TypeUtils.convertClassToObject(entryTypeInfo.type);
+                    } else {
+                        entryType = UnknownType.create();
+                    }
+
+                    if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
+                        this._addError('Expected string literal for entry name', entry.keyExpression);
+                        return;
+                    }
+
+                    const entryName = entry.keyExpression.strings.map(s => s.value).join('');
+                    if (!entryName) {
+                        this._addError(
+                            'Names within a TypedDict cannot be empty', entry.keyExpression);
+                        return;
+                    }
+
+                    if (entryMap.get(entryName)) {
+                        this._addError(
+                            'Names within a named tuple must be unique', entry.keyExpression);
+                        return;
+                    }
+
+                    // Record names in a map to detect duplicates.
+                    entryMap.set(entryName, true);
+
+                    const newSymbol = Symbol.createWithType(
+                        SymbolFlags.InstanceMember, entryType, defaultTypeSourceId);
+
+                    const declaration: Declaration = {
+                        category: DeclarationCategory.Variable,
+                        node: entry.keyExpression,
+                        path: this._fileInfo.filePath,
+                        declaredType: entryType,
+                        range: convertOffsetsToRange(
+                            entry.keyExpression.start, TextRange.getEnd(entry.keyExpression),
+                            this._fileInfo.lines)
+                    };
+                    newSymbol.addDeclaration(declaration);
+
+                    setSymbolPreservingAccess(classFields, entryName, newSymbol);
+                });
+            }
+        }
+
+        this.synthesizeTypedDictClassMethods(classType);
+
+        return classType;
     }
 
     // Creates a new custom tuple factory class with named values.
