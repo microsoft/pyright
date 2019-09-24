@@ -1742,7 +1742,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
     if (ClassType.isDerivedFrom(srcType, destType, inheritanceChain)) {
         assert(inheritanceChain.length > 0);
 
-        return _canAssignClassWithTypeArgs(srcType, inheritanceChain,
+        return _canAssignClassWithTypeArgs(destType, srcType, inheritanceChain,
             diag, typeVarMap, recursionCount + 1);
     }
 
@@ -1760,7 +1760,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
 
 // Determines whether the specified type can be assigned to the
 // specified inheritance chain, taking into account its type arguments.
-function _canAssignClassWithTypeArgs(srcType: ClassType,
+function _canAssignClassWithTypeArgs(destType: ClassType, srcType: ClassType,
         inheritanceChain: InheritanceChain, diag: DiagnosticAddendum,
         typeVarMap: TypeVarMap | undefined, recursionCount: number): boolean {
 
@@ -1769,99 +1769,125 @@ function _canAssignClassWithTypeArgs(srcType: ClassType,
     for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
         const ancestorType = inheritanceChain[ancestorIndex];
 
-        if (isAnyOrUnknown(ancestorType)) {
+        // If we've hit an "unknown", all bets are off, and we need to assume
+        // that the type is assignable.
+        if (ancestorType.category === TypeCategory.Unknown) {
             return true;
         }
 
-        if (ancestorType.category === TypeCategory.Class) {
-            // If this isn't the first time through the loop, specialize
-            // for the next ancestor in the chain.
-            if (ancestorIndex < inheritanceChain.length - 1) {
-                curSrcType = _specializeForBaseClass(curSrcType,
-                    ancestorType, recursionCount + 1);
-            }
+        // If we've hit an 'object', it's assignable.
+        if (ClassType.isBuiltIn(ancestorType, 'object')) {
+            return true;
+        }
 
-            if (ClassType.isSpecialBuiltIn(ancestorType)) {
-                assert(ClassType.isSameGenericClass(curSrcType, ancestorType));
+        // If this isn't the first time through the loop, specialize
+        // for the next ancestor in the chain.
+        if (ancestorIndex < inheritanceChain.length - 1) {
+            curSrcType = _specializeForBaseClass(curSrcType, ancestorType, recursionCount + 1);
+        }
 
-                // Handle built-in types that support arbitrary numbers
-                // of type parameters like Tuple.
-                if (ClassType.getClassName(ancestorType) === 'Tuple') {
-                    const ancestorTypeArgs = ClassType.getTypeArguments(ancestorType) || [];
-                    const srcTypeArgs = ClassType.getTypeArguments(curSrcType) || [];
-                    let destArgCount = ancestorTypeArgs.length;
-                    const destAllowsMoreArgs = destArgCount &&
-                        isEllipsisType(ancestorTypeArgs[destArgCount - 1]);
-                    if (destAllowsMoreArgs) {
-                        destArgCount--;
-                    }
-
-                    if (srcTypeArgs.length === destArgCount ||
-                            (destAllowsMoreArgs && srcTypeArgs.length >= destArgCount)) {
-                        for (let i = 0; i < destArgCount; i++) {
-                            if (!canAssignType(ancestorTypeArgs[i], srcTypeArgs[i],
-                                    diag.createAddendum(), typeVarMap, undefined, recursionCount + 1)) {
-                                diag.addMessage(`Tuple entry ${ i + 1 } is incorrect type`);
-                                return false;
-                            }
-                        }
-                    } else {
-                        diag.addMessage(
-                            `Tuple size mismatch: expected ${ destArgCount }` +
-                                ` but got ${ srcTypeArgs.length }`);
-                        return false;
-                    }
-
-                    return true;
+        // Do we need to do special-case processing for various built-in classes?
+        if (ancestorIndex === 0 && ClassType.isSpecialBuiltIn(destType)) {
+            // Handle built-in types that support arbitrary numbers
+            // of type parameters like Tuple.
+            if (ClassType.getClassName(destType) === 'Tuple') {
+                const destTypeArgs = ClassType.getTypeArguments(destType) || [];
+                const srcTypeArgs = ClassType.getTypeArguments(curSrcType) || [];
+                let destArgCount = destTypeArgs.length;
+                const destAllowsMoreArgs = destArgCount &&
+                    isEllipsisType(destTypeArgs[destArgCount - 1]);
+                if (destAllowsMoreArgs) {
+                    destArgCount--;
                 }
-            }
 
-            // If there are no type parameters on this class, we're done.
-            const ancestorTypeParams = ClassType.getTypeParameters(ancestorType);
-            if (ancestorTypeParams.length === 0) {
-                continue;
-            }
+                if (srcTypeArgs.length === destArgCount ||
+                        (destAllowsMoreArgs && srcTypeArgs.length >= destArgCount)) {
+                    for (let i = 0; i < destArgCount; i++) {
+                        if (!canAssignType(destTypeArgs[i], srcTypeArgs[i],
+                                diag.createAddendum(), typeVarMap, undefined, recursionCount + 1)) {
+                            diag.addMessage(`Tuple entry ${ i + 1 } is incorrect type`);
+                            return false;
+                        }
+                    }
+                } else {
+                    diag.addMessage(
+                        `Tuple size mismatch: expected ${ destArgCount }` +
+                            ` but got ${ srcTypeArgs.length }`);
+                    return false;
+                }
 
-            assert(ClassType.isSameGenericClass(curSrcType, ancestorType));
-
-            const ancestorTypeArgs = ClassType.getTypeArguments(ancestorType)!;
-            // If the dest type isn't specialized, there are no type
-            // args to validate.
-            if (!ancestorTypeArgs) {
                 return true;
             }
+        }
 
-            // Validate that the type arguments match.
-            const srcTypeArgs = ClassType.getTypeArguments(curSrcType);
-            if (srcTypeArgs) {
-                if (ClassType.isSpecialBuiltIn(srcType) || srcTypeArgs.length === ancestorTypeArgs.length) {
-                    for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
-                        const srcTypeArg = srcTypeArgs[srcArgIndex];
+        // If there are no type parameters on this class, we're done.
+        const ancestorTypeParams = ClassType.getTypeParameters(ancestorType);
+        if (ancestorTypeParams.length === 0) {
+            continue;
+        }
 
-                        // In most cases, the ancestor type param count should match, but
-                        // there are a few special cases where this isn't true (e.g. assigning
-                        // a Tuple[X, Y, Z] to a tuple[W]).
-                        const ancestorArgIndex = srcArgIndex >= ancestorTypeParams.length ?
-                                ancestorTypeParams.length - 1 : srcArgIndex;
-                        const typeParam = ancestorTypeParams[ancestorArgIndex];
-                        const ancestorTypeArg = ancestorTypeArgs[ancestorArgIndex];
+        // If the dest type isn't specialized, there are no type args to validate.
+        const ancestorTypeArgs = ClassType.getTypeArguments(ancestorType)!;
+        if (!ancestorTypeArgs) {
+            return true;
+        }
 
-                        if (typeParam.isCovariant) {
-                            if (!canAssignType(ancestorTypeArg, srcTypeArg,
-                                    diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
-                                return false;
-                            }
-                        } else if (typeParam.isContravariant) {
-                            if (!canAssignType(srcTypeArg, ancestorTypeArg,
-                                    diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
-                                return false;
-                            }
-                        } else {
-                            if (!canAssignType(ancestorTypeArg, srcTypeArg,
-                                    diag.createAddendum(), typeVarMap, false, recursionCount + 1)) {
-                                return false;
-                            }
-                        }
+        // Validate that the type arguments match.
+        if (!_verifyTypeArgumentsAssignable(ancestorType, curSrcType, diag, typeVarMap, recursionCount)) {
+            return false;
+        }
+    }
+
+    // If the dest type is specialized, make sure the specialized source
+    // type arguments are assignable to the dest type arguments.
+    if (destType.typeArguments) {
+        if (!_verifyTypeArgumentsAssignable(destType, curSrcType, diag, undefined, recursionCount)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function _verifyTypeArgumentsAssignable(destType: ClassType, srcType: ClassType,
+        diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined,
+        recursionCount: number) {
+
+    assert(ClassType.isSameGenericClass(destType, srcType));
+
+    const destTypeParams = ClassType.getTypeParameters(destType);
+    const destTypeArgs = ClassType.getTypeArguments(destType)!;
+    assert(destTypeArgs !== undefined);
+    const srcTypeArgs = ClassType.getTypeArguments(srcType);
+
+    if (srcTypeArgs) {
+        if (ClassType.isSpecialBuiltIn(srcType) || srcTypeArgs.length === destTypeParams.length) {
+            for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
+                const srcTypeArg = srcTypeArgs[srcArgIndex];
+
+                // In most cases, the number of type args should match the number
+                // of type arguments, but there are a few special cases where this
+                // isn't true (e.g. assigning a Tuple[X, Y, Z] to a tuple[W]).
+                const destArgIndex = srcArgIndex >= destTypeArgs.length ?
+                        destTypeArgs.length - 1 : srcArgIndex;
+                const destTypeArg = destTypeArgs[destArgIndex];
+                const destTypeParam = destArgIndex < destTypeParams.length ?
+                    destTypeParams[destArgIndex] : undefined;
+
+                if (!destTypeParam || destTypeParam.isCovariant) {
+                    if (!canAssignType(destTypeArg, srcTypeArg,
+                            diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
+                        return false;
+                    }
+                } else if (destTypeParam.isContravariant) {
+                    if (!canAssignType(srcTypeArg, destTypeArg,
+                            diag.createAddendum(), typeVarMap, true, recursionCount + 1)) {
+                        return false;
+                    }
+                } else {
+                    if (!canAssignType(destTypeArg, srcTypeArg,
+                            diag.createAddendum(), typeVarMap, false, recursionCount + 1)) {
+                        return false;
                     }
                 }
             }

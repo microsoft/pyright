@@ -454,13 +454,13 @@ export namespace ClassType {
     // array to inheritanceChain, it will be filled in by
     // the call to include the chain of inherited classes starting
     // with type2 and ending with this type.
-    export function isDerivedFrom(classType: ClassType,
-            type2: ClassType, inheritanceChain?: InheritanceChain): boolean {
+    export function isDerivedFrom(subclassType: ClassType,
+            parentClassType: ClassType, inheritanceChain?: InheritanceChain): boolean {
 
         // Is it the exact same class?
-        if (isSameGenericClass(classType, type2)) {
+        if (isSameGenericClass(subclassType, parentClassType)) {
             if (inheritanceChain) {
-                inheritanceChain.push(type2);
+                inheritanceChain.push(subclassType);
             }
             return true;
         }
@@ -468,24 +468,24 @@ export namespace ClassType {
         // Handle built-in types like 'dict' and 'list', which are all
         // subclasses of object even though they are not explicitly declared
         // that way.
-        if (isBuiltIn(classType) && isBuiltIn(type2, 'object')) {
+        if (isBuiltIn(subclassType) && isBuiltIn(parentClassType, 'object')) {
             if (inheritanceChain) {
-                inheritanceChain.push(type2);
+                inheritanceChain.push(parentClassType);
             }
             return true;
         }
 
-        for (const baseClass of getBaseClasses(classType)) {
+        for (const baseClass of getBaseClasses(subclassType)) {
             if (baseClass.type.category === TypeCategory.Class) {
-                if (isDerivedFrom(baseClass.type, type2, inheritanceChain)) {
+                if (isDerivedFrom(baseClass.type, parentClassType, inheritanceChain)) {
                     if (inheritanceChain) {
-                        inheritanceChain.push(classType);
+                        inheritanceChain.push(subclassType);
                     }
                     return true;
                 }
             } else if (isAnyOrUnknown(baseClass.type)) {
                 if (inheritanceChain) {
-                    inheritanceChain.push(classType);
+                    inheritanceChain.push(UnknownType.create());
                 }
                 return true;
             }
