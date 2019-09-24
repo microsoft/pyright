@@ -3933,8 +3933,10 @@ export class ExpressionEvaluator {
             // Verify that we didn't receive any inappropriate ellipses or modules.
             typeArgs.forEach((typeArg, index) => {
                 if (TypeUtils.isEllipsisType(typeArg.type)) {
-                    if (!allowEllipsis || index !== typeArgs.length - 1) {
+                    if (!allowEllipsis) {
                         this._addError(`'...' not allowed in this context`, typeArgs[index].node);
+                    } else if (typeArgs.length !== 2 || index !== 1) {
+                        this._addError(`'...' allowed only as the second of two arguments`, typeArgs[index].node);
                     }
                     if (typeArg.type.category === TypeCategory.Module) {
                         this._addError(`Module not allowed in this context`, typeArg.node);
@@ -3963,8 +3965,10 @@ export class ExpressionEvaluator {
         }
 
         // If no type args are provided and ellipses are allowed,
-        // default to ellipses. For example, Tuple is equivalent to Tuple[...]
+        // default to [Any, ...]. For example, Tuple is equivalent
+        // to Tuple[Any, ...].
         if (!typeArgs && allowEllipsis) {
+            typeArgTypes.push(AnyType.create(false));
             typeArgTypes.push(AnyType.create(true));
         }
 

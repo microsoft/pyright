@@ -1792,18 +1792,24 @@ function _canAssignClassWithTypeArgs(destType: ClassType, srcType: ClassType,
             // of type parameters like Tuple.
             if (ClassType.getClassName(destType) === 'Tuple') {
                 const destTypeArgs = ClassType.getTypeArguments(destType) || [];
-                const srcTypeArgs = ClassType.getTypeArguments(curSrcType) || [];
                 let destArgCount = destTypeArgs.length;
-                const destAllowsMoreArgs = destArgCount &&
-                    isEllipsisType(destTypeArgs[destArgCount - 1]);
-                if (destAllowsMoreArgs) {
-                    destArgCount--;
+                const isDestHomogenousTuple = destArgCount === 2 && isEllipsisType(destTypeArgs[1]);
+                if (isDestHomogenousTuple) {
+                    destArgCount = 1;
                 }
 
-                if (srcTypeArgs.length === destArgCount ||
-                        (destAllowsMoreArgs && srcTypeArgs.length >= destArgCount)) {
-                    for (let i = 0; i < destArgCount; i++) {
-                        if (!canAssignType(destTypeArgs[i], srcTypeArgs[i],
+                const srcTypeArgs = ClassType.getTypeArguments(curSrcType) || [];
+                let srcArgCount = srcTypeArgs.length;
+                const isSrcHomogeneousType = srcArgCount === 2 && isEllipsisType(srcTypeArgs[1]);
+                if (isSrcHomogeneousType) {
+                    srcArgCount = 1;
+                }
+
+                if (srcTypeArgs.length === destArgCount || isDestHomogenousTuple || isSrcHomogeneousType) {
+                    for (let i = 0; i < Math.min(destArgCount, srcArgCount); i++) {
+                        const expectedDestType = isDestHomogenousTuple ? destTypeArgs[0] : destTypeArgs[i];
+                        const expectedSrcType = isSrcHomogeneousType ? srcTypeArgs[0] : srcTypeArgs[i];
+                        if (!canAssignType(expectedDestType, expectedSrcType,
                                 diag.createAddendum(), typeVarMap, undefined, recursionCount + 1)) {
                             diag.addMessage(`Tuple entry ${ i + 1 } is incorrect type`);
                             return false;
