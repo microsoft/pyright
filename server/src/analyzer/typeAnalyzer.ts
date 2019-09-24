@@ -3490,20 +3490,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const nameValue = nameNode.nameToken.value;
 
-        // If this is a member name (within a class scope) and the member name
-        // appears to be a constant, use the strict source type. If it's a member
-        // variable that can be overridden by a child class, use the more general
-        // version by stripping off the literal.
-        if (ScopeUtils.getPermanentScope(this._currentScope).getType() === ScopeType.Class) {
-            const isConstant = SymbolNameUtils.isConstantName(nameValue);
-            const isPrivate = SymbolNameUtils.isPrivateOrProtectedName(nameValue);
-            const honorPrivateNaming = this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
-
-            if (!isConstant && (!isPrivate || !honorPrivateNaming)) {
-                srcType = TypeUtils.stripLiteralValue(srcType);
-            }
-        }
-
         // Determine if there's a declared type for this symbol.
         let declaredType: Type | undefined = declaration ? declaration.declaredType : undefined;
         let primaryDecl: Declaration | undefined;
@@ -3532,6 +3518,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
             } else {
                 // Constrain the resulting type to match the declared type.
                 destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(declaredType, srcType);
+            }
+        } else {
+            // If this is a member name (within a class scope) and the member name
+            // appears to be a constant, use the strict source type. If it's a member
+            // variable that can be overridden by a child class, use the more general
+            // version by stripping off the literal.
+            if (ScopeUtils.getPermanentScope(this._currentScope).getType() === ScopeType.Class) {
+                const isConstant = SymbolNameUtils.isConstantName(nameValue);
+                const isPrivate = SymbolNameUtils.isPrivateOrProtectedName(nameValue);
+                const honorPrivateNaming = this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
+
+                if (!isConstant && (!isPrivate || !honorPrivateNaming)) {
+                    destType = TypeUtils.stripLiteralValue(destType);
+                }
             }
         }
 
