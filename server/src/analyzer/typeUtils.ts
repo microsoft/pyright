@@ -1743,6 +1743,19 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
         return typesAreConsistent;
     }
 
+    // Special-case conversion for the "numeric tower".
+    if (ClassType.isBuiltIn(destType, 'float')) {
+        if (ClassType.isBuiltIn(srcType, 'int')) {
+            return true;
+        }
+    }
+
+    if (ClassType.isBuiltIn(destType, 'complex')) {
+        if (ClassType.isBuiltIn(srcType, 'int') || ClassType.isBuiltIn(srcType, 'float')) {
+            return true;
+        }
+    }
+
     if ((flags & CanAssignFlags.EnforceInvariance) !== 0 && !ClassType.isSameGenericClass(srcType, destType)) {
         const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
         const srcErrorType = reportErrorsUsingObjType ? ObjectType.create(srcType) : srcType;
@@ -1757,19 +1770,6 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
 
         return _canAssignClassWithTypeArgs(destType, srcType, inheritanceChain,
             diag, typeVarMap, recursionCount + 1);
-    }
-
-    // Special-case conversion for the "numeric tower".
-    if (ClassType.isBuiltIn(destType, 'float')) {
-        if (ClassType.isBuiltIn(srcType, 'int')) {
-            return true;
-        }
-    }
-
-    if (ClassType.isBuiltIn(destType, 'complex')) {
-        if (ClassType.isBuiltIn(srcType, 'int') || ClassType.isBuiltIn(srcType, 'float')) {
-            return true;
-        }
     }
 
     const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
@@ -1869,7 +1869,7 @@ function _canAssignClassWithTypeArgs(destType: ClassType, srcType: ClassType,
     // If the dest type is specialized, make sure the specialized source
     // type arguments are assignable to the dest type arguments.
     if (destType.typeArguments) {
-        if (!_verifyTypeArgumentsAssignable(destType, curSrcType, diag, undefined, recursionCount)) {
+        if (!_verifyTypeArgumentsAssignable(destType, curSrcType, diag, typeVarMap, recursionCount)) {
             return false;
         }
     }

@@ -3304,6 +3304,14 @@ export class ExpressionEvaluator {
         });
     }
 
+    private _specializeExpectedType(expectedType: Type, srcType: Type) {
+        // The expected type might be generic, so we need to specialize it.
+        const typeVarMap = new TypeVarMap();
+        const diag = new DiagnosticAddendum();
+        TypeUtils.canAssignType(expectedType, srcType, diag, typeVarMap);
+        return TypeUtils.specializeType(expectedType, typeVarMap);
+    }
+
     private _getTypeFromSetExpression(node: SetNode, usage: EvaluatorUsage): TypeResult {
         const entryTypes: Type[] = [];
 
@@ -3327,7 +3335,8 @@ export class ExpressionEvaluator {
             // Have we eliminated all of the expected subtypes? If not, return
             // the remaining one(s) that match the specific type.
             if (remainingExpectedType.category !== TypeCategory.Never) {
-                return { type: remainingExpectedType, node };
+                const specializedType = this._specializeExpectedType(remainingExpectedType, specificSetType);
+                return { type: specializedType, node };
             }
 
             return { type: specificSetType, node };
@@ -3435,7 +3444,8 @@ export class ExpressionEvaluator {
                 // Have we eliminated all of the expected subtypes? If not, return
                 // the remaining one(s) that match the specific type.
                 if (remainingExpectedType.category !== TypeCategory.Never) {
-                    return { type: remainingExpectedType, node };
+                    const specializedType = this._specializeExpectedType(remainingExpectedType, specificDictType);
+                    return { type: specializedType, node };
                 }
 
                 return { type: specificDictType, node };
@@ -3486,7 +3496,8 @@ export class ExpressionEvaluator {
                 // Have we eliminated all of the expected subtypes? If not, return
                 // the remaining one(s) that match the specific type.
                 if (remainingExpectedType.category !== TypeCategory.Never) {
-                    return { type: remainingExpectedType, node };
+                    const specializedType = this._specializeExpectedType(remainingExpectedType, specificListType);
+                    return { type: specializedType, node };
                 }
 
                 return { type: specificListType, node };

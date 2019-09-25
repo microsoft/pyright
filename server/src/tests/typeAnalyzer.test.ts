@@ -610,6 +610,12 @@ test('GenericTypes1', () => {
     validateResults(analysisResults, 2);
 });
 
+test('GenericTypes2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes2.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 
