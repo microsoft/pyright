@@ -2922,10 +2922,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let addNewMemberToLocalClass = false;
             let inheritedDeclaration: Declaration | undefined;
             if (memberInfo) {
-                if (memberInfo.classType.category === TypeCategory.Class &&
-                        ClassType.isSameGenericClass(classType, memberInfo.classType) &&
-                        memberInfo.isInstanceMember === isInstanceMember) {
+                // Are we accessing an existing member on this class, or is
+                // it a member on a parent class?
+                const isThisClass = memberInfo.classType.category === TypeCategory.Class &&
+                        ClassType.isSameGenericClass(classType, memberInfo.classType);
 
+                if (isThisClass && memberInfo.isInstanceMember === isInstanceMember) {
                     const symbol = memberFields.get(memberName);
                     assert(symbol !== undefined);
 
@@ -2960,10 +2962,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 } else {
                     // Is the target a property?
-                    const prevDeclarations = memberInfo.symbol.getDeclarations();
-                    if (prevDeclarations.length > 0 && prevDeclarations[0].declaredType &&
-                            prevDeclarations[0].declaredType.category === TypeCategory.Property) {
-
+                    const prevDeclarations = TypeUtils.getPrimaryDeclarationsForSymbol(memberInfo.symbol) || [];
+                    const prevDeclaredType = prevDeclarations.length > 0 ?
+                        prevDeclarations[0].declaredType : undefined;
+                    if (prevDeclaredType && prevDeclaredType.category === TypeCategory.Property) {
                         // Don't add a type constraint because a property getter and
                         // setter are not guaranteed to use the same type.
                         addTypeConstraintForAssignment = false;
@@ -2980,9 +2982,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             // The class variable is accessed in this case.
                             this._setSymbolAccessed(memberInfo.symbol);
                             srcType = combineTypes([srcType, memberInfo.symbolType]);
+                            addNewMemberToLocalClass = true;
+                        } else if (typeAnnotationNode) {
+                            // If there is an explicit type, add the member to the local class.
+                            // We may be overriding the type declared in the base class.
+                            addNewMemberToLocalClass = true;
+                        } else {
+                            // If the parent declared a type but we're not declaring a type
+                            // in the subclass, assume that it should inherit the parent's type.
+                            // Otherwise we'll allow the inferred type in this class to override
+                            // the inferred type in the parent class.
+                            if (!isThisClass && !prevDeclaredType) {
+                                addNewMemberToLocalClass = true;
+                            }
                         }
-
-                        addNewMemberToLocalClass = true;
                     }
                 }
             } else {

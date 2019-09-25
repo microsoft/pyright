@@ -28,17 +28,17 @@ import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parse
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationCategory } from './declaration';
-import { defaultTypeSourceId } from './inferredType';
+import { defaultTypeSourceId, TypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Scope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { setSymbolPreservingAccess, Symbol, SymbolFlags } from './symbol';
 import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
-import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
-    FunctionType, FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound,
-    isTypeSame, isUnbound, LiteralValue, NeverType, NoneType, ObjectType, OverloadedFunctionType,
-    printType, removeAnyFromUnion, removeNoneFromUnion, requiresSpecialization,
+import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
+    FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound, isTypeSame,
+    isUnbound, LiteralValue, NeverType, NoneType, ObjectType, OverloadedFunctionType,
+    printType, removeNoneFromUnion, requiresSpecialization,
     Type, TypeCategory, TypeVarMap, TypeVarType, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
@@ -128,15 +128,15 @@ export type ReadTypeFromNodeCacheCallback = (node: ExpressionNode) => Type | und
 export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) => void;
 export type SetSymbolAccessedCallback = (symbol: Symbol) => void;
 
-const arithmeticOperatorMap: { [operator: number]: [string, string, boolean] } = {
-    [OperatorType.Add]: ['__add__', '__radd__', true],
-    [OperatorType.Subtract]: ['__sub__', '__rsub__', true],
-    [OperatorType.Multiply]: ['__mul__', '__rmul__', true],
-    [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__', true],
-    [OperatorType.Divide]: ['__truediv__', '__rtruediv__', true],
-    [OperatorType.Mod]: ['__mod__', '__rmod__', true],
-    [OperatorType.Power]: ['__pow__', '__rpow__', true],
-    [OperatorType.MatrixMultiply]: ['__matmul__', '', false]
+const arithmeticOperatorMap: { [operator: number]: [string, string] } = {
+    [OperatorType.Add]: ['__add__', '__radd__'],
+    [OperatorType.Subtract]: ['__sub__', '__rsub__'],
+    [OperatorType.Multiply]: ['__mul__', '__rmul__'],
+    [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__'],
+    [OperatorType.Divide]: ['__truediv__', '__rtruediv__'],
+    [OperatorType.Mod]: ['__mod__', '__rmod__'],
+    [OperatorType.Power]: ['__pow__', '__rpow__'],
+    [OperatorType.MatrixMultiply]: ['__matmul__', '']
 };
 
 const bitwiseOperatorMap: { [operator: number]: [string, string] } = {
@@ -147,13 +147,13 @@ const bitwiseOperatorMap: { [operator: number]: [string, string] } = {
     [OperatorType.RightShift]: ['__rshift__', '__rrshift__']
 };
 
-const comparisonOperatorMap: { [operator: number]: string } = {
-    [OperatorType.Equals]: '__eq__',
-    [OperatorType.NotEquals]: '__ne__',
-    [OperatorType.LessThan]: '__lt__',
-    [OperatorType.LessThanOrEqual]: '__le__',
-    [OperatorType.GreaterThan]: '__gt__',
-    [OperatorType.GreaterThanOrEqual]: '__ge__'
+const comparisonOperatorMap: { [operator: number]: [string, string] } = {
+    [OperatorType.Equals]: ['__eq__', '__ne__'],
+    [OperatorType.NotEquals]: ['__ne__', '__eq__'],
+    [OperatorType.LessThan]: ['__lt__', '__gt__'],
+    [OperatorType.LessThanOrEqual]: ['__le__', '__ge__'],
+    [OperatorType.GreaterThan]: ['__gt__', '__lt__'],
+    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__le__']
 };
 
 const booleanOperatorMap: { [operator: number]: boolean } = {
@@ -3097,15 +3097,28 @@ export class ExpressionEvaluator {
         const leftType = this.getType(node.leftExpression);
         const rightType = this.getType(node.rightExpression);
 
-        if (!isAnyOrUnknown(leftType) && !isAnyOrUnknown(rightType)) {
-            const magicMethodName = operatorMap[node.operator][0];
-            type = this._getTypeFromMagicMethodReturn(rightType, [leftType],
-                magicMethodName, node);
-        }
+        type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
+            return TypeUtils.doForSubtypes(rightType, rightSubtype => {
+                if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
+                    // If either type is "Unknown" (versus Any), propagate the Unknown.
+                    if (leftSubtype.category === TypeCategory.Unknown ||
+                            rightSubtype.category === TypeCategory.Unknown) {
+
+                        return UnknownType.create();
+                    } else {
+                        return AnyType.create();
+                    }
+                }
+
+                const magicMethodName = operatorMap[node.operator][0];
+                return this._getTypeFromMagicMethodReturn(rightSubtype, [leftSubtype],
+                    magicMethodName, node);
+            });
+        });
 
         // If the LHS class didn't support the magic method for augmented
         // assignment, fall back on the normal binary expression evaluator.
-        if (!type) {
+        if (!type || type.category === TypeCategory.Never) {
             const binaryOperator = operatorMap[node.operator][1];
             type = this._validateBinaryExpression(binaryOperator, leftType, rightType, node);
         }
@@ -3119,117 +3132,98 @@ export class ExpressionEvaluator {
         let type: Type | undefined;
 
         if (arithmeticOperatorMap[operator]) {
-            if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
-                // If either type is "Unknown" (versus Any), propagate the Unknown.
-                if (leftType.category === TypeCategory.Unknown || rightType.category === TypeCategory.Unknown) {
-                    type = UnknownType.create();
-                } else {
-                    type = AnyType.create();
-                }
-            } else {
-                const supportsBuiltInTypes = arithmeticOperatorMap[operator][2];
+            type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
+                return TypeUtils.doForSubtypes(rightType, rightSubtype => {
+                    if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
+                        // If either type is "Unknown" (versus Any), propagate the Unknown.
+                        if (leftSubtype.category === TypeCategory.Unknown ||
+                                rightSubtype.category === TypeCategory.Unknown) {
 
-                if (supportsBuiltInTypes) {
-                    const simplifiedLeftType = removeAnyFromUnion(leftType);
-                    const simplifiedRightType = removeAnyFromUnion(rightType);
-                    if (simplifiedLeftType.category === TypeCategory.Object && simplifiedRightType.category === TypeCategory.Object) {
-                        const builtInClassTypes = this._getBuiltInClassTypes(['int', 'float', 'complex']);
-                        const getTypeMatch = (classType: ClassType): boolean[] => {
-                            let foundMatch = false;
-                            return builtInClassTypes.map(builtInType => {
-                                if (builtInType && ClassType.isSameGenericClass(builtInType, classType)) {
-                                    foundMatch = true;
-                                }
-                                return foundMatch;
-                            });
-                        };
-
-                        const leftClassMatches = getTypeMatch(simplifiedLeftType.classType);
-                        const rightClassMatches = getTypeMatch(simplifiedRightType.classType);
-
-                        if (leftClassMatches[0] && rightClassMatches[0]) {
-                            // If they're both int types, the result is an int.
-                            type = ObjectType.create(builtInClassTypes[0]!);
-                        } else if (leftClassMatches[1] && rightClassMatches[1]) {
-                            // If they're both floats or one is a float and one is an int,
-                            // the result is a float.
-                            type = ObjectType.create(builtInClassTypes[1]!);
-                        } else if (leftClassMatches[2] && rightClassMatches[2]) {
-                            // If one is complex and the other is complex, float or int,
-                            // the result is complex.
-                            type = ObjectType.create(builtInClassTypes[2]!);
+                            return UnknownType.create();
+                        } else {
+                            return AnyType.create();
                         }
                     }
-                }
-            }
 
-            // Handle the general case.
-            if (!type) {
-                const magicMethodName = arithmeticOperatorMap[operator][0];
-                type = this._getTypeFromMagicMethodReturn(leftType, [rightType],
-                    magicMethodName, errorNode);
+                    const magicMethodName = arithmeticOperatorMap[operator][0];
+                    const resultType = this._getTypeFromMagicMethodReturn(leftSubtype, [rightSubtype],
+                        magicMethodName, errorNode);
+                    if (resultType) {
+                        return resultType;
+                    }
 
-                if (!type) {
                     const altMagicMethodName = arithmeticOperatorMap[operator][1];
-                    type = this._getTypeFromMagicMethodReturn(rightType, [leftType],
+                    return this._getTypeFromMagicMethodReturn(rightSubtype, [leftSubtype],
                         altMagicMethodName, errorNode);
-                }
-            }
+                });
+            });
         } else if (bitwiseOperatorMap[operator]) {
-            if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
-                // If either type is "Unknown" (versus Any), propagate the Unknown.
-                if (leftType.category === TypeCategory.Unknown || rightType.category === TypeCategory.Unknown) {
-                    type = UnknownType.create();
-                } else {
-                    type = AnyType.create();
-                }
-            } else if (leftType.category === TypeCategory.Object && rightType.category === TypeCategory.Object) {
-                const intType = ScopeUtils.getBuiltInType(this._scope, 'int');
-                const leftIsInt = intType.category === TypeCategory.Class &&
-                    ClassType.isSameGenericClass(leftType.classType, intType);
-                const rightIsInt = intType.category === TypeCategory.Class &&
-                    ClassType.isSameGenericClass(rightType.classType, intType);
+            type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
+                return TypeUtils.doForSubtypes(rightType, rightSubtype => {
+                    if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
+                        // If either type is "Unknown" (versus Any), propagate the Unknown.
+                        if (leftSubtype.category === TypeCategory.Unknown ||
+                                rightSubtype.category === TypeCategory.Unknown) {
 
-                if (leftIsInt && rightIsInt) {
-                    type = ObjectType.create(intType as ClassType);
-                }
-            }
+                            return UnknownType.create();
+                        } else {
+                            return AnyType.create();
+                        }
+                    }
 
-            // Handle the general case.
-            if (!type) {
-                const magicMethodName = bitwiseOperatorMap[operator][0];
-                type = this._getTypeFromMagicMethodReturn(leftType, [rightType],
-                    magicMethodName, errorNode);
-            }
+                    // Handle the general case.
+                    const magicMethodName = bitwiseOperatorMap[operator][0];
+                    return this._getTypeFromMagicMethodReturn(leftSubtype, [rightSubtype],
+                        magicMethodName, errorNode);
+                });
+            });
         } else if (comparisonOperatorMap[operator]) {
-            if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
-                // If either type is "Unknown" (versus Any), propagate the Unknown.
-                if (leftType.category === TypeCategory.Unknown || rightType.category === TypeCategory.Unknown) {
-                    type = UnknownType.create();
-                } else {
-                    type = AnyType.create();
-                }
-            } else {
-                const magicMethodName = comparisonOperatorMap[operator];
+            type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
+                return TypeUtils.doForSubtypes(rightType, rightSubtype => {
+                    if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
+                        // If either type is "Unknown" (versus Any), propagate the Unknown.
+                        if (leftSubtype.category === TypeCategory.Unknown ||
+                                rightSubtype.category === TypeCategory.Unknown) {
 
-                type = this._getTypeFromMagicMethodReturn(leftType, [rightType],
-                    magicMethodName, errorNode);
-            }
+                            return UnknownType.create();
+                        } else {
+                            return AnyType.create();
+                        }
+                    }
+
+                    const magicMethodName = comparisonOperatorMap[operator][0];
+                    const resultType = this._getTypeFromMagicMethodReturn(leftSubtype, [rightSubtype],
+                        magicMethodName, errorNode);
+                    if (resultType) {
+                        return resultType;
+                    }
+
+                    const altMagicMethodName = comparisonOperatorMap[operator][1];
+                    return this._getTypeFromMagicMethodReturn(rightSubtype, [leftSubtype],
+                        altMagicMethodName, errorNode);
+                });
+            });
         } else if (booleanOperatorMap[operator]) {
-            if (operator === OperatorType.And) {
-                // If the operator is an AND or OR, we need to combine the two types.
-                type = combineTypes([
-                    TypeUtils.removeTruthinessFromType(leftType), rightType]);
-            } else if (operator === OperatorType.Or) {
-                type = combineTypes([
-                    TypeUtils.removeFalsinessFromType(leftType), rightType]);
-            } else {
-                // The other boolean operators always return a bool value.
-                type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
-            }
+            type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
+                return TypeUtils.doForSubtypes(rightType, rightSubtype => {
+                    // If the operator is an AND or OR, we need to combine the two types.
+                    if (operator === OperatorType.And) {
+                        return combineTypes([
+                            TypeUtils.removeTruthinessFromType(leftSubtype), rightSubtype]);
+                    }
+
+                    if (operator === OperatorType.Or) {
+                        return combineTypes([
+                            TypeUtils.removeFalsinessFromType(leftSubtype), rightSubtype]);
+                    }
+
+                    // The other boolean operators always return a bool value.
+                    return ScopeUtils.getBuiltInObject(this._scope, 'bool');
+                });
+            });
         }
 
-        if (!type) {
+        if (!type || type.category === TypeCategory.Never) {
             this._addError(`Operator '${ ParseTreeUtils.printOperator(operator) }' not ` +
                 `supported for types '${ printType(leftType) }' and '${ printType(rightType) }'`,
                 errorNode);
