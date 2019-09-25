@@ -162,7 +162,7 @@ test('Specialization2', () => {
 test('Expressions1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions1.py']);
 
-    validateResults(analysisResults, 3);
+    validateResults(analysisResults, 4);
 });
 
 test('Expressions2', () => {
@@ -246,7 +246,7 @@ test('AnnotatedVar4', () => {
 test('AnnotatedVar5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar5.py']);
 
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 5);
 });
 
 test('Execution1', () => {

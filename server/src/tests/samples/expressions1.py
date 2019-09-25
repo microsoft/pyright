@@ -3,7 +3,8 @@
 def returnsInt1() -> int:
     a = 1
     b = 2
-    return a + b % b / a - b // a
+
+    return a + b % b // a - b // a
 
 
 def returnsInt2() -> int:
@@ -14,7 +15,7 @@ def returnsInt2() -> int:
     # it should evaluate to a float, which is
     # not compatible with the specified return
     # type.
-    return a + b % b / a - b // a
+    return a + b % b // a - b // a
 
 
 def returnsFloat1() -> float:
