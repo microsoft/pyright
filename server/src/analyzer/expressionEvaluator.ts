@@ -1376,7 +1376,9 @@ export class ExpressionEvaluator {
                     // Special-case Enum types.
                     // TODO - validate that there's only one index entry
                     // that is a str type.
-                    return Object(subtype);
+                    // TODO - validate that literal strings are referencing
+                    // a known enum member.
+                    return ObjectType.create(subtype);
                 } else {
                     const typeArgs = this._getTypeArgs(node.items);
                     return this._createSpecializedClassType(subtype, typeArgs, node.items);
