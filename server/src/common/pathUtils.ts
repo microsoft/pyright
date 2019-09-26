@@ -273,12 +273,12 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
     let regExPattern = '';
     let firstComponent = true;
 
-    for (const component of pathComponents) {
+    for (let component of pathComponents) {
         if (component === '**') {
             regExPattern += doubleAsteriskRegexFragment;
         } else {
             if (!firstComponent) {
-                regExPattern += '/';
+                component = path.sep + component;
             }
 
             regExPattern += component.replace(
@@ -316,7 +316,7 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
     let wildcardRoot = '';
     let firstComponent = true;
 
-    for (const component of pathComponents) {
+    for (let component of pathComponents) {
         if (component === '**') {
             break;
         } else {
@@ -325,7 +325,7 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
             }
 
             if (!firstComponent) {
-                wildcardRoot += '/';
+                component = path.sep + component;
             }
 
             wildcardRoot += component;
