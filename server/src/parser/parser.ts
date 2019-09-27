@@ -20,7 +20,6 @@ import { convertOffsetsToRange, convertPositionToOffset } from '../common/positi
 import { latestStablePythonVersion, PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { ArgumentCategory, ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
