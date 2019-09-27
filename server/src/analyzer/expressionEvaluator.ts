@@ -819,7 +819,7 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromDictionaryExpression(node, usage);
         } else if (node.nodeType === ParseNodeType.Lambda) {
             this._reportUsageErrorForReadOnly(node, usage);
-            typeResult = this._getTypeFromLambdaExpression(node);
+            typeResult = this._getTypeFromLambdaExpression(node, usage);
         } else if (node.nodeType === ParseNodeType.Set) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromSetExpression(node, usage);
@@ -2304,7 +2304,8 @@ export class ExpressionEvaluator {
         if (valueExpression) {
             if (valueExpression.nodeType === ParseNodeType.Dictionary ||
                     valueExpression.nodeType === ParseNodeType.Set ||
-                    valueExpression.nodeType === ParseNodeType.List) {
+                    valueExpression.nodeType === ParseNodeType.List ||
+                    valueExpression.nodeType === ParseNodeType.Lambda) {
 
                 this._silenceDiagnostics(() => {
                     const exprType = this._getTypeFromExpression(valueExpression,
@@ -3580,15 +3581,53 @@ export class ExpressionEvaluator {
         return { type: sentType, node };
     }
 
-    private _getTypeFromLambdaExpression(node: LambdaNode): TypeResult {
-        // The lambda node is updated by typeAnalyzer. If the type wasn't
-        // already cached, we'll return an unknown type.
-        let type = AnalyzerNodeInfo.getExpressionType(node);
-        if (!type) {
-            type = UnknownType.create();
+    private _getTypeFromLambdaExpression(node: LambdaNode, usage: EvaluatorUsage): TypeResult {
+        const functionType = FunctionType.create(FunctionTypeFlags.None);
+
+        // Switch to a dedicated scope since list comprehension target
+        // variables are private to the list comprehension expression.
+        const prevScope = this._scope;
+        this._scope = AnalyzerNodeInfo.getScope(node)!;
+
+        // Temporarily re-parent the scope in case the prevScope was
+        // a temporary one.
+        const prevParent = this._scope.getParent();
+        this._scope.setParent(prevScope);
+
+        let expectedParameters: FunctionParameter[] | undefined;
+        if (usage.expectedType && usage.expectedType.category === TypeCategory.Function) {
+            expectedParameters = usage.expectedType.details.parameters;
         }
 
-        return { type, node };
+        node.parameters.forEach((param, index) => {
+            let paramType: Type = UnknownType.create();
+            if (expectedParameters && index < expectedParameters.length) {
+                paramType = expectedParameters[index].type;
+            }
+
+            if (param.name) {
+                this._assignTypeToExpression(param.name, paramType);
+            }
+
+            const functionParam: FunctionParameter = {
+                category: param.category,
+                name: param.name ? param.name.nameToken.value : undefined,
+                type: paramType
+            };
+            FunctionType.addParameter(functionType, functionParam);
+        });
+
+        // Infer the return type. Use the "do not cache" flag because
+        // we need to evaluate this multiple times during each pass.
+        const returnType = this.getType(node.expression, { method: 'get' },
+            !!usage.expectedType ? EvaluatorFlags.DoNotCache : EvaluatorFlags.None);
+        FunctionType.getInferredReturnType(functionType).addSource(
+            returnType, node.expression.id);
+
+        this._scope.setParent(prevParent);
+        this._scope = prevScope;
+
+        return { type: functionType, node };
     }
 
     private _getTypeFromListComprehensionExpression(node: ListComprehensionNode): TypeResult {
@@ -3620,7 +3659,7 @@ export class ExpressionEvaluator {
         }
     }
 
-    private _assignTypeToExpression(targetExpr: ExpressionNode, type: Type, srcExpr: ExpressionNode): boolean {
+    private _assignTypeToExpression(targetExpr: ExpressionNode, type: Type, srcExpr?: ExpressionNode): boolean {
         let understoodType = true;
 
         if (targetExpr.nodeType === ParseNodeType.Name) {

@@ -607,7 +607,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitLambda(node: LambdaNode): boolean {
-        const functionType = FunctionType.create(FunctionTypeFlags.None);
+        this._getTypeOfExpression(node);
 
         this._enterScope(node, () => {
             node.parameters.forEach(param => {
@@ -620,33 +620,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         range: convertOffsetsToRange(param.start, TextRange.getEnd(param),
                             this._fileInfo.lines)
                     };
-                    const paramType = UnknownType.create();
-                    this._addTypeSourceToNameNode(param.name, paramType, declaration);
 
-                    // Cache the type for the hover provider.
-                    this._getTypeOfExpression(param.name);
+                    const symbolWithScope = this._currentScope.lookUpSymbolRecursive(
+                        param.name.nameToken.value);
+                    if (symbolWithScope) {
+                        symbolWithScope.symbol.addDeclaration(declaration);
+                    }
                 }
-
-                const functionParam: FunctionParameter = {
-                    category: param.category,
-                    name: param.name ? param.name.nameToken.value : undefined,
-                    hasDefault: !!param.defaultValue,
-                    type: UnknownType.create()
-                };
-                FunctionType.addParameter(functionType, functionParam);
             });
-
-            // Infer the return type.
-            const returnType = this._getTypeOfExpression(node.expression);
-            FunctionType.getInferredReturnType(functionType).addSource(
-                returnType, node.expression.id);
 
             // Walk the children.
             this.walkMultiple([...node.parameters, node.expression]);
         });
-
-        // Cache the function type.
-        this._updateExpressionTypeForNode(node, functionType);
 
         return false;
     }
