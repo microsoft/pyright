@@ -2390,7 +2390,7 @@ export class Parser {
         const typeString = match[2];
 
         // Ignore all "ignore" comments.
-        if (typeString.trim().match(/^ignore(\s|$)'/)) {
+        if (typeString.trim().match(/^ignore(\s|$)/)) {
             return undefined;
         }
 

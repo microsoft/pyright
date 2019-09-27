@@ -212,18 +212,20 @@ export class SourceFile {
             this._analysisJob.typeAnalysisFinalDiagnostics);
 
         // Filter the diagnostics based on "type: ignore" lines.
-        const typeIgnoreLines = this._analysisJob.parseResults ?
-            this._analysisJob.parseResults.tokenizerOutput.typeIgnoreLines : {};
-        if (Object.keys(typeIgnoreLines).length > 0) {
-            diagList = diagList.filter(d => {
-                for (let line = d.range.start.line; line <= d.range.end.line; line++) {
-                    if (typeIgnoreLines[line]) {
-                        return false;
+        if (options.diagnosticSettings.enableTypeIgnoreComments) {
+            const typeIgnoreLines = this._analysisJob.parseResults ?
+                this._analysisJob.parseResults.tokenizerOutput.typeIgnoreLines : {};
+            if (Object.keys(typeIgnoreLines).length > 0) {
+                diagList = diagList.filter(d => {
+                    for (let line = d.range.start.line; line <= d.range.end.line; line++) {
+                        if (typeIgnoreLines[line]) {
+                            return false;
+                        }
                     }
-                }
 
-                return true;
-            });
+                    return true;
+                });
+            }
         }
 
         if (options.diagnosticSettings.reportImportCycles !== 'none' && this._analysisJob.circularDependencies.length > 0) {
@@ -264,8 +266,10 @@ export class SourceFile {
 
         // If there is a "type: ignore" comment at the top of the file, clear
         // the diagnostic list.
-        if (this._analysisJob.parseResults && this._analysisJob.parseResults.tokenizerOutput.typeIgnoreAll) {
-            diagList = [];
+        if (options.diagnosticSettings.enableTypeIgnoreComments) {
+            if (this._analysisJob.parseResults && this._analysisJob.parseResults.tokenizerOutput.typeIgnoreAll) {
+                diagList = [];
+            }
         }
 
         return diagList;

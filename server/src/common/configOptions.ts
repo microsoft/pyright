@@ -52,6 +52,9 @@ export interface DiagnosticSettings {
     // Use strict type rules for parameters assigned default of None?
     strictParameterNoneValue: boolean;
 
+    // Enable support for type: ignore comments?
+    enableTypeIgnoreComments: boolean;
+
     // Report diagnostics in typeshed files?
     reportTypeshedErrors: DiagnosticLevel;
 
@@ -154,6 +157,11 @@ export function getBooleanDiagnosticSettings() {
         DiagnosticRule.strictListInference,
         DiagnosticRule.strictDictionaryInference,
         DiagnosticRule.strictParameterNoneValue
+
+        // Do not include this this one because we don't
+        // want to override it in strict mode or support
+        // it within pyright comments.
+        // DiagnosticRule.enableTypeIgnoreComments
     ];
 }
 
@@ -195,6 +203,7 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         strictListInference: true,
         strictDictionaryInference: true,
         strictParameterNoneValue: true,
+        enableTypeIgnoreComments: true, // Not overridden by strict mode
         reportTypeshedErrors: 'error',
         reportMissingImports: 'error',
         reportMissingTypeStubs: 'error',
@@ -233,6 +242,7 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         strictListInference: false,
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
+        enableTypeIgnoreComments: true,
         reportTypeshedErrors: 'none',
         reportMissingImports: 'error',
         reportMissingTypeStubs: 'none',
@@ -455,6 +465,11 @@ export class ConfigOptions {
             strictParameterNoneValue: this._convertBoolean(
                 configObj.strictParameterNoneValue, DiagnosticRule.strictParameterNoneValue,
                 defaultSettings.strictParameterNoneValue),
+
+            // Should "# type: ignore" be honored?
+            enableTypeIgnoreComments: this._convertBoolean(
+                configObj.enableTypeIgnoreComments, DiagnosticRule.enableTypeIgnoreComments,
+                defaultSettings.enableTypeIgnoreComments),
 
             // Read the "reportTypeshedErrors" entry.
             reportTypeshedErrors: this._convertDiagnosticLevel(

@@ -653,13 +653,25 @@ test('TypedDict6', () => {
 });
 
 test('TypeIgnore1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore1.py']);
+    const configOptions = new ConfigOptions('.');
 
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore1.py'], configOptions);
     validateResults(analysisResults, 0);
+
+    // Disable type ignore
+    configOptions.diagnosticSettings.enableTypeIgnoreComments = false;
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore1.py'], configOptions);
+    validateResults(analysisResults, 2);
 });
 
 test('TypeIgnore2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore2.py']);
+    const configOptions = new ConfigOptions('.');
 
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore2.py'], configOptions);
     validateResults(analysisResults, 0);
+
+    // Disable type ignore
+    configOptions.diagnosticSettings.enableTypeIgnoreComments = false;
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore2.py'], configOptions);
+    validateResults(analysisResults, 3);
 });

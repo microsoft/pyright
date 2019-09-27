@@ -12,6 +12,7 @@ export const enum DiagnosticRule {
     strictListInference = 'strictListInference',
     strictDictionaryInference = 'strictDictionaryInference',
     strictParameterNoneValue = 'strictParameterNoneValue',
+    enableTypeIgnoreComments = 'enableTypeIgnoreComments',
 
     reportTypeshedErrors = 'reportTypeshedErrors',
     reportMissingImports = 'reportMissingImports',
