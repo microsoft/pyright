@@ -87,7 +87,7 @@ Pyright currently provides support for Python 3.0 and newer. There is currently 
 ## FAQ
 **Q:** What is the difference between pyright and the [Microsoft Python Visual Studio Code plugin](https://github.com/Microsoft/vscode-python)?
 
-**A:** Pyright is focused on type checking. The Python VS Code plugin is Microsoft’s officially-supported extension for VS Code and provides a diverse array of features including debugging, test case management, linter plugins, and more. Pyright can be used alongide the Microsoft Python extension.
+**A:** Pyright is focused on type checking. The Python VS Code plugin is Microsoft’s officially-supported extension for VS Code and provides a diverse array of features including debugging, test case management, linter plugins, and more. Pyright can be used alongside the Microsoft Python extension.
 
 **Q:** What is the long-term plan for Pyright?
 

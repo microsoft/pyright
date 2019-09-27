@@ -3,7 +3,7 @@
 Some behaviors of pyright can be controlled through the use of comments within the source file.
 
 ## Type Annotations
-Verisons of Python prior to 3.6 did not support type annotations for variables. Pyright honors type annotations found within a comment at the end of the same line where a variable is assigned.
+Versions of Python prior to 3.6 did not support type annotations for variables. Pyright honors type annotations found within a comment at the end of the same line where a variable is assigned.
 
 ```
 offsets = [] # type: List[int]

@@ -20,7 +20,7 @@ Pyright offers flexible configuration options specified in a JSON-formatted text
 
 **venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use. Individual execution environments may override this setting.
 
-**pythonVersion** [string, optional]: Specifies the version of Python that will be used to execute the source code. The version should be specified as a string in the format "M.m" where M is the major version and m is the minor (e.g. `"3.0"` or `"3.6"`). If a version is provided, pyright will generate errors if the source code makes use of language features that are not supported in that version. It will also tailor its use of type stub files, which conditionalize type definitions based on the version.
+**pythonVersion** [string, optional]: Specifies the version of Python that will be used to execute the source code. The version should be specified as a string in the format "M.m" where M is the major version and m is the minor (e.g. `"3.0"` or `"3.6"`). If a version is provided, pyright will generate errors if the source code makes use of language features that are not supported in that version. It will also tailor its use of type stub files, which conditionalizes type definitions based on the version.
 
 **pythonPlatform** [string, optional]: Specifies the target platform that will be used to execute the source code. Should be one of `"Windows"`, `"Darwin"` or `"Linux"`. If specified, pyright will tailor its use of type stub files, which conditionalize type definitions based on the platform.
 
@@ -28,7 +28,7 @@ Pyright offers flexible configuration options specified in a JSON-formatted text
 
 
 ## Type Check Diagnostics Settings
-The following settings control pyright's diagnostic output (warnings or errors). Unless otherwise specified, each diagnostic setting can specify a boolean value (`false` indicating that no error is generated and `true` indicating that an error is generated). Alternatively, a string value of `"none"`, `"warning"`, or `"error"` can be used to specify the diagnostic level.
+The following settings control pyright’s diagnostic output (warnings or errors). Unless otherwise specified, each diagnostic setting can specify a boolean value (`false` indicating that no error is generated and `true` indicating that an error is generated). Alternatively, a string value of `"none"`, `"warning"`, or `"error"` can be used to specify the diagnostic level.
 
 **strictListInference** [boolean]: When inferring the type of a list, use strict type assumptions. For example, the expression `[1, 'a', 3.4]` could be inferred to be of type `List[Any]` or `List[Union[int, str, float]]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is 'false'.
 
@@ -76,7 +76,7 @@ The following settings control pyright's diagnostic output (warnings or errors).
 
 **reportConstantRedefinition** [boolean or string, optional]: Generate or suppress diagnostics for attempts to redefine variables whose names are all-caps with underscores and numerals. The default value for this setting is 'none'.
 
-**reportIncompatibleMethodOverride** [boolean or string, optional]: Generate or suppress diagnostics for methods that override a method of the same name in a base class in an incompatible manner (different number of parameters, different parameter tyeps, or a different return type). The default value for this setting is 'none'.
+**reportIncompatibleMethodOverride** [boolean or string, optional]: Generate or suppress diagnostics for methods that override a method of the same name in a base class in an incompatible manner (different number of parameters, different parameter types, or a different return type). The default value for this setting is 'none'.
 
 **reportInvalidStringEscapeSequence** [boolean or string, optional]: Generate or suppress diagnostics for invalid escape sequences used within string literals. The Python specification indicates that such sequences will generate a syntax error in future versions. The default value for this setting is 'warning'.
 
