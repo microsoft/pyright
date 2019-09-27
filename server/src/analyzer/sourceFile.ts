@@ -211,6 +211,21 @@ export class SourceFile {
             this._analysisJob.bindDiagnostics,
             this._analysisJob.typeAnalysisFinalDiagnostics);
 
+        // Filter the diagnostics based on "type: ignore" lines.
+        const typeIgnoreLines = this._analysisJob.parseResults ?
+            this._analysisJob.parseResults.tokenizerOutput.typeIgnoreLines : {};
+        if (Object.keys(typeIgnoreLines).length > 0) {
+            diagList = diagList.filter(d => {
+                for (let line = d.range.start.line; line <= d.range.end.line; line++) {
+                    if (typeIgnoreLines[line]) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+        }
+
         if (options.diagnosticSettings.reportImportCycles !== 'none' && this._analysisJob.circularDependencies.length > 0) {
             const category = options.diagnosticSettings.reportImportCycles === 'warning' ?
                 DiagnosticCategory.Warning : DiagnosticCategory.Error;
@@ -244,6 +259,12 @@ export class SourceFile {
 
         // If the file is in the ignore list, clear the diagnostic list.
         if (options.ignore.find(ignoreFileSpec => ignoreFileSpec.regExp.test(this._filePath))) {
+            diagList = [];
+        }
+
+        // If there is a "type: ignore" comment at the top of the file, clear
+        // the diagnostic list.
+        if (this._analysisJob.parseResults && this._analysisJob.parseResults.tokenizerOutput.typeIgnoreAll) {
             diagList = [];
         }
 
@@ -431,6 +452,7 @@ export class SourceFile {
             // Parse the token stream, building the abstract syntax tree.
             const parser = new Parser();
             const parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
+            assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
             this._analysisJob.parseResults = parseResults;
 
             // Resolve imports.
@@ -445,7 +467,7 @@ export class SourceFile {
                 strictFileSpec => strictFileSpec.regExp.test(this._filePath)) !== undefined;
 
             this._analysisJob.diagnosticSettings = CommentUtils.getFileLevelDirectives(
-                this._analysisJob.parseResults.tokens, configOptions.diagnosticSettings,
+                this._analysisJob.parseResults.tokenizerOutput.tokens, configOptions.diagnosticSettings,
                 useStrict);
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||
@@ -459,10 +481,14 @@ export class SourceFile {
                 parseTree: ModuleNode.create({ start: 0, length: 0 }),
                 importedModules: [],
                 futureImports: new StringMap<boolean>(),
-                tokens: new TextRangeCollection<Token>([]),
-                lines: new TextRangeCollection<TextRange>([]),
-                predominantLineEndSequence: '\n',
-                predominantTabSequence: '    '
+                tokenizerOutput: {
+                    tokens: new TextRangeCollection<Token>([]),
+                    lines: new TextRangeCollection<TextRange>([]),
+                    typeIgnoreAll: false,
+                    typeIgnoreLines: {},
+                    predominantEndOfLineSequence: '\n',
+                    predominantTabSequence: '    '
+                }
             };
             this._analysisJob.imports = undefined;
             this._analysisJob.builtinsImport = undefined;
@@ -719,7 +745,7 @@ export class SourceFile {
 
     private _buildFileInfo(configOptions: ConfigOptions, importMap?: ImportMap, builtinsScope?: Scope) {
         assert(this._analysisJob.parseResults !== undefined);
-        const analysisDiagnostics = new TextRangeDiagnosticSink(this._analysisJob.parseResults!.lines);
+        const analysisDiagnostics = new TextRangeDiagnosticSink(this._analysisJob.parseResults!.tokenizerOutput.lines);
 
         const fileInfo: AnalyzerFileInfo = {
             importMap: importMap || {},
@@ -729,7 +755,7 @@ export class SourceFile {
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
             diagnosticSettings: this._analysisJob.diagnosticSettings,
-            lines: this._analysisJob.parseResults!.lines,
+            lines: this._analysisJob.parseResults!.tokenizerOutput.lines,
             filePath: this._filePath,
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,

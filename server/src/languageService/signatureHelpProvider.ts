@@ -42,7 +42,7 @@ export class SignatureHelpProvider {
     static getSignatureHelpForPosition(parseResults: ParseResults, fileContents: string,
             position: DiagnosticTextPosition): SignatureHelpResults | undefined {
 
-        const offset = convertPositionToOffset(position, parseResults.lines);
+        const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;
         }

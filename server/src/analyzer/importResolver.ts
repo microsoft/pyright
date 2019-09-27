@@ -11,8 +11,9 @@
 import * as fs from 'fs';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileExtension, getFileSystemEntries,
-    getPathComponents, isDirectory, isFile, stripFileExtension, stripTrailingDirectorySeparator } from '../common/pathUtils';
+import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
+    getFileExtension, getFileSystemEntries, getPathComponents, isDirectory,
+    isFile, stripFileExtension, stripTrailingDirectorySeparator } from '../common/pathUtils';
 import { versionToString } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';

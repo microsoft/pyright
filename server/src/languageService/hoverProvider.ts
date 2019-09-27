@@ -36,7 +36,7 @@ export class HoverProvider {
     static getHoverForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
             importMap: ImportMap): HoverResults | undefined {
 
-        const offset = convertPositionToOffset(position, parseResults.lines);
+        const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;
         }
@@ -49,8 +49,8 @@ export class HoverProvider {
         const results: HoverResults = {
             parts: [],
             range: {
-                start: convertOffsetToPosition(node.start, parseResults.lines),
-                end: convertOffsetToPosition(TextRange.getEnd(node), parseResults.lines)
+                start: convertOffsetToPosition(node.start, parseResults.tokenizerOutput.lines),
+                end: convertOffsetToPosition(TextRange.getEnd(node), parseResults.tokenizerOutput.lines)
             }
         };
 

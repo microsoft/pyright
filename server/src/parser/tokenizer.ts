@@ -107,9 +107,22 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
 const _byteOrderMarker = 0xFEFF;
 
 export interface TokenizerOutput {
+    // List of all tokens.
     tokens: TextRangeCollection<Token>;
+
+    // List of ranges that comprise the lines.
     lines: TextRangeCollection<TextRange>;
+
+    // Map of all line numbers that end in a "type: ignore" comment.
+    typeIgnoreLines: { [line: number]: boolean };
+
+    // Program starts with a "type: ignore" comment.
+    typeIgnoreAll: boolean;
+
+    // Line-end sequence ('/n', '/r', or '/r/n').
     predominantEndOfLineSequence: string;
+
+    // Tab sequence ('/t or consecutaive spaces).
     predominantTabSequence: string;
 }
 
@@ -125,6 +138,8 @@ export class Tokenizer {
     private _parenDepth = 0;
     private _lineRanges: TextRange[] = [];
     private _indentAmounts: number[] = [];
+    private _typeIgnoreAll = false;
+    private _typeIgnoreLines: { [line: number]: boolean } = {};
     private _comments: Comment[] | undefined;
 
     // Total times CR, CR/LF, and LF are used to terminate
@@ -221,6 +236,8 @@ export class Tokenizer {
         return {
             tokens: new TextRangeCollection(this._tokens),
             lines: new TextRangeCollection(this._lineRanges),
+            typeIgnoreLines: this._typeIgnoreLines,
+            typeIgnoreAll: this._typeIgnoreAll,
             predominantEndOfLineSequence,
             predominantTabSequence
         };
@@ -791,6 +808,14 @@ export class Tokenizer {
         const length = this._cs.position - start;
         const value = this._cs.getText().substr(start, length);
         const comment = Comment.create(start, length, value);
+
+        if (value.match(/^\s*type\:\s*ignore(\s|$)/)) {
+            if (this._tokens.findIndex(t => t.type !== TokenType.NewLine && t && t.type !== TokenType.Indent) < 0) {
+                this._typeIgnoreAll = true;
+            } else {
+                this._typeIgnoreLines[this._lineRanges.length] = true;
+            }
+        }
 
         if (this._comments) {
             this._comments.push(comment);

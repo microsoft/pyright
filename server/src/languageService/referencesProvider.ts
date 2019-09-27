@@ -57,8 +57,8 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
                     this._referencesResult.locations.push({
                         path: this._filePath,
                         range: {
-                            start: convertOffsetToPosition(node.start, this._parseResults.lines),
-                            end: convertOffsetToPosition(TextRange.getEnd(node), this._parseResults.lines)
+                            start: convertOffsetToPosition(node.start, this._parseResults.tokenizerOutput.lines),
+                            end: convertOffsetToPosition(TextRange.getEnd(node), this._parseResults.tokenizerOutput.lines)
                         }
                     });
                 }
@@ -79,7 +79,7 @@ export class ReferencesProvider {
             position: DiagnosticTextPosition, includeDeclaration: boolean):
                 ReferencesResult | undefined {
 
-        const offset = convertPositionToOffset(position, parseResults.lines);
+        const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;
         }

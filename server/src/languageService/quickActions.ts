@@ -55,9 +55,9 @@ function _addMissingOptionalToParam(parseResults: ParseResults,
     const editActions: TextEditAction[] = [];
 
     const startPos = convertOffsetToPosition(
-        node.typeAnnotation.start, parseResults.lines);
+        node.typeAnnotation.start, parseResults.tokenizerOutput.lines);
     const endPos = convertOffsetToPosition(
-        TextRange.getEnd(node.typeAnnotation), parseResults.lines);
+        TextRange.getEnd(node.typeAnnotation), parseResults.tokenizerOutput.lines);
 
     editActions.push({
         range: { start: startPos, end: startPos },

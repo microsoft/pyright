@@ -62,10 +62,7 @@ export interface ParseResults {
     parseTree: ModuleNode;
     importedModules: ModuleImport[];
     futureImports: StringMap<boolean>;
-    tokens: TextRangeCollection<Token>;
-    lines: TextRangeCollection<TextRange>;
-    predominantLineEndSequence: string;
-    predominantTabSequence: string;
+    tokenizerOutput: TokenizerOutput;
 }
 
 export interface ParseExpressionTextResults {
@@ -130,14 +127,12 @@ export class Parser {
             }
         });
 
+        assert(this._tokenizerOutput !== undefined);
         return {
             parseTree: moduleNode,
             importedModules: this._importedModules,
             futureImports: this._futureImportMap,
-            tokens: this._tokenizerOutput!.tokens,
-            lines: this._tokenizerOutput!.lines,
-            predominantLineEndSequence: this._tokenizerOutput!.predominantEndOfLineSequence,
-            predominantTabSequence: this._tokenizerOutput!.predominantTabSequence
+            tokenizerOutput: this._tokenizerOutput!
         };
     }
 
@@ -2385,7 +2380,7 @@ export class Parser {
 
         const interTokenContents = this._fileContents!.substring(
             curToken.start + curToken.length, nextToken.start);
-        const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
+        const commentRegEx = /^(\s*#\s*type\:\s*)([^\r\n]*)/;
         const match = interTokenContents.match(commentRegEx);
         if (!match) {
             return undefined;
@@ -2393,6 +2388,12 @@ export class Parser {
 
         // Synthesize a string token and StringNode.
         const typeString = match[2];
+
+        // Ignore all "ignore" comments.
+        if (typeString.trim().match(/^ignore(\s|$)'/)) {
+            return undefined;
+        }
+
         const tokenOffset = curToken.start + curToken.length + match[1].length;
         const stringToken = StringToken.create(tokenOffset,
             typeString.length, StringTokenFlags.None, typeString, 0, undefined);

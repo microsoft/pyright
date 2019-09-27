@@ -1160,3 +1160,42 @@ test('Identifiers1', () => {
     const token4 = results.tokens.getItemAt(4);
     assert.equal(token4.type, TokenType.Identifier);
 });
+
+test ('TypeIgnoreAll1', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('\n#type:ignore\n"test"');
+    assert.equal(results.typeIgnoreAll, true);
+});
+
+test ('TypeIgnoreAll2', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('\n#    type:     ignore ssss\n');
+    assert.equal(results.typeIgnoreAll, true);
+});
+
+test ('TypeIgnoreAll3', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('\n#    type:     ignoressss\n');
+    assert.equal(results.typeIgnoreAll, false);
+});
+
+test ('TypeIgnoreAll3', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('\n"hello"\n# type: ignore\n');
+    assert.equal(results.typeIgnoreAll, false);
+});
+
+test ('TypeIgnoreLine1', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('\na = 3 # type: ignore\n"test" # type:ignore');
+    assert.equal(Object.keys(results.typeIgnoreLines).length, 2);
+    assert.equal(results.typeIgnoreLines[1], true);
+    assert.equal(results.typeIgnoreLines[2], true);
+});
+
+test ('TypeIgnoreLine2', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('a = 3 # type: ignores\n"test" # type:ignore');
+    assert.equal(Object.keys(results.typeIgnoreLines).length, 1);
+    assert.equal(results.typeIgnoreLines[1], true);
+});

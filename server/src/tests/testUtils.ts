@@ -74,7 +74,7 @@ export function parseSampleFile(fileName: string, diagSink: DiagnosticSink,
 export function buildAnalyzerFileInfo(filePath: string, parseResults: ParseResults,
         configOptions: ConfigOptions): AnalyzerFileInfo {
 
-    const analysisDiagnostics = new TextRangeDiagnosticSink(parseResults.lines);
+    const analysisDiagnostics = new TextRangeDiagnosticSink(parseResults.tokenizerOutput.lines);
 
     const fileInfo: AnalyzerFileInfo = {
         importMap: {},
@@ -83,7 +83,7 @@ export function buildAnalyzerFileInfo(filePath: string, parseResults: ParseResul
         diagnosticSink: analysisDiagnostics,
         executionEnvironment: configOptions.findExecEnvironment(filePath),
         diagnosticSettings: cloneDiagnosticSettings(configOptions.diagnosticSettings),
-        lines: parseResults.lines,
+        lines: parseResults.tokenizerOutput.lines,
         filePath,
         isStubFile: filePath.endsWith('.pyi'),
         isTypingStubFile: false,

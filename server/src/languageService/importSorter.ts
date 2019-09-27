@@ -107,9 +107,9 @@ export class ImportSorter {
         const lastStatement = statements[statementLimit - 1].node;
         return {
             start: convertOffsetToPosition(
-                statements[0].node.start, this._parseResults.lines),
+                statements[0].node.start, this._parseResults.tokenizerOutput.lines),
             end: convertOffsetToPosition(
-                TextRange.getEnd(lastStatement), this._parseResults.lines)
+                TextRange.getEnd(lastStatement), this._parseResults.tokenizerOutput.lines)
         };
     }
 
@@ -134,10 +134,10 @@ export class ImportSorter {
                 range: {
                     start: convertOffsetToPosition(
                         statements[secondaryBlockStart].node.start,
-                        this._parseResults.lines),
+                        this._parseResults.tokenizerOutput.lines),
                     end: convertOffsetToPosition(
                         TextRange.getEnd(statements[secondaryBlockLimit - 1].node),
-                        this._parseResults.lines)
+                        this._parseResults.tokenizerOutput.lines)
                 },
                 replacementText: ''
             });
@@ -157,7 +157,7 @@ export class ImportSorter {
             // Insert a blank space between import type groups.
             const curImportType = this._getImportGroup(statement);
             if (prevImportGroup !== curImportType) {
-                importText += this._parseResults.predominantLineEndSequence;
+                importText += this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
                 prevImportGroup = curImportType;
             }
 
@@ -172,7 +172,7 @@ export class ImportSorter {
 
             // If this isn't the last statement, add a newline.
             if (statement !== sortedStatements[sortedStatements.length - 1]) {
-                importLine += this._parseResults.predominantLineEndSequence;
+                importLine += this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
             }
 
             importText += importLine;
@@ -213,7 +213,7 @@ export class ImportSorter {
 
         let nextSymbolIndex = 0;
         while (nextSymbolIndex < symbols.length) {
-            let curTextLine = this._parseResults.predominantTabSequence + symbols[nextSymbolIndex];
+            let curTextLine = this._parseResults.tokenizerOutput.predominantTabSequence + symbols[nextSymbolIndex];
             if (nextSymbolIndex < symbols.length - 1) {
                 curTextLine += ',';
             } else {
@@ -245,7 +245,7 @@ export class ImportSorter {
 
             cumulativeText += curTextLine;
             if (nextSymbolIndex < symbols.length) {
-                cumulativeText += this._parseResults.predominantLineEndSequence;
+                cumulativeText += this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
             }
         }
 

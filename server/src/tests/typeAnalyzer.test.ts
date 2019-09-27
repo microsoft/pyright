@@ -651,3 +651,15 @@ test('TypedDict6', () => {
 
     validateResults(analysisResults, 12);
 });
+
+test('TypeIgnore1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore1.py']);
+
+    validateResults(analysisResults, 0);
+});
+
+test('TypeIgnore2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore2.py']);
+
+    validateResults(analysisResults, 0);
+});

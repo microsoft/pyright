@@ -30,7 +30,7 @@ export class DefinitionProvider {
     static getDefinitionsForPosition(parseResults: ParseResults,
             position: DiagnosticTextPosition): DocumentTextRange[] | undefined {
 
-        const offset = convertPositionToOffset(position, parseResults.lines);
+        const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;
         }

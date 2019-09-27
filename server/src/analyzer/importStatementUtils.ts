@@ -87,7 +87,7 @@ export function getTextEditsForAutoImportSymbolAddition(symbolName: string,
 
         if (priorImport) {
             const insertionOffset = TextRange.getEnd(priorImport);
-            const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.lines);
+            const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.tokenizerOutput.lines);
 
             textEditList.push({
                 range: { start: insertionPosition, end: insertionPosition },
@@ -125,7 +125,7 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
             if (importType < curImportType) {
                 if (!insertBefore && prevImportType < importType) {
                     // Add an extra line to create a new group.
-                    newImportStatement = parseResults.predominantLineEndSequence + newImportStatement;
+                    newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
                 }
                 break;
             }
@@ -139,7 +139,7 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
             if (curImport.followsNonImportStatement) {
                 if (importType > prevImportType) {
                     // Add an extra line to create a new group.
-                    newImportStatement = parseResults.predominantLineEndSequence + newImportStatement;
+                    newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
                 }
                 break;
             }
@@ -149,7 +149,7 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
 
                 if (importType > curImportType) {
                     // Add an extra line to create a new group.
-                    newImportStatement = parseResults.predominantLineEndSequence + newImportStatement;
+                    newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
                 }
             }
 
@@ -166,14 +166,14 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
 
         if (insertionImport) {
             if (insertBefore) {
-                newImportStatement = newImportStatement + parseResults.predominantLineEndSequence;
+                newImportStatement = newImportStatement + parseResults.tokenizerOutput.predominantEndOfLineSequence;
             } else {
-                newImportStatement = parseResults.predominantLineEndSequence + newImportStatement;
+                newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
             }
 
             insertionPosition = convertOffsetToPosition(
                 insertBefore ? insertionImport.node.start : TextRange.getEnd(insertionImport.node),
-                parseResults.lines);
+                parseResults.tokenizerOutput.lines);
         } else {
             insertionPosition = { line: 0, column: 0 };
         }
@@ -203,24 +203,24 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
 
             if (stopHere) {
                 insertionPosition = convertOffsetToPosition(statement.start,
-                    parseResults.lines);
+                    parseResults.tokenizerOutput.lines);
                 addNewLineBefore = false;
                 break;
             } else {
                 insertionPosition = convertOffsetToPosition(
                     statement.start + statement.length,
-                    parseResults.lines);
+                    parseResults.tokenizerOutput.lines);
                 addNewLineBefore = true;
             }
         }
 
-        newImportStatement += parseResults.predominantLineEndSequence +
-            parseResults.predominantLineEndSequence;
+        newImportStatement += parseResults.tokenizerOutput.predominantEndOfLineSequence +
+            parseResults.tokenizerOutput.predominantEndOfLineSequence;
 
         if (addNewLineBefore) {
-            newImportStatement = parseResults.predominantLineEndSequence + newImportStatement;
+            newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
         } else {
-            newImportStatement += parseResults.predominantLineEndSequence;
+            newImportStatement += parseResults.tokenizerOutput.predominantEndOfLineSequence;
         }
     }
 

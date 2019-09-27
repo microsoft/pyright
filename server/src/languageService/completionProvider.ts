@@ -179,7 +179,7 @@ export class CompletionProvider {
     }
 
     getCompletionsForPosition(): CompletionList | undefined {
-        const offset = convertPositionToOffset(this._position, this._parseResults.lines);
+        const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;
         }
@@ -218,7 +218,7 @@ export class CompletionProvider {
         }
 
         // Get the text on that line prior to the insertion point.
-        const lineTextRange = this._parseResults.lines.getItemAt(this._position.line);
+        const lineTextRange = this._parseResults.tokenizerOutput.lines.getItemAt(this._position.line);
         const textOnLine = this._fileContents.substr(lineTextRange.start, lineTextRange.length);
         const priorText = textOnLine.substr(0, this._position.column);
         const priorWordIndex = priorText.search(/\w+$/);
@@ -303,12 +303,12 @@ export class CompletionProvider {
     }
 
     private _isWithinCommentOrString(offset: number, priorText: string): boolean {
-        const tokenIndex = this._parseResults.tokens.getItemAtPosition(offset);
+        const tokenIndex = this._parseResults.tokenizerOutput.tokens.getItemAtPosition(offset);
         if (tokenIndex < 0) {
             return false;
         }
 
-        const token = this._parseResults.tokens.getItemAt(tokenIndex);
+        const token = this._parseResults.tokenizerOutput.tokens.getItemAt(tokenIndex);
 
         if (token.type === TokenType.String) {
             return true;
