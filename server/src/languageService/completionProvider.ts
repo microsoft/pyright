@@ -651,6 +651,7 @@ export class CompletionProvider {
 
             if (type) {
                 switch (declaration.type) {
+                    case DeclarationType.BuiltIn:
                     case DeclarationType.Variable:
                     case DeclarationType.Parameter:
                         typeDetail = name + ': ' + printType(type);
@@ -834,6 +835,15 @@ export class CompletionProvider {
 
         switch (declaration.type) {
             case DeclarationType.BuiltIn:
+                if (type) {
+                    if (type.category === TypeCategory.Class) {
+                        return CompletionItemKind.Class;
+                    } else if (type.category === TypeCategory.Function || type.category === TypeCategory.OverloadedFunction) {
+                        return CompletionItemKind.Function;
+                    }
+                }
+                return CompletionItemKind.Variable;
+
             case DeclarationType.Parameter:
                 return CompletionItemKind.Variable;
 
