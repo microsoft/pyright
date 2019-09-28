@@ -1540,7 +1540,7 @@ export class ExpressionEvaluator {
         if (usage.method === 'set') {
             argList.push({
                 argumentCategory: ArgumentCategory.Simple,
-                type: AnyType.create()
+                type: usage.setType || AnyType.create()
             });
         }
 

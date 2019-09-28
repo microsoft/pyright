@@ -531,6 +531,12 @@ test('Assignment1', () => {
     validateResults(analysisResults, 7);
 });
 
+test('Assignment2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment2.py']);
+
+    validateResults(analysisResults, 2);
+});
+
 test('AugmentedAssignment1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['augmentedAssignment1.py']);
 
