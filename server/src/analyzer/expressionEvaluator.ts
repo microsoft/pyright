@@ -22,13 +22,13 @@ import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNo
     ExpressionNode, IndexExpressionNode, IndexItemsNode, isExpressionNode, LambdaNode,
     ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode, ParameterCategory,
     ParseNode, ParseNodeType, SetNode, SliceExpressionNode, StringListNode,
-    TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    TernaryExpressionNode, TupleExpressionNode,
+    UnaryExpressionNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { Declaration, DeclarationCategory } from './declaration';
-import { defaultTypeSourceId, TypeSourceId } from './inferredType';
+import { DeclarationType, VariableDeclaration } from './declaration';
+import { defaultTypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Scope } from './scope';
 import * as ScopeUtils from './scopeUtils';
@@ -1145,8 +1145,8 @@ export class ExpressionEvaluator {
 
             // Don't include variables within typed dict classes.
             if (ClassType.isTypedDictClass(classType)) {
-                const decls = TypeUtils.getPrimaryDeclarationsForSymbol(memberInfo.symbol);
-                if (decls && decls.length > 0 && decls[0].category === DeclarationCategory.Variable) {
+                const typedDecls = memberInfo.symbol.getTypedDeclarations();
+                if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable) {
                     return undefined;
                 }
             }
@@ -1592,8 +1592,6 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromCallExpression(node: CallExpressionNode, flags: EvaluatorFlags): TypeResult {
-        // Evaluate the left-hand side but don't specialize it yet because we
-        // may need to specialize based on the arguments.
         const baseTypeResult = this._getTypeFromExpression(node.leftExpression,
             { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
 
@@ -2304,8 +2302,7 @@ export class ExpressionEvaluator {
         if (valueExpression) {
             if (valueExpression.nodeType === ParseNodeType.Dictionary ||
                     valueExpression.nodeType === ParseNodeType.Set ||
-                    valueExpression.nodeType === ParseNodeType.List ||
-                    valueExpression.nodeType === ParseNodeType.Lambda) {
+                    valueExpression.nodeType === ParseNodeType.List) {
 
                 this._silenceDiagnostics(() => {
                     const exprType = this._getTypeFromExpression(valueExpression,
@@ -2488,7 +2485,6 @@ export class ExpressionEvaluator {
                     entryName = entryName.trim();
                     if (entryName) {
                         const entryType = UnknownType.create();
-
                         const newSymbol = Symbol.createWithType(
                             SymbolFlags.ClassMember, entryType, defaultTypeSourceId);
 
@@ -2497,11 +2493,11 @@ export class ExpressionEvaluator {
                         // The definition provider won't necessarily take the
                         // user to the exact spot in the string, but it's close enough.
                         const stringNode = entriesArg.valueExpression!;
-                        const declaration: Declaration = {
-                            category: DeclarationCategory.Variable,
-                            node: stringNode,
+                        assert(stringNode.nodeType === ParseNodeType.StringList);
+                        const declaration: VariableDeclaration = {
+                            type: DeclarationType.Variable,
+                            node: stringNode as StringListNode,
                             path: this._fileInfo.filePath,
-                            declaredType: entryType,
                             range: convertOffsetsToRange(
                                 stringNode.start, TextRange.getEnd(stringNode),
                                 this._fileInfo.lines)
@@ -2671,11 +2667,11 @@ export class ExpressionEvaluator {
                     const newSymbol = Symbol.createWithType(
                         SymbolFlags.InstanceMember, entryType, defaultTypeSourceId);
 
-                    const declaration: Declaration = {
-                        category: DeclarationCategory.Variable,
+                    const declaration: VariableDeclaration = {
+                        type: DeclarationType.Variable,
                         node: entry.keyExpression,
                         path: this._fileInfo.filePath,
-                        declaredType: entryType,
+                        typeAnnotationNode: entry.valueExpression,
                         range: convertOffsetsToRange(
                             entry.keyExpression.start, TextRange.getEnd(entry.keyExpression),
                             this._fileInfo.lines)
@@ -2783,11 +2779,10 @@ export class ExpressionEvaluator {
                                 // The definition provider won't necessarily take the
                                 // user to the exact spot in the string, but it's close enough.
                                 const stringNode = entriesArg.valueExpression!;
-                                const declaration: Declaration = {
-                                    category: DeclarationCategory.Variable,
-                                    node: stringNode,
+                                const declaration: VariableDeclaration = {
+                                    type: DeclarationType.Variable,
+                                    node: stringNode as StringListNode,
                                     path: this._fileInfo.filePath,
-                                    declaredType: entryType,
                                     range: convertOffsetsToRange(
                                         stringNode.start, TextRange.getEnd(stringNode), this._fileInfo.lines)
                                 };
@@ -2800,6 +2795,7 @@ export class ExpressionEvaluator {
                         const entryMap: { [name: string]: string } = {};
 
                         entryList.entries.forEach((entry, index) => {
+                            let entryTypeNode: ExpressionNode | undefined;
                             let entryType: Type | undefined;
                             let entryNameNode: ExpressionNode | undefined;
                             let entryName = '';
@@ -2808,7 +2804,8 @@ export class ExpressionEvaluator {
                                 // Handle the variant that includes name/type tuples.
                                 if (entry.nodeType === ParseNodeType.Tuple && entry.expressions.length === 2) {
                                     entryNameNode = entry.expressions[0];
-                                    const entryTypeInfo = this._getTypeFromExpression(entry.expressions[1]);
+                                    entryTypeNode = entry.expressions[1];
+                                    const entryTypeInfo = this._getTypeFromExpression(entryTypeNode);
                                     if (entryTypeInfo) {
                                         entryType = TypeUtils.convertClassToObject(entryTypeInfo.type);
                                     }
@@ -2858,12 +2855,12 @@ export class ExpressionEvaluator {
 
                             const newSymbol = Symbol.createWithType(
                                 SymbolFlags.InstanceMember, entryType, defaultTypeSourceId);
-                            if (entryNameNode) {
-                                const declaration: Declaration = {
-                                    category: DeclarationCategory.Variable,
+                            if (entryNameNode && entryNameNode.nodeType === ParseNodeType.StringList) {
+                                const declaration: VariableDeclaration = {
+                                    type: DeclarationType.Variable,
                                     node: entryNameNode,
                                     path: this._fileInfo.filePath,
-                                    declaredType: entryType,
+                                    typeAnnotationNode: entryTypeNode,
                                     range: convertOffsetsToRange(
                                         entryNameNode.start, TextRange.getEnd(entryNameNode),
                                         this._fileInfo.lines)

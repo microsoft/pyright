@@ -13,8 +13,7 @@ import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
 import { AddMissingOptionalToParamAction, Diagnostic,
-    DiagnosticAddendum,
-    getEmptyRange } from '../common/diagnostic';
+    DiagnosticAddendum, getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -31,7 +30,9 @@ import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode, BinaryEx
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { Declaration, DeclarationCategory } from './declaration';
+import { AliasDeclaration, BuiltInDeclaration, ClassDeclaration, Declaration,
+    DeclarationType, FunctionDeclaration, ModuleDeclaration, ParameterDeclaration,
+    VariableDeclaration } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ImportResult, ImportType } from './importResult';
@@ -44,8 +45,8 @@ import * as StaticExpressions from './staticExpressions';
 import { setSymbolPreservingAccess, Symbol, SymbolFlags, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { ConditionalTypeConstraintResults, TypeConstraintBuilder } from './typeConstraint';
-import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
-    FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isTypeSame, ModuleType, NoneType,
+import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionType,
+    isAnyOrUnknown, isNoneOrNever, isTypeSame, ModuleType, NoneType,
     ObjectType, OverloadedFunctionType, printType, PropertyType, removeNoneFromUnion,
     removeUnboundFromUnion, removeUnknownFromUnion, Type, TypeCategory, TypeVarType, UnboundType,
     UnknownType  } from './types';
@@ -309,10 +310,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             evaluator.synthesizeTypedDictClassMethods(classType);
         }
 
-        const declaration: Declaration = {
-            category: DeclarationCategory.Class,
-            node: node.name,
-            declaredType: decoratedType,
+        const declaration: ClassDeclaration = {
+            type: DeclarationType.Class,
+            node,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start,
                 TextRange.getEnd(node.name), this._fileInfo.lines)
@@ -321,7 +321,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._assignTypeToNameNode(node.name, decoratedType, declaration);
 
         this._validateClassMethods(classType);
-        this._updateExpressionTypeForNode(node.name, classType);
+        this._updateExpressionTypeForNode(node.name, decoratedType);
 
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
@@ -547,14 +547,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (paramNode.name) {
                     const specializedParamType = TypeUtils.specializeType(param.type, undefined);
 
-                    let declaration: Declaration | undefined;
+                    let declaration: ParameterDeclaration | undefined;
                     declaration = {
-                        category: DeclarationCategory.Parameter,
+                        type: DeclarationType.Parameter,
                         node: paramNode,
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
-                            this._fileInfo.lines),
-                        declaredType: paramNode.typeAnnotation ? specializedParamType : undefined
+                            this._fileInfo.lines)
                     };
                     assert(paramNode !== undefined && paramNode.name !== undefined);
 
@@ -577,16 +576,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Validate that the function returns the declared type.
         this._validateFunctionReturn(node, functionType, functionScope);
-        const declarationCategory = containingClassNode ?
-            DeclarationCategory.Method : DeclarationCategory.Function;
+        const declarationType = containingClassNode ?
+            DeclarationType.Method : DeclarationType.Function;
 
-        const declaration: Declaration = {
-            category: declarationCategory,
-            node: node.name,
+        const declaration: FunctionDeclaration = {
+            type: declarationType,
+            node,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
-                this._fileInfo.lines),
-            declaredType: decoratedType
+                this._fileInfo.lines)
         };
         this._assignTypeToNameNode(node.name, decoratedType, declaration);
 
@@ -594,7 +592,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._validateMethod(node, functionType);
         }
 
-        this._updateExpressionTypeForNode(node.name, functionType);
+        this._updateExpressionTypeForNode(node.name, decoratedType);
 
         this.walkMultiple(node.decorators);
 
@@ -612,9 +610,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._enterScope(node, () => {
             node.parameters.forEach(param => {
                 if (param.name) {
-                    let declaration: Declaration | undefined;
+                    let declaration: ParameterDeclaration | undefined;
                     declaration = {
-                        category: DeclarationCategory.Parameter,
+                        type: DeclarationType.Parameter,
                         node: param,
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(param.start, TextRange.getEnd(param),
@@ -1013,9 +1011,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         subType, node.typeExpression!);
                 });
 
-                const declaration: Declaration = {
-                    category: DeclarationCategory.Variable,
+                const declaration: VariableDeclaration = {
+                    type: DeclarationType.Variable,
                     node: node.name,
+                    isConstant: SymbolNameUtils.isConstantName(node.name.nameToken.value),
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
                         this._fileInfo.lines)
@@ -1288,7 +1287,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const declarations = symbolInScope.symbol.getDeclarations();
 
             // Determine if we should log information about an unused name.
-            if (declarations.length > 0 && declarations[0].category === DeclarationCategory.Variable) {
+            if (declarations.length > 0 && declarations[0].type === DeclarationType.Variable) {
                 unaccessedDiagLevel = this._fileInfo.diagnosticSettings.reportUnusedVariable;
             }
         }
@@ -1309,10 +1308,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const symbolWithScope = this._currentScope.lookUpSymbolRecursive(expr.nameToken.value);
                 if (symbolWithScope) {
                     if (symbolWithScope.symbol.hasDeclarations()) {
-                        const category = symbolWithScope.symbol.getDeclarations()[0].category;
-                        if (category === DeclarationCategory.Function || category === DeclarationCategory.Method) {
+                        const declType = symbolWithScope.symbol.getDeclarations()[0].type;
+                        if (declType === DeclarationType.Function || declType === DeclarationType.Method) {
                             this._addError('Del should not be applied to function', expr);
-                        } else if (category === DeclarationCategory.Class) {
+                        } else if (declType === DeclarationType.Class) {
                             this._addError('Del should not be applied to class', expr);
                         }
                     }
@@ -1355,15 +1354,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         const importedModule = this._fileInfo.importMap[implicitImport.path];
 
                         if (importedModule) {
-                            const declaration: Declaration = {
-                                category: DeclarationCategory.Module,
+                            const moduleDeclaration: ModuleDeclaration = {
+                                type: DeclarationType.Module,
+                                moduleType: implicitModuleType,
                                 path: implicitImport.path,
+                                range: getEmptyRange()
+                            };
+                            const aliasDeclaration: AliasDeclaration = {
+                                type: DeclarationType.Alias,
+                                resolvedDeclarations: [moduleDeclaration],
+                                path: '',
                                 range: getEmptyRange()
                             };
 
                             const newSymbol = Symbol.createWithType(
                                 SymbolFlags.ClassMember, implicitModuleType, defaultTypeSourceId);
-                            newSymbol.addDeclaration(declaration);
+                            newSymbol.addDeclaration(aliasDeclaration);
                             if (!moduleFields.get(implicitImport.name)) {
                                 setSymbolPreservingAccess(moduleFields, implicitImport.name, newSymbol);
                             }
@@ -1371,17 +1377,24 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 });
 
-                let moduleDeclaration: Declaration | undefined;
+                let aliasDeclaration: AliasDeclaration | undefined;
                 if (this._fileInfo.importMap[resolvedPath]) {
-                    moduleDeclaration = {
-                        category: DeclarationCategory.Module,
+                    const moduleDeclaration: ModuleDeclaration = {
+                        type: DeclarationType.Module,
+                        moduleType: this._fileInfo.importMap[resolvedPath],
                         path: resolvedPath,
+                        range: getEmptyRange()
+                    };
+                    aliasDeclaration = {
+                        type: DeclarationType.Alias,
+                        resolvedDeclarations: [moduleDeclaration],
+                        path: '',
                         range: getEmptyRange()
                     };
                 }
 
                 if (node.alias) {
-                    this._assignTypeToNameNode(node.alias, moduleType, moduleDeclaration);
+                    this._assignTypeToNameNode(node.alias, moduleType, aliasDeclaration);
                     this._updateExpressionTypeForNode(node.alias, moduleType);
 
                     this._conditionallyReportUnusedName(node.alias, false,
@@ -1390,7 +1403,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         `Import '${ node.alias.nameToken.value }' is not accessed`);
                 } else {
                     this._bindMultiPartModuleNameToType(node.module.nameParts,
-                        moduleType, moduleDeclaration);
+                        moduleType, aliasDeclaration);
                 }
             } else {
                 // We were unable to resolve the import. Bind the names (or alias)
@@ -1451,7 +1464,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const name = importAs.name.nameToken.value;
                     const aliasNode = importAs.alias || importAs.name;
                     let symbolType: Type | undefined;
-                    let declaration: Declaration | undefined;
+                    let declarations: Declaration[] | undefined;
 
                     // Is the name referring to an implicit import?
                     const implicitImport = importInfo.implicitImports.find(impImport => impImport.name === name);
@@ -1459,11 +1472,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         const moduleType = this._getModuleTypeForImportPath(importInfo, implicitImport.path);
                         if (moduleType && this._fileInfo.importMap[implicitImport.path]) {
                             symbolType = moduleType;
-                            declaration = {
-                                category: DeclarationCategory.Module,
+                            declarations = [{
+                                type: DeclarationType.Module,
+                                moduleType,
                                 path: implicitImport.path,
                                 range: getEmptyRange()
-                            };
+                            }];
                         }
                     } else {
                         const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
@@ -1475,7 +1489,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             // will have no declarations.
                             if (symbol && symbol.hasDeclarations()) {
                                 symbolType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
-                                declaration = symbol.getDeclarations()[0];
+                                declarations = symbol.getDeclarations();
                             } else {
                                 this._addError(
                                     `'${ importAs.name.nameToken.value }' is unknown import symbol`,
@@ -1494,16 +1508,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         this._updateExpressionTypeForNode(importAs.alias, symbolType);
                     }
 
-                    if (declaration && declaration.declaredType) {
-                        // Create a shallow copy of the declaration that
-                        // does not include the declaredType because the symbol
-                        // in this namespace is not necessarily constrained to
-                        // this type.
-                        declaration = Object.assign({}, declaration);
-                        declaration.declaredType = undefined;
+                    let aliasDeclaration: AliasDeclaration | undefined;
+                    if (declarations) {
+                        aliasDeclaration = {
+                            type: DeclarationType.Alias,
+                            resolvedDeclarations: declarations,
+                            symbolName: name,
+                            path: '',
+                            range: getEmptyRange()
+                        };
                     }
 
-                    this._assignTypeToNameNode(aliasNode, symbolType, declaration);
+                    this._assignTypeToNameNode(aliasNode, symbolType, aliasDeclaration);
 
                     // Python files generated by protoc ("_pb2.py" files) contain
                     // unused imports. Don't report these because they're in generated
@@ -1801,9 +1817,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (specialType) {
-                const declaration: Declaration = {
-                    category: DeclarationCategory.Class,
+                const declaration: BuiltInDeclaration = {
+                    type: DeclarationType.BuiltIn,
                     node: node.leftExpression,
+                    declaredType: specialType,
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.leftExpression.start,
                         TextRange.getEnd(node.leftExpression), this._fileInfo.lines)
@@ -1866,7 +1883,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (specialType) {
                 const declaration: Declaration = {
-                    category: DeclarationCategory.Class,
+                    type: DeclarationType.BuiltIn,
+                    declaredType: specialType,
                     node: nameNode,
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(nameNode.start,
@@ -1986,12 +2004,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (target.nodeType === ParseNodeType.Name) {
             const name = target.nameToken;
-            const declaration: Declaration = {
-                category: DeclarationCategory.Variable,
+            const declaration: VariableDeclaration = {
+                type: DeclarationType.Variable,
                 node: target,
                 isConstant: SymbolNameUtils.isConstantName(name.value),
                 path: this._fileInfo.filePath,
-                declaredType,
+                typeAnnotationNode,
                 range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
             };
 
@@ -2040,15 +2058,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _addDeclarationToSymbol(symbol: Symbol, declaration: Declaration, errorNode: ExpressionNode) {
         // Are we adding a new declaration with a declared type?
-        const prevDeclarations = symbol.getDeclarations();
-        if (prevDeclarations.length > 0 && declaration.declaredType) {
-            const declWithDefinedType = prevDeclarations.find(decl => !!decl.declaredType);
+        const typedDeclarations = symbol.getTypedDeclarations();
+        if (typedDeclarations.length > 0 && DeclarationUtils.hasTypeForDeclaration(declaration)) {
+            if (!DeclarationUtils.areDeclarationsSame(declaration, typedDeclarations[0])) {
+                const addedDeclType = DeclarationUtils.getTypeForDeclaration(declaration, false) ||
+                    UnknownType.create();
+                const existingDeclType = DeclarationUtils.getTypeForDeclaration(typedDeclarations[0], false) ||
+                    UnknownType.create();
 
-            if (declWithDefinedType && declaration.node !== declWithDefinedType.node && declWithDefinedType.declaredType) {
                 // If we're adding a declaration, make sure it's the same type as an existing declaration.
-                if (!isTypeSame(declaration.declaredType, declWithDefinedType.declaredType)) {
-                    this._addError(`Declared type '${ printType(declaration.declaredType) }' is not compatible ` +
-                        `with previous declared type '${ printType(declWithDefinedType.declaredType) }'`,
+                if (!isTypeSame(addedDeclType, existingDeclType)) {
+                    this._addError(`Declared type '${ printType(addedDeclType) }' is not compatible ` +
+                        `with previous declared type '${ printType(existingDeclType) }'`,
                         errorNode);
                 }
             }
@@ -2126,8 +2147,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
 
-        const primaryDeclaration = declarations && declarations.length > 0 ?
+        let primaryDeclaration = declarations && declarations.length > 0 ?
             declarations[0] : undefined;
+        if (!primaryDeclaration || primaryDeclaration.node === node) {
+            return;
+        }
+
+        primaryDeclaration = DeclarationUtils.resolveDeclarationAliases(primaryDeclaration);
         if (!primaryDeclaration || primaryDeclaration.node === node) {
             return;
         }
@@ -2886,26 +2912,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // A local helper function that creates a new declaration.
             const createDeclaration = () => {
                 const declaration: Declaration = {
-                    category: srcType.category === TypeCategory.Function ?
-                        DeclarationCategory.Method : DeclarationCategory.Variable,
+                    type: DeclarationType.Variable,
                     node: node.memberName,
                     isConstant,
                     path: this._fileInfo.filePath,
+                    typeAnnotationNode,
                     range: convertOffsetsToRange(node.memberName.start,
                         node.memberName.start + node.memberName.length,
                         this._fileInfo.lines)
                 };
-
-                if (typeAnnotationNode) {
-                    declaration.declaredType = srcType;
-                }
 
                 return declaration;
             };
 
             const memberFields = ClassType.getFields(classType);
             let addNewMemberToLocalClass = false;
-            let inheritedDeclaration: Declaration | undefined;
+            let inheritedDeclarations: Declaration[] | undefined;
             if (memberInfo) {
                 // Are we accessing an existing member on this class, or is
                 // it a member on a parent class?
@@ -2913,7 +2935,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         ClassType.isSameGenericClass(classType, memberInfo.classType);
 
                 if (isThisClass && memberInfo.isInstanceMember === isInstanceMember) {
-                    const symbol = memberFields.get(memberName);
+                    const symbol = memberFields.get(memberName)!;
                     assert(symbol !== undefined);
 
                     // If the type annotation node is provided, use it to generate a source ID.
@@ -2921,7 +2943,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // to generate two sources because the types may different, and the analysis
                     // won't converge if we use the same source ID for both.
                     const sourceId = (typeAnnotationNode || node.memberName).id;
-                    if (symbol!.setInferredTypeForSource(srcType, sourceId)) {
+                    if (symbol.setInferredTypeForSource(srcType, sourceId)) {
                         this._setAnalysisChanged('Class member inferred type changed');
                     }
 
@@ -2932,13 +2954,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             node.memberName, srcType, srcExprNode);
                     }
 
-                    this._addDeclarationToSymbol(symbol!, createDeclaration(), typeAnnotationNode || node);
-                    const primaryDecls = TypeUtils.getPrimaryDeclarationsForSymbol(symbol!)!;
+                    this._addDeclarationToSymbol(symbol, createDeclaration(), typeAnnotationNode || node);
+                    const typedDecls = symbol.getDeclarations();
 
                     // Check for an attempt to overwrite a constant member variable.
-                    const primaryDecl = primaryDecls ? primaryDecls[0] : undefined;
-                    if (primaryDecl && primaryDecl.isConstant && srcExprNode) {
-                        if (node.memberName !== primaryDecl.node) {
+                    if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable &&
+                            typedDecls[0].isConstant && srcExprNode) {
+
+                        if (node.memberName !== typedDecls[0].node) {
                             this._addDiagnostic(this._fileInfo.diagnosticSettings.reportConstantRedefinition,
                                 DiagnosticRule.reportConstantRedefinition,
                                 `'${ node.memberName.nameToken.value }' is constant and cannot be redefined`,
@@ -2947,10 +2970,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 } else {
                     // Is the target a property?
-                    const prevDeclarations = TypeUtils.getPrimaryDeclarationsForSymbol(memberInfo.symbol) || [];
-                    const prevDeclaredType = prevDeclarations.length > 0 ?
-                        prevDeclarations[0].declaredType : undefined;
-                    if (prevDeclaredType && prevDeclaredType.category === TypeCategory.Property) {
+                    const declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
+                    if (declaredType && declaredType.category === TypeCategory.Property) {
                         // Don't add a type constraint because a property getter and
                         // setter are not guaranteed to use the same type.
                         addTypeConstraintForAssignment = false;
@@ -2960,8 +2981,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         // name, but there's also now an instance variable introduced. Combine the
                         // type of the class variable with that of the new instance variable.
                         if (!memberInfo.isInstanceMember && isInstanceMember) {
-                            if (prevDeclarations.length > 0) {
-                                inheritedDeclaration = prevDeclarations.find(decl => !!decl.declaredType);
+                            if (declaredType) {
+                                inheritedDeclarations = memberInfo.symbol.getTypedDeclarations();
                             }
 
                             // The class variable is accessed in this case.
@@ -2977,7 +2998,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             // in the subclass, assume that it should inherit the parent's type.
                             // Otherwise we'll allow the inferred type in this class to override
                             // the inferred type in the parent class.
-                            if (!isThisClass && !prevDeclaredType) {
+                            if (!isThisClass && !declaredType) {
                                 addNewMemberToLocalClass = true;
                             }
                         }
@@ -2995,11 +3016,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // declarations to it.
                 const existingSymbol = memberFields.get(memberName);
                 if (existingSymbol) {
-                    if (inheritedDeclaration) {
-                        existingSymbol.addDeclaration(inheritedDeclaration);
+                    if (inheritedDeclarations) {
+                        inheritedDeclarations.forEach(decl => {
+                            existingSymbol.addDeclaration(decl);
+                        });
                     }
 
-                    existingSymbol.addDeclaration(createDeclaration());
+                    this._addDeclarationToSymbol(existingSymbol, createDeclaration(),
+                        typeAnnotationNode || node);
 
                     if (isInstanceMember) {
                         existingSymbol.setIsInstanceMember();
@@ -3013,11 +3037,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     // If this is an instance variable that has a corresponding class variable
                     // with a defined type, it should inherit that declaration (and declared type).
-                    if (inheritedDeclaration) {
-                        newSymbol.addDeclaration(inheritedDeclaration);
+                    if (inheritedDeclarations) {
+                        inheritedDeclarations.forEach(decl => {
+                            newSymbol.addDeclaration(decl);
+                        });
                     }
 
-                    newSymbol.addDeclaration(createDeclaration());
+                    this._addDeclarationToSymbol(newSymbol, createDeclaration(),
+                        typeAnnotationNode || node);
                     setSymbolPreservingAccess(memberFields, memberName, newSymbol);
                 }
 
@@ -3225,8 +3252,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _assignTypeToExpression(target: ExpressionNode, srcType: Type, srcExpr: ExpressionNode): void {
         if (target.nodeType === ParseNodeType.Name) {
             const name = target.nameToken;
-            const declaration: Declaration = {
-                category: DeclarationCategory.Variable,
+            const declaration: VariableDeclaration = {
+                type: DeclarationType.Variable,
                 node: target,
                 isConstant: SymbolNameUtils.isConstantName(name.value),
                 path: this._fileInfo.filePath,
@@ -3375,8 +3402,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         } else if (target.nodeType === ParseNodeType.Unpack) {
             if (target.expression.nodeType === ParseNodeType.Name) {
                 const name = target.expression.nameToken;
-                const declaration: Declaration = {
-                    category: DeclarationCategory.Variable,
+                const declaration: VariableDeclaration = {
+                    type: DeclarationType.Variable,
                     node: target.expression,
                     isConstant: SymbolNameUtils.isConstantName(name.value),
                     path: this._fileInfo.filePath,
@@ -3489,16 +3516,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const nameValue = nameNode.nameToken.value;
 
         // Determine if there's a declared type for this symbol.
-        let declaredType: Type | undefined = declaration ? declaration.declaredType : undefined;
-        let primaryDecl: Declaration | undefined;
+        let declaredType: Type | undefined = declaration ?
+            DeclarationUtils.getTypeForDeclaration(declaration, false) : undefined;
+        let declarations: Declaration[] = [];
 
         const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
         if (symbolWithScope) {
-            const primaryDecls = TypeUtils.getPrimaryDeclarationsForSymbol(symbolWithScope.symbol);
-            if (primaryDecls) {
-                declaredType = primaryDecls[0].declaredType;
-                primaryDecl = primaryDecls[0];
-            }
+            declarations = symbolWithScope.symbol.getDeclarations();
+            declaredType = TypeUtils.getDeclaredTypeOfSymbol(symbolWithScope.symbol);
         } else {
             // We should never get here.
             assert.fail(`Missing symbol '${ nameValue }'`);
@@ -3533,8 +3558,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (primaryDecl && primaryDecl.isConstant && srcExpressionNode) {
-            if (nameNode !== primaryDecl.node) {
+        const varDecl: Declaration | undefined = declarations.find(
+            decl => decl.type === DeclarationType.Variable);
+        if (varDecl && (varDecl as VariableDeclaration).isConstant && srcExpressionNode) {
+            if (nameNode !== declarations[0].node) {
                 this._addDiagnostic(this._fileInfo.diagnosticSettings.reportConstantRedefinition,
                     DiagnosticRule.reportConstantRedefinition,
                     `'${ nameValue }' is constant and cannot be redefined`,

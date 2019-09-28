@@ -9,10 +9,9 @@
 * in the program.
 */
 
-import * as assert from 'assert';
-
 import StringMap from '../common/stringMap';
 import { Declaration } from './declaration';
+import { areDeclarationsSame, hasTypeForDeclaration } from './declarationUtils';
 import { InferredType, TypeSourceId } from './inferredType';
 import { Type } from './types';
 
@@ -63,12 +62,6 @@ export class Symbol {
         const newSymbol = new Symbol(flags);
         newSymbol.setInferredTypeForSource(type, typeSourceId);
         return newSymbol;
-    }
-
-    static areDeclarationsEqual(decl1: Declaration, decl2: Declaration) {
-        return decl1.category === decl2.category &&
-            decl1.node === decl2.node &&
-            decl1.path === decl2.path;
     }
 
     isInitiallyUnbound() {
@@ -125,16 +118,16 @@ export class Symbol {
             // See if this node was already identified as a declaration. If so,
             // replace it. Otherwise, add it as a new declaration to the end of
             // the list.
-            const declIndex = this._declarations.findIndex(decl => decl.node === declaration.node);
-            if (declIndex >= 0) {
-                // This declaration has already been added. Update the declared
-                // type if it's available. The other fields in the declaration
-                // should be the same from one analysis pass to the next.
-                if (declaration.declaredType) {
-                    this._declarations[declIndex].declaredType = declaration.declaredType;
-                }
-            } else {
+            const declIndex = this._declarations.findIndex(
+                decl => areDeclarationsSame(decl, declaration));
+            if (declIndex < 0) {
                 this._declarations.push(declaration);
+            } else {
+                // If the new declaration has a defined type, it should replace
+                // the existing one.
+                if (hasTypeForDeclaration(declaration)) {
+                    this._declarations[declIndex] = declaration;
+                }
             }
         } else {
             this._declarations = [declaration];
@@ -151,6 +144,11 @@ export class Symbol {
 
     getDeclarations() {
         return this._declarations ? this._declarations : [];
+    }
+
+    getTypedDeclarations() {
+        return this.getDeclarations().filter(
+            decl => hasTypeForDeclaration(decl, false));
     }
 }
 

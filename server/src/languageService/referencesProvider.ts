@@ -8,7 +8,7 @@
 * by a location within a file.
 */
 
-import { Declaration, DeclarationCategory } from '../analyzer/declaration';
+import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
@@ -70,7 +70,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
 
     private _resultsContainsDeclaration(declaration: Declaration) {
         return this._referencesResult.declarations.some(decl =>
-            Symbol.areDeclarationsEqual(decl, declaration));
+            DeclarationUtils.areDeclarationsSame(decl, declaration));
     }
 }
 
@@ -99,10 +99,10 @@ export class ReferencesProvider {
         }
 
         // Is this a type that potentially requires a global search?
-        const symbolCategory = declarations[0].category;
+        const symbolDeclType = declarations[0].type;
 
         // Parameters are local to a scope, so they don't require a global search.
-        const requiresGlobalSearch = symbolCategory !== DeclarationCategory.Parameter;
+        const requiresGlobalSearch = symbolDeclType !== DeclarationType.Parameter;
 
         const results: ReferencesResult = {
             requiresGlobalSearch,

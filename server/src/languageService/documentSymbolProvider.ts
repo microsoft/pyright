@@ -12,7 +12,8 @@ import { Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode
 import VSCodeUri from 'vscode-uri';
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { Declaration, DeclarationCategory } from '../analyzer/declaration';
+import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { getTypeForDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeCategory } from '../analyzer/types';
@@ -99,39 +100,44 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
         }
 
         let symbolKind: SymbolKind;
-        switch (declaration.category) {
-            case DeclarationCategory.Class:
+        switch (declaration.type) {
+            case DeclarationType.Class:
                 symbolKind = SymbolKind.Class;
                 break;
 
-            case DeclarationCategory.Function:
+            case DeclarationType.Function:
                 symbolKind = SymbolKind.Function;
                 break;
 
-            case DeclarationCategory.Method:
-                if (declaration.declaredType && declaration.declaredType.category === TypeCategory.Property) {
+            case DeclarationType.Method:
+                const declType = getTypeForDeclaration(declaration, false);
+                if (declType && declType.category === TypeCategory.Property) {
                     symbolKind = SymbolKind.Property;
                 } else {
                     symbolKind = SymbolKind.Method;
                 }
                 break;
 
-            case DeclarationCategory.Module:
+            case DeclarationType.Module:
                 symbolKind = SymbolKind.Module;
                 break;
 
-            case DeclarationCategory.Parameter:
+            case DeclarationType.Parameter:
                 if (name === 'self' || name === 'cls' || name === '_') {
                     return;
                 }
                 symbolKind = SymbolKind.Variable;
                 break;
 
-            case DeclarationCategory.Variable:
-            default:
+            case DeclarationType.Variable:
                 if (name === '_') {
                     return;
                 }
+                symbolKind = declaration.isConstant ?
+                    SymbolKind.Constant : SymbolKind.Variable;
+                break;
+
+            default:
                 symbolKind = SymbolKind.Variable;
                 break;
         }

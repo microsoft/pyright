@@ -12,6 +12,7 @@
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
+import { resolveDeclarationAliases } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol } from '../analyzer/symbol';
 import { TypeCategory } from '../analyzer/types';
@@ -120,10 +121,13 @@ export class DefinitionProvider {
             declarations: Declaration[]) {
 
         declarations.forEach(decl => {
-            definitions.push({
-                path: decl.path,
-                range: decl.range
-            });
+            const resolvedDecl = resolveDeclarationAliases(decl);
+            if (resolvedDecl) {
+                definitions.push({
+                    path: resolvedDecl.path,
+                    range: resolvedDecl.range
+                });
+            }
         });
     }
 

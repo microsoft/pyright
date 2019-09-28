@@ -13,7 +13,8 @@ import { CompletionItem, CompletionItemKind, CompletionList,
 
 import { ImportMap } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { DeclarationCategory } from '../analyzer/declaration';
+import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { getTypeForDeclaration } from '../analyzer/declarationUtils';
 import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
@@ -645,19 +646,18 @@ export class CompletionProvider {
             let documentation: string | undefined;
 
             const declaration = declarations[0];
-            const type = declaration.declaredType;
-            itemKind = this._convertDeclarationCategoryToItemKind(
-                declaration.category, type);
+            const type = getTypeForDeclaration(declaration, false);
+            itemKind = this._convertDeclarationTypeToItemKind(declaration, type);
 
             if (type) {
-                switch (declaration.category) {
-                    case DeclarationCategory.Variable:
-                    case DeclarationCategory.Parameter:
+                switch (declaration.type) {
+                    case DeclarationType.Variable:
+                    case DeclarationType.Parameter:
                         typeDetail = name + ': ' + printType(type);
                         break;
 
-                    case DeclarationCategory.Function:
-                    case DeclarationCategory.Method:
+                    case DeclarationType.Function:
+                    case DeclarationType.Method:
                         if (type.category === TypeCategory.OverloadedFunction) {
                             typeDetail = type.overloads.map(overload =>
                                 name + printType(overload.type)).join('\n');
@@ -666,11 +666,11 @@ export class CompletionProvider {
                         }
                         break;
 
-                    case DeclarationCategory.Class:
+                    case DeclarationType.Class:
                         typeDetail = 'class ' + name + '()';
                         break;
 
-                    case DeclarationCategory.Module:
+                    case DeclarationType.Module:
                     default:
                         typeDetail = name;
                         break;
@@ -829,28 +829,40 @@ export class CompletionProvider {
         return result;
     }
 
-    private _convertDeclarationCategoryToItemKind(category: DeclarationCategory,
+    private _convertDeclarationTypeToItemKind(declaration: Declaration,
             type?: Type): CompletionItemKind {
 
-        switch (category) {
-            case DeclarationCategory.Variable:
-            case DeclarationCategory.Parameter:
+        switch (declaration.type) {
+            case DeclarationType.BuiltIn:
+            case DeclarationType.Parameter:
                 return CompletionItemKind.Variable;
 
-            case DeclarationCategory.Function:
+            case DeclarationType.Variable:
+                return declaration.isConstant ?
+                    CompletionItemKind.Constant :
+                    CompletionItemKind.Variable;
+
+            case DeclarationType.Function:
                 return CompletionItemKind.Function;
 
-            case DeclarationCategory.Method:
+            case DeclarationType.Method:
                 if (type && type.category === TypeCategory.Property) {
                     return CompletionItemKind.Property;
                 }
                 return CompletionItemKind.Method;
 
-            case DeclarationCategory.Class:
+            case DeclarationType.Class:
                 return CompletionItemKind.Class;
 
-            case DeclarationCategory.Module:
+            case DeclarationType.Module:
                 return CompletionItemKind.Module;
+
+            case DeclarationType.Alias:
+                if (declaration.resolvedDeclarations) {
+                    return this._convertDeclarationTypeToItemKind(
+                        declaration.resolvedDeclarations[0], type);
+                }
+                return CompletionItemKind.Variable;
         }
     }
 

@@ -11,7 +11,7 @@
 
 import { ImportMap } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { DeclarationCategory } from '../analyzer/declaration';
+import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import { ImportType } from '../analyzer/importResult';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -59,8 +59,7 @@ export class HoverProvider {
         } else if (node.nodeType === ParseNodeType.Name) {
             const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(results.parts, declarations[0].category,
-                    node, declarations[0].declaredType);
+                this._addResultsForDeclaration(results.parts, declarations[0], node);
             }
 
             // If we had no declaration, see if we can provide a minimal tooltip.
@@ -74,13 +73,23 @@ export class HoverProvider {
     }
 
     private static _addResultsForDeclaration(parts: HoverTextPart[],
-            declCategory: DeclarationCategory, node: ParseNode,
-            declaredType?: Type): void {
+            declaration: Declaration, node: ParseNode): void {
 
-        switch (declCategory) {
-            case DeclarationCategory.Variable: {
+        let resolvedDecl: Declaration | undefined = declaration;
+        while (resolvedDecl && resolvedDecl.type === DeclarationType.Alias) {
+            resolvedDecl = resolvedDecl.resolvedDeclarations ?
+                resolvedDecl.resolvedDeclarations[0] : undefined;
+        }
+
+        if (!resolvedDecl) {
+            return undefined;
+        }
+
+        switch (resolvedDecl.type) {
+            case DeclarationType.Variable: {
+                const label = resolvedDecl.isConstant ? 'constant' : 'variable';
                 if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(variable) ' + node.nameToken.value +
+                    this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
                         this._getTypeText(node), true);
                     this._addDocumentationPart(parts, node);
                     return;
@@ -88,7 +97,7 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationCategory.Parameter: {
+            case DeclarationType.Parameter: {
                 if (node.nodeType === ParseNodeType.Name) {
                     this._addResultsPart(parts, '(parameter) ' + node.nameToken.value +
                         this._getTypeText(node), true);
@@ -98,7 +107,7 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationCategory.Class: {
+            case DeclarationType.Class: {
                 if (node.nodeType === ParseNodeType.Name) {
                     this._addResultsPart(parts, '(class) ' + this._getTypeText(node), true);
                     this._addDocumentationPart(parts, node);
@@ -107,7 +116,7 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationCategory.Function: {
+            case DeclarationType.Function: {
                 if (node.nodeType === ParseNodeType.Name) {
                     this._addResultsPart(parts, '(function) ' + node.nameToken.value +
                         this._getTypeText(node), true);
@@ -117,7 +126,8 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationCategory.Method: {
+            case DeclarationType.Method: {
+                const declaredType = DeclarationUtils.getTypeForDeclaration(resolvedDecl, false);
                 const label = declaredType && declaredType.category === TypeCategory.Property ?
                     'property' : 'method';
                 if (node.nodeType === ParseNodeType.Name) {
@@ -129,7 +139,7 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationCategory.Module: {
+            case DeclarationType.Module: {
                 if (node.nodeType === ParseNodeType.Name) {
                     this._addResultsPart(parts, '(module) ' + node.nameToken.value, true);
                     this._addDocumentationPart(parts, node);

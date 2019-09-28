@@ -10,35 +10,86 @@
 */
 
 import { DiagnosticTextRange } from '../common/diagnostic';
-import { ParseNode } from '../parser/parseNodes';
-import { Type } from './types';
+import { ClassNode, ExpressionNode, FunctionNode, NameNode,
+    ParameterNode, ParseNode, StringListNode } from '../parser/parseNodes';
+import { ModuleType, Type } from './types';
 
-export const enum DeclarationCategory {
+export const enum DeclarationType {
+    BuiltIn,
     Variable,
     Parameter,
     Function,
     Method,
     Class,
-    Module
+    Module,
+    Alias
 }
 
-export interface Declaration {
+export interface DeclarationBase {
     // Category of this symbol (function, variable, etc.).
     // Used by hover provider to display helpful text.
-    category: DeclarationCategory;
+    type: DeclarationType;
 
-    // The node that contains the declaration.
+    // Many declarations have a parse node associated with them.
     node?: ParseNode;
-
-    // Declared type (if specified) of the symbol.
-    declaredType?: Type;
-
-    // Is the declaration considered "constant" (i.e.
-    // reassignment is not permitted)?
-    isConstant?: boolean;
 
     // The file and range within that file that
     // contains the declaration.
     path: string;
     range: DiagnosticTextRange;
 }
+
+export interface BuiltInDeclaration extends DeclarationBase {
+    type: DeclarationType.BuiltIn;
+    declaredType: Type;
+}
+
+export interface ClassDeclaration extends DeclarationBase {
+    type: DeclarationType.Class;
+    node: ClassNode;
+}
+
+export interface FunctionDeclaration extends DeclarationBase {
+    type: DeclarationType.Function | DeclarationType.Method;
+    node: FunctionNode;
+}
+
+export interface ParameterDeclaration extends DeclarationBase {
+    type: DeclarationType.Parameter;
+    node: ParameterNode;
+}
+
+export interface VariableDeclaration extends DeclarationBase {
+    type: DeclarationType.Variable;
+    node: NameNode | StringListNode;
+
+    typeAnnotationNode?: ExpressionNode;
+
+    // Is the declaration considered "constant" (i.e.
+    // reassignment is not permitted)?
+    isConstant?: boolean;
+}
+
+export interface ModuleDeclaration extends DeclarationBase {
+    type: DeclarationType.Module;
+    moduleType: ModuleType;
+}
+
+// Alias declarations are used for imports. They are resolved
+// after the binding phase.
+export interface AliasDeclaration extends DeclarationBase {
+    type: DeclarationType.Alias;
+
+    // If a symbol is present, the alias refers to the symbol
+    // within a module (whose path is defined in the 'path'
+    // field). If symbolName is missing, the alias refers to
+    // the module itself.
+    symbolName?: string;
+
+    // The resolved declaration.
+    resolvedDeclarations?: Declaration[];
+}
+
+export type Declaration = BuiltInDeclaration | ClassDeclaration |
+    FunctionDeclaration | ParameterDeclaration | VariableDeclaration |
+    ModuleDeclaration | AliasDeclaration;

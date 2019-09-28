@@ -12,8 +12,9 @@ import * as assert from 'assert';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
-import { Declaration, DeclarationCategory } from './declaration';
-import { defaultTypeSourceId, TypeSourceId } from './inferredType';
+import { DeclarationType } from './declaration';
+import { getTypeForDeclaration, hasTypeForDeclaration } from './declarationUtils';
+import { defaultTypeSourceId } from './inferredType';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType, FunctionTypeFlags,
     InheritanceChain, isAnyOrUnknown, isNoneOrNever, isSameWithoutLiteralValue, isTypeSame,
@@ -895,28 +896,10 @@ export function getInitialTypeOfSymbol(symbol: Symbol): Type {
 }
 
 export function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
-    const declarations = symbol.getDeclarations();
-    if (declarations.length > 0) {
-        const declWithDeclaredType = declarations.find(decl => decl.declaredType !== undefined);
-        if (declWithDeclaredType) {
-            return declWithDeclaredType.declaredType;
-        }
-    }
-
-    return undefined;
-}
-
-// Returns the "primary" declarations for a symbol. Explicit declarations are
-// preferred. If no explicit declaration exists, inferred declarations are returned.
-export function getPrimaryDeclarationsForSymbol(symbol: Symbol): Declaration[] | undefined {
-    const declarations = symbol.getDeclarations();
-    if (declarations.length > 0) {
-        const declsWithDeclaredType = declarations.filter(decl => decl.declaredType !== undefined);
-        if (declsWithDeclaredType.length > 0) {
-            return declsWithDeclaredType;
-        }
-
-        return declarations;
+    const typedDecls = symbol.getTypedDeclarations();
+    if (typedDecls.length > 0) {
+        // If there's more than one declared type, use the first one.
+        return getTypeForDeclaration(typedDecls[0], false) || UnknownType.create();
     }
 
     return undefined;
@@ -1445,12 +1428,12 @@ export function getTypedDictMembersForClassRecursive(classType: ClassType,
     ClassType.getFields(classType).forEach((symbol, name) => {
         const declarations = symbol.getDeclarations();
         if (declarations.length > 0) {
-            const primaryDecl = declarations[0];
-            if (primaryDecl.category === DeclarationCategory.Variable &&
-                    primaryDecl.node && primaryDecl.declaredType) {
+            const firstDecl = declarations[0];
+            if (firstDecl.type === DeclarationType.Variable &&
+                    firstDecl.node && hasTypeForDeclaration(firstDecl)) {
 
                 keyMap.set(name, {
-                    valueType: primaryDecl.declaredType,
+                    valueType: getTypeForDeclaration(firstDecl, false) || UnknownType.create(),
                     isRequired: !ClassType.isCanOmitDictValues(classType),
                     isProvided: false
                 });
@@ -1465,8 +1448,8 @@ function _isTypedDictMemberAccessedThroughIndex(symbol: Symbol): boolean {
     const declarations = symbol.getDeclarations();
     if (declarations.length > 0) {
         const primaryDecl = declarations[0];
-        if (primaryDecl.category === DeclarationCategory.Variable &&
-                primaryDecl.node && primaryDecl.declaredType) {
+        if (primaryDecl.type === DeclarationType.Variable &&
+                primaryDecl.node && hasTypeForDeclaration(primaryDecl)) {
 
             return true;
         }
@@ -1689,10 +1672,9 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
                     diag.addMessage(`'${ name }' is not present`);
                     typesAreConsistent = false;
                 } else {
-                    const primaryDecls = getPrimaryDeclarationsForSymbol(symbol);
-                    if (primaryDecls && primaryDecls.length > 0 && primaryDecls[0].declaredType) {
-                        let destMemberType = primaryDecls[0].declaredType;
-                        destMemberType = specializeType(destMemberType, destClassTypeVarMap);
+                    const declaredType = getDeclaredTypeOfSymbol(symbol);
+                    if (declaredType) {
+                        const destMemberType = specializeType(declaredType, destClassTypeVarMap);
                         const srcMemberType = memberInfo.symbolType;
 
                         if (!canAssignType(destMemberType, srcMemberType,
