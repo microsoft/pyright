@@ -3612,6 +3612,7 @@ export class ExpressionEvaluator {
             const functionParam: FunctionParameter = {
                 category: param.category,
                 name: param.name ? param.name.nameToken.value : undefined,
+                hasDefault: !!param.defaultValue,
                 type: paramType
             };
             FunctionType.addParameter(functionType, functionParam);
