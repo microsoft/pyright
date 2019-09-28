@@ -640,14 +640,23 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     protected _addBuiltInSymbolToCurrentScope(nameValue: string, type: Type) {
-        const symbol = this._addSymbolToCurrentScope(nameValue, type, defaultTypeSourceId);
-        if (symbol) {
-            symbol.addDeclaration({
-                type: DeclarationType.BuiltIn,
-                declaredType: type,
-                path: this._fileInfo.filePath,
-                range: getEmptyRange()
-            });
+        // Handle a special case where a built-in type is not known
+        // at binding time. This happens specifically when binding
+        // the buitins.pyi module. We'll convert the Unknown types
+        // into Any and not add a real declaration so other classes
+        // can override the type without getting an error.
+        if (type.category === TypeCategory.Unknown) {
+            this._addSymbolToCurrentScope(nameValue, AnyType.create(), defaultTypeSourceId);
+        } else {
+            const symbol = this._addSymbolToCurrentScope(nameValue, type, defaultTypeSourceId);
+            if (symbol) {
+                symbol.addDeclaration({
+                    type: DeclarationType.BuiltIn,
+                    declaredType: type,
+                    path: this._fileInfo.filePath,
+                    range: getEmptyRange()
+                });
+            }
         }
     }
 
@@ -850,14 +859,17 @@ export class ClassScopeBinder extends Binder {
         // The scope for this class becomes the "fields" for the corresponding type.
         ClassType.setFields(classType, this._currentScope.getSymbolTable());
 
-        // Bind implicit names.
         assert(classType && classType.category === TypeCategory.Class);
-        this._addBuiltInSymbolToCurrentScope('__class__', classType);
-        this._addBuiltInSymbolToCurrentScope('__dict__', AnyType.create());
-        this._addBuiltInSymbolToCurrentScope('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addBuiltInSymbolToCurrentScope('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+
+        // Bind implicit names.
+        // Note that __class__, __dict__ and __doc__ are skipped here
+        // because the builtins.pyi type stub declares these in the
+        // 'object' class.
+        this._addBuiltInSymbolToCurrentScope('__name__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
-            this._addBuiltInSymbolToCurrentScope('__qualname__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__qualname__',
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         }
 
         // Analyze the suite.
@@ -873,12 +885,16 @@ export class FunctionScopeBinder extends Binder {
 
         // Bind implicit names.
         // List taken from https://docs.python.org/3/reference/datamodel.html
-        this._addBuiltInSymbolToCurrentScope('__doc__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addBuiltInSymbolToCurrentScope('__name__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addBuiltInSymbolToCurrentScope('__doc__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addBuiltInSymbolToCurrentScope('__name__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
-            this._addBuiltInSymbolToCurrentScope('__qualname__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__qualname__',
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         }
-        this._addBuiltInSymbolToCurrentScope('__module__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+        this._addBuiltInSymbolToCurrentScope('__module__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         this._addBuiltInSymbolToCurrentScope('__defaults__', AnyType.create());
         this._addBuiltInSymbolToCurrentScope('__code__', AnyType.create());
         this._addBuiltInSymbolToCurrentScope('__globals__', AnyType.create());
