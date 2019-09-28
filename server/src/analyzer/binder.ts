@@ -21,6 +21,7 @@ import * as assert from 'assert';
 import { DiagnosticLevel } from '../common/configOptions';
 import { CreateTypeStubFileAction, getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
@@ -202,7 +203,18 @@ export abstract class Binder extends ParseTreeWalker {
         const classType = ClassType.create(node.name.nameToken.value, classFlags,
             node.id, this._getDocString(node.suite.statements));
 
-        this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+        const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+        if (symbol) {
+            if (!this._isUnexecutedCode) {
+                symbol.addDeclaration({
+                    type: DeclarationType.Class,
+                    node,
+                    path: this._fileInfo.filePath,
+                    range: convertOffsetsToRange(node.name.start,
+                        TextRange.getEnd(node.name), this._fileInfo.lines)
+                });
+            }
+        }
 
         this.walkMultiple(node.arguments);
 
@@ -272,7 +284,21 @@ export abstract class Binder extends ParseTreeWalker {
         const functionType = FunctionType.create(functionFlags,
             this._getDocString(node.suite.statements));
 
-        this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+        const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+        if (symbol) {
+            if (!this._isUnexecutedCode) {
+                const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+                const declarationType = containingClassNode ?
+                    DeclarationType.Method : DeclarationType.Function;
+                symbol.addDeclaration({
+                    type: declarationType,
+                    node,
+                    path: this._fileInfo.filePath,
+                    range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
+                        this._fileInfo.lines)
+                });
+            }
+        }
 
         this.walkMultiple(node.decorators);
         node.parameters.forEach(param => {
@@ -618,7 +644,11 @@ export abstract class Binder extends ParseTreeWalker {
                 symbol = scope.addSymbol(name,
                     SymbolFlags.InitiallyUnbound | SymbolFlags.ClassMember);
             }
+
+            return symbol;
         }
+
+        return undefined;
     }
 
     protected _bindPossibleTupleNamedTarget(node: ExpressionNode) {
@@ -915,9 +945,18 @@ export class FunctionScopeBinder extends Binder {
     bindDeferred() {
         const functionNode = this._scopedNode as FunctionNode;
 
-        functionNode.parameters.forEach(param => {
-            if (param.name) {
-                this._bindNameToScope(this._currentScope, param.name.nameToken.value);
+        functionNode.parameters.forEach(paramNode => {
+            if (paramNode.name) {
+                const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
+                if (symbol) {
+                    symbol.addDeclaration({
+                        type: DeclarationType.Parameter,
+                        node: paramNode,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
+                            this._fileInfo.lines)
+                    });
+                }
             }
         });
 
@@ -937,9 +976,18 @@ export class LambdaScopeBinder extends Binder {
     bindDeferred() {
         const lambdaNode = this._scopedNode as LambdaNode;
 
-        lambdaNode.parameters.forEach(param => {
-            if (param.name) {
-                this._bindNameToScope(this._currentScope, param.name.nameToken.value);
+        lambdaNode.parameters.forEach(paramNode => {
+            if (paramNode.name) {
+                const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
+                if (symbol) {
+                    symbol.addDeclaration({
+                        type: DeclarationType.Parameter,
+                        node: paramNode,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
+                            this._fileInfo.lines)
+                    });
+                }
             }
         });
 

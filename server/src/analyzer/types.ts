@@ -536,7 +536,8 @@ export const enum FunctionTypeFlags {
     StaticMethod = 8,
     AbstractMethod = 16,
     DisableDefaultChecks = 32,
-    SynthesizedMethod = 64
+    SynthesizedMethod = 64,
+    Overloaded = 128
 }
 
 interface FunctionDetails {
@@ -665,6 +666,14 @@ export namespace FunctionType {
 
     export function isSynthesizedMethod(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.SynthesizedMethod) !== 0;
+    }
+
+    export function setIsOverloaded(type: FunctionType) {
+        type.details.flags |= FunctionTypeFlags.Overloaded;
+    }
+
+    export function isOverloaded(type: FunctionType): boolean {
+        return (type.details.flags & FunctionTypeFlags.Overloaded) !== 0;
     }
 
     export function getBuiltInName(type: FunctionType) {

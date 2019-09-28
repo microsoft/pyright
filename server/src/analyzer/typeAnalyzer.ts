@@ -30,8 +30,7 @@ import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode, BinaryEx
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { AliasDeclaration, BuiltInDeclaration, ClassDeclaration, Declaration,
-    DeclarationType, FunctionDeclaration, ModuleDeclaration, ParameterDeclaration,
+import { AliasDeclaration, BuiltInDeclaration, Declaration, DeclarationType, ModuleDeclaration,
     VariableDeclaration } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
@@ -310,15 +309,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             evaluator.synthesizeTypedDictClassMethods(classType);
         }
 
-        const declaration: ClassDeclaration = {
-            type: DeclarationType.Class,
-            node,
-            path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start,
-                TextRange.getEnd(node.name), this._fileInfo.lines)
-        };
-
-        this._assignTypeToNameNode(node.name, decoratedType, declaration);
+        this._assignTypeToNameNode(node.name, decoratedType);
 
         this._validateClassMethods(classType);
         this._updateExpressionTypeForNode(node.name, decoratedType);
@@ -365,8 +356,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
-            decoratedType = this._applyFunctionDecorator(decoratedType,
-                functionType, decorator, node);
+            decoratedType = this._applyFunctionDecorator(decoratedType, functionType, decorator);
             if (decoratedType.category === TypeCategory.Unknown) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
@@ -547,21 +537,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (paramNode.name) {
                     const specializedParamType = TypeUtils.specializeType(param.type, undefined);
 
-                    let declaration: ParameterDeclaration | undefined;
-                    declaration = {
-                        type: DeclarationType.Parameter,
-                        node: paramNode,
-                        path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
-                            this._fileInfo.lines)
-                    };
                     assert(paramNode !== undefined && paramNode.name !== undefined);
 
                     // If the type contains type variables, specialize them now
                     // so we convert them to a concrete type (or unknown if there
                     // is no bound or constraint).
                     const variadicParamType = this._getVariadicParamType(param.category, specializedParamType);
-                    this._addTypeSourceToNameNode(paramNode.name, variadicParamType, declaration);
+                    this._addTypeSourceToNameNode(paramNode.name, variadicParamType);
                     this._updateExpressionTypeForNode(paramNode.name, variadicParamType);
 
                     // Cache the type for the hover provider. Don't walk
@@ -576,17 +558,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Validate that the function returns the declared type.
         this._validateFunctionReturn(node, functionType, functionScope);
-        const declarationType = containingClassNode ?
-            DeclarationType.Method : DeclarationType.Function;
-
-        const declaration: FunctionDeclaration = {
-            type: declarationType,
-            node,
-            path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
-                this._fileInfo.lines)
-        };
-        this._assignTypeToNameNode(node.name, decoratedType, declaration);
+        this._assignTypeToNameNode(node.name, decoratedType);
 
         if (containingClassNode) {
             this._validateMethod(node, functionType);
@@ -608,25 +580,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._getTypeOfExpression(node);
 
         this._enterScope(node, () => {
-            node.parameters.forEach(param => {
-                if (param.name) {
-                    let declaration: ParameterDeclaration | undefined;
-                    declaration = {
-                        type: DeclarationType.Parameter,
-                        node: param,
-                        path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(param.start, TextRange.getEnd(param),
-                            this._fileInfo.lines)
-                    };
-
-                    const symbolWithScope = this._currentScope.lookUpSymbolRecursive(
-                        param.name.nameToken.value);
-                    if (symbolWithScope) {
-                        symbolWithScope.symbol.addDeclaration(declaration);
-                    }
-                }
-            });
-
             // Walk the children.
             this.walkMultiple([...node.parameters, node.expression]);
         });
@@ -2467,27 +2420,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // Transforms the input function type into an output type based on the
     // decorator function described by the decoratorNode.
     private _applyFunctionDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
-            decoratorNode: DecoratorNode, node: FunctionNode): Type {
+            decoratorNode: DecoratorNode): Type {
 
         const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression);
 
         // Special-case the "overload" because it has no definition.
         if (decoratorType.category === TypeCategory.Class && ClassType.getClassName(decoratorType) === 'overload') {
-            const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
-            const existingSymbol = permanentScope.lookUpSymbol(node.name.nameToken.value);
-            const typeSourceId = node.id;
             if (inputFunctionType.category === TypeCategory.Function) {
-                if (existingSymbol) {
-                    const symbolType = TypeUtils.getEffectiveTypeOfSymbol(existingSymbol);
-                    if (symbolType.category === TypeCategory.OverloadedFunction) {
-                        OverloadedFunctionType.addOverload(symbolType, typeSourceId, inputFunctionType);
-                        return symbolType;
-                    }
-                }
-
-                const newOverloadType = OverloadedFunctionType.create();
-                OverloadedFunctionType.addOverload(newOverloadType, typeSourceId, inputFunctionType);
-                return newOverloadType;
+                FunctionType.setIsOverloaded(inputFunctionType);
+                return inputFunctionType;
             }
         }
 
