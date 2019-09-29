@@ -23,24 +23,24 @@
         "command-line-args": "^5.1.1",
         "leven": "^3.1.0",
         "typescript-char": "^0.0.0",
-        "vscode-languageserver": "^5.3.0-next.8",
+        "vscode-languageserver": "^5.3.0-next.10",
         "vscode-uri": "^1.0.8"
     },
     "devDependencies": {
         "@types/chalk": "^2.2.0",
         "@types/command-line-args": "^5.0.0",
         "@types/fs-extra": "^5.1.0",
-        "@types/jest": "^24.0.15",
-        "@types/node": "^11.13.15",
+        "@types/jest": "^24.0.18",
+        "@types/node": "^11.13.21",
         "fs-extra": "^7.0.1",
-        "jest": "^24.8.0",
-        "ts-jest": "^24.0.2",
+        "jest": "^24.9.0",
+        "ts-jest": "^24.1.0",
         "ts-loader": "^5.4.5",
-        "tslint": "^5.18.0",
+        "tslint": "^5.20.0",
         "tslint-microsoft-contrib": "^6.2.0",
-        "typescript": "^3.6.2",
-        "webpack": "^4.35.0",
-        "webpack-cli": "^3.3.5"
+        "typescript": "^3.6.3",
+        "webpack": "^4.41.0",
+        "webpack-cli": "^3.3.9"
     },
     "types": "out/main.d.ts",
     "main": "out/main.js"
