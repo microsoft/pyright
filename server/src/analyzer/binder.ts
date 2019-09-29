@@ -378,10 +378,9 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitAssignment(node: AssignmentNode) {
-        if (this._handleTypingStubAssignment(node)) {
-            return false;
+        if (!this._handleTypingStubAssignment(node)) {
+            this._bindPossibleTupleNamedTarget(node.leftExpression);
         }
-        this._bindPossibleTupleNamedTarget(node.leftExpression);
         return true;
     }
 
