@@ -20,7 +20,7 @@ interface AnalyzerNodeInfo {
     // Set as part of import resolution
 
     // Information about an import; used for import nodes only.
-    _importInfo?: ImportResult;
+    importInfo?: ImportResult;
 
     //---------------------------------------------------------------
     // Set by Binder
@@ -28,20 +28,23 @@ interface AnalyzerNodeInfo {
     // Scope for nodes that introduce scopes: modules, functions,
     // classes, lambdas, and list comprehensions. A scope is used
     // to store symbol names and their associated types and declarations.
-    _scope?: Scope;
+    scope?: Scope;
 
     //---------------------------------------------------------------
     // Set by TypeAnalyzer
+    typeCache?: ExpressionTypeCache;
+}
 
+interface ExpressionTypeCache {
     // Cached type information for expression nodes; allows analyzer to
     // avoid recomputing types repeatedly.
-    _expressionType?: Type;
+    type?: Type;
 
     // Analysis pass that last wrote to the cache.
-    _expressionTypeWriteVersion?: number;
+    writeVersion?: number;
 
     // Analysis pass that last accessed the cache.
-    _expressionTypeReadVersion?: number;
+    readVersion?: number;
 }
 
 // Cleans out all fields that are added by the analyzer phases
@@ -49,20 +52,18 @@ interface AnalyzerNodeInfo {
 export function cleanNodeAnalysisInfo(node: ParseNode) {
     const analyzerNode = node as AnalyzerNodeInfo;
 
-    delete analyzerNode._scope;
-    delete analyzerNode._expressionType;
-    delete analyzerNode._expressionTypeWriteVersion;
-    delete analyzerNode._expressionTypeReadVersion;
+    delete analyzerNode.scope;
+    delete analyzerNode.typeCache;
 }
 
 export function getScope(node: ParseNode): Scope | undefined {
     const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode._scope;
+    return analyzerNode.scope;
 }
 
 export function setScope(node: ParseNode, scope: Scope) {
     const analyzerNode = node as AnalyzerNodeInfo;
-    analyzerNode._scope = scope;
+    analyzerNode.scope = scope;
 }
 
 export function getScopeRecursive(node: ParseNode, skipTemporary = true): Scope | undefined {
@@ -84,40 +85,61 @@ export function getScopeRecursive(node: ParseNode, skipTemporary = true): Scope 
 
 export function getImportInfo(node: ParseNode): ImportResult | undefined {
     const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode._importInfo;
+    return analyzerNode.importInfo;
 }
 
 export function setImportInfo(node: ParseNode, importInfo: ImportResult) {
     const analyzerNode = node as AnalyzerNodeInfo;
-    analyzerNode._importInfo = importInfo;
+    analyzerNode.importInfo = importInfo;
 }
 
 export function getExpressionType(node: ParseNode): Type | undefined {
     const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode._expressionType;
+    if (analyzerNode.typeCache) {
+        return analyzerNode.typeCache.type;
+    }
+    return undefined;
 }
 
-export function setExpressionType(node: ParseNode, typeAnnotation: Type) {
+export function setExpressionType(node: ParseNode, type: Type) {
     const analyzerNode = node as AnalyzerNodeInfo;
-    analyzerNode._expressionType = typeAnnotation;
+    if (analyzerNode.typeCache) {
+        analyzerNode.typeCache.type = type;
+    } else {
+        analyzerNode.typeCache = { type };
+    }
 }
 
 export function getExpressionTypeWriteVersion(node: ParseNode): number | undefined {
     const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode._expressionTypeWriteVersion;
+    if (analyzerNode.typeCache) {
+        return analyzerNode.typeCache.writeVersion;
+    }
+    return undefined;
 }
 
 export function setExpressionTypeWriteVersion(node: ParseNode, version: number) {
     const analyzerNode = node as AnalyzerNodeInfo;
-    analyzerNode._expressionTypeWriteVersion = version;
+    if (analyzerNode.typeCache) {
+        analyzerNode.typeCache.writeVersion = version;
+    } else {
+        analyzerNode.typeCache = { writeVersion: version };
+    }
 }
 
 export function getExpressionTypeReadVersion(node: ParseNode): number | undefined {
     const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode._expressionTypeReadVersion;
+    if (analyzerNode.typeCache) {
+        return analyzerNode.typeCache.readVersion;
+    }
+    return undefined;
 }
 
 export function setExpressionTypeReadVersion(node: ParseNode, version: number) {
     const analyzerNode = node as AnalyzerNodeInfo;
-    analyzerNode._expressionTypeReadVersion = version;
+    if (analyzerNode.typeCache) {
+        analyzerNode.typeCache.readVersion = version;
+    } else {
+        analyzerNode.typeCache = { readVersion: version };
+    }
 }
