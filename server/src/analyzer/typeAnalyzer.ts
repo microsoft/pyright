@@ -30,7 +30,7 @@ import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode, BinaryEx
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { AliasDeclaration, BuiltInDeclaration, Declaration, DeclarationType, ModuleDeclaration,
+import { AliasDeclaration, Declaration, DeclarationType, ModuleDeclaration,
     VariableDeclaration } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
@@ -44,11 +44,10 @@ import * as StaticExpressions from './staticExpressions';
 import { setSymbolPreservingAccess, Symbol, SymbolFlags, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { ConditionalTypeConstraintResults, TypeConstraintBuilder } from './typeConstraint';
-import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionType,
-    isAnyOrUnknown, isNoneOrNever, isTypeSame, ModuleType, NoneType,
-    ObjectType, OverloadedFunctionType, printType, PropertyType, removeNoneFromUnion,
-    removeUnboundFromUnion, removeUnknownFromUnion, Type, TypeCategory, TypeVarType, UnboundType,
-    UnknownType  } from './types';
+import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
+    isTypeSame, ModuleType, NoneType, ObjectType, printType, PropertyType, removeNoneFromUnion,
+    removeUnboundFromUnion, removeUnknownFromUnion, Type, TypeCategory, TypeVarType,
+    UnboundType, UnknownType  } from './types';
 import * as TypeUtils from './typeUtils';
 
 interface AliasMapEntry {
