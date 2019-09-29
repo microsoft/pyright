@@ -900,7 +900,7 @@ export function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
     if (typedDecls.length > 0) {
         // If there's more than one declared type, we will generally
         // use the first one.
-        const firstDeclType = getTypeForDeclaration(typedDecls[0], false);
+        const firstDeclType = getTypeForDeclaration(typedDecls[0]);
 
         if (!firstDeclType) {
             return UnknownType.create();
@@ -914,7 +914,7 @@ export function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
         const overloadedFunction = OverloadedFunctionType.create();
 
         for (const typedDecl of typedDecls) {
-            const type = getTypeForDeclaration(typedDecl, false);
+            const type = getTypeForDeclaration(typedDecl);
 
             // If we encounter any declaration that doesn't have a corresponding
             // overloaded function type, don't continue to build an overload.
@@ -1464,7 +1464,7 @@ export function getTypedDictMembersForClassRecursive(classType: ClassType,
                     firstDecl.node && hasTypeForDeclaration(firstDecl)) {
 
                 keyMap.set(name, {
-                    valueType: getTypeForDeclaration(firstDecl, false) || UnknownType.create(),
+                    valueType: getTypeForDeclaration(firstDecl) || UnknownType.create(),
                     isRequired: !ClassType.isCanOmitDictValues(classType),
                     isProvided: false
                 });

@@ -83,11 +83,8 @@ export function resolveDeclarationAliases(declaration: Declaration) {
     return resolvedDeclaration;
 }
 
-export function getTypeForDeclaration(declaration: Declaration, specialize: boolean,
-        resolveAliases = true): Type | undefined {
-
-    const resolvedDeclaration = resolveAliases ?
-        resolveDeclarationAliases(declaration) : declaration;
+export function getTypeForDeclaration(declaration: Declaration): Type | undefined {
+    const resolvedDeclaration = resolveDeclarationAliases(declaration);
 
     if (!resolvedDeclaration) {
         return undefined;
@@ -110,13 +107,9 @@ export function getTypeForDeclaration(declaration: Declaration, specialize: bool
                 typeAnnotationNode = typeAnnotationNode.typeAnnotation;
             }
             if (typeAnnotationNode) {
-                let declaredType = AnalyzerNodeInfo.getExpressionType(typeAnnotationNode);
+                const declaredType = AnalyzerNodeInfo.getExpressionType(typeAnnotationNode);
 
                 if (declaredType) {
-                    if (specialize) {
-                        declaredType = TypeUtils.specializeType(declaredType, undefined);
-                    }
-
                     return TypeUtils.convertClassToObject(declaredType);
                 }
             }
@@ -133,19 +126,11 @@ export function getTypeForDeclaration(declaration: Declaration, specialize: bool
                 if (declaredType) {
                     // Apply enum transform if appropriate.
                     declaredType = transformTypeForPossibleEnumClass(typeAnnotationNode, declaredType);
-
-                    if (specialize) {
-                        declaredType = TypeUtils.specializeType(declaredType, undefined);
-                    }
-
                     return TypeUtils.convertClassToObject(declaredType);
                 }
             }
             return undefined;
         }
-
-        case DeclarationType.Alias:
-            return undefined;
 
         case DeclarationType.Module:
             return resolvedDeclaration.moduleType;

@@ -110,7 +110,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
                 break;
 
             case DeclarationType.Method:
-                const declType = getTypeForDeclaration(declaration, false);
+                const declType = getTypeForDeclaration(declaration);
                 if (declType && declType.category === TypeCategory.Property) {
                     symbolKind = SymbolKind.Property;
                 } else {

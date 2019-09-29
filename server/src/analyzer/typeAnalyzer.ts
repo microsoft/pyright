@@ -1962,9 +1962,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const typedDeclarations = symbol.getTypedDeclarations();
         if (typedDeclarations.length > 0 && DeclarationUtils.hasTypeForDeclaration(declaration)) {
             if (!DeclarationUtils.areDeclarationsSame(declaration, typedDeclarations[0])) {
-                const addedDeclType = DeclarationUtils.getTypeForDeclaration(declaration, false) ||
+                const addedDeclType = DeclarationUtils.getTypeForDeclaration(declaration) ||
                     UnknownType.create();
-                const existingDeclType = DeclarationUtils.getTypeForDeclaration(typedDeclarations[0], false) ||
+                const existingDeclType = DeclarationUtils.getTypeForDeclaration(typedDeclarations[0]) ||
                     UnknownType.create();
 
                 // If we're adding a declaration, make sure it's the same type as an existing declaration.
@@ -3406,7 +3406,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Determine if there's a declared type for this symbol.
         let declaredType: Type | undefined = declaration ?
-            DeclarationUtils.getTypeForDeclaration(declaration, false) : undefined;
+            DeclarationUtils.getTypeForDeclaration(declaration) : undefined;
         let declarations: Declaration[] = [];
 
         const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);

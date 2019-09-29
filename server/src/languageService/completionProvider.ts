@@ -646,7 +646,7 @@ export class CompletionProvider {
             let documentation: string | undefined;
 
             const declaration = declarations[0];
-            const type = getTypeForDeclaration(declaration, false);
+            const type = getTypeForDeclaration(declaration);
             itemKind = this._convertDeclarationTypeToItemKind(declaration, type);
 
             if (type) {

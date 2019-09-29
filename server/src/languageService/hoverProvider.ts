@@ -127,7 +127,7 @@ export class HoverProvider {
             }
 
             case DeclarationType.Method: {
-                const declaredType = DeclarationUtils.getTypeForDeclaration(resolvedDecl, false);
+                const declaredType = DeclarationUtils.getTypeForDeclaration(resolvedDecl);
                 const label = declaredType && declaredType.category === TypeCategory.Property ?
                     'property' : 'method';
                 if (node.nodeType === ParseNodeType.Name) {
