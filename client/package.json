@@ -2,7 +2,7 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "VS Code static type checking for Python",
-    "version": "1.0.66",
+    "version": "1.0.67",
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
