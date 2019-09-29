@@ -38,7 +38,11 @@ export enum SymbolFlags {
 
     // Indicates that the symbol is a class member (used for
     // classes).
-    InstanceMember = 1 << 4
+    InstanceMember = 1 << 4,
+
+    // Indicates that the symbol is not considered for protocol
+    // matching. This applies to some built-in symbols like __class__.
+    IgnoredForProtocolMatch = 1 << 8
 }
 
 export class Symbol {
@@ -78,6 +82,14 @@ export class Symbol {
         } else {
             this._flags &= ~SymbolFlags.ExternallyHidden;
         }
+    }
+
+    setIsIgnoredForProtocolMatch() {
+        this._flags |= SymbolFlags.IgnoredForProtocolMatch;
+    }
+
+    isIgnoredForProtocolMatch() {
+        return !!(this._flags & SymbolFlags.IgnoredForProtocolMatch);
     }
 
     setIsAccessed() {

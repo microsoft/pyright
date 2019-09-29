@@ -12,8 +12,8 @@ import * as assert from 'assert';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
-import { DeclarationType } from './declaration';
-import { getTypeForDeclaration, hasTypeForDeclaration } from './declarationUtils';
+import { DeclarationType, FunctionDeclaration } from './declaration';
+import { getTypeForDeclaration, hasTypeForDeclaration, isFunctionOrMethodDeclaration } from './declarationUtils';
 import { defaultTypeSourceId } from './inferredType';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType, FunctionTypeFlags,
@@ -898,8 +898,39 @@ export function getInitialTypeOfSymbol(symbol: Symbol): Type {
 export function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
     const typedDecls = symbol.getTypedDeclarations();
     if (typedDecls.length > 0) {
-        // If there's more than one declared type, use the first one.
-        return getTypeForDeclaration(typedDecls[0], false) || UnknownType.create();
+        // If there's more than one declared type, we will generally
+        // use the first one.
+        const firstDeclType = getTypeForDeclaration(typedDecls[0], false);
+
+        if (!firstDeclType) {
+            return UnknownType.create();
+        }
+
+        if (!isFunctionOrMethodDeclaration(typedDecls[0])) {
+            return firstDeclType;
+        }
+
+        // We'll handle function types specially because they can be overloaded.
+        const overloadedFunction = OverloadedFunctionType.create();
+
+        for (const typedDecl of typedDecls) {
+            const type = getTypeForDeclaration(typedDecl, false);
+
+            // If we encounter any declaration that doesn't have a corresponding
+            // overloaded function type, don't continue to build an overload.
+            if (!isFunctionOrMethodDeclaration(typedDecl)) {
+                return type || UnknownType.create();
+            }
+
+            if (!type || type.category !== TypeCategory.Function || !FunctionType.isOverloaded(type)) {
+                return type || UnknownType.create();
+            }
+
+            OverloadedFunctionType.addOverload(overloadedFunction,
+                (typedDecl as FunctionDeclaration).node.id, type);
+        }
+
+        return overloadedFunction;
     }
 
     return undefined;
@@ -1665,7 +1696,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
         const destClassTypeVarMap = buildTypeVarMapFromSpecializedClass(destType);
 
         destClassFields.forEach((symbol, name) => {
-            if (symbol.isClassMember()) {
+            if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
                 const memberInfo = lookUpClassMember(srcType, name,
                     ClassMemberLookupFlags.SkipInstanceVariables);
                 if (!memberInfo) {

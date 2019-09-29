@@ -30,8 +30,7 @@ import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode, BinaryEx
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { AliasDeclaration, BuiltInDeclaration, ClassDeclaration, Declaration,
-    DeclarationType, FunctionDeclaration, ModuleDeclaration, ParameterDeclaration,
+import { AliasDeclaration, BuiltInDeclaration, Declaration, DeclarationType, ModuleDeclaration,
     VariableDeclaration } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
@@ -310,15 +309,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             evaluator.synthesizeTypedDictClassMethods(classType);
         }
 
-        const declaration: ClassDeclaration = {
-            type: DeclarationType.Class,
-            node,
-            path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start,
-                TextRange.getEnd(node.name), this._fileInfo.lines)
-        };
-
-        this._assignTypeToNameNode(node.name, decoratedType, declaration);
+        this._assignTypeToNameNode(node.name, decoratedType);
 
         this._validateClassMethods(classType);
         this._updateExpressionTypeForNode(node.name, decoratedType);
@@ -365,8 +356,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
-            decoratedType = this._applyFunctionDecorator(decoratedType,
-                functionType, decorator, node);
+            decoratedType = this._applyFunctionDecorator(decoratedType, functionType, decorator);
             if (decoratedType.category === TypeCategory.Unknown) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
@@ -547,21 +537,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (paramNode.name) {
                     const specializedParamType = TypeUtils.specializeType(param.type, undefined);
 
-                    let declaration: ParameterDeclaration | undefined;
-                    declaration = {
-                        type: DeclarationType.Parameter,
-                        node: paramNode,
-                        path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
-                            this._fileInfo.lines)
-                    };
                     assert(paramNode !== undefined && paramNode.name !== undefined);
 
                     // If the type contains type variables, specialize them now
                     // so we convert them to a concrete type (or unknown if there
                     // is no bound or constraint).
                     const variadicParamType = this._getVariadicParamType(param.category, specializedParamType);
-                    this._addTypeSourceToNameNode(paramNode.name, variadicParamType, declaration);
+                    this._addTypeSourceToNameNode(paramNode.name, variadicParamType);
                     this._updateExpressionTypeForNode(paramNode.name, variadicParamType);
 
                     // Cache the type for the hover provider. Don't walk
@@ -576,17 +558,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Validate that the function returns the declared type.
         this._validateFunctionReturn(node, functionType, functionScope);
-        const declarationType = containingClassNode ?
-            DeclarationType.Method : DeclarationType.Function;
-
-        const declaration: FunctionDeclaration = {
-            type: declarationType,
-            node,
-            path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
-                this._fileInfo.lines)
-        };
-        this._assignTypeToNameNode(node.name, decoratedType, declaration);
+        this._assignTypeToNameNode(node.name, decoratedType);
 
         if (containingClassNode) {
             this._validateMethod(node, functionType);
@@ -608,25 +580,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._getTypeOfExpression(node);
 
         this._enterScope(node, () => {
-            node.parameters.forEach(param => {
-                if (param.name) {
-                    let declaration: ParameterDeclaration | undefined;
-                    declaration = {
-                        type: DeclarationType.Parameter,
-                        node: param,
-                        path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(param.start, TextRange.getEnd(param),
-                            this._fileInfo.lines)
-                    };
-
-                    const symbolWithScope = this._currentScope.lookUpSymbolRecursive(
-                        param.name.nameToken.value);
-                    if (symbolWithScope) {
-                        symbolWithScope.symbol.addDeclaration(declaration);
-                    }
-                }
-            });
-
             // Walk the children.
             this.walkMultiple([...node.parameters, node.expression]);
         });
@@ -1755,142 +1708,91 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return false;
         }
 
+        let nameNode: NameNode | undefined;
         if (node.leftExpression.nodeType === ParseNodeType.Name) {
-            const assignedName = node.leftExpression.nameToken.value;
+            nameNode = node.leftExpression;
+        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+            node.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
+            nameNode = node.leftExpression.valueExpression;
+        }
+
+        if (nameNode) {
+            const assignedName = nameNode.nameToken.value;
             let specialType: Type | undefined;
 
             if (assignedName === 'Any') {
                 specialType = AnyType.create();
             } else {
-                const specialTypes = ['overload', 'TypeVar', '_promote', 'no_type_check',
-                    'NoReturn', 'Union', 'Optional', 'List', 'Dict', 'DefaultDict',
-                    'Set', 'FrozenSet', 'Deque', 'ChainMap'];
-                if (specialTypes.find(t => t === assignedName)) {
-                    const aliasMap: { [name: string]: AliasMapEntry } = {
-                        'List': { alias: 'list', module: 'builtins' },
-                        'Dict': { alias: 'dict', module: 'builtins' },
-                        'DefaultDict': { alias: 'defaultdict', module: 'collections' },
-                        'Set': { alias: 'set', module: 'builtins' },
-                        'FrozenSet': { alias: 'frozenset', module: 'builtins' },
-                        'Deque': { alias: 'deque', module: 'collections' },
-                        'ChainMap': { alias: 'ChainMap', module: 'collections' }
-                    };
+                const specialTypes: { [name: string]: AliasMapEntry } = {
+                    'overload': { alias: '', module: 'builtins' },
+                    'TypeVar': { alias: '', module: 'builtins' },
+                    '_promote': { alias: '', module: 'builtins' },
+                    'no_type_check': { alias: '', module: 'builtins' },
+                    'NoReturn': { alias: '', module: 'builtins' },
+                    'Union': { alias: '', module: 'builtins' },
+                    'Optional': { alias: '', module: 'builtins' },
+                    'List': { alias: 'list', module: 'builtins' },
+                    'Dict': { alias: 'dict', module: 'builtins' },
+                    'DefaultDict': { alias: 'defaultdict', module: 'collections' },
+                    'Set': { alias: 'set', module: 'builtins' },
+                    'FrozenSet': { alias: 'frozenset', module: 'builtins' },
+                    'Deque': { alias: 'deque', module: 'collections' },
+                    'ChainMap': { alias: 'ChainMap', module: 'collections' },
+                    'Tuple': { alias: 'tuple', module: 'builtins' },
+                    'Generic': { alias: '', module: 'builtins' },
+                    'Protocol': { alias: '', module: 'builtins' },
+                    'Callable': { alias: '', module: 'builtins' },
+                    'Type': { alias: 'type', module: 'builtins' },
+                    'ClassVar': { alias: '', module: 'builtins' },
+                    'Final': { alias: '', module: 'builtins' },
+                    'Literal': { alias: '', module: 'builtins' },
+                    'TypedDict': { alias: '_TypedDict', module: 'self' }
+                };
 
-                    // Synthesize a class.
-                    const specialClassType = ClassType.create(assignedName,
-                        ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-                        defaultTypeSourceId);
+                const aliasMapEntry = specialTypes[assignedName];
+                if (aliasMapEntry) {
+                    // The binder should have already synteshized the class.
+                    const specialClassType = AnalyzerNodeInfo.getExpressionType(nameNode)!;
+                    assert(specialClassType !== undefined && specialClassType.category === TypeCategory.Class);
+                    specialType = specialClassType;
 
-                    // See if we need to locate an alias class to bind it to.
-                    const aliasMapEntry = aliasMap[assignedName];
-                    if (aliasMapEntry) {
-                        let aliasClass: Type | undefined;
-                        const aliasName = aliasMapEntry.alias;
+                    const baseClassName = aliasMapEntry.alias ? aliasMapEntry.alias : 'object';
 
-                        if (aliasMapEntry.module === 'builtins') {
-                            aliasClass = ScopeUtils.getBuiltInType(this._currentScope, aliasName);
-                        } else if (aliasMapEntry.module === 'collections') {
-                            // The typing.pyi file imports collections.
-                            const collectionsSymbolTable = this._findCollectionsImportSymbolTable();
-                            if (collectionsSymbolTable) {
-                                const symbol = collectionsSymbolTable.get(aliasName);
-                                if (symbol) {
-                                    aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbol);
-                                }
+                    let aliasClass: Type | undefined;
+                    if (aliasMapEntry.module === 'builtins') {
+                        aliasClass = ScopeUtils.getBuiltInType(this._currentScope, baseClassName);
+                    } else if (aliasMapEntry.module === 'collections') {
+                        // The typing.pyi file imports collections.
+                        const collectionsSymbolTable = this._findCollectionsImportSymbolTable();
+                        if (collectionsSymbolTable) {
+                            const symbol = collectionsSymbolTable.get(baseClassName);
+                            if (symbol) {
+                                aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbol);
                             }
                         }
-
-                        if (aliasClass && aliasClass.category === TypeCategory.Class) {
-                            ClassType.addBaseClass(specialClassType, aliasClass, false);
-                            ClassType.setAliasClass(specialClassType, aliasClass);
-                            specialType = specialClassType;
-                        } else {
-                            // The alias class has not yet been created. Use an unknown
-                            // type and hope that in the next analysis pass we'll get
-                            // the real type.
-                            specialType = UnknownType.create();
+                    } else if (specialTypes[assignedName].module === 'self') {
+                        const symbol = this._currentScope.lookUpSymbol(baseClassName);
+                        if (symbol) {
+                            aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbol);
                         }
-                    } else {
-                        specialType = specialClassType;
+                    }
+
+                    if (aliasClass && aliasClass.category === TypeCategory.Class &&
+                            specialClassType.category === TypeCategory.Class) {
+
+                        if (ClassType.updateBaseClassType(specialClassType, 0, aliasClass)) {
+                            this._setAnalysisChanged('Base class update for special type');
+                        }
+
+                        if (aliasMapEntry.alias) {
+                            ClassType.setAliasClass(specialClassType, aliasClass);
+                        }
                     }
                 }
             }
 
             if (specialType) {
-                const declaration: BuiltInDeclaration = {
-                    type: DeclarationType.BuiltIn,
-                    node: node.leftExpression,
-                    declaredType: specialType,
-                    path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(node.leftExpression.start,
-                        TextRange.getEnd(node.leftExpression), this._fileInfo.lines)
-                };
-                this._assignTypeToNameNode(node.leftExpression, specialType, declaration);
-                this._updateExpressionTypeForNode(node.leftExpression, specialType);
-                return true;
-            }
-        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
-                node.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
-
-            const nameNode = node.leftExpression.valueExpression;
-            const assignedName = nameNode.nameToken.value;
-            let specialType: Type | undefined;
-
-            const specialTypes: { [name: string ]: AliasMapEntry } = {
-                'Tuple': { alias: 'tuple', module: 'builtins' },
-                'Generic': { alias: '', module: 'builtins' },
-                'Protocol': { alias: '', module: 'builtins' },
-                'Callable': { alias: '', module: 'builtins' },
-                'Type': { alias: 'type', module: 'builtins' },
-                'ClassVar': { alias: '', module: 'builtins' },
-                'Final': { alias: '', module: 'builtins' },
-                'Literal': { alias: '', module: 'builtins' },
-                'TypedDict': { alias: '_TypedDict', module: 'self' }
-            };
-
-            if (specialTypes[assignedName]) {
-                // Synthesize a class.
-                const specialClassType = ClassType.create(assignedName,
-                    ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-                    node.id);
-
-                let aliasClass: Type | undefined;
-                if (specialTypes[assignedName].module === 'builtins') {
-                    aliasClass = ScopeUtils.getBuiltInType(this._currentScope,
-                        specialTypes[assignedName].alias || 'object');
-                } else {
-                    const symbol = this._currentScope.lookUpSymbol(specialTypes[assignedName].alias);
-                    if (symbol) {
-                        aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbol);
-                    }
-                }
-
-                if (aliasClass && aliasClass.category === TypeCategory.Class) {
-                    if (specialTypes[assignedName].alias) {
-                        ClassType.setAliasClass(specialClassType, aliasClass);
-                    }
-
-                    const specializedBaseClass = TypeUtils.specializeType(aliasClass, undefined);
-                    ClassType.addBaseClass(specialClassType, specializedBaseClass, false);
-                    specialType = specialClassType;
-                } else {
-                    // The base class has not yet been created. Use an unknown
-                    // type and hope that in the next analysis pass we'll get
-                    // the real type.
-                    specialType = UnknownType.create();
-                }
-            }
-
-            if (specialType) {
-                const declaration: Declaration = {
-                    type: DeclarationType.BuiltIn,
-                    declaredType: specialType,
-                    node: nameNode,
-                    path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(nameNode.start,
-                        TextRange.getEnd(nameNode), this._fileInfo.lines)
-                };
-                this._assignTypeToNameNode(nameNode, specialType, declaration);
+                this._assignTypeToNameNode(nameNode, specialType);
                 this._updateExpressionTypeForNode(nameNode, specialType);
                 return true;
             }
@@ -2467,27 +2369,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // Transforms the input function type into an output type based on the
     // decorator function described by the decoratorNode.
     private _applyFunctionDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
-            decoratorNode: DecoratorNode, node: FunctionNode): Type {
+            decoratorNode: DecoratorNode): Type {
 
         const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression);
 
         // Special-case the "overload" because it has no definition.
         if (decoratorType.category === TypeCategory.Class && ClassType.getClassName(decoratorType) === 'overload') {
-            const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
-            const existingSymbol = permanentScope.lookUpSymbol(node.name.nameToken.value);
-            const typeSourceId = node.id;
             if (inputFunctionType.category === TypeCategory.Function) {
-                if (existingSymbol) {
-                    const symbolType = TypeUtils.getEffectiveTypeOfSymbol(existingSymbol);
-                    if (symbolType.category === TypeCategory.OverloadedFunction) {
-                        OverloadedFunctionType.addOverload(symbolType, typeSourceId, inputFunctionType);
-                        return symbolType;
-                    }
-                }
-
-                const newOverloadType = OverloadedFunctionType.create();
-                OverloadedFunctionType.addOverload(newOverloadType, typeSourceId, inputFunctionType);
-                return newOverloadType;
+                FunctionType.setIsOverloaded(inputFunctionType);
+                return inputFunctionType;
             }
         }
 

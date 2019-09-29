@@ -69,6 +69,10 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
     return declarations;
 }
 
+export function isFunctionOrMethodDeclaration(declaration: Declaration) {
+    return declaration.type === DeclarationType.Method || declaration.type === DeclarationType.Function;
+}
+
 export function resolveDeclarationAliases(declaration: Declaration) {
     let resolvedDeclaration: Declaration | undefined = declaration;
     while (resolvedDeclaration && resolvedDeclaration.type === DeclarationType.Alias) {

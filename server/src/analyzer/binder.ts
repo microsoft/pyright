@@ -21,15 +21,16 @@ import * as assert from 'assert';
 import { DiagnosticLevel } from '../common/configOptions';
 import { CreateTypeStubFileAction, getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode, ClassNode,
     DelNode, ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
     ImportAsNode, ImportFromAsNode, LambdaNode, ListComprehensionNode, ModuleNameNode, ModuleNode,
-    NonlocalNode, ParseNode, ParseNodeArray, ParseNodeType, RaiseNode, StatementNode,
-    StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
-    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    NameNode, NonlocalNode, ParseNode, ParseNodeArray, ParseNodeType, RaiseNode,
+    StatementNode, StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode,
+    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -202,7 +203,18 @@ export abstract class Binder extends ParseTreeWalker {
         const classType = ClassType.create(node.name.nameToken.value, classFlags,
             node.id, this._getDocString(node.suite.statements));
 
-        this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+        const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+        if (symbol) {
+            if (!this._isUnexecutedCode) {
+                symbol.addDeclaration({
+                    type: DeclarationType.Class,
+                    node,
+                    path: this._fileInfo.filePath,
+                    range: convertOffsetsToRange(node.name.start,
+                        TextRange.getEnd(node.name), this._fileInfo.lines)
+                });
+            }
+        }
 
         this.walkMultiple(node.arguments);
 
@@ -235,15 +247,20 @@ export abstract class Binder extends ParseTreeWalker {
         });
 
         if (nonMetaclassBaseClassCount === 0) {
-            const objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
             // Make sure we don't have 'object' derive from itself. Infinite
             // recursion will result.
             if (!ClassType.isBuiltIn(classType, 'object')) {
+                const objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
                 ClassType.addBaseClass(classType, objectType, false);
             }
         }
 
         AnalyzerNodeInfo.setExpressionType(node, classType);
+
+        // Also set the type of the name node. This will be replaced by the analyzer
+        // once any class decorators are analyzed, but we need to add it here to
+        // accommodate some circular references between builtins and typing type stubs.
+        AnalyzerNodeInfo.setExpressionType(node.name, classType);
 
         const binder = new ClassScopeBinder(node, this._currentScope, classType, this._fileInfo);
         this._queueSubScopeAnalyzer(binder);
@@ -272,7 +289,21 @@ export abstract class Binder extends ParseTreeWalker {
         const functionType = FunctionType.create(functionFlags,
             this._getDocString(node.suite.statements));
 
-        this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+        const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+        if (symbol) {
+            if (!this._isUnexecutedCode) {
+                const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+                const declarationType = containingClassNode ?
+                    DeclarationType.Method : DeclarationType.Function;
+                symbol.addDeclaration({
+                    type: declarationType,
+                    node,
+                    path: this._fileInfo.filePath,
+                    range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
+                        this._fileInfo.lines)
+                });
+            }
+        }
 
         this.walkMultiple(node.decorators);
         node.parameters.forEach(param => {
@@ -302,7 +333,6 @@ export abstract class Binder extends ParseTreeWalker {
         }
 
         AnalyzerNodeInfo.setExpressionType(node, functionType);
-        AnalyzerNodeInfo.setExpressionType(node.name, functionType);
 
         // Find the function or module that contains this function and use its scope.
         // We can't simply use this._currentScope because functions within a class use
@@ -348,7 +378,9 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitAssignment(node: AssignmentNode) {
-        this._bindPossibleTupleNamedTarget(node.leftExpression);
+        if (!this._handleTypingStubAssignment(node)) {
+            this._bindPossibleTupleNamedTarget(node.leftExpression);
+        }
         return true;
     }
 
@@ -618,7 +650,11 @@ export abstract class Binder extends ParseTreeWalker {
                 symbol = scope.addSymbol(name,
                     SymbolFlags.InitiallyUnbound | SymbolFlags.ClassMember);
             }
+
+            return symbol;
         }
+
+        return undefined;
     }
 
     protected _bindPossibleTupleNamedTarget(node: ExpressionNode) {
@@ -729,6 +765,85 @@ export abstract class Binder extends ParseTreeWalker {
                 child.parent = parentNode;
             }
         });
+    }
+
+    // Handles some special-case assignment statements that are found
+    // within the typings.pyi file.
+    private _handleTypingStubAssignment(node: AssignmentNode) {
+        if (!this._fileInfo.isTypingStubFile) {
+            return false;
+        }
+
+        let assignedNameNode: NameNode | undefined;
+        if (node.leftExpression.nodeType === ParseNodeType.Name) {
+            assignedNameNode = node.leftExpression;
+        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+            node.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
+            assignedNameNode = node.leftExpression.valueExpression;
+        }
+
+        const specialTypes: { [name: string]: boolean } = {
+            'overload': true,
+            'TypeVar': true,
+            '_promote': true,
+            'no_type_check': true,
+            'NoReturn': true,
+            'Union': true,
+            'Optional': true,
+            'List': true,
+            'Dict': true,
+            'DefaultDict': true,
+            'Set': true,
+            'FrozenSet': true,
+            'Deque': true,
+            'ChainMap': true,
+            'Tuple': true,
+            'Generic': true,
+            'Protocol': true,
+            'Callable': true,
+            'Type': true,
+            'ClassVar': true,
+            'Final': true,
+            'Literal': true,
+            'TypedDict': true
+        };
+
+        if (assignedNameNode) {
+            const assignedName = assignedNameNode.nameToken.value;
+            let specialType: Type | undefined;
+
+            if (assignedName === 'Any') {
+                specialType = AnyType.create();
+            } else if (specialTypes[assignedName]) {
+                const specialClassType = ClassType.create(assignedName,
+                    ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
+                    defaultTypeSourceId);
+
+                // We'll fill in the actual base class in the analysis phase.
+                ClassType.addBaseClass(specialClassType, UnknownType.create(), false);
+                specialType = specialClassType;
+            }
+
+            if (specialType) {
+                AnalyzerNodeInfo.setExpressionType(assignedNameNode, specialType);
+                const symbol = this._bindNameToScope(this._currentScope, assignedName);
+
+                if (symbol) {
+                    symbol.addDeclaration({
+                        type: DeclarationType.BuiltIn,
+                        node: assignedNameNode,
+                        declaredType: specialType,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(node.leftExpression.start,
+                            TextRange.getEnd(node.leftExpression), this._fileInfo.lines)
+                    });
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // Analyzes the subscopes that are discovered during the first analysis pass.
@@ -915,9 +1030,18 @@ export class FunctionScopeBinder extends Binder {
     bindDeferred() {
         const functionNode = this._scopedNode as FunctionNode;
 
-        functionNode.parameters.forEach(param => {
-            if (param.name) {
-                this._bindNameToScope(this._currentScope, param.name.nameToken.value);
+        functionNode.parameters.forEach(paramNode => {
+            if (paramNode.name) {
+                const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
+                if (symbol) {
+                    symbol.addDeclaration({
+                        type: DeclarationType.Parameter,
+                        node: paramNode,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
+                            this._fileInfo.lines)
+                    });
+                }
             }
         });
 
@@ -937,9 +1061,18 @@ export class LambdaScopeBinder extends Binder {
     bindDeferred() {
         const lambdaNode = this._scopedNode as LambdaNode;
 
-        lambdaNode.parameters.forEach(param => {
-            if (param.name) {
-                this._bindNameToScope(this._currentScope, param.name.nameToken.value);
+        lambdaNode.parameters.forEach(paramNode => {
+            if (paramNode.name) {
+                const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
+                if (symbol) {
+                    symbol.addDeclaration({
+                        type: DeclarationType.Parameter,
+                        node: paramNode,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
+                            this._fileInfo.lines)
+                    });
+                }
             }
         });
 
