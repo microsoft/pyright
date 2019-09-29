@@ -32,6 +32,8 @@ interface AnalyzerNodeInfo {
 
     //---------------------------------------------------------------
     // Set by TypeAnalyzer
+
+    // Cached type information for this node.
     typeCache?: ExpressionTypeCache;
 }
 
