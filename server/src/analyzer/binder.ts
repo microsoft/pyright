@@ -28,9 +28,9 @@ import { TextRange } from '../common/textRange';
 import { AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode, ClassNode,
     DelNode, ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
     ImportAsNode, ImportFromAsNode, LambdaNode, ListComprehensionNode, ModuleNameNode, ModuleNode,
-    NonlocalNode, ParseNode, ParseNodeArray, ParseNodeType, RaiseNode, StatementNode,
-    StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
-    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    NameNode, NonlocalNode, ParseNode, ParseNodeArray, ParseNodeType, RaiseNode,
+    StatementNode, StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode,
+    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -247,15 +247,20 @@ export abstract class Binder extends ParseTreeWalker {
         });
 
         if (nonMetaclassBaseClassCount === 0) {
-            const objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
             // Make sure we don't have 'object' derive from itself. Infinite
             // recursion will result.
             if (!ClassType.isBuiltIn(classType, 'object')) {
+                const objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
                 ClassType.addBaseClass(classType, objectType, false);
             }
         }
 
         AnalyzerNodeInfo.setExpressionType(node, classType);
+
+        // Also set the type of the name node. This will be replaced by the analyzer
+        // once any class decorators are analyzed, but we need to add it here to
+        // accommodate some circular references between builtins and typing type stubs.
+        AnalyzerNodeInfo.setExpressionType(node.name, classType);
 
         const binder = new ClassScopeBinder(node, this._currentScope, classType, this._fileInfo);
         this._queueSubScopeAnalyzer(binder);
@@ -328,7 +333,6 @@ export abstract class Binder extends ParseTreeWalker {
         }
 
         AnalyzerNodeInfo.setExpressionType(node, functionType);
-        AnalyzerNodeInfo.setExpressionType(node.name, functionType);
 
         // Find the function or module that contains this function and use its scope.
         // We can't simply use this._currentScope because functions within a class use
@@ -374,6 +378,9 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitAssignment(node: AssignmentNode) {
+        if (this._handleTypingStubAssignment(node)) {
+            return false;
+        }
         this._bindPossibleTupleNamedTarget(node.leftExpression);
         return true;
     }
@@ -759,6 +766,85 @@ export abstract class Binder extends ParseTreeWalker {
                 child.parent = parentNode;
             }
         });
+    }
+
+    // Handles some special-case assignment statements that are found
+    // within the typings.pyi file.
+    private _handleTypingStubAssignment(node: AssignmentNode) {
+        if (!this._fileInfo.isTypingStubFile) {
+            return false;
+        }
+
+        let assignedNameNode: NameNode | undefined;
+        if (node.leftExpression.nodeType === ParseNodeType.Name) {
+            assignedNameNode = node.leftExpression;
+        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+            node.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
+            assignedNameNode = node.leftExpression.valueExpression;
+        }
+
+        const specialTypes: { [name: string]: boolean } = {
+            'overload': true,
+            'TypeVar': true,
+            '_promote': true,
+            'no_type_check': true,
+            'NoReturn': true,
+            'Union': true,
+            'Optional': true,
+            'List': true,
+            'Dict': true,
+            'DefaultDict': true,
+            'Set': true,
+            'FrozenSet': true,
+            'Deque': true,
+            'ChainMap': true,
+            'Tuple': true,
+            'Generic': true,
+            'Protocol': true,
+            'Callable': true,
+            'Type': true,
+            'ClassVar': true,
+            'Final': true,
+            'Literal': true,
+            'TypedDict': true
+        };
+
+        if (assignedNameNode) {
+            const assignedName = assignedNameNode.nameToken.value;
+            let specialType: Type | undefined;
+
+            if (assignedName === 'Any') {
+                specialType = AnyType.create();
+            } else if (specialTypes[assignedName]) {
+                const specialClassType = ClassType.create(assignedName,
+                    ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
+                    defaultTypeSourceId);
+
+                // We'll fill in the actual base class in the analysis phase.
+                ClassType.addBaseClass(specialClassType, UnknownType.create(), false);
+                specialType = specialClassType;
+            }
+
+            if (specialType) {
+                AnalyzerNodeInfo.setExpressionType(assignedNameNode, specialType);
+                const symbol = this._bindNameToScope(this._currentScope, assignedName);
+
+                if (symbol) {
+                    symbol.addDeclaration({
+                        type: DeclarationType.BuiltIn,
+                        node: assignedNameNode,
+                        declaredType: specialType,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(node.leftExpression.start,
+                            TextRange.getEnd(node.leftExpression), this._fileInfo.lines)
+                    });
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // Analyzes the subscopes that are discovered during the first analysis pass.
