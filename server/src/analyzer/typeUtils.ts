@@ -322,33 +322,24 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
         return true;
     }
 
-    if (srcType.category === TypeCategory.Class) {
-        if (destType.category === TypeCategory.Object) {
-            const destClassType = destType.classType;
-            if (ClassType.isBuiltIn(destClassType)) {
-                // Is the dest a generic "type" object?
-                const destClassName = ClassType.getClassName(destClassType);
-                if (destClassName === 'type') {
-                    return true;
-                }
+    // Is the src a specialized "Type" object?
+    if (srcType.category === TypeCategory.Object &&
+            ClassType.isBuiltIn(srcType.classType, 'Type')) {
 
-                if (destClassName === 'Type') {
-                    const destTypeArgs = ClassType.getTypeArguments(destClassType);
-                    if (destTypeArgs && destTypeArgs.length >= 1) {
-                        return canAssignType(destTypeArgs[0],
-                            ObjectType.create(srcType), diag.createAddendum(), typeVarMap,
-                                flags, recursionCount + 1);
-                    }
-                }
-
-                // All classes derive from object.
-                if (destClassName === 'object') {
-                    return true;
-                }
+        const srcTypeArgs = ClassType.getTypeArguments(srcType.classType);
+        if (srcTypeArgs && srcTypeArgs.length >= 1) {
+            if (isAnyOrUnknown(srcTypeArgs[0])) {
+                return true;
+            } else if (srcTypeArgs[0].category === TypeCategory.Object) {
+                return canAssignType(destType,
+                    srcTypeArgs[0].classType, diag.createAddendum(), typeVarMap,
+                        flags, recursionCount + 1);
             }
         }
+    }
 
-        if (destType.category === TypeCategory.Class) {
+    if (destType.category === TypeCategory.Class) {
+        if (srcType.category === TypeCategory.Class) {
             return _canAssignClass(destType, srcType, diag,
                 typeVarMap, flags, recursionCount + 1, false);
         }
@@ -357,13 +348,49 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
     if (destType.category === TypeCategory.Object) {
         const destClassType = destType.classType;
 
+        // Is the dest a generic "type" object?
+        if (ClassType.isBuiltIn(destClassType, 'type')) {
+            if (srcType.category === TypeCategory.Class ||
+                    srcType.category === TypeCategory.Function ||
+                    srcType.category === TypeCategory.OverloadedFunction) {
+
+                return true;
+            }
+        }
+
+        // Is the dest a specialized "Type" object?
+        if (ClassType.isBuiltIn(destClassType, 'Type')) {
+            const destTypeArgs = ClassType.getTypeArguments(destClassType);
+            if (destTypeArgs && destTypeArgs.length >= 1) {
+                if (isAnyOrUnknown(destTypeArgs[0])) {
+                    return true;
+                } else if (destTypeArgs[0].category === TypeCategory.Object) {
+                    return canAssignType(destTypeArgs[0].classType,
+                        srcType, diag.createAddendum(), typeVarMap,
+                            flags, recursionCount + 1);
+                } else if (destTypeArgs[0].category === TypeCategory.TypeVar) {
+                    if (srcType.category === TypeCategory.Class) {
+                        return canAssignType(destTypeArgs[0],
+                            ObjectType.create(srcType), diag.createAddendum(), typeVarMap,
+                                flags, recursionCount + 1);
+                    } else if (srcType.category === TypeCategory.Function ||
+                            srcType.category === TypeCategory.OverloadedFunction) {
+
+                        return canAssignType(destTypeArgs[0],
+                            srcType, diag.createAddendum(), typeVarMap,
+                                flags, recursionCount + 1);
+                    }
+                }
+            }
+        }
+
         if (srcType.category === TypeCategory.Object) {
             const destLiteral = destType.literalValue;
             if (destLiteral !== undefined) {
                 const srcLiteral = srcType.literalValue;
                 if (srcLiteral !== destLiteral) {
                     diag.addMessage(`'${ srcLiteral ? printLiteralValue(srcType) : printType(srcType) }' ` +
-                    `cannot be assigned to '${ printLiteralValue(destType) }'`);
+                        `cannot be assigned to '${ printLiteralValue(destType) }'`);
 
                     return false;
                 }
@@ -396,6 +423,11 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
         } else if (srcType.category === TypeCategory.Module) {
             // Is the destination the built-in "ModuleType"?
             if (ClassType.isBuiltIn(destClassType, 'ModuleType')) {
+                return true;
+            }
+        } else if (srcType.category === TypeCategory.Class) {
+            // All classes are assignable to "object".
+            if (ClassType.isBuiltIn(destType.classType, 'object')) {
                 return true;
             }
         }
@@ -484,6 +516,8 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
         return false;
     }
 
+    diag.addMessage(`'${ printType(srcType) }' ` +
+        `cannot be assigned to '${ printType(destType) }'`);
     return false;
 }
 
