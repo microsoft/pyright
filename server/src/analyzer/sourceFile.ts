@@ -11,7 +11,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
-import { ConfigOptions, DiagnosticSettings, ExecutionEnvironment,
+import { ConfigOptions, ExecutionEnvironment,
     getDefaultDiagnosticSettings } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
@@ -50,44 +50,6 @@ import { ModuleType, TypeCategory } from './types';
 
 const _maxImportCyclesPerFile = 4;
 
-export const enum AnalysisPhase {
-    Parse = 0,
-    Bind = 1,
-    TypeAnalysis = 2,
-
-    FirstAnalysisPhase = Bind,
-    LastAnalysisPhase = TypeAnalysis
-}
-
-// Represents a pending or completed parse or analysis operation.
-export interface AnalysisJob {
-    fileContentsVersion: number;
-    nextPhaseToRun: AnalysisPhase;
-    parseTreeNeedsCleaning: boolean;
-    parseResults?: ParseResults;
-    moduleSymbolTable?: SymbolTable;
-    moduleType?: ModuleType;
-
-    parseDiagnostics: Diagnostic[];
-    bindDiagnostics: Diagnostic[];
-    typeAnalysisLastPassDiagnostics: Diagnostic[];
-    typeAnalysisFinalDiagnostics: Diagnostic[];
-
-    diagnosticSettings: DiagnosticSettings;
-
-    circularDependencies: CircularDependency[];
-    hitMaxImportDepth?: number;
-
-    typeAnalysisPassNumber: number;
-    lastReanalysisReason: string;
-    isTypeAnalysisPassNeeded: boolean;
-    isTypeAnalysisFinalized: boolean;
-
-    imports?: ImportResult[];
-    builtinsImport?: ImportResult;
-    typingModulePath?: string;
-}
-
 export class SourceFile {
     // Console interface to use for debugging.
     private _console: ConsoleInterface;
@@ -114,28 +76,6 @@ export class SourceFile {
     // True if the file appears to have been deleted.
     private _isFileDeleted = false;
 
-    // Latest analysis job that has completed at least one phase
-    // of analysis.
-    private _analysisJob: AnalysisJob = {
-        fileContentsVersion: -1,
-        nextPhaseToRun: AnalysisPhase.Bind,
-        parseTreeNeedsCleaning: false,
-
-        parseDiagnostics: [],
-        bindDiagnostics: [],
-        typeAnalysisLastPassDiagnostics: [],
-        typeAnalysisFinalDiagnostics: [],
-
-        diagnosticSettings: getDefaultDiagnosticSettings(),
-
-        circularDependencies: [],
-
-        typeAnalysisPassNumber: 1,
-        lastReanalysisReason: '',
-        isTypeAnalysisPassNeeded: true,
-        isTypeAnalysisFinalized: false
-    };
-
     // Number that is incremented every time the diagnostics
     // are updated.
     private _diagnosticVersion = 0;
@@ -156,6 +96,52 @@ export class SourceFile {
     // clientVersion is null, we'll ignore this and read the
     // contents from disk.
     private _fileContents: string | undefined;
+
+    // Version of file contents that have been analyzed.
+    private _analyzedFileContentsVersion = -1;
+
+    // Do we need to walk the parse tree and clean
+    // the analysis information hanging from it?
+    private _parseTreeNeedsCleaning = false;
+
+    private _parseResults?: ParseResults;
+    private _moduleType?: ModuleType;
+
+    // Diagnostics generated during different phases of analysis.
+    private _parseDiagnostics: Diagnostic[] = [];
+    private _bindDiagnostics: Diagnostic[] = [];
+    private _typeAnalysisLastPassDiagnostics: Diagnostic[] = [];
+    private _typeAnalysisFinalDiagnostics: Diagnostic[] = [];
+
+    // Settings that control which diagnostics should be output.
+    private _diagnosticSettings = getDefaultDiagnosticSettings();
+
+    // Circular dependencies that have been reported in this file.
+    private _circularDependencies: CircularDependency[] = [];
+
+    // Did we hit the maximum import depth?
+    private _hitMaxImportDepth?: number;
+
+    // Do we need to perform a binding step?
+    private _isBindingNeeded = true;
+
+    // Do we need to perform an additional type analysis pass?
+    private _isTypeAnalysisPassNeeded = true;
+
+    // Is the type analysis "finalized" (i.e. complete along
+    // with all of its dependencies)?
+    private _isTypeAnalysisFinalized = false;
+
+    // Number of the current type analysis pass, starting with 1.
+    private _typeAnalysisPassNumber = 1;
+
+    // Last reason that another analysis pass was required.
+    private _lastReanalysisReason = '';
+
+    // Information about implicit and explicit imports from this file.
+    private _imports?: ImportResult[];
+    private _builtinsImport?: ImportResult;
+    private _typingModulePath?: string;
 
     constructor(filePath: string, isTypeshedStubFile: boolean, console?: ConsoleInterface) {
         this._console = console || new StandardConsole();
@@ -207,14 +193,14 @@ export class SourceFile {
 
         let diagList: Diagnostic[] = [];
         diagList = diagList.concat(
-            this._analysisJob.parseDiagnostics,
-            this._analysisJob.bindDiagnostics,
-            this._analysisJob.typeAnalysisFinalDiagnostics);
+            this._parseDiagnostics,
+            this._bindDiagnostics,
+            this._typeAnalysisFinalDiagnostics);
 
         // Filter the diagnostics based on "type: ignore" lines.
         if (options.diagnosticSettings.enableTypeIgnoreComments) {
-            const typeIgnoreLines = this._analysisJob.parseResults ?
-                this._analysisJob.parseResults.tokenizerOutput.typeIgnoreLines : {};
+            const typeIgnoreLines = this._parseResults ?
+                this._parseResults.tokenizerOutput.typeIgnoreLines : {};
             if (Object.keys(typeIgnoreLines).length > 0) {
                 diagList = diagList.filter(d => {
                     for (let line = d.range.start.line; line <= d.range.end.line; line++) {
@@ -228,19 +214,19 @@ export class SourceFile {
             }
         }
 
-        if (options.diagnosticSettings.reportImportCycles !== 'none' && this._analysisJob.circularDependencies.length > 0) {
+        if (options.diagnosticSettings.reportImportCycles !== 'none' && this._circularDependencies.length > 0) {
             const category = options.diagnosticSettings.reportImportCycles === 'warning' ?
                 DiagnosticCategory.Warning : DiagnosticCategory.Error;
 
-            this._analysisJob.circularDependencies.forEach(cirDep => {
+            this._circularDependencies.forEach(cirDep => {
                 diagList.push(new Diagnostic(category, 'Cycle detected in import chain\n' +
                     cirDep.getPaths().map(path => '  ' + path).join('\n'), getEmptyRange()));
             });
         }
 
-        if (this._analysisJob.hitMaxImportDepth !== undefined) {
+        if (this._hitMaxImportDepth !== undefined) {
             diagList.push(new Diagnostic(DiagnosticCategory.Error,
-                `Import chain depth exceeded ${ this._analysisJob.hitMaxImportDepth }`,
+                `Import chain depth exceeded ${ this._hitMaxImportDepth }`,
                 getEmptyRange()));
         }
 
@@ -267,7 +253,7 @@ export class SourceFile {
         // If there is a "type: ignore" comment at the top of the file, clear
         // the diagnostic list.
         if (options.diagnosticSettings.enableTypeIgnoreComments) {
-            if (this._analysisJob.parseResults && this._analysisJob.parseResults.tokenizerOutput.typeIgnoreAll) {
+            if (this._parseResults && this._parseResults.tokenizerOutput.typeIgnoreAll) {
                 diagList = [];
             }
         }
@@ -276,19 +262,15 @@ export class SourceFile {
     }
 
     getImports(): ImportResult[] {
-        return this._analysisJob.imports || [];
+        return this._imports || [];
     }
 
     getBuiltinsImport(): ImportResult | undefined {
-        return this._analysisJob.builtinsImport;
-    }
-
-    getModuleSymbolTable(): SymbolTable | undefined {
-        return this._analysisJob.moduleSymbolTable;
+        return this._builtinsImport;
     }
 
     getModuleType(): ModuleType | undefined {
-        return this._analysisJob.moduleType;
+        return this._moduleType;
     }
 
     // Indicates whether the contents of the file have changed since
@@ -323,15 +305,15 @@ export class SourceFile {
 
     markDirty(): void {
         this._fileContentsVersion++;
-        this._analysisJob.isTypeAnalysisFinalized = false;
-        this._analysisJob.nextPhaseToRun = AnalysisPhase.Bind;
+        this._isTypeAnalysisFinalized = false;
+        this._isTypeAnalysisPassNeeded = true;
     }
 
     markReanalysisRequired(): void {
         // Keep the parse info, but reset the analysis to the beginning.
-        this._analysisJob.nextPhaseToRun = AnalysisPhase.Bind;
-        this._analysisJob.parseTreeNeedsCleaning = true;
-        this._analysisJob.isTypeAnalysisFinalized = false;
+        this._parseTreeNeedsCleaning = true;
+        this._isTypeAnalysisFinalized = false;
+        this._isTypeAnalysisPassNeeded = true;
     }
 
     setClientVersion(version: number | null, contents: string): void {
@@ -359,7 +341,7 @@ export class SourceFile {
     }
 
     isParseRequired() {
-        return this._analysisJob.fileContentsVersion !== this._fileContentsVersion;
+        return this._analyzedFileContentsVersion !== this._fileContentsVersion;
     }
 
     isBindingRequired() {
@@ -367,7 +349,7 @@ export class SourceFile {
             return true;
         }
 
-        return this._analysisJob.nextPhaseToRun <= AnalysisPhase.Bind;
+        return this._isBindingNeeded;
     }
 
     isTypeAnalysisRequired() {
@@ -375,22 +357,16 @@ export class SourceFile {
             return true;
         }
 
-        // If the analysis is complete, no more analysis is required.
-        if (this._analysisJob.nextPhaseToRun < AnalysisPhase.TypeAnalysis ||
-                this._analysisJob.isTypeAnalysisPassNeeded) {
-            return true;
-        }
-
-        return false;
+        return this._isTypeAnalysisPassNeeded;
     }
 
     isAnalysisFinalized() {
-        return !this.isTypeAnalysisRequired() && this._analysisJob.isTypeAnalysisFinalized;
+        return this._isTypeAnalysisFinalized;
     }
 
     getParseResults(): ParseResults | undefined {
         if (!this.isParseRequired()) {
-            return this._analysisJob.parseResults;
+            return this._parseResults;
         }
 
         return undefined;
@@ -400,15 +376,15 @@ export class SourceFile {
     // it hasn't already been added.
     addCircularDependency(circDependency: CircularDependency) {
         // Some topologies can result in a massive number of cycles. We'll cut it off.
-        if (this._analysisJob.circularDependencies.length < _maxImportCyclesPerFile) {
-            if (!this._analysisJob.circularDependencies.some(dep => dep.isEqual(circDependency))) {
-                this._analysisJob.circularDependencies.push(circDependency);
+        if (this._circularDependencies.length < _maxImportCyclesPerFile) {
+            if (!this._circularDependencies.some(dep => dep.isEqual(circDependency))) {
+                this._circularDependencies.push(circDependency);
             }
         }
     }
 
     setHitMaxImportDepth(maxImportDepth: number) {
-        this._analysisJob.hitMaxImportDepth = maxImportDepth;
+        this._hitMaxImportDepth = maxImportDepth;
     }
 
     // Parse the file and update the state. Callers should wait for completion
@@ -457,21 +433,21 @@ export class SourceFile {
             const parser = new Parser();
             const parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
             assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
-            this._analysisJob.parseResults = parseResults;
+            this._parseResults = parseResults;
 
             // Resolve imports.
             timingStats.resolveImportsTime.timeOperation(() => {
-                [this._analysisJob.imports, this._analysisJob.builtinsImport, this._analysisJob.typingModulePath] =
+                [this._imports, this._builtinsImport, this._typingModulePath] =
                     this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
-                this._analysisJob.parseDiagnostics = diagSink.diagnostics;
+                this._parseDiagnostics = diagSink.diagnostics;
             });
 
             // Is this file in a "strict" path?
             const useStrict = configOptions.strict.find(
                 strictFileSpec => strictFileSpec.regExp.test(this._filePath)) !== undefined;
 
-            this._analysisJob.diagnosticSettings = CommentUtils.getFileLevelDirectives(
-                this._analysisJob.parseResults.tokenizerOutput.tokens, configOptions.diagnosticSettings,
+            this._diagnosticSettings = CommentUtils.getFileLevelDirectives(
+                this._parseResults.tokenizerOutput.tokens, configOptions.diagnosticSettings,
                 useStrict);
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||
@@ -481,7 +457,7 @@ export class SourceFile {
                 `An internal error occurred while parsing ${ this.getFilePath() }: ` + message);
 
             // Create dummy parse results.
-            this._analysisJob.parseResults = {
+            this._parseResults = {
                 parseTree: ModuleNode.create({ start: 0, length: 0 }),
                 importedModules: [],
                 futureImports: new StringMap<boolean>(),
@@ -494,18 +470,20 @@ export class SourceFile {
                     predominantTabSequence: '    '
                 }
             };
-            this._analysisJob.imports = undefined;
-            this._analysisJob.builtinsImport = undefined;
+            this._imports = undefined;
+            this._builtinsImport = undefined;
 
             const diagSink = new DiagnosticSink();
             diagSink.addError(`An internal error occurred while parsing file`, getEmptyRange());
-            this._analysisJob.parseDiagnostics = diagSink.diagnostics;
+            this._parseDiagnostics = diagSink.diagnostics;
         }
 
-        this._analysisJob.fileContentsVersion = this._fileContentsVersion;
-        this._analysisJob.nextPhaseToRun = AnalysisPhase.Bind;
-        this._analysisJob.parseTreeNeedsCleaning = false;
-        this._analysisJob.hitMaxImportDepth = undefined;
+        this._analyzedFileContentsVersion = this._fileContentsVersion;
+        this._isBindingNeeded = true;
+        this._isTypeAnalysisPassNeeded = true;
+        this._isTypeAnalysisFinalized = false;
+        this._parseTreeNeedsCleaning = false;
+        this._hitMaxImportDepth = undefined;
         this._diagnosticVersion++;
 
         return true;
@@ -513,59 +491,59 @@ export class SourceFile {
 
     getDefinitionsForPosition(position: DiagnosticTextPosition): DocumentTextRange[] | undefined {
         // If we have no completed analysis job, there's nothing to do.
-        if (!this._analysisJob.parseResults) {
+        if (!this._parseResults) {
             return undefined;
         }
 
         return DefinitionProvider.getDefinitionsForPosition(
-                this._analysisJob.parseResults, position);
+                this._parseResults, position);
     }
 
     getReferencesForPosition(position: DiagnosticTextPosition, includeDeclaration: boolean):
             ReferencesResult | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
-        if (!this._analysisJob.parseResults) {
+        if (!this._parseResults) {
             return undefined;
         }
 
         return ReferencesProvider.getReferencesForPosition(
-            this._analysisJob.parseResults, this._filePath, position, includeDeclaration);
+            this._parseResults, this._filePath, position, includeDeclaration);
     }
 
     addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean): void {
         // If we have no completed analysis job, there's nothing to do.
-        if (!this._analysisJob.parseResults) {
+        if (!this._parseResults) {
             return;
         }
 
         ReferencesProvider.addReferences(
-            this._analysisJob.parseResults, this._filePath, referencesResult, includeDeclaration);
+            this._parseResults, this._filePath, referencesResult, includeDeclaration);
     }
 
     addSymbolsForDocument(symbolList: SymbolInformation[], query?: string) {
         // If we have no completed analysis job, there's nothing to do.
-        if (!this._analysisJob.parseResults) {
+        if (!this._parseResults) {
             return;
         }
 
         DocumentSymbolProvider.addSymbolsForDocument(symbolList, query,
-            this._filePath, this._analysisJob.parseResults);
+            this._filePath, this._parseResults);
     }
 
     getHoverForPosition(position: DiagnosticTextPosition, importMap: ImportMap): HoverResults | undefined {
         // If we have no completed analysis job, there's nothing to do.
-        if (!this._analysisJob.parseResults) {
+        if (!this._parseResults) {
             return undefined;
         }
 
         return HoverProvider.getHoverForPosition(
-            this._analysisJob.parseResults, position, importMap);
+            this._parseResults, position, importMap);
     }
 
     getSignatureHelpForPosition(position: DiagnosticTextPosition): SignatureHelpResults | undefined {
         // If we have no completed analysis job, there's nothing to do.
-        if (!this._analysisJob.parseResults) {
+        if (!this._parseResults) {
             return undefined;
         }
 
@@ -576,7 +554,7 @@ export class SourceFile {
         }
 
         return SignatureHelpProvider.getSignatureHelpForPosition(
-            this._analysisJob.parseResults, this._fileContents, position);
+            this._parseResults, this._fileContents, position);
     }
 
     getCompletionsForPosition(position: DiagnosticTextPosition,
@@ -585,7 +563,7 @@ export class SourceFile {
             moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
-        if (!this._analysisJob.parseResults) {
+        if (!this._parseResults) {
             return undefined;
         }
 
@@ -596,7 +574,7 @@ export class SourceFile {
         }
 
         const completionProvider = new CompletionProvider(
-            this._analysisJob.parseResults, this._fileContents,
+            this._parseResults, this._fileContents,
             importResolver, position,
             this._filePath, configOptions, importMapCallback,
             moduleSymbolsCallback);
@@ -606,7 +584,7 @@ export class SourceFile {
 
     performQuickAction(command: string, args: any[]): TextEditAction[] | undefined {
         // If we have no completed analysis job, there's nothing to do.
-        if (!this._analysisJob.parseResults) {
+        if (!this._parseResults) {
             return undefined;
         }
 
@@ -616,27 +594,26 @@ export class SourceFile {
             return undefined;
         }
 
-        return performQuickAction(command, args, this._analysisJob.parseResults);
+        return performQuickAction(command, args, this._parseResults);
     }
 
     getAnalysisPassCount() {
-        return this._analysisJob.typeAnalysisPassNumber - 1;
+        return this._typeAnalysisPassNumber - 1;
     }
 
     getLastReanalysisReason() {
-        return this._analysisJob.lastReanalysisReason;
+        return this._lastReanalysisReason;
     }
 
     setTypeAnalysisPassNeeded() {
-        this._analysisJob.isTypeAnalysisPassNeeded = true;
-        this._analysisJob.isTypeAnalysisFinalized = false;
+        this._isTypeAnalysisPassNeeded = true;
+        this._isTypeAnalysisFinalized = false;
     }
 
     bind(configOptions: ConfigOptions, builtinsScope?: Scope) {
         assert(!this.isParseRequired());
         assert(this.isBindingRequired());
-        assert(this._analysisJob.parseResults);
-        assert(this._analysisJob.nextPhaseToRun === AnalysisPhase.Bind);
+        assert(this._parseResults);
 
         try {
             // Perform name binding.
@@ -645,24 +622,23 @@ export class SourceFile {
                 this._cleanParseTreeIfRequired();
 
                 const binder = new ModuleScopeBinder(
-                    this._analysisJob.parseResults!.parseTree, fileInfo);
+                    this._parseResults!.parseTree, fileInfo);
                 binder.bind();
 
                 // If we're in "test mode" (used for unit testing), run an additional
                 // "test walker" over the parse tree to validate its internal consistency.
                 if (configOptions.internalTestMode) {
                     const testWalker = new TestWalker();
-                    testWalker.walk(this._analysisJob.parseResults!.parseTree);
+                    testWalker.walk(this._parseResults!.parseTree);
                 }
 
-                this._analysisJob.bindDiagnostics = fileInfo.diagnosticSink.diagnostics;
-                const moduleScope = AnalyzerNodeInfo.getScope(this._analysisJob.parseResults!.parseTree);
+                this._bindDiagnostics = fileInfo.diagnosticSink.diagnostics;
+                const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
                 assert(moduleScope !== undefined);
-                this._analysisJob.moduleSymbolTable = moduleScope!.getSymbolTable();
                 const moduleType = AnalyzerNodeInfo.getExpressionType(
-                    this._analysisJob.parseResults!.parseTree);
+                    this._parseResults!.parseTree);
                 assert(moduleType && moduleType.category === TypeCategory.Module);
-                this._analysisJob.moduleType = moduleType as ModuleType;
+                this._moduleType = moduleType as ModuleType;
             });
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||
@@ -674,45 +650,43 @@ export class SourceFile {
             const diagSink = new DiagnosticSink();
             diagSink.addError(`An internal error occurred while performing name binding`,
                 getEmptyRange());
-            this._analysisJob.bindDiagnostics = diagSink.diagnostics;
+            this._bindDiagnostics = diagSink.diagnostics;
         }
 
         // Prepare for the next stage of the analysis.
-        this._analysisJob.nextPhaseToRun = AnalysisPhase.TypeAnalysis;
         this._diagnosticVersion++;
-        this._analysisJob.typeAnalysisPassNumber = 1;
-        this._analysisJob.lastReanalysisReason = '';
-        this._analysisJob.circularDependencies = [];
-        this._analysisJob.isTypeAnalysisPassNeeded = true;
-        this._analysisJob.isTypeAnalysisFinalized = false;
-        this._analysisJob.nextPhaseToRun = AnalysisPhase.TypeAnalysis;
+        this._typeAnalysisPassNumber = 1;
+        this._lastReanalysisReason = '';
+        this._circularDependencies = [];
+        this._isTypeAnalysisPassNeeded = true;
+        this._isTypeAnalysisFinalized = false;
+        this._isBindingNeeded = false;
     }
 
     doTypeAnalysis(configOptions: ConfigOptions, importMap: ImportMap) {
         assert(!this.isParseRequired());
         assert(!this.isBindingRequired());
         assert(this.isTypeAnalysisRequired());
-        assert(this._analysisJob.parseResults);
-        assert(this._analysisJob.nextPhaseToRun === AnalysisPhase.TypeAnalysis);
+        assert(this._parseResults);
 
         try {
             timingStats.typeAnalyzerTime.timeOperation(() => {
                 const fileInfo = this._buildFileInfo(configOptions, importMap, undefined);
 
                 // Perform static type analysis.
-                const typeAnalyzer = new TypeAnalyzer(this._analysisJob.parseResults!.parseTree,
-                    fileInfo, this._analysisJob.typeAnalysisPassNumber);
-                this._analysisJob.typeAnalysisPassNumber++;
+                const typeAnalyzer = new TypeAnalyzer(this._parseResults!.parseTree,
+                    fileInfo, this._typeAnalysisPassNumber);
+                this._typeAnalysisPassNumber++;
                 if (typeAnalyzer.isAtMaxAnalysisPassCount()) {
                     this._console.log(
                         `Hit max analysis pass count for ${ this._filePath }`);
                 }
 
                 // Repeatedly call the analyzer until everything converges.
-                this._analysisJob.isTypeAnalysisPassNeeded = typeAnalyzer.analyze();
-                this._analysisJob.typeAnalysisLastPassDiagnostics = fileInfo.diagnosticSink.diagnostics;
-                if (this._analysisJob.isTypeAnalysisPassNeeded) {
-                    this._analysisJob.lastReanalysisReason = typeAnalyzer.getLastReanalysisReason();
+                this._isTypeAnalysisPassNeeded = typeAnalyzer.analyze();
+                this._typeAnalysisLastPassDiagnostics = fileInfo.diagnosticSink.diagnostics;
+                if (this._isTypeAnalysisPassNeeded) {
+                    this._lastReanalysisReason = typeAnalyzer.getLastReanalysisReason();
                 }
             });
         } catch (e) {
@@ -726,8 +700,8 @@ export class SourceFile {
                 getEmptyRange());
 
             // Mark the file as complete so we don't get into an infinite loop.
-            this._analysisJob.isTypeAnalysisPassNeeded = false;
-            this._analysisJob.typeAnalysisLastPassDiagnostics = diagSink.diagnostics;
+            this._isTypeAnalysisPassNeeded = false;
+            this._typeAnalysisLastPassDiagnostics = diagSink.diagnostics;
         }
     }
 
@@ -737,29 +711,29 @@ export class SourceFile {
         assert(!this.isTypeAnalysisRequired());
 
         // Mark the type analysis as final.
-        this._analysisJob.isTypeAnalysisFinalized = true;
+        this._isTypeAnalysisFinalized = true;
 
         // Finalize the diagnostics from the last pass of type analysis
         // so they become visible.
-        this._analysisJob.typeAnalysisFinalDiagnostics =
-            this._analysisJob.typeAnalysisLastPassDiagnostics;
-        this._analysisJob.typeAnalysisLastPassDiagnostics = [];
+        this._typeAnalysisFinalDiagnostics =
+            this._typeAnalysisLastPassDiagnostics;
+        this._typeAnalysisLastPassDiagnostics = [];
         this._diagnosticVersion++;
     }
 
     private _buildFileInfo(configOptions: ConfigOptions, importMap?: ImportMap, builtinsScope?: Scope) {
-        assert(this._analysisJob.parseResults !== undefined);
-        const analysisDiagnostics = new TextRangeDiagnosticSink(this._analysisJob.parseResults!.tokenizerOutput.lines);
+        assert(this._parseResults !== undefined);
+        const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);
 
         const fileInfo: AnalyzerFileInfo = {
             importMap: importMap || {},
-            futureImports: this._analysisJob.parseResults!.futureImports,
+            futureImports: this._parseResults!.futureImports,
             builtinsScope,
-            typingModulePath: this._analysisJob.typingModulePath,
+            typingModulePath: this._typingModulePath,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
-            diagnosticSettings: this._analysisJob.diagnosticSettings,
-            lines: this._analysisJob.parseResults!.tokenizerOutput.lines,
+            diagnosticSettings: this._diagnosticSettings,
+            lines: this._parseResults!.tokenizerOutput.lines,
             filePath: this._filePath,
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
@@ -769,12 +743,12 @@ export class SourceFile {
     }
 
     private _cleanParseTreeIfRequired() {
-        if (this._analysisJob && this._analysisJob.parseResults) {
-            if (this._analysisJob.parseTreeNeedsCleaning) {
+        if (this._parseResults) {
+            if (this._parseTreeNeedsCleaning) {
                 const cleanerWalker = new ParseTreeCleanerWalker(
-                    this._analysisJob.parseResults.parseTree);
+                    this._parseResults.parseTree);
                 cleanerWalker.clean();
-                this._analysisJob.parseTreeNeedsCleaning = false;
+                this._parseTreeNeedsCleaning = false;
             }
         }
     }

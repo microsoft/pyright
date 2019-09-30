@@ -535,9 +535,9 @@ export class Program {
 
         this._sourceFileList.forEach(fileInfo => {
             if (fileInfo !== sourceFileToExclude) {
-                const symbolTable = fileInfo.sourceFile.getModuleSymbolTable();
-                if (symbolTable) {
-                    moduleSymbolMap[fileInfo.sourceFile.getFilePath()] = symbolTable;
+                const moduleType = fileInfo.sourceFile.getModuleType();
+                if (moduleType) {
+                    moduleSymbolMap[fileInfo.sourceFile.getFilePath()] = moduleType.fields;
                 }
             }
         });
