@@ -2473,6 +2473,7 @@ export class Parser {
         let braceCount = 0;
         let parenCount = 0;
         let bracketCount = 0;
+        let prevCharWasEqual = false;
 
         while (segmentExprLength < segmentValue.length) {
             const curChar = segmentValue[segmentExprLength];
@@ -2480,52 +2481,64 @@ export class Parser {
                 parenCount > 0 || bracketCount > 0;
             const inString = inSingleQuote || inDoubleQuote;
 
-            if (curChar === ':') {
-                if (!ignoreSeparator) {
-                    break;
-                }
-            } else if (curChar === '!') {
-                if (!ignoreSeparator) {
-                    if (segmentExprLength === segmentValue.length - 1 ||
-                            segmentValue[segmentExprLength + 1] !== '!') {
+            if (curChar === '=') {
+                prevCharWasEqual = true;
+            } else {
+                if (curChar === ':') {
+                    if (!ignoreSeparator) {
                         break;
                     }
+                } else if (curChar === '!') {
+                    if (!ignoreSeparator) {
+                        if (segmentExprLength === segmentValue.length - 1 ||
+                                segmentValue[segmentExprLength + 1] !== '!') {
+                            break;
+                        }
+                    }
+                } else if (curChar === '\'') {
+                    if (!inDoubleQuote) {
+                        inSingleQuote = !inSingleQuote;
+                    }
+                } else if (curChar === '"') {
+                    if (!inSingleQuote) {
+                        inDoubleQuote = !inDoubleQuote;
+                    }
+                } else if (curChar === '(') {
+                    if (!inString) {
+                        parenCount++;
+                    }
+                } else if (curChar === ')') {
+                    if (!inString && parenCount > 0) {
+                        parenCount--;
+                    }
+                } else if (curChar === '{') {
+                    if (!inString) {
+                        braceCount++;
+                    }
+                } else if (curChar === '}') {
+                    if (!inString && braceCount > 0) {
+                        braceCount--;
+                    }
+                } else if (curChar === '[') {
+                    if (!inString) {
+                        bracketCount++;
+                    }
+                } else if (curChar === ']') {
+                    if (!inString && bracketCount > 0) {
+                        bracketCount--;
+                    }
                 }
-            } else if (curChar === '\'') {
-                if (!inDoubleQuote) {
-                    inSingleQuote = !inSingleQuote;
-                }
-            } else if (curChar === '"') {
-                if (!inSingleQuote) {
-                    inDoubleQuote = !inDoubleQuote;
-                }
-            } else if (curChar === '(') {
-                if (!inString) {
-                    parenCount++;
-                }
-            } else if (curChar === ')') {
-                if (!inString && parenCount > 0) {
-                    parenCount--;
-                }
-            } else if (curChar === '{') {
-                if (!inString) {
-                    braceCount++;
-                }
-            } else if (curChar === '}') {
-                if (!inString && braceCount > 0) {
-                    braceCount--;
-                }
-            } else if (curChar === '[') {
-                if (!inString) {
-                    bracketCount++;
-                }
-            } else if (curChar === ']') {
-                if (!inString && bracketCount > 0) {
-                    bracketCount--;
-                }
+
+                prevCharWasEqual = false;
             }
 
             segmentExprLength++;
+        }
+
+        // Handle Python 3.8 f-string formatting expressions that
+        // end in an "=".
+        if (this._parseOptions.pythonVersion >= PythonVersion.V38 && prevCharWasEqual) {
+            segmentExprLength--;
         }
 
         return segmentExprLength;
