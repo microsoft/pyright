@@ -910,11 +910,11 @@ export namespace SliceExpressionNode {
 
 export interface YieldExpressionNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Yield;
-    expression: ExpressionNode;
+    expression?: ExpressionNode;
 }
 
 export namespace YieldExpressionNode {
-    export function create(yieldToken: Token, expression: ExpressionNode) {
+    export function create(yieldToken: Token, expression?: ExpressionNode) {
         const node: YieldExpressionNode = {
             start: yieldToken.start,
             length: yieldToken.length,
@@ -923,7 +923,9 @@ export namespace YieldExpressionNode {
             expression
         };
 
-        extendRange(node, expression);
+        if (expression) {
+            extendRange(node, expression);
+        }
 
         return node;
     }

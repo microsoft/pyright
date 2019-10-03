@@ -1223,10 +1223,13 @@ export class Parser {
             return YieldFromExpressionNode.create(yieldToken, this._parseTestExpression());
         }
 
-        const exprList = this._parseTestOrStarListAsExpression(
-            ErrorExpressionCategory.MissingExpression,
-            'Expected expression in yield statement');
-        this._reportConditionalErrorForStarTupleElement(exprList);
+        let exprList: ExpressionNode | undefined;
+        if (!this._isNextTokenNeverExpression()) {
+            exprList = this._parseTestOrStarListAsExpression(
+                ErrorExpressionCategory.MissingExpression,
+                'Expected expression in yield statement');
+            this._reportConditionalErrorForStarTupleElement(exprList);
+        }
 
         return YieldExpressionNode.create(yieldToken, exprList);
     }

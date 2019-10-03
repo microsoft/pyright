@@ -221,7 +221,11 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
         return `(${ expressions.join(', ') })`;
     } else if (node.nodeType === ParseNodeType.Yield) {
-        return 'yield ' + printExpression(node.expression, flags);
+        if (node.expression) {
+            return 'yield ' + printExpression(node.expression, flags);
+        } else {
+            return 'yield';
+        }
     } else if (node.nodeType === ParseNodeType.YieldFrom) {
         return 'yield from ' + printExpression(node.expression, flags);
     } else if (node.nodeType === ParseNodeType.Ellipsis) {

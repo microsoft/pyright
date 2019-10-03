@@ -828,9 +828,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitYield(node: YieldExpressionNode) {
-        let yieldType = this._getTypeOfExpression(node.expression);
-        const typeSourceId = node.expression.id;
-        this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
+        let yieldType = node.expression ? this._getTypeOfExpression(node.expression) : NoneType.create();
+        this._currentScope.getYieldType().addSource(yieldType, node.id);
 
         // Wrap the yield type in an Iterator.
         const iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
@@ -847,8 +846,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitYieldFrom(node: YieldFromExpressionNode) {
         const yieldType = this._getTypeOfExpression(node.expression);
-        const typeSourceId = node.expression.id;
-        this._currentScope.getYieldType().addSource(yieldType, typeSourceId);
+        this._currentScope.getYieldType().addSource(yieldType, node.id);
 
         this._validateYieldType(node, yieldType);
 
@@ -2685,7 +2683,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._addError(
                         `Expression of type '${ printType(yieldType) }' cannot be assigned ` +
                             `to yield type '${ printType(declaredYieldType) }'` + diagAddendum.getString(),
-                        node.expression);
+                        node.expression || node);
                 }
             }
         }

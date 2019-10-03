@@ -70,3 +70,11 @@ s = generate()
 
 # Verify that a call to a Generator method succeeds
 s.close()
+
+def generator6():
+    yield
+
+def generator7() -> Generator[None]:
+    yield
+
+
