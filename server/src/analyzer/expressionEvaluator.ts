@@ -22,8 +22,8 @@ import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNo
     ExpressionNode, IndexExpressionNode, IndexItemsNode, isExpressionNode, LambdaNode,
     ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode, ParameterCategory,
     ParseNode, ParseNodeType, SetNode, SliceExpressionNode, StringListNode,
-    TernaryExpressionNode, TupleExpressionNode,
-    UnaryExpressionNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode, YieldExpressionNode,
+    YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';

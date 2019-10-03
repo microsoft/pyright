@@ -915,9 +915,10 @@ export class Parser {
         const returnNode = ReturnNode.create(returnToken);
 
         if (!this._isNextTokenNeverExpression()) {
-            const returnExpr = this._parseTestListAsExpression(
+            const returnExpr = this._parseTestOrStarListAsExpression(
                 ErrorExpressionCategory.MissingExpression,
                 'Expected expression after "return"');
+            this._reportConditionalErrorForStarTupleElement(returnExpr);
             returnNode.returnExpression = returnExpr;
             extendRange(returnNode, returnExpr);
         }
@@ -1218,8 +1219,10 @@ export class Parser {
             return YieldFromExpressionNode.create(yieldToken, this._parseTestExpression());
         }
 
-        const exprListResult = this._parseTestExpressionList();
-        const exprList = this._makeExpressionOrTuple(exprListResult);
+        const exprList = this._parseTestOrStarListAsExpression(
+            ErrorExpressionCategory.MissingExpression,
+            'Expected expression in yield statement');
+        this._reportConditionalErrorForStarTupleElement(exprList);
 
         return YieldExpressionNode.create(yieldToken, exprList);
     }
@@ -1355,10 +1358,11 @@ export class Parser {
         return this._makeExpressionOrTuple(exprListResult);
     }
 
-    private _parseTestOrStarListAsExpression(): ExpressionNode {
+    private _parseTestOrStarListAsExpression(errorCategory: ErrorExpressionCategory,
+            errorString: string): ExpressionNode {
+
         if (this._isNextTokenNeverExpression()) {
-            return this._handleExpressionParseError(
-                ErrorExpressionCategory.MissingExpression, 'Expected expression');
+            return this._handleExpressionParseError(errorCategory, errorString);
         }
 
         const exprListResult = this._parseTestOrStarExpressionList();
@@ -2247,7 +2251,8 @@ export class Parser {
     // augassign: ('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |
     //             '<<=' | '>>=' | '**=' | '//=')
     private _parseExpressionStatement(): ExpressionNode {
-        let leftExpr = this._parseTestOrStarListAsExpression();
+        let leftExpr = this._parseTestOrStarListAsExpression(
+            ErrorExpressionCategory.MissingExpression, 'Expected expression');
         let annotationExpr: ExpressionNode | undefined;
 
         if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -2296,7 +2301,7 @@ export class Parser {
         let rightExpr: ExpressionNode | undefined;
         rightExpr = this._tryParseYieldExpression();
         if (!rightExpr) {
-            rightExpr = this._parseTestListAsExpression(
+            rightExpr = this._parseTestOrStarListAsExpression(
                 ErrorExpressionCategory.MissingExpression,
                 'Expected expression to the right of "="');
         }
@@ -2574,6 +2579,25 @@ export class Parser {
         }
 
         return stringNode;
+    }
+
+    // Python 3.8 added support for star (unpack) expressions in tuples
+    // following a return or yield statement.
+    private _reportConditionalErrorForStarTupleElement(possibleTupleExpr: ExpressionNode) {
+        if (possibleTupleExpr.nodeType !== ParseNodeType.Tuple) {
+            return;
+        }
+
+        if (this._parseOptions.pythonVersion >= PythonVersion.V38) {
+            return;
+        }
+
+        for (const expr of possibleTupleExpr.expressions) {
+            if (expr.nodeType === ParseNodeType.Unpack) {
+                this._addError('Unpack operation not allowed prior to Python 3.8', expr);
+                return;
+            }
+        }
     }
 
     // Peeks at the next token and returns true if it can never
