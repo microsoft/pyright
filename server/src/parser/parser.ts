@@ -20,6 +20,7 @@ import { convertOffsetsToRange, convertPositionToOffset } from '../common/positi
 import { latestStablePythonVersion, PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
+import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { ArgumentCategory, ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
@@ -66,6 +67,7 @@ export interface ParseResults {
 
 export interface ParseExpressionTextResults {
     parseTree?: ExpressionNode;
+    lines: TextRangeCollection<TextRange>;
     diagnostics: Diagnostic[];
 }
 
@@ -137,6 +139,7 @@ export class Parser {
 
     parseTextExpression(fileContents: string, textOffset: number, textLength: number,
             parseOptions: ParseOptions): ParseExpressionTextResults {
+
         const diagSink = new DiagnosticSink();
         this._startNewParse(fileContents, textOffset, textLength, parseOptions, diagSink);
 
@@ -152,6 +155,7 @@ export class Parser {
 
         return {
             parseTree,
+            lines: this._tokenizerOutput!.lines,
             diagnostics: diagSink.diagnostics
         };
     }
@@ -2439,10 +2443,10 @@ export class Parser {
 
                 parseResults.diagnostics.forEach(diag => {
                     const textRangeStart = (diag.range ?
-                        convertPositionToOffset(diag.range.start, this._tokenizerOutput!.lines) :
+                        convertPositionToOffset(diag.range.start, parseResults.lines) :
                         stringToken.start) || stringToken.start;
                     const textRangeEnd = (diag.range ?
-                        convertPositionToOffset(diag.range.end, this._tokenizerOutput!.lines) :
+                        (convertPositionToOffset(diag.range.end, parseResults.lines) || 0) + 1 :
                         stringToken.start + stringToken.length) || (stringToken.start + stringToken.length);
                     const textRange = { start: textRangeStart, length: textRangeEnd - textRangeStart };
                     this._addError(diag.message, textRange);
