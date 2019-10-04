@@ -44,6 +44,7 @@ import * as TypeUtils from './typeUtils';
 
 interface TypeResult {
     type: Type;
+    unpackedType?: Type;
     typeList?: TypeResult[];
     node: ExpressionNode;
 }
@@ -838,7 +839,7 @@ export class ExpressionEvaluator {
         } else if (node.nodeType === ParseNodeType.Unpack) {
             const iterType = this._getTypeFromExpression(node.expression, usage).type;
             const type = this.getTypeFromIterable(iterType, false, node, false);
-            typeResult = { type, node };
+            typeResult = { type, unpackedType: iterType, node };
         } else if (node.nodeType === ParseNodeType.TypeAnnotation) {
             typeResult = this._getTypeFromExpression(node.typeAnnotation);
         } else if (node.nodeType === ParseNodeType.Error) {
@@ -1578,14 +1579,37 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromTupleExpression(node: TupleExpressionNode, usage: EvaluatorUsage): TypeResult {
-        const entryTypes = node.expressions.map(expr => this.getType(expr, usage));
+        const entryTypeResults = node.expressions.map(expr => this._getTypeFromExpression(expr, usage));
 
         let type: Type = UnknownType.create();
         const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
 
         if (builtInTupleType.category === TypeCategory.Class) {
+            let tupleTypes: Type[] = [];
+            for (const typeResult of entryTypeResults) {
+                if (typeResult.unpackedType) {
+                    // Is this an unpacked tuple? If so, we can append the individual
+                    // unpacked entries onto the new tuple. If it's not an upacked tuple
+                    // but some other iterator (e.g. a List), we won't know the number of
+                    // items, so we'll need to leave the Tuple open-ended.
+                    if (typeResult.unpackedType.category === TypeCategory.Object &&
+                            ClassType.isBuiltIn(typeResult.unpackedType.classType, 'Tuple') &&
+                            ClassType.getTypeArguments(typeResult.unpackedType.classType)) {
+
+                        for (const typeArg of ClassType.getTypeArguments(typeResult.unpackedType.classType)!) {
+                            tupleTypes.push(typeArg);
+                        }
+                    } else {
+                        tupleTypes = [AnyType.create(false), AnyType.create(true)];
+                        break;
+                    }
+                } else {
+                    tupleTypes.push(typeResult.type);
+                }
+            }
+
             type = TypeUtils.convertClassToObject(
-                ClassType.cloneForSpecialization(builtInTupleType, entryTypes));
+                ClassType.cloneForSpecialization(builtInTupleType, tupleTypes));
         }
 
         return { type, node };

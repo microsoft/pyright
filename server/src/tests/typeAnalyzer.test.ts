@@ -183,6 +183,12 @@ test('Unpack1', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Unpack2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unpack2.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('Lambda1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda1.py']);
 
