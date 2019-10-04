@@ -1593,10 +1593,18 @@ export class ExpressionEvaluator {
                     // but some other iterator (e.g. a List), we won't know the number of
                     // items, so we'll need to leave the Tuple open-ended.
                     if (typeResult.unpackedType.category === TypeCategory.Object &&
-                            ClassType.isBuiltIn(typeResult.unpackedType.classType, 'Tuple') &&
-                            ClassType.getTypeArguments(typeResult.unpackedType.classType)) {
+                            ClassType.isBuiltIn(typeResult.unpackedType.classType, 'Tuple')) {
 
-                        for (const typeArg of ClassType.getTypeArguments(typeResult.unpackedType.classType)!) {
+                        const typeArgs = ClassType.getTypeArguments(typeResult.unpackedType.classType);
+
+                        // If the Tuple wasn't specialized or has a "..." type parameter, we can't
+                        // make anydetermination about its contents.
+                        if (!typeArgs || typeArgs.some(t => t.category === TypeCategory.Any && t.isEllipsis)) {
+                            tupleTypes = [AnyType.create(false), AnyType.create(true)];
+                            break;
+                        }
+
+                        for (const typeArg of typeArgs) {
                             tupleTypes.push(typeArg);
                         }
                     } else {
