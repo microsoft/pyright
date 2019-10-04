@@ -3143,7 +3143,7 @@ export class ExpressionEvaluator {
                 }
 
                 const magicMethodName = operatorMap[node.operator][0];
-                return this._getTypeFromMagicMethodReturn(rightSubtype, [leftSubtype],
+                return this._getTypeFromMagicMethodReturn(leftSubtype, [rightSubtype],
                     magicMethodName, node);
             });
         });
@@ -3327,13 +3327,6 @@ export class ExpressionEvaluator {
         }
 
         return returnType;
-    }
-
-    private _getBuiltInClassTypes(names: string[]): (ClassType | undefined)[] {
-        return names.map(name => {
-            const classType = ScopeUtils.getBuiltInType(this._scope, name);
-            return classType.category === TypeCategory.Class ? classType : undefined;
-        });
     }
 
     private _specializeExpectedType(expectedType: Type, srcType: Type) {
