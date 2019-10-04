@@ -673,16 +673,16 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType)
 
     // Partially specialize the type using the specialized class type vars.
     const typeVarMap = buildTypeVarMapFromSpecializedClass(contextClassType);
-    return specializeType(type, typeVarMap);
+    return specializeType(type, typeVarMap, false);
 }
 
 // Specializes a (potentially generic) type by substituting
-// type variables with specified types. If typeVarMap is provided
-// type variables that are not specified are left as is. If not
-// provided, type variables are replaced with a concrete type derived
-// from the type variable.
+// type variables with specified types. If typeVarMap is not
+// provided or makeConcrete is true, type variables are replaced
+// with a concrete type derived from the type variable if there
+// is no corresponding definition in the typeVarMap.
 export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
-        recursionLevel = 0): Type {
+        makeConcrete = false, recursionLevel = 0): Type {
 
     // Prevent infinite recursion in case a type refers to itself.
     if (recursionLevel > 100) {
@@ -703,13 +703,15 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
     }
 
     if (type.category === TypeCategory.TypeVar) {
-        if (!typeVarMap) {
-            return _getConcreteTypeFromTypeVar(type, recursionLevel);
+        if (typeVarMap) {
+            const replacementType = typeVarMap.get(type.name);
+            if (replacementType) {
+                return replacementType;
+            }
         }
 
-        const replacementType = typeVarMap.get(type.name);
-        if (replacementType) {
-            return replacementType;
+        if (!typeVarMap || makeConcrete) {
+            return _getConcreteTypeFromTypeVar(type, recursionLevel);
         }
 
         return type;
@@ -719,7 +721,7 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
         const subtypes: Type[] = [];
         type.subtypes.forEach(typeEntry => {
             subtypes.push(specializeType(typeEntry, typeVarMap,
-                recursionLevel + 1));
+                makeConcrete, recursionLevel + 1));
         });
 
         return combineTypes(subtypes);
@@ -727,7 +729,7 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
 
     if (type.category === TypeCategory.Object) {
         const classType = _specializeClassType(type.classType,
-            typeVarMap, recursionLevel + 1);
+            typeVarMap, makeConcrete, recursionLevel + 1);
 
         // Handle the "Type" special class.
         if (ClassType.isBuiltIn(classType, 'Type')) {
@@ -757,17 +759,17 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
 
     if (type.category === TypeCategory.Class) {
         return _specializeClassType(type, typeVarMap,
-            recursionLevel + 1);
+            makeConcrete, recursionLevel + 1);
     }
 
     if (type.category === TypeCategory.Function) {
         return _specializeFunctionType(type, typeVarMap,
-            recursionLevel + 1);
+            makeConcrete, recursionLevel + 1);
     }
 
     if (type.category === TypeCategory.OverloadedFunction) {
         return _specializeOverloadedFunctionType(type, typeVarMap,
-            recursionLevel + 1);
+            makeConcrete, recursionLevel + 1);
     }
 
     return type;
@@ -1570,7 +1572,7 @@ function _partiallySpecializeFunctionForBoundClassOrObject(
     }
 
     const specializedFunction = specializeType(
-        memberType, typeVarMap) as FunctionType;
+        memberType, typeVarMap, false) as FunctionType;
     return stripFirstParameter(specializedFunction);
 }
 
@@ -1606,7 +1608,7 @@ function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
         // Make sure we can assign the specialized dest type to the
         // source type.
         const specializedDestParamType = specializeType(
-            destParamType, typeVarMap, recursionCount + 1);
+            destParamType, typeVarMap, false, recursionCount + 1);
         if (!canAssignType(srcParamType, specializedDestParamType, paramDiag.createAddendum(),
                 undefined, CanAssignFlags.Default, recursionCount + 1)) {
             paramDiag.addMessage(`Parameter ${ paramIndex + 1 } of type ` +
@@ -1650,7 +1652,7 @@ function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
                         canAssign = false;
                     } else {
                         const specializedDestParamType = specializeType(
-                            destParam.type, typeVarMap, recursionCount + 1);
+                            destParam.type, typeVarMap, false, recursionCount + 1);
                         if (!canAssignType(param.type, specializedDestParamType, paramDiag.createAddendum(),
                                 undefined, CanAssignFlags.Default, recursionCount + 1)) {
 
@@ -1739,7 +1741,8 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
                 } else {
                     const declaredType = getDeclaredTypeOfSymbol(symbol);
                     if (declaredType) {
-                        const destMemberType = specializeType(declaredType, destClassTypeVarMap);
+                        const destMemberType = specializeType(declaredType,
+                            destClassTypeVarMap, false);
                         const srcMemberType = memberInfo.symbolType;
 
                         if (!canAssignType(destMemberType, srcMemberType,
@@ -2006,13 +2009,13 @@ function _specializeForBaseClass(srcType: ClassType, baseClass: ClassType,
     }
 
     const typeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
-    const specializedType = specializeType(baseClass, typeVarMap, recursionCount + 1);
+    const specializedType = specializeType(baseClass, typeVarMap, false, recursionCount + 1);
     assert(specializedType.category === TypeCategory.Class);
     return specializedType as ClassType;
 }
 
 function _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap | undefined,
-        recursionLevel: number): ClassType {
+        makeConcrete: boolean, recursionLevel: number): ClassType {
 
     // Handle the common case where the class has no type parameters.
     if (ClassType.getTypeParameters(classType).length === 0) {
@@ -2027,7 +2030,7 @@ function _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap | und
     if (oldTypeArgs) {
         newTypeArgs = oldTypeArgs.map(oldTypeArgType => {
             const newTypeArgType = specializeType(oldTypeArgType,
-                typeVarMap, recursionLevel + 1);
+                typeVarMap, makeConcrete, recursionLevel + 1);
             if (newTypeArgType !== oldTypeArgType) {
                 specializationNeeded = true;
             }
@@ -2066,7 +2069,7 @@ function _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap | und
 function _getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel: number): Type {
     const boundType = type.boundType;
     if (boundType) {
-        return specializeType(boundType, undefined, recursionLevel + 1);
+        return specializeType(boundType, undefined, false, recursionLevel + 1);
     }
 
     const constraints = type.constraints;
@@ -2075,19 +2078,20 @@ function _getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel: number):
     }
 
     const concreteTypes = constraints.map(constraint =>
-        specializeType(constraint, undefined, recursionLevel + 1)
+        specializeType(constraint, undefined, false, recursionLevel + 1)
     );
 
     return combineTypes(concreteTypes);
 }
 
 function _specializeOverloadedFunctionType(type: OverloadedFunctionType,
-        typeVarMap: TypeVarMap | undefined, recursionLevel: number): OverloadedFunctionType {
+        typeVarMap: TypeVarMap | undefined, makeConcrete: boolean,
+        recursionLevel: number): OverloadedFunctionType {
 
     // Specialize each of the functions in the overload.
     const overloads = type.overloads.map(entry => {
         const newEntry: OverloadedFunctionEntry = {
-            type: _specializeFunctionType(entry.type, typeVarMap, recursionLevel),
+            type: _specializeFunctionType(entry.type, typeVarMap, makeConcrete, recursionLevel),
             typeSourceId: entry.typeSourceId
         };
 
@@ -2104,11 +2108,12 @@ function _specializeOverloadedFunctionType(type: OverloadedFunctionType,
 }
 
 function _specializeFunctionType(functionType: FunctionType,
-        typeVarMap: TypeVarMap | undefined, recursionLevel: number): FunctionType {
+        typeVarMap: TypeVarMap | undefined, makeConcrete: boolean,
+        recursionLevel: number): FunctionType {
 
     const returnType = FunctionType.getEffectiveReturnType(functionType);
     const specializedReturnType = specializeType(returnType,
-        typeVarMap, recursionLevel + 1);
+        typeVarMap, makeConcrete, recursionLevel + 1);
     let typesRequiredSpecialization = returnType !== specializedReturnType;
 
     const specializedParameters: SpecializedFunctionTypes = {
@@ -2119,7 +2124,7 @@ function _specializeFunctionType(functionType: FunctionType,
     for (let i = 0; i < FunctionType.getParameterCount(functionType); i++) {
         const paramType = FunctionType.getEffectiveParameterType(functionType, i);
         const specializedType = specializeType(paramType,
-            typeVarMap, recursionLevel + 1);
+            typeVarMap, makeConcrete, recursionLevel + 1);
         specializedParameters.parameterTypes.push(specializedType);
 
         if (paramType !== specializedType) {

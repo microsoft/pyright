@@ -790,7 +790,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (node.returnExpression) {
             returnType = this._getTypeOfExpression(node.returnExpression,
-                EvaluatorFlags.None, declaredReturnType);
+                EvaluatorFlags.None, false, declaredReturnType);
         } else {
             // There is no return expression, so "None" is assumed.
             returnType = NoneType.create();
@@ -1095,7 +1095,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // An assignment of ellipsis means "Any" within a type stub file.
         let srcType = this._getTypeOfExpression(node.rightExpression,
             this._fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined,
-            declaredType);
+            false, declaredType);
 
         // Determine if the RHS is a constant boolean expression.
         // If so, assign it a literal type.
@@ -1858,9 +1858,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         } else if (expression.nodeType === ParseNodeType.TypeAnnotation) {
             return this._getDeclaredTypeForExpression(expression.valueExpression);
         } else if (expression.nodeType === ParseNodeType.MemberAccess) {
-            // Get the base type but don't cache the results because we're going to call again
+            // Get the base type but do so speculative because we're going to call again
             // with a 'set' usage type below, and we don't want to skip that logic.
-            const baseType = this._getTypeOfExpression(expression.leftExpression, EvaluatorFlags.DoNotCache);
+            const baseType = this._getTypeOfExpression(expression.leftExpression, EvaluatorFlags.None, true);
             let classMemberInfo: TypeUtils.ClassMember | undefined;
 
             if (baseType.category === TypeCategory.Object) {
@@ -3053,8 +3053,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             evaluator.getType(node, { method: 'get' }, evaluatorFlags));
     }
 
-    private _getTypeOfExpression(node: ExpressionNode, flags?: EvaluatorFlags, expectedType?: Type): Type {
-        const evaluator = this._createEvaluator();
+    private _getTypeOfExpression(node: ExpressionNode, flags?: EvaluatorFlags,
+            speculativelyExecute = false, expectedType?: Type): Type {
+
+        const evaluator = this._createEvaluator(speculativelyExecute);
 
         // If the caller didn't specify the flags, use the defaults.
         if (flags === undefined) {
@@ -3705,13 +3707,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return diagnostic;
     }
 
-    private _createEvaluator() {
+    private _createEvaluator(speculativelyExecute = false) {
         return new ExpressionEvaluator(this._currentScope,
-            this._fileInfo, this._fileInfo.diagnosticSink, node => this._readExpressionTypeFromNodeCache(node),
-            (node, type) => {
+            this._fileInfo,
+            speculativelyExecute ? undefined : this._fileInfo.diagnosticSink,
+            speculativelyExecute ? undefined : node => this._readExpressionTypeFromNodeCache(node),
+            speculativelyExecute ? undefined : (node, type) => {
                 this._updateExpressionTypeForNode(node, type);
             },
-            symbol => {
+            speculativelyExecute ? undefined : symbol => {
                 this._setSymbolAccessed(symbol);
             });
     }

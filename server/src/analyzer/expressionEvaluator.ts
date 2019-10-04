@@ -50,10 +50,10 @@ interface TypeResult {
 }
 
 interface FunctionArgument {
-    valueExpression?: ExpressionNode;
     argumentCategory: ArgumentCategory;
     name?: NameNode;
-    type: Type;
+    type?: Type;
+    valueExpression?: ExpressionNode;
 }
 
 interface ClassMemberLookup {
@@ -76,10 +76,7 @@ export const enum EvaluatorFlags {
     DoNotSpecialize = 2,
 
     // Allow forward references. Don't report unbound errors.
-    AllowForwardReferences = 4,
-
-    // Don't cache the results.
-    DoNotCache = 8
+    AllowForwardReferences = 4
 }
 
 interface EvaluatorUsage {
@@ -212,12 +209,12 @@ export class ExpressionEvaluator {
         // If the decorator has arguments, evaluate that call first.
         if (node.arguments) {
             const argList = node.arguments.map(arg => {
-                return {
+                const functionArg: FunctionArgument = {
                     valueExpression: arg.valueExpression,
                     argumentCategory: arg.argumentCategory,
-                    name: arg.name,
-                    type: this.getType(arg.valueExpression)
+                    name: arg.name
                 };
+                return functionArg;
             });
 
             // Evaluate the decorator, but don't specialize the
@@ -735,7 +732,7 @@ export class ExpressionEvaluator {
             flags = EvaluatorFlags.None): TypeResult {
 
         // Is this type already cached?
-        if (this._readTypeFromCache && (flags & EvaluatorFlags.DoNotCache) === 0) {
+        if (this._readTypeFromCache) {
             const cachedType = this._readTypeFromCache(node);
             if (cachedType) {
                 return { type: cachedType, node };
@@ -861,7 +858,7 @@ export class ExpressionEvaluator {
             typeResult = { type: UnknownType.create(), node };
         }
 
-        if (this._writeTypeToCache && (flags & EvaluatorFlags.DoNotCache) === 0) {
+        if (this._writeTypeToCache) {
             this._writeTypeToCache(node, typeResult.type);
         }
 
@@ -1652,12 +1649,12 @@ export class ExpressionEvaluator {
         }
 
         const argList = node.arguments.map(arg => {
-            return {
+            const functionArg: FunctionArgument = {
                 valueExpression: arg.valueExpression,
                 argumentCategory: arg.argumentCategory,
-                name: arg.name,
-                type: this.getType(arg.valueExpression)
+                name: arg.name
             };
+            return functionArg;
         });
 
         return this._getTypeFromCallExpressionWithBaseType(
@@ -1774,7 +1771,7 @@ export class ExpressionEvaluator {
                 if (className === 'type') {
                     // Handle the 'type' call specially.
                     if (argList.length >= 1) {
-                        const argType = argList[0].type;
+                        const argType = this._getTypeForArgument(argList[0]);
                         if (argType.category === TypeCategory.Object) {
                             type = argType.classType;
                         }
@@ -1870,8 +1867,8 @@ export class ExpressionEvaluator {
             if (functionType) {
                 if (FunctionType.getBuiltInName(functionType) === 'cast' && argList.length === 2) {
                     // Verify that the cast is necessary.
-                    const castToType = argList[0].type;
-                    const castFromType = argList[1].type;
+                    const castToType = this._getTypeForArgument(argList[0]);
+                    const castFromType = this._getTypeForArgument(argList[1]);
                     if (castToType.category === TypeCategory.Class && castFromType.category === TypeCategory.Object) {
                         if (isTypeSame(castToType, castFromType.classType)) {
                             this._addDiagnostic(
@@ -1891,7 +1888,7 @@ export class ExpressionEvaluator {
             } else {
                 const exprString = ParseTreeUtils.printExpression(errorNode);
                 const diagAddendum = new DiagnosticAddendum();
-                const argTypes = argList.map(t => printType(t.type));
+                const argTypes = argList.map(t => printType(this._getTypeForArgument(t)));
                 diagAddendum.addMessage(`Argument types: (${ argTypes.join(', ') })`);
                 this._addError(
                     `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
@@ -1946,6 +1943,8 @@ export class ExpressionEvaluator {
                 type = combineTypes(returnTypes);
             }
         } else if (isAnyOrUnknown(callType)) {
+            // Mark the arguments accessed.
+            argList.forEach(arg => this._getTypeForArgument(arg));
             type = callType;
         }
 
@@ -2059,6 +2058,8 @@ export class ExpressionEvaluator {
         let returnType: Type | undefined;
 
         if (isAnyOrUnknown(callType)) {
+            // Touch all of the args so they're marked accessed.
+            argList.forEach(arg => this._getTypeForArgument(arg));
             returnType = callType;
         } else if (callType.category === TypeCategory.Function) {
             returnType = this._validateFunctionArguments(errorNode, argList, callType, typeVarMap);
@@ -2071,7 +2072,7 @@ export class ExpressionEvaluator {
             } else {
                 const exprString = ParseTreeUtils.printExpression(errorNode);
                 const diagAddendum = new DiagnosticAddendum();
-                const argTypes = argList.map(t => printType(t.type));
+                const argTypes = argList.map(t => printType(this._getTypeForArgument(t)));
                 diagAddendum.addMessage(`Argument types: (${ argTypes.join(', ') })`);
                 this._addError(
                     `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
@@ -2208,10 +2209,15 @@ export class ExpressionEvaluator {
             if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
                 // Assume the unpacked list fills the remaining positional args.
                 if (argList[argIndex].valueExpression) {
-                    const listElementType = this.getTypeFromIterable(argList[argIndex].type, false,
+                    const listElementType = this.getTypeFromIterable(
+                        this._getTypeForArgument(argList[argIndex]), false,
                         argList[argIndex].valueExpression!, false);
+                    const funcArg: FunctionArgument = {
+                        argumentCategory: ArgumentCategory.Simple,
+                        type: listElementType
+                    };
 
-                    if (!this._validateArgType(paramType, listElementType,
+                    if (!this._validateArgType(paramType, funcArg,
                             argList[argIndex].valueExpression || errorNode, typeVarMap,
                             typeParams[paramIndex].name)) {
                         reportedArgError = true;
@@ -2219,16 +2225,16 @@ export class ExpressionEvaluator {
                 }
                 break;
             } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
-                if (!this._validateArgType(paramType, argList[argIndex].type,
+                if (!this._validateArgType(paramType, argList[argIndex],
                         argList[argIndex].valueExpression || errorNode, typeVarMap,
-                        typeParams[paramIndex].name, argList[argIndex].valueExpression)) {
+                        typeParams[paramIndex].name)) {
                     reportedArgError = true;
                 }
                 argIndex++;
             } else {
-                if (!this._validateArgType(paramType, argList[argIndex].type,
+                if (!this._validateArgType(paramType, argList[argIndex],
                         argList[argIndex].valueExpression || errorNode, typeVarMap,
-                        typeParams[paramIndex].name, argList[argIndex].valueExpression)) {
+                        typeParams[paramIndex].name)) {
                     reportedArgError = true;
                 }
 
@@ -2251,6 +2257,8 @@ export class ExpressionEvaluator {
             // Now consume any named parameters.
             while (argIndex < argList.length) {
                 if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedDictionary) {
+                    // Mark the arg as accessed.
+                    this._getTypeForArgument(argList[argIndex]);
                     foundUnpackedDictionaryArg = true;
                 } else {
                     // Protect against the case where a non-named argument appears after
@@ -2272,16 +2280,16 @@ export class ExpressionEvaluator {
                                     param => param.name === paramNameValue);
                                 assert(paramInfoIndex >= 0);
                                 const paramType = FunctionType.getEffectiveParameterType(type, paramInfoIndex);
-                                if (!this._validateArgType(paramType, argList[argIndex].type,
+                                if (!this._validateArgType(paramType, argList[argIndex],
                                         argList[argIndex].valueExpression || errorNode, typeVarMap,
-                                        paramNameValue, argList[argIndex].valueExpression)) {
+                                        paramNameValue)) {
                                     reportedArgError = true;
                                 }
                             }
                         } else if (varArgDictParam) {
-                            if (!this._validateArgType(varArgDictParam.type, argList[argIndex].type,
+                            if (!this._validateArgType(varArgDictParam.type, argList[argIndex],
                                     argList[argIndex].valueExpression || errorNode, typeVarMap,
-                                    paramNameValue, argList[argIndex].valueExpression)) {
+                                    paramNameValue)) {
                                 reportedArgError = true;
                             }
                         } else {
@@ -2323,26 +2331,18 @@ export class ExpressionEvaluator {
         return TypeUtils.specializeType(FunctionType.getEffectiveReturnType(type), typeVarMap);
     }
 
-    private _validateArgType(paramType: Type, argType: Type, errorNode: ExpressionNode,
-            typeVarMap: TypeVarMap, paramName?: string, valueExpression?: ExpressionNode): boolean {
+    private _validateArgType(paramType: Type, arg: FunctionArgument, errorNode: ExpressionNode,
+            typeVarMap: TypeVarMap, paramName?: string): boolean {
 
-        // The argType should reflect the type of the valueExpression, but
-        // it may be too conservative a type. Now that we know the expected
-        // type of the parameter, we can re-evaluate the argType with the
-        // expected type in mind. We'll do this only for certain literal
-        // expression types (dictionaries, sets, lists).
-        if (valueExpression) {
-            if (valueExpression.nodeType === ParseNodeType.Dictionary ||
-                    valueExpression.nodeType === ParseNodeType.Set ||
-                    valueExpression.nodeType === ParseNodeType.List) {
+        let argType: Type | undefined;
 
-                this._silenceDiagnostics(() => {
-                    const exprType = this._getTypeFromExpression(valueExpression,
-                        { method: 'get', expectedType: paramType },
-                        EvaluatorFlags.DoNotCache);
-                    argType = exprType.type;
-                });
-            }
+        if (arg.valueExpression) {
+            const expectedType = TypeUtils.specializeType(paramType, typeVarMap);
+            const exprType = this._getTypeFromExpression(arg.valueExpression,
+                { method: 'get', expectedType });
+            argType = exprType.type;
+        } else {
+            argType = this._getTypeForArgument(arg);
         }
 
         const diag = new DiagnosticAddendum();
@@ -2396,12 +2396,13 @@ export class ExpressionEvaluator {
                             `A TypeVar cannot be both bound and constrained`,
                             argList[i].valueExpression || errorNode);
                     } else {
-                        if (requiresSpecialization(argList[i].type)) {
+                        if (requiresSpecialization(this._getTypeForArgument(argList[i]))) {
                             this._addError(
                                 `A TypeVar bound type cannot be generic`,
                                 argList[i].valueExpression || errorNode);
                         }
-                        typeVar.boundType = TypeUtils.convertClassToObject(argList[i].type);
+                        typeVar.boundType = TypeUtils.convertClassToObject(
+                            this._getTypeForArgument(argList[i]));
                     }
                 } else if (paramName === 'covariant') {
                     if (argList[i].valueExpression && this._getBooleanValue(argList[i].valueExpression!)) {
@@ -2436,12 +2437,13 @@ export class ExpressionEvaluator {
                         `A TypeVar cannot be both bound and constrained`,
                         argList[i].valueExpression || errorNode);
                 } else {
-                    if (requiresSpecialization(argList[i].type)) {
+                    if (requiresSpecialization(this._getTypeForArgument(argList[i]))) {
                         this._addError(
                             `A TypeVar constraint type cannot be generic`,
                             argList[i].valueExpression || errorNode);
                     }
-                    TypeVarType.addConstraint(typeVar, TypeUtils.convertClassToObject(argList[i].type));
+                    TypeVarType.addConstraint(typeVar, TypeUtils.convertClassToObject(
+                        this._getTypeForArgument(argList[i])));
                 }
             }
         }
@@ -2560,29 +2562,31 @@ export class ExpressionEvaluator {
             }
         }
 
-        if (argList.length >= 2 && argList[1].type.category === TypeCategory.Class) {
-            const baseClass = argList[1].type;
+        if (argList.length >= 2) {
+            const baseClass = this._getTypeForArgument(argList[1]);
 
-            // This is a hack to make named tuples work correctly. We don't want
-            // to create a new ClassType for every analysis pass. Instead, we'll
-            // use the cached version and update it after the first pass.
-            const cachedCallType = cachedExpressionNode ?
-                AnalyzerNodeInfo.getExpressionType(cachedExpressionNode) :
-                undefined;
+            if (baseClass.category === TypeCategory.Class) {
+                // This is a hack to make named tuples work correctly. We don't want
+                // to create a new ClassType for every analysis pass. Instead, we'll
+                // use the cached version and update it after the first pass.
+                const cachedCallType = cachedExpressionNode ?
+                    AnalyzerNodeInfo.getExpressionType(cachedExpressionNode) :
+                    undefined;
 
-            // Use the cached class type and update it if this isn't the first
-            // analysis path. If this is the first pass, allocate a new ClassType.
-            let classType = cachedCallType as ClassType;
-            if (!classType || classType.category !== TypeCategory.Class) {
-                classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
+                // Use the cached class type and update it if this isn't the first
+                // analysis path. If this is the first pass, allocate a new ClassType.
+                let classType = cachedCallType as ClassType;
+                if (!classType || classType.category !== TypeCategory.Class) {
+                    classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
 
-                AnalyzerNodeInfo.setExpressionType(errorNode, classType);
-                ClassType.addBaseClass(classType, baseClass, false);
-            } else {
-                ClassType.updateBaseClassType(classType, 0, baseClass);
+                    AnalyzerNodeInfo.setExpressionType(errorNode, classType);
+                    ClassType.addBaseClass(classType, baseClass, false);
+                } else {
+                    ClassType.updateBaseClassType(classType, 0, baseClass);
+                }
+
+                return classType;
             }
-
-            return classType;
         }
 
         return undefined;
@@ -3616,15 +3620,15 @@ export class ExpressionEvaluator {
         const prevParent = this._scope.getParent();
         this._scope.setParent(prevScope);
 
-        let expectedParameters: FunctionParameter[] | undefined;
+        let expectedFunctionType: FunctionType | undefined;
         if (usage.expectedType && usage.expectedType.category === TypeCategory.Function) {
-            expectedParameters = usage.expectedType.details.parameters;
+            expectedFunctionType = usage.expectedType;
         }
 
         node.parameters.forEach((param, index) => {
             let paramType: Type = UnknownType.create();
-            if (expectedParameters && index < expectedParameters.length) {
-                paramType = expectedParameters[index].type;
+            if (expectedFunctionType && index < expectedFunctionType.details.parameters.length) {
+                paramType = FunctionType.getEffectiveParameterType(expectedFunctionType, index);
             }
 
             if (param.name) {
@@ -3640,10 +3644,7 @@ export class ExpressionEvaluator {
             FunctionType.addParameter(functionType, functionParam);
         });
 
-        // Infer the return type. Use the "do not cache" flag because
-        // we need to evaluate this multiple times during each pass.
-        const returnType = this.getType(node.expression, { method: 'get' },
-            !!usage.expectedType ? EvaluatorFlags.DoNotCache : EvaluatorFlags.None);
+        const returnType = this.getType(node.expression, { method: 'get' });
         FunctionType.getInferredReturnType(functionType).addSource(
             returnType, node.expression.id);
 
@@ -4287,18 +4288,37 @@ export class ExpressionEvaluator {
         }
     }
 
+    private _getTypeForArgument(arg: FunctionArgument): Type {
+        if (arg.type) {
+            return arg.type;
+        }
+
+        // If there was no defined type provided, there should always
+        // be a value expression from which we can retrieve the type.
+        return this.getType(arg.valueExpression!, { method: 'get' });
+    }
+
     private _buildTypeConstraints(node: ExpressionNode) {
         return TypeConstraintBuilder.buildTypeConstraintsForConditional(node,
             (node: ExpressionNode) => this.getType(node));
     }
 
+    // Disables recording of errors and warnings and disables
+    // any caching of types, under the assumption that we're
+    // performing speculative evaluations.
     private _silenceDiagnostics(callback: () => void) {
         const oldDiagSink = this._diagnosticSink;
         this._diagnosticSink = undefined;
+        const oldReadCacheCallback = this._readTypeFromCache;
+        this._readTypeFromCache = undefined;
+        const oldWriteCacheCallback = this._writeTypeToCache;
+        this._writeTypeToCache = undefined;
 
         callback();
 
         this._diagnosticSink = oldDiagSink;
+        this._readTypeFromCache = oldReadCacheCallback;
+        this._writeTypeToCache = oldWriteCacheCallback;
     }
 
     private _addWarning(message: string, range: TextRange) {
