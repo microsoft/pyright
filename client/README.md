@@ -15,6 +15,7 @@ Pyright supports:
 * [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
 * [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
+* [PEP 589](https://www.python.org/dev/peps/pep-0589/) typed dictionaries
 * Type inference for function return values, instance variables, class variables, and globals
 * Smart type constraints that understand conditional code flow constructs like if/else statements
 
@@ -28,6 +29,7 @@ The VS Code extension supports many time-saving language features including:
 * Find Definitions to quickly go to the location of a symbol’s definition
 * Find References to find all references to a symbol within a code base
 * Rename Symbol to rename all references to a symbol within a code base
+* Find Symbols within the current document or within the entire workspace
 * Organize Imports command for automatically ordering imports according to PEP8 rules
 * Type stub generation for third-party libraries
 
