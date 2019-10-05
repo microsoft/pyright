@@ -543,6 +543,12 @@ test('Assignment2', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Assignment3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment3.py']);
+
+    validateResults(analysisResults, 4);
+});
+
 test('AugmentedAssignment1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['augmentedAssignment1.py']);
 

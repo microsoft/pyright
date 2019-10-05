@@ -1,5 +1,5 @@
 # This sample tests the type checker's handling of
-# syntesized __init__ and __new__ methods for
+# synthesized __init__ and __new__ methods for
 # dataclass classes and their subclasses.
 
 from dataclasses import dataclass
@@ -23,4 +23,4 @@ b = B(a, 5)
 a = A(3, 4)
 
 # This should generate an error because there is one too few parameters
-b = B(3)
+b = B(a)
