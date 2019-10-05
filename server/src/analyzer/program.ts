@@ -1120,7 +1120,7 @@ export class Program {
                 if (!this._allowThirdPartyImports) {
                     // Some libraries ship with stub files that import from non-stubs. Don't
                     // explore those.
-                    if (sourceFileInfo.sourceFile.isStubFile && !importResult.isStubFile) {
+                    if (sourceFileInfo.sourceFile.isStubFile() && !importResult.isStubFile) {
                         return;
                     }
 
@@ -1141,7 +1141,7 @@ export class Program {
 
                 importResult.implicitImports.forEach(implicitImport => {
                     if (!this._allowThirdPartyImports) {
-                        if (sourceFileInfo.sourceFile.isStubFile && !implicitImport.isStubFile) {
+                        if (sourceFileInfo.sourceFile.isStubFile() && !implicitImport.isStubFile) {
                             return;
                         }
                     }
@@ -1175,7 +1175,7 @@ export class Program {
         });
 
         // See if there are any new imports to be added.
-        newImportPathMap.forEach((_, importPath) => {
+        newImportPathMap.forEach((isTypeshedFile, importPath) => {
             if (!updatedImportMap.has(importPath)) {
                 // We found a new import to add. See if it's already part
                 // of the program.
@@ -1183,14 +1183,13 @@ export class Program {
                 if (this._sourceFileMap[importPath] !== undefined) {
                     importedFileInfo = this._sourceFileMap[importPath];
                 } else {
-                    const isTypeShedFile = newImportPathMap.get(importPath) || false;
                     const sourceFile = new SourceFile(
-                        importPath, isTypeShedFile, this._console);
+                        importPath, isTypeshedFile, this._console);
                     importedFileInfo = {
                         sourceFile,
                         isTracked: false,
                         isOpenByClient: false,
-                        isTypeshedFile: isTypeShedFile,
+                        isTypeshedFile,
                         diagnosticsVersion: sourceFile.getDiagnosticVersion(),
                         imports: [],
                         importedBy: []

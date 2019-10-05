@@ -2680,15 +2680,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _findCollectionsImportSymbolTable(): SymbolTable | undefined {
-        const collectionResults = Object.keys(this._fileInfo.importMap).find(path => {
-            return path.endsWith('collections/__init__.pyi');
-        });
-
-        if (collectionResults) {
-            const moduleType = this._fileInfo.importMap.get(collectionResults);
-            if (moduleType) {
-                return moduleType.fields;
+        let moduleType: ModuleType | undefined;
+        for (const key of this._fileInfo.importMap.keys()) {
+            if (key.endsWith('collections/__init__.pyi')) {
+                moduleType = this._fileInfo.importMap.get(key);
+                break;
             }
+        }
+
+        if (moduleType) {
+            return moduleType.fields;
         }
 
         return undefined;
