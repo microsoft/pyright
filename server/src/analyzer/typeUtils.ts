@@ -235,6 +235,10 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
         return true;
     }
 
+    if (destType === srcType) {
+        return true;
+    }
+
     // Before performing any other checks, see if the dest type is a
     // TypeVar that we are attempting to match.
     if (destType.category === TypeCategory.TypeVar) {
@@ -244,10 +248,6 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
 
             const existingTypeVarMapping = typeVarMap.get(destType.name);
             if (existingTypeVarMapping) {
-                if (existingTypeVarMapping === noLiteralSrcType) {
-                    return true;
-                }
-
                 return canAssignType(existingTypeVarMapping, noLiteralSrcType, diag.createAddendum(),
                     typeVarMap, flags, recursionCount + 1);
             }

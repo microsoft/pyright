@@ -56,6 +56,13 @@ interface FunctionArgument {
     valueExpression?: ExpressionNode;
 }
 
+interface ValidateArgTypeParams {
+    paramType: Type;
+    argument: FunctionArgument;
+    errorNode: ExpressionNode;
+    paramName?: string;
+}
+
 interface ClassMemberLookup {
     // Type of value.
     type: Type;
@@ -2190,6 +2197,8 @@ export class ExpressionEvaluator {
             positionalArgCount = argList.length;
         }
 
+        const validateArgTypeParams: ValidateArgTypeParams[] = [];
+
         // Map the positional args to parameters.
         let paramIndex = 0;
         while (argIndex < positionalArgCount) {
@@ -2217,26 +2226,28 @@ export class ExpressionEvaluator {
                         type: listElementType
                     };
 
-                    if (!this._validateArgType(paramType, funcArg,
-                            argList[argIndex].valueExpression || errorNode, typeVarMap,
-                            typeParams[paramIndex].name)) {
-                        reportedArgError = true;
-                    }
+                    validateArgTypeParams.push({
+                        paramType,
+                        argument: funcArg,
+                        errorNode: argList[argIndex].valueExpression || errorNode
+                    });
                 }
                 break;
             } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
-                if (!this._validateArgType(paramType, argList[argIndex],
-                        argList[argIndex].valueExpression || errorNode, typeVarMap,
-                        typeParams[paramIndex].name)) {
-                    reportedArgError = true;
-                }
+                validateArgTypeParams.push({
+                    paramType,
+                    argument: argList[argIndex],
+                    errorNode: argList[argIndex].valueExpression || errorNode,
+                    paramName: typeParams[paramIndex].name
+                });
                 argIndex++;
             } else {
-                if (!this._validateArgType(paramType, argList[argIndex],
-                        argList[argIndex].valueExpression || errorNode, typeVarMap,
-                        typeParams[paramIndex].name)) {
-                    reportedArgError = true;
-                }
+                validateArgTypeParams.push({
+                    paramType,
+                    argument: argList[argIndex],
+                    errorNode: argList[argIndex].valueExpression || errorNode,
+                    paramName: typeParams[paramIndex].name
+                });
 
                 // Note that the parameter has received an argument.
                 const paramName = typeParams[paramIndex].name;
@@ -2280,18 +2291,21 @@ export class ExpressionEvaluator {
                                     param => param.name === paramNameValue);
                                 assert(paramInfoIndex >= 0);
                                 const paramType = FunctionType.getEffectiveParameterType(type, paramInfoIndex);
-                                if (!this._validateArgType(paramType, argList[argIndex],
-                                        argList[argIndex].valueExpression || errorNode, typeVarMap,
-                                        paramNameValue)) {
-                                    reportedArgError = true;
-                                }
+
+                                validateArgTypeParams.push({
+                                    paramType,
+                                    argument: argList[argIndex],
+                                    errorNode: argList[argIndex].valueExpression || errorNode,
+                                    paramName: paramNameValue
+                                });
                             }
                         } else if (varArgDictParam) {
-                            if (!this._validateArgType(varArgDictParam.type, argList[argIndex],
-                                    argList[argIndex].valueExpression || errorNode, typeVarMap,
-                                    paramNameValue)) {
-                                reportedArgError = true;
-                            }
+                            validateArgTypeParams.push({
+                                paramType: varArgDictParam.type,
+                                argument: argList[argIndex],
+                                errorNode: argList[argIndex].valueExpression || errorNode,
+                                paramName: paramNameValue
+                            });
                         } else {
                             this._addError(
                                 `No parameter named '${ paramName.nameToken.value }'`, paramName);
@@ -2323,6 +2337,23 @@ export class ExpressionEvaluator {
                 }
             }
         }
+
+        // Run through all args and validate them against their matched parameter.
+        // We'll do two passes. The first one will match type arguments. The second
+        // will perform the actual validation.
+        this._silenceDiagnostics(() => {
+            validateArgTypeParams.forEach(argParam => {
+                this._validateArgType(argParam.paramType, argParam.argument,
+                        argParam.errorNode, typeVarMap, argParam.paramName);
+            });
+        });
+
+        validateArgTypeParams.forEach(argParam => {
+            if (!this._validateArgType(argParam.paramType, argParam.argument,
+                    argParam.errorNode, typeVarMap, argParam.paramName)) {
+                reportedArgError = true;
+            }
+        });
 
         if (reportedArgError) {
             return undefined;
@@ -3621,8 +3652,15 @@ export class ExpressionEvaluator {
         this._scope.setParent(prevScope);
 
         let expectedFunctionType: FunctionType | undefined;
-        if (usage.expectedType && usage.expectedType.category === TypeCategory.Function) {
-            expectedFunctionType = usage.expectedType;
+        if (usage.expectedType) {
+            if (usage.expectedType.category === TypeCategory.Function) {
+                expectedFunctionType = usage.expectedType;
+            } else if (usage.expectedType.category === TypeCategory.Union) {
+                // It's not clear what we should do with a union type. For now,
+                // simply use the first function in the union.
+                expectedFunctionType = usage.expectedType.subtypes.find(
+                    t => t.category === TypeCategory.Function) as FunctionType;
+            }
         }
 
         node.parameters.forEach((param, index) => {
