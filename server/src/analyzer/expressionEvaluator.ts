@@ -1084,7 +1084,7 @@ export class ExpressionEvaluator {
 
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
-            if (type.category === TypeCategory.Class) {
+            if (type.category === TypeCategory.Class && !type.typeArguments) {
                 type = this._createSpecializedClassType(type, undefined, node);
             }
         }
