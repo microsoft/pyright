@@ -3042,10 +3042,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _getModuleTypeForImportPath(importResult: ImportResult | undefined,
             path: string): ModuleType | undefined {
 
-        // If the import resolved to a third-party module that has no type stub,
-        // we will return an unknown type.
-        if (importResult && importResult.importType === ImportType.ThirdParty && !importResult.isStubFile) {
-            return undefined;
+        if (importResult) {
+            // If the import resolved to a third-party module that has no type stub,
+            // we will return an undefined type.
+            if (importResult.importType === ImportType.ThirdParty && !importResult.isStubFile) {
+                return undefined;
+            }
+
+            // If a stub file is attempting to load a non-stub-file, we will
+            // return an undefined type.
+            if (this._fileInfo.isStubFile && !importResult.isStubFile) {
+                return undefined;
+            }
         }
 
         const moduleType = this._fileInfo.importMap.get(path);

@@ -64,6 +64,9 @@ export class SourceFile {
     // True if the file is a typeshed stub file.
     private readonly _isTypeshedStubFile: boolean;
 
+    // True if the file was imported as a third-party import.
+    private readonly _isThirdPartyImport: boolean;
+
     // True if the file is the "typing.pyi" file, which needs
     // special-case handling.
     private readonly _isTypingStubFile: boolean;
@@ -143,7 +146,9 @@ export class SourceFile {
     private _builtinsImport?: ImportResult;
     private _typingModulePath?: string;
 
-    constructor(filePath: string, isTypeshedStubFile: boolean, console?: ConsoleInterface) {
+    constructor(filePath: string, isTypeshedStubFile: boolean, isThirdPartyImport: boolean,
+            console?: ConsoleInterface) {
+
         this._console = console || new StandardConsole();
         if (this._console) {
             // This is here to prevent the compiler from complaining
@@ -152,6 +157,7 @@ export class SourceFile {
         this._filePath = filePath;
         this._isStubFile = filePath.endsWith('.pyi');
         this._isTypeshedStubFile = isTypeshedStubFile;
+        this._isThirdPartyImport = isThirdPartyImport;
         const fileName = getFileName(filePath);
         this._isTypingStubFile = this._isStubFile && (
             fileName === 'typing.pyi' || fileName === 'typing_extensions.pyi');
@@ -188,6 +194,12 @@ export class SourceFile {
             Diagnostic[] | undefined {
 
         if (this._diagnosticVersion === prevDiagnosticVersion) {
+            return undefined;
+        }
+
+        // If a file was imported as a third-party file, don't report
+        // any errors for it. The user can't fix them anyway.
+        if (this._isThirdPartyImport) {
             return undefined;
         }
 

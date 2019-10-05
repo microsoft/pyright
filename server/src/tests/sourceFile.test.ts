@@ -14,7 +14,7 @@ import { combinePaths } from '../common/pathUtils';
 
 test('Empty', () => {
     const filePath = combinePaths(process.cwd(), 'tests/samples/test_file1.py');
-    const sourceFile = new SourceFile(filePath, false);
+    const sourceFile = new SourceFile(filePath, false, false);
     const configOptions = new ConfigOptions(process.cwd());
     const importResolver = new ImportResolver(configOptions);
 

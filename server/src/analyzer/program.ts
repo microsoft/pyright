@@ -17,7 +17,8 @@ import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
     DiagnosticTextRange, DocumentTextRange, doRangesOverlap } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
-import { combinePaths, getDirectoryPath, getRelativePath, makeDirectories, normalizePath, stripFileExtension } from '../common/pathUtils';
+import { combinePaths, getDirectoryPath, getRelativePath, makeDirectories,
+    normalizePath, stripFileExtension } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
@@ -40,6 +41,7 @@ export interface SourceFileInfo {
     isTracked: boolean;
     isOpenByClient: boolean;
     isTypeshedFile: boolean;
+    isThirdPartyImport: boolean;
     diagnosticsVersion: number;
     imports: SourceFileInfo[];
     builtinsImport?: SourceFileInfo;
@@ -57,6 +59,11 @@ export interface MaxAnalysisTime {
     // to reduce overall analysis time but needs to be short enough
     // to remain responsive if an open file is modified.
     noOpenFilesTimeInMs: number;
+}
+
+interface UpdateImportInfo {
+    isTypeshedFile: boolean;
+    isThirdPartyImport: boolean;
 }
 
 // Container for all of the files that are being analyzed. Files
@@ -162,12 +169,13 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        const sourceFile = new SourceFile(filePath, false, this._console);
+        const sourceFile = new SourceFile(filePath, false, false, this._console);
         sourceFileInfo = {
             sourceFile,
             isTracked: true,
             isOpenByClient: false,
             isTypeshedFile: false,
+            isThirdPartyImport: false,
             diagnosticsVersion: sourceFile.getDiagnosticVersion(),
             imports: [],
             importedBy: []
@@ -179,12 +187,13 @@ export class Program {
     setFileOpened(filePath: string, version: number | null, contents: string) {
         let sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
-            const sourceFile = new SourceFile(filePath, false, this._console);
+            const sourceFile = new SourceFile(filePath, false, false, this._console);
             sourceFileInfo = {
                 sourceFile,
                 isTracked: false,
                 isOpenByClient: true,
                 isTypeshedFile: false,
+                isThirdPartyImport: false,
                 diagnosticsVersion: sourceFile.getDiagnosticVersion(),
                 imports: [],
                 importedBy: []
@@ -1114,7 +1123,7 @@ export class Program {
         const imports = sourceFileInfo.sourceFile.getImports();
 
         // Create a map of unique imports, since imports can appear more than once.
-        const newImportPathMap = new Map<string, boolean>();
+        const newImportPathMap = new Map<string, UpdateImportInfo>();
         imports.forEach(importResult => {
             if (importResult.isImportFound) {
                 if (!this._allowThirdPartyImports) {
@@ -1136,7 +1145,10 @@ export class Program {
                 if (!importResult.isNamespacePackage && importResult.resolvedPaths.length > 0) {
                     const filePath = importResult.resolvedPaths[
                         importResult.resolvedPaths.length - 1];
-                    newImportPathMap.set(filePath, !!importResult.isTypeshedFile);
+                    newImportPathMap.set(filePath, {
+                        isTypeshedFile: !!importResult.isTypeshedFile,
+                        isThirdPartyImport: importResult.importType === ImportType.ThirdParty
+                    });
                 }
 
                 importResult.implicitImports.forEach(implicitImport => {
@@ -1144,9 +1156,16 @@ export class Program {
                         if (sourceFileInfo.sourceFile.isStubFile() && !implicitImport.isStubFile) {
                             return;
                         }
+
+                        if (importResult.importType !== ImportType.Local && !implicitImport.isStubFile) {
+                            return;
+                        }
                     }
 
-                    newImportPathMap.set(implicitImport.path, !!importResult.isTypeshedFile);
+                    newImportPathMap.set(implicitImport.path, {
+                        isTypeshedFile: !!importResult.isTypeshedFile,
+                        isThirdPartyImport: importResult.importType === ImportType.ThirdParty
+                    });
                 });
             } else if (options.verboseOutput) {
                 if (!sourceFileInfo.isTypeshedFile || options.diagnosticSettings.reportTypeshedErrors) {
@@ -1175,7 +1194,7 @@ export class Program {
         });
 
         // See if there are any new imports to be added.
-        newImportPathMap.forEach((isTypeshedFile, importPath) => {
+        newImportPathMap.forEach((importInfo, importPath) => {
             if (!updatedImportMap.has(importPath)) {
                 // We found a new import to add. See if it's already part
                 // of the program.
@@ -1184,12 +1203,14 @@ export class Program {
                     importedFileInfo = this._sourceFileMap[importPath];
                 } else {
                     const sourceFile = new SourceFile(
-                        importPath, isTypeshedFile, this._console);
+                        importPath, importInfo.isTypeshedFile,
+                        importInfo.isThirdPartyImport, this._console);
                     importedFileInfo = {
                         sourceFile,
                         isTracked: false,
                         isOpenByClient: false,
-                        isTypeshedFile,
+                        isTypeshedFile: importInfo.isTypeshedFile,
+                        isThirdPartyImport: importInfo.isThirdPartyImport,
                         diagnosticsVersion: sourceFile.getDiagnosticVersion(),
                         imports: [],
                         importedBy: []
