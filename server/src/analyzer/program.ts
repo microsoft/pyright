@@ -29,6 +29,7 @@ import { ImportResolver } from './importResolver';
 import { ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
+import { ModuleType } from './types';
 import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
@@ -516,12 +517,12 @@ export class Program {
     }
 
     private _buildImportMap(sourceFileInfo: SourceFileInfo): ImportMap {
-        const importMap: ImportMap = {};
+        const importMap: ImportMap = new Map<string, ModuleType>();
 
         for (const importedFileInfo of sourceFileInfo.imports) {
             const moduleType = importedFileInfo.sourceFile.getModuleType();
             if (moduleType) {
-                importMap[importedFileInfo.sourceFile.getFilePath()] = moduleType;
+                importMap.set(importedFileInfo.sourceFile.getFilePath(), moduleType);
             }
         }
 
@@ -556,7 +557,7 @@ export class Program {
         }
 
         // Discover all imports (recursively) that have not yet been finalized.
-        const closureMap: { [path: string]: boolean } = {};
+        const closureMap = new Map<string, boolean>();
         const analysisQueue: SourceFileInfo[] = [];
         if (this._getNonFinalizedImportsRecursive(fileToAnalyze, closureMap,
                 analysisQueue, options, importResolver, timeElapsedCallback, 0)) {
@@ -572,7 +573,7 @@ export class Program {
                 break;
             }
 
-            closureMap[fileToAnalyze.sourceFile.getFilePath()] = false;
+            closureMap.set(fileToAnalyze.sourceFile.getFilePath(), false);
 
             if (fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
                 // Build the import map for the file.
@@ -603,12 +604,12 @@ export class Program {
                         const dependencyFilePath = dependency.sourceFile.getFilePath();
 
                         // If the dependency isn't part of the closure, we can ignore it.
-                        if (closureMap[dependencyFilePath] !== undefined) {
+                        if (closureMap.has(dependencyFilePath)) {
                             dependency.sourceFile.setTypeAnalysisPassNeeded();
 
-                            if (!closureMap[dependencyFilePath]) {
+                            if (!closureMap.get(dependencyFilePath)) {
                                 analysisQueue.push(dependency);
-                                closureMap[dependencyFilePath] = true;
+                                closureMap.set(dependencyFilePath, true);
                             }
                         }
                     }
@@ -621,7 +622,7 @@ export class Program {
         }
 
         // Mark all files in the closure as finalized.
-        Object.keys(closureMap).forEach(filePath => {
+        closureMap.forEach((_, filePath) => {
             assert(!this._sourceFileMap[filePath].sourceFile.isAnalysisFinalized());
 
             // Don't detect import cycles when doing type stub generation. Some
@@ -648,7 +649,7 @@ export class Program {
     // prioritized queue of files to analyze. Returns true if it ran out of time before
     // completing.
     private _getNonFinalizedImportsRecursive(fileToAnalyze: SourceFileInfo,
-            closureMap: { [path: string]: boolean }, analysisQueue: SourceFileInfo[],
+            closureMap: Map<string, boolean>, analysisQueue: SourceFileInfo[],
             options: ConfigOptions, importResolver: ImportResolver,
             timeElapsedCallback: () => boolean,
             recursionCount: number): boolean {
@@ -661,7 +662,7 @@ export class Program {
         // If the file is already in the closure map, we found a cyclical
         // dependency. Don't recur further.
         const filePath = fileToAnalyze.sourceFile.getFilePath();
-        if (closureMap[filePath] !== undefined) {
+        if (closureMap.has(filePath)) {
             return false;
         }
 
@@ -679,7 +680,7 @@ export class Program {
         }
 
         // Add the file to the closure map.
-        closureMap[filePath] = false;
+        closureMap.set(filePath, false);
 
         // Recursively add the file's imports.
         for (const importedFileInfo of fileToAnalyze.imports) {
@@ -692,8 +693,8 @@ export class Program {
 
         // If the file hasn't already been added to the analysis queue,
         // add it now.
-        if (!closureMap[filePath]) {
-            closureMap[filePath] = true;
+        if (!closureMap.get(filePath)) {
+            closureMap.set(filePath, true);
             analysisQueue.push(fileToAnalyze);
         }
 
@@ -1113,26 +1114,40 @@ export class Program {
         const imports = sourceFileInfo.sourceFile.getImports();
 
         // Create a map of unique imports, since imports can appear more than once.
-        const newImportPathMap: { [name: string]: boolean } =  {};
+        const newImportPathMap = new Map<string, boolean>();
         imports.forEach(importResult => {
             if (importResult.isImportFound) {
-                // Don't explore any third-party files unless they're type stub files
-                // or we've been told explicitly that third-party imports are OK.
-                if (importResult.importType === ImportType.Local || importResult.isStubFile ||
-                        this._allowThirdPartyImports) {
-
-                    // Namespace packages have no __init__.py file, so the resolved
-                    // path points to a directory.
-                    if (!importResult.isNamespacePackage && importResult.resolvedPaths.length > 0) {
-                        const filePath = importResult.resolvedPaths[
-                            importResult.resolvedPaths.length - 1];
-                        newImportPathMap[filePath] = !!importResult.isTypeshedFile;
+                if (!this._allowThirdPartyImports) {
+                    // Some libraries ship with stub files that import from non-stubs. Don't
+                    // explore those.
+                    if (sourceFileInfo.sourceFile.isStubFile && !importResult.isStubFile) {
+                        return;
                     }
 
-                    importResult.implicitImports.forEach(implicitImport => {
-                        newImportPathMap[implicitImport.path] = !!importResult.isTypeshedFile;
-                    });
+                    // Don't explore any third-party files unless they're type stub files
+                    // or we've been told explicitly that third-party imports are OK.
+                    if (importResult.importType !== ImportType.Local && !importResult.isStubFile) {
+                        return;
+                    }
                 }
+
+                // Namespace packages have no __init__.py file, so the resolved
+                // path points to a directory.
+                if (!importResult.isNamespacePackage && importResult.resolvedPaths.length > 0) {
+                    const filePath = importResult.resolvedPaths[
+                        importResult.resolvedPaths.length - 1];
+                    newImportPathMap.set(filePath, !!importResult.isTypeshedFile);
+                }
+
+                importResult.implicitImports.forEach(implicitImport => {
+                    if (!this._allowThirdPartyImports) {
+                        if (sourceFileInfo.sourceFile.isStubFile && !implicitImport.isStubFile) {
+                            return;
+                        }
+                    }
+
+                    newImportPathMap.set(implicitImport.path, !!importResult.isTypeshedFile);
+                });
             } else if (options.verboseOutput) {
                 if (!sourceFileInfo.isTypeshedFile || options.diagnosticSettings.reportTypeshedErrors) {
                     this._console.log(`Could not import '${ importResult.importName }' ` +
@@ -1146,29 +1161,29 @@ export class Program {
             }
         });
 
-        const updatedImportMap: { [name: string]: SourceFileInfo } = {};
+        const updatedImportMap = new Map<string, SourceFileInfo>();
         sourceFileInfo.imports.forEach(importInfo => {
             const oldFilePath = importInfo.sourceFile.getFilePath();
 
             // A previous import was removed.
-            if (newImportPathMap[oldFilePath] === undefined) {
+            if (!newImportPathMap.has(oldFilePath)) {
                 importInfo.importedBy = importInfo.importedBy.filter(
                     fi => fi.sourceFile.getFilePath() !== sourceFileInfo.sourceFile.getFilePath());
             } else {
-                updatedImportMap[oldFilePath] = importInfo;
+                updatedImportMap.set(oldFilePath, importInfo);
             }
         });
 
         // See if there are any new imports to be added.
-        Object.keys(newImportPathMap).forEach(importPath => {
-            if (updatedImportMap[importPath] === undefined) {
+        newImportPathMap.forEach((_, importPath) => {
+            if (!updatedImportMap.has(importPath)) {
                 // We found a new import to add. See if it's already part
                 // of the program.
                 let importedFileInfo: SourceFileInfo;
                 if (this._sourceFileMap[importPath] !== undefined) {
                     importedFileInfo = this._sourceFileMap[importPath];
                 } else {
-                    const isTypeShedFile = newImportPathMap[importPath];
+                    const isTypeShedFile = newImportPathMap.get(importPath) || false;
                     const sourceFile = new SourceFile(
                         importPath, isTypeShedFile, this._console);
                     importedFileInfo = {
@@ -1186,14 +1201,16 @@ export class Program {
                 }
 
                 importedFileInfo.importedBy.push(sourceFileInfo);
-                updatedImportMap[importPath] = importedFileInfo;
+                updatedImportMap.set(importPath, importedFileInfo);
             }
         });
 
         // Update the imports list. It should now map the set of imports
         // specified by the source file.
-        sourceFileInfo.imports = Object.keys(newImportPathMap).map(
-            importPath => this._sourceFileMap[importPath]);
+        sourceFileInfo.imports = [];
+        newImportPathMap.forEach((_, path) => {
+            sourceFileInfo.imports.push(this._sourceFileMap[path]);
+        });
 
         // Resolve the builtins import for the file. This needs to be
         // analyzed before the file can be analyzed.

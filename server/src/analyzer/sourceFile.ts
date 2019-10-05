@@ -726,7 +726,7 @@ export class SourceFile {
         const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);
 
         const fileInfo: AnalyzerFileInfo = {
-            importMap: importMap || {},
+            importMap: importMap || new Map<string, ModuleType>(),
             futureImports: this._parseResults!.futureImports,
             builtinsScope,
             typingModulePath: this._typingModulePath,

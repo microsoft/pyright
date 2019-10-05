@@ -566,18 +566,16 @@ export class CompletionProvider {
 
         const importMap = this._importMapCallback();
 
-        if (importMap[resolvedPath]) {
-            const moduleType = importMap[resolvedPath];
-            if (moduleType) {
-                const moduleFields = moduleType.fields;
-                this._addSymbolsForSymbolTable(moduleFields,
-                    name => {
-                        // Don't suggest symbols that have already been imported.
-                        return !importFromNode.imports.find(
-                            imp => imp.name.nameToken.value === name);
-                    },
-                    priorWord, completionList);
-            }
+        const moduleType = importMap.get(resolvedPath);
+        if (moduleType) {
+            const moduleFields = moduleType.fields;
+            this._addSymbolsForSymbolTable(moduleFields,
+                name => {
+                    // Don't suggest symbols that have already been imported.
+                    return !importFromNode.imports.find(
+                        imp => imp.name.nameToken.value === name);
+                },
+                priorWord, completionList);
         }
 
         // Add the implicit imports.

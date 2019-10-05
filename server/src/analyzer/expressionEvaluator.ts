@@ -607,8 +607,12 @@ export class ExpressionEvaluator {
             return undefined;
         }
 
-        const moduleType = this._fileInfo.importMap[typingImportPath];
-        if (!(moduleType.category === TypeCategory.Module)) {
+        const moduleType = this._fileInfo.importMap.get(typingImportPath);
+        if (!moduleType) {
+            return undefined;
+        }
+
+        if (moduleType.category !== TypeCategory.Module) {
             return undefined;
         }
 

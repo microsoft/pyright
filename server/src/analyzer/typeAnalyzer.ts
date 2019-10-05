@@ -1332,7 +1332,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         importInfo, implicitImport.path);
                     if (implicitModuleType) {
                         const moduleFields = moduleType.fields;
-                        const importedModule = this._fileInfo.importMap[implicitImport.path];
+                        const importedModule = this._fileInfo.importMap.get(implicitImport.path);
 
                         if (importedModule) {
                             const moduleDeclaration: ModuleDeclaration = {
@@ -1359,10 +1359,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 });
 
                 let aliasDeclaration: AliasDeclaration | undefined;
-                if (this._fileInfo.importMap[resolvedPath]) {
+                if (this._fileInfo.importMap.has(resolvedPath)) {
                     const moduleDeclaration: ModuleDeclaration = {
                         type: DeclarationType.Module,
-                        moduleType: this._fileInfo.importMap[resolvedPath],
+                        moduleType: this._fileInfo.importMap.get(resolvedPath)!,
                         path: resolvedPath,
                         range: getEmptyRange()
                     };
@@ -1451,7 +1451,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const implicitImport = importInfo.implicitImports.find(impImport => impImport.name === name);
                     if (implicitImport) {
                         const moduleType = this._getModuleTypeForImportPath(importInfo, implicitImport.path);
-                        if (moduleType && this._fileInfo.importMap[implicitImport.path]) {
+                        if (moduleType && this._fileInfo.importMap.has(implicitImport.path)) {
                             symbolType = moduleType;
                             declarations = [{
                                 type: DeclarationType.Module,
@@ -2685,8 +2685,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         if (collectionResults) {
-            const moduleType = this._fileInfo.importMap[collectionResults];
-            return moduleType.fields;
+            const moduleType = this._fileInfo.importMap.get(collectionResults);
+            if (moduleType) {
+                return moduleType.fields;
+            }
         }
 
         return undefined;
@@ -3041,11 +3043,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return undefined;
         }
 
-        if (this._fileInfo.importMap[path]) {
-            const moduleType = this._fileInfo.importMap[path];
-            if (moduleType) {
-                return moduleType;
-            }
+        const moduleType = this._fileInfo.importMap.get(path);
+        if (moduleType) {
+            return moduleType;
         } else if (importResult) {
             // There was no module even though the import was resolved. This
             // happens in the case of namespace packages, where an __init__.py

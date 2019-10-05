@@ -16,7 +16,7 @@ import { Scope } from './scope';
 import { ModuleType } from './types';
 
 // Maps import paths to the parse tree for the imported module.
-export type ImportMap = { [importPath: string]: ModuleType };
+export type ImportMap = Map<string, ModuleType>;
 
 export interface AnalyzerFileInfo {
     importMap: ImportMap;
