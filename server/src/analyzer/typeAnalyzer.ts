@@ -1566,7 +1566,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitError(node: ErrorExpressionNode) {
-        this._getTypeOfExpression(node);
+        // Get the type of the child so it's available to
+        // the completion provider.
+        if (node.child) {
+            this._getTypeOfExpression(node.child);
+        }
 
         // Don't explore further.
         return false;
