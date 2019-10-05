@@ -537,7 +537,8 @@ export const enum FunctionTypeFlags {
     AbstractMethod = 16,
     DisableDefaultChecks = 32,
     SynthesizedMethod = 64,
-    Overloaded = 128
+    Overloaded = 128,
+    RequiresTypeVarMatching = 256
 }
 
 interface FunctionDetails {
@@ -704,10 +705,21 @@ export namespace FunctionType {
         type.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
     }
 
+    export function requiresTypeVarMatching(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.RequiresTypeVarMatching) !== 0;
+    }
+
     export function setParameterType(type: FunctionType, index: number, paramType: Type): boolean {
         assert(index < type.details.parameters.length);
         const typeChanged = !isTypeSame(paramType, type.details.parameters[index].type);
         type.details.parameters[index].type = paramType;
+
+        if ((type.details.flags & FunctionTypeFlags.RequiresTypeVarMatching) === 0) {
+            if (requiresSpecialization(paramType)) {
+                type.details.flags |= FunctionTypeFlags.RequiresTypeVarMatching;
+            }
+        }
+
         return typeChanged;
     }
 
@@ -722,6 +734,12 @@ export namespace FunctionType {
 
     export function addParameter(type: FunctionType, param: FunctionParameter) {
         type.details.parameters.push(param);
+
+        if ((type.details.flags & FunctionTypeFlags.RequiresTypeVarMatching) === 0) {
+            if (requiresSpecialization(param.type)) {
+                type.details.flags |= FunctionTypeFlags.RequiresTypeVarMatching;
+            }
+        }
     }
 
     export function getDeclaredReturnType(type: FunctionType) {

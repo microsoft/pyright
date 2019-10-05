@@ -2377,12 +2377,15 @@ export class ExpressionEvaluator {
 
         // Run through all args and validate them against their matched parameter.
         // We'll do two passes. The first one will match type arguments. The second
-        // will perform the actual validation.
-        this._silenceDiagnostics(() => {
-            validateArgTypeParams.forEach(argParam => {
-                this._validateArgType(argParam, typeVarMap, false);
+        // will perform the actual validation. We can skip the first pass if there
+        // are no type vars to match.
+        if (FunctionType.requiresTypeVarMatching(type)) {
+            this._silenceDiagnostics(() => {
+                validateArgTypeParams.forEach(argParam => {
+                    this._validateArgType(argParam, typeVarMap, false);
+                });
             });
-        });
+        }
 
         validateArgTypeParams.forEach(argParam => {
             if (!this._validateArgType(argParam, typeVarMap, true)) {
