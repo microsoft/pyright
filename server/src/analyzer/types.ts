@@ -1049,6 +1049,11 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
         case TypeCategory.Class: {
             const classType2 = type2 as ClassType;
 
+            // If the details are not the same it's not the same class.
+            if (!ClassType.isSameGenericClass(type1, classType2)) {
+                return false;
+            }
+
             // If the class details are common, it's the same class.
             // In a few cases (e.g. with NamedTuple classes) we allocate a
             // new class type for every type analysis pass. To detect this
