@@ -390,20 +390,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         node.parameters.forEach((param: ParameterNode, index) => {
             let annotatedType: Type | undefined;
+            let concreteAnnotatedType: Type | undefined;
             let defaultValueType: Type | undefined;
-
-            if (param.defaultValue) {
-                defaultValueType = this._getTypeOfExpression(param.defaultValue,
-                    EvaluatorFlags.ConvertEllipsisToAny);
-
-                this._defaultValueInitializerExpression = true;
-                this.walk(param.defaultValue);
-                this._defaultValueInitializerExpression = false;
-            }
+            let isNoneWithoutOptional = false;
 
             if (param.typeAnnotation) {
                 annotatedType = this._getTypeOfAnnotation(param.typeAnnotation);
-                let isNoneWithoutOptional = false;
 
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
@@ -419,10 +411,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
 
+                concreteAnnotatedType = TypeUtils.specializeType(annotatedType, undefined);
+            }
+
+            if (param.defaultValue) {
+                defaultValueType = this._getTypeOfExpression(param.defaultValue,
+                    EvaluatorFlags.ConvertEllipsisToAny, false, annotatedType);
+
+                this._defaultValueInitializerExpression = true;
+                this.walk(param.defaultValue);
+                this._defaultValueInitializerExpression = false;
+            }
+
+            if (param.typeAnnotation && annotatedType) {
                 // If there was both a type annotation and a default value, verify
                 // that the default value matches the annotation.
-                if (param.defaultValue && defaultValueType) {
-                    const concreteAnnotatedType = TypeUtils.specializeType(annotatedType, undefined);
+                if (param.defaultValue && defaultValueType && concreteAnnotatedType) {
                     const diagAddendum = new DiagnosticAddendum();
 
                     if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum, undefined)) {
@@ -514,7 +518,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             // Include Any in this check. If "Any" really is desired, it should
             // be made explicit through a type annotation.
-            if (isAnyOrUnknown(inferredReturnType)) {
+            if (inferredReturnType.category === TypeCategory.Unknown) {
                 this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
                     `Inferred return type is unknown`, node.name);
@@ -581,6 +585,36 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._enterScope(node, () => {
             // Walk the children.
             this.walkMultiple([...node.parameters, node.expression]);
+
+            node.parameters.forEach(param => {
+                if (param.name) {
+                    const paramType = this._getTypeOfExpression(param.name);
+                    if (paramType.category === TypeCategory.Unknown) {
+                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                            DiagnosticRule.reportUnknownParameterType,
+                            `Type of '${ param.name.nameToken.value }' is unknown`,
+                            param.name);
+                    } else if (TypeUtils.containsUnknown(paramType)) {
+                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                            DiagnosticRule.reportUnknownParameterType,
+                            `Type of '${ param.name.nameToken.value }', ` +
+                            `'${ printType(paramType) }', is partially unknown`,
+                            param.name);
+                    }
+                }
+            });
+
+            const returnType = this._getTypeOfExpression(node.expression);
+            if (returnType.category === TypeCategory.Unknown) {
+                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                    DiagnosticRule.reportUnknownParameterType,
+                    `Type of lambda expression is unknown`, node.expression);
+            } else if (TypeUtils.containsUnknown(returnType)) {
+                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                    DiagnosticRule.reportUnknownParameterType,
+                    `Type of lambda expression, '${ printType(returnType) }', is partially unknown`,
+                    node.expression);
+            }
         });
 
         return false;
