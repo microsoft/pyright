@@ -590,13 +590,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (param.name) {
                     const paramType = this._getTypeOfExpression(param.name);
                     if (paramType.category === TypeCategory.Unknown) {
-                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                            DiagnosticRule.reportUnknownParameterType,
+                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                            DiagnosticRule.reportUnknownLambdaType,
                             `Type of '${ param.name.nameToken.value }' is unknown`,
                             param.name);
                     } else if (TypeUtils.containsUnknown(paramType)) {
-                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                            DiagnosticRule.reportUnknownParameterType,
+                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                            DiagnosticRule.reportUnknownLambdaType,
                             `Type of '${ param.name.nameToken.value }', ` +
                             `'${ printType(paramType) }', is partially unknown`,
                             param.name);
@@ -606,12 +606,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             const returnType = this._getTypeOfExpression(node.expression);
             if (returnType.category === TypeCategory.Unknown) {
-                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
+                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                    DiagnosticRule.reportUnknownLambdaType,
                     `Type of lambda expression is unknown`, node.expression);
             } else if (TypeUtils.containsUnknown(returnType)) {
-                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
+                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                    DiagnosticRule.reportUnknownLambdaType,
                     `Type of lambda expression, '${ printType(returnType) }', is partially unknown`,
                     node.expression);
             }

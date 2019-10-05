@@ -222,6 +222,12 @@
       "title": "Controls reporting input and return parameters whose types are unknown",
       "default": "none"
     },
+    "reportUnknownLambdaType": {
+      "$id": "#/properties/reportUnknownLambdaType",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting input and return parameters for lambdas whose types are unknown",
+      "default": "none"
+    },
     "reportUnknownVariableType": {
       "$id": "#/properties/reportUnknownVariableType",
       "$ref": "#/definitions/diagnostic",

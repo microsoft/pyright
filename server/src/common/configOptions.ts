@@ -123,8 +123,11 @@ export interface DiagnosticSettings {
     // Report usage of invalid escape sequences in string literals?
     reportInvalidStringEscapeSequence: DiagnosticLevel;
 
-    // Report usage of unknown input or return parameters?
+    // Report usage of unknown input or return parameters for functions?
     reportUnknownParameterType: DiagnosticLevel;
+
+    // Report usage of unknown input or return parameters for lambdas?
+    reportUnknownLambdaType: DiagnosticLevel;
 
     // Report usage of unknown input or return parameters?
     reportUnknownVariableType: DiagnosticLevel;
@@ -190,6 +193,7 @@ export function getDiagLevelSettings() {
         DiagnosticRule.reportIncompatibleMethodOverride,
         DiagnosticRule.reportInvalidStringEscapeSequence,
         DiagnosticRule.reportUnknownParameterType,
+        DiagnosticRule.reportUnknownLambdaType,
         DiagnosticRule.reportUnknownVariableType,
         DiagnosticRule.reportUnknownMemberType,
         DiagnosticRule.reportCallInDefaultInitializer,
@@ -227,6 +231,7 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportIncompatibleMethodOverride: 'error',
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',
+        reportUnknownLambdaType: 'error',
         reportUnknownVariableType: 'error',
         reportUnknownMemberType: 'error',
         reportCallInDefaultInitializer: 'none',
@@ -266,6 +271,7 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportIncompatibleMethodOverride: 'none',
         reportInvalidStringEscapeSequence: 'warning',
         reportUnknownParameterType: 'none',
+        reportUnknownLambdaType: 'none',
         reportUnknownVariableType: 'none',
         reportUnknownMemberType: 'none',
         reportCallInDefaultInitializer: 'none',
@@ -585,6 +591,11 @@ export class ConfigOptions {
             reportUnknownParameterType: this._convertDiagnosticLevel(
                 configObj.reportUnknownParameterType, DiagnosticRule.reportUnknownParameterType,
                 defaultSettings.reportUnknownParameterType),
+
+            // Read the "reportUnknownLambdaType" entry.
+            reportUnknownLambdaType: this._convertDiagnosticLevel(
+                configObj.reportUnknownLambdaType, DiagnosticRule.reportUnknownLambdaType,
+                defaultSettings.reportUnknownLambdaType),
 
             // Read the "reportUnknownVariableType" entry.
             reportUnknownVariableType: this._convertDiagnosticLevel(
