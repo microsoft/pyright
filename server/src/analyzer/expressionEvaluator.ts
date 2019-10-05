@@ -1583,7 +1583,30 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromTupleExpression(node: TupleExpressionNode, usage: EvaluatorUsage): TypeResult {
-        const entryTypeResults = node.expressions.map(expr => this._getTypeFromExpression(expr, usage));
+        // Buid an array of expected types.
+        const expectedTypes: Type[] = [];
+        if (usage.expectedType && usage.expectedType.category === TypeCategory.Object) {
+            const tupleClass = usage.expectedType.classType;
+
+            if (ClassType.isBuiltIn(tupleClass, 'Tuple') && tupleClass.typeArguments) {
+                // Is this a homoeneous tuple of indeterminate length? If so,
+                // match the number of expected types to the number of entries
+                // in the tuple expression.
+                if (tupleClass.typeArguments.length === 2 && TypeUtils.isEllipsisType(tupleClass.typeArguments[1])) {
+                    for (let i = 0; i < node.expressions.length; i++) {
+                        expectedTypes.push(tupleClass.typeArguments[0]);
+                    }
+                } else {
+                    tupleClass.typeArguments.forEach(typeArg => {
+                        expectedTypes.push(typeArg);
+                    });
+                }
+            }
+        }
+
+        const entryTypeResults = node.expressions.map(
+            (expr, index) => this._getTypeFromExpression(expr,
+                { method: usage.method, expectedType: index < expectedTypes.length ? expectedTypes[index] : undefined}));
 
         let type: Type = UnknownType.create();
         const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
@@ -1997,42 +2020,52 @@ export class ExpressionEvaluator {
     // information and returns undefined.
     private _validateConstructorArguments(errorNode: ExpressionNode,
             argList: FunctionArgument[], type: ClassType): Type | undefined {
+
         let validatedTypes = false;
         let returnType: Type | undefined;
-        let reportedErrorsForNewCall = false;
+        let reportedErrorsForInitCall = false;
 
-        // Validate __new__
-        const constructorMethodInfo = this._getTypeFromClassMemberName(errorNode,
-            type, '__new__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup |
-                MemberAccessFlags.SkipObjectBaseClass);
-        if (constructorMethodInfo) {
-            const constructorMethodType = TypeUtils.bindFunctionToClassOrObject(
-                type, constructorMethodInfo.type, true);
-            returnType = this._validateCallArguments(errorNode, argList, constructorMethodType,
-                new TypeVarMap());
-            if (!returnType) {
-                reportedErrorsForNewCall = true;
+        // Validate __init__
+        // We validate __init__ before __new__ because the former typically has
+        // more specific type annotations, and we want to evaluate the arguments
+        // in the context of these types. The __new__ method often uses generic
+        // vargs and kwargs.
+        const initMethodType = this.getTypeFromObjectMember(errorNode,
+            ObjectType.create(type), '__init__', { method: 'get' },
+            MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
+        if (initMethodType) {
+            const typeVarMap = new TypeVarMap();
+            if (this._validateCallArguments(errorNode, argList, initMethodType, typeVarMap)) {
+                let specializedClassType = type;
+                if (!typeVarMap.isEmpty()) {
+                    specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
+                    assert(specializedClassType.category === TypeCategory.Class);
+                }
+                returnType = ObjectType.create(specializedClassType);
+            } else {
+                reportedErrorsForInitCall = true;
             }
             validatedTypes = true;
         }
 
-        // Validate __init__
-        // Don't report errors for __init__ if __new__ already generated errors. They're
+        // Validate __new__
+        // Don't report errors for __new__ if __init__ already generated errors. They're
         // probably going to be entirely redundant anyway.
-        if (!reportedErrorsForNewCall) {
-            const initMethodType = this.getTypeFromObjectMember(errorNode,
-                ObjectType.create(type), '__init__', { method: 'get' },
-                MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
-            if (initMethodType) {
+        if (!reportedErrorsForInitCall) {
+            const constructorMethodInfo = this._getTypeFromClassMemberName(errorNode,
+                type, '__new__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup |
+                    MemberAccessFlags.SkipObjectBaseClass);
+            if (constructorMethodInfo) {
+                const constructorMethodType = TypeUtils.bindFunctionToClassOrObject(
+                    type, constructorMethodInfo.type, true);
                 const typeVarMap = new TypeVarMap();
-                if (this._validateCallArguments(errorNode, argList, initMethodType, typeVarMap)) {
-                    let specializedClassType = type;
-                    if (!typeVarMap.isEmpty()) {
-                        specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
-                        assert(specializedClassType.category === TypeCategory.Class);
-                    }
-                    returnType = ObjectType.create(specializedClassType);
+                this._validateCallArguments(errorNode, argList, constructorMethodType, typeVarMap);
+                let specializedClassType = type;
+                if (!typeVarMap.isEmpty()) {
+                    specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
+                    assert(specializedClassType.category === TypeCategory.Class);
                 }
+                returnType = ObjectType.create(specializedClassType);
                 validatedTypes = true;
             }
         }
@@ -2343,14 +2376,12 @@ export class ExpressionEvaluator {
         // will perform the actual validation.
         this._silenceDiagnostics(() => {
             validateArgTypeParams.forEach(argParam => {
-                this._validateArgType(argParam.paramType, argParam.argument,
-                        argParam.errorNode, typeVarMap, argParam.paramName);
+                this._validateArgType(argParam, typeVarMap, false);
             });
         });
 
         validateArgTypeParams.forEach(argParam => {
-            if (!this._validateArgType(argParam.paramType, argParam.argument,
-                    argParam.errorNode, typeVarMap, argParam.paramName)) {
+            if (!this._validateArgType(argParam, typeVarMap, true)) {
                 reportedArgError = true;
             }
         });
@@ -2362,29 +2393,29 @@ export class ExpressionEvaluator {
         return TypeUtils.specializeType(FunctionType.getEffectiveReturnType(type), typeVarMap);
     }
 
-    private _validateArgType(paramType: Type, arg: FunctionArgument, errorNode: ExpressionNode,
-            typeVarMap: TypeVarMap, paramName?: string): boolean {
+    private _validateArgType(argParam: ValidateArgTypeParams, typeVarMap: TypeVarMap,
+            makeConcrete: boolean): boolean {
 
         let argType: Type | undefined;
 
-        if (arg.valueExpression) {
-            const expectedType = TypeUtils.specializeType(paramType, typeVarMap);
-            const exprType = this._getTypeFromExpression(arg.valueExpression,
+        if (argParam.argument.valueExpression) {
+            const expectedType = TypeUtils.specializeType(argParam.paramType, typeVarMap, makeConcrete);
+            const exprType = this._getTypeFromExpression(argParam.argument.valueExpression,
                 { method: 'get', expectedType });
             argType = exprType.type;
         } else {
-            argType = this._getTypeForArgument(arg);
+            argType = this._getTypeForArgument(argParam.argument);
         }
 
         const diag = new DiagnosticAddendum();
-        if (!TypeUtils.canAssignType(paramType, argType, diag.createAddendum(), typeVarMap)) {
-            const optionalParamName = paramName ? `'${ paramName }' ` : '';
+        if (!TypeUtils.canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
+            const optionalParamName = argParam.paramName ? `'${ argParam.paramName }' ` : '';
             this._addError(
                 `Argument of type '${ printType(argType) }'` +
                     ` cannot be assigned to parameter ${ optionalParamName }` +
-                    `of type '${ printType(paramType) }'` +
+                    `of type '${ printType(argParam.paramType) }'` +
                     diag.getString(),
-                errorNode);
+                argParam.errorNode);
             return false;
         }
 
@@ -3412,19 +3443,32 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromDictionaryExpression(node: DictionaryNode, usage: EvaluatorUsage): TypeResult {
-        let valueType: Type = AnyType.create();
         let keyType: Type = AnyType.create();
+        let valueType: Type = AnyType.create();
 
         let keyTypes: Type[] = [];
         let valueTypes: Type[] = [];
+
+        let expectedKeyType: Type | undefined;
+        let expectedValueType: Type | undefined;
+
+        if (usage.expectedType && usage.expectedType.category === TypeCategory.Object) {
+            const expectedClass = usage.expectedType.classType;
+            if (ClassType.isBuiltIn(expectedClass, 'Dict') || ClassType.isBuiltIn(expectedClass, 'dict')) {
+                if (expectedClass.typeArguments && expectedClass.typeArguments.length === 2) {
+                    expectedKeyType = expectedClass.typeArguments[0];
+                    expectedValueType = expectedClass.typeArguments[1];
+                }
+            }
+        }
 
         // Infer the key and value types if possible.
         node.entries.forEach(entryNode => {
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                keyTypes.push(this.getType(entryNode.keyExpression));
-                valueTypes.push(this.getType(entryNode.valueExpression));
+                keyTypes.push(this.getType(entryNode.keyExpression, { method: 'get', expectedType: expectedKeyType }));
+                valueTypes.push(this.getType(entryNode.valueExpression, { method: 'get', expectedType: expectedValueType }));
                 addUnknown = false;
 
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
