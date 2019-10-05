@@ -1340,7 +1340,7 @@ export class ExpressionEvaluator {
             let isUnionOfClasses = true;
 
             baseType.subtypes.forEach(subtype => {
-                if (subtype.category === TypeCategory.Class) {
+                if (subtype.category === TypeCategory.Class || subtype.category === TypeCategory.TypeVar) {
                     TypeUtils.addTypeVarsToListIfUnique(typeParameters,
                         TypeUtils.getTypeVarArgumentsRecursive(subtype));
                 } else {
