@@ -58,6 +58,7 @@ interface FunctionArgument {
 
 interface ValidateArgTypeParams {
     paramType: Type;
+    requiresTypeVarMatching: boolean;
     argument: FunctionArgument;
     errorNode: ExpressionNode;
     paramName?: string;
@@ -2265,6 +2266,7 @@ export class ExpressionEvaluator {
 
                     validateArgTypeParams.push({
                         paramType,
+                        requiresTypeVarMatching: requiresSpecialization(paramType),
                         argument: funcArg,
                         errorNode: argList[argIndex].valueExpression || errorNode
                     });
@@ -2273,6 +2275,7 @@ export class ExpressionEvaluator {
             } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
                 validateArgTypeParams.push({
                     paramType,
+                    requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: argList[argIndex],
                     errorNode: argList[argIndex].valueExpression || errorNode,
                     paramName: typeParams[paramIndex].name
@@ -2281,6 +2284,7 @@ export class ExpressionEvaluator {
             } else {
                 validateArgTypeParams.push({
                     paramType,
+                    requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: argList[argIndex],
                     errorNode: argList[argIndex].valueExpression || errorNode,
                     paramName: typeParams[paramIndex].name
@@ -2331,6 +2335,7 @@ export class ExpressionEvaluator {
 
                                 validateArgTypeParams.push({
                                     paramType,
+                                    requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: argList[argIndex],
                                     errorNode: argList[argIndex].valueExpression || errorNode,
                                     paramName: paramNameValue
@@ -2339,6 +2344,7 @@ export class ExpressionEvaluator {
                         } else if (varArgDictParam) {
                             validateArgTypeParams.push({
                                 paramType: varArgDictParam.type,
+                                requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
                                 argument: argList[argIndex],
                                 errorNode: argList[argIndex].valueExpression || errorNode,
                                 paramName: paramNameValue
@@ -2376,13 +2382,14 @@ export class ExpressionEvaluator {
         }
 
         // Run through all args and validate them against their matched parameter.
-        // We'll do two passes. The first one will match type arguments. The second
-        // will perform the actual validation. We can skip the first pass if there
-        // are no type vars to match.
-        if (FunctionType.requiresTypeVarMatching(type)) {
+        // We'll do two passes. The first one will match any type arguments. The second
+        // will perform the actual validation.
+        if (validateArgTypeParams.some(arg => arg.requiresTypeVarMatching)) {
             this._silenceDiagnostics(() => {
                 validateArgTypeParams.forEach(argParam => {
-                    this._validateArgType(argParam, typeVarMap, false);
+                    if (argParam.requiresTypeVarMatching) {
+                        this._validateArgType(argParam, typeVarMap, false);
+                    }
                 });
             });
         }
