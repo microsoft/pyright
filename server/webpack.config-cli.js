@@ -16,20 +16,18 @@ module.exports = {
         filename: 'pyright.js',
         path: path.resolve(__dirname, '../dist')
     },
-
     resolve: {
         modules: [
             path.resolve(__dirname, '.'),
             'node_modules'
         ],
-        // Add '.ts' and '.tsx' as resolvable extensions.
-        extensions: ['.webpack.js', '.web.js', '.ts', '.tsx', '.js']
+        extensions: ['.js', '.ts']
     },
 
     module: {
         rules: [
             {
-                test: /\.tsx?$/,
+                test: /\.ts$/,
                 loader: 'ts-loader',
                 options: {
                     configFile: 'tsconfig.json'
