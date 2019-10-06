@@ -12,6 +12,7 @@ import * as assert from 'assert';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { ScopeType } from '../analyzer/scope';
 import { ConfigOptions } from '../common/configOptions';
+import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import * as TestUtils from './testUtils';
 
@@ -205,6 +206,20 @@ test('Function2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function2.py']);
 
     validateResults(analysisResults, 6);
+});
+
+test('Function3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Analyze with Python 3.7 settings. This will generate more errors.
+    configOptions.defaultPythonVersion = PythonVersion.V37;
+    const analysisResults37 = TestUtils.typeAnalyzeSampleFiles(['function3.py'], configOptions);
+    validateResults(analysisResults37, 29);
+
+    // Analyze with Python 3.8 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V38;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['function3.py'], configOptions);
+    validateResults(analysisResults38, 11);
 });
 
 test('Annotations1', () => {

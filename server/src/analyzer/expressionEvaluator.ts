@@ -2204,6 +2204,11 @@ export class ExpressionEvaluator {
         let positionalParamCount = typeParams.findIndex(
             param => param.category === ParameterCategory.VarArgList && !param.name);
 
+        // Is there a positional-only "/" parameter? If so, it separates the
+        // positional-only from positional or keyword parameters.
+        const positionalOnlyIndex = typeParams.findIndex(
+            param => param.category === ParameterCategory.Simple && !param.name);
+
         // Is there a var-arg (named "*") parameter? If so, it is the last of
         // the positional parameters.
         if (positionalParamCount < 0) {
@@ -2235,11 +2240,27 @@ export class ExpressionEvaluator {
             positionalArgCount = argList.length;
         }
 
+        // If there weren't enough positional arguments to populate all of
+        // the positional-only parameters, force the named parameters
+        // into positional-only slots so we can report errors for them.
+        if (positionalOnlyIndex >= 0 && positionalArgCount < positionalOnlyIndex) {
+            positionalArgCount = Math.min(positionalOnlyIndex, argList.length);
+        }
+
         const validateArgTypeParams: ValidateArgTypeParams[] = [];
 
         // Map the positional args to parameters.
         let paramIndex = 0;
         while (argIndex < positionalArgCount) {
+            if (paramIndex === positionalOnlyIndex) {
+                paramIndex++;
+                continue;
+            }
+
+            if (argIndex < positionalOnlyIndex && argList[argIndex].name) {
+                this._addError(`Expected positional argument`, argList[argIndex].name!);
+            }
+
             if (paramIndex >= positionalParamCount) {
                 if (argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
                     const adjustedCount = positionalParamCount;

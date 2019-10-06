@@ -37,9 +37,8 @@ import { ArgumentCategory, ArgumentNode, AssertNode, AssignmentNode, AugmentedAs
     WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
 import * as StringTokenUtils from './stringTokenUtils';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
-import { DedentToken, IdentifierToken, KeywordToken, KeywordType,
-    NumberToken, OperatorToken, OperatorType, StringToken,
-    StringTokenFlags, Token, TokenType } from './tokenizerTypes';
+import { DedentToken, IdentifierToken, KeywordToken, KeywordType, NumberToken, OperatorToken, OperatorType,
+    StringToken, StringTokenFlags, Token, TokenType } from './tokenizerTypes';
 
 interface ExpressionListResult {
     list: ExpressionNode[];
@@ -606,6 +605,7 @@ export class Parser {
         let sawDefaultParam = false;
         let reportedNonDefaultParamErr = false;
         let sawKwSeparator = false;
+        let sawPositionOnlySeparator = false;
         let sawVarArgs = false;
         let sawKwArgs = false;
 
@@ -628,13 +628,22 @@ export class Parser {
             }
 
             if (param.category === ParameterCategory.Simple) {
-                if (param.defaultValue) {
-                    sawDefaultParam = true;
-                } else if (sawDefaultParam && !sawKwSeparator) {
-                    // Report this error only once.
-                    if (!reportedNonDefaultParamErr) {
-                        this._addError(`Non-default argument follows default argument`, param);
-                        reportedNonDefaultParamErr = true;
+                if (!param.name) {
+                    if (sawPositionOnlySeparator) {
+                        this._addError(`Only one '/' parameter is allowed`, param);
+                    } else if (sawKwSeparator) {
+                        this._addError(`'/' parameter must appear before '*' parameter`, param);
+                    }
+                    sawPositionOnlySeparator = true;
+                } else {
+                    if (param.defaultValue) {
+                        sawDefaultParam = true;
+                    } else if (sawDefaultParam && !sawKwSeparator) {
+                        // Report this error only once.
+                        if (!reportedNonDefaultParamErr) {
+                            this._addError(`Non-default argument follows default argument`, param);
+                            reportedNonDefaultParamErr = true;
+                        }
                     }
                 }
             }
@@ -671,8 +680,8 @@ export class Parser {
 
         if (paramList.length > 0) {
             const lastParam = paramList[paramList.length - 1];
-            if (!lastParam.name) {
-                this._addError('Named argument must follow bar \'*\'', lastParam);
+            if (lastParam.category === ParameterCategory.VarArgList && !lastParam.name) {
+                this._addError(`Named argument must follow '*'`, lastParam);
             }
         }
 
@@ -681,18 +690,27 @@ export class Parser {
 
     private _parseParameter(allowAnnotations: boolean): ParameterNode {
         let starCount = 0;
+        let slashCount = 0;
         const firstToken = this._peekToken();
 
         if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
             starCount = 1;
         } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
             starCount = 2;
+        } else if (this._consumeTokenIfOperator(OperatorType.Divide)) {
+            if (this._getLanguageVersion() < PythonVersion.V38) {
+                this._addError(`Position-only argument separator requires Python 3.8 or greater`, firstToken);
+            }
+            slashCount = 1;
         }
 
         const paramName = this._getTokenIfIdentifier();
         if (!paramName) {
             if (starCount === 1) {
                 const paramNode = ParameterNode.create(firstToken, ParameterCategory.VarArgList);
+                return paramNode;
+            } else if (slashCount === 1) {
+                const paramNode = ParameterNode.create(firstToken, ParameterCategory.Simple);
                 return paramNode;
             }
             this._addError('Expected parameter name', this._peekToken());
