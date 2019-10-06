@@ -1,0 +1,12 @@
+# Don't include the large "lsif" files that are included
+# in some node_modules.
+**/*.lsif
+
+# No need to include source maps, original copy of the src or tests.
+**/*.map
+
+tsconfig.json
+
+# Omit all of the server directory except for the main bundle.
+server
+!server/server.bundle.js

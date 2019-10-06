@@ -16,14 +16,15 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind,
 import { ProgressReporting } from './progress';
 
 export function activate(context: ExtensionContext) {
-	let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
+	let serverModule = context.asAbsolutePath(path.join('server', 'server.bundle.js'));
+	let serverModuleDebug = context.asAbsolutePath(path.join('server', 'server.js'));
 	let debugOptions = { execArgv: ["--nolazy", "--inspect=6600"] };
 	
 	// If the extension is launched in debug mode, then the debug server options are used.
 	// Otherwise the run options are used.
 	let serverOptions: ServerOptions = {
 		run : { module: serverModule, transport: TransportKind.ipc },
-		debug: { module: serverModule, transport: TransportKind.ipc, options: debugOptions }
+		debug: { module: serverModuleDebug, transport: TransportKind.ipc, options: debugOptions }
 	}
 	
 	// Options to control the language client

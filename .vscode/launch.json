@@ -8,7 +8,7 @@
       "program": "${workspaceRoot}/index.debug.js",
       "protocol": "inspector",
       "cwd": "${workspaceRoot}",
-      "preLaunchTask": "npm: build:analyzer",
+      "preLaunchTask": "npm: build:serverDebug",
       "args": [
         "-p",
         "${workspaceRoot}/../brain",
@@ -38,7 +38,7 @@
       "type": "extensionHost",
       "request": "launch",
       "runtimeExecutable": "${workspaceRoot}/client/out/src/extension.js",
-      "preLaunchTask": "npm: build:clientServer",
+      "preLaunchTask": "npm: build:clientServerDebug",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}/client"
       ],

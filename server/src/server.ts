@@ -9,8 +9,7 @@ import {
     DiagnosticSeverity, DiagnosticTag, ExecuteCommandParams, IConnection,
     InitializeResult, IPCMessageReader, IPCMessageWriter, Location, ParameterInformation,
     Position, Range, ResponseError, SignatureInformation, SymbolInformation, TextDocuments,
-    TextEdit,
-    WorkspaceEdit
+    TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
 
