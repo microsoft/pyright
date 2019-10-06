@@ -248,12 +248,24 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
 
             const existingTypeVarMapping = typeVarMap.get(destType.name);
             if (existingTypeVarMapping) {
-                return canAssignType(existingTypeVarMapping, noLiteralSrcType, diag.createAddendum(),
-                    typeVarMap, flags, recursionCount + 1);
-            }
+                const diagAddendum = new DiagnosticAddendum();
+                if (!canAssignType(existingTypeVarMapping, noLiteralSrcType, diagAddendum,
+                    typeVarMap, flags, recursionCount + 1)) {
 
-            // Assign the type to the type var.
-            typeVarMap.set(destType.name, noLiteralSrcType);
+                    // See if we can expand the type. If it was already expanded, then
+                    // it's a failure case.
+                    const combinedType = combineTypes([existingTypeVarMapping, noLiteralSrcType]);
+                    if (isTypeSame(existingTypeVarMapping, combinedType)) {
+                        diag.addAddendum(diagAddendum);
+                        return false;
+                    }
+
+                    typeVarMap.set(destType.name, combinedType);
+                }
+            } else {
+                // Assign the type to the type var.
+                typeVarMap.set(destType.name, noLiteralSrcType);
+            }
         }
 
         return canAssignToTypeVar(destType, srcType, diag,
