@@ -34,7 +34,6 @@ import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
-import { TestWalker } from '../tests/testWalker';
 import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ModuleScopeBinder } from './binder';
@@ -44,7 +43,7 @@ import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
-import { SymbolTable } from './symbol';
+import { TestWalker } from './testWalker';
 import { TypeAnalyzer } from './typeAnalyzer';
 import { ModuleType, TypeCategory } from './types';
 

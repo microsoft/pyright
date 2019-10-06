@@ -15,13 +15,13 @@ import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import { ModuleScopeBinder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
+import { TestWalker } from '../analyzer/testWalker';
 import { ModuleType } from '../analyzer/types';
 import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import StringMap from '../common/stringMap';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
-import { TestWalker } from './testWalker';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
 // directory to be located when running within the jest environment. This
