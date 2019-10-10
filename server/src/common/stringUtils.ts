@@ -57,7 +57,7 @@ export function hashString(contents: string) {
     let hash = 0;
 
     for (let i = 0; i < contents.length; i++) {
-        hash = (hash << 5) - hash + contents.charCodeAt(i++) | 0;
+        hash = (hash << 5) - hash + contents.charCodeAt(i) | 0;
     }
     return hash;
 }
