@@ -692,6 +692,7 @@ export abstract class Binder extends ParseTreeWalker {
                     path: this._fileInfo.filePath,
                     range: getEmptyRange()
                 });
+                symbol.setIsIgnoredForProtocolMatch();
             }
         }
     }
