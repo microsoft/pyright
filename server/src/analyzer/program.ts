@@ -27,7 +27,7 @@ import { ImportMap } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
-import { ImportType } from './importResult';
+import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
 import { ModuleType } from './types';
@@ -75,7 +75,7 @@ export class Program {
     private _console: ConsoleInterface;
     private _sourceFileList: SourceFileInfo[] = [];
     private _sourceFileMap: { [path: string]: SourceFileInfo } = {};
-    private _allowThirdPartyImports = false;
+    private _allowedThirdPartyImports: string[] | undefined;
 
     constructor(console?: ConsoleInterface) {
         this._console = console || new StandardConsole();
@@ -106,8 +106,13 @@ export class Program {
         return this._removeUnneededFiles();
     }
 
-    setAllowThirdPartyImports() {
-        this._allowThirdPartyImports = true;
+    // By default, no third-party imports are allowed. This enables
+    // third-party imports for a specified import and its children.
+    // For example, if importNames is ['tensorflow'], then third-party
+    // (absolute) imports are allowed for 'import tensorflow',
+    // 'import tensorflow.optimizers', etc.
+    setAllowedThirdPartyImports(importNames: string[]) {
+        this._allowedThirdPartyImports = importNames;
     }
 
     getFileCount() {
@@ -636,12 +641,14 @@ export class Program {
 
             // Don't detect import cycles when doing type stub generation. Some
             // third-party modules are pretty convoluted.
-            if (!this._allowThirdPartyImports) {
-                if (options.diagnosticSettings.reportImportCycles !== 'none') {
-                    timingStats.cycleDetectionTime.timeOperation(() => {
-                        this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
-                    });
-                }
+            if (this._allowedThirdPartyImports) {
+                return;
+            }
+
+            if (options.diagnosticSettings.reportImportCycles !== 'none') {
+                timingStats.cycleDetectionTime.timeOperation(() => {
+                    this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
+                });
             }
 
             this._sourceFileMap[filePath].sourceFile.finalizeAnalysis();
@@ -1113,6 +1120,51 @@ export class Program {
         return false;
     }
 
+    private _isImportAllowed(sourceFileInfo: SourceFileInfo, importResult: ImportResult,
+            isImportStubFile: boolean): boolean {
+
+        let thirdPartyImportAllowed = false;
+
+        if (importResult.importType === ImportType.ThirdParty) {
+            if (this._allowedThirdPartyImports) {
+                if (importResult.isRelative) {
+                    // If it's a relative import, we'll allow it because the
+                    // importer was already deemed to be allowed.
+                    thirdPartyImportAllowed = true;
+                } else if (this._allowedThirdPartyImports.some(importName => {
+                    // If this import name is the one that was explicitly
+                    // allowed or is a child of that import name,
+                    // it's considered allowed.
+                    if (importResult.importName === importName) {
+                        return true;
+                    }
+
+                    if (importResult.importName.startsWith(importName + '.')) {
+                        return true;
+                    }
+
+                    return false;
+                })) {
+                    thirdPartyImportAllowed = true;
+                }
+            }
+        }
+
+        // Some libraries ship with stub files that import from non-stubs. Don't
+        // explore those.
+        if (sourceFileInfo.sourceFile.isStubFile() && !isImportStubFile) {
+            return thirdPartyImportAllowed;
+        }
+
+        // Don't explore any third-party files unless they're type stub files
+        // or we've been told explicitly that third-party imports are OK.
+        if (importResult.importType !== ImportType.Local && !isImportStubFile) {
+            return thirdPartyImportAllowed;
+        }
+
+        return true;
+    }
+
     private _updateSourceFileImports(sourceFileInfo: SourceFileInfo,
             options: ConfigOptions): SourceFileInfo[] {
 
@@ -1126,18 +1178,8 @@ export class Program {
         const newImportPathMap = new Map<string, UpdateImportInfo>();
         imports.forEach(importResult => {
             if (importResult.isImportFound) {
-                if (!this._allowThirdPartyImports) {
-                    // Some libraries ship with stub files that import from non-stubs. Don't
-                    // explore those.
-                    if (sourceFileInfo.sourceFile.isStubFile() && !importResult.isStubFile) {
-                        return;
-                    }
-
-                    // Don't explore any third-party files unless they're type stub files
-                    // or we've been told explicitly that third-party imports are OK.
-                    if (importResult.importType !== ImportType.Local && !importResult.isStubFile) {
-                        return;
-                    }
+                if (!this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
+                    return;
                 }
 
                 // Namespace packages have no __init__.py file, so the resolved
@@ -1152,14 +1194,8 @@ export class Program {
                 }
 
                 importResult.implicitImports.forEach(implicitImport => {
-                    if (!this._allowThirdPartyImports) {
-                        if (sourceFileInfo.sourceFile.isStubFile() && !implicitImport.isStubFile) {
-                            return;
-                        }
-
-                        if (importResult.importType !== ImportType.Local && !implicitImport.isStubFile) {
-                            return;
-                        }
+                    if (!this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
+                        return;
                     }
 
                     newImportPathMap.set(implicitImport.path, {

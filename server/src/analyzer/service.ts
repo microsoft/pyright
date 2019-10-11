@@ -590,7 +590,7 @@ export class AnalyzerService {
                     filesToImport.push(implicitImport.path);
                 });
 
-                this._program.setAllowThirdPartyImports();
+                this._program.setAllowedThirdPartyImports([this._typeStubTargetImportName]);
                 this._program.setTrackedFiles(filesToImport);
             } else {
                 this._console.log(`Import '${ this._typeStubTargetImportName }' not found`);
