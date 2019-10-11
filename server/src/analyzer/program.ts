@@ -27,7 +27,7 @@ import { ImportMap } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
-import { ImplicitImport, ImportResult, ImportType } from './importResult';
+import { ImportResult, ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
 import { ModuleType } from './types';
@@ -1265,7 +1265,9 @@ export class Program {
         // specified by the source file.
         sourceFileInfo.imports = [];
         newImportPathMap.forEach((_, path) => {
-            sourceFileInfo.imports.push(this._sourceFileMap[path]);
+            if (this._sourceFileMap[path]) {
+                sourceFileInfo.imports.push(this._sourceFileMap[path]);
+            }
         });
 
         // Resolve the builtins import for the file. This needs to be
