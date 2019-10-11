@@ -8,6 +8,7 @@
 * Python files.
 */
 
+import * as assert from 'assert';
 import * as fs from 'fs';
 import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
@@ -853,17 +854,21 @@ export class AnalyzerService {
             const duration = new Duration();
             moreToAnalyze = this._program.analyze(this._configOptions,
                 this._importResolver, this._maxAnalysisTime, this._useInteractiveMode());
+            const filesLeftToAnalyze = this._program.getFilesToAnalyzeCount();
+            assert(filesLeftToAnalyze === 0 || moreToAnalyze);
 
             const results: AnalysisResults = {
                 diagnostics: this._program.getDiagnostics(this._configOptions),
                 filesInProgram: this._program.getFileCount(),
-                filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
+                filesRequiringAnalysis: filesLeftToAnalyze,
                 fatalErrorOccurred: false,
                 elapsedTime: duration.getDurationInSeconds()
             };
 
-            const fileCount = results.diagnostics.length;
-            if (fileCount > 0) {
+            const diagnosticFileCount = results.diagnostics.length;
+
+            // Report any diagnostics or completion.
+            if (diagnosticFileCount > 0 || !moreToAnalyze) {
                 if (this._onCompletionCallback) {
                     this._onCompletionCallback(results);
                 }

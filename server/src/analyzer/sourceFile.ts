@@ -688,13 +688,16 @@ export class SourceFile {
                 const typeAnalyzer = new TypeAnalyzer(this._parseResults!.parseTree,
                     fileInfo, this._typeAnalysisPassNumber);
                 this._typeAnalysisPassNumber++;
-                if (typeAnalyzer.isAtMaxAnalysisPassCount()) {
-                    this._console.log(
-                        `Hit max analysis pass count for ${ this._filePath }`);
-                }
 
                 // Repeatedly call the analyzer until everything converges.
                 this._isTypeAnalysisPassNeeded = typeAnalyzer.analyze();
+                if (typeAnalyzer.isAtMaxAnalysisPassCount()) {
+                    this._console.log(
+                        `Hit max analysis pass count for ${ this._filePath }`);
+                    // We assume that the type analyzer will have given up in this case.
+                    assert(!this._isTypeAnalysisPassNeeded);
+                }
+
                 this._typeAnalysisLastPassDiagnostics = fileInfo.diagnosticSink.diagnostics;
                 if (this._isTypeAnalysisPassNeeded) {
                     this._lastReanalysisReason = typeAnalyzer.getLastReanalysisReason();
