@@ -596,7 +596,6 @@ function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
 
     const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
     commandLineOptions.watch = true;
-    commandLineOptions.verboseOutput = true;
 
     if (settings.venvPath) {
         commandLineOptions.venvPath = combinePaths(workspace.rootPath || _rootPath,
