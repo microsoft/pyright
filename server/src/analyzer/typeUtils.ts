@@ -717,6 +717,11 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
         return type;
     }
 
+    // Shortcut if there are no type variables defined.
+    if (typeVarMap && !makeConcrete && typeVarMap.getKeys().length === 0) {
+        return type;
+    }
+
     if (isAnyOrUnknown(type)) {
         return type;
     }
