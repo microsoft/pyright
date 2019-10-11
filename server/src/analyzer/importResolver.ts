@@ -119,7 +119,8 @@ export class ImportResolver {
                 const typingsImport = this._resolveAbsoluteImport(
                     this._configOptions.typingsPath, moduleDescriptor, importName, importFailureInfo);
                 if (typingsImport && typingsImport.isImportFound) {
-                    typingsImport.importType = ImportType.ThirdParty;
+                    // We will treat typings files as "local" rather than "third party".
+                    typingsImport.importType = ImportType.Local;
                     return this._addResultsToCache(execEnv, importName, typingsImport,
                         moduleDescriptor.importedSymbols);
                 }
