@@ -442,6 +442,17 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
             if (ClassType.isBuiltIn(destType.classType, 'object')) {
                 return true;
             }
+
+            // Determine if the metaclass can be assigned to the object.
+            const metaclass = getMetaclass(srcType);
+            if (metaclass) {
+                if (isAnyOrUnknown(metaclass)) {
+                    return true;
+                } else if (metaclass.category === TypeCategory.Class) {
+                    return _canAssignClass(destClassType, metaclass,
+                            diag, typeVarMap, flags, recursionCount + 1, false);
+                }
+            }
         }
     }
 
