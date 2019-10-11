@@ -577,13 +577,17 @@ export class AnalyzerService {
                 // don't include those.
                 const resolvedPath = importResult.resolvedPaths[
                         importResult.resolvedPaths.length - 1];
+                this._typeStubTargetPath = importResult.resolvedPaths[0];
+                if (isFile(this._typeStubTargetPath)) {
+                    this._typeStubTargetPath = getDirectoryPath(this._typeStubTargetPath);
+                }
+
                 if (importResult.isNamespacePackage) {
-                    this._typeStubTargetPath = resolvedPath;
                     this._typeStubTargetIsSingleFile = false;
                 } else {
                     filesToImport.push(resolvedPath);
-                    this._typeStubTargetPath = getDirectoryPath(resolvedPath);
-                    this._typeStubTargetIsSingleFile = stripFileExtension(getFileName(resolvedPath)) !== '__init__';
+                    this._typeStubTargetIsSingleFile = importResult.resolvedPaths.length === 1 &&
+                        stripFileExtension(getFileName(importResult.resolvedPaths[0])) !== '__init__';
                 }
 
                 // Add the implicit import paths.
