@@ -79,7 +79,9 @@ export class ImportSorter {
         if (statement.importResult) {
             if (statement.importResult.importType === ImportType.BuiltIn) {
                 return ImportGroup.BuiltIn;
-            } else if (statement.importResult.importType === ImportType.ThirdParty) {
+            } else if (statement.importResult.importType === ImportType.ThirdParty ||
+                    statement.importResult.isLocalTypingsFile) {
+
                 return ImportGroup.ThirdParty;
             }
 

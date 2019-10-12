@@ -59,6 +59,10 @@ export interface ImportResult {
     // from typeshed.
     isTypeshedFile?: boolean;
 
+    // True if the resolved file is a type hint (.pyi) file that comes
+    // from the configured typings directory.
+    isLocalTypingsFile?: boolean;
+
     // List of files within the final resolved path that are implicitly
     // imported as part of the package — used for both traditional and
     // namespace packages.

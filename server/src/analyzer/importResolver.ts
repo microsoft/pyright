@@ -121,6 +121,7 @@ export class ImportResolver {
                 if (typingsImport && typingsImport.isImportFound) {
                     // We will treat typings files as "local" rather than "third party".
                     typingsImport.importType = ImportType.Local;
+                    typingsImport.isLocalTypingsFile = true;
                     return this._addResultsToCache(execEnv, importName, typingsImport,
                         moduleDescriptor.importedSymbols);
                 }
