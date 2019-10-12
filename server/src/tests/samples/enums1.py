@@ -1,6 +1,7 @@
 # This sample tests the type checker's handling of Enum.
 
 from enum import Enum, IntEnum
+from typing import List
 
 
 TestEnum1 = Enum("TestEnum1", "A B C D")
@@ -32,3 +33,16 @@ b = TestEnum3.B
 # This should generate an error because "Z" isn't
 # a valid member.
 z = TestEnum3.Z
+
+
+# Test that enum classes are iterable.
+def requires_enum3_list(a: List[TestEnum3]):
+    return
+
+list1 = list(TestEnum3)
+requires_enum3_list(list1)
+
+list2 = [i for i in TestEnum3]
+requires_enum3_list(list2)
+
+num_items_in_enum3 = len(TestEnum3)

@@ -449,6 +449,13 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                 if (isAnyOrUnknown(metaclass)) {
                     return true;
                 } else if (metaclass.category === TypeCategory.Class) {
+                    // Handle EnumMeta, which requires special-case handling because
+                    // of the way it's defined in enum.pyi. The type var _T must be
+                    // manually set to the corresponding enum object type.
+                    if (typeVarMap && ClassType.isBuiltIn(metaclass, 'EnumMeta')) {
+                        typeVarMap.set('_T', ObjectType.create(srcType));
+                    }
+
                     return _canAssignClass(destClassType, metaclass,
                             diag, typeVarMap, flags, recursionCount + 1, false);
                 }
