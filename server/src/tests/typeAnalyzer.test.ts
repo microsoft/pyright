@@ -715,3 +715,8 @@ test('TypeIgnore2', () => {
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore2.py'], configOptions);
     validateResults(analysisResults, 3);
 });
+
+test('Metaclass1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass1.py']);
+    validateResults(analysisResults, 0);
+});

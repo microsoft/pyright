@@ -3410,6 +3410,12 @@ export class ExpressionEvaluator {
 
             if (subtype.category === TypeCategory.Object) {
                 return handleObjectSubtype(subtype);
+            } else if (subtype.category === TypeCategory.Class) {
+                // See if the class has a metaclass that handles the operation.
+                const metaclass = TypeUtils.getMetaclass(subtype);
+                if (metaclass && metaclass.category === TypeCategory.Class) {
+                    return handleObjectSubtype(ObjectType.create(metaclass));
+                }
             } else if (isNoneOrNever(subtype)) {
                 // NoneType derives from 'object', so do the lookup on 'object'
                 // in this case.
