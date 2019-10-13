@@ -2,7 +2,7 @@
 # Python 3, and stub files conform to Python 3 syntax.
 
 from typing import (
-    TypeVar, Iterator, Iterable, NoReturn, overload, Container,
+    TypeVar, Iterator, Iterable, Literal, NoReturn, overload, Container,
     Sequence, MutableSequence, Mapping, MutableMapping, Tuple, List, Any, Dict, Callable, Generic,
     Set, AbstractSet, FrozenSet, MutableSet, Sized, Reversible, SupportsInt, SupportsFloat, SupportsAbs,
     SupportsComplex, IO, BinaryIO, Union,
@@ -1327,10 +1327,36 @@ def next(__i: Iterator[_T], default: _VT) -> Union[_T, _VT]: ...
 def oct(__i: Union[int, _SupportsIndex]) -> str: ...
 
 if sys.version_info >= (3, 6):
+    @overload
+    def open(file: Union[str, bytes, int, _PathLike], *, buffering: int = ..., encoding: Optional[str] = ...,
+             errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
+             opener: Optional[Callable[[str, int], int]] = ...) -> IO[str]: ... 
+    @overload
+    def open(file: Union[str, bytes, int, _PathLike], mode: Literal['r', 'w', 'r+', 'a'], buffering: int = ..., encoding: Optional[str] = ...,
+             errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
+             opener: Optional[Callable[[str, int], int]] = ...) -> IO[str]: ... 
+    @overload
+    def open(file: Union[str, bytes, int, _PathLike], mode: Literal['rb', 'wb', 'r+b', 'ab'], buffering: int = ..., encoding: Optional[str] = ...,
+             errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
+             opener: Optional[Callable[[str, int], int]] = ...) -> IO[bytes]: ... 
+    @overload
     def open(file: Union[str, bytes, int, _PathLike], mode: str = ..., buffering: int = ..., encoding: Optional[str] = ...,
              errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
              opener: Optional[Callable[[str, int], int]] = ...) -> IO[Any]: ...
 elif sys.version_info >= (3,):
+    @overload
+    def open(file: Union[str, bytes, int], *, buffering: int = ..., encoding: Optional[str] = ...,
+             errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
+             opener: Optional[Callable[[str, int], int]] = ...) -> IO[str]: ...
+    @overload
+    def open(file: Union[str, bytes, int], mode: Literal['r', 'w', 'r+', 'a'], buffering: int = ..., encoding: Optional[str] = ...,
+             errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
+             opener: Optional[Callable[[str, int], int]] = ...) -> IO[str]: ...
+    @overload
+    def open(file: Union[str, bytes, int], mode: Literal['rb', 'wb', 'r+b', 'ab'], buffering: int = ..., encoding: Optional[str] = ...,
+             errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
+             opener: Optional[Callable[[str, int], int]] = ...) -> IO[bytes]: ...
+    @overload
     def open(file: Union[str, bytes, int], mode: str = ..., buffering: int = ..., encoding: Optional[str] = ...,
              errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
              opener: Optional[Callable[[str, int], int]] = ...) -> IO[Any]: ...
