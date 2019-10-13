@@ -4105,12 +4105,13 @@ export class ExpressionEvaluator {
             return UnknownType.create();
         }
 
-        const type = typeArgs[0].type;
+        let type = typeArgs[0].type;
 
         if (requiresSpecialization(type)) {
-            this._addError(`ClassVar cannot contain generic type variables`,
-                typeArgs.length > 0 ? typeArgs[0].node : errorNode);
-            return UnknownType.create();
+            // A ClassVar should not allow generic types, but the typeshed
+            // stubs use this in a few cases. For now, just specialize
+            // it in a general way.
+            type = TypeUtils.specializeType(type, undefined);
         }
 
         return TypeUtils.convertClassToObject(type);
