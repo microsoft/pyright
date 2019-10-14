@@ -694,7 +694,7 @@ export class SourceFile {
                 this._isTypeAnalysisPassNeeded = typeAnalyzer.analyze();
                 if (typeAnalyzer.isAtMaxAnalysisPassCount()) {
                     this._console.log(
-                        `Hit max analysis pass count for ${ this._filePath }`);
+                        `Hit max analysis pass count for ${ this._filePath } (${ typeAnalyzer.getLastReanalysisReason() })`);
                     // We assume that the type analyzer will have given up in this case.
                     assert(!this._isTypeAnalysisPassNeeded);
                 }
