@@ -37,9 +37,9 @@ import { ConditionalTypeConstraintResults, TypeConstraint,
     TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
     FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound, isTypeSame,
-    isUnbound, LiteralValue, NeverType, NoneType, ObjectType, OverloadedFunctionType,
-    printType, removeNoneFromUnion, requiresSpecialization,
-    Type, TypeCategory, TypeVarMap, TypeVarType, UnknownType } from './types';
+    isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType,
+    OverloadedFunctionType, printType, removeNoneFromUnion,
+    requiresSpecialization, Type, TypeCategory, TypeVarMap, TypeVarType, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
 interface TypeResult {
@@ -617,7 +617,7 @@ export class ExpressionEvaluator {
             return undefined;
         }
 
-        const symbol = moduleType.fields.get(symbolName);
+        const symbol = ModuleType.getField(moduleType, symbolName);
         if (!symbol) {
             return undefined;
         }
@@ -998,7 +998,7 @@ export class ExpressionEvaluator {
                 diag.addMessage(`Member '${ memberName }' is unknown`);
             }
         } else if (baseType.category === TypeCategory.Module) {
-            const symbol = baseType.fields.get(memberName);
+            const symbol = ModuleType.getField(baseType, memberName);
             if (symbol) {
                 if (usage.method === 'get') {
                     if (this._setSymbolAccessed) {

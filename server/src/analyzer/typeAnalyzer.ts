@@ -1323,15 +1323,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (importInfo && importInfo.isImportFound && importInfo.resolvedPaths.length > 0) {
             const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
-            const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
+            let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
 
             if (moduleType) {
+                // Clone the module so we can add any implicit imports without
+                // modifying the module's symbol table directly.
+                moduleType = ModuleType.cloneForLoadedModule(moduleType);
+
                 // Import the implicit imports in the module's namespace.
                 importInfo.implicitImports.forEach(implicitImport => {
                     const implicitModuleType = this._getModuleTypeForImportPath(
                         importInfo, implicitImport.path);
                     if (implicitModuleType) {
-                        const moduleFields = moduleType.fields;
+                        const moduleLoaderFields = moduleType!.loaderFields!;
                         const importedModule = this._fileInfo.importMap.get(implicitImport.path);
 
                         if (importedModule) {
@@ -1351,31 +1355,22 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             const newSymbol = Symbol.createWithType(
                                 SymbolFlags.ClassMember, implicitModuleType, defaultTypeSourceId);
                             newSymbol.addDeclaration(aliasDeclaration);
-                            if (!moduleFields.get(implicitImport.name)) {
-                                setSymbolPreservingAccess(moduleFields, implicitImport.name, newSymbol);
+                            if (!moduleLoaderFields.get(implicitImport.name)) {
+                                setSymbolPreservingAccess(moduleLoaderFields, implicitImport.name, newSymbol);
                             }
                         }
                     }
                 });
 
-                let aliasDeclaration: AliasDeclaration | undefined;
-                if (this._fileInfo.importMap.has(resolvedPath)) {
-                    const moduleDeclaration: ModuleDeclaration = {
-                        type: DeclarationType.Module,
-                        moduleType: this._fileInfo.importMap.get(resolvedPath)!,
-                        path: resolvedPath,
-                        range: getEmptyRange()
-                    };
-                    aliasDeclaration = {
-                        type: DeclarationType.Alias,
-                        resolvedDeclarations: [moduleDeclaration],
-                        path: '',
-                        range: getEmptyRange()
-                    };
-                }
+                const moduleDeclaration: ModuleDeclaration = {
+                    type: DeclarationType.Module,
+                    moduleType,
+                    path: resolvedPath,
+                    range: getEmptyRange()
+                };
 
                 if (node.alias) {
-                    this._assignTypeToNameNode(node.alias, moduleType, aliasDeclaration);
+                    this._assignTypeToNameNode(node.alias, moduleType, moduleDeclaration);
                     this._updateExpressionTypeForNode(node.alias, moduleType);
 
                     this._conditionallyReportUnusedName(node.alias, false,
@@ -1384,7 +1379,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         `Import '${ node.alias.nameToken.value }' is not accessed`);
                 } else {
                     this._bindMultiPartModuleNameToType(node.module.nameParts,
-                        moduleType, aliasDeclaration);
+                        moduleType, moduleDeclaration);
                 }
             } else {
                 // We were unable to resolve the import. Bind the names (or alias)
@@ -1463,8 +1458,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     } else {
                         const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
                         if (moduleType) {
-                            const moduleFields = moduleType.fields;
-                            const symbol = moduleFields.get(name);
+                            const symbol = ModuleType.getField(moduleType, name);
 
                             // For imports of the form "from . import X", the symbol
                             // will have no declarations.
@@ -3058,21 +3052,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const moduleType = this._fileInfo.importMap.get(path);
         if (moduleType) {
-            return moduleType;
+            return ModuleType.cloneForLoadedModule(moduleType);
         } else if (importResult) {
             // There was no module even though the import was resolved. This
             // happens in the case of namespace packages, where an __init__.py
             // is not necessarily present. We'll synthesize a module type in
             // this case.
-            const symbolTable = new SymbolTable();
-            const moduleType = ModuleType.create(symbolTable);
+            const moduleType = ModuleType.cloneForLoadedModule(ModuleType.create(new SymbolTable()));
 
             // Add the implicit imports.
             importResult.implicitImports.forEach(implicitImport => {
                 const implicitModuleType = this._getModuleTypeForImportPath(
                     undefined, implicitImport.path);
                 if (implicitModuleType) {
-                    setSymbolPreservingAccess(symbolTable, implicitImport.name,
+                    setSymbolPreservingAccess(moduleType.loaderFields!, implicitImport.name,
                         Symbol.createWithType(
                             SymbolFlags.ClassMember, implicitModuleType, defaultTypeSourceId));
                 }
@@ -3373,55 +3366,54 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // table, which should include the first part of the name.
         const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
         let targetSymbolTable = permanentScope.getSymbolTable();
-        const symbol = Symbol.createWithType(
-            SymbolFlags.ClassMember, type, defaultTypeSourceId);
-        if (declaration) {
-            symbol.addDeclaration(declaration);
-        }
 
         for (let i = 0; i < nameParts.length; i++) {
             const name = nameParts[i].nameToken.value;
-            const targetSymbol = targetSymbolTable.get(name);
+
+            // Does this symbol already exist within this scope?
+            let targetSymbol = targetSymbolTable.get(name);
             let symbolType = targetSymbol ?
                 TypeUtils.getEffectiveTypeOfSymbol(targetSymbol) : undefined;
 
-            if (symbolType && symbolType.category === TypeCategory.Module) {
-                const moduleFields = symbolType.fields;
+            if (!symbolType || symbolType.category !== TypeCategory.Module) {
+                symbolType = ModuleType.create(new SymbolTable());
+                symbolType = ModuleType.cloneForLoadedModule(symbolType);
+            }
 
-                // Are we replacing a partial module?
-                if (i === nameParts.length - 1 && symbolType.isPartialModule) {
-                    // Combine the names in the existing partial module into
-                    // the new module's symbol table.
-                    moduleFields.getKeys().forEach(name => {
-                        setSymbolPreservingAccess(type.fields, name, moduleFields.get(name)!);
-                    });
-
-                    if (!targetSymbolTable.get(name)) {
-                        setSymbolPreservingAccess(targetSymbolTable, name, symbol);
-                    }
-
-                    symbolType = type;
-                }
-
-                targetSymbolTable = moduleFields;
-            } else if (i === nameParts.length - 1) {
-                setSymbolPreservingAccess(targetSymbolTable, name, symbol);
-                symbolType = type;
-            } else {
-                // Build a "partial module" to contain the references
-                // to the next part of the name.
-                const newPartialModule = ModuleType.create(new SymbolTable());
-                newPartialModule.isPartialModule = true;
-                setSymbolPreservingAccess(targetSymbolTable, name,
-                    Symbol.createWithType(SymbolFlags.None, newPartialModule, defaultTypeSourceId));
-                targetSymbolTable = newPartialModule.fields;
-                symbolType = newPartialModule;
+            // If the symbol didn't exist, create a new one.
+            if (!targetSymbol) {
+                targetSymbol = Symbol.createWithType(SymbolFlags.ClassMember,
+                    symbolType, defaultTypeSourceId);
             }
 
             if (i === 0) {
                 // Assign the first part of the multi-part name to the current scope.
                 this._assignTypeToNameNode(nameParts[0], symbolType);
             }
+
+            if (i === nameParts.length - 1) {
+                const moduleType = symbolType;
+                moduleType.fields = type.fields;
+                moduleType.docString = type.docString;
+
+                if (type.loaderFields) {
+                    assert(moduleType.loaderFields !== undefined);
+
+                    // Copy the loader fields, which may include implicit
+                    // imports for the module.
+                    type.loaderFields.forEach((symbol, name) => {
+                        setSymbolPreservingAccess(moduleType.loaderFields!, name, symbol);
+                    });
+                }
+
+                if (declaration) {
+                    targetSymbol.addDeclaration(declaration);
+                }
+            }
+
+            setSymbolPreservingAccess(targetSymbolTable, name, targetSymbol);
+            assert(symbolType.loaderFields !== undefined);
+            targetSymbolTable = symbolType.loaderFields!;
 
             // If this is the last element, determine if it's accessed.
             if (i === nameParts.length - 1) {

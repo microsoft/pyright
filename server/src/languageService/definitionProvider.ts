@@ -15,7 +15,7 @@ import { Declaration } from '../analyzer/declaration';
 import { resolveDeclarationAliases } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol } from '../analyzer/symbol';
-import { TypeCategory } from '../analyzer/types';
+import { ModuleType, TypeCategory } from '../analyzer/types';
 import * as TypeUtils from '../analyzer/typeUtils';
 import { DiagnosticTextPosition, DiagnosticTextRange, DocumentTextRange } from '../common/diagnostic';
 import { isFile } from '../common/pathUtils';
@@ -83,7 +83,7 @@ export class DefinitionProvider {
                     symbol = member.symbol;
                 }
             } else if (subtype.category === TypeCategory.Module) {
-                symbol = subtype.fields.get(memberName);
+                symbol = ModuleType.getField(subtype, memberName);
             }
 
             if (symbol) {

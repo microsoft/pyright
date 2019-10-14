@@ -12,7 +12,7 @@ import * as assert from 'assert';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { InferredType, TypeSourceId } from './inferredType';
-import { SymbolTable } from './symbol';
+import { Symbol, SymbolTable } from './symbol';
 
 export const enum TypeCategory {
     // Name is not bound to a value of any type.
@@ -112,10 +112,10 @@ export interface ModuleType extends TypeBase {
     fields: SymbolTable;
     docString?: string;
 
-    // A partial module is one that is not fully initialized
-    // but contains only the symbols that have been imported
-    // in a multi-part import (e.g. import a.b.c).
-    isPartialModule: boolean;
+    // A "loader" module includes symbols that were injected by
+    // the module loader. We keep these separate so we don't
+    // pollute the symbols exported by the module itself.
+    loaderFields?: SymbolTable;
 }
 
 export namespace ModuleType {
@@ -123,10 +123,30 @@ export namespace ModuleType {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
             fields,
-            docString,
-            isPartialModule: false
+            docString
         };
         return newModuleType;
+    }
+
+    export function cloneForLoadedModule(moduleType: ModuleType) {
+        const newModuleType: ModuleType = {
+            category: TypeCategory.Module,
+            fields: moduleType.fields,
+            docString: moduleType.docString,
+            loaderFields: new SymbolTable()
+        };
+        return newModuleType;
+    }
+
+    export function getField(moduleType: ModuleType, name: string): Symbol | undefined {
+        let symbol: Symbol | undefined;
+        if (moduleType.loaderFields) {
+            symbol = moduleType.loaderFields.get(name);
+        }
+        if (!symbol) {
+            symbol = moduleType.fields.get(name);
+        }
+        return symbol;
     }
 }
 

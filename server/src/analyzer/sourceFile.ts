@@ -318,6 +318,7 @@ export class SourceFile {
         this._fileContentsVersion++;
         this._isTypeAnalysisFinalized = false;
         this._isTypeAnalysisPassNeeded = true;
+        this._moduleType = undefined;
     }
 
     markReanalysisRequired(): void {

@@ -18,9 +18,9 @@ import { defaultTypeSourceId } from './inferredType';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType, FunctionTypeFlags,
     InheritanceChain, isAnyOrUnknown, isNoneOrNever, isSameWithoutLiteralValue, isTypeSame,
-    NeverType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType, printLiteralValue,
-    printType, requiresSpecialization, SpecializedFunctionTypes, Type, TypeCategory, TypeVarMap,
-    TypeVarType, UnboundType, UnknownType } from './types';
+    ModuleType, NeverType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,
+    printLiteralValue, printType, requiresSpecialization, SpecializedFunctionTypes, Type, TypeCategory,
+    TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
 
 const _maxTypeRecursion = 20;
 
@@ -1408,6 +1408,18 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
         includeInstanceVars: boolean) {
 
     _getMembersForClassRecursive(classType, symbolTable, includeInstanceVars);
+}
+
+export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolTable) {
+    moduleType.fields.forEach((symbol, name) => {
+        symbolTable.set(name, symbol);
+    });
+
+    if (moduleType.loaderFields) {
+        moduleType.loaderFields.forEach((symbol, name) => {
+            symbolTable.set(name, symbol);
+        });
+    }
 }
 
 export function containsUnknown(type: Type, recursionCount = 0): boolean {

@@ -369,7 +369,7 @@ export class CompletionProvider {
             priorWord: string): CompletionList | undefined {
 
         const leftType = AnalyzerNodeInfo.getExpressionType(leftExprNode);
-        let symbolTable = new SymbolTable();
+        const symbolTable = new SymbolTable();
 
         if (leftType) {
             if (leftType.category === TypeCategory.Object) {
@@ -377,7 +377,7 @@ export class CompletionProvider {
             } else if (leftType.category === TypeCategory.Class) {
                 TypeUtils.getMembersForClass(leftType, symbolTable, false);
             } else if (leftType.category === TypeCategory.Module) {
-                symbolTable = leftType.fields;
+                TypeUtils.getMembersForModule(leftType, symbolTable);
             }
         }
 
@@ -568,8 +568,9 @@ export class CompletionProvider {
 
         const moduleType = importMap.get(resolvedPath);
         if (moduleType) {
-            const moduleFields = moduleType.fields;
-            this._addSymbolsForSymbolTable(moduleFields,
+            const symbolTable = new SymbolTable();
+            TypeUtils.getMembersForModule(moduleType, symbolTable);
+            this._addSymbolsForSymbolTable(symbolTable,
                 name => {
                     // Don't suggest symbols that have already been imported.
                     return !importFromNode.imports.find(

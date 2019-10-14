@@ -14,7 +14,7 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol } from './symbol';
-import { ClassType, ObjectType, Type, TypeCategory, UnknownType } from './types';
+import { ClassType, ModuleType, ObjectType, Type, TypeCategory, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
 export function getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
@@ -41,7 +41,7 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
                         symbol = member.symbol;
                     }
                 } else if (subtype.category === TypeCategory.Module) {
-                    symbol = subtype.fields.get(memberName);
+                    symbol = ModuleType.getField(subtype, memberName);
                 }
 
                 if (symbol) {
