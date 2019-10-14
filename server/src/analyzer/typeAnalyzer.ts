@@ -1323,22 +1323,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (importInfo && importInfo.isImportFound && importInfo.resolvedPaths.length > 0) {
             const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
-            let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
+
+            // Is there a cached module type associated with this node?
+            let moduleType: ModuleType | undefined = AnalyzerNodeInfo.getExpressionType(node) as ModuleType;
+            if (moduleType === undefined) {
+                moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
+            }
 
             if (moduleType) {
-                // Clone the module so we can add any implicit imports without
-                // modifying the module's symbol table directly.
-                moduleType = ModuleType.cloneForLoadedModule(moduleType);
-
                 // Import the implicit imports in the module's namespace.
                 importInfo.implicitImports.forEach(implicitImport => {
                     const implicitModuleType = this._getModuleTypeForImportPath(
                         importInfo, implicitImport.path);
                     if (implicitModuleType) {
-                        const moduleLoaderFields = moduleType!.loaderFields!;
-                        const importedModule = this._fileInfo.importMap.get(implicitImport.path);
-
-                        if (importedModule) {
+                        if (!ModuleType.getField(moduleType!, implicitImport.name)) {
                             const moduleDeclaration: ModuleDeclaration = {
                                 type: DeclarationType.Module,
                                 moduleType: implicitModuleType,
@@ -1355,9 +1353,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             const newSymbol = Symbol.createWithType(
                                 SymbolFlags.ClassMember, implicitModuleType, defaultTypeSourceId);
                             newSymbol.addDeclaration(aliasDeclaration);
-                            if (!moduleLoaderFields.get(implicitImport.name)) {
-                                setSymbolPreservingAccess(moduleLoaderFields, implicitImport.name, newSymbol);
-                            }
+                            setSymbolPreservingAccess(moduleType!.loaderFields!, implicitImport.name,
+                                newSymbol);
                         }
                     }
                 });
@@ -1381,6 +1378,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._bindMultiPartModuleNameToType(node.module.nameParts,
                         moduleType, moduleDeclaration);
                 }
+
+                // Cache the module type for subsequent passes.
+                AnalyzerNodeInfo.setExpressionType(node, moduleType);
             } else {
                 // We were unable to resolve the import. Bind the names (or alias)
                 // to an unknown type.
@@ -3058,7 +3058,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // happens in the case of namespace packages, where an __init__.py
             // is not necessarily present. We'll synthesize a module type in
             // this case.
-            const moduleType = ModuleType.cloneForLoadedModule(ModuleType.create(new SymbolTable()));
+            const moduleType = ModuleType.cloneForLoadedModule(
+                ModuleType.create(new SymbolTable()));
 
             // Add the implicit imports.
             importResult.implicitImports.forEach(implicitImport => {
