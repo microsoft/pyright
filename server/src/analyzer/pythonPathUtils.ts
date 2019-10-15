@@ -127,8 +127,8 @@ export function getPythonPathFromPythonInterpreter(interpreterPath: string | und
 
         // Parse the execOutput. It should be a JSON-encoded array of paths.
         try {
-            execSplit: string[] = JSON.parse(execOutput);
-            for (let execSplitEntry of execSplit) {
+            const execSplit: string[] = JSON.parse(execOutput);
+            for (const execSplitEntry of execSplit) {
                 const normalizedPath = normalizePath(execSplitEntry);
                 // Make sure the path exists and is a directory. We don't currently
                 // support zip files and other formats.
