@@ -59,6 +59,7 @@ export class AnalyzerService {
     private _configFileWatcher: fs.FSWatcher | undefined;
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
     private _watchForChanges = false;
+    private _verboseOutput = false;
     private _maxAnalysisTime?: MaxAnalysisTime;
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
@@ -91,6 +92,7 @@ export class AnalyzerService {
 
     setOptions(commandLineOptions: CommandLineOptions): void {
         this._watchForChanges = !!commandLineOptions.watch;
+        this._verboseOutput = !!commandLineOptions.verboseOutput;
         this._configOptions = this._getConfigOptions(commandLineOptions);
         this._typeStubTargetImportName = commandLineOptions.typeStubTargetImportName;
 
@@ -707,8 +709,14 @@ export class AnalyzerService {
 
             this._sourceFileWatcher = fileList.map(fileSpec => {
                 try {
+                    if (this._verboseOutput) {
+                        this._console.log(`Adding file system watcher for ${ fileSpec }`);
+                    }
                     return fs.watch(fileSpec, { recursive: true }, (event, fileName) => {
                         if (event === 'change') {
+                            if (this._verboseOutput) {
+                                this._console.log(`Event ('change') received for file system watcher (${ fileSpec })`);
+                            }
                             let filePath = fileSpec;
                             if (!isFile(filePath)) {
                                 filePath = combinePaths(fileSpec, fileName);
@@ -717,11 +725,17 @@ export class AnalyzerService {
                             this._program.markFilesDirty([filePath]);
                             this._scheduleReanalysis(false);
                         } else {
+                            if (this._verboseOutput) {
+                                this._console.log(`Event (other) received for file system watcher (${ fileSpec })`);
+                            }
                             this._console.log(`Received other fs event'`);
                             this._scheduleReanalysis(true);
                         }
                     });
                 } catch {
+                    if (this._verboseOutput) {
+                        this._console.log(`Exception caught when trying to install file system watcher for (${ fileSpec })`);
+                    }
                     return undefined;
                 }
             });

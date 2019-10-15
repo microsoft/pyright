@@ -164,6 +164,8 @@ function processArgs() {
                 errorCount > 0 ?
                 ExitStatus.ErrorsReported :
                 ExitStatus.NoErrors);
+        } else {
+            console.log('Watching for file changes...');
         }
     });
 
