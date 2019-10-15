@@ -112,7 +112,7 @@ export function getPythonPathFromPythonInterpreter(interpreterPath: string | und
     let pythonPaths: string[] = [];
 
     try {
-        const commandLineArgs: string[] = ['-c', 'import sys; print(sys.path)'];
+        const commandLineArgs: string[] = ['-c', 'import sys, json; json.dump(sys.path, sys.stdout)'];
         let execOutput: string;
 
         if (interpreterPath) {
@@ -125,37 +125,26 @@ export function getPythonPathFromPythonInterpreter(interpreterPath: string | und
                 'python', commandLineArgs, { encoding: 'utf8' });
         }
 
-        // Parse the execOutput. It should be an array of paths.
-        execOutput = execOutput.trim();
-        if (execOutput.startsWith('[') && execOutput.endsWith(']')) {
-            execOutput = execOutput.substr(1, execOutput.length - 2);
-
-            const execSplit = execOutput.split(',');
-
+        // Parse the execOutput. It should be a JSON-encoded array of paths.
+        try {
+            execSplit: string[] = JSON.parse(execOutput);
             for (let execSplitEntry of execSplit) {
-                execSplitEntry = execSplitEntry.trim();
-                if (execSplitEntry.length >= 2 && execSplitEntry.startsWith('\'') &&
-                        execSplitEntry.endsWith('\'')) {
-                    execSplitEntry = execSplitEntry.substr(1, execSplitEntry.length - 2);
-                }
-
-                if (execSplitEntry) {
-                    const normalizedPath = normalizePath(execSplitEntry);
-                    // Make sure the path exists and is a directory. We don't currently
-                    // support zip files and other formats.
-                    if (fs.existsSync(normalizedPath) && isDirectory(normalizedPath)) {
-                        pythonPaths.push(normalizedPath);
-                    } else {
-                        importFailureInfo.push(`Skipping '${ normalizedPath }' because it is not a valid directory`);
-                    }
+                const normalizedPath = normalizePath(execSplitEntry);
+                // Make sure the path exists and is a directory. We don't currently
+                // support zip files and other formats.
+                if (fs.existsSync(normalizedPath) && isDirectory(normalizedPath)) {
+                    pythonPaths.push(normalizedPath);
+                } else {
+                    importFailureInfo.push(`Skipping '${ normalizedPath }' because it is not a valid directory`);
                 }
             }
 
             if (pythonPaths.length === 0) {
                 importFailureInfo.push(`Found no valid directories`);
             }
-        } else {
+        } catch (err) {
             importFailureInfo.push(`Could not parse output: '${ execOutput }'`);
+            throw err;
         }
     } catch {
         pythonPaths = [];
