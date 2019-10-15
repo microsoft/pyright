@@ -9,19 +9,19 @@
 
 import * as assert from 'assert';
 
-import { ArgumentNode, AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode,
-    AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode,
-    ConstantNode, ContinueNode, DecoratorNode, DelNode, DictionaryExpandEntryNode,
-    DictionaryKeyEntryNode, DictionaryNode, EllipsisNode, ErrorExpressionNode,
-    ExceptNode, FormatStringNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
-    ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode, IndexItemsNode,
-    LambdaNode, ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionNode,
-    ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
-    NumberNode, ParameterNode, ParseNode, ParseNodeArray, ParseNodeType, PassNode,
-    RaiseNode, ReturnNode, SetNode, SliceExpressionNode, StatementListNode, StringListNode,
-    StringNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
-    WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { ArgumentNode, AssertNode, AssignmentExpressionNode, AssignmentNode,
+    AugmentedAssignmentExpressionNode, AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode,
+    ClassNode, ConstantNode, ContinueNode, DecoratorNode, DelNode,
+    DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode,
+    ErrorExpressionNode, ExceptNode, FormatStringNode, ForNode, FunctionNode, GlobalNode, IfNode,
+    ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode,
+    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
+    ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode,
+    NonlocalNode, NumberNode, ParameterNode, ParseNode, ParseNodeArray, ParseNodeType,
+    PassNode, RaiseNode, ReturnNode, SetNode, SliceExpressionNode, StatementListNode,
+    StringListNode, StringNode, SuiteNode, TernaryExpressionNode, TryNode,
+    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
+    WhileNode, WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 
 // To use this class, create a subclass and override the
 // visitXXX methods that you want to handle.
@@ -63,6 +63,12 @@ export class ParseTreeWalker {
             case ParseNodeType.Assignment:
                 if (this.visitAssignment(node)) {
                     return [node.leftExpression, node.rightExpression, node.typeAnnotationComment];
+                }
+                break;
+
+            case ParseNodeType.AssignmentExpression:
+                if (this.visitAssignmentExpression(node)) {
+                    return [node.name, node.rightExpression];
                 }
                 break;
 
@@ -439,6 +445,10 @@ export class ParseTreeWalker {
     }
 
     visitAssignment(node: AssignmentNode) {
+        return true;
+    }
+
+    visitAssignmentExpression(node: AssignmentExpressionNode) {
         return true;
     }
 

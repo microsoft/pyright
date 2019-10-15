@@ -18,14 +18,15 @@ export const enum ParseNodeType {
     Argument,
     Assert,
     Assignment,
+    AssignmentExpression,
     AugmentedAssignment,
     Await,
     BinaryOperation,
     Break,
     Call,
-    Class,
 
-    Constant, // 10
+    Class, // 10
+    Constant,
     Continue,
     Decorator,
     Del,
@@ -34,9 +35,9 @@ export const enum ParseNodeType {
     DictionaryKeyEntry,
     Ellipsis,
     If,
-    Import,
 
-    ImportAs, // 20
+    Import, // 20
+    ImportAs,
     ImportFrom,
     ImportFromAs,
     Index,
@@ -45,9 +46,9 @@ export const enum ParseNodeType {
     For,
     FormatString,
     Function,
-    Global,
 
-    Lambda, // 30
+    Global, // 30
+    Lambda,
     List,
     ListComprehension,
     ListComprehensionFor,
@@ -56,9 +57,9 @@ export const enum ParseNodeType {
     Module,
     ModuleName,
     Name,
-    Nonlocal,
 
-    Number, // 40
+    Nonlocal, // 40
+    Number,
     Parameter,
     Pass,
     Raise,
@@ -67,9 +68,9 @@ export const enum ParseNodeType {
     Slice,
     StatementList,
     StringList,
-    String,
 
-    Suite, // 50
+    String, // 50
+    Suite,
     Ternary,
     Tuple,
     Try,
@@ -78,9 +79,9 @@ export const enum ParseNodeType {
     Unpack,
     While,
     With,
-    WithItem,
 
-    Yield, // 60
+    WithItem, // 60
+    Yield,
     YieldFrom
 }
 
@@ -516,7 +517,7 @@ export type SmallStatementNode = ExpressionNode | DelNode | PassNode |
 
 export type ExpressionNode = ErrorExpressionNode | UnaryExpressionNode |
     BinaryExpressionNode | AssignmentNode | TypeAnnotationExpressionNode |
-    AugmentedAssignmentExpressionNode | AwaitExpressionNode |
+    AssignmentExpressionNode | AugmentedAssignmentExpressionNode | AwaitExpressionNode |
     TernaryExpressionNode | UnpackExpressionNode | TupleExpressionNode |
     CallExpressionNode | ListComprehensionNode | IndexExpressionNode |
     SliceExpressionNode | YieldExpressionNode | YieldFromExpressionNode |
@@ -631,6 +632,29 @@ export namespace BinaryExpressionNode {
             id: _nextNodeId++,
             leftExpression,
             operator,
+            rightExpression
+        };
+
+        extendRange(node, rightExpression);
+
+        return node;
+    }
+}
+
+export interface AssignmentExpressionNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.AssignmentExpression;
+    name: NameNode;
+    rightExpression: ExpressionNode;
+}
+
+export namespace AssignmentExpressionNode {
+    export function create(name: NameNode, rightExpression: ExpressionNode) {
+        const node: AssignmentExpressionNode = {
+            start: name.start,
+            length: name.length,
+            nodeType: ParseNodeType.AssignmentExpression,
+            id: _nextNodeId++,
+            name,
             rightExpression
         };
 
@@ -1560,8 +1584,8 @@ export namespace RaiseNode {
     }
 }
 
-export type ParseNode = ErrorExpressionNode | ArgumentNode | AssertNode | AssignmentNode |
-    AugmentedAssignmentExpressionNode | AwaitExpressionNode | BinaryExpressionNode |
+export type ParseNode = ErrorExpressionNode | ArgumentNode | AssertNode | AssignmentExpressionNode |
+    AssignmentNode | AugmentedAssignmentExpressionNode | AwaitExpressionNode | BinaryExpressionNode |
     BreakNode | CallExpressionNode | ClassNode | ConstantNode | ContinueNode |
     DecoratorNode | DelNode | DictionaryNode | DictionaryEntryNode | DictionaryExpandEntryNode |
     DictionaryKeyEntryNode | EllipsisNode | IfNode | ImportNode | ImportAsNode | ImportFromNode |

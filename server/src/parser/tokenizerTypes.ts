@@ -82,6 +82,7 @@ export const enum OperatorType {
     RightShiftEqual,
     Subtract,
     SubtractEqual,
+    Walrus,
 
     // These operators are used with tokens
     // of type TokenType.Keyword.

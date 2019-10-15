@@ -18,15 +18,15 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AssertNode, AssignmentNode, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
-    BreakNode, CallExpressionNode, ClassNode, ContinueNode, DecoratorNode, DelNode,
-    ErrorExpressionNode, ExceptNode, ExpressionNode, FormatStringNode, ForNode, FunctionNode,
-    IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode, ListComprehensionNode,
-    MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParameterNode, ParseNode,
-    ParseNodeType, RaiseNode, ReturnNode, SliceExpressionNode, StringListNode, SuiteNode,
-    TernaryExpressionNode, TryNode, TupleExpressionNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithNode, YieldExpressionNode,
-    YieldFromExpressionNode  } from '../parser/parseNodes';
+import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
+    BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode, ContinueNode, DecoratorNode,
+    DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode, FormatStringNode, ForNode,
+    FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
+    ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParameterNode,
+    ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceExpressionNode, StringListNode,
+    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -1184,6 +1184,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
             });
         }
 
+        return true;
+    }
+
+    visitAssignmentExpression(node: AssignmentExpressionNode): boolean {
+        const type = this._getTypeOfExpression(node);
+
+        // Validate that the type can be written back to the LHS.
+        this._assignTypeToExpression(node.name, type, node.rightExpression);
         return true;
     }
 
@@ -2557,6 +2565,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             testExpression, this._fileInfo.executionEnvironment);
 
         let typeConstraints: ConditionalTypeConstraintResults | undefined;
+
+        // Speculatively get the expression type outside of the ifScope
+        // so we add any assignment type constraints unconditionally.
+        this._getTypeOfExpression(testExpression, EvaluatorFlags.None, true);
 
         // Push a temporary scope so we can track
         // which variables have been assigned to conditionally.

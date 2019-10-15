@@ -25,12 +25,12 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode, ClassNode,
-    DelNode, ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode,
-    ImportAsNode, ImportFromAsNode, LambdaNode, ListComprehensionNode, ModuleNameNode, ModuleNode,
-    NameNode, NonlocalNode, ParseNode, ParseNodeArray, ParseNodeType, RaiseNode,
-    StatementNode, StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode,
-    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode, AwaitExpressionNode,
+    ClassNode, DelNode, ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode,
+    IfNode, ImportAsNode, ImportFromAsNode, LambdaNode, ListComprehensionNode, ModuleNameNode,
+    ModuleNode, NameNode, NonlocalNode, ParseNode, ParseNodeArray, ParseNodeType,
+    RaiseNode, StatementNode, StringListNode, SuiteNode, TryNode,
+    TypeAnnotationExpressionNode, WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -382,6 +382,11 @@ export abstract class Binder extends ParseTreeWalker {
         if (!this._handleTypingStubAssignment(node)) {
             this._bindPossibleTupleNamedTarget(node.leftExpression);
         }
+        return true;
+    }
+
+    visitAssignmentExpression(node: AssignmentExpressionNode) {
+        this._bindPossibleTupleNamedTarget(node.name);
         return true;
     }
 

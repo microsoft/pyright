@@ -192,6 +192,9 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
     } else if (node.nodeType === ParseNodeType.Assignment) {
         return printExpression(node.leftExpression, flags) + ' = ' +
             printExpression(node.rightExpression, flags);
+    } else if (node.nodeType === ParseNodeType.AssignmentExpression) {
+        return printExpression(node.name, flags) + ' := ' +
+            printExpression(node.rightExpression, flags);
     } else if (node.nodeType === ParseNodeType.TypeAnnotation) {
         return printExpression(node.valueExpression, flags) + ': ' +
             printExpression(node.typeAnnotation, flags);

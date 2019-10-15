@@ -59,10 +59,15 @@ export class TestWalker extends ParseTreeWalker {
 
                 if (!skipCheck) {
                     // Make sure the child is contained within the parent.
-                    assert(child.start >= node.start && TextRange.getEnd(child) <= TextRange.getEnd(node));
+                    if (child.start < node.start || TextRange.getEnd(child) > TextRange.getEnd(node)) {
+                        assert.fail(`Child node ${ child.nodeType } is not ` +
+                            `contained within its parent ${ node.nodeType }`);
+                    }
                     if (prevNode) {
                         // Make sure the child is after the previous child.
-                        assert(child.start >= TextRange.getEnd(prevNode));
+                        if (child.start < TextRange.getEnd(prevNode)) {
+                            assert.fail(`Child node is not after previous child node`);
+                        }
                     }
 
                     prevNode = child;

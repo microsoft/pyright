@@ -1,8 +1,6 @@
 # This file validates type constraints that involve
 # conditional binary expressions.
 
-from typing import TypeVar, Generic, Optional
-
 class Foo:
     def bar(self):
         return

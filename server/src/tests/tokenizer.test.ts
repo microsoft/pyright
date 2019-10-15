@@ -1027,7 +1027,8 @@ test('Operators', () => {
         '+ - ~ %' +
         '* ** / // /= //=' +
         '*= += -= %= **= ' +
-        '& &= | |= ^ ^=';
+        '& &= | |= ^ ^= ' +
+        ':=';
     const results = new Tokenizer().tokenize(text);
     const lengths = [
         1, 2, 3,
@@ -1035,7 +1036,8 @@ test('Operators', () => {
         1, 1, 1, 1,
         1, 2, 1, 2, 2, 3,
         2, 2, 2, 2, 3,
-        1, 2, 1, 2, 1, 2];
+        1, 2, 1, 2, 1, 2,
+        2];
     const operatorTypes = [
         OperatorType.LessThan,
         OperatorType.LeftShift,
@@ -1067,15 +1069,16 @@ test('Operators', () => {
         OperatorType.BitwiseOr,
         OperatorType.BitwiseOrEqual,
         OperatorType.BitwiseXor,
-        OperatorType.BitwiseXorEqual];
+        OperatorType.BitwiseXorEqual,
+        OperatorType.Walrus];
     assert.equal(results.tokens.count - _implicitTokenCount, lengths.length);
     assert.equal(results.tokens.count - _implicitTokenCount, operatorTypes.length);
     for (let i = 0; i < lengths.length; i += 1) {
         const t = results.tokens.getItemAt(i);
-        assert.equal(t.type, TokenType.Operator, `${t.type} at ${i} is not an operator`);
+        assert.equal(t.type, TokenType.Operator, `${ t.type } at ${ i } is not an operator`);
         assert.equal((t as OperatorToken).operatorType, operatorTypes[i]);
         assert.equal(t.length, lengths[i],
-            `Length ${t.length} at ${i} (text ${text.substr(t.start, t.length)}), expected ${lengths[i]}`);
+            `Length ${ t.length } at ${ i } (text ${ text.substr(t.start, t.length) }), expected ${ lengths[i] }`);
     }
 });
 

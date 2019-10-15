@@ -720,3 +720,18 @@ test('Metaclass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass1.py']);
     validateResults(analysisResults, 0);
 });
+
+test('AssignmentExpr1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr1.py']);
+    validateResults(analysisResults, 4);
+});
+
+test('AssignmentExpr2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr2.py']);
+    validateResults(analysisResults, 5);
+});
+
+test('AssignmentExpr3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr3.py']);
+    validateResults(analysisResults, 3);
+});

@@ -298,26 +298,29 @@ export class Tokenizer {
         }
 
         switch (this._cs.currentChar) {
-            case _byteOrderMarker:
+            case _byteOrderMarker: {
                 // Skip the BOM if it's at the start of the file.
                 if (this._cs.position === 0) {
                     return false;
                 }
                 this._handleInvalid();
                 break;
+            }
 
-            case Char.CarriageReturn:
+            case Char.CarriageReturn: {
                 const length = this._cs.nextChar === Char.LineFeed ? 2 : 1;
                 const newLineType = length === 2 ?
                     NewLineType.CarriageReturnLineFeed : NewLineType.CarriageReturn;
                 this._handleNewLine(length, newLineType);
                 return true;
+            }
 
-            case Char.LineFeed:
+            case Char.LineFeed: {
                 this._handleNewLine(1, NewLineType.LineFeed);
                 return true;
+            }
 
-            case Char.Backslash:
+            case Char.Backslash: {
                 if (this._cs.nextChar === Char.CarriageReturn) {
                     if (this._cs.lookAhead(2) === Char.LineFeed) {
                         this._cs.advance(3);
@@ -333,65 +336,81 @@ export class Tokenizer {
                 }
                 this._handleInvalid();
                 return false;
+            }
 
-            case Char.OpenParenthesis:
+            case Char.OpenParenthesis: {
                 this._parenDepth++;
                 this._tokens.push(Token.create(TokenType.OpenParenthesis,
                     this._cs.position, 1, this._getComments()));
                 break;
+            }
 
-            case Char.CloseParenthesis:
+            case Char.CloseParenthesis: {
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
                 this._tokens.push(Token.create(TokenType.CloseParenthesis,
                     this._cs.position, 1, this._getComments()));
                 break;
+            }
 
-            case Char.OpenBracket:
+            case Char.OpenBracket: {
                 this._parenDepth++;
                 this._tokens.push(Token.create(TokenType.OpenBracket,
                     this._cs.position, 1, this._getComments()));
                 break;
+            }
 
-            case Char.CloseBracket:
+            case Char.CloseBracket: {
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
                 this._tokens.push(Token.create(TokenType.CloseBracket,
                     this._cs.position, 1, this._getComments()));
                 break;
+            }
 
-            case Char.OpenBrace:
+            case Char.OpenBrace: {
                 this._parenDepth++;
                 this._tokens.push(Token.create(TokenType.OpenCurlyBrace,
                     this._cs.position, 1, this._getComments()));
                 break;
+            }
 
-            case Char.CloseBrace:
+            case Char.CloseBrace: {
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
                 this._tokens.push(Token.create(TokenType.CloseCurlyBrace,
                     this._cs.position, 1, this._getComments()));
                 break;
+            }
 
-            case Char.Comma:
+            case Char.Comma: {
                 this._tokens.push(Token.create(TokenType.Comma,
                     this._cs.position, 1, this._getComments()));
                 break;
+            }
 
-            case Char.Semicolon:
+            case Char.Semicolon: {
                 this._tokens.push(Token.create(TokenType.Semicolon,
                     this._cs.position, 1, this._getComments()));
                 break;
+            }
 
-            case Char.Colon:
+            case Char.Colon: {
+                if (this._cs.nextChar === Char.Equal) {
+                    this._tokens.push(OperatorToken.create(this._cs.position,
+                        2, OperatorType.Walrus, this._getComments()));
+                    this._cs.advance(1);
+                    break;
+                }
                 this._tokens.push(Token.create(TokenType.Colon,
                     this._cs.position, 1, this._getComments()));
                 break;
+            }
 
-            default:
+            default: {
                 if (this._isPossibleNumber()) {
                     if (this._tryNumber()) {
                         return true;
@@ -417,6 +436,7 @@ export class Tokenizer {
                     }
                 }
                 return true;
+            }
         }
         return false;
     }

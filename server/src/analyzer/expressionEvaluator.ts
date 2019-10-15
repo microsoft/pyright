@@ -839,6 +839,12 @@ export class ExpressionEvaluator {
             // Don't validate the type match for the assignment here. Simply
             // return the type result of the RHS.
             typeResult = this._getTypeFromExpression(node.rightExpression);
+        } else if (node.nodeType === ParseNodeType.AssignmentExpression) {
+            this._reportUsageErrorForReadOnly(node, usage);
+
+            // Don't validate the type match for the assignment here.
+            typeResult = this._getTypeFromExpression(node.rightExpression);
+            this._assignTypeToExpression(node.name, typeResult.type);
         } else if (node.nodeType === ParseNodeType.Yield) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromYieldExpression(node);
@@ -3791,14 +3797,18 @@ export class ExpressionEvaluator {
     }
 
     private _assignTypeToNameNode(targetExpr: NameNode, type: Type) {
-        const symbol = this._scope.lookUpSymbol(targetExpr.nameToken.value)!;
-        assert(symbol !== undefined);
-        symbol.setInferredTypeForSource(type, targetExpr.id);
+        const symbolWithScope = this._scope.lookUpSymbolRecursive(targetExpr.nameToken.value)!;
+        if (symbolWithScope === undefined) {
+            assert.fail(`Missing symbol '${ targetExpr.nameToken.value }'`);
+        }
+        if (!symbolWithScope.isOutsideCallerModule) {
+            symbolWithScope.symbol.setInferredTypeForSource(type, targetExpr.id);
+        }
 
         // Mark the symbol as accessed. These symbols are not persisted
         // between analysis passes, so we never have an opportunity to
         // mark them as accessed.
-        symbol.setIsAccessed();
+        symbolWithScope.symbol.setIsAccessed();
 
         const typeConstraint = TypeConstraintBuilder.buildTypeConstraintForAssignment(targetExpr, type);
         if (typeConstraint) {
