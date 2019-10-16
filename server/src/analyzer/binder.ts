@@ -168,7 +168,7 @@ export abstract class Binder extends ParseTreeWalker {
                     DiagnosticRule.reportMissingImports,
                     `Import '${ importResult.importName }' could not be resolved`, node);
             } else if (importResult.importType === ImportType.ThirdParty) {
-                if (!importResult.isStubFile && !importResult.isNamespacePackage) {
+                if (!importResult.isStubFile) {
                     const diagnostic = this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportMissingTypeStubs,
                         DiagnosticRule.reportMissingTypeStubs,

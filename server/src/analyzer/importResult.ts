@@ -37,12 +37,10 @@ export interface ImportResult {
     // Type of import (built-in, local, third-party).
     importType: ImportType;
 
-    // The resolved absolute paths for each of the elements in the module name.
+    // The resolved absolute paths for each of the files in the module name.
+    // Parts that have no files (e.g. directories within a namespace
+    // package) have empty strings for a resolvedPath.
     resolvedPaths: string[];
-
-    // Indicates whether the import is a traditional package (with an
-    // __init__.py in it) or a "namespace" package (defined by PEP-420).
-    isNamespacePackage: boolean;
 
     // For absolute imports, the search path that was used to resolve
     // (or partially resolve) the module.

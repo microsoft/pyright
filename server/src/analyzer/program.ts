@@ -1182,15 +1182,15 @@ export class Program {
                     return;
                 }
 
-                // Namespace packages have no __init__.py file, so the resolved
-                // path points to a directory.
-                if (!importResult.isNamespacePackage && importResult.resolvedPaths.length > 0) {
+                if (importResult.resolvedPaths.length > 0) {
                     const filePath = importResult.resolvedPaths[
                         importResult.resolvedPaths.length - 1];
-                    newImportPathMap.set(filePath, {
-                        isTypeshedFile: !!importResult.isTypeshedFile,
-                        isThirdPartyImport: importResult.importType === ImportType.ThirdParty
-                    });
+                    if (filePath) {
+                        newImportPathMap.set(filePath, {
+                            isTypeshedFile: !!importResult.isTypeshedFile,
+                            isThirdPartyImport: importResult.importType === ImportType.ThirdParty
+                        });
+                    }
                 }
 
                 importResult.implicitImports.forEach(implicitImport => {

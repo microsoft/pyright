@@ -180,7 +180,6 @@ export class ImportResolver {
             importFailureInfo,
             resolvedPaths: [],
             importType: ImportType.Local,
-            isNamespacePackage: false,
             isStubFile: false,
             isPydFile: false,
             implicitImports: []
@@ -595,7 +594,7 @@ export class ImportResolver {
                 isPydFile = true;
             } else {
                 importFailureInfo.push(`Partially resolved import with directory '${ dirPath }'`);
-                resolvedPaths.push(dirPath);
+                resolvedPaths.push('');
                 isNamespacePackage = true;
             }
 
@@ -648,7 +647,7 @@ export class ImportResolver {
                     resolvedPaths.push(pyFilePath);
                 } else {
                     importFailureInfo.push(`Partially resolved import with directory '${ dirPath }'`);
-                    resolvedPaths.push(dirPath);
+                    resolvedPaths.push('');
                     if (i === moduleDescriptor.nameParts.length - 1) {
                         isNamespacePackage = true;
                     }
@@ -680,7 +679,6 @@ export class ImportResolver {
             importType: ImportType.Local,
             resolvedPaths,
             searchPath: rootPath,
-            isNamespacePackage,
             isStubFile,
             isPydFile,
             implicitImports

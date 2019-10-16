@@ -585,7 +585,7 @@ export class AnalyzerService {
                     this._typeStubTargetPath = getDirectoryPath(this._typeStubTargetPath);
                 }
 
-                if (importResult.isNamespacePackage) {
+                if (!resolvedPath) {
                     this._typeStubTargetIsSingleFile = false;
                 } else {
                     filesToImport.push(resolvedPath);
