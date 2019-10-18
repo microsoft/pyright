@@ -688,37 +688,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitListComprehension(node: ListComprehensionNode): boolean {
-        // We need to "execute" the comprehension clauses first, even
-        // though they appear afterward in the syntax. We'll do so
-        // within a temporary scope so we can throw away the target
-        // when complete.
-        this._enterScope(node, () => {
-            node.comprehensions.forEach(comprehension => {
-                if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
-                    this.walk(comprehension.iterableExpression);
-
-                    const iteratorType = this._getTypeOfExpression(comprehension.iterableExpression);
-                    const evaluator = this._createEvaluator();
-
-                    // Pass undefined for the error node so we don't report
-                    // errors. We assume here that the expression has already
-                    // been evaluated and errors reported, and we don't want
-                    // them to be reported twice.
-                    const iteratedType = evaluator.getTypeFromIterable(
-                        iteratorType, !!comprehension.isAsync, undefined, false);
-
-                    this._assignTypeToExpression(comprehension.targetExpression,
-                        iteratedType, comprehension.iterableExpression);
-                    this.walk(comprehension.targetExpression);
-                } else {
-                    this.walk(comprehension.testExpression);
-                }
-            });
-
-            this.walk(node.expression);
-        });
-
-        return false;
+        this._getTypeOfExpression(node);
+        return true;
     }
 
     visitIf(node: IfNode): boolean {

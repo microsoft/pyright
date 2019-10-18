@@ -781,6 +781,15 @@ export class ExpressionEvaluator {
                 return typeResult;
             }
 
+            // Evaluate the format string expressions in this context.
+            node.strings.forEach(str => {
+                if (str.nodeType === ParseNodeType.FormatString) {
+                    str.expressions.forEach(expr => {
+                        this.getType(expr);
+                    });
+                }
+            });
+
             const isBytes = (node.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
             typeResult = { node, type: this._cloneBuiltinTypeWithLiteral(
                 isBytes ? 'bytes' : 'str', node.strings.map(s => s.value).join('')) };
@@ -3913,7 +3922,11 @@ export class ExpressionEvaluator {
                     understoodType = false;
                     break;
                 }
-            } else if (comprehension.nodeType === ParseNodeType.ListComprehensionIf) {
+            } else {
+                assert(comprehension.nodeType === ParseNodeType.ListComprehensionIf);
+                // Evaluate the test expression
+                this.getType(comprehension.testExpression);
+
                 // Use the if node (if present) to create a type constraint.
                 typeConstraints = TypeConstraintBuilder.buildTypeConstraintsForConditional(
                     comprehension.testExpression, expr => TypeUtils.stripLiteralValue(
