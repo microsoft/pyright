@@ -1303,10 +1303,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (importInfo && importInfo.isImportFound && importInfo.resolvedPaths.length > 0) {
             const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
 
+            let moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
+
             // Is there a cached module type associated with this node?
-            let moduleType: ModuleType | undefined = AnalyzerNodeInfo.getExpressionType(node) as ModuleType;
-            if (moduleType === undefined) {
-                moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
+            const cachedModuleType = AnalyzerNodeInfo.getExpressionType(node) as ModuleType;
+            if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && moduleType) {
+                // If the fields match, use the cached version instead of the
+                // newly-created version so we preserve the work done to
+                // populate the loader fields.
+                if (moduleType.fields === cachedModuleType.fields) {
+                    moduleType = cachedModuleType;
+                }
             }
 
             if (moduleType) {
