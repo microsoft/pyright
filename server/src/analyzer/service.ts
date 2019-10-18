@@ -9,6 +9,7 @@
 */
 
 import * as assert from 'assert';
+import * as chokidar from 'chokidar';
 import * as fs from 'fs';
 import { CompletionList, SymbolInformation } from 'vscode-languageserver';
 
@@ -712,30 +713,21 @@ export class AnalyzerService {
                     if (this._verboseOutput) {
                         this._console.log(`Adding file system watcher for ${ fileSpec }`);
                     }
-                    return fs.watch(fileSpec, { recursive: true }, (event, fileName) => {
+
+                    return chokidar.watch([fileSpec], { ignoreInitial: true }).on('all', (event, path, stats) => {
+                        if (this._verboseOutput) {
+                            this._console.log(`Received fs event '${ event }' for path '${ path }'`);
+                        }
+
                         if (event === 'change') {
-                            if (this._verboseOutput) {
-                                this._console.log(`Event ('change') received for file system watcher (${ fileSpec })`);
-                            }
-                            let filePath = fileSpec;
-                            if (!isFile(filePath)) {
-                                filePath = combinePaths(fileSpec, fileName);
-                            }
-                            this._console.log(`Received change fs event for path '${ filePath }'`);
-                            this._program.markFilesDirty([filePath]);
+                            this._program.markFilesDirty([path]);
                             this._scheduleReanalysis(false);
                         } else {
-                            if (this._verboseOutput) {
-                                this._console.log(`Event (other) received for file system watcher (${ fileSpec })`);
-                            }
-                            this._console.log(`Received other fs event'`);
                             this._scheduleReanalysis(true);
                         }
                     });
                 } catch {
-                    if (this._verboseOutput) {
-                        this._console.log(`Exception caught when trying to install file system watcher for (${ fileSpec })`);
-                    }
+                    this._console.log(`Exception caught when trying to install file system watcher for (${ fileSpec })`);
                     return undefined;
                 }
             });
@@ -753,7 +745,11 @@ export class AnalyzerService {
         this._removeConfigFileWatcher();
 
         if (this._watchForChanges && this._configFilePath) {
-            this._configFileWatcher = fs.watch(this._configFilePath, {}, (event, fileName) => {
+            this._configFileWatcher = chokidar.watch(this._configFilePath, { ignoreInitial: true })
+            .on('all', (event, path, stats) => {
+                if (this._verboseOutput) {
+                    this._console.log(`Received fs event '${ event }' for config file`);
+                }
                 this._scheduleReloadConfigFile();
             });
         }

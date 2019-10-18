@@ -32,6 +32,10 @@ module.exports = {
                 options: {
                     configFile: 'tsconfig.json'
                 }
+            },
+            {
+                test: /\.node$/,
+                loader: 'node-loader'
             }
         ]
     },
