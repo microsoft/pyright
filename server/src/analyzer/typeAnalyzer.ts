@@ -1892,6 +1892,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (classMemberInfo) {
                 symbol = classMemberInfo.symbol;
             }
+        } else if (expression.nodeType === ParseNodeType.Index) {
+            const baseType = this._getTypeOfExpression(expression.baseExpression, EvaluatorFlags.None, true);
+            if (baseType.category === TypeCategory.Object) {
+                const setItemMember = TypeUtils.lookUpClassMember(baseType.classType, '__setitem__');
+                if (setItemMember) {
+                    if (setItemMember.symbolType.category === TypeCategory.Function) {
+                        const boundFunction = TypeUtils.bindFunctionToClassOrObject(baseType, setItemMember.symbolType);
+                        if (boundFunction.category === TypeCategory.Function) {
+                            if (boundFunction.details.parameters.length === 2) {
+                                return FunctionType.getEffectiveParameterType(boundFunction, 1);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         if (symbol) {
