@@ -30,7 +30,7 @@ import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignme
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { AliasDeclaration, Declaration, DeclarationType, VariableDeclaration } from './declaration';
+import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions, VariableDeclaration } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ImportResult, ImportType } from './importResult';
@@ -1322,29 +1322,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         importInfo, implicitImport.path);
                     if (implicitModuleType) {
                         if (!ModuleType.getField(moduleType!, implicitImport.name)) {
-                            const aliasDeclaration: AliasDeclaration = {
-                                type: DeclarationType.Alias,
-                                path: implicitImport.path,
-                                range: getEmptyRange()
-                            };
-
                             const newSymbol = Symbol.createWithType(
                                 SymbolFlags.ClassMember, implicitModuleType, defaultTypeSourceId);
-                            newSymbol.addDeclaration(aliasDeclaration);
                             setSymbolPreservingAccess(moduleType!.loaderFields!, implicitImport.name,
                                 newSymbol);
                         }
                     }
                 });
 
-                const aliasDeclaration: AliasDeclaration = {
-                    type: DeclarationType.Alias,
-                    path: resolvedPath,
-                    range: getEmptyRange()
-                };
-
                 if (node.alias) {
-                    this._assignTypeToNameNode(node.alias, moduleType, aliasDeclaration);
+                    this._assignTypeToNameNode(node.alias, moduleType);
                     this._updateExpressionTypeForNode(node.alias, moduleType);
 
                     this._conditionallyReportUnusedName(node.alias, false,
@@ -1352,8 +1339,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         DiagnosticRule.reportUnusedImport,
                         `Import '${ node.alias.nameToken.value }' is not accessed`);
                 } else {
-                    this._bindMultiPartModuleNameToType(node.module.nameParts,
-                        moduleType, aliasDeclaration);
+                    this._bindMultiPartModuleNameToType(node.module.nameParts, moduleType);
                 }
 
                 // Cache the module type for subsequent passes.
@@ -1428,7 +1414,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             declaration = {
                                 type: DeclarationType.Alias,
                                 path: implicitImport.path,
-                                range: getEmptyRange()
+                                range: getEmptyRange(),
+                                implicitImports: new Map<string, ModuleLoaderActions>()
                             };
                         }
                     } else {
@@ -1444,7 +1431,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                     type: DeclarationType.Alias,
                                     path: importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1],
                                     symbolName: importAs.name.nameToken.value,
-                                    range: getEmptyRange()
+                                    range: getEmptyRange(),
+                                    implicitImports: new Map<string, ModuleLoaderActions>()
                                 };
                             } else {
                                 this._addError(

@@ -12,7 +12,7 @@
 import { DiagnosticTextRange } from '../common/diagnostic';
 import { ClassNode, ExpressionNode, FunctionNode, NameNode,
     ParameterNode, ParseNode, StringListNode } from '../parser/parseNodes';
-import { ModuleType, Type } from './types';
+import { Type } from './types';
 
 export const enum DeclarationType {
     BuiltIn,
@@ -71,19 +71,30 @@ export interface VariableDeclaration extends DeclarationBase {
 
 // Alias declarations are used for imports. They are resolved
 // after the binding phase.
-export interface AliasDeclaration extends DeclarationBase {
+export interface AliasDeclaration extends DeclarationBase, ModuleLoaderActions {
     type: DeclarationType.Alias;
 
-    // If a symbol is present, the alias refers to the symbol
-    // within a module (whose path is defined in the 'path'
-    // field). If symbolName is missing, the alias refers to
-    // the module itself.
+    // If a symbolName is defined, the alias refers to a symbol
+    // within a resolved module (whose path is defined in the
+    // 'path' field). If symbolName is missing, the alias refers
+    // to the module itself.
     symbolName?: string;
+}
 
-    // If there is no symbol specified and the entire module
-    // is referenced, should the module type include the
-    // implicit imports within its namespace?
-    includeImplicitImports?: boolean;
+// This interface represents a set of actions that the python loader
+// performs when a module import is encountered.
+export interface ModuleLoaderActions {
+    // The resolved path of the implicit import. This can be empty
+    // if the resolved path doesn't reference a module (e.g. it's
+    // a directory).
+    path: string;
+
+    // If the alias is targeting a module, multiple other modules
+    // may also need to be resolved and inserted implicitly into
+    // the module's namespace to emulate the behavior of the python
+    // module loader. This can be recursive (e.g. in the case of
+    // an "import a.b.c.d" statement).
+    implicitImports: Map<string, ModuleLoaderActions>;
 }
 
 export type Declaration = BuiltInDeclaration | ClassDeclaration |

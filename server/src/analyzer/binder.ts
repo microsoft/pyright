@@ -19,7 +19,7 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import { CreateTypeStubFileAction, getEmptyRange } from '../common/diagnostic';
+import { CreateTypeStubFileAction, getEmptyPosition, getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -36,9 +36,9 @@ import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { DeclarationType } from './declaration';
+import { AliasDeclaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as DocStringUtils from './docStringUtils';
-import { ImportType } from './importResult';
+import { ImportResult, ImportType } from './importResult';
 import { defaultTypeSourceId, TypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -593,10 +593,79 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitImportAs(node: ImportAsNode): boolean {
-        if (node.alias) {
-            this._bindNameToScope(this._currentScope, node.alias.nameToken.value);
-        } else if (node.module.nameParts.length > 0) {
-            this._bindNameToScope(this._currentScope, node.module.nameParts[0].nameToken.value);
+        if (node.module.nameParts.length > 0) {
+            let symbolName: string | undefined;
+
+            if (node.alias) {
+                // The symbol name is defined by the alias.
+                symbolName = node.alias.nameToken.value;
+            } else {
+                // There was no alias, so we need to use the first element of
+                // the name parts as the symbol.
+                symbolName = node.module.nameParts[0].nameToken.value;
+            }
+
+            if (symbolName) {
+                const symbol = this._bindNameToScope(this._currentScope, symbolName);
+
+                const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
+                assert(importInfo !== undefined);
+
+                if (importInfo && importInfo.isImportFound && importInfo.resolvedPaths.length > 0 && symbol) {
+                    const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+                    const existingDecl = symbol.getDeclarations().find(
+                        decl => decl.type === DeclarationType.Alias && decl.path === resolvedPath);
+
+                    const newDecl: AliasDeclaration = existingDecl as AliasDeclaration || {
+                        type: DeclarationType.Alias,
+                        path: '',
+                        range: getEmptyRange(),
+                        implicitImports: new Map<string, ModuleLoaderActions>()
+                    };
+
+                    // Add the implicit imports for this module if it's the last
+                    // name part we're resolving.
+                    if (node.alias || node.module.nameParts.length === 0) {
+                        newDecl.path = importInfo.resolvedPaths[0];
+                        this._addImplicitImportsToLoaderActions(importInfo, newDecl);
+                    } else {
+                        // Fill in the remaining name parts.
+                        let curLoaderActions: ModuleLoaderActions = newDecl;
+
+                        for (let i = 1; i < node.module.nameParts.length; i++) {
+                            if (i >= importInfo.resolvedPaths.length) {
+                                break;
+                            }
+
+                            const namePartValue = node.module.nameParts[i].nameToken.value;
+
+                            // Is there an existing loader action for this name?
+                            let loaderActions = curLoaderActions.implicitImports.get(namePartValue);
+                            if (!loaderActions) {
+                                // Allocate a new loader action.
+                                loaderActions = {
+                                    path: '',
+                                    implicitImports: new Map<string, ModuleLoaderActions>()
+                                };
+                                curLoaderActions.implicitImports.set(namePartValue, loaderActions);
+                            }
+
+                            // If this is the last name part we're resolving, add in the
+                            // implicit imports as well.
+                            if (i === node.module.nameParts.length - 1) {
+                                loaderActions.path = importInfo.resolvedPaths[i];
+                                this._addImplicitImportsToLoaderActions(importInfo, loaderActions);
+                            }
+
+                            curLoaderActions = loaderActions;
+                        }
+                    }
+
+                    if (!existingDecl) {
+                        symbol.addDeclaration(newDecl);
+                    }
+                }
+            }
         }
 
         return true;
@@ -771,6 +840,20 @@ export abstract class Binder extends ParseTreeWalker {
         children.forEach(child => {
             if (child) {
                 child.parent = parentNode;
+            }
+        });
+    }
+
+    private _addImplicitImportsToLoaderActions(importResult: ImportResult, loaderActions: ModuleLoaderActions) {
+        importResult.implicitImports.forEach(implicitImport => {
+            const existingLoaderAction = loaderActions.implicitImports.get(implicitImport.name);
+            if (existingLoaderAction) {
+                existingLoaderAction.path = implicitImport.path;
+            } else {
+                loaderActions.implicitImports.set(implicitImport.name, {
+                    path: implicitImport.path,
+                    implicitImports: new Map<string, ModuleLoaderActions>()
+                });
             }
         });
     }

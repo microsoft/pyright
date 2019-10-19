@@ -13,7 +13,7 @@ import { getEmptyRange } from '../common/diagnostic';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { AliasDeclaration, Declaration, DeclarationType } from './declaration';
+import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol } from './symbol';
 import { ClassType, ModuleType, ObjectType, Type, TypeCategory } from './types';
@@ -63,7 +63,8 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
                 const aliasDeclaration: AliasDeclaration = {
                     type: DeclarationType.Alias,
                     path: importInfo.resolvedPaths[namePartIndex],
-                    range: getEmptyRange()
+                    range: getEmptyRange(),
+                    implicitImports: new Map<string, ModuleLoaderActions>()
                 };
                 declarations = [aliasDeclaration];
             }

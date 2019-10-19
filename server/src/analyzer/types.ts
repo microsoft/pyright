@@ -1217,6 +1217,14 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
 
             return true;
         }
+
+        case TypeCategory.Module: {
+            const type2Module = type2 as ModuleType;
+
+            // Module types are the same if they share the same
+            // module symbol table.
+            return (type1.fields === type2Module.fields);
+        }
     }
 
     return true;
