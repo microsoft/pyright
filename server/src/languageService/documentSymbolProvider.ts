@@ -11,9 +11,10 @@
 import { Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode-languageserver';
 import VSCodeUri from 'vscode-uri';
 
+import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import { getTypeForDeclaration } from '../analyzer/declarationUtils';
+import { getTypeForDeclaration, resolveAliasDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeCategory } from '../analyzer/types';
@@ -31,15 +32,18 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
     private _parseResults: ParseResults;
     private _symbolResults: SymbolInformation[];
     private _query: string | undefined;
+    private _importLookup: ImportLookup;
 
     constructor(filePath: string, parseResults: ParseResults,
-            results: SymbolInformation[], query: string | undefined) {
+            results: SymbolInformation[], query: string | undefined,
+            importLookup: ImportLookup) {
 
         super();
         this._filePath = filePath;
         this._parseResults = parseResults;
         this._symbolResults = results;
         this._query = query;
+        this._importLookup = importLookup;
     }
 
     findSymbols() {
@@ -99,6 +103,11 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
             }
         }
 
+        const resolvedSymbol = resolveAliasDeclaration(declaration, this._importLookup);
+        if (!resolvedSymbol) {
+            return;
+        }
+
         let symbolKind: SymbolKind;
         switch (declaration.type) {
             case DeclarationType.Class:
@@ -119,9 +128,6 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
                 break;
 
             case DeclarationType.Alias:
-                if (declaration.symbolName) {
-                    // TODO - need to look up symbol type
-                }
                 symbolKind = SymbolKind.Module;
                 break;
 
@@ -176,10 +182,10 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
 
 export class DocumentSymbolProvider {
     static addSymbolsForDocument(symbolList: SymbolInformation[], query: string | undefined,
-            filePath: string, parseResults: ParseResults) {
+            filePath: string, parseResults: ParseResults, importLookup: ImportLookup) {
 
         const symbolTreeWalker = new FindSymbolTreeWalker(filePath, parseResults,
-            symbolList, query);
+            symbolList, query, importLookup);
         symbolTreeWalker.findSymbols();
     }
 }

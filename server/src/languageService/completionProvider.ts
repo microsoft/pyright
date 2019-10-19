@@ -14,7 +14,7 @@ import { CompletionItem, CompletionItemKind, CompletionList,
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import { getTypeForDeclaration } from '../analyzer/declarationUtils';
+import { getTypeForDeclaration, resolveAliasDeclaration } from '../analyzer/declarationUtils';
 import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
@@ -828,7 +828,12 @@ export class CompletionProvider {
     private _convertDeclarationTypeToItemKind(declaration: Declaration,
             type?: Type): CompletionItemKind {
 
-        switch (declaration.type) {
+        const resolvedDeclaration = resolveAliasDeclaration(declaration, this._importLookup);
+        if (!resolvedDeclaration) {
+            return CompletionItemKind.Variable;
+        }
+
+        switch (resolvedDeclaration.type) {
             case DeclarationType.BuiltIn:
                 if (type) {
                     if (type.category === TypeCategory.Class) {
@@ -843,7 +848,7 @@ export class CompletionProvider {
                 return CompletionItemKind.Variable;
 
             case DeclarationType.Variable:
-                return declaration.isConstant ?
+                return resolvedDeclaration.isConstant ?
                     CompletionItemKind.Constant :
                     CompletionItemKind.Variable;
 
@@ -860,9 +865,6 @@ export class CompletionProvider {
                 return CompletionItemKind.Class;
 
             case DeclarationType.Alias:
-                if (declaration.symbolName) {
-                    // TODO - need to resolve the alias
-                }
                 return CompletionItemKind.Module;
         }
     }

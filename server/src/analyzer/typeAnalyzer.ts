@@ -2060,16 +2060,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
 
-        const primaryDeclaration = declarations && declarations.length > 0 ?
+        let primaryDeclaration = declarations && declarations.length > 0 ?
             declarations[0] : undefined;
         if (!primaryDeclaration || primaryDeclaration.node === node) {
             return;
         }
 
-        // primaryDeclaration = DeclarationUtils.resolveDeclarationAliases(primaryDeclaration);
-        // if (!primaryDeclaration || primaryDeclaration.node === node) {
-        //     return;
-        // }
+        primaryDeclaration = DeclarationUtils.resolveAliasDeclaration(primaryDeclaration,
+            this._fileInfo.importLookup);
+        if (!primaryDeclaration || primaryDeclaration.node === node) {
+            return;
+        }
 
         let classOrModuleNode: ClassNode | ModuleNode | undefined;
         if (primaryDeclaration.node) {

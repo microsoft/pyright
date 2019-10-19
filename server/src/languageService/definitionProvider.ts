@@ -10,8 +10,10 @@
 * definition is the top of the resolved import file.
 */
 
+import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
+import { resolveAliasDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol } from '../analyzer/symbol';
 import { ModuleType, TypeCategory } from '../analyzer/types';
@@ -28,7 +30,8 @@ const _startOfFileRange: DiagnosticTextRange = { start: _startOfFilePosition, en
 
 export class DefinitionProvider {
     static getDefinitionsForPosition(parseResults: ParseResults,
-            position: DiagnosticTextPosition): DocumentTextRange[] | undefined {
+            position: DiagnosticTextPosition, importLookup: ImportLookup):
+                DocumentTextRange[] | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -42,17 +45,17 @@ export class DefinitionProvider {
 
         const definitions: DocumentTextRange[] = [];
 
-        if (node.nodeType === ParseNodeType.ModuleName) {
-            this._addDefinitionsForModuleNameNode(definitions, node, offset);
-        } else if (node.nodeType === ParseNodeType.Name) {
+        if (node.nodeType === ParseNodeType.Name) {
             // Is the user hovering over a member name? If so, we need to search
             // in the scope of that type rather than the current node's scope.
             if (node.parent && node.parent.nodeType === ParseNodeType.MemberAccess &&
                     node === node.parent.memberName) {
 
-                this._addDefinitionsForMemberAccessNode(definitions, node.parent);
+                this._addDefinitionsForMemberAccessNode(definitions, node.parent, importLookup);
+            } else if (node.parent && node.parent.nodeType === ParseNodeType.ModuleName) {
+                this._addDefinitionsForModuleNameNode(definitions, node.parent, offset);
             } else {
-                this._addDefinitionsForNameNode(definitions, node);
+                this._addDefinitionsForNameNode(definitions, node, importLookup);
             }
         }
 
@@ -60,7 +63,7 @@ export class DefinitionProvider {
     }
 
     private static _addDefinitionsForMemberAccessNode(definitions: DocumentTextRange[],
-            node: MemberAccessExpressionNode) {
+            node: MemberAccessExpressionNode, importLookup: ImportLookup) {
 
         const baseType = AnalyzerNodeInfo.getExpressionType(node.leftExpression);
         if (!baseType) {
@@ -87,14 +90,16 @@ export class DefinitionProvider {
 
             if (symbol) {
                 const declarations = symbol.getDeclarations();
-                this._addResultsForDeclarations(definitions, declarations);
+                this._addResultsForDeclarations(definitions, declarations, importLookup);
             }
 
             return subtype;
         });
     }
 
-    private static _addDefinitionsForNameNode(definitions: DocumentTextRange[], node: NameNode) {
+    private static _addDefinitionsForNameNode(definitions: DocumentTextRange[],
+            node: NameNode, importLookup: ImportLookup) {
+
         const scopeNode = ParseTreeUtils.getScopeNodeForNode(node);
         if (!scopeNode) {
             return;
@@ -112,16 +117,15 @@ export class DefinitionProvider {
 
         const declarations = symbolWithScope.symbol.getDeclarations();
         if (declarations) {
-            this._addResultsForDeclarations(definitions, declarations);
+            this._addResultsForDeclarations(definitions, declarations, importLookup);
         }
     }
 
     private static _addResultsForDeclarations(definitions: DocumentTextRange[],
-            declarations: Declaration[]) {
+            declarations: Declaration[], importLookup: ImportLookup) {
 
         declarations.forEach(decl => {
-            // TODO - need to resolve alias declarations
-            const resolvedDecl = decl; //resolveDeclarationAliases(decl);
+            const resolvedDecl = resolveAliasDeclaration(decl, importLookup);
             if (resolvedDecl && resolvedDecl.path) {
                 definitions.push({
                     path: resolvedDecl.path,

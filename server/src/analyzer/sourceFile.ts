@@ -502,14 +502,16 @@ export class SourceFile {
         return true;
     }
 
-    getDefinitionsForPosition(position: DiagnosticTextPosition): DocumentTextRange[] | undefined {
+    getDefinitionsForPosition(position: DiagnosticTextPosition, importLookup: ImportLookup):
+            DocumentTextRange[] | undefined {
+
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
         return DefinitionProvider.getDefinitionsForPosition(
-                this._parseResults, position);
+                this._parseResults, position, importLookup);
     }
 
     getReferencesForPosition(position: DiagnosticTextPosition, includeDeclaration: boolean):
@@ -534,14 +536,16 @@ export class SourceFile {
             this._parseResults, this._filePath, referencesResult, includeDeclaration);
     }
 
-    addSymbolsForDocument(symbolList: SymbolInformation[], query?: string) {
+    addSymbolsForDocument(symbolList: SymbolInformation[], importLookup: ImportLookup,
+            query?: string) {
+
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return;
         }
 
         DocumentSymbolProvider.addSymbolsForDocument(symbolList, query,
-            this._filePath, this._parseResults);
+            this._filePath, this._parseResults, importLookup);
     }
 
     getHoverForPosition(position: DiagnosticTextPosition,

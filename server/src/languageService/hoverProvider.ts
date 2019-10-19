@@ -56,13 +56,16 @@ export class HoverProvider {
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(results.parts, declarations[0], node);
-            }
-
-            // If we had no declaration, see if we can provide a minimal tooltip.
-            if (results.parts.length === 0) {
-                this._addResultsPart(results.parts, node.nameToken.value + this._getTypeText(node), true);
-                this._addDocumentationPart(results.parts, node);
+                this._addResultsForDeclaration(results.parts, declarations[0], node, importLookup);
+            } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
+                // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
+                // this if it's part of a module name, since a module name part with no declaration
+                // is a directory (a namespace package), and we don't want to provide any hover
+                // information in that case.
+                if (results.parts.length === 0) {
+                    this._addResultsPart(results.parts, node.nameToken.value + this._getTypeText(node), true);
+                    this._addDocumentationPart(results.parts, node);
+                }
             }
         }
 
@@ -70,11 +73,16 @@ export class HoverProvider {
     }
 
     private static _addResultsForDeclaration(parts: HoverTextPart[],
-            declaration: Declaration, node: ParseNode): void {
+            declaration: Declaration, node: ParseNode, importLookup: ImportLookup): void {
 
-        switch (declaration.type) {
+        const resolvedDecl = DeclarationUtils.resolveAliasDeclaration(declaration, importLookup);
+        if (!resolvedDecl) {
+            return;
+        }
+
+        switch (resolvedDecl.type) {
             case DeclarationType.Variable: {
-                const label = declaration.isConstant ? 'constant' : 'variable';
+                const label = resolvedDecl.isConstant ? 'constant' : 'variable';
                 if (node.nodeType === ParseNodeType.Name) {
                     this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
                         this._getTypeText(node), true);
@@ -96,7 +104,7 @@ export class HoverProvider {
 
             case DeclarationType.Class: {
                 if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(class) ' + this._getTypeText(node), true);
+                    this._addResultsPart(parts, '(class) ' + node.nameToken.value, true);
                     this._addDocumentationPart(parts, node);
                     return;
                 }
@@ -114,7 +122,7 @@ export class HoverProvider {
             }
 
             case DeclarationType.Method: {
-                const declaredType = DeclarationUtils.getTypeForDeclaration(declaration);
+                const declaredType = DeclarationUtils.getTypeForDeclaration(resolvedDecl);
                 const label = declaredType && declaredType.category === TypeCategory.Property ?
                     'property' : 'method';
                 if (node.nodeType === ParseNodeType.Name) {
@@ -127,12 +135,8 @@ export class HoverProvider {
             }
 
             case DeclarationType.Alias: {
-                if (declaration.symbolName) {
-                    // TODO - need to resolve alias and present the right type
-                }
                 if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(module) ' + node.nameToken.value +
-                        this._getTypeText(node), true);
+                    this._addResultsPart(parts, '(module) ' + node.nameToken.value, true);
                     this._addDocumentationPart(parts, node);
                     return;
                 }

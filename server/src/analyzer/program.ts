@@ -832,7 +832,7 @@ export class Program {
             return undefined;
         }
 
-        return sourceFile.getDefinitionsForPosition(position);
+        return sourceFile.getDefinitionsForPosition(position, this._lookUpImport);
     }
 
     getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
@@ -881,7 +881,8 @@ export class Program {
     addSymbolsForDocument(filePath: string, symbolList: SymbolInformation[]) {
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (sourceFileInfo) {
-            sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList);
+            sourceFileInfo.sourceFile.addSymbolsForDocument(
+                symbolList, this._lookUpImport);
         }
     }
 
@@ -893,7 +894,8 @@ export class Program {
         }
 
         for (const sourceFileInfo of this._sourceFileList) {
-            sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, query);
+            sourceFileInfo.sourceFile.addSymbolsForDocument(
+                symbolList, this._lookUpImport, query);
         }
     }
 

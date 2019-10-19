@@ -90,6 +90,51 @@ export function isFunctionOrMethodDeclaration(declaration: Declaration) {
     return declaration.type === DeclarationType.Method || declaration.type === DeclarationType.Function;
 }
 
+// If the specified declaration is an alias declaration that points
+// to a symbol, it resolves the alias and looks up the symbol, then
+// returns the first declaration associated with that symbol. It does
+// this recursively if necessary. If a symbol lookup fails, undefined
+// is returned.
+export function resolveAliasDeclaration(declaration: Declaration, importLookup: ImportLookup):
+        Declaration | undefined {
+
+    let curDeclaration: Declaration | undefined = declaration;
+    const alreadyVisited: Declaration[] = [];
+
+    while (true) {
+        if (curDeclaration.type !== DeclarationType.Alias) {
+            return curDeclaration;
+        }
+
+        if (!curDeclaration.symbolName) {
+            return curDeclaration;
+        }
+
+        const symbolTable = importLookup(declaration.path);
+        if (!symbolTable) {
+            return undefined;
+        }
+
+        const symbol = symbolTable.get(curDeclaration.symbolName);
+        if (!symbol) {
+            return undefined;
+        }
+
+        const declarations = symbol.getDeclarations();
+        if (declarations.length === 0) {
+            return undefined;
+        }
+
+        curDeclaration = declarations[0];
+
+        // Make sure we don't follow a circular list indefinitely.
+        if (alreadyVisited.find(decl => decl === curDeclaration)) {
+            return declaration;
+        }
+        alreadyVisited.push(curDeclaration);
+    }
+}
+
 export function getTypeForDeclaration(declaration: Declaration): Type | undefined {
     switch (declaration.type) {
         case DeclarationType.BuiltIn:
