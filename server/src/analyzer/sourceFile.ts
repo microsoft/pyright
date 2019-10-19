@@ -327,6 +327,13 @@ export class SourceFile {
         this._parseTreeNeedsCleaning = true;
         this._isTypeAnalysisFinalized = false;
         this._isTypeAnalysisPassNeeded = true;
+
+        // If the file continas a wildcard import, we need to rebind
+        // also because the dependent import may have changed.
+        if (this._parseResults && this._parseResults.containsWildcardImport) {
+            this._isBindingNeeded = true;
+            this._moduleSymbolTable = undefined;
+        }
     }
 
     setClientVersion(version: number | null, contents: string): void {
@@ -481,7 +488,8 @@ export class SourceFile {
                     typeIgnoreLines: {},
                     predominantEndOfLineSequence: '\n',
                     predominantTabSequence: '    '
-                }
+                },
+                containsWildcardImport: false
             };
             this._imports = undefined;
             this._builtinsImport = undefined;

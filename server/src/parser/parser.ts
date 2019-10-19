@@ -62,6 +62,7 @@ export interface ParseResults {
     importedModules: ModuleImport[];
     futureImports: StringMap<boolean>;
     tokenizerOutput: TokenizerOutput;
+    containsWildcardImport: boolean;
 }
 
 export interface ParseExpressionTextResults {
@@ -92,6 +93,7 @@ export class Parser {
     private _isParsingTypeAnnotation = false;
     private _futureImportMap = new StringMap<boolean>();
     private _importedModules: ModuleImport[] = [];
+    private _containsWildcardImport = false;
 
     parseSourceFile(fileContents: string, parseOptions: ParseOptions,
             diagSink: DiagnosticSink, cancelToken?: CancelToken): ParseResults {
@@ -132,7 +134,8 @@ export class Parser {
             parseTree: moduleNode,
             importedModules: this._importedModules,
             futureImports: this._futureImportMap,
-            tokenizerOutput: this._tokenizerOutput!
+            tokenizerOutput: this._tokenizerOutput!,
+            containsWildcardImport: this._containsWildcardImport
         };
     }
 
@@ -979,6 +982,7 @@ export class Parser {
             if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
                 extendRange(importFromNode, possibleStarToken);
                 importFromNode.isWildcardImport = true;
+                this._containsWildcardImport = true;
             } else {
                 const inParen = this._consumeTokenIfType(TokenType.OpenParenthesis);
 
