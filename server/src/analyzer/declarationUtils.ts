@@ -11,7 +11,7 @@ import * as assert from 'assert';
 
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { Declaration, DeclarationType } from './declaration';
+import { AliasDeclaration, Declaration, DeclarationType } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol } from './symbol';
 import { ClassType, ModuleType, ObjectType, Type, TypeCategory, UnknownType } from './types';
@@ -75,7 +75,15 @@ export function isFunctionOrMethodDeclaration(declaration: Declaration) {
 
 export function resolveDeclarationAliases(declaration: Declaration) {
     let resolvedDeclaration: Declaration | undefined = declaration;
+    const resolvedDeclarations: AliasDeclaration[] = [];
+
     while (resolvedDeclaration && resolvedDeclaration.type === DeclarationType.Alias) {
+        // Detect circular dependencies.
+        if (resolvedDeclarations.find(decl => decl === resolvedDeclaration)) {
+            return undefined;
+        }
+
+        resolvedDeclarations.push(resolvedDeclaration);
         resolvedDeclaration = resolvedDeclaration.resolvedDeclarations ?
             resolvedDeclaration.resolvedDeclarations[0] : undefined;
     }

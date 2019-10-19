@@ -3538,7 +3538,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (!symbolWithScope.isOutsideCallerModule) {
                 if (symbolWithScope.symbol.setInferredTypeForSource(type, typeSourceId)) {
                     if (symbolWithScope.scope.getType() !== ScopeType.Temporary) {
-                        this._setAnalysisChanged('Inferred type of name changed');
+                        this._setAnalysisChanged(`Inferred type of name changed for '${ name }'`);
                     }
                 }
 
