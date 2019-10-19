@@ -63,9 +63,10 @@ export function getRootLength(pathString: string): number {
 }
 
 export function getPathComponents(pathString: string) {
-    const rootLength = getRootLength(pathString);
-    const root = pathString.substring(0, rootLength);
-    const rest = pathString.substring(rootLength).split('/');
+    const normalizedPath = normalizeSlashes(pathString);
+    const rootLength = getRootLength(normalizedPath);
+    const root = normalizedPath.substring(0, rootLength);
+    const rest = normalizedPath.substring(rootLength).split(path.sep);
     if (rest.length > 0 && !rest[rest.length - 1]) {
         rest.pop();
     }
@@ -338,7 +339,8 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
 
 export function getFileSpec(rootPath: string, fileSpec: string): FileSpec {
     let regExPattern = getWildcardRegexPattern(rootPath, fileSpec);
-    regExPattern = `^(${ regExPattern })($|/)`;
+    let escapedSeparator = path.sep === '/' ? '/' : '\\\\';
+    regExPattern = `^(${ regExPattern })($|${ escapedSeparator })`;
 
     const regExp = new RegExp(regExPattern);
     const wildcardRoot = getWildcardRoot(rootPath, fileSpec);
