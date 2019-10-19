@@ -128,14 +128,17 @@ export function getPythonPathFromPythonInterpreter(interpreterPath: string | und
         // Parse the execOutput. It should be a JSON-encoded array of paths.
         try {
             const execSplit: string[] = JSON.parse(execOutput);
-            for (const execSplitEntry of execSplit) {
-                const normalizedPath = normalizePath(execSplitEntry);
-                // Make sure the path exists and is a directory. We don't currently
-                // support zip files and other formats.
-                if (fs.existsSync(normalizedPath) && isDirectory(normalizedPath)) {
-                    pythonPaths.push(normalizedPath);
-                } else {
-                    importFailureInfo.push(`Skipping '${ normalizedPath }' because it is not a valid directory`);
+            for (let execSplitEntry of execSplit) {
+                execSplitEntry = execSplitEntry.trim();
+                if (execSplitEntry) {
+                    const normalizedPath = normalizePath(execSplitEntry);
+                    // Make sure the path exists and is a directory. We don't currently
+                    // support zip files and other formats.
+                    if (fs.existsSync(normalizedPath) && isDirectory(normalizedPath)) {
+                        pythonPaths.push(normalizedPath);
+                    } else {
+                        importFailureInfo.push(`Skipping '${ normalizedPath }' because it is not a valid directory`);
+                    }
                 }
             }
 
