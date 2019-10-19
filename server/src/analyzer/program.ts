@@ -513,6 +513,11 @@ export class Program {
 
         this._parseFile(fileToAnalyze, options, importResolver);
 
+        // Parse any other files that this file depends upon.
+        fileToAnalyze.imports.forEach(importedFile => {
+            this._parseFile(importedFile, options, importResolver);
+        });
+
         // We need to parse and bind the builtins import first.
         let builtinsScope: Scope | undefined;
         if (fileToAnalyze.builtinsImport) {
