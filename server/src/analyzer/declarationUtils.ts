@@ -9,12 +9,13 @@
 
 import * as assert from 'assert';
 
+import { getEmptyRange } from '../common/diagnostic';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol } from './symbol';
-import { ClassType, ModuleType, ObjectType, Type, TypeCategory, UnknownType } from './types';
+import { ClassType, ModuleType, ObjectType, Type, TypeCategory } from './types';
 import * as TypeUtils from './typeUtils';
 
 export function getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
@@ -50,6 +51,21 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
 
                 return subtype;
             });
+        }
+    } else if (node.parent && node.parent.nodeType === ParseNodeType.ModuleName) {
+        const namePartIndex = node.parent.nameParts.findIndex(part => part === node);
+        const importInfo = AnalyzerNodeInfo.getImportInfo(node.parent);
+        if (namePartIndex >= 0 && importInfo && namePartIndex < importInfo.resolvedPaths.length) {
+            if (importInfo.resolvedPaths[namePartIndex]) {
+                // Synthesize an alias declaration for this name part. The only
+                // time this case is used is for the hover provider.
+                const aliasDeclaration: AliasDeclaration = {
+                    type: DeclarationType.Alias,
+                    path: importInfo.resolvedPaths[namePartIndex],
+                    range: getEmptyRange()
+                };
+                declarations = [aliasDeclaration];
+            }
         }
     } else {
         const scopeNode = ParseTreeUtils.getScopeNodeForNode(node);
