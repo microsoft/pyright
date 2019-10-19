@@ -122,7 +122,7 @@ export class DefinitionProvider {
 
         declarations.forEach(decl => {
             const resolvedDecl = resolveDeclarationAliases(decl);
-            if (resolvedDecl) {
+            if (resolvedDecl && resolvedDecl.path) {
                 definitions.push({
                     path: resolvedDecl.path,
                     range: resolvedDecl.range
