@@ -43,9 +43,9 @@ import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
+import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeAnalyzer } from './typeAnalyzer';
-import { ModuleType, TypeCategory } from './types';
 
 const _maxImportCyclesPerFile = 4;
 
@@ -107,7 +107,7 @@ export class SourceFile {
     private _parseTreeNeedsCleaning = false;
 
     private _parseResults?: ParseResults;
-    private _moduleType?: ModuleType;
+    private _moduleSymbolTable?: SymbolTable;
 
     // Diagnostics generated during different phases of analysis.
     private _parseDiagnostics: Diagnostic[] = [];
@@ -280,8 +280,8 @@ export class SourceFile {
         return this._builtinsImport;
     }
 
-    getModuleType(): ModuleType | undefined {
-        return this._moduleType;
+    getModuleSymbolTable(): SymbolTable | undefined {
+        return this._moduleSymbolTable;
     }
 
     // Indicates whether the contents of the file have changed since
@@ -318,7 +318,7 @@ export class SourceFile {
         this._fileContentsVersion++;
         this._isTypeAnalysisFinalized = false;
         this._isTypeAnalysisPassNeeded = true;
-        this._moduleType = undefined;
+        this._moduleSymbolTable = undefined;
     }
 
     markReanalysisRequired(): void {
@@ -647,10 +647,7 @@ export class SourceFile {
                 this._bindDiagnostics = fileInfo.diagnosticSink.diagnostics;
                 const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
                 assert(moduleScope !== undefined);
-                const moduleType = AnalyzerNodeInfo.getExpressionType(
-                    this._parseResults!.parseTree);
-                assert(moduleType && moduleType.category === TypeCategory.Module);
-                this._moduleType = moduleType as ModuleType;
+                this._moduleSymbolTable = moduleScope!.getSymbolTable();
             });
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||
@@ -741,7 +738,7 @@ export class SourceFile {
         const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);
 
         const fileInfo: AnalyzerFileInfo = {
-            importMap: importMap || new Map<string, ModuleType>(),
+            importMap: importMap || new Map<string, SymbolTable>(),
             futureImports: this._parseResults!.futureImports,
             builtinsScope,
             typingModulePath: this._typingModulePath,

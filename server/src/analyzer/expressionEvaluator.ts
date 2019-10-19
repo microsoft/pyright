@@ -608,16 +608,12 @@ export class ExpressionEvaluator {
             return undefined;
         }
 
-        const moduleType = this._fileInfo.importMap.get(typingImportPath);
-        if (!moduleType) {
+        const symbolTable = this._fileInfo.importMap.get(typingImportPath);
+        if (!symbolTable) {
             return undefined;
         }
 
-        if (moduleType.category !== TypeCategory.Module) {
-            return undefined;
-        }
-
-        const symbol = ModuleType.getField(moduleType, symbolName);
+        const symbol = symbolTable.get(symbolName);
         if (!symbol) {
             return undefined;
         }

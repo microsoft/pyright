@@ -13,10 +13,10 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Scope } from './scope';
-import { ModuleType } from './types';
+import { SymbolTable } from './symbol';
 
 // Maps import paths to the parse tree for the imported module.
-export type ImportMap = Map<string, ModuleType>;
+export type ImportMap = Map<string, SymbolTable>;
 
 export interface AnalyzerFileInfo {
     importMap: ImportMap;

@@ -54,9 +54,7 @@ export class HoverProvider {
             }
         };
 
-        if (node.nodeType === ParseNodeType.ModuleName) {
-            this._addResultsForModuleNameNode(results.parts, node, offset, importMap);
-        } else if (node.nodeType === ParseNodeType.Name) {
+        if (node.nodeType === ParseNodeType.Name) {
             const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
                 this._addResultsForDeclaration(results.parts, declarations[0], node);
@@ -146,46 +144,6 @@ export class HoverProvider {
                     return;
                 }
                 break;
-            }
-        }
-    }
-
-    private static _addResultsForModuleNameNode(parts: HoverTextPart[], node: ModuleNameNode,
-            offset: number, importMap: ImportMap) {
-
-        // If this is an imported module name, try to map the position
-        // to the resolved import path.
-        const importInfo = AnalyzerNodeInfo.getImportInfo(node);
-        if (!importInfo) {
-            return;
-        }
-
-        let pathOffset = node.nameParts.findIndex(range => {
-            return offset >= range.start && offset < TextRange.getEnd(range);
-        });
-
-        if (pathOffset < 0) {
-            return;
-        }
-
-        if (pathOffset >= importInfo.resolvedPaths.length) {
-            pathOffset = importInfo.resolvedPaths.length - 1;
-        }
-
-        if (importInfo.resolvedPaths[pathOffset]) {
-            const resolvedPath = importInfo.resolvedPaths[pathOffset];
-            this._addResultsPart(parts, '(module) "' + resolvedPath + '"', true);
-
-            if (importInfo.importType === ImportType.ThirdParty && !importInfo.isStubFile) {
-                this._addResultsPart(parts,
-                    'No type stub found for this module. Imported symbol types are unknown.');
-            }
-
-            // If the module has been resolved and already analyzed,
-            // we can add the docString for it as well.
-            const moduleType = importMap.get(resolvedPath);
-            if (moduleType) {
-                this._addDocumentationPartForType(parts, moduleType);
             }
         }
     }

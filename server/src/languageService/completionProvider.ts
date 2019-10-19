@@ -566,10 +566,8 @@ export class CompletionProvider {
 
         const importMap = this._importMapCallback();
 
-        const moduleType = importMap.get(resolvedPath);
-        if (moduleType) {
-            const symbolTable = new SymbolTable();
-            TypeUtils.getMembersForModule(moduleType, symbolTable);
+        const symbolTable = importMap.get(resolvedPath);
+        if (symbolTable) {
             this._addSymbolsForSymbolTable(symbolTable,
                 name => {
                     // Don't suggest symbols that have already been imported.

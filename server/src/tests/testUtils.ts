@@ -15,8 +15,8 @@ import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import { ModuleScopeBinder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
+import { SymbolTable } from '../analyzer/symbol';
 import { TestWalker } from '../analyzer/testWalker';
-import { ModuleType } from '../analyzer/types';
 import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
@@ -77,7 +77,7 @@ export function buildAnalyzerFileInfo(filePath: string, parseResults: ParseResul
     const analysisDiagnostics = new TextRangeDiagnosticSink(parseResults.tokenizerOutput.lines);
 
     const fileInfo: AnalyzerFileInfo = {
-        importMap: new Map<string, ModuleType>(),
+        importMap: new Map<string, SymbolTable>(),
         futureImports: new StringMap<boolean>(),
         builtinsScope: undefined,
         diagnosticSink: analysisDiagnostics,

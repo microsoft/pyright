@@ -2683,16 +2683,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _findCollectionsImportSymbolTable(): SymbolTable | undefined {
-        let moduleType: ModuleType | undefined;
         for (const key of this._fileInfo.importMap.keys()) {
             if (key.endsWith('collections/__init__.pyi')) {
-                moduleType = this._fileInfo.importMap.get(key);
-                break;
+                return this._fileInfo.importMap.get(key);
             }
-        }
-
-        if (moduleType) {
-            return moduleType.fields;
         }
 
         return undefined;
@@ -3055,9 +3049,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        const moduleType = this._fileInfo.importMap.get(path);
-        if (moduleType) {
-            return ModuleType.cloneForLoadedModule(moduleType);
+        const symbolTable = this._fileInfo.importMap.get(path);
+        if (symbolTable) {
+            return ModuleType.cloneForLoadedModule(ModuleType.create(symbolTable));
         } else if (importResult) {
             // There was no module even though the import was resolved. This
             // happens in the case of namespace packages, where an __init__.py

@@ -30,7 +30,7 @@ import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
-import { ModuleType } from './types';
+import { SymbolTable } from './symbol';
 import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
@@ -531,12 +531,12 @@ export class Program {
     }
 
     private _buildImportMap(sourceFileInfo: SourceFileInfo): ImportMap {
-        const importMap: ImportMap = new Map<string, ModuleType>();
+        const importMap: ImportMap = new Map<string, SymbolTable>();
 
         for (const importedFileInfo of sourceFileInfo.imports) {
-            const moduleType = importedFileInfo.sourceFile.getModuleType();
-            if (moduleType) {
-                importMap.set(importedFileInfo.sourceFile.getFilePath(), moduleType);
+            const symbolTable = importedFileInfo.sourceFile.getModuleSymbolTable();
+            if (symbolTable) {
+                importMap.set(importedFileInfo.sourceFile.getFilePath(), symbolTable);
             }
         }
 
@@ -550,9 +550,9 @@ export class Program {
 
         this._sourceFileList.forEach(fileInfo => {
             if (fileInfo !== sourceFileToExclude) {
-                const moduleType = fileInfo.sourceFile.getModuleType();
-                if (moduleType) {
-                    moduleSymbolMap[fileInfo.sourceFile.getFilePath()] = moduleType.fields;
+                const symbolTable = fileInfo.sourceFile.getModuleSymbolTable();
+                if (symbolTable) {
+                    moduleSymbolMap[fileInfo.sourceFile.getFilePath()] = symbolTable;
                 }
             }
         });
