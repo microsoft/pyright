@@ -34,7 +34,7 @@ import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
-import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
+import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ModuleScopeBinder } from './binder';
 import { CircularDependency } from './circularDependency';
@@ -144,6 +144,7 @@ export class SourceFile {
     private _imports?: ImportResult[];
     private _builtinsImport?: ImportResult;
     private _typingModulePath?: string;
+    private _collectionsModulePath?: string;
 
     constructor(filePath: string, isTypeshedStubFile: boolean, isThirdPartyImport: boolean,
             console?: ConsoleInterface) {
@@ -449,7 +450,7 @@ export class SourceFile {
 
             // Resolve imports.
             timingStats.resolveImportsTime.timeOperation(() => {
-                [this._imports, this._builtinsImport, this._typingModulePath] =
+                [this._imports, this._builtinsImport, this._typingModulePath, this._collectionsModulePath] =
                     this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
                 this._parseDiagnostics = diagSink.diagnostics;
             });
@@ -543,14 +544,16 @@ export class SourceFile {
             this._filePath, this._parseResults);
     }
 
-    getHoverForPosition(position: DiagnosticTextPosition, importMap: ImportMap): HoverResults | undefined {
+    getHoverForPosition(position: DiagnosticTextPosition,
+            importLookup: ImportLookup): HoverResults | undefined {
+
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
         return HoverProvider.getHoverForPosition(
-            this._parseResults, position, importMap);
+            this._parseResults, position, importLookup);
     }
 
     getSignatureHelpForPosition(position: DiagnosticTextPosition): SignatureHelpResults | undefined {
@@ -571,7 +574,7 @@ export class SourceFile {
 
     getCompletionsForPosition(position: DiagnosticTextPosition,
             configOptions: ConfigOptions, importResolver: ImportResolver,
-            importMapCallback: () => ImportMap,
+            importLookup: ImportLookup,
             moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
@@ -588,7 +591,7 @@ export class SourceFile {
         const completionProvider = new CompletionProvider(
             this._parseResults, this._fileContents,
             importResolver, position,
-            this._filePath, configOptions, importMapCallback,
+            this._filePath, configOptions, importLookup,
             moduleSymbolsCallback);
 
         return completionProvider.getCompletionsForPosition();
@@ -622,7 +625,7 @@ export class SourceFile {
         this._isTypeAnalysisFinalized = false;
     }
 
-    bind(configOptions: ConfigOptions, builtinsScope?: Scope) {
+    bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope?: Scope) {
         assert(!this.isParseRequired());
         assert(this.isBindingRequired());
         assert(this._parseResults);
@@ -630,7 +633,7 @@ export class SourceFile {
         try {
             // Perform name binding.
             timingStats.bindTime.timeOperation(() => {
-                const fileInfo = this._buildFileInfo(configOptions, undefined, builtinsScope);
+                const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope);
                 this._cleanParseTreeIfRequired();
 
                 const binder = new ModuleScopeBinder(
@@ -672,7 +675,7 @@ export class SourceFile {
         this._isBindingNeeded = false;
     }
 
-    doTypeAnalysis(configOptions: ConfigOptions, importMap: ImportMap) {
+    doTypeAnalysis(configOptions: ConfigOptions, importLookup: ImportLookup) {
         assert(!this.isParseRequired());
         assert(!this.isBindingRequired());
         assert(this.isTypeAnalysisRequired());
@@ -680,7 +683,7 @@ export class SourceFile {
 
         try {
             timingStats.typeAnalyzerTime.timeOperation(() => {
-                const fileInfo = this._buildFileInfo(configOptions, importMap, undefined);
+                const fileInfo = this._buildFileInfo(configOptions, importLookup, undefined);
 
                 // Perform static type analysis.
                 const typeAnalyzer = new TypeAnalyzer(this._parseResults!.parseTree,
@@ -733,15 +736,18 @@ export class SourceFile {
         this._diagnosticVersion++;
     }
 
-    private _buildFileInfo(configOptions: ConfigOptions, importMap?: ImportMap, builtinsScope?: Scope) {
+    private _buildFileInfo(configOptions: ConfigOptions, importLookup: ImportLookup,
+            builtinsScope?: Scope) {
+
         assert(this._parseResults !== undefined);
         const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);
 
         const fileInfo: AnalyzerFileInfo = {
-            importMap: importMap || new Map<string, SymbolTable>(),
+            importLookup,
             futureImports: this._parseResults!.futureImports,
             builtinsScope,
             typingModulePath: this._typingModulePath,
+            collectionsModulePath: this._collectionsModulePath,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
             diagnosticSettings: this._diagnosticSettings,
@@ -768,7 +774,7 @@ export class SourceFile {
     private _resolveImports(importResolver: ImportResolver,
             moduleImports: ModuleImport[],
             execEnv: ExecutionEnvironment):
-            [ImportResult[], ImportResult?, string?] {
+            [ImportResult[], ImportResult?, string?, string?] {
 
         const imports: ImportResult[] = [];
 
@@ -810,6 +816,8 @@ export class SourceFile {
             typingModulePath = typingImportResult.resolvedPaths[0];
         }
 
+        let collectionsModulePath: string | undefined;
+
         for (const moduleImport of moduleImports) {
             const importResult = importResolver.resolveImport(
                 this._filePath,
@@ -820,6 +828,16 @@ export class SourceFile {
                     importedSymbols: moduleImport.importedSymbols
                 }
             );
+
+            // If the file imports the stdlib 'collections' module, stash
+            // away its file path. The type analyzer may need this to
+            // access types defined in the collections module.
+            if (importResult.isImportFound && importResult.isTypeshedFile) {
+                if (moduleImport.nameParts.length >= 1 && moduleImport.nameParts[0] === 'collections') {
+                    collectionsModulePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+                }
+            }
+
             imports.push(importResult);
 
             // Associate the import results with the module import
@@ -828,6 +846,6 @@ export class SourceFile {
             AnalyzerNodeInfo.setImportInfo(moduleImport.nameNode, importResult);
         }
 
-        return [imports, builtinsImportResult, typingModulePath];
+        return [imports, builtinsImportResult, typingModulePath, collectionsModulePath];
     }
 }

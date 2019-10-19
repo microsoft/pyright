@@ -608,7 +608,7 @@ export class ExpressionEvaluator {
             return undefined;
         }
 
-        const symbolTable = this._fileInfo.importMap.get(typingImportPath);
+        const symbolTable = this._fileInfo.importLookup(typingImportPath);
         if (!symbolTable) {
             return undefined;
         }

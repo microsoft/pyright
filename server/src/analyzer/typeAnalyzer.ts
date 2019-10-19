@@ -1432,7 +1432,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const implicitImport = importInfo.implicitImports.find(impImport => impImport.name === name);
                     if (implicitImport) {
                         const moduleType = this._getModuleTypeForImportPath(importInfo, implicitImport.path);
-                        if (moduleType && this._fileInfo.importMap.has(implicitImport.path)) {
+                        if (moduleType && this._fileInfo.importLookup(implicitImport.path)) {
                             symbolType = moduleType;
                             declarations = [{
                                 type: DeclarationType.Module,
@@ -2683,10 +2683,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _findCollectionsImportSymbolTable(): SymbolTable | undefined {
-        for (const key of this._fileInfo.importMap.keys()) {
-            if (key.endsWith('collections/__init__.pyi')) {
-                return this._fileInfo.importMap.get(key);
-            }
+        if (this._fileInfo.collectionsModulePath) {
+            return this._fileInfo.importLookup(this._fileInfo.collectionsModulePath);
         }
 
         return undefined;
@@ -3049,7 +3047,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        const symbolTable = this._fileInfo.importMap.get(path);
+        const symbolTable = this._fileInfo.importLookup(path);
         if (symbolTable) {
             return ModuleType.cloneForLoadedModule(ModuleType.create(symbolTable));
         } else if (importResult) {

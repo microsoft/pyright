@@ -11,7 +11,7 @@
 import { CompletionItem, CompletionItemKind, CompletionList,
     MarkupKind, TextEdit } from 'vscode-languageserver';
 
-import { ImportMap } from '../analyzer/analyzerFileInfo';
+import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { getTypeForDeclaration } from '../analyzer/declarationUtils';
@@ -142,7 +142,7 @@ export class CompletionProvider {
         private _position: DiagnosticTextPosition,
         private _filePath: string,
         private _configOptions: ConfigOptions,
-        private _importMapCallback: () => ImportMap,
+        private _importLookup: ImportLookup,
         private _moduleSymbolsCallback: () => ModuleSymbolMap) {
     }
 
@@ -564,9 +564,7 @@ export class CompletionProvider {
         const resolvedPath = importInfo.resolvedPaths.length > 0 ?
             importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
 
-        const importMap = this._importMapCallback();
-
-        const symbolTable = importMap.get(resolvedPath);
+        const symbolTable = this._importLookup(resolvedPath);
         if (symbolTable) {
             this._addSymbolsForSymbolTable(symbolTable,
                 name => {

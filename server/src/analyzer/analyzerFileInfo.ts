@@ -15,14 +15,15 @@ import { TextRangeCollection } from '../common/textRangeCollection';
 import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 
-// Maps import paths to the parse tree for the imported module.
-export type ImportMap = Map<string, SymbolTable>;
+// Maps import paths to the symbol table for the imported module.
+export type ImportLookup = (filePath: string) => SymbolTable | undefined;
 
 export interface AnalyzerFileInfo {
-    importMap: ImportMap;
+    importLookup: ImportLookup;
     futureImports: StringMap<boolean>;
     builtinsScope?: Scope;
     typingModulePath?: string;
+    collectionsModulePath?: string;
     diagnosticSink: TextRangeDiagnosticSink;
     executionEnvironment: ExecutionEnvironment;
     diagnosticSettings: DiagnosticSettings;

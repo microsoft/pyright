@@ -77,7 +77,7 @@ export function buildAnalyzerFileInfo(filePath: string, parseResults: ParseResul
     const analysisDiagnostics = new TextRangeDiagnosticSink(parseResults.tokenizerOutput.lines);
 
     const fileInfo: AnalyzerFileInfo = {
-        importMap: new Map<string, SymbolTable>(),
+        importLookup: _ => undefined,
         futureImports: new StringMap<boolean>(),
         builtinsScope: undefined,
         diagnosticSink: analysisDiagnostics,

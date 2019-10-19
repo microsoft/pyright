@@ -9,17 +9,16 @@
 * position within a smart editor.
 */
 
-import { ImportMap } from '../analyzer/analyzerFileInfo';
+import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
-import { ImportType } from '../analyzer/importResult';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ClassType, FunctionType, printType, Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { ModuleNameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface HoverTextPart {
@@ -34,7 +33,7 @@ export interface HoverResults {
 
 export class HoverProvider {
     static getHoverForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
-            importMap: ImportMap): HoverResults | undefined {
+            importLookup: ImportLookup): HoverResults | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {

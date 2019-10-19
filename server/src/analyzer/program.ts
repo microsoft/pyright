@@ -23,7 +23,6 @@ import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
-import { ImportMap } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
@@ -527,20 +526,16 @@ export class Program {
             }
         }
 
-        fileToAnalyze.sourceFile.bind(options, builtinsScope);
+        fileToAnalyze.sourceFile.bind(options, this._lookUpImport, builtinsScope);
     }
 
-    private _buildImportMap(sourceFileInfo: SourceFileInfo): ImportMap {
-        const importMap: ImportMap = new Map<string, SymbolTable>();
-
-        for (const importedFileInfo of sourceFileInfo.imports) {
-            const symbolTable = importedFileInfo.sourceFile.getModuleSymbolTable();
-            if (symbolTable) {
-                importMap.set(importedFileInfo.sourceFile.getFilePath(), symbolTable);
-            }
+    private _lookUpImport = (filePath: string): SymbolTable | undefined => {
+        const sourceFileInfo = this._sourceFileMap[filePath];
+        if (!sourceFileInfo) {
+            return undefined;
         }
 
-        return importMap;
+        return sourceFileInfo.sourceFile.getModuleSymbolTable();
     }
 
     // Build a map of all modules within this program and the module-
@@ -590,15 +585,12 @@ export class Program {
             closureMap.set(fileToAnalyze.sourceFile.getFilePath(), false);
 
             if (fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
-                // Build the import map for the file.
-                const importMap = this._buildImportMap(fileToAnalyze);
-
                 // Do a type analysis pass and determine if any internal changes occurred
                 // during the pass. If so, continue to analyze until it stops changing and
                 // mark all of its dependencies as needing to be reanalyzed.
                 let didAnalysisChange = false;
                 while (true) {
-                    fileToAnalyze.sourceFile.doTypeAnalysis(options, importMap);
+                    fileToAnalyze.sourceFile.doTypeAnalysis(options, this._lookUpImport);
 
                     if (!fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
                         break;
@@ -914,7 +906,7 @@ export class Program {
         }
 
         return sourceFileInfo.sourceFile.getHoverForPosition(position,
-            this._buildImportMap(sourceFileInfo));
+            this._lookUpImport);
     }
 
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition,
@@ -955,7 +947,7 @@ export class Program {
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
             position, options, importResolver,
-            () => this._buildImportMap(sourceFileInfo),
+            this._lookUpImport,
             () => this._buildModuleSymbolsMap(sourceFileInfo));
     }
 
