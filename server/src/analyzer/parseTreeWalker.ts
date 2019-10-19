@@ -285,7 +285,7 @@ export class ParseTreeWalker {
 
             case ParseNodeType.ModuleName:
                 if (this.visitModuleName(node)) {
-                    return [];
+                    return node.nameParts;
                 }
                 break;
 
