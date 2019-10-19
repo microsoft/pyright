@@ -339,7 +339,7 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
 
 export function getFileSpec(rootPath: string, fileSpec: string): FileSpec {
     let regExPattern = getWildcardRegexPattern(rootPath, fileSpec);
-    let escapedSeparator = path.sep === '/' ? '/' : '\\\\';
+    const escapedSeparator = path.sep === '/' ? '/' : '\\\\';
     regExPattern = `^(${ regExPattern })($|${ escapedSeparator })`;
 
     const regExp = new RegExp(regExPattern);
