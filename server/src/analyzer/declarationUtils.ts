@@ -11,6 +11,7 @@ import * as assert from 'assert';
 
 import { getEmptyRange } from '../common/diagnostic';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -89,44 +90,20 @@ export function isFunctionOrMethodDeclaration(declaration: Declaration) {
     return declaration.type === DeclarationType.Method || declaration.type === DeclarationType.Function;
 }
 
-export function resolveDeclarationAliases(declaration: Declaration) {
-    let resolvedDeclaration: Declaration | undefined = declaration;
-    const resolvedDeclarations: AliasDeclaration[] = [];
-
-    while (resolvedDeclaration && resolvedDeclaration.type === DeclarationType.Alias) {
-        // Detect circular dependencies.
-        if (resolvedDeclarations.find(decl => decl === resolvedDeclaration)) {
-            return undefined;
-        }
-
-        resolvedDeclarations.push(resolvedDeclaration);
-        resolvedDeclaration = resolvedDeclaration.resolvedDeclarations ?
-            resolvedDeclaration.resolvedDeclarations[0] : undefined;
-    }
-
-    return resolvedDeclaration;
-}
-
 export function getTypeForDeclaration(declaration: Declaration): Type | undefined {
-    const resolvedDeclaration = resolveDeclarationAliases(declaration);
-
-    if (!resolvedDeclaration) {
-        return undefined;
-    }
-
-    switch (resolvedDeclaration.type) {
+    switch (declaration.type) {
         case DeclarationType.BuiltIn:
-            return resolvedDeclaration.declaredType;
+            return declaration.declaredType;
 
         case DeclarationType.Class:
-            return AnalyzerNodeInfo.getExpressionType(resolvedDeclaration.node.name);
+            return AnalyzerNodeInfo.getExpressionType(declaration.node.name);
 
         case DeclarationType.Function:
         case DeclarationType.Method:
-            return AnalyzerNodeInfo.getExpressionType(resolvedDeclaration.node.name);
+            return AnalyzerNodeInfo.getExpressionType(declaration.node.name);
 
         case DeclarationType.Parameter: {
-            let typeAnnotationNode = resolvedDeclaration.node.typeAnnotation;
+            let typeAnnotationNode = declaration.node.typeAnnotation;
             if (typeAnnotationNode && typeAnnotationNode.nodeType === ParseNodeType.StringList) {
                 typeAnnotationNode = typeAnnotationNode.typeAnnotation;
             }
@@ -141,7 +118,7 @@ export function getTypeForDeclaration(declaration: Declaration): Type | undefine
         }
 
         case DeclarationType.Variable: {
-            let typeAnnotationNode = resolvedDeclaration.typeAnnotationNode;
+            let typeAnnotationNode = declaration.typeAnnotationNode;
             if (typeAnnotationNode && typeAnnotationNode.nodeType === ParseNodeType.StringList) {
                 typeAnnotationNode = typeAnnotationNode.typeAnnotation;
             }
@@ -156,20 +133,14 @@ export function getTypeForDeclaration(declaration: Declaration): Type | undefine
             return undefined;
         }
 
-        case DeclarationType.Module:
-            return resolvedDeclaration.moduleType;
+        case DeclarationType.Alias: {
+            return undefined;
+        }
     }
 }
 
-export function hasTypeForDeclaration(declaration: Declaration, resolveAliases = true): boolean {
-    const resolvedDeclaration = resolveAliases ?
-        resolveDeclarationAliases(declaration) : declaration;
-
-    if (!resolvedDeclaration) {
-        return false;
-    }
-
-    switch (resolvedDeclaration.type) {
+export function hasTypeForDeclaration(declaration: Declaration): boolean {
+    switch (declaration.type) {
         case DeclarationType.BuiltIn:
         case DeclarationType.Class:
         case DeclarationType.Function:
@@ -177,13 +148,10 @@ export function hasTypeForDeclaration(declaration: Declaration, resolveAliases =
             return true;
 
         case DeclarationType.Parameter:
-            return !!resolvedDeclaration.node.typeAnnotation;
+            return !!declaration.node.typeAnnotation;
 
         case DeclarationType.Variable:
-            return !!resolvedDeclaration.typeAnnotationNode;
-
-        case DeclarationType.Module:
-            return true;
+            return !!declaration.typeAnnotationNode;
 
         case DeclarationType.Alias:
             return false;

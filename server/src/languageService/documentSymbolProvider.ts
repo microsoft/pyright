@@ -118,7 +118,10 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
                 }
                 break;
 
-            case DeclarationType.Module:
+            case DeclarationType.Alias:
+                if (declaration.symbolName) {
+                    // TODO - need to look up symbol type
+                }
                 symbolKind = SymbolKind.Module;
                 break;
 

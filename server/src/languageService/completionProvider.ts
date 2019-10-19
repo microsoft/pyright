@@ -666,7 +666,7 @@ export class CompletionProvider {
                         typeDetail = 'class ' + name + '()';
                         break;
 
-                    case DeclarationType.Module:
+                    case DeclarationType.Alias:
                     default:
                         typeDetail = name;
                         break;
@@ -859,15 +859,11 @@ export class CompletionProvider {
             case DeclarationType.Class:
                 return CompletionItemKind.Class;
 
-            case DeclarationType.Module:
-                return CompletionItemKind.Module;
-
             case DeclarationType.Alias:
-                if (declaration.resolvedDeclarations) {
-                    return this._convertDeclarationTypeToItemKind(
-                        declaration.resolvedDeclarations[0], type);
+                if (declaration.symbolName) {
+                    // TODO - need to resolve the alias
                 }
-                return CompletionItemKind.Variable;
+                return CompletionItemKind.Module;
         }
     }
 

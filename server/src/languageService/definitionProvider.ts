@@ -12,7 +12,6 @@
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
-import { resolveDeclarationAliases } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol } from '../analyzer/symbol';
 import { ModuleType, TypeCategory } from '../analyzer/types';
@@ -121,7 +120,8 @@ export class DefinitionProvider {
             declarations: Declaration[]) {
 
         declarations.forEach(decl => {
-            const resolvedDecl = resolveDeclarationAliases(decl);
+            // TODO - need to resolve alias declarations
+            const resolvedDecl = decl; //resolveDeclarationAliases(decl);
             if (resolvedDecl && resolvedDecl.path) {
                 definitions.push({
                     path: resolvedDecl.path,

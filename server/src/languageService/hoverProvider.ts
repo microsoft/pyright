@@ -72,19 +72,9 @@ export class HoverProvider {
     private static _addResultsForDeclaration(parts: HoverTextPart[],
             declaration: Declaration, node: ParseNode): void {
 
-        let resolvedDecl: Declaration | undefined = declaration;
-        while (resolvedDecl && resolvedDecl.type === DeclarationType.Alias) {
-            resolvedDecl = resolvedDecl.resolvedDeclarations ?
-                resolvedDecl.resolvedDeclarations[0] : undefined;
-        }
-
-        if (!resolvedDecl) {
-            return undefined;
-        }
-
-        switch (resolvedDecl.type) {
+        switch (declaration.type) {
             case DeclarationType.Variable: {
-                const label = resolvedDecl.isConstant ? 'constant' : 'variable';
+                const label = declaration.isConstant ? 'constant' : 'variable';
                 if (node.nodeType === ParseNodeType.Name) {
                     this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
                         this._getTypeText(node), true);
@@ -124,7 +114,7 @@ export class HoverProvider {
             }
 
             case DeclarationType.Method: {
-                const declaredType = DeclarationUtils.getTypeForDeclaration(resolvedDecl);
+                const declaredType = DeclarationUtils.getTypeForDeclaration(declaration);
                 const label = declaredType && declaredType.category === TypeCategory.Property ?
                     'property' : 'method';
                 if (node.nodeType === ParseNodeType.Name) {
@@ -136,9 +126,13 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationType.Module: {
+            case DeclarationType.Alias: {
+                if (declaration.symbolName) {
+                    // TODO - need to resolve alias and present the right type
+                }
                 if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(module) ' + node.nameToken.value, true);
+                    this._addResultsPart(parts, '(module) ' + node.nameToken.value +
+                        this._getTypeText(node), true);
                     this._addDocumentationPart(parts, node);
                     return;
                 }

@@ -21,7 +21,6 @@ export const enum DeclarationType {
     Function,
     Method,
     Class,
-    Module,
     Alias
 }
 
@@ -70,11 +69,6 @@ export interface VariableDeclaration extends DeclarationBase {
     isConstant?: boolean;
 }
 
-export interface ModuleDeclaration extends DeclarationBase {
-    type: DeclarationType.Module;
-    moduleType: ModuleType;
-}
-
 // Alias declarations are used for imports. They are resolved
 // after the binding phase.
 export interface AliasDeclaration extends DeclarationBase {
@@ -86,10 +80,12 @@ export interface AliasDeclaration extends DeclarationBase {
     // the module itself.
     symbolName?: string;
 
-    // The resolved declaration.
-    resolvedDeclarations?: Declaration[];
+    // If there is no symbol specified and the entire module
+    // is referenced, should the module type include the
+    // implicit imports within its namespace?
+    includeImplicitImports?: boolean;
 }
 
 export type Declaration = BuiltInDeclaration | ClassDeclaration |
     FunctionDeclaration | ParameterDeclaration | VariableDeclaration |
-    ModuleDeclaration | AliasDeclaration;
+    AliasDeclaration;
