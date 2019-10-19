@@ -673,7 +673,6 @@ export class SourceFile {
         this._diagnosticVersion++;
         this._typeAnalysisPassNumber = 1;
         this._lastReanalysisReason = '';
-        this._circularDependencies = [];
         this._isTypeAnalysisPassNeeded = true;
         this._isTypeAnalysisFinalized = false;
         this._isBindingNeeded = false;
@@ -722,6 +721,11 @@ export class SourceFile {
             this._isTypeAnalysisPassNeeded = false;
             this._typeAnalysisLastPassDiagnostics = diagSink.diagnostics;
         }
+
+        // Clear any circular dependencies associated with this file.
+        // These will be detected by the program module and associated
+        // with the source file right before it is finalized.
+        this._circularDependencies = [];
     }
 
     // This method should be called once type analysis has completed for
