@@ -307,7 +307,9 @@ export class Program {
 
             // Now do binding of the open files.
             for (const sourceFileInfo of openFiles) {
-                this._bindFile(sourceFileInfo, options, importResolver);
+                if (this._bindFile(sourceFileInfo, options, importResolver, isTimeElapsedOpenFiles)) {
+                    return true;
+                }
 
                 if (isTimeElapsedOpenFiles()) {
                     return true;
@@ -504,12 +506,15 @@ export class Program {
         }
     }
 
+    // Binds the specified file and all of its dependencies, recursively. If
+    // it runs out of time, it returns true. If it completes, it returns false.
     private _bindFile(fileToAnalyze: SourceFileInfo,
             options: ConfigOptions, importResolver: ImportResolver,
-            recursionMap: Map<string, true> = new Map<string, true>()) {
+            timeElapsedCallback: () => boolean,
+            recursionMap: Map<string, true> = new Map<string, true>()): boolean {
 
         if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) {
-            return;
+            return false;
         }
 
         this._parseFile(fileToAnalyze, options, importResolver);
@@ -517,7 +522,11 @@ export class Program {
         // We need to parse and bind the builtins import first.
         let builtinsScope: Scope | undefined;
         if (fileToAnalyze.builtinsImport) {
-            this._bindFile(fileToAnalyze.builtinsImport, options, importResolver);
+            if (this._bindFile(fileToAnalyze.builtinsImport, options,
+                    importResolver, timeElapsedCallback)) {
+
+                return true;
+            }
 
             // Get the builtins scope to pass to the binding pass.
             const parseResults = fileToAnalyze.builtinsImport.sourceFile.getParseResults();
@@ -529,17 +538,26 @@ export class Program {
             const filePath = fileToAnalyze.sourceFile.getFilePath();
             if (recursionMap.has(filePath)) {
                 // Avoid infinite recursion for cyclical dependencies.
-                return;
+                return false;
             }
 
             // Bind any other files that this file depends upon.
             recursionMap.set(filePath, true);
-            fileToAnalyze.imports.forEach(importedFile => {
-                this._bindFile(importedFile, options, importResolver, recursionMap);
-            });
+            for (const importedFile of fileToAnalyze.imports) {
+                if (this._bindFile(importedFile, options, importResolver,
+                        timeElapsedCallback, recursionMap)) {
+
+                    return true;
+                }
+            }
+        }
+
+        if (timeElapsedCallback()) {
+            return true;
         }
 
         fileToAnalyze.sourceFile.bind(options, this._lookUpImport, builtinsScope);
+        return false;
     }
 
     private _lookUpImport = (filePath: string): ImportLookupResult | undefined => {
@@ -705,7 +723,10 @@ export class Program {
         }
 
         // Make sure the file is parsed and bound.
-        this._bindFile(fileToAnalyze, options, importResolver);
+        if (this._bindFile(fileToAnalyze, options, importResolver, timeElapsedCallback)) {
+            return true;
+        }
+
         if (timeElapsedCallback()) {
             return true;
         }
