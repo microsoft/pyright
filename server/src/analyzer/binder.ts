@@ -28,15 +28,16 @@ import { TextRange } from '../common/textRange';
 import { AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     AwaitExpressionNode, ClassNode, DelNode, ExceptNode, ExpressionNode, ForNode,
     FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromNode, LambdaNode,
-    ListComprehensionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
-    ParseNode, ParseNodeArray, ParseNodeType, RaiseNode, StatementNode, StringListNode,
-    SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode, WithNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    ListComprehensionNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode,
+    NonlocalNode, ParseNode, ParseNodeType, RaiseNode, StatementNode,
+    StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
+    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { AliasDeclaration, DeclarationType, ModuleLoaderActions } from './declaration';
+import { AliasDeclaration, DeclarationType, ModuleLoaderActions,
+    VariableDeclaration } from './declaration';
 import * as DocStringUtils from './docStringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { defaultTypeSourceId, TypeSourceId } from './inferredType';
@@ -46,8 +47,9 @@ import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
 import { SymbolFlags } from './symbol';
+import { isConstantName } from './symbolNameUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ModuleType, Type, TypeCategory, UnknownType } from './types';
+    FunctionTypeFlags, Type, TypeCategory, UnknownType } from './types';
 
 type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;
 
@@ -57,6 +59,13 @@ export const enum NameBindingType {
 
     // With "global" keyword
     Global
+}
+
+interface MemberAccessInfo {
+    classNode: ClassNode;
+    methodNode: FunctionNode;
+    classScope: Scope;
+    isInstanceMember: boolean;
 }
 
 export abstract class Binder extends ParseTreeWalker {
@@ -360,17 +369,25 @@ export abstract class Binder extends ParseTreeWalker {
     visitAssignment(node: AssignmentNode) {
         if (!this._handleTypingStubAssignment(node)) {
             this._bindPossibleTupleNamedTarget(node.leftExpression);
+
+            if (node.typeAnnotationComment) {
+                this._addTypeDeclarationForVariable(node.leftExpression, node.typeAnnotationComment);
+            }
+
+            this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression);
         }
         return true;
     }
 
     visitAssignmentExpression(node: AssignmentExpressionNode) {
         this._bindPossibleTupleNamedTarget(node.name);
+        this._addInferredTypeAssignmentForVariable(node.name, node.rightExpression);
         return true;
     }
 
     visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode) {
         this._bindPossibleTupleNamedTarget(node.leftExpression);
+        this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression);
         return true;
     }
 
@@ -383,12 +400,13 @@ export abstract class Binder extends ParseTreeWalker {
 
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
         this._bindPossibleTupleNamedTarget(node.valueExpression);
-
+        this._addTypeDeclarationForVariable(node.valueExpression, node.typeAnnotation);
         return true;
     }
 
     visitFor(node: ForNode) {
         this._bindPossibleTupleNamedTarget(node.targetExpression);
+        this._addInferredTypeAssignmentForVariable(node.targetExpression, node);
         return true;
     }
 
@@ -414,7 +432,18 @@ export abstract class Binder extends ParseTreeWalker {
 
     visitExcept(node: ExceptNode): boolean {
         if (node.name) {
-            this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+            const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+            if (symbol) {
+                const declaration: VariableDeclaration = {
+                    type: DeclarationType.Variable,
+                    node: node.name,
+                    isConstant: isConstantName(node.name.nameToken.value),
+                    path: this._fileInfo.filePath,
+                    range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
+                        this._fileInfo.lines)
+                };
+                symbol.addDeclaration(declaration);
+            }
         }
 
         return true;
@@ -739,6 +768,7 @@ export abstract class Binder extends ParseTreeWalker {
         node.withItems.forEach(item => {
             if (item.target) {
                 this._bindPossibleTupleNamedTarget(item.target);
+                this._addInferredTypeAssignmentForVariable(item.target, item);
             }
         });
 
@@ -785,21 +815,21 @@ export abstract class Binder extends ParseTreeWalker {
         return undefined;
     }
 
-    protected _bindPossibleTupleNamedTarget(node: ExpressionNode) {
-        if (node.nodeType === ParseNodeType.Name) {
-            this._bindNameToScope(this._currentScope, node.nameToken.value);
-        } else if (node.nodeType === ParseNodeType.Tuple) {
-            node.expressions.forEach(expr => {
+    protected _bindPossibleTupleNamedTarget(target: ExpressionNode) {
+        if (target.nodeType === ParseNodeType.Name) {
+            this._bindNameToScope(this._currentScope, target.nameToken.value);
+        } else if (target.nodeType === ParseNodeType.Tuple) {
+            target.expressions.forEach(expr => {
                 this._bindPossibleTupleNamedTarget(expr);
             });
-        } else if (node.nodeType === ParseNodeType.List) {
-            node.entries.forEach(expr => {
+        } else if (target.nodeType === ParseNodeType.List) {
+            target.entries.forEach(expr => {
                 this._bindPossibleTupleNamedTarget(expr);
             });
-        } else if (node.nodeType === ParseNodeType.TypeAnnotation) {
-            this._bindPossibleTupleNamedTarget(node.valueExpression);
-        } else if (node.nodeType === ParseNodeType.Unpack) {
-            this._bindPossibleTupleNamedTarget(node.expression);
+        } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
+            this._bindPossibleTupleNamedTarget(target.valueExpression);
+        } else if (target.nodeType === ParseNodeType.Unpack) {
+            this._bindPossibleTupleNamedTarget(target.expression);
         }
     }
 
@@ -885,6 +915,213 @@ export abstract class Binder extends ParseTreeWalker {
         }
 
         return DocStringUtils.decodeDocString(docStringNode.strings[0].value);
+    }
+
+    private _addInferredTypeAssignmentForVariable(target: ExpressionNode, source: ParseNode) {
+        if (target.nodeType === ParseNodeType.Name) {
+            const name = target.nameToken;
+            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
+            if (symbolWithScope && symbolWithScope.symbol) {
+                const declaration: VariableDeclaration = {
+                    type: DeclarationType.Variable,
+                    node: target,
+                    isConstant: isConstantName(target.nameToken.value),
+                    inferredTypeSource: source,
+                    path: this._fileInfo.filePath,
+                    range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
+                };
+                symbolWithScope.symbol.addDeclaration(declaration);
+            }
+        } else if (target.nodeType === ParseNodeType.MemberAccess) {
+            const memberAccessInfo = this._getMemberAccessInfo(target);
+            if (memberAccessInfo) {
+                const name = target.memberName.nameToken;
+
+                let symbol = memberAccessInfo.classScope.lookUpSymbol(name.value);
+                if (!symbol) {
+                    symbol = memberAccessInfo.classScope.addSymbol(name.value,
+                        SymbolFlags.InitiallyUnbound);
+                }
+
+                if (memberAccessInfo.isInstanceMember) {
+                    symbol.setIsInstanceMember();
+                } else {
+                    symbol.setIsClassMember();
+                }
+
+                const declaration: VariableDeclaration = {
+                    type: DeclarationType.Variable,
+                    node: target.memberName,
+                    isConstant: isConstantName(name.value),
+                    inferredTypeSource: source,
+                    path: this._fileInfo.filePath,
+                    range: convertOffsetsToRange(target.memberName.start,
+                        target.memberName.start + target.memberName.length,
+                        this._fileInfo.lines)
+                };
+                symbol.addDeclaration(declaration);
+            }
+        } else if (target.nodeType === ParseNodeType.Tuple) {
+            target.expressions.forEach(expr => {
+                this._addInferredTypeAssignmentForVariable(expr, source);
+            });
+        } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
+            this._addInferredTypeAssignmentForVariable(target.valueExpression, source);
+        } else if (target.nodeType === ParseNodeType.Unpack) {
+            this._addInferredTypeAssignmentForVariable(target.expression, source);
+        } else if (target.nodeType === ParseNodeType.List) {
+            target.entries.forEach(entry => {
+                this._addInferredTypeAssignmentForVariable(entry, source);
+            });
+        }
+    }
+
+    private _addTypeDeclarationForVariable(target: ExpressionNode, typeAnnotation: ExpressionNode) {
+        let declarationHandled = false;
+
+        if (target.nodeType === ParseNodeType.Name) {
+            const name = target.nameToken;
+            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
+            if (symbolWithScope && symbolWithScope.symbol) {
+                const declaration: VariableDeclaration = {
+                    type: DeclarationType.Variable,
+                    node: target,
+                    isConstant: isConstantName(name.value),
+                    path: this._fileInfo.filePath,
+                    typeAnnotationNode: typeAnnotation,
+                    range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
+                };
+                symbolWithScope.symbol.addDeclaration(declaration);
+            }
+
+            declarationHandled = true;
+        } else if (target.nodeType === ParseNodeType.MemberAccess) {
+            // We need to determine whether this expression is declaring a class or
+            // instance variable. This is difficult because python doesn't provide
+            // a keyword for accessing "this". Instead, it uses naming conventions
+            // of "cls" and "self", but we don't want to rely on these naming
+            // conventions here. Instead, we'll apply some heuristics to determine
+            // whether the symbol on the LHS is a reference to the current class
+            // or an instance of the current class.
+
+            const memberAccessInfo = this._getMemberAccessInfo(target);
+            if (memberAccessInfo) {
+                const name = target.memberName.nameToken;
+
+                let symbol = memberAccessInfo.classScope.lookUpSymbol(name.value);
+                if (!symbol) {
+                    symbol = memberAccessInfo.classScope.addSymbol(name.value,
+                        SymbolFlags.InitiallyUnbound);
+                }
+
+                if (memberAccessInfo.isInstanceMember) {
+                    symbol.setIsInstanceMember();
+                } else {
+                    symbol.setIsClassMember();
+                }
+
+                const declaration: VariableDeclaration = {
+                    type: DeclarationType.Variable,
+                    node: target.memberName,
+                    isConstant: isConstantName(name.value),
+                    path: this._fileInfo.filePath,
+                    typeAnnotationNode: typeAnnotation,
+                    range: convertOffsetsToRange(target.memberName.start,
+                        target.memberName.start + target.memberName.length,
+                        this._fileInfo.lines)
+                };
+                symbol.addDeclaration(declaration);
+
+                declarationHandled = true;
+            }
+        }
+
+        if (!declarationHandled) {
+            this._addError(
+                `Type annotation not supported for this type of expression`,
+                typeAnnotation);
+        }
+    }
+
+    // Determines whether a member access expression is referring to a
+    // member of a class (either a class or instance member). This will
+    // typically take the form "self.x" or "cls.x".
+    private _getMemberAccessInfo(node: MemberAccessExpressionNode): MemberAccessInfo | undefined {
+        // We handle only simple names on the left-hand side of the expression,
+        // not calls, nested member accesses, index expressions, etc.
+        if (node.leftExpression.nodeType !== ParseNodeType.Name) {
+            return undefined;
+        }
+
+        const leftSymbolName = node.leftExpression.nameToken.value;
+
+        // Make sure the expression is within a function (i.e. a method) that's
+        // within a class definition.
+        const methodNode = ParseTreeUtils.getEnclosingFunction(node);
+        if (!methodNode) {
+            return undefined;
+        }
+
+        const classNode = ParseTreeUtils.getEnclosingClass(methodNode);
+        if (!classNode) {
+            return undefined;
+        }
+
+        // Determine whether the left-hand side indicates a class or
+        // instance member.
+        let isInstanceMember = false;
+
+        if (methodNode.parameters.length < 1 || !methodNode.parameters[0].name) {
+            return undefined;
+        }
+
+        const className = classNode.name.nameToken.value;
+        const firstParamName = methodNode.parameters[0].name.nameToken.value;
+
+        if (leftSymbolName === className) {
+            isInstanceMember = false;
+        } else {
+            if (leftSymbolName !== firstParamName) {
+                return undefined;
+            }
+
+            // To determine whether the first parameter of the method
+            // refers to the class or the instance, we need to apply
+            // some heuristics.
+            if (methodNode.name.nameToken.value === '__new__') {
+                // The __new__ method is special. It acts as a classmethod even
+                // though it doesn't have a @classmethod decorator.
+                isInstanceMember = false;
+            } else {
+                // Assume that it's an instance member unless we find
+                // a decorator that tells us otherwise.
+                isInstanceMember = true;
+                for (const decorator of methodNode.decorators) {
+                    if (decorator.leftExpression.nodeType === ParseNodeType.Name) {
+                        const decoratorName = decorator.leftExpression.nameToken.value;
+
+                        if (decoratorName === 'staticmethod') {
+                            // A static method doesn't have a "self" or "cls" parameter.
+                            return undefined;
+                        } else if (decoratorName === 'classmethod') {
+                            // A classmethod implies that the first parameter is "cls".
+                            isInstanceMember = false;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        const classScope = AnalyzerNodeInfo.getScope(classNode)!;
+        assert(classScope !== undefined);
+
+        return {
+            classNode,
+            methodNode,
+            classScope,
+            isInstanceMember
+        };
     }
 
     private _addImplicitImportsToLoaderActions(importResult: ImportResult, loaderActions: ModuleLoaderActions) {

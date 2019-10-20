@@ -9,8 +9,9 @@
 * in the program.
 */
 
+import { getEmptyRange } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
-import { Declaration } from './declaration';
+import { Declaration, DeclarationType } from './declaration';
 import { areDeclarationsSame, hasTypeForDeclaration } from './declarationUtils';
 import { InferredType, TypeSourceId } from './inferredType';
 import { Type } from './types';
@@ -62,9 +63,14 @@ export class Symbol {
         this._flags = flags;
     }
 
-    static createWithType(flags: SymbolFlags, type: Type, typeSourceId: TypeSourceId) {
+    static createWithType(flags: SymbolFlags, type: Type) {
         const newSymbol = new Symbol(flags);
-        newSymbol.setInferredTypeForSource(type, typeSourceId);
+        newSymbol.addDeclaration({
+            type: DeclarationType.BuiltIn,
+            path: '',
+            range: getEmptyRange(),
+            declaredType: type
+        });
         return newSymbol;
     }
 
@@ -156,6 +162,11 @@ export class Symbol {
 
     getDeclarations() {
         return this._declarations ? this._declarations : [];
+    }
+
+    hasTypedDeclarations() {
+        return this.getDeclarations().some(
+            decl => hasTypeForDeclaration(decl));
     }
 
     getTypedDeclarations() {

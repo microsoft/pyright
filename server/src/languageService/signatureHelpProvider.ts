@@ -109,12 +109,19 @@ export class SignatureHelpProvider {
             if (subtype.category === TypeCategory.Function || subtype.category === TypeCategory.OverloadedFunction) {
                 this._addSignatureToResults(results, subtype);
             } else if (subtype.category === TypeCategory.Class) {
-                const methodType = this._getBoundMethod(subtype, '__init__');
+                // Try to get the __new__ method first. We skip the base "object",
+                // which typically provides the __new__ method. We'll fall back on
+                // the __init__ if there is no custom __new__.
+                let methodType = this._getBoundMethod(subtype, '__new__', true);
+                if (!methodType) {
+                    methodType = this._getBoundMethod(subtype, '__init__', false);
+                }
                 if (methodType) {
                     this._addSignatureToResults(results, methodType);
                 }
             } else if (subtype.category === TypeCategory.Object) {
-                const methodType = this._getBoundMethod(subtype.classType, '__call__');
+                const methodType = this._getBoundMethod(
+                    subtype.classType, '__call__', false);
                 if (methodType) {
                     this._addSignatureToResults(results, methodType);
                 }
@@ -138,7 +145,8 @@ export class SignatureHelpProvider {
         }
     }
 
-    private static _getBoundMethod(classType: ClassType, memberName: string):
+    private static _getBoundMethod(classType: ClassType, memberName: string,
+        treatAsClassMember: boolean):
             FunctionType | OverloadedFunctionType | undefined {
 
         const aliasClass = ClassType.getAliasClass(classType);
@@ -156,7 +164,8 @@ export class SignatureHelpProvider {
                     unboundMethodType.category === TypeCategory.OverloadedFunction) {
 
                 const boundMethod = TypeUtils.bindFunctionToClassOrObject(
-                    ObjectType.create(classType), unboundMethodType);
+                    ObjectType.create(classType), unboundMethodType,
+                    treatAsClassMember);
 
                 if (boundMethod.category === TypeCategory.Function ||
                         boundMethod.category === TypeCategory.OverloadedFunction) {

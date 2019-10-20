@@ -62,7 +62,11 @@ export interface VariableDeclaration extends DeclarationBase {
     type: DeclarationType.Variable;
     node: NameNode | StringListNode;
 
+    // An explicit type annotation, if provided
     typeAnnotationNode?: ExpressionNode;
+
+    // A source of the inferred type
+    inferredTypeSource?: ParseNode;
 
     // Is the declaration considered "constant" (i.e.
     // reassignment is not permitted)?

@@ -14,7 +14,6 @@ import * as assert from 'assert';
 import { DiagnosticLevel } from '../common/configOptions';
 import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
@@ -29,8 +28,7 @@ import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignme
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { Declaration, DeclarationType, ModuleLoaderActions,
-    VariableDeclaration } from './declaration';
+import { Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ImportResult, ImportType } from './importResult';
@@ -965,15 +963,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         subType, node.typeExpression!);
                 });
 
-                const declaration: VariableDeclaration = {
-                    type: DeclarationType.Variable,
-                    node: node.name,
-                    isConstant: SymbolNameUtils.isConstantName(node.name.nameToken.value),
-                    path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
-                        this._fileInfo.lines)
-                };
-                this._addTypeSourceToNameNode(node.name, exceptionType, declaration);
+                this._addTypeSourceToNameNode(node.name, exceptionType);
                 this._updateExpressionTypeForNode(node.name, exceptionType);
             }
         }
@@ -1084,14 +1074,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return false;
         }
 
-        // If a type declaration comment was provided, associate the type
-        // declaration with the symbol.
-        if (node.typeAnnotationComment) {
-            const annotatedType = this._getTypeOfAnnotation(node.typeAnnotationComment);
-            this._declareTypeForExpression(node.leftExpression, annotatedType,
-                node.typeAnnotationComment, node.rightExpression);
-        }
-
         // Determine whether there is a declared type.
         const declaredType = this._getDeclaredTypeForExpression(node.leftExpression);
 
@@ -1127,6 +1109,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
             effectiveType = this._transformTypeForPossibleEnumClass(
                 node.leftExpression, effectiveType);
+        }
+
+        if (node.typeAnnotationComment) {
+            // Evaluate the annotated type.
+            const declaredType = this._getTypeOfAnnotation(node.typeAnnotationComment);
+            this._validateDeclaredTypeMatches(node.leftExpression, declaredType,
+                node.typeAnnotationComment);
         }
 
         // Class and global variables should always be marked as accessed.
@@ -1433,6 +1422,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
+        // Evaluate the annotated type.
         let declaredType = this._getTypeOfAnnotation(node.typeAnnotation);
 
         // If this is within an enum, transform the type.
@@ -1441,17 +1431,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 node.valueExpression, declaredType);
         }
 
+        this._validateDeclaredTypeMatches(node.valueExpression, declaredType,
+            node.typeAnnotation);
+
         // Class and global variables should always be marked as accessed.
         if (ParseTreeUtils.getEnclosingClassOrModule(node, true)) {
             this._markExpressionAccessed(node.valueExpression);
-        }
-
-        this._declareTypeForExpression(node.valueExpression, declaredType,
-            node.typeAnnotation);
-
-        if (this._fileInfo.isStubFile) {
-            this._assignTypeToExpression(node.valueExpression, declaredType,
-                node.typeAnnotation);
         }
 
         return true;
@@ -1545,7 +1530,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         loaderActions.implicitImports.forEach((implicitImport, name) => {
             const importedModuleType = ModuleType.create();
             const importedModuleSymbol = Symbol.createWithType(
-                SymbolFlags.None, importedModuleType, defaultTypeSourceId);
+                SymbolFlags.None, importedModuleType);
             moduleType.loaderFields.set(name, importedModuleSymbol);
 
             // Recursively apply loader actions.
@@ -1848,10 +1833,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let classMemberInfo: TypeUtils.ClassMember | undefined;
 
             if (baseType.category === TypeCategory.Object) {
-                classMemberInfo = TypeUtils.lookUpObjectMember(baseType, expression.memberName.nameToken.value);
+                classMemberInfo = TypeUtils.lookUpObjectMember(baseType,
+                    expression.memberName.nameToken.value,
+                    TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
                 classOrObjectBase = baseType;
             } else if (baseType.category === TypeCategory.Class) {
-                classMemberInfo = TypeUtils.lookUpClassMember(baseType, expression.memberName.nameToken.value);
+                classMemberInfo = TypeUtils.lookUpClassMember(baseType,
+                    expression.memberName.nameToken.value,
+                    TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables |
+                    TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
                 classOrObjectBase = baseType;
             }
 
@@ -1859,8 +1849,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 symbol = classMemberInfo.symbol;
             }
         } else if (expression.nodeType === ParseNodeType.Index) {
-            const baseType = this._getTypeOfExpression(expression.baseExpression, EvaluatorFlags.None, true);
-            if (baseType.category === TypeCategory.Object) {
+            const baseType = this._getDeclaredTypeForExpression(expression.baseExpression);
+            if (baseType && baseType.category === TypeCategory.Object) {
                 const setItemMember = TypeUtils.lookUpClassMember(baseType.classType, '__setitem__');
                 if (setItemMember) {
                     if (setItemMember.symbolType.category === TypeCategory.Function) {
@@ -1888,89 +1878,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return undefined;
-    }
-
-    // Assigns a declared type (as opposed to an inferred type) to an expression
-    // (e.g. a local variable, class variable, instance variable, etc.).
-    private _declareTypeForExpression(target: ExpressionNode, declaredType: Type,
-            typeAnnotationNode: ExpressionNode, srcExprNode?: ExpressionNode) {
-
-        let declarationHandled = false;
-
-        if (target.nodeType === ParseNodeType.Name) {
-            const name = target.nameToken;
-            const declaration: VariableDeclaration = {
-                type: DeclarationType.Variable,
-                node: target,
-                isConstant: SymbolNameUtils.isConstantName(name.value),
-                path: this._fileInfo.filePath,
-                typeAnnotationNode,
-                range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
-            };
-
-            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
-            if (symbolWithScope && symbolWithScope.symbol) {
-                this._addDeclarationToSymbol(symbolWithScope.symbol, declaration, typeAnnotationNode);
-            }
-            declarationHandled = true;
-        } else if (target.nodeType === ParseNodeType.MemberAccess) {
-            const targetNode = target.leftExpression;
-
-            // Handle member accesses (e.g. self.x or cls.y).
-            if (targetNode && targetNode.nodeType === ParseNodeType.Name) {
-
-                // Determine whether we're writing to a class or instance member.
-                const enclosingClassNode = ParseTreeUtils.getEnclosingClass(target);
-                if (enclosingClassNode) {
-                    const classType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
-
-                    if (classType && classType.category === TypeCategory.Class) {
-                        const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression);
-                        if (typeOfLeftExpr.category === TypeCategory.Object) {
-                            if (ClassType.isSameGenericClass(typeOfLeftExpr.classType, classType)) {
-                                this._assignTypeToMemberVariable(target, declaredType, true,
-                                    typeAnnotationNode, srcExprNode);
-                                declarationHandled = true;
-                            }
-                        } else if (typeOfLeftExpr.category === TypeCategory.Class) {
-                            if (ClassType.isSameGenericClass(typeOfLeftExpr, classType)) {
-                                this._assignTypeToMemberVariable(target, declaredType, false,
-                                    typeAnnotationNode, srcExprNode);
-                                declarationHandled = true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!declarationHandled) {
-            this._addError(
-                `Type annotation not supported for this type of expression`,
-                typeAnnotationNode);
-        }
-    }
-
-    private _addDeclarationToSymbol(symbol: Symbol, declaration: Declaration, errorNode: ExpressionNode) {
-        // Are we adding a new declaration with a declared type?
-        const typedDeclarations = symbol.getTypedDeclarations();
-        if (typedDeclarations.length > 0 && DeclarationUtils.hasTypeForDeclaration(declaration)) {
-            if (!DeclarationUtils.areDeclarationsSame(declaration, typedDeclarations[0])) {
-                const addedDeclType = DeclarationUtils.getTypeForDeclaration(declaration) ||
-                    UnknownType.create();
-                const existingDeclType = DeclarationUtils.getTypeForDeclaration(typedDeclarations[0]) ||
-                    UnknownType.create();
-
-                // If we're adding a declaration, make sure it's the same type as an existing declaration.
-                if (!isTypeSame(addedDeclType, existingDeclType)) {
-                    this._addError(`Declared type '${ printType(addedDeclType) }' is not compatible ` +
-                        `with previous declared type '${ printType(existingDeclType) }'`,
-                        errorNode);
-                }
-            }
-        }
-
-        symbol.addDeclaration(declaration);
     }
 
     private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
@@ -2795,25 +2702,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 isInstanceMember ? TypeUtils.ClassMemberLookupFlags.Default :
                     TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
 
-            // A local helper function that creates a new declaration.
-            const createDeclaration = () => {
-                const declaration: Declaration = {
-                    type: DeclarationType.Variable,
-                    node: node.memberName,
-                    isConstant,
-                    path: this._fileInfo.filePath,
-                    typeAnnotationNode,
-                    range: convertOffsetsToRange(node.memberName.start,
-                        node.memberName.start + node.memberName.length,
-                        this._fileInfo.lines)
-                };
-
-                return declaration;
-            };
-
             const memberFields = ClassType.getFields(classType);
-            let addNewMemberToLocalClass = false;
-            let inheritedDeclarations: Declaration[] | undefined;
             if (memberInfo) {
                 // Are we accessing an existing member on this class, or is
                 // it a member on a parent class?
@@ -2833,14 +2722,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         this._setAnalysisChanged('Class member inferred type changed');
                     }
 
-                    if (srcExprNode) {
-                        this._reportPossibleUnknownAssignment(
-                            this._fileInfo.diagnosticSettings.reportUnknownMemberType,
-                            DiagnosticRule.reportUnknownMemberType,
-                            node.memberName, srcType, srcExprNode);
-                    }
-
-                    this._addDeclarationToSymbol(symbol, createDeclaration(), typeAnnotationNode || node);
                     const typedDecls = symbol.getDeclarations();
 
                     // Check for an attempt to overwrite a constant member variable.
@@ -2867,84 +2748,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         // name, but there's also now an instance variable introduced. Combine the
                         // type of the class variable with that of the new instance variable.
                         if (!memberInfo.isInstanceMember && isInstanceMember) {
-                            if (declaredType) {
-                                inheritedDeclarations = memberInfo.symbol.getTypedDeclarations();
-                            }
-
                             // The class variable is accessed in this case.
                             this._setSymbolAccessed(memberInfo.symbol);
                             srcType = combineTypes([srcType, memberInfo.symbolType]);
-                            addNewMemberToLocalClass = true;
-                        } else if (typeAnnotationNode) {
-                            // If there is an explicit type, add the member to the local class.
-                            // We may be overriding the type declared in the base class.
-                            addNewMemberToLocalClass = true;
-                        } else {
-                            // If the parent declared a type but we're not declaring a type
-                            // in the subclass, assume that it should inherit the parent's type.
-                            // Otherwise we'll allow the inferred type in this class to override
-                            // the inferred type in the parent class.
-                            if (!isThisClass && !declaredType) {
-                                addNewMemberToLocalClass = true;
-                            }
                         }
                     }
                 }
-            } else {
-                // The member name hasn't been seen previously, so add it to the local class.
-                addNewMemberToLocalClass = true;
             }
 
-            if (addNewMemberToLocalClass) {
-                // Is there an existing symbol in the local class? Perhaps it's a class
-                // member but we're adding an instance member. In that case, we'll reuse
-                // the existing symbol and simply update its flags and add new
-                // declarations to it.
-                const existingSymbol = memberFields.get(memberName);
-                if (existingSymbol) {
-                    if (inheritedDeclarations) {
-                        inheritedDeclarations.forEach(decl => {
-                            existingSymbol.addDeclaration(decl);
-                        });
-                    }
-
-                    this._addDeclarationToSymbol(existingSymbol, createDeclaration(),
-                        typeAnnotationNode || node);
-
-                    if (isInstanceMember) {
-                        existingSymbol.setIsInstanceMember();
-                    } else {
-                        existingSymbol.setIsClassMember();
-                    }
-                } else {
-                    const newSymbol = Symbol.createWithType(
-                        isInstanceMember ? SymbolFlags.InstanceMember : SymbolFlags.ClassMember,
-                        srcType, node.memberName.id);
-
-                    // If this is an instance variable that has a corresponding class variable
-                    // with a defined type, it should inherit that declaration (and declared type).
-                    if (inheritedDeclarations) {
-                        inheritedDeclarations.forEach(decl => {
-                            newSymbol.addDeclaration(decl);
-                        });
-                    }
-
-                    this._addDeclarationToSymbol(newSymbol, createDeclaration(),
-                        typeAnnotationNode || node);
-                    setSymbolPreservingAccess(memberFields, memberName, newSymbol);
-                }
-
-                this._setAnalysisChanged('Class member added');
-
-                if (srcExprNode) {
-                    this._reportPossibleUnknownAssignment(
-                        this._fileInfo.diagnosticSettings.reportUnknownMemberType,
-                        DiagnosticRule.reportUnknownMemberType,
-                        node.memberName, srcType, srcExprNode);
-                }
-            }
-
-            // Look up the member info again, now that we've potentially added a declared type.
+            // Look up the member info again, now that we've potentially updated it.
             memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
                 TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
             if (memberInfo) {
@@ -2962,6 +2774,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(destType, srcType);
                         }
                     }
+                }
+            } else {
+                // There was no declared type, so we need to infer the type.
+                if (srcExprNode) {
+                    this._reportPossibleUnknownAssignment(
+                        this._fileInfo.diagnosticSettings.reportUnknownMemberType,
+                        DiagnosticRule.reportUnknownMemberType,
+                        node.memberName, srcType, srcExprNode);
                 }
             }
         }
@@ -2998,52 +2818,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._currentScope.setAlwaysReturns();
             }
         }
-    }
-
-    private _getModuleTypeForImportPath(importResult: ImportResult | undefined,
-            path: string): ModuleType | undefined {
-
-        if (importResult) {
-            // If the import resolved to a third-party module that has no type stub,
-            // we will return an undefined type.
-            if (importResult.importType === ImportType.ThirdParty && !importResult.isStubFile) {
-                return undefined;
-            }
-
-            // If a stub file is attempting to load a non-stub-file, we will
-            // return an undefined type.
-            if (this._fileInfo.isStubFile && !importResult.isStubFile) {
-                return undefined;
-            }
-        }
-
-        const lookupResults = this._fileInfo.importLookup(path);
-        if (lookupResults) {
-            const moduleType = ModuleType.create(lookupResults.symbolTable);
-            moduleType.docString = lookupResults.docString;
-            return moduleType;
-        } else if (importResult) {
-            // There was no module even though the import was resolved. This
-            // happens in the case of namespace packages, where an __init__.py
-            // is not necessarily present. We'll synthesize a module type in
-            // this case.
-            const moduleType = ModuleType.create();
-
-            // Add the implicit imports.
-            importResult.implicitImports.forEach(implicitImport => {
-                const implicitModuleType = this._getModuleTypeForImportPath(
-                    undefined, implicitImport.path);
-                if (implicitModuleType) {
-                    setSymbolPreservingAccess(moduleType.loaderFields, implicitImport.name,
-                        Symbol.createWithType(
-                            SymbolFlags.ClassMember, implicitModuleType, defaultTypeSourceId));
-                }
-            });
-
-            return moduleType;
-        }
-
-        return undefined;
     }
 
     private _postponeAnnotationEvaluation() {
@@ -3144,18 +2918,24 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
+    // Validates that a new type declaration doesn't conflict with an
+    // existing type declaration.
+    private _validateDeclaredTypeMatches(node: ExpressionNode, type: Type,
+            errorNode: ExpressionNode) {
+
+        const declaredType = this._getDeclaredTypeForExpression(node);
+        if (declaredType) {
+            if (!isTypeSame(declaredType, type)) {
+                this._addError(`Declared type '${ printType(type) }' is not compatible ` +
+                    `with previous declared type '${ printType(declaredType) }'`,
+                    errorNode);
+            }
+        }
+    }
+
     private _assignTypeToExpression(target: ExpressionNode, srcType: Type, srcExpr: ExpressionNode): void {
         if (target.nodeType === ParseNodeType.Name) {
             const name = target.nameToken;
-            const declaration: VariableDeclaration = {
-                type: DeclarationType.Variable,
-                node: target,
-                isConstant: SymbolNameUtils.isConstantName(name.value),
-                path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(name.start, TextRange.getEnd(name),
-                    this._fileInfo.lines)
-            };
-
             // Handle '__all__' as a special case in the module scope.
             if (name.value === '__all__' && this._currentScope.getType() === ScopeType.Module) {
                 // It's common for modules to include the expression
@@ -3181,7 +2961,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 DiagnosticRule.reportUnknownVariableType,
                 target, srcType, srcExpr);
 
-            this._assignTypeToNameNode(target, srcType, declaration, srcExpr);
+            this._assignTypeToNameNode(target, srcType, srcExpr);
         } else if (target.nodeType === ParseNodeType.MemberAccess) {
             const targetNode = target.leftExpression;
 
@@ -3296,16 +3076,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._assignTypeToExpression(target.valueExpression, srcType, srcExpr);
         } else if (target.nodeType === ParseNodeType.Unpack) {
             if (target.expression.nodeType === ParseNodeType.Name) {
-                const name = target.expression.nameToken;
-                const declaration: VariableDeclaration = {
-                    type: DeclarationType.Variable,
-                    node: target.expression,
-                    isConstant: SymbolNameUtils.isConstantName(name.value),
-                    path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(name.start, TextRange.getEnd(name),
-                        this._fileInfo.lines)
-                };
-
                 if (!isAnyOrUnknown(srcType)) {
                     // Make a list type from the source.
                     const listType = ScopeUtils.getBuiltInType(this._currentScope, 'List');
@@ -3315,7 +3085,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         srcType = UnknownType.create();
                     }
                 }
-                this._assignTypeToNameNode(target.expression, srcType, declaration, srcExpr);
+                this._assignTypeToNameNode(target.expression, srcType, srcExpr);
             }
         } else if (target.nodeType === ParseNodeType.List) {
             target.entries.forEach(entry => {
@@ -3327,14 +3097,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._evaluateExpressionForAssignment(target, srcType, srcExpr);
     }
 
-    private _assignTypeToNameNode(nameNode: NameNode, srcType: Type, declaration?: Declaration,
-            srcExpressionNode?: ParseNode) {
-
+    private _assignTypeToNameNode(nameNode: NameNode, srcType: Type, srcExpressionNode?: ParseNode) {
         const nameValue = nameNode.nameToken.value;
 
         // Determine if there's a declared type for this symbol.
-        let declaredType: Type | undefined = declaration ?
-            DeclarationUtils.getTypeForDeclaration(declaration) : undefined;
+        let declaredType: Type | undefined;
         let declarations: Declaration[] = [];
 
         const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
@@ -3388,17 +3155,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        this._addTypeSourceToNameNode(nameNode, destType, declaration);
+        this._addTypeSourceToNameNode(nameNode, destType);
     }
 
-    private _addTypeSourceToNameNode(node: NameNode, type: Type, declaration?: Declaration) {
-        this._addTypeSourceToName(node.nameToken.value, type, node.id, declaration);
+    private _addTypeSourceToNameNode(node: NameNode, type: Type) {
+        this._addTypeSourceToName(node.nameToken.value, type, node.id);
         this._addAssignmentTypeConstraint(node, type);
     }
 
-    private _addTypeSourceToName(name: string, type: Type, typeSourceId: TypeSourceId,
-            declaration?: Declaration) {
-
+    private _addTypeSourceToName(name: string, type: Type, typeSourceId: TypeSourceId) {
         const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name);
         if (symbolWithScope) {
             if (!symbolWithScope.isOutsideCallerModule) {
@@ -3406,11 +3171,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     if (symbolWithScope.scope.getType() !== ScopeType.Temporary) {
                         this._setAnalysisChanged(`Inferred type of name changed for '${ name }'`);
                     }
-                }
-
-                // Add the declaration if provided.
-                if (declaration) {
-                    symbolWithScope.symbol.addDeclaration(declaration);
                 }
             }
         } else {

@@ -890,7 +890,7 @@ export function lookUpClassMember(classType: Type, memberName: string,
             if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
                 const symbol = memberFields.get(memberName);
                 if (symbol && symbol.isInstanceMember()) {
-                    if (!declaredTypesOnly || getDeclaredTypeOfSymbol(symbol)) {
+                    if (!declaredTypesOnly || symbol.hasTypedDeclarations()) {
                         return {
                             symbol,
                             isInstanceMember: true,
@@ -905,7 +905,7 @@ export function lookUpClassMember(classType: Type, memberName: string,
             // Next look in the class members.
             const symbol = memberFields.get(memberName);
             if (symbol && symbol.isClassMember()) {
-                if (!declaredTypesOnly || getDeclaredTypeOfSymbol(symbol)) {
+                if (!declaredTypesOnly || symbol.hasTypedDeclarations()) {
                     return {
                         symbol,
                         isInstanceMember: false,
@@ -935,7 +935,7 @@ export function lookUpClassMember(classType: Type, memberName: string,
         // The class derives from an unknown type, so all bets are off
         // when trying to find a member. Return an unknown symbol.
         return {
-            symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create(), defaultTypeSourceId),
+            symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
             isInstanceMember: false,
             classType: UnknownType.create(),
             symbolType: UnknownType.create()

@@ -20,7 +20,7 @@ import { ClassType, ModuleType, ObjectType, Type, TypeCategory } from './types';
 import * as TypeUtils from './typeUtils';
 
 export function getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
-    let declarations: Declaration[] | undefined;
+    const declarations: Declaration[] = [];
     const nameValue = node.nameToken.value;
 
     // If the node is part of a "from X import Y as Z" statement and the node
@@ -42,12 +42,24 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
                 let symbol: Symbol | undefined;
 
                 if (subtype.category === TypeCategory.Class) {
-                    const member = TypeUtils.lookUpClassMember(subtype, memberName);
+                    // Try to find a member that has a declared type. If so, that
+                    // overrides any inferred types.
+                    let member = TypeUtils.lookUpClassMember(subtype, memberName,
+                        TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+                    if (!member) {
+                        member = TypeUtils.lookUpClassMember(subtype, memberName);
+                    }
                     if (member) {
                         symbol = member.symbol;
                     }
                 } else if (subtype.category === TypeCategory.Object) {
-                    const member = TypeUtils.lookUpObjectMember(subtype, memberName);
+                    // Try to find a member that has a declared type. If so, that
+                    // overrides any inferred types.
+                    let member = TypeUtils.lookUpObjectMember(subtype, memberName,
+                        TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+                    if (!member) {
+                        member = TypeUtils.lookUpObjectMember(subtype, memberName);
+                    }
                     if (member) {
                         symbol = member.symbol;
                     }
@@ -56,7 +68,12 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
                 }
 
                 if (symbol) {
-                    declarations = symbol.getDeclarations();
+                    const typedDecls = symbol.getTypedDeclarations();
+                    if (typedDecls.length > 0) {
+                        declarations.push(...typedDecls);
+                    } else {
+                        declarations.push(...symbol.getDeclarations());
+                    }
                 }
 
                 return subtype;
@@ -75,7 +92,7 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
                     range: getEmptyRange(),
                     implicitImports: new Map<string, ModuleLoaderActions>()
                 };
-                declarations = [aliasDeclaration];
+                declarations.push(aliasDeclaration);
             }
         }
     } else {
@@ -88,7 +105,7 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
                     return;
                 }
 
-                declarations = symbolInScope.symbol.getDeclarations();
+                declarations.push(...symbolInScope.symbol.getDeclarations());
             }
         }
     }
