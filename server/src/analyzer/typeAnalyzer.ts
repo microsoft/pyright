@@ -1350,7 +1350,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 DiagnosticRule.reportUnusedImport,
                 `Import '${ node.alias.nameToken.value }' is not accessed`);
         } else {
-            // TODO - need to add unused import logic
+            if (symbolWithScope && !symbolWithScope.symbol.isAccessed()) {
+                const nameParts = node.module.nameParts;
+                if (nameParts.length > 0) {
+                    const multipartName = nameParts.map(np => np.nameToken.value).join('.');
+                    const textRange = { start: nameParts[0].start, length: nameParts[0].length };
+                    this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+                        `'${ multipartName }' is not accessed`, textRange);
+
+                    this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnusedImport,
+                        DiagnosticRule.reportUnusedImport,
+                        `Import '${ multipartName }' is not accessed`, textRange);
+                }
+            }
         }
 
         return false;
