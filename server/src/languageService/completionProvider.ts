@@ -265,7 +265,9 @@ export class CompletionProvider {
             if (curNode.nodeType === ParseNodeType.Name) {
                 // Are we within a "from X import Y as Z" statement and
                 // more specifically within the "Y"?
-                if (curNode.parent && curNode.parent.nodeType === ParseNodeType.ImportFromAs) {
+                if (curNode.parent && curNode.parent.nodeType === ParseNodeType.ModuleName) {
+                    return this._getImportModuleCompletions(curNode.parent);
+                } else if (curNode.parent && curNode.parent.nodeType === ParseNodeType.ImportFromAs) {
                     const parentNode = curNode.parent.parent;
 
                     if (parentNode && parentNode.nodeType === ParseNodeType.ImportFrom) {
