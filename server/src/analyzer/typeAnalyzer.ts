@@ -13,7 +13,7 @@ import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
 import { AddMissingOptionalToParamAction, Diagnostic,
-    DiagnosticAddendum, getEmptyRange } from '../common/diagnostic';
+    DiagnosticAddendum, DiagnosticTextRange, getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -1300,9 +1300,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return false;
         }
 
-        const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
-        assert(importInfo !== undefined);
-
         let symbolNameNode: NameNode;
         if (node.alias) {
             // The symbol name is defined by the alias.
@@ -1313,6 +1310,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             symbolNameNode = node.module.nameParts[0];
         }
 
+        // Look up the symbol to find the alias declaration.
         const symbolWithScope = this._currentScope.lookUpSymbolRecursive(
             symbolNameNode.nameToken.value);
         assert(symbolWithScope !== undefined);
@@ -1354,7 +1352,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const nameParts = node.module.nameParts;
                 if (nameParts.length > 0) {
                     const multipartName = nameParts.map(np => np.nameToken.value).join('.');
-                    const textRange = { start: nameParts[0].start, length: nameParts[0].length };
+                    const textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
+                    TextRange.extend(textRange, nameParts[nameParts.length - 1]);
                     this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
                         `'${ multipartName }' is not accessed`, textRange);
 
@@ -1570,9 +1569,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _applyLoaderActionsToModuleType(moduleType: ModuleType, loaderActions: ModuleLoaderActions) {
         if (loaderActions.path) {
-            const moduleSymbolTable = this._fileInfo.importLookup(loaderActions.path);
-            if (moduleSymbolTable) {
-                moduleType.fields = moduleSymbolTable;
+            const lookupResults = this._fileInfo.importLookup(loaderActions.path);
+            if (lookupResults) {
+                moduleType.fields = lookupResults.symbolTable;
+                moduleType.docString = lookupResults.docString;
             }
         }
 
@@ -2685,7 +2685,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _findCollectionsImportSymbolTable(): SymbolTable | undefined {
         if (this._fileInfo.collectionsModulePath) {
-            return this._fileInfo.importLookup(this._fileInfo.collectionsModulePath);
+            const lookupResult = this._fileInfo.importLookup(this._fileInfo.collectionsModulePath);
+            if (lookupResult) {
+                return lookupResult.symbolTable;
+            }
         }
 
         return undefined;
@@ -3048,9 +3051,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        const symbolTable = this._fileInfo.importLookup(path);
-        if (symbolTable) {
-            return ModuleType.create(symbolTable);
+        const lookupResults = this._fileInfo.importLookup(path);
+        if (lookupResults) {
+            const moduleType = ModuleType.create(lookupResults.symbolTable);
+            moduleType.docString = lookupResults.docString;
+            return moduleType;
         } else if (importResult) {
             // There was no module even though the import was resolved. This
             // happens in the case of namespace packages, where an __init__.py

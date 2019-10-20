@@ -111,12 +111,12 @@ export function resolveAliasDeclaration(declaration: Declaration, importLookup: 
             return curDeclaration;
         }
 
-        const symbolTable = importLookup(declaration.path);
-        if (!symbolTable) {
+        const lookupResult = importLookup(declaration.path);
+        if (!lookupResult) {
             return undefined;
         }
 
-        const symbol = symbolTable.get(curDeclaration.symbolName);
+        const symbol = lookupResult.symbolTable.get(curDeclaration.symbolName);
         if (!symbol) {
             return undefined;
         }

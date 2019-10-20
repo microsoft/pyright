@@ -16,7 +16,12 @@ import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 
 // Maps import paths to the symbol table for the imported module.
-export type ImportLookup = (filePath: string) => SymbolTable | undefined;
+export type ImportLookup = (filePath: string) => ImportLookupResult | undefined;
+
+export interface ImportLookupResult {
+    symbolTable: SymbolTable;
+    docString?: string;
+}
 
 export interface AnalyzerFileInfo {
     importLookup: ImportLookup;

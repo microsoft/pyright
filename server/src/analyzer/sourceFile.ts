@@ -108,6 +108,7 @@ export class SourceFile {
 
     private _parseResults?: ParseResults;
     private _moduleSymbolTable?: SymbolTable;
+    private _moduleDocString?: string;
 
     // Diagnostics generated during different phases of analysis.
     private _parseDiagnostics: Diagnostic[] = [];
@@ -285,6 +286,10 @@ export class SourceFile {
         return this._moduleSymbolTable;
     }
 
+    getModuleDocString(): string | undefined {
+        return this._moduleDocString;
+    }
+
     // Indicates whether the contents of the file have changed since
     // the last analysis was performed.
     didContentsChangeOnDisk(): boolean {
@@ -320,6 +325,7 @@ export class SourceFile {
         this._isTypeAnalysisFinalized = false;
         this._isTypeAnalysisPassNeeded = true;
         this._moduleSymbolTable = undefined;
+        this._moduleDocString = undefined;
     }
 
     markReanalysisRequired(): void {
@@ -333,6 +339,7 @@ export class SourceFile {
         if (this._parseResults && this._parseResults.containsWildcardImport) {
             this._isBindingNeeded = true;
             this._moduleSymbolTable = undefined;
+            this._moduleDocString = undefined;
         }
     }
 
@@ -663,6 +670,7 @@ export class SourceFile {
                 const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
                 assert(moduleScope !== undefined);
                 this._moduleSymbolTable = moduleScope!.getSymbolTable();
+                this._moduleDocString = binder.getModuleDocString();
             });
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||

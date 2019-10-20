@@ -23,6 +23,7 @@ import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
+import { ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
@@ -534,13 +535,23 @@ export class Program {
         fileToAnalyze.sourceFile.bind(options, this._lookUpImport, builtinsScope);
     }
 
-    private _lookUpImport = (filePath: string): SymbolTable | undefined => {
+    private _lookUpImport = (filePath: string): ImportLookupResult | undefined => {
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
             return undefined;
         }
 
-        return sourceFileInfo.sourceFile.getModuleSymbolTable();
+        const symbolTable = sourceFileInfo.sourceFile.getModuleSymbolTable();
+        if (!symbolTable) {
+            return undefined;
+        }
+
+        const docString = sourceFileInfo.sourceFile.getModuleDocString();
+
+        return {
+            symbolTable,
+            docString
+        };
     }
 
     // Build a map of all modules within this program and the module-

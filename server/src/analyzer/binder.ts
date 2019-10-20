@@ -1035,6 +1035,8 @@ export abstract class Binder extends ParseTreeWalker {
 }
 
 export class ModuleScopeBinder extends Binder {
+    private _moduleDocString?: string;
+
     constructor(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
         super(node, fileInfo.builtinsScope ? ScopeType.Module : ScopeType.Builtin,
             fileInfo.builtinsScope, fileInfo);
@@ -1057,12 +1059,17 @@ export class ModuleScopeBinder extends Binder {
 
         // Associate the module's scope with the module type.
         const moduleType = ModuleType.create(this._currentScope.getSymbolTable());
-        moduleType.docString = this._getDocString((this._scopedNode as ModuleNode).statements);
+        this._moduleDocString = this._getDocString((this._scopedNode as ModuleNode).statements);
+        moduleType.docString = this._moduleDocString;
         AnalyzerNodeInfo.setExpressionType(this._scopedNode, moduleType);
     }
 
     bind() {
         this.bindDeferred();
+    }
+
+    getModuleDocString() {
+        return this._moduleDocString;
     }
 }
 

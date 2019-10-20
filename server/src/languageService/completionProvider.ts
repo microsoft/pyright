@@ -566,9 +566,9 @@ export class CompletionProvider {
         const resolvedPath = importInfo.resolvedPaths.length > 0 ?
             importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
 
-        const symbolTable = this._importLookup(resolvedPath);
-        if (symbolTable) {
-            this._addSymbolsForSymbolTable(symbolTable,
+        const lookupResults = this._importLookup(resolvedPath);
+        if (lookupResults) {
+            this._addSymbolsForSymbolTable(lookupResults.symbolTable,
                 name => {
                     // Don't suggest symbols that have already been imported.
                     return !importFromNode.imports.find(
@@ -665,14 +665,26 @@ export class CompletionProvider {
                             }
                             break;
 
-                        case DeclarationType.Class:
+                        case DeclarationType.Class: {
                             typeDetail = 'class ' + name + '()';
                             break;
+                        }
 
-                        case DeclarationType.Alias:
-                        default:
+                        case DeclarationType.Alias: {
+                            typeDetail = name;
+                            if (declaration.path) {
+                                const lookupResults = this._importLookup(declaration.path);
+                                if (lookupResults) {
+                                    documentation = lookupResults.docString;
+                                }
+                            }
+                            break;
+                        }
+
+                        default: {
                             typeDetail = name;
                             break;
+                        }
                     }
                 }
 

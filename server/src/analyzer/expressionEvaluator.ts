@@ -608,12 +608,12 @@ export class ExpressionEvaluator {
             return undefined;
         }
 
-        const symbolTable = this._fileInfo.importLookup(typingImportPath);
-        if (!symbolTable) {
+        const lookupResult = this._fileInfo.importLookup(typingImportPath);
+        if (!lookupResult) {
             return undefined;
         }
 
-        const symbol = symbolTable.get(symbolName);
+        const symbol = lookupResult.symbolTable.get(symbolName);
         if (!symbol) {
             return undefined;
         }
