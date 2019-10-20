@@ -1159,9 +1159,7 @@ export class Program {
         return false;
     }
 
-    private _isImportAllowed(sourceFileInfo: SourceFileInfo, importResult: ImportResult,
-            isImportStubFile: boolean): boolean {
-
+    private _isImportAllowed(importResult: ImportResult, isImportStubFile: boolean): boolean {
         let thirdPartyImportAllowed = false;
 
         if (importResult.importType === ImportType.ThirdParty) {
@@ -1187,18 +1185,14 @@ export class Program {
                     thirdPartyImportAllowed = true;
                 }
             }
-        }
 
-        // Some libraries ship with stub files that import from non-stubs. Don't
-        // explore those.
-        if (sourceFileInfo.sourceFile.isStubFile() && !isImportStubFile) {
-            return thirdPartyImportAllowed;
-        }
-
-        // Don't explore any third-party files unless they're type stub files
-        // or we've been told explicitly that third-party imports are OK.
-        if (importResult.importType !== ImportType.Local && !isImportStubFile) {
-            return thirdPartyImportAllowed;
+            // Some libraries ship with stub files that import from non-stubs. Don't
+            // explore those.
+            // Don't explore any third-party files unless they're type stub files
+            // or we've been told explicitly that third-party imports are OK.
+            if (!isImportStubFile) {
+                return thirdPartyImportAllowed;
+            }
         }
 
         return true;
@@ -1217,7 +1211,7 @@ export class Program {
         const newImportPathMap = new Map<string, UpdateImportInfo>();
         imports.forEach(importResult => {
             if (importResult.isImportFound) {
-                if (this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
+                if (this._isImportAllowed(importResult, importResult.isStubFile)) {
                     if (importResult.resolvedPaths.length > 0) {
                         const filePath = importResult.resolvedPaths[
                             importResult.resolvedPaths.length - 1];
@@ -1231,7 +1225,7 @@ export class Program {
                 }
 
                 importResult.implicitImports.forEach(implicitImport => {
-                    if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
+                    if (this._isImportAllowed(importResult, implicitImport.isStubFile)) {
                         newImportPathMap.set(implicitImport.path, {
                             isTypeshedFile: !!importResult.isTypeshedFile,
                             isThirdPartyImport: importResult.importType === ImportType.ThirdParty

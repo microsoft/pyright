@@ -1518,6 +1518,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     if (symbol) {
                         symbolType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
                     }
+                } else {
+                    symbolType = UnknownType.create();
                 }
             } else {
                 // Build a module type that corresponds to the declaration and
