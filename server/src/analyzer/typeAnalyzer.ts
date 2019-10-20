@@ -1374,7 +1374,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const resolvedPath = importInfo.resolvedPaths.length > 0 ?
                 importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
 
-            // Empty list implies "import *"
             if (node.isWildcardImport) {
                 const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
                 if (moduleType) {
