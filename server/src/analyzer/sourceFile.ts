@@ -324,6 +324,7 @@ export class SourceFile {
     markReanalysisRequired(): void {
         // Keep the parse info, but reset the analysis to the beginning.
         this._parseTreeNeedsCleaning = true;
+        this._typeAnalysisPassNumber = 1;
         this._isTypeAnalysisFinalized = false;
         this._isTypeAnalysisPassNeeded = true;
     }
@@ -764,8 +765,7 @@ export class SourceFile {
     private _cleanParseTreeIfRequired() {
         if (this._parseResults) {
             if (this._parseTreeNeedsCleaning) {
-                const cleanerWalker = new ParseTreeCleanerWalker(
-                    this._parseResults.parseTree);
+                const cleanerWalker = new ParseTreeCleanerWalker(this._parseResults.parseTree);
                 cleanerWalker.clean();
                 this._parseTreeNeedsCleaning = false;
             }
