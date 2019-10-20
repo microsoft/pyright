@@ -105,8 +105,6 @@ export interface ParseNodeBase extends TextRange {
     // A unique ID given to each parse node.
     id: number;
 
-    // The parent field is filled in by the binder,
-    // which isn't technically part of the parser.
     parent?: ParseNode;
 }
 
@@ -182,10 +180,14 @@ export namespace IfNode {
             elseSuite
         };
 
+        testExpression.parent = node;
+        ifSuite.parent = node;
+
         extendRange(node, testExpression);
         extendRange(node, ifSuite);
         if (elseSuite) {
             extendRange(node, elseSuite);
+            elseSuite.parent = node;
         }
 
         return node;
@@ -209,6 +211,9 @@ export namespace WhileNode {
             testExpression,
             whileSuite
         };
+
+        testExpression.parent = node;
+        whileSuite.parent = node;
 
         extendRange(node, whileSuite);
 
@@ -239,6 +244,10 @@ export namespace ForNode {
             forSuite
         };
 
+        targetExpression.parent = node;
+        iterableExpression.parent = node;
+        forSuite.parent = node;
+
         extendRange(node, forSuite);
 
         return node;
@@ -265,6 +274,9 @@ export namespace ListComprehensionForNode {
             iterableExpression
         };
 
+        targetExpression.parent = node;
+        iterableExpression.parent = node;
+
         extendRange(node, targetExpression);
         extendRange(node, iterableExpression);
 
@@ -286,6 +298,8 @@ export namespace ListComprehensionIfNode {
             id: _nextNodeId++,
             testExpression
         };
+
+        testExpression.parent = node;
 
         extendRange(node, testExpression);
 
@@ -312,6 +326,10 @@ export namespace TryNode {
             exceptClauses: []
         };
 
+        trySuite.parent = node;
+
+        extendRange(node, trySuite);
+
         return node;
     }
 }
@@ -332,6 +350,8 @@ export namespace ExceptNode {
             id: _nextNodeId++,
             exceptSuite
         };
+
+        exceptSuite.parent = node;
 
         extendRange(node, exceptSuite);
 
@@ -361,6 +381,9 @@ export namespace FunctionNode {
             parameters: [],
             suite
         };
+
+        name.parent = node;
+        suite.parent = node;
 
         extendRange(node, suite);
 
@@ -417,6 +440,9 @@ export namespace ClassNode {
             suite
         };
 
+        name.parent = node;
+        suite.parent = node;
+
         extendRange(node, suite);
 
         return node;
@@ -441,6 +467,8 @@ export namespace WithNode {
             suite
         };
 
+        suite.parent = node;
+
         extendRange(node, suite);
 
         return node;
@@ -463,6 +491,8 @@ export namespace WithItemNode {
             expression
         };
 
+        expression.parent = node;
+
         return node;
     }
 }
@@ -483,6 +513,8 @@ export namespace DecoratorNode {
             leftExpression,
             arguments: undefined
         };
+
+        leftExpression.parent = node;
 
         extendRange(node, leftExpression);
 
@@ -584,6 +616,7 @@ export namespace ErrorExpressionNode {
         };
 
         if (child) {
+            child.parent = node;
             extendRange(node, child);
         }
 
@@ -607,6 +640,8 @@ export namespace UnaryExpressionNode {
             operator,
             expression
         };
+
+        expression.parent = node;
 
         extendRange(node, expression);
 
@@ -635,6 +670,9 @@ export namespace BinaryExpressionNode {
             rightExpression
         };
 
+        leftExpression.parent = node;
+        rightExpression.parent = node;
+
         extendRange(node, rightExpression);
 
         return node;
@@ -657,6 +695,9 @@ export namespace AssignmentExpressionNode {
             name,
             rightExpression
         };
+
+        name.parent = node;
+        rightExpression.parent = node;
 
         extendRange(node, rightExpression);
 
@@ -682,6 +723,9 @@ export namespace AssignmentNode {
             rightExpression
         };
 
+        leftExpression.parent = node;
+        rightExpression.parent = node;
+
         extendRange(node, rightExpression);
 
         return node;
@@ -704,6 +748,9 @@ export namespace TypeAnnotationExpressionNode {
             valueExpression,
             typeAnnotation
         };
+
+        valueExpression.parent = node;
+        typeAnnotation.parent = node;
 
         extendRange(node, typeAnnotation);
 
@@ -732,6 +779,9 @@ export namespace AugmentedAssignmentExpressionNode {
             rightExpression
         };
 
+        leftExpression.parent = node;
+        rightExpression.parent = node;
+
         extendRange(node, rightExpression);
 
         return node;
@@ -752,6 +802,8 @@ export namespace AwaitExpressionNode {
             id: _nextNodeId++,
             expression
         };
+
+        expression.parent = node;
 
         extendRange(node, expression);
 
@@ -780,6 +832,10 @@ export namespace TernaryExpressionNode {
             elseExpression
         };
 
+        ifExpression.parent = node;
+        testExpression.parent = node;
+        elseExpression.parent = node;
+
         extendRange(node, elseExpression);
 
         return node;
@@ -800,6 +856,8 @@ export namespace UnpackExpressionNode {
             id: _nextNodeId++,
             expression
         };
+
+        expression.parent = node;
 
         extendRange(node, expression);
 
@@ -843,6 +901,8 @@ export namespace CallExpressionNode {
             arguments: []
         };
 
+        leftExpression.parent = node;
+
         return node;
     }
 }
@@ -864,6 +924,8 @@ export namespace ListComprehensionNode {
             comprehensions: []
         };
 
+        expression.parent = node;
+
         return node;
     }
 }
@@ -882,6 +944,10 @@ export namespace IndexItemsNode {
             id: _nextNodeId++,
             items
         };
+
+        items.forEach(item => {
+            item.parent = node;
+        });
 
         extendRange(node, closeBracketToken);
 
@@ -905,6 +971,9 @@ export namespace IndexExpressionNode {
             baseExpression,
             items
         };
+
+        baseExpression.parent = node;
+        items.parent = node;
 
         extendRange(node, items);
 
@@ -948,6 +1017,7 @@ export namespace YieldExpressionNode {
         };
 
         if (expression) {
+            expression.parent = node;
             extendRange(node, expression);
         }
 
@@ -969,6 +1039,8 @@ export namespace YieldFromExpressionNode {
             id: _nextNodeId++,
             expression
         };
+
+        expression.parent = node;
 
         extendRange(node, expression);
 
@@ -993,6 +1065,9 @@ export namespace MemberAccessExpressionNode {
             memberName
         };
 
+        leftExpression.parent = node;
+        memberName.parent = node;
+
         extendRange(node, memberName);
 
         return node;
@@ -1015,6 +1090,8 @@ export namespace LambdaNode {
             parameters: [],
             expression
         };
+
+        expression.parent = node;
 
         extendRange(node, expression);
 
@@ -1142,6 +1219,10 @@ export namespace FormatStringNode {
             expressions
         };
 
+        expressions.forEach(expr => {
+            expr.parent = node;
+        });
+
         return node;
     }
 }
@@ -1167,6 +1248,9 @@ export namespace StringListNode {
         };
 
         if (strings.length > 0) {
+            strings.forEach(str => {
+                str.parent = node;
+            });
             extendRange(node, strings[strings.length - 1]);
         }
 
@@ -1210,6 +1294,9 @@ export namespace DictionaryKeyEntryNode {
             valueExpression
         };
 
+        keyExpression.parent = node;
+        valueExpression.parent = node;
+
         extendRange(node, valueExpression);
 
         return node;
@@ -1230,6 +1317,8 @@ export namespace DictionaryExpandEntryNode {
             id: _nextNodeId++,
             expandExpression
         };
+
+        expandExpression.parent = node;
 
         return node;
     }
@@ -1298,6 +1387,8 @@ export namespace ArgumentNode {
             valueExpression,
             argumentCategory: argCategory
         };
+
+        valueExpression.parent = node;
 
         extendRange(node, valueExpression);
 
@@ -1400,6 +1491,8 @@ export namespace ImportAsNode {
             module
         };
 
+        module.parent = node;
+
         return node;
     }
 }
@@ -1426,6 +1519,8 @@ export namespace ImportFromNode {
             usesParens: false
         };
 
+        module.parent = node;
+
         extendRange(node, module);
 
         return node;
@@ -1447,6 +1542,8 @@ export namespace ImportFromAsNode {
             id: _nextNodeId++,
             name
         };
+
+        name.parent = node;
 
         return node;
     }
@@ -1505,6 +1602,8 @@ export namespace AssertNode {
             id: _nextNodeId++,
             testExpression
         };
+
+        testExpression.parent = node;
 
         extendRange(node, testExpression);
 

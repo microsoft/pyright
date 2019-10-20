@@ -27,7 +27,10 @@ export class TestWalker extends ParseTreeWalker {
     private _verifyParentChildLinks(node: ParseNode, children: ParseNodeArray) {
         children.forEach(child => {
             if (child) {
-                assert.equal(child.parent, node);
+                if (child.parent !== node) {
+                    assert.fail(`Child node ${ child.nodeType } does not ` +
+                        `contain a reference to its parent ${ node.nodeType }`);
+                }
             }
         });
     }

@@ -143,14 +143,6 @@ export abstract class Binder extends ParseTreeWalker {
         this._analyzeSubscopesDeferred();
     }
 
-    visitNode(node: ParseNode) {
-        const children = super.visitNode(node);
-
-        this._addParentLinks(node, children);
-
-        return children;
-    }
-
     visitModule(node: ModuleNode): boolean {
         // Tree walking should start with the children of
         // the node, so we should never get here.
@@ -189,9 +181,6 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitClass(node: ClassNode): boolean {
-        this._addParentLinks(node, [...node.decorators, node.name,
-            ...node.arguments, node.suite]);
-
         this.walkMultiple(node.decorators);
 
         let classFlags = ClassTypeFlags.None;
@@ -276,9 +265,6 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
-        this._addParentLinks(node, [...node.decorators, node.name, ...node.parameters,
-            node.returnTypeAnnotation, node.suite]);
-
         // The "__new__" magic method is not an instance method.
         // It acts as a static method instead.
         let functionFlags = FunctionTypeFlags.None;
@@ -309,9 +295,6 @@ export abstract class Binder extends ParseTreeWalker {
 
         this.walkMultiple(node.decorators);
         node.parameters.forEach(param => {
-            this._addParentLinks(param, [param.name, param.typeAnnotation,
-                param.defaultValue]);
-
             if (param.defaultValue) {
                 this.walk(param.defaultValue);
             }
@@ -360,14 +343,9 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitLambda(node: LambdaNode): boolean {
-        this._addParentLinks(node, [...node.parameters, node.expression]);
-
         // Analyze the parameter defaults in the context of the parent's scope
         // before we add any names from the function's scope.
         node.parameters.forEach(param => {
-            this._addParentLinks(param, [param.name, param.typeAnnotation,
-                param.defaultValue]);
-
             if (param.defaultValue) {
                 this.walk(param.defaultValue);
             }
@@ -425,13 +403,11 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitIf(node: IfNode): boolean {
-        this._addParentLinks(node, [node.testExpression, node.ifSuite, node.elseSuite]);
         this._handleIfWhileCommon(node.testExpression, node.ifSuite, node.elseSuite);
         return false;
     }
 
     visitWhile(node: WhileNode): boolean {
-        this._addParentLinks(node, [node.testExpression, node.whileSuite, node.elseSuite]);
         this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite);
         return false;
     }
@@ -457,9 +433,6 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitTry(node: TryNode): boolean {
-        this._addParentLinks(node, [node.trySuite, ...node.exceptClauses,
-            node.elseSuite, node.finallySuite]);
-
         this.walk(node.trySuite);
 
         // Wrap the except clauses in a conditional scope
@@ -773,22 +746,17 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitListComprehension(node: ListComprehensionNode): boolean {
-        this._addParentLinks(node, [...node.comprehensions, node.expression]);
-
         // Allocate a new scope.
         const prevScope = this._currentScope;
         this._currentScope = new Scope(ScopeType.ListComprehension, prevScope);
 
         node.comprehensions.forEach(compr => {
             if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
-                this._addParentLinks(compr, [compr.iterableExpression, compr.targetExpression]);
-
                 this.walk(compr.iterableExpression);
 
                 this._bindPossibleTupleNamedTarget(compr.targetExpression);
                 this.walk(compr.targetExpression);
             } else {
-                this._addParentLinks(compr, [compr.testExpression]);
                 this.walk(compr.testExpression);
             }
         });
@@ -917,15 +885,6 @@ export abstract class Binder extends ParseTreeWalker {
         }
 
         return DocStringUtils.decodeDocString(docStringNode.strings[0].value);
-    }
-
-    protected _addParentLinks(parentNode: ParseNode, children: ParseNodeArray) {
-        // Add the parent link to each of the child nodes.
-        children.forEach(child => {
-            if (child) {
-                child.parent = parentNode;
-            }
-        });
     }
 
     private _addImplicitImportsToLoaderActions(importResult: ImportResult, loaderActions: ModuleLoaderActions) {
@@ -1131,7 +1090,6 @@ export class ModuleScopeBinder extends Binder {
         this._addBuiltInSymbolToCurrentScope('__cached__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
 
         const moduleNode = this._scopedNode as ModuleNode;
-        this._addParentLinks(moduleNode, moduleNode.statements);
         this.walkMultiple(moduleNode.statements);
 
         this._moduleDocString = this._getDocString((this._scopedNode as ModuleNode).statements);

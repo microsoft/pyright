@@ -121,6 +121,7 @@ export class Parser {
                         // Perform basic error recovery to get to the next line.
                         this._consumeTokensUntilType(TokenType.NewLine);
                     } else {
+                        statement.parent = moduleNode;
                         moduleNode.statements.push(statement);
                     }
 
@@ -255,10 +256,12 @@ export class Parser {
 
         if (this._consumeTokenIfKeyword(KeywordType.Else)) {
             ifNode.elseSuite = this._parseSuite();
+            ifNode.elseSuite.parent = ifNode;
             extendRange(ifNode, ifNode.elseSuite);
         } else if (this._peekKeywordType() === KeywordType.Elif) {
             // Recursively handle an "elif" statement.
             ifNode.elseSuite = this._parseIfStatement(KeywordType.Elif);
+            ifNode.elseSuite.parent = ifNode;
             extendRange(ifNode, ifNode.elseSuite);
         }
 
@@ -308,6 +311,7 @@ export class Parser {
                     // Perform basic error recovery to get to the next line.
                     this._consumeTokensUntilType(TokenType.NewLine);
                 } else {
+                    statement.parent = suite;
                     suite.statements.push(statement);
                 }
 
@@ -324,7 +328,9 @@ export class Parser {
                 }
             }
         } else {
-            suite.statements.push(this._parseSimpleStatement());
+            const simpleStatement = this._parseSimpleStatement();
+            suite.statements.push(simpleStatement);
+            simpleStatement.parent = suite;
         }
 
         if (suite.statements.length > 0) {
@@ -362,6 +368,7 @@ export class Parser {
         forNode.elseSuite = elseSuite;
         if (elseSuite) {
             extendRange(forNode, elseSuite);
+            elseSuite.parent = forNode;
         }
 
         if (asyncToken) {
@@ -380,18 +387,23 @@ export class Parser {
             return undefined;
         }
 
+        const listCompNode = ListComprehensionNode.create(target);
+
         const compList: ListComprehensionIterNode[] = [compFor];
         while (true) {
             const compIter = this._tryParseCompForStatement() || this._tryParseCompIfStatement();
             if (!compIter) {
                 break;
             }
+            compIter.parent = listCompNode;
             compList.push(compIter);
         }
 
-        const listCompNode = ListComprehensionNode.create(target);
         listCompNode.comprehensions = compList;
         if (compList.length > 0) {
+            compList.forEach(comp => {
+                comp.parent = listCompNode;
+            });
             extendRange(listCompNode, compList[compList.length - 1]);
         }
         return listCompNode;
@@ -463,6 +475,7 @@ export class Parser {
 
         if (this._consumeTokenIfKeyword(KeywordType.Else)) {
             whileNode.elseSuite = this._parseSuite();
+            whileNode.elseSuite.parent = whileNode;
             extendRange(whileNode, whileNode.elseSuite);
         }
 
@@ -514,26 +527,33 @@ export class Parser {
 
             const exceptSuite = this._parseSuite();
             const exceptNode = ExceptNode.create(exceptToken, exceptSuite);
-            exceptNode.typeExpression = typeExpr;
+            if (typeExpr) {
+                exceptNode.typeExpression = typeExpr;
+                exceptNode.typeExpression.parent = exceptNode;
+            }
+
             if (symbolName) {
                 exceptNode.name = NameNode.create(symbolName);
+                exceptNode.name.parent = exceptNode;
             }
 
             tryNode.exceptClauses.push(exceptNode);
-        }
-        if (tryNode.exceptClauses.length > 0) {
-            extendRange(tryNode, tryNode.exceptClauses[tryNode.exceptClauses.length - 1]);
+            exceptNode.parent = tryNode;
         }
 
         if (tryNode.exceptClauses.length > 0) {
+            extendRange(tryNode, tryNode.exceptClauses[tryNode.exceptClauses.length - 1]);
+
             if (this._consumeTokenIfKeyword(KeywordType.Else)) {
                 tryNode.elseSuite = this._parseSuite();
+                tryNode.elseSuite.parent = tryNode;
                 extendRange(tryNode, tryNode.elseSuite);
             }
         }
 
         if (this._consumeTokenIfKeyword(KeywordType.Finally)) {
             tryNode.finallySuite = this._parseSuite();
+            tryNode.finallySuite.parent = tryNode;
             extendRange(tryNode, tryNode.finallySuite);
         }
 
@@ -576,15 +596,26 @@ export class Parser {
             functionNode.isAsync = true;
             extendRange(functionNode, asyncToken);
         }
+
         functionNode.parameters = paramList;
+        paramList.forEach(param => {
+            param.parent = functionNode;
+        });
+
         if (decorators) {
             functionNode.decorators = decorators;
+            decorators.forEach(decorator => {
+                decorator.parent = functionNode;
+            });
+
             if (decorators.length > 0) {
                 extendRange(functionNode, decorators[0]);
             }
         }
+
         if (returnType) {
             functionNode.returnTypeAnnotation = returnType;
+            functionNode.returnTypeAnnotation.parent = functionNode;
             extendRange(functionNode, returnType);
         }
 
@@ -729,18 +760,21 @@ export class Parser {
         const paramNode = ParameterNode.create(firstToken, paramType);
         if (paramName) {
             paramNode.name = NameNode.create(paramName);
+            paramNode.name.parent = paramNode;
             extendRange(paramNode, paramName);
         }
 
         if (allowAnnotations && this._consumeTokenIfType(TokenType.Colon)) {
             this._parseTypeAnnotation(() => {
                 paramNode.typeAnnotation = this._parseTestExpression(false);
+                paramNode.typeAnnotation.parent = paramNode;
                 extendRange(paramNode, paramNode.typeAnnotation);
             });
         }
 
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
             paramNode.defaultValue = this._parseTestExpression(false);
+            paramNode.defaultValue.parent = paramNode;
             extendRange(paramNode, paramNode.defaultValue);
 
             if (starCount > 0) {
@@ -771,7 +805,12 @@ export class Parser {
             withNode.isAsync = true;
             extendRange(withNode, asyncToken);
         }
+
         withNode.withItems = withItemList;
+        withItemList.forEach(withItem => {
+            withItem.parent = withNode;
+        });
+
         return withNode;
     }
 
@@ -782,6 +821,7 @@ export class Parser {
 
         if (this._consumeTokenIfKeyword(KeywordType.As)) {
             itemNode.target = this._parseExpression(false);
+            itemNode.target.parent = itemNode;
             extendRange(itemNode, itemNode.target);
         }
 
@@ -855,6 +895,9 @@ export class Parser {
 
         if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
             decoratorNode.arguments = this._parseArgList();
+            decoratorNode.arguments.forEach(arg => {
+                arg.parent = decoratorNode;
+            });
 
             const nextToken = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
@@ -895,9 +938,16 @@ export class Parser {
 
         const classNode = ClassNode.create(classToken, NameNode.create(nameToken), suite);
         classNode.arguments = argList;
+        argList.forEach(arg => {
+            arg.parent = classNode;
+        });
+
         if (decorators) {
             classNode.decorators = decorators;
             if (decorators.length > 0) {
+                decorators.forEach(decorator => {
+                    decorator.parent = classNode;
+                });
                 extendRange(classNode, decorators[0]);
             }
         }
@@ -946,6 +996,7 @@ export class Parser {
                 'Expected expression after "return"');
             this._reportConditionalErrorForStarTupleElement(returnExpr);
             returnNode.returnExpression = returnExpr;
+            returnNode.returnExpression.parent = returnNode;
             extendRange(returnNode, returnExpr);
         }
 
@@ -1000,11 +1051,13 @@ export class Parser {
                             this._addError('Expected alias symbol name', this._peekToken());
                         } else {
                             importFromAsNode.alias = NameNode.create(aliasName);
+                            importFromAsNode.alias.parent = importFromAsNode;
                             extendRange(importFromAsNode, aliasName);
                         }
                     }
 
                     importFromNode.imports.push(importFromAsNode);
+                    importFromAsNode.parent = importFromNode;
                     extendRange(importFromNode, importFromAsNode);
 
                     if (isFutureImport) {
@@ -1060,6 +1113,7 @@ export class Parser {
                 const aliasToken = this._getTokenIfIdentifier();
                 if (aliasToken) {
                     importAsNode.alias = NameNode.create(aliasToken);
+                    importAsNode.alias.parent = importAsNode;
                     extendRange(importAsNode, importAsNode.alias);
                 } else {
                     this._addError('Expected identifier after "as"', this._peekToken());
@@ -1067,6 +1121,7 @@ export class Parser {
             }
 
             importNode.list.push(importAsNode);
+            importAsNode.parent = importNode;
 
             this._importedModules.push({
                 nameNode: importAsNode.module,
@@ -1112,8 +1167,10 @@ export class Parser {
                 break;
             }
 
-            moduleNameNode.nameParts.push(NameNode.create(identifier));
-            extendRange(moduleNameNode, identifier);
+            const namePart = NameNode.create(identifier);
+            moduleNameNode.nameParts.push(namePart);
+            namePart.parent = moduleNameNode;
+            extendRange(moduleNameNode, namePart);
 
             const nextToken = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.Dot)) {
@@ -1133,6 +1190,9 @@ export class Parser {
         const globalNode = GlobalNode.create(globalToken);
         globalNode.nameList = this._parseNameList();
         if (globalNode.nameList.length > 0) {
+            globalNode.nameList.forEach(name => {
+                name.parent = globalNode;
+            });
             extendRange(globalNode, globalNode.nameList[globalNode.nameList.length - 1]);
         }
         return globalNode;
@@ -1144,6 +1204,9 @@ export class Parser {
         const nonlocalNode = NonlocalNode.create(nonlocalToken);
         nonlocalNode.nameList = this._parseNameList();
         if (nonlocalNode.nameList.length > 0) {
+            nonlocalNode.nameList.forEach(name => {
+                name.parent = nonlocalNode;
+            });
             extendRange(nonlocalNode, nonlocalNode.nameList[nonlocalNode.nameList.length - 1]);
         }
         return nonlocalNode;
@@ -1177,19 +1240,23 @@ export class Parser {
         const raiseNode = RaiseNode.create(raiseToken);
         if (!this._isNextTokenNeverExpression()) {
             raiseNode.typeExpression = this._parseTestExpression(true);
+            raiseNode.typeExpression.parent = raiseNode;
             extendRange(raiseNode, raiseNode.typeExpression);
 
             if (this._consumeTokenIfKeyword(KeywordType.From)) {
                 raiseNode.valueExpression = this._parseTestExpression(true);
+                raiseNode.valueExpression.parent = raiseNode;
                 extendRange(raiseNode, raiseNode.valueExpression);
             } else {
                 if (this._consumeTokenIfType(TokenType.Comma)) {
                     // Handle the Python 2.x variant
                     raiseNode.valueExpression = this._parseTestExpression(true);
+                    raiseNode.valueExpression.parent = raiseNode;
                     extendRange(raiseNode, raiseNode.valueExpression);
 
                     if (this._consumeTokenIfType(TokenType.Comma)) {
                         raiseNode.tracebackExpression = this._parseTestExpression(true);
+                        raiseNode.tracebackExpression.parent = raiseNode;
                         extendRange(raiseNode, raiseNode.tracebackExpression);
                     }
                 }
@@ -1209,6 +1276,7 @@ export class Parser {
         if (this._consumeTokenIfType(TokenType.Comma)) {
             const exceptionExpr = this._parseTestExpression(true);
             assertNode.exceptionExpression = exceptionExpr;
+            assertNode.exceptionExpression.parent = assertNode;
             extendRange(assertNode, exceptionExpr);
         }
 
@@ -1226,6 +1294,9 @@ export class Parser {
         const delNode = DelNode.create(delToken);
         delNode.expressions = exprListResult.list;
         if (delNode.expressions.length > 0) {
+            delNode.expressions.forEach(expr => {
+                expr.parent = delNode;
+            });
             extendRange(delNode, delNode.expressions[delNode.expressions.length - 1]);
         }
         return delNode;
@@ -1281,6 +1352,7 @@ export class Parser {
 
             const smallStatement = this._parseSmallStatement();
             statement.statements.push(smallStatement);
+            smallStatement.parent = statement;
             extendRange(statement, smallStatement);
 
             if (smallStatement.nodeType === ParseNodeType.Error) {
@@ -1368,6 +1440,9 @@ export class Parser {
         const tupleNode = TupleExpressionNode.create(tupleStartRange);
         tupleNode.expressions = exprListResult.list;
         if (exprListResult.list.length > 0) {
+            exprListResult.list.forEach(expr => {
+                expr.parent = tupleNode;
+            });
             extendRange(tupleNode, exprListResult.list[exprListResult.list.length - 1]);
         }
 
@@ -1765,6 +1840,9 @@ export class Parser {
                 const callNode = CallExpressionNode.create(atomExpression);
                 callNode.arguments = argList;
                 if (argList.length > 0) {
+                    argList.forEach(arg => {
+                        arg.parent = callNode;
+                    });
                     extendRange(callNode, argList[argList.length - 1]);
                 }
 
@@ -1897,8 +1975,17 @@ export class Parser {
 
         const sliceNode = SliceExpressionNode.create(firstToken);
         sliceNode.startValue = sliceExpressions[0];
+        if (sliceNode.startValue) {
+            sliceNode.startValue.parent = sliceNode;
+        }
         sliceNode.endValue = sliceExpressions[1];
+        if (sliceNode.endValue) {
+            sliceNode.endValue.parent = sliceNode;
+        }
         sliceNode.stepValue = sliceExpressions[2];
+        if (sliceNode.stepValue) {
+            sliceNode.stepValue.parent = sliceNode;
+        }
         const extension = sliceExpressions[2] || sliceExpressions[1] || sliceExpressions[0];
         if (extension) {
             extendRange(sliceNode, extension);
@@ -1976,6 +2063,7 @@ export class Parser {
         const argNode = ArgumentNode.create(firstToken, valueExpr, argType);
         if (nameIdentifier) {
             argNode.name = NameNode.create(nameIdentifier);
+            argNode.name.parent = argNode;
         }
 
         return argNode;
@@ -2065,6 +2153,9 @@ export class Parser {
 
         const lambdaNode = LambdaNode.create(lambdaToken, testExpr);
         lambdaNode.parameters = argList;
+        argList.forEach(arg => {
+            arg.parent = lambdaNode;
+        });
         return lambdaNode;
     }
 
@@ -2126,6 +2217,9 @@ export class Parser {
         const listAtom = ListNode.create(startBracket);
         extendRange(listAtom, closeBracket);
         if (exprListResult.list.length > 0) {
+            exprListResult.list.forEach(expr => {
+                expr.parent = listAtom;
+            });
             extendRange(listAtom, exprListResult.list[exprListResult.list.length - 1]);
         }
         listAtom.entries = exprListResult.list;
@@ -2257,6 +2351,9 @@ export class Parser {
             if (setEntries.length > 0) {
                 extendRange(setAtom, setEntries[setEntries.length - 1]);
             }
+            setEntries.forEach(entry => {
+                entry.parent = setAtom;
+            });
             setAtom.entries = setEntries;
             return setAtom;
         }
@@ -2266,6 +2363,9 @@ export class Parser {
             extendRange(dictionaryAtom, closeCurlyBrace);
         }
         if (dictionaryEntries.length > 0) {
+            dictionaryEntries.forEach(entry => {
+                entry.parent = dictionaryAtom;
+            });
             extendRange(dictionaryAtom, dictionaryEntries[dictionaryEntries.length - 1]);
         }
         dictionaryAtom.entries = dictionaryEntries;
@@ -2389,6 +2489,7 @@ export class Parser {
         const typeAnnotationComment = this._getTypeAnnotationComment();
         if (typeAnnotationComment) {
             assignmentNode.typeAnnotationComment = typeAnnotationComment;
+            assignmentNode.typeAnnotationComment.parent = assignmentNode;
             extendRange(assignmentNode, assignmentNode.typeAnnotationComment);
         }
 
@@ -2651,6 +2752,7 @@ export class Parser {
 
                     if (parseResults.parseTree) {
                         stringNode.typeAnnotation = parseResults.parseTree;
+                        stringNode.typeAnnotation.parent = stringNode;
                     }
                 }
             }
