@@ -687,7 +687,7 @@ export abstract class Binder extends ParseTreeWalker {
         }
 
         if (node.isWildcardImport) {
-            if (resolvedPath) {
+            if (importInfo && importInfo.implicitImports) {
                 const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                 if (lookupInfo) {
                     lookupInfo.symbolTable.forEach((_, name) => {
@@ -703,24 +703,22 @@ export abstract class Binder extends ParseTreeWalker {
                             symbol.addDeclaration(aliasDecl);
                         }
                     });
-
-                    // Also add all of the implicitly-imported modules for
-                    // the import module.
-                    if (importInfo && importInfo.implicitImports) {
-                        importInfo.implicitImports.forEach(implicitImport => {
-                            const symbol = this._bindNameToScope(this._currentScope, implicitImport.name);
-                            if (symbol) {
-                                const aliasDecl: AliasDeclaration = {
-                                    type: DeclarationType.Alias,
-                                    path: implicitImport.path,
-                                    range: getEmptyRange(),
-                                    implicitImports: new Map<string, ModuleLoaderActions>()
-                                };
-                                symbol.addDeclaration(aliasDecl);
-                            }
-                        });
-                    }
                 }
+
+                // Also add all of the implicitly-imported modules for
+                // the import  module.
+                importInfo.implicitImports.forEach(implicitImport => {
+                    const symbol = this._bindNameToScope(this._currentScope, implicitImport.name);
+                    if (symbol) {
+                        const aliasDecl: AliasDeclaration = {
+                            type: DeclarationType.Alias,
+                            path: implicitImport.path,
+                            range: getEmptyRange(),
+                            implicitImports: new Map<string, ModuleLoaderActions>()
+                        };
+                        symbol.addDeclaration(aliasDecl);
+                    }
+                });
             }
         } else {
             node.imports.forEach(importSymbolNode => {
@@ -728,8 +726,8 @@ export abstract class Binder extends ParseTreeWalker {
                 const nameNode = importSymbolNode.alias || importSymbolNode.name;
                 const symbol = this._bindNameToScope(this._currentScope, nameNode.nameToken.value);
 
-                if (symbol && resolvedPath) {
-                    let aliasDecl: AliasDeclaration;
+                if (symbol) {
+                    let aliasDecl: AliasDeclaration | undefined;
 
                     // Is the import referring to an implicitly-imported module?
                     let implicitImport: ImplicitImport | undefined;
@@ -744,7 +742,7 @@ export abstract class Binder extends ParseTreeWalker {
                             range: getEmptyRange(),
                             implicitImports: new Map<string, ModuleLoaderActions>()
                         };
-                    } else {
+                    } else if (resolvedPath) {
                         aliasDecl = {
                             type: DeclarationType.Alias,
                             path: resolvedPath,
@@ -753,7 +751,10 @@ export abstract class Binder extends ParseTreeWalker {
                             implicitImports: new Map<string, ModuleLoaderActions>()
                         };
                     }
-                    symbol.addDeclaration(aliasDecl);
+
+                    if (aliasDecl) {
+                        symbol.addDeclaration(aliasDecl);
+                    }
                 }
             });
         }
@@ -1131,11 +1132,7 @@ export class ModuleScopeBinder extends Binder {
         this._addParentLinks(moduleNode, moduleNode.statements);
         this.walkMultiple(moduleNode.statements);
 
-        // Associate the module's scope with the module type.
-        const moduleType = ModuleType.create(this._currentScope.getSymbolTable());
         this._moduleDocString = this._getDocString((this._scopedNode as ModuleNode).statements);
-        moduleType.docString = this._moduleDocString;
-        AnalyzerNodeInfo.setExpressionType(this._scopedNode, moduleType);
     }
 
     bind() {

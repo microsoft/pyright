@@ -12,8 +12,7 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import { AddMissingOptionalToParamAction, Diagnostic,
-    DiagnosticAddendum, DiagnosticTextRange, getEmptyRange } from '../common/diagnostic';
+import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -22,15 +21,16 @@ import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignme
     BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode, ContinueNode, DecoratorNode,
     DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode, FormatStringNode, ForNode,
     FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
-    ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory, ParameterNode,
-    ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceExpressionNode, StringListNode,
-    SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
+    ParameterNode, ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceExpressionNode,
+    StringListNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions, VariableDeclaration } from './declaration';
+import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions,
+    VariableDeclaration } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import { ImportResult, ImportType } from './importResult';
@@ -1311,17 +1311,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         // Look up the symbol to find the alias declaration.
-        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(
-            symbolNameNode.nameToken.value);
-        assert(symbolWithScope !== undefined);
-        const aliasDecl = symbolWithScope!.symbol.getDeclarations().find(
-            decl => decl.type === DeclarationType.Alias);
-
         let symbolType: Type | undefined;
-        if (aliasDecl && aliasDecl.type === DeclarationType.Alias) {
-            symbolType = this._getSymbolTypeForAliasDeclaration(aliasDecl);
-        }
-
+        let symbol: Symbol | undefined;
+        [symbol, symbolType] = this._getAliasedSymbolTypeForName(symbolNameNode.nameToken.value);
         if (!symbolType) {
             symbolType = UnknownType.create();
         }
@@ -1348,7 +1340,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 DiagnosticRule.reportUnusedImport,
                 `Import '${ node.alias.nameToken.value }' is not accessed`);
         } else {
-            if (symbolWithScope && !symbolWithScope.symbol.isAccessed()) {
+            if (symbol && !symbol.isAccessed()) {
                 const nameParts = node.module.nameParts;
                 if (nameParts.length > 0) {
                     const multipartName = nameParts.map(np => np.nameToken.value).join('.');
@@ -1369,77 +1361,44 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitImportFrom(node: ImportFromNode): boolean {
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
+        let symbol: Symbol | undefined;
+        let symbolType: Type | undefined;
 
         if (importInfo && importInfo.isImportFound) {
             const resolvedPath = importInfo.resolvedPaths.length > 0 ?
                 importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
 
             if (node.isWildcardImport) {
-                const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
-                if (moduleType) {
+                if (resolvedPath) {
                     // Import the fields in the current permanent scope.
-                    const moduleFields = moduleType.fields;
-                    moduleFields.forEach((boundValue, fieldName) => {
-                        this._addSymbolToPermanentScope(fieldName);
-                        this._addTypeSourceToName(fieldName, TypeUtils.getEffectiveTypeOfSymbol(boundValue),
-                            node.id, boundValue.hasDeclarations() ? boundValue.getDeclarations()[0] : undefined);
-                    });
+                    const lookupInfo = this._fileInfo.importLookup(resolvedPath);
+                    if (lookupInfo) {
+                        lookupInfo.symbolTable.forEach((_, name) => {
+                            [symbol, symbolType] = this._getAliasedSymbolTypeForName(name);
+                            if (symbol) {
+                                this._addTypeSourceToName(name, symbolType || UnknownType.create(),
+                                    node.id);
+                            }
+                        });
+                    }
 
-                    // Import the fields in the current permanent scope.
                     importInfo.implicitImports.forEach(implicitImport => {
-                        const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
-                        if (moduleType) {
-                            this._addSymbolToPermanentScope(implicitImport.name);
-                            this._addTypeSourceToName(implicitImport.name, moduleType, node.id);
+                        [symbol, symbolType] = this._getAliasedSymbolTypeForName(implicitImport.name);
+                        if (symbol) {
+                            this._addTypeSourceToName(implicitImport.name,
+                                symbolType || UnknownType.create(), node.id);
                         }
                     });
                 }
             } else {
                 node.imports.forEach(importAs => {
-                    const name = importAs.name.nameToken.value;
                     const aliasNode = importAs.alias || importAs.name;
-                    let symbolType: Type | undefined;
-                    let declaration: AliasDeclaration | undefined;
-
-                    // Is the name referring to an implicit import?
-                    const implicitImport = importInfo.implicitImports.find(impImport => impImport.name === name);
-                    if (implicitImport) {
-                        const moduleType = this._getModuleTypeForImportPath(importInfo, implicitImport.path);
-                        if (moduleType && this._fileInfo.importLookup(implicitImport.path)) {
-                            symbolType = moduleType;
-                            declaration = {
-                                type: DeclarationType.Alias,
-                                path: implicitImport.path,
-                                range: getEmptyRange(),
-                                implicitImports: new Map<string, ModuleLoaderActions>()
-                            };
-                        }
-                    } else {
-                        const moduleType = this._getModuleTypeForImportPath(importInfo, resolvedPath);
-                        if (moduleType) {
-                            const symbol = ModuleType.getField(moduleType, name);
-
-                            // For imports of the form "from . import X", the symbol
-                            // will have no declarations.
-                            if (symbol && symbol.hasDeclarations()) {
-                                symbolType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
-                                declaration = {
-                                    type: DeclarationType.Alias,
-                                    path: importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1],
-                                    symbolName: importAs.name.nameToken.value,
-                                    range: getEmptyRange(),
-                                    implicitImports: new Map<string, ModuleLoaderActions>()
-                                };
-                            } else {
-                                this._addError(
-                                    `'${ importAs.name.nameToken.value }' is unknown import symbol`,
-                                    importAs.name
-                                );
-                            }
-                        }
-                    }
-
+                    [symbol, symbolType] = this._getAliasedSymbolTypeForName(aliasNode.nameToken.value);
                     if (!symbolType) {
+                        this._addError(
+                            `'${ importAs.name.nameToken.value }' is unknown import symbol`,
+                            importAs.name
+                        );
                         symbolType = UnknownType.create();
                     }
 
@@ -1447,42 +1406,27 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     if (importAs.alias) {
                         this._updateExpressionTypeForNode(importAs.alias, symbolType);
                     }
-
-                    this._assignTypeToNameNode(aliasNode, symbolType, declaration);
-
-                    // Python files generated by protoc ("_pb2.py" files) contain
-                    // unused imports. Don't report these because they're in generated
-                    // files that shouldn't be edited.
-                    if (importInfo.importName !== '__future__' &&
-                            !this._fileInfo.filePath.endsWith('_pb2.py')) {
-
-                        this._conditionallyReportUnusedName(aliasNode, false,
-                            this._fileInfo.diagnosticSettings.reportUnusedImport,
-                            DiagnosticRule.reportUnusedImport,
-                            `Import '${ aliasNode.nameToken.value }' is not accessed`);
-                    }
+                    this._addTypeSourceToName(aliasNode.nameToken.value, symbolType, node.id);
+                    this._assignTypeToNameNode(aliasNode, symbolType);
                 });
             }
-        } else {
-            // We were unable to resolve the import. Bind the names (or aliases)
-            // to an unknown type.
-            if (!node.isWildcardImport) {
-                node.imports.forEach(importAs => {
-                    const aliasNode = importAs.alias || importAs.name;
-                    const symbolType = UnknownType.create();
+        }
 
-                    this._updateExpressionTypeForNode(importAs.name, symbolType);
-                    if (importAs.alias) {
-                        this._updateExpressionTypeForNode(importAs.name, symbolType);
-                    }
+        if (!node.isWildcardImport) {
+            node.imports.forEach(importAs => {
+                const aliasNode = importAs.alias || importAs.name;
+                // Python files generated by protoc ("_pb2.py" files) contain
+                // unused imports. Don't report these because they're in generated
+                // files that shouldn't be edited.
+                if ((!importInfo || importInfo.importName !== '__future__') &&
+                        !this._fileInfo.filePath.endsWith('_pb2.py')) {
 
-                    this._assignTypeToNameNode(aliasNode, symbolType);
                     this._conditionallyReportUnusedName(aliasNode, false,
                         this._fileInfo.diagnosticSettings.reportUnusedImport,
                         DiagnosticRule.reportUnusedImport,
                         `Import '${ aliasNode.nameToken.value }' is not accessed`);
-                });
-            }
+                }
+            });
         }
 
         return false;
@@ -1555,15 +1499,36 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    private _getSymbolTypeForAliasDeclaration(declaration: AliasDeclaration): ModuleType | undefined {
-        // This call doesn't apply to alias declarations with a symbol name.
-        assert(declaration.symbolName === undefined);
+    private _getAliasedSymbolTypeForName(name: string): [Symbol | undefined, Type | undefined] {
+        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name);
+        if (!symbolWithScope) {
+            return [undefined, undefined];
+        }
 
-        // Build a module type that corresponds to the declaration and
-        // its associated loader actions.
-        const moduleType = ModuleType.create();
-        this._applyLoaderActionsToModuleType(moduleType, declaration);
-        return moduleType;
+        const aliasDecl = symbolWithScope.symbol.getDeclarations().find(
+            decl => decl.type === DeclarationType.Alias);
+
+        let symbolType: Type | undefined;
+        if (aliasDecl && aliasDecl.type === DeclarationType.Alias) {
+            if (aliasDecl.symbolName) {
+                assert(aliasDecl.path);
+                const lookupResults = this._fileInfo.importLookup(aliasDecl.path);
+                if (lookupResults) {
+                    const symbol = lookupResults.symbolTable.get(aliasDecl.symbolName);
+                    if (symbol) {
+                        symbolType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+                    }
+                }
+            } else {
+                // Build a module type that corresponds to the declaration and
+                // its associated loader actions.
+                const moduleType = ModuleType.create();
+                this._applyLoaderActionsToModuleType(moduleType, aliasDecl);
+                symbolType = moduleType;
+            }
+        }
+
+        return [symbolWithScope ? symbolWithScope.symbol : undefined, symbolType];
     }
 
     private _applyLoaderActionsToModuleType(moduleType: ModuleType, loaderActions: ModuleLoaderActions) {
@@ -3425,28 +3390,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _addTypeSourceToNameNode(node: NameNode, type: Type, declaration?: Declaration) {
         this._addTypeSourceToName(node.nameToken.value, type, node.id, declaration);
         this._addAssignmentTypeConstraint(node, type);
-    }
-
-    // Finds the nearest permanent scope (as opposed to temporary scope) and
-    // adds a new symbol with the specified name if it doesn't already exist.
-    private _addSymbolToPermanentScope(name: string) {
-        const permanentScope = ScopeUtils.getPermanentScope(this._currentScope);
-        assert(permanentScope.getType() !== ScopeType.Temporary);
-
-        let symbol = permanentScope.lookUpSymbol(name);
-        if (!symbol) {
-            symbol = permanentScope.addSymbol(name, SymbolFlags.ClassMember);
-        }
-
-        // Variables that are defined within a module or a class
-        // are considered public by default. Don't flag them
-        // "not access" unless the name indicates that it's private.
-        const scopeType = permanentScope.getType();
-        if (scopeType === ScopeType.Class || scopeType === ScopeType.Module) {
-            if (!this._isSymbolPrivate(name, scopeType)) {
-                this._setSymbolAccessed(symbol);
-            }
-        }
     }
 
     private _addTypeSourceToName(name: string, type: Type, typeSourceId: TypeSourceId,

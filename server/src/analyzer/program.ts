@@ -505,18 +505,14 @@ export class Program {
     }
 
     private _bindFile(fileToAnalyze: SourceFileInfo,
-            options: ConfigOptions, importResolver: ImportResolver) {
+            options: ConfigOptions, importResolver: ImportResolver,
+            recursionMap: Map<string, true> = new Map<string, true>()) {
 
         if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) {
             return;
         }
 
         this._parseFile(fileToAnalyze, options, importResolver);
-
-        // Parse any other files that this file depends upon.
-        fileToAnalyze.imports.forEach(importedFile => {
-            this._parseFile(importedFile, options, importResolver);
-        });
 
         // We need to parse and bind the builtins import first.
         let builtinsScope: Scope | undefined;
@@ -529,6 +525,18 @@ export class Program {
                 builtinsScope = AnalyzerNodeInfo.getScope(parseResults.parseTree);
                 assert(builtinsScope !== undefined);
             }
+
+            const filePath = fileToAnalyze.sourceFile.getFilePath();
+            if (recursionMap.has(filePath)) {
+                // Avoid infinite recursion for cyclical dependencies.
+                return;
+            }
+
+            // Bind any other files that this file depends upon.
+            recursionMap.set(filePath, true);
+            fileToAnalyze.imports.forEach(importedFile => {
+                this._bindFile(importedFile, options, importResolver, recursionMap);
+            });
         }
 
         fileToAnalyze.sourceFile.bind(options, this._lookUpImport, builtinsScope);
@@ -1188,30 +1196,26 @@ export class Program {
         const newImportPathMap = new Map<string, UpdateImportInfo>();
         imports.forEach(importResult => {
             if (importResult.isImportFound) {
-                if (!this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
-                    return;
-                }
-
-                if (importResult.resolvedPaths.length > 0) {
-                    const filePath = importResult.resolvedPaths[
-                        importResult.resolvedPaths.length - 1];
-                    if (filePath) {
-                        newImportPathMap.set(filePath, {
-                            isTypeshedFile: !!importResult.isTypeshedFile,
-                            isThirdPartyImport: importResult.importType === ImportType.ThirdParty
-                        });
+                if (this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
+                    if (importResult.resolvedPaths.length > 0) {
+                        const filePath = importResult.resolvedPaths[
+                            importResult.resolvedPaths.length - 1];
+                        if (filePath) {
+                            newImportPathMap.set(filePath, {
+                                isTypeshedFile: !!importResult.isTypeshedFile,
+                                isThirdPartyImport: importResult.importType === ImportType.ThirdParty
+                            });
+                        }
                     }
                 }
 
                 importResult.implicitImports.forEach(implicitImport => {
-                    if (!this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
-                        return;
+                    if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
+                        newImportPathMap.set(implicitImport.path, {
+                            isTypeshedFile: !!importResult.isTypeshedFile,
+                            isThirdPartyImport: importResult.importType === ImportType.ThirdParty
+                        });
                     }
-
-                    newImportPathMap.set(implicitImport.path, {
-                        isTypeshedFile: !!importResult.isTypeshedFile,
-                        isThirdPartyImport: importResult.importType === ImportType.ThirdParty
-                    });
                 });
             } else if (options.verboseOutput) {
                 if (!sourceFileInfo.isTypeshedFile || options.diagnosticSettings.reportTypeshedErrors) {
