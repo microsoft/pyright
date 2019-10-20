@@ -18,7 +18,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind,
 import { ProgressReporting } from './progress';
 
 export function activate(context: ExtensionContext) {
-	const bundlePath = context.asAbsolutePath(path.join('server', 'server.js'));
+	const bundlePath = context.asAbsolutePath(path.join('server', 'server.bundle.js'));
 	const nonBundlePath = context.asAbsolutePath(path.join('server', 'server.js'));
 	const debugOptions = { execArgv: ["--nolazy", "--inspect=6600"] };
 	
