@@ -9,17 +9,16 @@
 * position within a smart editor.
 */
 
-import { ImportMap } from '../analyzer/analyzerFileInfo';
+import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
-import { ImportType } from '../analyzer/importResult';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ClassType, FunctionType, printType, Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { ModuleNameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface HoverTextPart {
@@ -34,7 +33,7 @@ export interface HoverResults {
 
 export class HoverProvider {
     static getHoverForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
-            importMap: ImportMap): HoverResults | undefined {
+            importLookup: ImportLookup): HoverResults | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -54,18 +53,19 @@ export class HoverProvider {
             }
         };
 
-        if (node.nodeType === ParseNodeType.ModuleName) {
-            this._addResultsForModuleNameNode(results.parts, node, offset, importMap);
-        } else if (node.nodeType === ParseNodeType.Name) {
+        if (node.nodeType === ParseNodeType.Name) {
             const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(results.parts, declarations[0], node);
-            }
-
-            // If we had no declaration, see if we can provide a minimal tooltip.
-            if (results.parts.length === 0) {
-                this._addResultsPart(results.parts, node.nameToken.value + this._getTypeText(node), true);
-                this._addDocumentationPart(results.parts, node);
+                this._addResultsForDeclaration(results.parts, declarations[0], node, importLookup);
+            } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
+                // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
+                // this if it's part of a module name, since a module name part with no declaration
+                // is a directory (a namespace package), and we don't want to provide any hover
+                // information in that case.
+                if (results.parts.length === 0) {
+                    this._addResultsPart(results.parts, node.nameToken.value + this._getTypeText(node), true);
+                    this._addDocumentationPart(results.parts, node);
+                }
             }
         }
 
@@ -73,16 +73,11 @@ export class HoverProvider {
     }
 
     private static _addResultsForDeclaration(parts: HoverTextPart[],
-            declaration: Declaration, node: ParseNode): void {
+            declaration: Declaration, node: ParseNode, importLookup: ImportLookup): void {
 
-        let resolvedDecl: Declaration | undefined = declaration;
-        while (resolvedDecl && resolvedDecl.type === DeclarationType.Alias) {
-            resolvedDecl = resolvedDecl.resolvedDeclarations ?
-                resolvedDecl.resolvedDeclarations[0] : undefined;
-        }
-
+        const resolvedDecl = DeclarationUtils.resolveAliasDeclaration(declaration, importLookup);
         if (!resolvedDecl) {
-            return undefined;
+            return;
         }
 
         switch (resolvedDecl.type) {
@@ -109,7 +104,7 @@ export class HoverProvider {
 
             case DeclarationType.Class: {
                 if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(class) ' + this._getTypeText(node), true);
+                    this._addResultsPart(parts, '(class) ' + node.nameToken.value, true);
                     this._addDocumentationPart(parts, node);
                     return;
                 }
@@ -139,53 +134,13 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationType.Module: {
+            case DeclarationType.Alias: {
                 if (node.nodeType === ParseNodeType.Name) {
                     this._addResultsPart(parts, '(module) ' + node.nameToken.value, true);
                     this._addDocumentationPart(parts, node);
                     return;
                 }
                 break;
-            }
-        }
-    }
-
-    private static _addResultsForModuleNameNode(parts: HoverTextPart[], node: ModuleNameNode,
-            offset: number, importMap: ImportMap) {
-
-        // If this is an imported module name, try to map the position
-        // to the resolved import path.
-        const importInfo = AnalyzerNodeInfo.getImportInfo(node);
-        if (!importInfo) {
-            return;
-        }
-
-        let pathOffset = node.nameParts.findIndex(range => {
-            return offset >= range.start && offset < TextRange.getEnd(range);
-        });
-
-        if (pathOffset < 0) {
-            return;
-        }
-
-        if (pathOffset >= importInfo.resolvedPaths.length) {
-            pathOffset = importInfo.resolvedPaths.length - 1;
-        }
-
-        if (importInfo.resolvedPaths[pathOffset]) {
-            const resolvedPath = importInfo.resolvedPaths[pathOffset];
-            this._addResultsPart(parts, '(module) "' + resolvedPath + '"', true);
-
-            if (importInfo.importType === ImportType.ThirdParty && !importInfo.isStubFile) {
-                this._addResultsPart(parts,
-                    'No type stub found for this module. Imported symbol types are unknown.');
-            }
-
-            // If the module has been resolved and already analyzed,
-            // we can add the docString for it as well.
-            const moduleType = importMap.get(resolvedPath);
-            if (moduleType) {
-                this._addDocumentationPartForType(parts, moduleType);
             }
         }
     }

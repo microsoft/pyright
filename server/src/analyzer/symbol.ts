@@ -160,7 +160,7 @@ export class Symbol {
 
     getTypedDeclarations() {
         return this.getDeclarations().filter(
-            decl => hasTypeForDeclaration(decl, false));
+            decl => hasTypeForDeclaration(decl));
     }
 }
 

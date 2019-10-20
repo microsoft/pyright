@@ -23,14 +23,13 @@ import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
-import { ImportMap } from './analyzerFileInfo';
+import { ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
-import { ModuleType } from './types';
 import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
@@ -308,7 +307,9 @@ export class Program {
 
             // Now do binding of the open files.
             for (const sourceFileInfo of openFiles) {
-                this._bindFile(sourceFileInfo, options, importResolver);
+                if (this._bindFile(sourceFileInfo, options, importResolver, isTimeElapsedOpenFiles)) {
+                    return true;
+                }
 
                 if (isTimeElapsedOpenFiles()) {
                     return true;
@@ -505,11 +506,15 @@ export class Program {
         }
     }
 
+    // Binds the specified file and all of its dependencies, recursively. If
+    // it runs out of time, it returns true. If it completes, it returns false.
     private _bindFile(fileToAnalyze: SourceFileInfo,
-            options: ConfigOptions, importResolver: ImportResolver) {
+            options: ConfigOptions, importResolver: ImportResolver,
+            timeElapsedCallback: () => boolean,
+            recursionMap: Map<string, true> = new Map<string, true>()): boolean {
 
         if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) {
-            return;
+            return false;
         }
 
         this._parseFile(fileToAnalyze, options, importResolver);
@@ -517,7 +522,11 @@ export class Program {
         // We need to parse and bind the builtins import first.
         let builtinsScope: Scope | undefined;
         if (fileToAnalyze.builtinsImport) {
-            this._bindFile(fileToAnalyze.builtinsImport, options, importResolver);
+            if (this._bindFile(fileToAnalyze.builtinsImport, options,
+                    importResolver, timeElapsedCallback)) {
+
+                return true;
+            }
 
             // Get the builtins scope to pass to the binding pass.
             const parseResults = fileToAnalyze.builtinsImport.sourceFile.getParseResults();
@@ -525,22 +534,49 @@ export class Program {
                 builtinsScope = AnalyzerNodeInfo.getScope(parseResults.parseTree);
                 assert(builtinsScope !== undefined);
             }
-        }
 
-        fileToAnalyze.sourceFile.bind(options, builtinsScope);
-    }
+            const filePath = fileToAnalyze.sourceFile.getFilePath();
+            if (recursionMap.has(filePath)) {
+                // Avoid infinite recursion for cyclical dependencies.
+                return false;
+            }
 
-    private _buildImportMap(sourceFileInfo: SourceFileInfo): ImportMap {
-        const importMap: ImportMap = new Map<string, ModuleType>();
+            // Bind any other files that this file depends upon.
+            recursionMap.set(filePath, true);
+            for (const importedFile of fileToAnalyze.imports) {
+                if (this._bindFile(importedFile, options, importResolver,
+                        timeElapsedCallback, recursionMap)) {
 
-        for (const importedFileInfo of sourceFileInfo.imports) {
-            const moduleType = importedFileInfo.sourceFile.getModuleType();
-            if (moduleType) {
-                importMap.set(importedFileInfo.sourceFile.getFilePath(), moduleType);
+                    return true;
+                }
             }
         }
 
-        return importMap;
+        if (timeElapsedCallback()) {
+            return true;
+        }
+
+        fileToAnalyze.sourceFile.bind(options, this._lookUpImport, builtinsScope);
+        return false;
+    }
+
+    private _lookUpImport = (filePath: string): ImportLookupResult | undefined => {
+        const sourceFileInfo = this._sourceFileMap[filePath];
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+
+        const symbolTable = sourceFileInfo.sourceFile.getModuleSymbolTable();
+        if (!symbolTable) {
+            return undefined;
+        }
+
+        const docString = sourceFileInfo.sourceFile.getModuleDocString();
+
+        return {
+            symbolTable,
+            docString
+        };
     }
 
     // Build a map of all modules within this program and the module-
@@ -550,9 +586,9 @@ export class Program {
 
         this._sourceFileList.forEach(fileInfo => {
             if (fileInfo !== sourceFileToExclude) {
-                const moduleType = fileInfo.sourceFile.getModuleType();
-                if (moduleType) {
-                    moduleSymbolMap[fileInfo.sourceFile.getFilePath()] = moduleType.fields;
+                const symbolTable = fileInfo.sourceFile.getModuleSymbolTable();
+                if (symbolTable) {
+                    moduleSymbolMap[fileInfo.sourceFile.getFilePath()] = symbolTable;
                 }
             }
         });
@@ -590,15 +626,12 @@ export class Program {
             closureMap.set(fileToAnalyze.sourceFile.getFilePath(), false);
 
             if (fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
-                // Build the import map for the file.
-                const importMap = this._buildImportMap(fileToAnalyze);
-
                 // Do a type analysis pass and determine if any internal changes occurred
                 // during the pass. If so, continue to analyze until it stops changing and
                 // mark all of its dependencies as needing to be reanalyzed.
                 let didAnalysisChange = false;
                 while (true) {
-                    fileToAnalyze.sourceFile.doTypeAnalysis(options, importMap);
+                    fileToAnalyze.sourceFile.doTypeAnalysis(options, this._lookUpImport);
 
                     if (!fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
                         break;
@@ -690,7 +723,10 @@ export class Program {
         }
 
         // Make sure the file is parsed and bound.
-        this._bindFile(fileToAnalyze, options, importResolver);
+        if (this._bindFile(fileToAnalyze, options, importResolver, timeElapsedCallback)) {
+            return true;
+        }
+
         if (timeElapsedCallback()) {
             return true;
         }
@@ -840,7 +876,7 @@ export class Program {
             return undefined;
         }
 
-        return sourceFile.getDefinitionsForPosition(position);
+        return sourceFile.getDefinitionsForPosition(position, this._lookUpImport);
     }
 
     getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
@@ -860,7 +896,7 @@ export class Program {
         }
 
         const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
-            position, includeDeclaration);
+            position, includeDeclaration, this._lookUpImport);
 
         if (!referencesResult) {
             return undefined;
@@ -878,7 +914,7 @@ export class Program {
                     }
 
                     curSourceFileInfo.sourceFile.addReferences(referencesResult,
-                        includeDeclaration);
+                        includeDeclaration, this._lookUpImport);
                 }
             }
         }
@@ -889,7 +925,8 @@ export class Program {
     addSymbolsForDocument(filePath: string, symbolList: SymbolInformation[]) {
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (sourceFileInfo) {
-            sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList);
+            sourceFileInfo.sourceFile.addSymbolsForDocument(
+                symbolList, this._lookUpImport);
         }
     }
 
@@ -901,7 +938,8 @@ export class Program {
         }
 
         for (const sourceFileInfo of this._sourceFileList) {
-            sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, query);
+            sourceFileInfo.sourceFile.addSymbolsForDocument(
+                symbolList, this._lookUpImport, query);
         }
     }
 
@@ -914,7 +952,7 @@ export class Program {
         }
 
         return sourceFileInfo.sourceFile.getHoverForPosition(position,
-            this._buildImportMap(sourceFileInfo));
+            this._lookUpImport);
     }
 
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition,
@@ -955,7 +993,7 @@ export class Program {
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
             position, options, importResolver,
-            () => this._buildImportMap(sourceFileInfo),
+            this._lookUpImport,
             () => this._buildModuleSymbolsMap(sourceFileInfo));
     }
 
@@ -989,7 +1027,7 @@ export class Program {
         }
 
         const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
-            position, true);
+            position, true, this._lookUpImport);
 
         if (!referencesResult) {
             return undefined;
@@ -1006,7 +1044,8 @@ export class Program {
                         });
                     }
 
-                    curSourceFileInfo.sourceFile.addReferences(referencesResult, true);
+                    curSourceFileInfo.sourceFile.addReferences(referencesResult,
+                        true, this._lookUpImport);
                 }
             }
         }
@@ -1178,30 +1217,26 @@ export class Program {
         const newImportPathMap = new Map<string, UpdateImportInfo>();
         imports.forEach(importResult => {
             if (importResult.isImportFound) {
-                if (!this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
-                    return;
-                }
-
-                if (importResult.resolvedPaths.length > 0) {
-                    const filePath = importResult.resolvedPaths[
-                        importResult.resolvedPaths.length - 1];
-                    if (filePath) {
-                        newImportPathMap.set(filePath, {
-                            isTypeshedFile: !!importResult.isTypeshedFile,
-                            isThirdPartyImport: importResult.importType === ImportType.ThirdParty
-                        });
+                if (this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
+                    if (importResult.resolvedPaths.length > 0) {
+                        const filePath = importResult.resolvedPaths[
+                            importResult.resolvedPaths.length - 1];
+                        if (filePath) {
+                            newImportPathMap.set(filePath, {
+                                isTypeshedFile: !!importResult.isTypeshedFile,
+                                isThirdPartyImport: importResult.importType === ImportType.ThirdParty
+                            });
+                        }
                     }
                 }
 
                 importResult.implicitImports.forEach(implicitImport => {
-                    if (!this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
-                        return;
+                    if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
+                        newImportPathMap.set(implicitImport.path, {
+                            isTypeshedFile: !!importResult.isTypeshedFile,
+                            isThirdPartyImport: importResult.importType === ImportType.ThirdParty
+                        });
                     }
-
-                    newImportPathMap.set(implicitImport.path, {
-                        isTypeshedFile: !!importResult.isTypeshedFile,
-                        isThirdPartyImport: importResult.importType === ImportType.ThirdParty
-                    });
                 });
             } else if (options.verboseOutput) {
                 if (!sourceFileInfo.isTypeshedFile || options.diagnosticSettings.reportTypeshedErrors) {

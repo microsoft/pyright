@@ -27,18 +27,18 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     AwaitExpressionNode, ClassNode, DelNode, ExceptNode, ExpressionNode, ForNode,
-    FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromAsNode, LambdaNode,
-    ListComprehensionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParseNode,
-    ParseNodeArray, ParseNodeType, RaiseNode, StatementNode, StringListNode, SuiteNode,
-    TryNode, TypeAnnotationExpressionNode, WhileNode, WithNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+    FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromNode, LambdaNode,
+    ListComprehensionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
+    ParseNode, ParseNodeArray, ParseNodeType, RaiseNode, StatementNode, StringListNode,
+    SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode, WithNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { DeclarationType } from './declaration';
+import { AliasDeclaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as DocStringUtils from './docStringUtils';
-import { ImportType } from './importResult';
+import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import { defaultTypeSourceId, TypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -593,18 +593,171 @@ export abstract class Binder extends ParseTreeWalker {
     }
 
     visitImportAs(node: ImportAsNode): boolean {
-        if (node.alias) {
-            this._bindNameToScope(this._currentScope, node.alias.nameToken.value);
-        } else if (node.module.nameParts.length > 0) {
-            this._bindNameToScope(this._currentScope, node.module.nameParts[0].nameToken.value);
+        if (node.module.nameParts.length > 0) {
+            const firstNamePartValue = node.module.nameParts[0].nameToken.value;
+
+            let symbolName: string | undefined;
+            if (node.alias) {
+                // The symbol name is defined by the alias.
+                symbolName = node.alias.nameToken.value;
+            } else {
+                // There was no alias, so we need to use the first element of
+                // the name parts as the symbol.
+                symbolName = firstNamePartValue;
+            }
+
+            const symbol = this._bindNameToScope(this._currentScope, symbolName);
+
+            const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
+            assert(importInfo !== undefined);
+
+            if (importInfo && importInfo.isImportFound && importInfo.resolvedPaths.length > 0 && symbol) {
+                // See if there's already a matching alias delaration for this import.
+                // if so, we'll update it rather than creating a new one. This is required
+                // to handle cases where multiple import statements target the same
+                // starting symbol such as "import a.b.c" and "import a.d". In this case,
+                // we'll build a single declaration that describes the combined actions
+                // of both import statements, thus reflecting the behavior of the
+                // python module loader.
+                const existingDecl = symbol.getDeclarations().find(
+                    decl => decl.type === DeclarationType.Alias &&
+                    decl.firstNamePart === firstNamePartValue);
+
+                const newDecl: AliasDeclaration = existingDecl as AliasDeclaration || {
+                    type: DeclarationType.Alias,
+                    path: '',
+                    range: getEmptyRange(),
+                    firstNamePart: firstNamePartValue,
+                    implicitImports: new Map<string, ModuleLoaderActions>()
+                };
+
+                // Add the implicit imports for this module if it's the last
+                // name part we're resolving.
+                if (node.alias || node.module.nameParts.length === 1) {
+                    newDecl.path = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+                    this._addImplicitImportsToLoaderActions(importInfo, newDecl);
+                } else {
+                    // Fill in the remaining name parts.
+                    let curLoaderActions: ModuleLoaderActions = newDecl;
+
+                    for (let i = 1; i < node.module.nameParts.length; i++) {
+                        if (i >= importInfo.resolvedPaths.length) {
+                            break;
+                        }
+
+                        const namePartValue = node.module.nameParts[i].nameToken.value;
+
+                        // Is there an existing loader action for this name?
+                        let loaderActions = curLoaderActions.implicitImports.get(namePartValue);
+                        if (!loaderActions) {
+                            // Allocate a new loader action.
+                            loaderActions = {
+                                path: '',
+                                implicitImports: new Map<string, ModuleLoaderActions>()
+                            };
+                            curLoaderActions.implicitImports.set(namePartValue, loaderActions);
+                        }
+
+                        // If this is the last name part we're resolving, add in the
+                        // implicit imports as well.
+                        if (i === node.module.nameParts.length - 1) {
+                            loaderActions.path = importInfo.resolvedPaths[i];
+                            this._addImplicitImportsToLoaderActions(importInfo, loaderActions);
+                        }
+
+                        curLoaderActions = loaderActions;
+                    }
+                }
+
+                if (!existingDecl) {
+                    symbol.addDeclaration(newDecl);
+                }
+            }
         }
 
         return true;
     }
 
-    visitImportFromAs(node: ImportFromAsNode): boolean {
-        const nameNode = node.alias || node.name;
-        this._bindNameToScope(this._currentScope, nameNode.nameToken.value);
+    visitImportFrom(node: ImportFromNode): boolean {
+        const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
+
+        let resolvedPath = '';
+        if (importInfo && importInfo.isImportFound) {
+            resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+        }
+
+        if (node.isWildcardImport) {
+            if (importInfo && importInfo.implicitImports) {
+                const lookupInfo = this._fileInfo.importLookup(resolvedPath);
+                if (lookupInfo) {
+                    lookupInfo.symbolTable.forEach((_, name) => {
+                        const symbol = this._bindNameToScope(this._currentScope, name);
+                        if (symbol) {
+                            const aliasDecl: AliasDeclaration = {
+                                type: DeclarationType.Alias,
+                                path: resolvedPath,
+                                range: getEmptyRange(),
+                                symbolName: name,
+                                implicitImports: new Map<string, ModuleLoaderActions>()
+                            };
+                            symbol.addDeclaration(aliasDecl);
+                        }
+                    });
+                }
+
+                // Also add all of the implicitly-imported modules for
+                // the import  module.
+                importInfo.implicitImports.forEach(implicitImport => {
+                    const symbol = this._bindNameToScope(this._currentScope, implicitImport.name);
+                    if (symbol) {
+                        const aliasDecl: AliasDeclaration = {
+                            type: DeclarationType.Alias,
+                            path: implicitImport.path,
+                            range: getEmptyRange(),
+                            implicitImports: new Map<string, ModuleLoaderActions>()
+                        };
+                        symbol.addDeclaration(aliasDecl);
+                    }
+                });
+            }
+        } else {
+            node.imports.forEach(importSymbolNode => {
+                const importedName = importSymbolNode.name.nameToken.value;
+                const nameNode = importSymbolNode.alias || importSymbolNode.name;
+                const symbol = this._bindNameToScope(this._currentScope, nameNode.nameToken.value);
+
+                if (symbol) {
+                    let aliasDecl: AliasDeclaration | undefined;
+
+                    // Is the import referring to an implicitly-imported module?
+                    let implicitImport: ImplicitImport | undefined;
+                    if (importInfo && importInfo.implicitImports) {
+                        implicitImport = importInfo.implicitImports.find(imp => imp.name === importedName);
+                    }
+
+                    if (implicitImport) {
+                        aliasDecl = {
+                            type: DeclarationType.Alias,
+                            path: implicitImport.path,
+                            range: getEmptyRange(),
+                            implicitImports: new Map<string, ModuleLoaderActions>()
+                        };
+                    } else if (resolvedPath) {
+                        aliasDecl = {
+                            type: DeclarationType.Alias,
+                            path: resolvedPath,
+                            range: getEmptyRange(),
+                            symbolName: importedName,
+                            implicitImports: new Map<string, ModuleLoaderActions>()
+                        };
+                    }
+
+                    if (aliasDecl) {
+                        symbol.addDeclaration(aliasDecl);
+                    }
+                }
+            });
+        }
 
         return true;
     }
@@ -771,6 +924,20 @@ export abstract class Binder extends ParseTreeWalker {
         children.forEach(child => {
             if (child) {
                 child.parent = parentNode;
+            }
+        });
+    }
+
+    private _addImplicitImportsToLoaderActions(importResult: ImportResult, loaderActions: ModuleLoaderActions) {
+        importResult.implicitImports.forEach(implicitImport => {
+            const existingLoaderAction = loaderActions.implicitImports.get(implicitImport.name);
+            if (existingLoaderAction) {
+                existingLoaderAction.path = implicitImport.path;
+            } else {
+                loaderActions.implicitImports.set(implicitImport.name, {
+                    path: implicitImport.path,
+                    implicitImports: new Map<string, ModuleLoaderActions>()
+                });
             }
         });
     }
@@ -943,6 +1110,8 @@ export abstract class Binder extends ParseTreeWalker {
 }
 
 export class ModuleScopeBinder extends Binder {
+    private _moduleDocString?: string;
+
     constructor(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
         super(node, fileInfo.builtinsScope ? ScopeType.Module : ScopeType.Builtin,
             fileInfo.builtinsScope, fileInfo);
@@ -963,14 +1132,15 @@ export class ModuleScopeBinder extends Binder {
         this._addParentLinks(moduleNode, moduleNode.statements);
         this.walkMultiple(moduleNode.statements);
 
-        // Associate the module's scope with the module type.
-        const moduleType = ModuleType.create(this._currentScope.getSymbolTable(),
-            this._getDocString((this._scopedNode as ModuleNode).statements));
-        AnalyzerNodeInfo.setExpressionType(this._scopedNode, moduleType);
+        this._moduleDocString = this._getDocString((this._scopedNode as ModuleNode).statements);
     }
 
     bind() {
         this.bindDeferred();
+    }
+
+    getModuleDocString() {
+        return this._moduleDocString;
     }
 }
 

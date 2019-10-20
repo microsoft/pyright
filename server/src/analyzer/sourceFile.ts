@@ -34,7 +34,7 @@ import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
-import { AnalyzerFileInfo, ImportMap } from './analyzerFileInfo';
+import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ModuleScopeBinder } from './binder';
 import { CircularDependency } from './circularDependency';
@@ -43,9 +43,9 @@ import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
+import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeAnalyzer } from './typeAnalyzer';
-import { ModuleType, TypeCategory } from './types';
 
 const _maxImportCyclesPerFile = 4;
 
@@ -107,7 +107,8 @@ export class SourceFile {
     private _parseTreeNeedsCleaning = false;
 
     private _parseResults?: ParseResults;
-    private _moduleType?: ModuleType;
+    private _moduleSymbolTable?: SymbolTable;
+    private _moduleDocString?: string;
 
     // Diagnostics generated during different phases of analysis.
     private _parseDiagnostics: Diagnostic[] = [];
@@ -144,6 +145,7 @@ export class SourceFile {
     private _imports?: ImportResult[];
     private _builtinsImport?: ImportResult;
     private _typingModulePath?: string;
+    private _collectionsModulePath?: string;
 
     constructor(filePath: string, isTypeshedStubFile: boolean, isThirdPartyImport: boolean,
             console?: ConsoleInterface) {
@@ -280,8 +282,12 @@ export class SourceFile {
         return this._builtinsImport;
     }
 
-    getModuleType(): ModuleType | undefined {
-        return this._moduleType;
+    getModuleSymbolTable(): SymbolTable | undefined {
+        return this._moduleSymbolTable;
+    }
+
+    getModuleDocString(): string | undefined {
+        return this._moduleDocString;
     }
 
     // Indicates whether the contents of the file have changed since
@@ -318,7 +324,8 @@ export class SourceFile {
         this._fileContentsVersion++;
         this._isTypeAnalysisFinalized = false;
         this._isTypeAnalysisPassNeeded = true;
-        this._moduleType = undefined;
+        this._moduleSymbolTable = undefined;
+        this._moduleDocString = undefined;
     }
 
     markReanalysisRequired(): void {
@@ -327,6 +334,14 @@ export class SourceFile {
         this._typeAnalysisPassNumber = 1;
         this._isTypeAnalysisFinalized = false;
         this._isTypeAnalysisPassNeeded = true;
+
+        // If the file continas a wildcard import, we need to rebind
+        // also because the dependent import may have changed.
+        if (this._parseResults && this._parseResults.containsWildcardImport) {
+            this._isBindingNeeded = true;
+            this._moduleSymbolTable = undefined;
+            this._moduleDocString = undefined;
+        }
     }
 
     setClientVersion(version: number | null, contents: string): void {
@@ -450,7 +465,7 @@ export class SourceFile {
 
             // Resolve imports.
             timingStats.resolveImportsTime.timeOperation(() => {
-                [this._imports, this._builtinsImport, this._typingModulePath] =
+                [this._imports, this._builtinsImport, this._typingModulePath, this._collectionsModulePath] =
                     this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
                 this._parseDiagnostics = diagSink.diagnostics;
             });
@@ -481,7 +496,8 @@ export class SourceFile {
                     typeIgnoreLines: {},
                     predominantEndOfLineSequence: '\n',
                     predominantTabSequence: '    '
-                }
+                },
+                containsWildcardImport: false
             };
             this._imports = undefined;
             this._builtinsImport = undefined;
@@ -502,18 +518,20 @@ export class SourceFile {
         return true;
     }
 
-    getDefinitionsForPosition(position: DiagnosticTextPosition): DocumentTextRange[] | undefined {
+    getDefinitionsForPosition(position: DiagnosticTextPosition, importLookup: ImportLookup):
+            DocumentTextRange[] | undefined {
+
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
         return DefinitionProvider.getDefinitionsForPosition(
-                this._parseResults, position);
+                this._parseResults, position, importLookup);
     }
 
-    getReferencesForPosition(position: DiagnosticTextPosition, includeDeclaration: boolean):
-            ReferencesResult | undefined {
+    getReferencesForPosition(position: DiagnosticTextPosition, includeDeclaration: boolean,
+            importLookup: ImportLookup): ReferencesResult | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -521,37 +539,43 @@ export class SourceFile {
         }
 
         return ReferencesProvider.getReferencesForPosition(
-            this._parseResults, this._filePath, position, includeDeclaration);
+            this._parseResults, this._filePath, position, includeDeclaration, importLookup);
     }
 
-    addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean): void {
+    addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean,
+            importLookup: ImportLookup): void {
+
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return;
         }
 
         ReferencesProvider.addReferences(
-            this._parseResults, this._filePath, referencesResult, includeDeclaration);
+            this._parseResults, this._filePath, referencesResult, includeDeclaration, importLookup);
     }
 
-    addSymbolsForDocument(symbolList: SymbolInformation[], query?: string) {
+    addSymbolsForDocument(symbolList: SymbolInformation[], importLookup: ImportLookup,
+            query?: string) {
+
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return;
         }
 
         DocumentSymbolProvider.addSymbolsForDocument(symbolList, query,
-            this._filePath, this._parseResults);
+            this._filePath, this._parseResults, importLookup);
     }
 
-    getHoverForPosition(position: DiagnosticTextPosition, importMap: ImportMap): HoverResults | undefined {
+    getHoverForPosition(position: DiagnosticTextPosition,
+            importLookup: ImportLookup): HoverResults | undefined {
+
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
         return HoverProvider.getHoverForPosition(
-            this._parseResults, position, importMap);
+            this._parseResults, position, importLookup);
     }
 
     getSignatureHelpForPosition(position: DiagnosticTextPosition): SignatureHelpResults | undefined {
@@ -572,7 +596,7 @@ export class SourceFile {
 
     getCompletionsForPosition(position: DiagnosticTextPosition,
             configOptions: ConfigOptions, importResolver: ImportResolver,
-            importMapCallback: () => ImportMap,
+            importLookup: ImportLookup,
             moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
@@ -589,7 +613,7 @@ export class SourceFile {
         const completionProvider = new CompletionProvider(
             this._parseResults, this._fileContents,
             importResolver, position,
-            this._filePath, configOptions, importMapCallback,
+            this._filePath, configOptions, importLookup,
             moduleSymbolsCallback);
 
         return completionProvider.getCompletionsForPosition();
@@ -623,7 +647,7 @@ export class SourceFile {
         this._isTypeAnalysisFinalized = false;
     }
 
-    bind(configOptions: ConfigOptions, builtinsScope?: Scope) {
+    bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope?: Scope) {
         assert(!this.isParseRequired());
         assert(this.isBindingRequired());
         assert(this._parseResults);
@@ -631,7 +655,7 @@ export class SourceFile {
         try {
             // Perform name binding.
             timingStats.bindTime.timeOperation(() => {
-                const fileInfo = this._buildFileInfo(configOptions, undefined, builtinsScope);
+                const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope);
                 this._cleanParseTreeIfRequired();
 
                 const binder = new ModuleScopeBinder(
@@ -648,10 +672,8 @@ export class SourceFile {
                 this._bindDiagnostics = fileInfo.diagnosticSink.diagnostics;
                 const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
                 assert(moduleScope !== undefined);
-                const moduleType = AnalyzerNodeInfo.getExpressionType(
-                    this._parseResults!.parseTree);
-                assert(moduleType && moduleType.category === TypeCategory.Module);
-                this._moduleType = moduleType as ModuleType;
+                this._moduleSymbolTable = moduleScope!.getSymbolTable();
+                this._moduleDocString = binder.getModuleDocString();
             });
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||
@@ -675,7 +697,7 @@ export class SourceFile {
         this._isBindingNeeded = false;
     }
 
-    doTypeAnalysis(configOptions: ConfigOptions, importMap: ImportMap) {
+    doTypeAnalysis(configOptions: ConfigOptions, importLookup: ImportLookup) {
         assert(!this.isParseRequired());
         assert(!this.isBindingRequired());
         assert(this.isTypeAnalysisRequired());
@@ -683,7 +705,7 @@ export class SourceFile {
 
         try {
             timingStats.typeAnalyzerTime.timeOperation(() => {
-                const fileInfo = this._buildFileInfo(configOptions, importMap, undefined);
+                const fileInfo = this._buildFileInfo(configOptions, importLookup, undefined);
 
                 // Perform static type analysis.
                 const typeAnalyzer = new TypeAnalyzer(this._parseResults!.parseTree,
@@ -741,15 +763,18 @@ export class SourceFile {
         this._diagnosticVersion++;
     }
 
-    private _buildFileInfo(configOptions: ConfigOptions, importMap?: ImportMap, builtinsScope?: Scope) {
+    private _buildFileInfo(configOptions: ConfigOptions, importLookup: ImportLookup,
+            builtinsScope?: Scope) {
+
         assert(this._parseResults !== undefined);
         const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);
 
         const fileInfo: AnalyzerFileInfo = {
-            importMap: importMap || new Map<string, ModuleType>(),
+            importLookup,
             futureImports: this._parseResults!.futureImports,
             builtinsScope,
             typingModulePath: this._typingModulePath,
+            collectionsModulePath: this._collectionsModulePath,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
             diagnosticSettings: this._diagnosticSettings,
@@ -775,7 +800,7 @@ export class SourceFile {
     private _resolveImports(importResolver: ImportResolver,
             moduleImports: ModuleImport[],
             execEnv: ExecutionEnvironment):
-            [ImportResult[], ImportResult?, string?] {
+            [ImportResult[], ImportResult?, string?, string?] {
 
         const imports: ImportResult[] = [];
 
@@ -817,6 +842,8 @@ export class SourceFile {
             typingModulePath = typingImportResult.resolvedPaths[0];
         }
 
+        let collectionsModulePath: string | undefined;
+
         for (const moduleImport of moduleImports) {
             const importResult = importResolver.resolveImport(
                 this._filePath,
@@ -827,6 +854,16 @@ export class SourceFile {
                     importedSymbols: moduleImport.importedSymbols
                 }
             );
+
+            // If the file imports the stdlib 'collections' module, stash
+            // away its file path. The type analyzer may need this to
+            // access types defined in the collections module.
+            if (importResult.isImportFound && importResult.isTypeshedFile) {
+                if (moduleImport.nameParts.length >= 1 && moduleImport.nameParts[0] === 'collections') {
+                    collectionsModulePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+                }
+            }
+
             imports.push(importResult);
 
             // Associate the import results with the module import
@@ -835,6 +872,6 @@ export class SourceFile {
             AnalyzerNodeInfo.setImportInfo(moduleImport.nameNode, importResult);
         }
 
-        return [imports, builtinsImportResult, typingModulePath];
+        return [imports, builtinsImportResult, typingModulePath, collectionsModulePath];
     }
 }

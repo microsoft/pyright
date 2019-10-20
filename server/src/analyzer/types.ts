@@ -115,24 +115,14 @@ export interface ModuleType extends TypeBase {
     // A "loader" module includes symbols that were injected by
     // the module loader. We keep these separate so we don't
     // pollute the symbols exported by the module itself.
-    loaderFields?: SymbolTable;
+    loaderFields: SymbolTable;
 }
 
 export namespace ModuleType {
-    export function create(fields: SymbolTable, docString?: string) {
+    export function create(symbolTable?: SymbolTable) {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
-            fields,
-            docString
-        };
-        return newModuleType;
-    }
-
-    export function cloneForLoadedModule(moduleType: ModuleType) {
-        const newModuleType: ModuleType = {
-            category: TypeCategory.Module,
-            fields: moduleType.fields,
-            docString: moduleType.docString,
+            fields: symbolTable || new SymbolTable(),
             loaderFields: new SymbolTable()
         };
         return newModuleType;
@@ -1216,6 +1206,24 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             }
 
             return true;
+        }
+
+        case TypeCategory.Module: {
+            const type2Module = type2 as ModuleType;
+
+            // Module types are the same if they share the same
+            // module symbol table.
+            if (type1.fields === type2Module.fields) {
+                return true;
+            }
+
+            // If both symbol tables are empty, we can also assume
+            // they're equal.
+            if (type1.fields.isEmpty() && type2Module.fields.isEmpty()) {
+                return true;
+            }
+
+            return false;
         }
     }
 

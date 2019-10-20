@@ -11,10 +11,10 @@
 import { CompletionItem, CompletionItemKind, CompletionList,
     MarkupKind, TextEdit } from 'vscode-languageserver';
 
-import { ImportMap } from '../analyzer/analyzerFileInfo';
+import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import { getTypeForDeclaration } from '../analyzer/declarationUtils';
+import { getTypeForDeclaration, resolveAliasDeclaration } from '../analyzer/declarationUtils';
 import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
@@ -142,7 +142,7 @@ export class CompletionProvider {
         private _position: DiagnosticTextPosition,
         private _filePath: string,
         private _configOptions: ConfigOptions,
-        private _importMapCallback: () => ImportMap,
+        private _importLookup: ImportLookup,
         private _moduleSymbolsCallback: () => ModuleSymbolMap) {
     }
 
@@ -566,13 +566,9 @@ export class CompletionProvider {
         const resolvedPath = importInfo.resolvedPaths.length > 0 ?
             importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1] : '';
 
-        const importMap = this._importMapCallback();
-
-        const moduleType = importMap.get(resolvedPath);
-        if (moduleType) {
-            const symbolTable = new SymbolTable();
-            TypeUtils.getMembersForModule(moduleType, symbolTable);
-            this._addSymbolsForSymbolTable(symbolTable,
+        const lookupResults = this._importLookup(resolvedPath);
+        if (lookupResults) {
+            this._addSymbolsForSymbolTable(lookupResults.symbolTable,
                 name => {
                     // Don't suggest symbols that have already been imported.
                     return !importFromNode.imports.find(
@@ -646,46 +642,60 @@ export class CompletionProvider {
             let typeDetail: string | undefined;
             let documentation: string | undefined;
 
-            const declaration = declarations[0];
-            const type = getTypeForDeclaration(declaration);
-            itemKind = this._convertDeclarationTypeToItemKind(declaration, type);
+            const declaration = resolveAliasDeclaration(declarations[0], this._importLookup);
+            if (declaration) {
+                const type = getTypeForDeclaration(declaration);
+                itemKind = this._convertDeclarationTypeToItemKind(declaration, type);
 
-            if (type) {
-                switch (declaration.type) {
-                    case DeclarationType.BuiltIn:
-                    case DeclarationType.Variable:
-                    case DeclarationType.Parameter:
-                        typeDetail = name + ': ' + printType(type);
-                        break;
+                if (type) {
+                    switch (declaration.type) {
+                        case DeclarationType.BuiltIn:
+                        case DeclarationType.Variable:
+                        case DeclarationType.Parameter:
+                            typeDetail = name + ': ' + printType(type);
+                            break;
 
-                    case DeclarationType.Function:
-                    case DeclarationType.Method:
-                        if (type.category === TypeCategory.OverloadedFunction) {
-                            typeDetail = type.overloads.map(overload =>
-                                name + printType(overload.type)).join('\n');
-                        } else {
-                            typeDetail = name + printType(type);
+                        case DeclarationType.Function:
+                        case DeclarationType.Method:
+                            if (type.category === TypeCategory.OverloadedFunction) {
+                                typeDetail = type.overloads.map(overload =>
+                                    name + printType(overload.type)).join('\n');
+                            } else {
+                                typeDetail = name + printType(type);
+                            }
+                            break;
+
+                        case DeclarationType.Class: {
+                            typeDetail = 'class ' + name + '()';
+                            break;
                         }
-                        break;
 
-                    case DeclarationType.Class:
-                        typeDetail = 'class ' + name + '()';
-                        break;
+                        case DeclarationType.Alias: {
+                            typeDetail = name;
+                            if (declaration.path) {
+                                const lookupResults = this._importLookup(declaration.path);
+                                if (lookupResults) {
+                                    documentation = lookupResults.docString;
+                                }
+                            }
+                            break;
+                        }
 
-                    case DeclarationType.Module:
-                    default:
-                        typeDetail = name;
-                        break;
+                        default: {
+                            typeDetail = name;
+                            break;
+                        }
+                    }
                 }
-            }
 
-            if (type) {
-                if (type.category === TypeCategory.Module) {
-                    documentation = type.docString;
-                } else if (type.category === TypeCategory.Class) {
-                    documentation = ClassType.getDocString(type);
-                } else if (type.category === TypeCategory.Function) {
-                    documentation = FunctionType.getDocString(type);
+                if (type) {
+                    if (type.category === TypeCategory.Module) {
+                        documentation = type.docString;
+                    } else if (type.category === TypeCategory.Class) {
+                        documentation = ClassType.getDocString(type);
+                    } else if (type.category === TypeCategory.Function) {
+                        documentation = FunctionType.getDocString(type);
+                    }
                 }
             }
 
@@ -834,7 +844,12 @@ export class CompletionProvider {
     private _convertDeclarationTypeToItemKind(declaration: Declaration,
             type?: Type): CompletionItemKind {
 
-        switch (declaration.type) {
+        const resolvedDeclaration = resolveAliasDeclaration(declaration, this._importLookup);
+        if (!resolvedDeclaration) {
+            return CompletionItemKind.Variable;
+        }
+
+        switch (resolvedDeclaration.type) {
             case DeclarationType.BuiltIn:
                 if (type) {
                     if (type.category === TypeCategory.Class) {
@@ -849,7 +864,7 @@ export class CompletionProvider {
                 return CompletionItemKind.Variable;
 
             case DeclarationType.Variable:
-                return declaration.isConstant ?
+                return resolvedDeclaration.isConstant ?
                     CompletionItemKind.Constant :
                     CompletionItemKind.Variable;
 
@@ -865,15 +880,8 @@ export class CompletionProvider {
             case DeclarationType.Class:
                 return CompletionItemKind.Class;
 
-            case DeclarationType.Module:
-                return CompletionItemKind.Module;
-
             case DeclarationType.Alias:
-                if (declaration.resolvedDeclarations) {
-                    return this._convertDeclarationTypeToItemKind(
-                        declaration.resolvedDeclarations[0], type);
-                }
-                return CompletionItemKind.Variable;
+                return CompletionItemKind.Module;
         }
     }
 

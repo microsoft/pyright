@@ -9,12 +9,14 @@
 
 import * as assert from 'assert';
 
+import { getEmptyRange } from '../common/diagnostic';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { AliasDeclaration, Declaration, DeclarationType } from './declaration';
+import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol } from './symbol';
-import { ClassType, ModuleType, ObjectType, Type, TypeCategory, UnknownType } from './types';
+import { ClassType, ModuleType, ObjectType, Type, TypeCategory } from './types';
 import * as TypeUtils from './typeUtils';
 
 export function getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
@@ -51,6 +53,22 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
                 return subtype;
             });
         }
+    } else if (node.parent && node.parent.nodeType === ParseNodeType.ModuleName) {
+        const namePartIndex = node.parent.nameParts.findIndex(part => part === node);
+        const importInfo = AnalyzerNodeInfo.getImportInfo(node.parent);
+        if (namePartIndex >= 0 && importInfo && namePartIndex < importInfo.resolvedPaths.length) {
+            if (importInfo.resolvedPaths[namePartIndex]) {
+                // Synthesize an alias declaration for this name part. The only
+                // time this case is used is for the hover provider.
+                const aliasDeclaration: AliasDeclaration = {
+                    type: DeclarationType.Alias,
+                    path: importInfo.resolvedPaths[namePartIndex],
+                    range: getEmptyRange(),
+                    implicitImports: new Map<string, ModuleLoaderActions>()
+                };
+                declarations = [aliasDeclaration];
+            }
+        }
     } else {
         const scopeNode = ParseTreeUtils.getScopeNodeForNode(node);
         if (scopeNode) {
@@ -73,44 +91,65 @@ export function isFunctionOrMethodDeclaration(declaration: Declaration) {
     return declaration.type === DeclarationType.Method || declaration.type === DeclarationType.Function;
 }
 
-export function resolveDeclarationAliases(declaration: Declaration) {
-    let resolvedDeclaration: Declaration | undefined = declaration;
-    const resolvedDeclarations: AliasDeclaration[] = [];
+// If the specified declaration is an alias declaration that points
+// to a symbol, it resolves the alias and looks up the symbol, then
+// returns the first declaration associated with that symbol. It does
+// this recursively if necessary. If a symbol lookup fails, undefined
+// is returned.
+export function resolveAliasDeclaration(declaration: Declaration, importLookup: ImportLookup):
+        Declaration | undefined {
 
-    while (resolvedDeclaration && resolvedDeclaration.type === DeclarationType.Alias) {
-        // Detect circular dependencies.
-        if (resolvedDeclarations.find(decl => decl === resolvedDeclaration)) {
+    let curDeclaration: Declaration | undefined = declaration;
+    const alreadyVisited: Declaration[] = [];
+
+    while (true) {
+        if (curDeclaration.type !== DeclarationType.Alias) {
+            return curDeclaration;
+        }
+
+        if (!curDeclaration.symbolName) {
+            return curDeclaration;
+        }
+
+        const lookupResult = importLookup(declaration.path);
+        if (!lookupResult) {
             return undefined;
         }
 
-        resolvedDeclarations.push(resolvedDeclaration);
-        resolvedDeclaration = resolvedDeclaration.resolvedDeclarations ?
-            resolvedDeclaration.resolvedDeclarations[0] : undefined;
-    }
+        const symbol = lookupResult.symbolTable.get(curDeclaration.symbolName);
+        if (!symbol) {
+            return undefined;
+        }
 
-    return resolvedDeclaration;
+        const declarations = symbol.getDeclarations();
+        if (declarations.length === 0) {
+            return undefined;
+        }
+
+        curDeclaration = declarations[0];
+
+        // Make sure we don't follow a circular list indefinitely.
+        if (alreadyVisited.find(decl => decl === curDeclaration)) {
+            return declaration;
+        }
+        alreadyVisited.push(curDeclaration);
+    }
 }
 
 export function getTypeForDeclaration(declaration: Declaration): Type | undefined {
-    const resolvedDeclaration = resolveDeclarationAliases(declaration);
-
-    if (!resolvedDeclaration) {
-        return undefined;
-    }
-
-    switch (resolvedDeclaration.type) {
+    switch (declaration.type) {
         case DeclarationType.BuiltIn:
-            return resolvedDeclaration.declaredType;
+            return declaration.declaredType;
 
         case DeclarationType.Class:
-            return AnalyzerNodeInfo.getExpressionType(resolvedDeclaration.node.name);
+            return AnalyzerNodeInfo.getExpressionType(declaration.node.name);
 
         case DeclarationType.Function:
         case DeclarationType.Method:
-            return AnalyzerNodeInfo.getExpressionType(resolvedDeclaration.node.name);
+            return AnalyzerNodeInfo.getExpressionType(declaration.node.name);
 
         case DeclarationType.Parameter: {
-            let typeAnnotationNode = resolvedDeclaration.node.typeAnnotation;
+            let typeAnnotationNode = declaration.node.typeAnnotation;
             if (typeAnnotationNode && typeAnnotationNode.nodeType === ParseNodeType.StringList) {
                 typeAnnotationNode = typeAnnotationNode.typeAnnotation;
             }
@@ -125,7 +164,7 @@ export function getTypeForDeclaration(declaration: Declaration): Type | undefine
         }
 
         case DeclarationType.Variable: {
-            let typeAnnotationNode = resolvedDeclaration.typeAnnotationNode;
+            let typeAnnotationNode = declaration.typeAnnotationNode;
             if (typeAnnotationNode && typeAnnotationNode.nodeType === ParseNodeType.StringList) {
                 typeAnnotationNode = typeAnnotationNode.typeAnnotation;
             }
@@ -140,20 +179,14 @@ export function getTypeForDeclaration(declaration: Declaration): Type | undefine
             return undefined;
         }
 
-        case DeclarationType.Module:
-            return resolvedDeclaration.moduleType;
+        case DeclarationType.Alias: {
+            return undefined;
+        }
     }
 }
 
-export function hasTypeForDeclaration(declaration: Declaration, resolveAliases = true): boolean {
-    const resolvedDeclaration = resolveAliases ?
-        resolveDeclarationAliases(declaration) : declaration;
-
-    if (!resolvedDeclaration) {
-        return false;
-    }
-
-    switch (resolvedDeclaration.type) {
+export function hasTypeForDeclaration(declaration: Declaration): boolean {
+    switch (declaration.type) {
         case DeclarationType.BuiltIn:
         case DeclarationType.Class:
         case DeclarationType.Function:
@@ -161,13 +194,10 @@ export function hasTypeForDeclaration(declaration: Declaration, resolveAliases =
             return true;
 
         case DeclarationType.Parameter:
-            return !!resolvedDeclaration.node.typeAnnotation;
+            return !!declaration.node.typeAnnotation;
 
         case DeclarationType.Variable:
-            return !!resolvedDeclaration.typeAnnotationNode;
-
-        case DeclarationType.Module:
-            return true;
+            return !!declaration.typeAnnotationNode;
 
         case DeclarationType.Alias:
             return false;

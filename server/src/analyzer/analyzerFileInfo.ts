@@ -13,16 +13,22 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Scope } from './scope';
-import { ModuleType } from './types';
+import { SymbolTable } from './symbol';
 
-// Maps import paths to the parse tree for the imported module.
-export type ImportMap = Map<string, ModuleType>;
+// Maps import paths to the symbol table for the imported module.
+export type ImportLookup = (filePath: string) => ImportLookupResult | undefined;
+
+export interface ImportLookupResult {
+    symbolTable: SymbolTable;
+    docString?: string;
+}
 
 export interface AnalyzerFileInfo {
-    importMap: ImportMap;
+    importLookup: ImportLookup;
     futureImports: StringMap<boolean>;
     builtinsScope?: Scope;
     typingModulePath?: string;
+    collectionsModulePath?: string;
     diagnosticSink: TextRangeDiagnosticSink;
     executionEnvironment: ExecutionEnvironment;
     diagnosticSettings: DiagnosticSettings;
