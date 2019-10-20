@@ -29,7 +29,7 @@ import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignme
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions,
+import { Declaration, DeclarationType, ModuleLoaderActions,
     VariableDeclaration } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
@@ -3375,7 +3375,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const varDecl: Declaration | undefined = declarations.find(
             decl => decl.type === DeclarationType.Variable);
-        if (varDecl && (varDecl as VariableDeclaration).isConstant && srcExpressionNode) {
+        if (varDecl && varDecl.type === DeclarationType.Variable &&
+                varDecl.isConstant && srcExpressionNode) {
+
             if (nameNode !== declarations[0].node) {
                 this._addDiagnostic(this._fileInfo.diagnosticSettings.reportConstantRedefinition,
                     DiagnosticRule.reportConstantRedefinition,
