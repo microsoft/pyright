@@ -23,6 +23,15 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
     let declarations: Declaration[] | undefined;
     const nameValue = node.nameToken.value;
 
+    // If the node is part of a "from X import Y as Z" statement and the node
+    // is the "Y" (non-aliased) name, don't return any declarations for it
+    // because this name isn't in the symbol table.
+    if (node.parent && node.parent.nodeType === ParseNodeType.ImportFromAs &&
+            node.parent.alias && node === node.parent.name) {
+
+        return undefined;
+    }
+
     if (node.parent && node.parent.nodeType === ParseNodeType.MemberAccess &&
             node === node.parent.memberName) {
 
