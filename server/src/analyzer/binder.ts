@@ -1118,6 +1118,8 @@ export class ModuleScopeBinder extends Binder {
 
         // Bind implicit names.
         // List taken from https://docs.python.org/3/reference/import.html#__name__
+        this._addBuiltInSymbolToCurrentScope('__doc__',
+            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         this._addBuiltInSymbolToCurrentScope('__name__',
             ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
         this._addBuiltInSymbolToCurrentScope('__loader__', AnyType.create());
