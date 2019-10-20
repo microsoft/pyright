@@ -529,8 +529,8 @@ export class SourceFile {
                 this._parseResults, position, importLookup);
     }
 
-    getReferencesForPosition(position: DiagnosticTextPosition, includeDeclaration: boolean):
-            ReferencesResult | undefined {
+    getReferencesForPosition(position: DiagnosticTextPosition, includeDeclaration: boolean,
+            importLookup: ImportLookup): ReferencesResult | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -538,17 +538,19 @@ export class SourceFile {
         }
 
         return ReferencesProvider.getReferencesForPosition(
-            this._parseResults, this._filePath, position, includeDeclaration);
+            this._parseResults, this._filePath, position, includeDeclaration, importLookup);
     }
 
-    addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean): void {
+    addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean,
+            importLookup: ImportLookup): void {
+
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return;
         }
 
         ReferencesProvider.addReferences(
-            this._parseResults, this._filePath, referencesResult, includeDeclaration);
+            this._parseResults, this._filePath, referencesResult, includeDeclaration, importLookup);
     }
 
     addSymbolsForDocument(symbolList: SymbolInformation[], importLookup: ImportLookup,

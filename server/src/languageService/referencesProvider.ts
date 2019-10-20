@@ -8,11 +8,11 @@
 * by a location within a file.
 */
 
+import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
-import { Symbol } from '../analyzer/symbol';
 import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -31,15 +31,18 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     private _filePath: string;
     private _referencesResult: ReferencesResult;
     private _includeDeclaration: boolean;
+    private _importLookup: ImportLookup;
 
     constructor(parseResults: ParseResults, filePath: string,
-            referencesResult: ReferencesResult, includeDeclaration: boolean) {
+            referencesResult: ReferencesResult, includeDeclaration: boolean,
+            importLookup: ImportLookup) {
 
         super();
         this._parseResults = parseResults;
         this._filePath = filePath;
         this._referencesResult = referencesResult;
         this._includeDeclaration = includeDeclaration;
+        this._importLookup = importLookup;
     }
 
     findReferences() {
@@ -69,14 +72,22 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     }
 
     private _resultsContainsDeclaration(declaration: Declaration) {
+        const resolvedDecl = DeclarationUtils.resolveAliasDeclaration(declaration, this._importLookup);
+        if (!resolvedDecl) {
+            return false;
+        }
+
+        // The reference results declarations are already resolved, so we don't
+        // need to call resolveAliasDeclaration on them.
         return this._referencesResult.declarations.some(decl =>
-            DeclarationUtils.areDeclarationsSame(decl, declaration));
+            DeclarationUtils.areDeclarationsSame(decl, resolvedDecl));
     }
 }
 
 export class ReferencesProvider {
     static getReferencesForPosition(parseResults: ParseResults, filePath: string,
-            position: DiagnosticTextPosition, includeDeclaration: boolean):
+            position: DiagnosticTextPosition, includeDeclaration: boolean,
+            importLookup: ImportLookup):
                 ReferencesResult | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
@@ -94,12 +105,24 @@ export class ReferencesProvider {
         }
 
         const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
-        if (!declarations || declarations.length === 0) {
+        if (!declarations) {
+            return undefined;
+        }
+
+        const resolvedDeclarations: Declaration[] = [];
+        declarations.forEach(decl => {
+            const resovledDecl = DeclarationUtils.resolveAliasDeclaration(decl, importLookup);
+            if (resovledDecl) {
+                resolvedDeclarations.push(resovledDecl);
+            }
+        });
+
+        if (resolvedDeclarations.length === 0) {
             return undefined;
         }
 
         // Is this a type that potentially requires a global search?
-        const symbolDeclType = declarations[0].type;
+        const symbolDeclType = resolvedDeclarations[0].type;
 
         // Parameters are local to a scope, so they don't require a global search.
         const requiresGlobalSearch = symbolDeclType !== DeclarationType.Parameter;
@@ -107,22 +130,23 @@ export class ReferencesProvider {
         const results: ReferencesResult = {
             requiresGlobalSearch,
             nodeAtOffset: node,
-            declarations,
+            declarations: resolvedDeclarations,
             locations: []
         };
 
         const refTreeWalker = new FindReferencesTreeWalker(parseResults,
-            filePath, results, includeDeclaration);
+            filePath, results, includeDeclaration, importLookup);
         refTreeWalker.findReferences();
 
         return results;
     }
 
     static addReferences(parseResults: ParseResults, filePath: string,
-            referencesResult: ReferencesResult, includeDeclaration: boolean): void {
+            referencesResult: ReferencesResult, includeDeclaration: boolean,
+            importLookup: ImportLookup): void {
 
         const refTreeWalker = new FindReferencesTreeWalker(parseResults,
-            filePath, referencesResult, includeDeclaration);
+            filePath, referencesResult, includeDeclaration, importLookup);
         refTreeWalker.findReferences();
     }
 }

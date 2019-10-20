@@ -30,7 +30,6 @@ import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
-import { SymbolTable } from './symbol';
 import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
@@ -868,7 +867,7 @@ export class Program {
         }
 
         const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
-            position, includeDeclaration);
+            position, includeDeclaration, this._lookUpImport);
 
         if (!referencesResult) {
             return undefined;
@@ -886,7 +885,7 @@ export class Program {
                     }
 
                     curSourceFileInfo.sourceFile.addReferences(referencesResult,
-                        includeDeclaration);
+                        includeDeclaration, this._lookUpImport);
                 }
             }
         }
@@ -999,7 +998,7 @@ export class Program {
         }
 
         const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
-            position, true);
+            position, true, this._lookUpImport);
 
         if (!referencesResult) {
             return undefined;
@@ -1016,7 +1015,8 @@ export class Program {
                         });
                     }
 
-                    curSourceFileInfo.sourceFile.addReferences(referencesResult, true);
+                    curSourceFileInfo.sourceFile.addReferences(referencesResult,
+                        true, this._lookUpImport);
                 }
             }
         }
