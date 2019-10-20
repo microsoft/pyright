@@ -51,3 +51,54 @@ export function decodeDocString(rawString: string): string {
 
     return trimmedLines.join('\n');
 }
+
+export function extractParameterDocumentation(functionDocString: string, paramName: string): string | undefined {
+    if (!functionDocString || !paramName) {
+        return undefined;
+    }
+
+    // Python doesn't have a single standard for param documentation. There are three
+    // popular styles.
+    //
+    // 1. Epytext:
+    //      @param param1: description
+    // 2. reST:
+    //      :param param1: description
+    // 3. Google (variant 1):
+    //      Args:
+    //          param1: description
+    // 4. Google (variant 2):
+    //      Args:
+    //          param1 (type): description
+
+    const docStringLines = functionDocString.split('\n');
+    for (const line of docStringLines) {
+        const trimmedLine = line.trim();
+
+        // Check for Epytext
+        let paramOffset = trimmedLine.indexOf('@param ' + paramName);
+        if (paramOffset >= 0) {
+            return trimmedLine.substr(paramOffset + 7);
+        }
+
+        // Check for reST format
+        paramOffset = trimmedLine.indexOf(':param ' + paramName);
+        if (paramOffset >= 0) {
+            return trimmedLine.substr(paramOffset + 7);
+        }
+
+        // Check for Google (variant 1) format
+        paramOffset = trimmedLine.indexOf(paramName + ': ');
+        if (paramOffset >= 0) {
+            return trimmedLine.substr(paramOffset);
+        }
+
+        // Check for Google (variant 1) format
+        paramOffset = trimmedLine.indexOf(paramName + ' (');
+        if (paramOffset >= 0) {
+            return trimmedLine.substr(paramOffset);
+        }
+    }
+
+    return undefined;
+}

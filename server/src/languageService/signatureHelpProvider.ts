@@ -10,6 +10,7 @@
 */
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
+import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ClassType, FunctionType, ObjectType, OverloadedFunctionType,
     printFunctionParts, TypeCategory } from '../analyzer/types';
@@ -171,12 +172,15 @@ export class SignatureHelpProvider {
     private static _makeSignature(functionType: FunctionType): SignatureInfo {
         const stringParts = printFunctionParts(functionType);
         const parameters: ParamInfo[] = [];
+        const functionDocString = FunctionType.getDocString(functionType);
         let label = '(';
 
         stringParts[0].forEach((paramString, paramIndex) => {
+            const paramName = functionType.details.parameters[paramIndex].name || '';
             parameters.push({
                 startOffset: label.length,
-                endOffset: label.length + paramString.length
+                endOffset: label.length + paramString.length,
+                documentation: extractParameterDocumentation(functionDocString || '', paramName)
             });
 
             label += paramString;
@@ -190,7 +194,7 @@ export class SignatureHelpProvider {
         const sigInfo: SignatureInfo = {
             label,
             parameters,
-            documentation: FunctionType.getDocString(functionType)
+            documentation: functionDocString
         };
 
         return sigInfo;
