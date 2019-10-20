@@ -71,7 +71,7 @@ export interface VariableDeclaration extends DeclarationBase {
 
 // Alias declarations are used for imports. They are resolved
 // after the binding phase.
-export interface AliasDeclaration extends DeclarationBase, ModuleLoaderActions {
+export interface AliasDeclaration extends DeclarationBase {
     type: DeclarationType.Alias;
 
     // If a symbolName is defined, the alias refers to a symbol
@@ -79,6 +79,18 @@ export interface AliasDeclaration extends DeclarationBase, ModuleLoaderActions {
     // 'path' field). If symbolName is missing, the alias refers
     // to the module itself.
     symbolName?: string;
+
+    // The first part of the multi-part name used in the import
+    // statement (e.g. for "import a.b.c", firstNamePart would
+    // be "a").
+    firstNamePart?: string;
+
+    // If the alias is targeting a module, multiple other modules
+    // may also need to be resolved and inserted implicitly into
+    // the module's namespace to emulate the behavior of the python
+    // module loader. This can be recursive (e.g. in the case of
+    // an "import a.b.c.d" statement).
+    implicitImports: Map<string, ModuleLoaderActions>;
 }
 
 // This interface represents a set of actions that the python loader
@@ -89,11 +101,7 @@ export interface ModuleLoaderActions {
     // a directory).
     path: string;
 
-    // If the alias is targeting a module, multiple other modules
-    // may also need to be resolved and inserted implicitly into
-    // the module's namespace to emulate the behavior of the python
-    // module loader. This can be recursive (e.g. in the case of
-    // an "import a.b.c.d" statement).
+    // See comment for "implicitImports" field in AliasDeclaration.
     implicitImports: Map<string, ModuleLoaderActions>;
 }
 

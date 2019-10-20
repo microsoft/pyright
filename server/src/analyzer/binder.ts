@@ -19,7 +19,7 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import { CreateTypeStubFileAction, getEmptyPosition, getEmptyRange } from '../common/diagnostic';
+import { CreateTypeStubFileAction, getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -594,15 +594,16 @@ export abstract class Binder extends ParseTreeWalker {
 
     visitImportAs(node: ImportAsNode): boolean {
         if (node.module.nameParts.length > 0) {
-            let symbolName: string | undefined;
+            const firstNamePartValue = node.module.nameParts[0].nameToken.value;
 
+            let symbolName: string | undefined;
             if (node.alias) {
                 // The symbol name is defined by the alias.
                 symbolName = node.alias.nameToken.value;
             } else {
                 // There was no alias, so we need to use the first element of
                 // the name parts as the symbol.
-                symbolName = node.module.nameParts[0].nameToken.value;
+                symbolName = firstNamePartValue;
             }
 
             if (symbolName) {
@@ -612,21 +613,29 @@ export abstract class Binder extends ParseTreeWalker {
                 assert(importInfo !== undefined);
 
                 if (importInfo && importInfo.isImportFound && importInfo.resolvedPaths.length > 0 && symbol) {
-                    const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+                    // See if there's already a matching alias delaration for this import.
+                    // if so, we'll update it rather than creating a new one. This is required
+                    // to handle cases where multiple import statements target the same
+                    // starting symbol such as "import a.b.c" and "import a.d". In this case,
+                    // we'll build a single declaration that describes the combined actions
+                    // of both import statements, thus reflecting the behavior of the
+                    // python module loader.
                     const existingDecl = symbol.getDeclarations().find(
-                        decl => decl.type === DeclarationType.Alias && decl.path === resolvedPath);
+                        decl => decl.type === DeclarationType.Alias &&
+                        decl.firstNamePart === firstNamePartValue);
 
                     const newDecl: AliasDeclaration = existingDecl as AliasDeclaration || {
                         type: DeclarationType.Alias,
                         path: '',
                         range: getEmptyRange(),
+                        firstNamePart: firstNamePartValue,
                         implicitImports: new Map<string, ModuleLoaderActions>()
                     };
 
                     // Add the implicit imports for this module if it's the last
                     // name part we're resolving.
-                    if (node.alias || node.module.nameParts.length === 0) {
-                        newDecl.path = importInfo.resolvedPaths[0];
+                    if (node.alias || node.module.nameParts.length === 1) {
+                        newDecl.path = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
                         this._addImplicitImportsToLoaderActions(importInfo, newDecl);
                     } else {
                         // Fill in the remaining name parts.
@@ -1047,8 +1056,8 @@ export class ModuleScopeBinder extends Binder {
         this.walkMultiple(moduleNode.statements);
 
         // Associate the module's scope with the module type.
-        const moduleType = ModuleType.create(this._currentScope.getSymbolTable(),
-            this._getDocString((this._scopedNode as ModuleNode).statements));
+        const moduleType = ModuleType.create(this._currentScope.getSymbolTable());
+        moduleType.docString = this._getDocString((this._scopedNode as ModuleNode).statements);
         AnalyzerNodeInfo.setExpressionType(this._scopedNode, moduleType);
     }
 
