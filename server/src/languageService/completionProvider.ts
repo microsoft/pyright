@@ -640,46 +640,48 @@ export class CompletionProvider {
             let typeDetail: string | undefined;
             let documentation: string | undefined;
 
-            const declaration = declarations[0];
-            const type = getTypeForDeclaration(declaration);
-            itemKind = this._convertDeclarationTypeToItemKind(declaration, type);
+            const declaration = resolveAliasDeclaration(declarations[0], this._importLookup);
+            if (declaration) {
+                const type = getTypeForDeclaration(declaration);
+                itemKind = this._convertDeclarationTypeToItemKind(declaration, type);
 
-            if (type) {
-                switch (declaration.type) {
-                    case DeclarationType.BuiltIn:
-                    case DeclarationType.Variable:
-                    case DeclarationType.Parameter:
-                        typeDetail = name + ': ' + printType(type);
-                        break;
+                if (type) {
+                    switch (declaration.type) {
+                        case DeclarationType.BuiltIn:
+                        case DeclarationType.Variable:
+                        case DeclarationType.Parameter:
+                            typeDetail = name + ': ' + printType(type);
+                            break;
 
-                    case DeclarationType.Function:
-                    case DeclarationType.Method:
-                        if (type.category === TypeCategory.OverloadedFunction) {
-                            typeDetail = type.overloads.map(overload =>
-                                name + printType(overload.type)).join('\n');
-                        } else {
-                            typeDetail = name + printType(type);
-                        }
-                        break;
+                        case DeclarationType.Function:
+                        case DeclarationType.Method:
+                            if (type.category === TypeCategory.OverloadedFunction) {
+                                typeDetail = type.overloads.map(overload =>
+                                    name + printType(overload.type)).join('\n');
+                            } else {
+                                typeDetail = name + printType(type);
+                            }
+                            break;
 
-                    case DeclarationType.Class:
-                        typeDetail = 'class ' + name + '()';
-                        break;
+                        case DeclarationType.Class:
+                            typeDetail = 'class ' + name + '()';
+                            break;
 
-                    case DeclarationType.Alias:
-                    default:
-                        typeDetail = name;
-                        break;
+                        case DeclarationType.Alias:
+                        default:
+                            typeDetail = name;
+                            break;
+                    }
                 }
-            }
 
-            if (type) {
-                if (type.category === TypeCategory.Module) {
-                    documentation = type.docString;
-                } else if (type.category === TypeCategory.Class) {
-                    documentation = ClassType.getDocString(type);
-                } else if (type.category === TypeCategory.Function) {
-                    documentation = FunctionType.getDocString(type);
+                if (type) {
+                    if (type.category === TypeCategory.Module) {
+                        documentation = type.docString;
+                    } else if (type.category === TypeCategory.Class) {
+                        documentation = ClassType.getDocString(type);
+                    } else if (type.category === TypeCategory.Function) {
+                        documentation = FunctionType.getDocString(type);
+                    }
                 }
             }
 
