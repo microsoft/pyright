@@ -9,26 +9,31 @@
 * runs in another process.
 */
 
+import * as fs from 'fs';
 import * as path from 'path';
+
 import { ExtensionContext, commands, TextEditor, Range, Position, TextEditorEdit } from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind,
 	TextEdit } from 'vscode-languageclient';
 import { ProgressReporting } from './progress';
 
 export function activate(context: ExtensionContext) {
-	let serverModule = context.asAbsolutePath(path.join('server', 'server.bundle.js'));
-	let serverModuleDebug = context.asAbsolutePath(path.join('server', 'server.js'));
-	let debugOptions = { execArgv: ["--nolazy", "--inspect=6600"] };
+	const bundlePath = context.asAbsolutePath(path.join('server', 'server.js'));
+	const nonBundlePath = context.asAbsolutePath(path.join('server', 'server.js'));
+	const debugOptions = { execArgv: ["--nolazy", "--inspect=6600"] };
 	
 	// If the extension is launched in debug mode, then the debug server options are used.
-	// Otherwise the run options are used.
-	let serverOptions: ServerOptions = {
-		run : { module: serverModule, transport: TransportKind.ipc },
-		debug: { module: serverModuleDebug, transport: TransportKind.ipc, options: debugOptions }
+	const serverOptions: ServerOptions = {
+		run : { module: bundlePath, transport: TransportKind.ipc },
+		// In debug mode, use the non-bundled code if it's present. The production
+		// build includes only the bundled package, so we don't want to crash if
+		// someone starts the production extension in debug mode.
+		debug: { module: fs.existsSync(nonBundlePath) ? nonBundlePath : bundlePath,
+			transport: TransportKind.ipc, options: debugOptions }
 	}
 	
 	// Options to control the language client
-	let clientOptions: LanguageClientOptions = {
+	const clientOptions: LanguageClientOptions = {
 		// Register the server for python source files.
 		documentSelector: [{
 			scheme: 'file',
@@ -41,8 +46,8 @@ export function activate(context: ExtensionContext) {
 	}
 	
 	// Create the language client and start the client.
-	let languageClient = new LanguageClient('python', 'Pyright', serverOptions, clientOptions);
-	let disposable = languageClient.start();
+	const languageClient = new LanguageClient('python', 'Pyright', serverOptions, clientOptions);
+	const disposable = languageClient.start();
 	
 	// Push the disposable to the context's subscriptions so that the 
 	// client can be deactivated on extension deactivation.
