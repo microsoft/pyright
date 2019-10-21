@@ -36,7 +36,7 @@ import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/pars
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { ModuleScopeBinder } from './binder';
+import { Binder } from './binder';
 import { CircularDependency } from './circularDependency';
 import * as CommentUtils from './commentUtils';
 import { ImportResolver } from './importResolver';
@@ -658,9 +658,8 @@ export class SourceFile {
                 const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope);
                 this._cleanParseTreeIfRequired();
 
-                const binder = new ModuleScopeBinder(
-                    this._parseResults!.parseTree, fileInfo);
-                binder.bind();
+                const binder = new Binder(fileInfo);
+                this._moduleDocString = binder.bind(this._parseResults!.parseTree);
 
                 // If we're in "test mode" (used for unit testing), run an additional
                 // "test walker" over the parse tree to validate its internal consistency.
@@ -673,7 +672,6 @@ export class SourceFile {
                 const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
                 assert(moduleScope !== undefined);
                 this._moduleSymbolTable = moduleScope!.getSymbolTable();
-                this._moduleDocString = binder.getModuleDocString();
             });
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||

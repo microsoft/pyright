@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
-import { ModuleScopeBinder } from '../analyzer/binder';
+import { Binder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
 import { SymbolTable } from '../analyzer/symbol';
@@ -102,8 +102,8 @@ export function bindSampleFile(fileName: string,
     const parseResults = parseSampleFile(fileName, diagSink, execEnvironment);
 
     const fileInfo = buildAnalyzerFileInfo(filePath, parseResults, configOptions);
-    const binder = new ModuleScopeBinder(parseResults.parseTree, fileInfo);
-    binder.bind();
+    const binder = new Binder(fileInfo);
+    binder.bind(parseResults.parseTree);
 
     // Walk the AST to verify internal consistency.
     const testWalker = new TestWalker();

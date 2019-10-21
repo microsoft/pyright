@@ -51,8 +51,6 @@ import { isConstantName } from './symbolNameUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
     FunctionTypeFlags, Type, TypeCategory, UnknownType } from './types';
 
-type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode;
-
 export const enum NameBindingType {
     // With "nonlocal" keyword
     Nonlocal,
@@ -68,17 +66,25 @@ interface MemberAccessInfo {
     isInstanceMember: boolean;
 }
 
-export abstract class Binder extends ParseTreeWalker {
-    protected readonly _scopedNode: ScopedNode;
+interface DeferredAnalysis {
+    scope: Scope;
+    nonLocalBindingsMap: StringMap<NameBindingType>;
+    callback: () => void;
+}
+
+export class Binder extends ParseTreeWalker {
     protected readonly _fileInfo: AnalyzerFileInfo;
 
-    // A queue of scoped nodes that need to be analyzed.
-    protected _subscopesToAnalyze: Binder[] = [];
+    // A queue of deferred analysis operations.
+    protected _deferredAnalysis: DeferredAnalysis[] = [];
 
     // The current scope in effect. This is either the base scope or a
     // "temporary scope", used for analyzing conditional code blocks. Their
     // contents are eventually merged in to the base scope.
     protected _currentScope: Scope;
+
+    // Name bindings that are not local to the current scope.
+    protected _notLocalBindings = new StringMap<NameBindingType>();
 
     // Number of nested except statements at current point of analysis.
     // Used to determine if a naked "raise" statement is allowed.
@@ -88,68 +94,81 @@ export abstract class Binder extends ParseTreeWalker {
     // because it's in an unexecuted section of code.
     protected _isUnexecutedCode = false;
 
-    // Name bindings that are not local to the current scope.
-    protected _notLocalBindings = new StringMap<NameBindingType>();
-
-    constructor(node: ScopedNode, scopeType: ScopeType, parentScope: Scope | undefined,
-            fileInfo: AnalyzerFileInfo) {
-
+    constructor(fileInfo: AnalyzerFileInfo) {
         super();
 
-        this._scopedNode = node;
         this._fileInfo = fileInfo;
-
-        // Allocate a new scope and associate it with the node
-        // we've been asked to analyze.
-        this._currentScope = new Scope(scopeType, parentScope);
-
-        // If this is the built-in scope, we need to hide symbols
-        // that are in the stub file but are not officially part of
-        // the built-in list of symbols in Python.
-        if (scopeType === ScopeType.Builtin) {
-            const builtinsToExport = [
-                'ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException',
-                'BlockingIOError', 'BrokenPipeError', 'BufferError', 'BytesWarning',
-                'ChildProcessError', 'ConnectionAbortedError', 'ConnectionError',
-                'ConnectionRefusedError', 'ConnectionResetError', 'DeprecationWarning',
-                'EOFError', 'Ellipsis', 'EnvironmentError', 'Exception',
-                'FileExistsError', 'FileNotFoundError', 'FloatingPointError',
-                'FutureWarning', 'GeneratorExit', 'IOError', 'ImportError',
-                'ImportWarning', 'IndentationError', 'IndexError', 'InterruptedError',
-                'IsADirectoryError', 'KeyError', 'KeyboardInterrupt', 'LookupError',
-                'MemoryError', 'NameError', 'NotADirectoryError', 'NotImplemented',
-                'NotImplementedError', 'OSError', 'OverflowError', 'PendingDeprecationWarning',
-                'PermissionError', 'ProcessLookupError', 'RecursionError', 'ReferenceError',
-                'ResourceWarning', 'RuntimeError', 'RuntimeWarning', 'StopAsyncIteration',
-                'StopIteration', 'SyntaxError', 'SyntaxWarning', 'SystemError', 'SystemExit',
-                'TabError', 'TimeoutError', 'TypeError', 'UnboundLocalError',
-                'UnicodeDecodeError', 'UnicodeEncodeError', 'UnicodeError', 'UnicodeTranslateError',
-                'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning', 'WindowsError',
-                'ZeroDivisionError',
-                '__import__', '__loader__', '__name__',
-                '__package__', '__spec__', 'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'breakpoint',
-                'bytearray', 'bytes', 'callable', 'chr', 'classmethod', 'compile', 'complex',
-                'copyright', 'credits', 'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval',
-                'exec', 'exit', 'filter', 'float', 'format', 'frozenset', 'getattr', 'globals',
-                'hasattr', 'hash', 'help', 'hex', 'id', 'input', 'int', 'isinstance',
-                'issubclass', 'iter', 'len', 'license', 'list', 'locals', 'map', 'max',
-                'memoryview', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'print',
-                'property', 'quit', 'range', 'repr', 'reversed', 'round', 'set', 'setattr',
-                'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple', 'type',
-                'vars', 'zip'];
-
-            this._currentScope.setExportFilter(builtinsToExport);
-        }
-
-        AnalyzerNodeInfo.setScope(this._scopedNode, this._currentScope);
     }
 
-    // We separate binding into two passes. The first happens immediately when
-    // the scope analyzer is created. The second happens after its parent scope
-    // has been fully analyzed.
-    bindDeferred() {
-        // Analyze any sub-scopes that were discovered during the earlier pass.
-        this._analyzeSubscopesDeferred();
+    bind(node: ModuleNode) {
+        // We'll assume that if there is no builtins scope provided, we must be
+        // binding the builtins module itself.
+        const isBuiltInModule = this._fileInfo.builtinsScope === undefined;
+
+        this._createNewScope(isBuiltInModule ? ScopeType.Builtin : ScopeType.Module,
+                this._fileInfo.builtinsScope, () => {
+
+            AnalyzerNodeInfo.setScope(node, this._currentScope);
+
+            // If this is the built-in scope, we need to hide symbols
+            // that are in the stub file but are not officially part of
+            // the built-in list of symbols in Python.
+            if (isBuiltInModule) {
+                const builtinsToExport = [
+                    'ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException',
+                    'BlockingIOError', 'BrokenPipeError', 'BufferError', 'BytesWarning',
+                    'ChildProcessError', 'ConnectionAbortedError', 'ConnectionError',
+                    'ConnectionRefusedError', 'ConnectionResetError', 'DeprecationWarning',
+                    'EOFError', 'Ellipsis', 'EnvironmentError', 'Exception',
+                    'FileExistsError', 'FileNotFoundError', 'FloatingPointError',
+                    'FutureWarning', 'GeneratorExit', 'IOError', 'ImportError',
+                    'ImportWarning', 'IndentationError', 'IndexError', 'InterruptedError',
+                    'IsADirectoryError', 'KeyError', 'KeyboardInterrupt', 'LookupError',
+                    'MemoryError', 'NameError', 'NotADirectoryError', 'NotImplemented',
+                    'NotImplementedError', 'OSError', 'OverflowError', 'PendingDeprecationWarning',
+                    'PermissionError', 'ProcessLookupError', 'RecursionError', 'ReferenceError',
+                    'ResourceWarning', 'RuntimeError', 'RuntimeWarning', 'StopAsyncIteration',
+                    'StopIteration', 'SyntaxError', 'SyntaxWarning', 'SystemError', 'SystemExit',
+                    'TabError', 'TimeoutError', 'TypeError', 'UnboundLocalError',
+                    'UnicodeDecodeError', 'UnicodeEncodeError', 'UnicodeError', 'UnicodeTranslateError',
+                    'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning', 'WindowsError',
+                    'ZeroDivisionError',
+                    '__import__', '__loader__', '__name__',
+                    '__package__', '__spec__', 'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'breakpoint',
+                    'bytearray', 'bytes', 'callable', 'chr', 'classmethod', 'compile', 'complex',
+                    'copyright', 'credits', 'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval',
+                    'exec', 'exit', 'filter', 'float', 'format', 'frozenset', 'getattr', 'globals',
+                    'hasattr', 'hash', 'help', 'hex', 'id', 'input', 'int', 'isinstance',
+                    'issubclass', 'iter', 'len', 'license', 'list', 'locals', 'map', 'max',
+                    'memoryview', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'print',
+                    'property', 'quit', 'range', 'repr', 'reversed', 'round', 'set', 'setattr',
+                    'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple', 'type',
+                    'vars', 'zip'];
+
+                this._currentScope.setExportFilter(builtinsToExport);
+            }
+
+            // Bind implicit names.
+            // List taken from https://docs.python.org/3/reference/import.html#__name__
+            this._addBuiltInSymbolToCurrentScope('__doc__',
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__name__',
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__loader__', AnyType.create());
+            this._addBuiltInSymbolToCurrentScope('__package__',
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__spec__', AnyType.create());
+            this._addBuiltInSymbolToCurrentScope('__path__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__file__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__cached__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+
+            this.walkMultiple(node.statements);
+        });
+
+        // Perform all analysis that was deferred during the first pass.
+        this._analyzeDeferred();
+
+        return this._getDocString((node).statements);
     }
 
     visitModule(node: ModuleNode): boolean {
@@ -262,8 +281,27 @@ export abstract class Binder extends ParseTreeWalker {
         // accommodate some circular references between builtins and typing type stubs.
         AnalyzerNodeInfo.setExpressionType(node.name, classType);
 
-        const binder = new ClassScopeBinder(node, this._currentScope, classType, this._fileInfo);
-        this._queueSubScopeAnalyzer(binder);
+        this._createNewScope(ScopeType.Class, this._currentScope, () => {
+            AnalyzerNodeInfo.setScope(node, this._currentScope);
+
+            // The scope for this class becomes the "fields" for the corresponding type.
+            ClassType.setFields(classType, this._currentScope.getSymbolTable());
+            assert(classType && classType.category === TypeCategory.Class);
+
+            // Bind implicit names.
+            // Note that __class__, __dict__ and __doc__ are skipped here
+            // because the builtins.pyi type stub declares these in the
+            // 'object' class.
+            this._addBuiltInSymbolToCurrentScope('__name__',
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
+                this._addBuiltInSymbolToCurrentScope('__qualname__',
+                    ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            }
+
+            // Analyze the suite.
+            this.walk(node.suite);
+        });
 
         // Add the class symbol. We do this in the binder to speed
         // up overall analysis times. Without this, the type analyzer needs
@@ -345,9 +383,61 @@ export abstract class Binder extends ParseTreeWalker {
         const functionOrModuleScope = AnalyzerNodeInfo.getScope(functionOrModuleNode!);
         assert(functionOrModuleScope !== undefined);
 
-        const binder = new FunctionScopeBinder(node, functionOrModuleScope!, this._fileInfo);
-        this._queueSubScopeAnalyzer(binder);
+        // Don't walk the body of the function until we're done analyzing
+        // the current scope.
+        this._createNewScope(ScopeType.Function, functionOrModuleScope, () => {
+            AnalyzerNodeInfo.setScope(node, this._currentScope);
 
+            // Bind implicit names.
+            // List taken from https://docs.python.org/3/reference/datamodel.html
+            this._addBuiltInSymbolToCurrentScope('__doc__',
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__name__',
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
+                this._addBuiltInSymbolToCurrentScope('__qualname__',
+                    ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            }
+            this._addBuiltInSymbolToCurrentScope('__module__',
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__defaults__', AnyType.create());
+            this._addBuiltInSymbolToCurrentScope('__code__', AnyType.create());
+            this._addBuiltInSymbolToCurrentScope('__globals__', AnyType.create());
+            this._addBuiltInSymbolToCurrentScope('__dict__', AnyType.create());
+            this._addBuiltInSymbolToCurrentScope('__closure__', AnyType.create());
+            this._addBuiltInSymbolToCurrentScope('__annotations__', AnyType.create());
+            this._addBuiltInSymbolToCurrentScope('__kwdefaults__', AnyType.create());
+
+            const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
+            if (enclosingClass) {
+                const enclosingClassType = AnalyzerNodeInfo.getExpressionType(enclosingClass);
+                if (enclosingClassType) {
+                    this._addBuiltInSymbolToCurrentScope('__class__', enclosingClassType);
+                }
+            }
+
+            this._deferAnalysis(() => {
+                node.parameters.forEach(paramNode => {
+                    if (paramNode.name) {
+                        const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
+                        if (symbol) {
+                            symbol.addDeclaration({
+                                type: DeclarationType.Parameter,
+                                node: paramNode,
+                                path: this._fileInfo.filePath,
+                                range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
+                                    this._fileInfo.lines)
+                            });
+                        }
+                    }
+                });
+
+                // Walk the statements that make up the function.
+                this.walk(node.suite);
+            });
+        });
+
+        // We'll walk the child nodes in a deffered manner.
         return false;
     }
 
@@ -360,9 +450,31 @@ export abstract class Binder extends ParseTreeWalker {
             }
         });
 
-        const binder = new LambdaScopeBinder(node, this._currentScope, this._fileInfo);
-        this._queueSubScopeAnalyzer(binder);
+        this._createNewScope(ScopeType.Function, this._currentScope, () => {
+            AnalyzerNodeInfo.setScope(node, this._currentScope);
 
+            this._deferAnalysis(() => {
+                node.parameters.forEach(paramNode => {
+                    if (paramNode.name) {
+                        const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
+                        if (symbol) {
+                            symbol.addDeclaration({
+                                type: DeclarationType.Parameter,
+                                node: paramNode,
+                                path: this._fileInfo.filePath,
+                                range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
+                                    this._fileInfo.lines)
+                            });
+                        }
+                    }
+                });
+
+                // Walk the expression that make up the lambda body.
+                this.walk(node.expression);
+            });
+        });
+
+        // We'll walk the child nodes in a deffered manner.
         return false;
     }
 
@@ -917,6 +1029,21 @@ export abstract class Binder extends ParseTreeWalker {
         return DocStringUtils.decodeDocString(docStringNode.strings[0].value);
     }
 
+    private _createNewScope(scopeType: ScopeType, parentScope: Scope | undefined,
+            callback: () => void) {
+
+        const prevScope = this._currentScope;
+        this._currentScope = new Scope(scopeType, parentScope);
+
+        const prevNonLocalBindings = this._notLocalBindings;
+        this._notLocalBindings = new StringMap<NameBindingType>();
+
+        callback();
+
+        this._currentScope = prevScope;
+        this._notLocalBindings = prevNonLocalBindings;
+    }
+
     private _addInferredTypeAssignmentForVariable(target: ExpressionNode, source: ParseNode) {
         if (target.nodeType === ParseNodeType.Name) {
             const name = target.nameToken;
@@ -1217,13 +1344,26 @@ export abstract class Binder extends ParseTreeWalker {
         return false;
     }
 
-    // Analyzes the subscopes that are discovered during the first analysis pass.
-    private _analyzeSubscopesDeferred() {
-        for (const subscope of this._subscopesToAnalyze) {
-            subscope.bindDeferred();
-        }
+    private _deferAnalysis(callback: () => void) {
+        this._deferredAnalysis.push({
+            scope: this._currentScope,
+            nonLocalBindingsMap: this._notLocalBindings,
+            callback
+        });
+    }
 
-        this._subscopesToAnalyze = [];
+    private _analyzeDeferred() {
+        while (this._deferredAnalysis.length > 0) {
+            const nextItem = this._deferredAnalysis.shift()!;
+
+            // Reset the state
+            this._currentScope = nextItem.scope;
+            this._notLocalBindings = nextItem.nonLocalBindingsMap;
+            this._nestedExceptDepth = 0;
+            this._isUnexecutedCode = false;
+
+            nextItem.callback();
+        }
     }
 
     private _validateYieldUsage(node: YieldExpressionNode | YieldFromExpressionNode) {
@@ -1277,10 +1417,6 @@ export abstract class Binder extends ParseTreeWalker {
         this._isUnexecutedCode = wasUnexecutedCode;
     }
 
-    private _queueSubScopeAnalyzer(binder: Binder) {
-        this._subscopesToAnalyze.push(binder);
-    }
-
     private _addDiagnostic(diagLevel: DiagnosticLevel, rule: string,
             message: string, textRange: TextRange) {
 
@@ -1302,159 +1438,5 @@ export abstract class Binder extends ParseTreeWalker {
 
     private _addWarning(message: string, textRange: TextRange) {
         return this._fileInfo.diagnosticSink.addWarningWithTextRange(message, textRange);
-    }
-}
-
-export class ModuleScopeBinder extends Binder {
-    private _moduleDocString?: string;
-
-    constructor(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
-        super(node, fileInfo.builtinsScope ? ScopeType.Module : ScopeType.Builtin,
-            fileInfo.builtinsScope, fileInfo);
-
-        // Bind implicit names.
-        // List taken from https://docs.python.org/3/reference/import.html#__name__
-        this._addBuiltInSymbolToCurrentScope('__doc__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addBuiltInSymbolToCurrentScope('__name__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addBuiltInSymbolToCurrentScope('__loader__', AnyType.create());
-        this._addBuiltInSymbolToCurrentScope('__package__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addBuiltInSymbolToCurrentScope('__spec__', AnyType.create());
-        this._addBuiltInSymbolToCurrentScope('__path__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addBuiltInSymbolToCurrentScope('__file__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addBuiltInSymbolToCurrentScope('__cached__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-
-        const moduleNode = this._scopedNode as ModuleNode;
-        this.walkMultiple(moduleNode.statements);
-
-        this._moduleDocString = this._getDocString((this._scopedNode as ModuleNode).statements);
-    }
-
-    bind() {
-        this.bindDeferred();
-    }
-
-    getModuleDocString() {
-        return this._moduleDocString;
-    }
-}
-
-export class ClassScopeBinder extends Binder {
-    constructor(node: ClassNode, parentScope: Scope, classType: ClassType,
-            fileInfo: AnalyzerFileInfo) {
-        super(node, ScopeType.Class, parentScope, fileInfo);
-
-        // The scope for this class becomes the "fields" for the corresponding type.
-        ClassType.setFields(classType, this._currentScope.getSymbolTable());
-
-        assert(classType && classType.category === TypeCategory.Class);
-
-        // Bind implicit names.
-        // Note that __class__, __dict__ and __doc__ are skipped here
-        // because the builtins.pyi type stub declares these in the
-        // 'object' class.
-        this._addBuiltInSymbolToCurrentScope('__name__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
-            this._addBuiltInSymbolToCurrentScope('__qualname__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        }
-
-        // Analyze the suite.
-        const classNode = this._scopedNode as ClassNode;
-
-        this.walk(classNode.suite);
-    }
-}
-
-export class FunctionScopeBinder extends Binder {
-    constructor(node: FunctionNode, parentScope: Scope, fileInfo: AnalyzerFileInfo) {
-        super(node, ScopeType.Function, parentScope, fileInfo);
-
-        // Bind implicit names.
-        // List taken from https://docs.python.org/3/reference/datamodel.html
-        this._addBuiltInSymbolToCurrentScope('__doc__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addBuiltInSymbolToCurrentScope('__name__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
-            this._addBuiltInSymbolToCurrentScope('__qualname__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        }
-        this._addBuiltInSymbolToCurrentScope('__module__',
-            ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-        this._addBuiltInSymbolToCurrentScope('__defaults__', AnyType.create());
-        this._addBuiltInSymbolToCurrentScope('__code__', AnyType.create());
-        this._addBuiltInSymbolToCurrentScope('__globals__', AnyType.create());
-        this._addBuiltInSymbolToCurrentScope('__dict__', AnyType.create());
-        this._addBuiltInSymbolToCurrentScope('__closure__', AnyType.create());
-        this._addBuiltInSymbolToCurrentScope('__annotations__', AnyType.create());
-        this._addBuiltInSymbolToCurrentScope('__kwdefaults__', AnyType.create());
-
-        const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
-        if (enclosingClass) {
-            const enclosingClassType = AnalyzerNodeInfo.getExpressionType(enclosingClass);
-            if (enclosingClassType) {
-                this._addBuiltInSymbolToCurrentScope('__class__', enclosingClassType);
-            }
-        }
-    }
-
-    bindDeferred() {
-        const functionNode = this._scopedNode as FunctionNode;
-
-        functionNode.parameters.forEach(paramNode => {
-            if (paramNode.name) {
-                const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
-                if (symbol) {
-                    symbol.addDeclaration({
-                        type: DeclarationType.Parameter,
-                        node: paramNode,
-                        path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
-                            this._fileInfo.lines)
-                    });
-                }
-            }
-        });
-
-        // Walk the statements that make up the function.
-        this.walk(functionNode.suite);
-
-        // Analyze any sub-scopes that were discovered during the earlier pass.
-        super.bindDeferred();
-    }
-}
-
-export class LambdaScopeBinder extends Binder {
-    constructor(node: LambdaNode, parentScope: Scope, fileInfo: AnalyzerFileInfo) {
-        super(node, ScopeType.Function, parentScope, fileInfo);
-    }
-
-    bindDeferred() {
-        const lambdaNode = this._scopedNode as LambdaNode;
-
-        lambdaNode.parameters.forEach(paramNode => {
-            if (paramNode.name) {
-                const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
-                if (symbol) {
-                    symbol.addDeclaration({
-                        type: DeclarationType.Parameter,
-                        node: paramNode,
-                        path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
-                            this._fileInfo.lines)
-                    });
-                }
-            }
-        });
-
-        // Walk the expression that make up the lambda body.
-        this.walk(lambdaNode.expression);
-
-        // Analyze any sub-scopes that were discovered during the earlier pass.
-        super.bindDeferred();
     }
 }
