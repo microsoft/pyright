@@ -1510,32 +1510,34 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // Build a module type that corresponds to the declaration and
                 // its associated loader actions.
                 const moduleType = ModuleType.create();
-                this._applyLoaderActionsToModuleType(moduleType, aliasDecl);
-                symbolType = moduleType;
+                symbolType = this._applyLoaderActionsToModuleType(moduleType, aliasDecl);
             }
         }
 
         return [symbolWithScope ? symbolWithScope.symbol : undefined, symbolType];
     }
 
-    private _applyLoaderActionsToModuleType(moduleType: ModuleType, loaderActions: ModuleLoaderActions) {
+    private _applyLoaderActionsToModuleType(moduleType: ModuleType, loaderActions: ModuleLoaderActions): Type {
         if (loaderActions.path) {
             const lookupResults = this._fileInfo.importLookup(loaderActions.path);
             if (lookupResults) {
                 moduleType.fields = lookupResults.symbolTable;
                 moduleType.docString = lookupResults.docString;
+            } else {
+                return UnknownType.create();
             }
         }
 
         loaderActions.implicitImports.forEach((implicitImport, name) => {
-            const importedModuleType = ModuleType.create();
-            const importedModuleSymbol = Symbol.createWithType(
-                SymbolFlags.None, importedModuleType);
-            moduleType.loaderFields.set(name, importedModuleSymbol);
-
             // Recursively apply loader actions.
-            this._applyLoaderActionsToModuleType(importedModuleType, implicitImport);
+            const importedModuleType = ModuleType.create();
+            const symbolType = this._applyLoaderActionsToModuleType(importedModuleType, implicitImport);
+
+            const importedModuleSymbol = Symbol.createWithType(SymbolFlags.None, symbolType);
+            moduleType.loaderFields.set(name, importedModuleSymbol);
         });
+
+        return moduleType;
     }
 
     // Validates that a call to isinstance is necessary. This is a
