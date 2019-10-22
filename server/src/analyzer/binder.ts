@@ -483,7 +483,9 @@ export class Binder extends ParseTreeWalker {
             this._bindPossibleTupleNamedTarget(node.leftExpression);
 
             if (node.typeAnnotationComment) {
-                this._addTypeDeclarationForVariable(node.leftExpression, node.typeAnnotationComment);
+                if (!this._isUnexecutedCode) {
+                    this._addTypeDeclarationForVariable(node.leftExpression, node.typeAnnotationComment);
+                }
             }
 
             this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression);
@@ -512,7 +514,9 @@ export class Binder extends ParseTreeWalker {
 
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
         this._bindPossibleTupleNamedTarget(node.valueExpression);
-        this._addTypeDeclarationForVariable(node.valueExpression, node.typeAnnotation);
+        if (!this._isUnexecutedCode) {
+            this._addTypeDeclarationForVariable(node.valueExpression, node.typeAnnotation);
+        }
         return true;
     }
 
