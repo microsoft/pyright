@@ -166,6 +166,7 @@ export class SourceFile {
         this._isBuiltInStubFile = false;
         if (this._isStubFile) {
             if (this._filePath.endsWith(normalizeSlashes('/collections/__init__.pyi')) ||
+                    fileName === 'builtins.pyi' ||
                     fileName === '_importlib_modulespec.pyi' ||
                     fileName === 'dataclasses.pyi' ||
                     fileName === 'abc.pyi' ||

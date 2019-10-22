@@ -741,3 +741,8 @@ test('AssignmentExpr3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr3.py']);
     validateResults(analysisResults, 3);
 });
+
+test('Import1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import1.py']);
+    validateResults(analysisResults, 0);
+});

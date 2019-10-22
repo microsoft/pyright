@@ -1907,6 +1907,13 @@ export class ExpressionEvaluator {
             } else {
                 type = this._validateCallArguments(errorNode, argList, callType,
                     new TypeVarMap(), specializeReturnType);
+
+                if (FunctionType.getBuiltInName(callType) === '__import__') {
+                    // For the special __import__ type, we'll override the return type to be "Any".
+                    // This is required because we don't know what module was imported, and we don't
+                    // want to fail type checks when accessing members of the resulting module type.
+                    type = AnyType.create();
+                }
             }
 
             if (!type) {
