@@ -56,10 +56,8 @@ export function evaluateStaticExpression(node: ExpressionNode,
                 node.rightExpression.nodeType === ParseNodeType.StringList) {
             // Handle the special case of "sys.platform != 'X'"
             const comparisonPlatform = node.rightExpression.strings.map(s => s.value).join('');
-            if (execEnv.pythonPlatform !== undefined) {
-                return _evaluateStringBinaryOperation(node.operator,
-                    execEnv.pythonPlatform, comparisonPlatform);
-            }
+            return _evaluateStringBinaryOperation(node.operator,
+                execEnv.pythonPlatform || '', comparisonPlatform);
         } else if (_isOsNameInfoExpression(node.leftExpression) &&
                 node.rightExpression.nodeType === ParseNodeType.StringList) {
             // Handle the special case of "os.name == 'X'"
