@@ -137,7 +137,7 @@ export function resolveAliasDeclaration(declaration: Declaration, importLookup: 
             return curDeclaration;
         }
 
-        const lookupResult = importLookup(declaration.path);
+        const lookupResult = importLookup(curDeclaration.path);
         if (!lookupResult) {
             return undefined;
         }
