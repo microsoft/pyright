@@ -36,6 +36,7 @@ import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { FlowAssignment, FlowFlags, FlowLabel, FlowNode, FlowStart } from './codeFlow';
 import { AliasDeclaration, DeclarationType, ModuleLoaderActions,
     VariableDeclaration } from './declaration';
 import * as DocStringUtils from './docStringUtils';
@@ -73,18 +74,18 @@ interface DeferredAnalysis {
 }
 
 export class Binder extends ParseTreeWalker {
-    protected readonly _fileInfo: AnalyzerFileInfo;
+    private readonly _fileInfo: AnalyzerFileInfo;
 
     // A queue of deferred analysis operations.
-    protected _deferredAnalysis: DeferredAnalysis[] = [];
+    private _deferredAnalysis: DeferredAnalysis[] = [];
 
     // The current scope in effect. This is either the base scope or a
     // "temporary scope", used for analyzing conditional code blocks. Their
     // contents are eventually merged in to the base scope.
-    protected _currentScope: Scope;
+    private _currentScope: Scope;
 
     // Name bindings that are not local to the current scope.
-    protected _notLocalBindings = new StringMap<NameBindingType>();
+    private _notLocalBindings = new StringMap<NameBindingType>();
 
     // Number of nested except statements at current point of analysis.
     // Used to determine if a naked "raise" statement is allowed.
@@ -92,7 +93,21 @@ export class Binder extends ParseTreeWalker {
 
     // Indicates that any name that's encountered should be ignored
     // because it's in an unexecuted section of code.
-    protected _isUnexecutedCode = false;
+    private _isUnexecutedCode = false;
+
+    // Current control-flow node.
+    private _currentFlowNode: FlowNode;
+
+    // Flow node label that is the target of all return
+    // statements (including implicit returns).
+    private _currentReturnTarget: FlowLabel;
+
+    // Flow node label that is the target of all yield
+    // statements.
+    private _currentYieldTarget: FlowLabel;
+
+    // FLow node that is used for unreachable code.
+    private static _unreachableFlowNode: FlowNode = { flags: FlowFlags.Unreachable };
 
     constructor(fileInfo: AnalyzerFileInfo) {
         super();
@@ -100,7 +115,7 @@ export class Binder extends ParseTreeWalker {
         this._fileInfo = fileInfo;
     }
 
-    bind(node: ModuleNode) {
+    bindModule(node: ModuleNode) {
         // We'll assume that if there is no builtins scope provided, we must be
         // binding the builtins module itself.
         const isBuiltInModule = this._fileInfo.builtinsScope === undefined;
@@ -163,6 +178,9 @@ export class Binder extends ParseTreeWalker {
             this._addBuiltInSymbolToCurrentScope('__path__', strList);
             this._addBuiltInSymbolToCurrentScope('__file__', builtinStrObj);
             this._addBuiltInSymbolToCurrentScope('__cached__', builtinStrObj);
+
+            // Create a start node for the module.
+            this._currentFlowNode = this._createStartFlowNode();
 
             this.walkMultiple(node.statements);
         });
@@ -301,6 +319,9 @@ export class Binder extends ParseTreeWalker {
                     ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
             }
 
+            // Create a start node for the class.
+            this._currentFlowNode = this._createStartFlowNode();
+
             // Analyze the suite.
             this.walk(node.suite);
         });
@@ -434,6 +455,18 @@ export class Binder extends ParseTreeWalker {
                     }
                 });
 
+                // Create a control flow label that represents the target
+                // of all return statements (including implicit returns).
+                this._currentReturnTarget = this._createFlowLabel();
+                AnalyzerNodeInfo.setFlowNode(node, this._currentReturnTarget);
+
+                // Create a control flow label that represents the target
+                // of all yield statements.
+                this._currentYieldTarget = this._createFlowLabel();
+
+                // Create a start node for the function.
+                this._currentFlowNode = this._createStartFlowNode(node);
+
                 // Walk the statements that make up the function.
                 this.walk(node.suite);
             });
@@ -471,6 +504,9 @@ export class Binder extends ParseTreeWalker {
                     }
                 });
 
+                // Create a start node for the lambda.
+                this._currentFlowNode = this._createStartFlowNode(node);
+
                 // Walk the expression that make up the lambda body.
                 this.walk(node.expression);
             });
@@ -492,18 +528,27 @@ export class Binder extends ParseTreeWalker {
 
             this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression);
         }
+
+        this._createFlowAssignment(node);
+
         return true;
     }
 
     visitAssignmentExpression(node: AssignmentExpressionNode) {
         this._bindPossibleTupleNamedTarget(node.name);
         this._addInferredTypeAssignmentForVariable(node.name, node.rightExpression);
+
+        this._createFlowAssignment(node);
+
         return true;
     }
 
     visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode) {
         this._bindPossibleTupleNamedTarget(node.leftExpression);
         this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression);
+
+        this._createFlowAssignment(node);
+
         return true;
     }
 
@@ -511,6 +556,9 @@ export class Binder extends ParseTreeWalker {
         node.expressions.forEach(expr => {
             this._bindPossibleTupleNamedTarget(expr);
         });
+
+        this._createFlowAssignment(node);
+
         return true;
     }
 
@@ -918,7 +966,39 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    protected _bindNameToScope(scope: Scope, name: string) {
+    private _createStartFlowNode(node?: FunctionNode | LambdaNode) {
+        const flowNode: FlowStart = {
+            flags: FlowFlags.Start,
+            function: node
+        };
+        return flowNode;
+    }
+
+    private _createFlowLabel(isLoop = false) {
+        const flowNode: FlowLabel = {
+            flags: isLoop ? FlowFlags.LoopLabel : FlowFlags.BranchLabel,
+            antecedents: []
+        };
+        return flowNode;
+    }
+
+    private _createFlowAssignment(node: AssignmentNode | AssignmentExpressionNode |
+            AugmentedAssignmentExpressionNode | DelNode) {
+
+        if (!(this._currentFlowNode.flags & FlowFlags.Unreachable)) {
+            const flowNode: FlowAssignment = {
+                flags: FlowFlags.Assignment,
+                node,
+                antecedent: this._currentFlowNode
+            };
+
+            this._currentFlowNode = flowNode;
+        }
+
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+    }
+
+    private _bindNameToScope(scope: Scope, name: string) {
         if (this._notLocalBindings.get(name) === undefined) {
             // Don't overwrite an existing symbol.
             let symbol = scope.lookUpSymbol(name);
@@ -933,7 +1013,7 @@ export class Binder extends ParseTreeWalker {
         return undefined;
     }
 
-    protected _bindPossibleTupleNamedTarget(target: ExpressionNode) {
+    private _bindPossibleTupleNamedTarget(target: ExpressionNode) {
         if (target.nodeType === ParseNodeType.Name) {
             this._bindNameToScope(this._currentScope, target.nameToken.value);
         } else if (target.nodeType === ParseNodeType.Tuple) {
@@ -951,7 +1031,7 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    protected _addBuiltInSymbolToCurrentScope(nameValue: string, type: Type) {
+    private _addBuiltInSymbolToCurrentScope(nameValue: string, type: Type) {
         // Handle a special case where a built-in type is not known
         // at binding time. This happens specifically when binding
         // the buitins.pyi module. We'll convert the Unknown types
@@ -975,7 +1055,7 @@ export class Binder extends ParseTreeWalker {
 
     // Finds the nearest permanent scope (as opposed to temporary scope) and
     // adds a new symbol with the specified name if it doesn't already exist.
-    protected _addSymbolToCurrentScope(nameValue: string, type: Type, typeSourceId: TypeSourceId) {
+    private _addSymbolToCurrentScope(nameValue: string, type: Type, typeSourceId: TypeSourceId) {
         if (this._isUnexecutedCode) {
             return;
         }
@@ -1006,7 +1086,7 @@ export class Binder extends ParseTreeWalker {
         return symbol;
     }
 
-    protected _getDocString(statements: StatementNode[]): string | undefined {
+    private _getDocString(statements: StatementNode[]): string | undefined {
         // See if the first statement in the suite is a triple-quote string.
         if (statements.length === 0) {
             return undefined;

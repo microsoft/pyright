@@ -660,7 +660,7 @@ export class SourceFile {
                 this._cleanParseTreeIfRequired();
 
                 const binder = new Binder(fileInfo);
-                this._moduleDocString = binder.bind(this._parseResults!.parseTree);
+                this._moduleDocString = binder.bindModule(this._parseResults!.parseTree);
 
                 // If we're in "test mode" (used for unit testing), run an additional
                 // "test walker" over the parse tree to validate its internal consistency.
