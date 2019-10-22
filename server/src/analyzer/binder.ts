@@ -1395,7 +1395,7 @@ export class Binder extends ParseTreeWalker {
             testExpression, this._fileInfo.executionEnvironment);
 
         // which variables have been assigned to conditionally.
-        this._markNotExecuted(constExprValue === true, () => {
+        this._markNotExecuted(constExprValue !== false, () => {
             this.walk(ifWhileSuite);
         });
 
@@ -1403,7 +1403,7 @@ export class Binder extends ParseTreeWalker {
         // are chained "else if" statements, they'll be handled
         // recursively here.
         if (elseSuite) {
-            this._markNotExecuted(constExprValue === false, () => {
+            this._markNotExecuted(constExprValue !== true, () => {
                 this.walk(elseSuite);
             });
         }
