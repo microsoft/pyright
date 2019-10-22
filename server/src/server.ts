@@ -603,8 +603,13 @@ function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
     }
 
     if (settings.pythonPath) {
-        commandLineOptions.pythonPath = combinePaths(workspace.rootPath || _rootPath,
-            normalizePath(_expandPathVariables(settings.pythonPath)));
+        // The Python VS Code extension treats the value "python" specially. This means
+        // the local python interpreter should be used rather than interpreting the
+        // setting value as a path to the interpreter. We'll simply ignore it in this case.
+        if (settings.pythonPath.trim() !== 'python') {
+            commandLineOptions.pythonPath = combinePaths(workspace.rootPath || _rootPath,
+                normalizePath(_expandPathVariables(settings.pythonPath)));
+        }
     }
 
     if (settings.analysis &&
