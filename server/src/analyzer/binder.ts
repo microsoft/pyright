@@ -49,7 +49,7 @@ import * as StaticExpressions from './staticExpressions';
 import { SymbolFlags } from './symbol';
 import { isConstantName } from './symbolNameUtils';
 import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
-    FunctionTypeFlags, Type, TypeCategory, UnknownType } from './types';
+    FunctionTypeFlags, ObjectType, Type, TypeCategory, UnknownType } from './types';
 
 export const enum NameBindingType {
     // With "nonlocal" keyword
@@ -150,17 +150,19 @@ export class Binder extends ParseTreeWalker {
 
             // Bind implicit names.
             // List taken from https://docs.python.org/3/reference/import.html#__name__
-            this._addBuiltInSymbolToCurrentScope('__doc__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-            this._addBuiltInSymbolToCurrentScope('__name__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            const builtinIterableClass = ScopeUtils.getBuiltInType(this._currentScope, 'Iterable');
+            const builtinStrObj = ScopeUtils.getBuiltInObject(this._currentScope, 'str');
+            const strList = builtinIterableClass.category === TypeCategory.Class ?
+                ObjectType.create(ClassType.cloneForSpecialization(builtinIterableClass, [builtinStrObj])) :
+                AnyType.create();
+            this._addBuiltInSymbolToCurrentScope('__doc__', builtinStrObj);
+            this._addBuiltInSymbolToCurrentScope('__name__', builtinStrObj);
             this._addBuiltInSymbolToCurrentScope('__loader__', AnyType.create());
-            this._addBuiltInSymbolToCurrentScope('__package__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__package__', builtinStrObj);
             this._addBuiltInSymbolToCurrentScope('__spec__', AnyType.create());
-            this._addBuiltInSymbolToCurrentScope('__path__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-            this._addBuiltInSymbolToCurrentScope('__file__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
-            this._addBuiltInSymbolToCurrentScope('__cached__', ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+            this._addBuiltInSymbolToCurrentScope('__path__', strList);
+            this._addBuiltInSymbolToCurrentScope('__file__', builtinStrObj);
+            this._addBuiltInSymbolToCurrentScope('__cached__', builtinStrObj);
 
             this.walkMultiple(node.statements);
         });
