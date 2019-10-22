@@ -2,7 +2,7 @@
     "name": "pyright-server",
     "displayName": "pyright",
     "description": "Type checker for the Python language",
-    "version": "1.0.78",
+    "version": "1.0.79",
     "license": "MIT",
     "scripts": {
         "start": "npm run start:serverDebug && npm run start:server",
