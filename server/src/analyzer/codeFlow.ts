@@ -13,8 +13,8 @@
 * TypeScript compiler.
 */
 
-import { AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
-    ExpressionNode, FunctionNode, LambdaNode } from '../parser/parseNodes';
+import { ExpressionNode, FunctionNode, LambdaNode, MemberAccessExpressionNode,
+    NameNode } from '../parser/parseNodes';
 
 export enum FlowFlags {
     Unreachable    = 1 << 0,  // Unreachable code
@@ -47,7 +47,7 @@ export interface FlowLabel extends FlowNodeBase {
 
 // FlowAssignment represents a node that assigns a value.
 export interface FlowAssignment extends FlowNodeBase {
-    node: AssignmentNode | AssignmentExpressionNode | AugmentedAssignmentExpressionNode | DelNode;
+    node: NameNode | MemberAccessExpressionNode;
     antecedent: FlowNode;
 }
 
