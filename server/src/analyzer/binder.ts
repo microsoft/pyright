@@ -25,18 +25,18 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
-    AwaitExpressionNode, BreakNode, ClassNode, ContinueNode, DelNode, ExceptNode,
-    ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromNode,
-    LambdaNode, ListComprehensionNode, MemberAccessExpressionNode, ModuleNameNode,
-    ModuleNode, NameNode, NonlocalNode, ParseNode, ParseNodeType, RaiseNode, StatementNode,
-    StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode, WithNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { ArgumentCategory, AssignmentExpressionNode, AssignmentNode,
+    AugmentedAssignmentExpressionNode, AwaitExpressionNode, BreakNode, ClassNode, ContinueNode, DelNode,
+    ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
+    ImportFromNode, LambdaNode, ListComprehensionNode, MemberAccessExpressionNode,
+    ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParseNode, ParseNodeType, RaiseNode,
+    StatementNode, StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
+    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
-import { StringTokenFlags } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { FlowAssignment, FlowFlags, FlowLabel, FlowNode, FlowStart } from './codeFlow';
+import { FlowAssignment, FlowCondition, FlowFlags, FlowLabel, FlowNode, FlowStart } from './codeFlow';
 import { AliasDeclaration, DeclarationType, ModuleLoaderActions,
     VariableDeclaration } from './declaration';
 import * as DocStringUtils from './docStringUtils';
@@ -112,7 +112,11 @@ export class Binder extends ParseTreeWalker {
     // Flow node label that is the target of a "continue" statement.
     private _currentContinueTarget?: FlowLabel;
 
-    // FLow node that is used for unreachable code.
+    // Flow nodes used for if/else and while/else statements.
+    private _currentTrueTarget?: FlowLabel;
+    private _currentFalseTarget?: FlowLabel;
+
+    // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = { flags: FlowFlags.Unreachable };
 
     constructor(fileInfo: AnalyzerFileInfo) {
@@ -650,12 +654,12 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitIf(node: IfNode): boolean {
-        this._handleIfWhileCommon(node.testExpression, node.ifSuite, node.elseSuite);
+        this._handleIfWhileCommon(node.testExpression, node.ifSuite, node.elseSuite, false);
         return false;
     }
 
     visitWhile(node: WhileNode): boolean {
-        this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite);
+        this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite, true);
         return false;
     }
 
@@ -1037,9 +1041,9 @@ export class Binder extends ParseTreeWalker {
         return flowNode;
     }
 
-    private _createFlowLabel(isLoop = false) {
+    private _createFlowLabel() {
         const flowNode: FlowLabel = {
-            flags: isLoop ? FlowFlags.LoopLabel : FlowFlags.BranchLabel,
+            flags: FlowFlags.Label,
             antecedents: []
         };
         return flowNode;
@@ -1058,6 +1062,122 @@ export class Binder extends ParseTreeWalker {
         }
 
         return node;
+    }
+
+    private _createConditionalFlowNode(node: ExpressionNode, trueTarget: FlowLabel, falseTarget: FlowLabel) {
+        const savedTrueTarget = this._currentTrueTarget;
+        const savedFalseTarget = this._currentFalseTarget;
+        this._currentTrueTarget = trueTarget;
+        this._currentFalseTarget = falseTarget;
+
+        this.walk(node);
+
+        this._currentTrueTarget = savedTrueTarget;
+        this._currentFalseTarget = savedFalseTarget;
+
+        if (!this._isLogicalExpression(node)) {
+            this._addAntecedent(trueTarget,
+                this._createFlowConditional(FlowFlags.TrueCondition,
+                this._currentFlowNode, node));
+            this._addAntecedent(falseTarget,
+                this._createFlowConditional(FlowFlags.FalseCondition,
+                this._currentFlowNode, node));
+        }
+    }
+
+    private _createFlowConditional(flags: FlowFlags, antecedent: FlowNode,
+            expression: ExpressionNode): FlowNode {
+
+        if (antecedent.flags & FlowFlags.Unreachable) {
+            return antecedent;
+        }
+        const staticValue = StaticExpressions.evaluateStaticExpression(
+            expression, this._fileInfo.executionEnvironment);
+        if (staticValue === true && (flags & FlowFlags.FalseCondition) ||
+                staticValue === false && (flags & FlowFlags.TrueCondition)) {
+
+            return Binder._unreachableFlowNode;
+        }
+
+        if (!this._isNarrowingExpression(expression)) {
+            return antecedent;
+        }
+
+        const conditionalFlowNode: FlowCondition = {
+            flags,
+            expression,
+            antecedent
+        };
+
+        return conditionalFlowNode;
+    }
+
+    private _isLogicalExpression(expression: ExpressionNode): boolean {
+        switch (expression.nodeType) {
+            case ParseNodeType.UnaryOperation: {
+                return expression.operator === OperatorType.Not &&
+                    this._isLogicalExpression(expression.expression);
+            }
+
+            case ParseNodeType.BinaryOperation: {
+                return expression.operator === OperatorType.And ||
+                    expression.operator === OperatorType.Or;
+            }
+        }
+
+        return false;
+    }
+
+    private _isNarrowingExpression(expression: ExpressionNode): boolean {
+        switch (expression.nodeType) {
+            case ParseNodeType.Name:
+            case ParseNodeType.MemberAccess: {
+                return true;
+            }
+
+            case ParseNodeType.BinaryOperation: {
+                if (expression.operator === OperatorType.Is ||
+                        expression.operator === OperatorType.IsNot) {
+
+                    // Look for "X is None" or "X is not None". These are commonly-used
+                    // patterns used in control flow.
+                    if (expression.rightExpression.nodeType === ParseNodeType.Constant &&
+                            expression.rightExpression.token.keywordType === KeywordType.None) {
+
+                        return true;
+                    }
+
+                    // Look for "type(X) is Y" or "type(X) is not Y".
+                    if (expression.leftExpression.nodeType === ParseNodeType.Call &&
+                        expression.leftExpression.leftExpression.nodeType === ParseNodeType.Name &&
+                        expression.leftExpression.leftExpression.nameToken.value === 'type' &&
+                        expression.leftExpression.arguments.length === 1 &&
+                            expression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
+
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            case ParseNodeType.UnaryOperation: {
+                return expression.operator === OperatorType.Not &&
+                    this._isNarrowingExpression(expression.expression);
+            }
+
+            case ParseNodeType.AugmentedAssignment: {
+                return this._isNarrowingExpression(expression.rightExpression);
+            }
+
+            case ParseNodeType.Call: {
+                return expression.leftExpression.nodeType === ParseNodeType.Name &&
+                    expression.leftExpression.nameToken.value === 'isinstance' &&
+                    expression.arguments.length === 2;
+            }
+        }
+
+        return false;
     }
 
     private _createAssignmentTargetFlowNodes(target: ExpressionNode) {
@@ -1579,28 +1699,48 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _handleIfWhileCommon(testExpression: ExpressionNode, ifWhileSuite: SuiteNode,
-            elseSuite: SuiteNode | IfNode | undefined) {
+            elseSuite: SuiteNode | IfNode | undefined, isWhile: boolean) {
 
-        this.walk(testExpression);
+        const thenLabel = this._createFlowLabel();
+        const elseLabel = this._createFlowLabel();
+        const postIfLabel = this._createFlowLabel();
+
+        this._createConditionalFlowNode(testExpression, thenLabel, elseLabel);
 
         // Determine if the if condition is always true or always false. If so,
         // we can treat either the if or the else clause as unconditional.
         const constExprValue = StaticExpressions.evaluateStaticExpression(
             testExpression, this._fileInfo.executionEnvironment);
 
-        // which variables have been assigned to conditionally.
-        this._markNotExecuted(constExprValue !== false, () => {
-            this.walk(ifWhileSuite);
-        });
+        if (isWhile) {
+            const preWhileLabel = this._createFlowLabel();
+            this._currentFlowNode = preWhileLabel;
+            this._createConditionalFlowNode(testExpression, thenLabel, postIfLabel);
+            this._bindLoopStatement(preWhileLabel, postIfLabel, () => {
+                this._markNotExecuted(constExprValue !== false, () => {
+                    this.walk(ifWhileSuite);
+                });
+            });
+            this._addAntecedent(preWhileLabel, this._currentFlowNode);
+        } else {
+            this._currentFlowNode = this._finishFlowLabel(thenLabel);
+            this._markNotExecuted(constExprValue !== false, () => {
+                this.walk(ifWhileSuite);
+            });
+            this._addAntecedent(postIfLabel, this._currentFlowNode);
+        }
 
         // Now handle the else statement if it's present. If there
         // are chained "else if" statements, they'll be handled
         // recursively here.
+        this._currentFlowNode = this._finishFlowLabel(elseLabel);
         if (elseSuite) {
             this._markNotExecuted(constExprValue !== true, () => {
                 this.walk(elseSuite);
             });
         }
+        this._addAntecedent(postIfLabel, this._currentFlowNode);
+        this._currentFlowNode = this._finishFlowLabel(postIfLabel);
     }
 
     private _markNotExecuted(isExecutable: boolean, callback: () => void) {

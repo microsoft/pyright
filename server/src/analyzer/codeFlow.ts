@@ -19,8 +19,7 @@ import { ExpressionNode, FunctionNode, LambdaNode, MemberAccessExpressionNode,
 export enum FlowFlags {
     Unreachable    = 1 << 0,  // Unreachable code
     Start          = 1 << 1,  // Entry point
-    BranchLabel    = 1 << 2,  // Non-looping junction
-    LoopLabel      = 1 << 3,  // Looping junction
+    Label          = 1 << 2,  // Junction
     Assignment     = 1 << 4,  // Assignment statement
     TrueCondition  = 1 << 5,  // Condition known to be true
     FalseCondition = 1 << 6   // Condition known to be false
