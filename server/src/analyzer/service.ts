@@ -891,8 +891,11 @@ export class AnalyzerService {
                     this._onCompletionCallback(results);
                 }
             }
-        } catch (err) {
-            this._console.log('Error performing analysis: ' + JSON.stringify(err));
+        } catch (e) {
+            const message: string = (e.stack ? e.stack.toString() : undefined) ||
+                (typeof e.message === 'string' ? e.message : undefined) ||
+                JSON.stringify(e);
+            this._console.log('Error performing analysis: ' + message);
 
             if (this._onCompletionCallback) {
                 this._onCompletionCallback({
