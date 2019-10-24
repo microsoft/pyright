@@ -30,8 +30,8 @@ import { ArgumentCategory, AssignmentExpressionNode, AssignmentNode,
     ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
     ImportFromNode, LambdaNode, ListComprehensionNode, MemberAccessExpressionNode,
     ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParseNode, ParseNodeType, RaiseNode,
-    StatementNode, StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
-    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    ReturnNode, StatementNode, StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode,
+    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -115,6 +115,9 @@ export class Binder extends ParseTreeWalker {
     // Flow nodes used for if/else and while/else statements.
     private _currentTrueTarget?: FlowLabel;
     private _currentFalseTarget?: FlowLabel;
+
+    // Flow nodes used within try blocks.
+    private _currentExceptTargets?: FlowLabel[];
 
     // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = { flags: FlowFlags.Unreachable };
@@ -635,6 +638,15 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
+    visitReturn(node: ReturnNode): boolean {
+        if (this._currentReturnTarget) {
+            this._addAntecedent(this._currentReturnTarget, this._currentFlowNode);
+        }
+
+        this._currentFlowNode = Binder._unreachableFlowNode;
+        return true;
+    }
+
     visitYield(node: YieldExpressionNode): boolean {
         this._validateYieldUsage(node);
 
@@ -691,26 +703,40 @@ export class Binder extends ParseTreeWalker {
                 node);
         }
 
+        this._currentFlowNode = Binder._unreachableFlowNode;
         return true;
     }
 
     visitTry(node: TryNode): boolean {
+        // Create one flow label for every except clause.
+        const curExceptTargets = node.exceptClauses.map(() => this._createFlowLabel());
+        const preFinallyLabel = this._createFlowLabel();
+
+        // Handle the try block.
+        const prevExceptTargets = this._currentExceptTargets;
+        this._currentExceptTargets = curExceptTargets;
         this.walk(node.trySuite);
+        this._currentExceptTargets = prevExceptTargets;
 
-        // Wrap the except clauses in a conditional scope
-        // so we can throw away any names that are bound
-        // in this scope.
-        this._nestedExceptDepth++;
-        node.exceptClauses.forEach(exceptNode => {
-            this.walk(exceptNode);
-        });
-        this._nestedExceptDepth--;
-
+        // Handle the else block, which is executed only if
+        // execution falls through the try block.
         if (node.elseSuite) {
             this.walk(node.elseSuite);
         }
+        this._addAntecedent(preFinallyLabel, this._currentFlowNode);
 
+        // Handle the except blocks.
+        this._nestedExceptDepth++;
+        node.exceptClauses.forEach((exceptNode, index) => {
+            this._currentFlowNode = this._finishFlowLabel(curExceptTargets[index]);
+            this.walk(exceptNode);
+            this._addAntecedent(preFinallyLabel, this._currentFlowNode);
+        });
+        this._nestedExceptDepth--;
+
+        // Handle the finally block.
         if (node.finallySuite) {
+            this._currentFlowNode = this._finishFlowLabel(preFinallyLabel);
             this.walk(node.finallySuite);
         }
 
@@ -1205,6 +1231,14 @@ export class Binder extends ParseTreeWalker {
                 node,
                 antecedent: this._currentFlowNode
             };
+
+            // If there are any except targets, then we're in a try block, and we
+            // have to assume that an exception can be raised after every assignment.
+            if (this._currentExceptTargets) {
+                this._currentExceptTargets.forEach(label => {
+                    this._addAntecedent(label, flowNode);
+                });
+            }
 
             this._currentFlowNode = flowNode;
         }
