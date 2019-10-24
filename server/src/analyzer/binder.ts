@@ -25,13 +25,13 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { ArgumentCategory, AssignmentExpressionNode, AssignmentNode,
-    AugmentedAssignmentExpressionNode, AwaitExpressionNode, BreakNode, ClassNode, ContinueNode, DelNode,
-    ExceptNode, ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode,
-    ImportFromNode, LambdaNode, ListComprehensionNode, MemberAccessExpressionNode,
-    ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParseNode, ParseNodeType, RaiseNode,
-    ReturnNode, StatementNode, StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode,
-    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { ArgumentCategory, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
+    AwaitExpressionNode, BreakNode, ClassNode, ContinueNode, DelNode, ExceptNode, ExpressionNode,
+    ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromNode, LambdaNode,
+    ListComprehensionNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode,
+    NonlocalNode, ParseNode, ParseNodeType, RaiseNode, ReturnNode, StatementNode, StringListNode,
+    SuiteNode, TernaryExpressionNode, TryNode, TypeAnnotationExpressionNode, WhileNode, WithNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -934,6 +934,8 @@ export class Binder extends ParseTreeWalker {
                     symbol.addDeclaration(newDecl);
                 }
             }
+
+            this._createFlowAssignment(node.alias ? node.alias : node.module.nameParts[0]);
         }
 
         return true;
@@ -1032,6 +1034,29 @@ export class Binder extends ParseTreeWalker {
         });
 
         return true;
+    }
+
+    visitTernary(node: TernaryExpressionNode): boolean {
+        const trueLabel = this._createFlowLabel();
+        const falseLabel = this._createFlowLabel();
+        const postExpressionLabel = this._createFlowLabel();
+
+        // Handle the test expression.
+        this._createConditionalFlowNode(node.testExpression, trueLabel, falseLabel);
+
+        // Handle the "true" portion (the "if" expression).
+        this._currentFlowNode = this._finishFlowLabel(trueLabel);
+        this.walk(node.ifExpression);
+        this._addAntecedent(postExpressionLabel, this._currentFlowNode);
+
+        // Handle the "false" portion (the "else" expression).
+        this._currentFlowNode = this._finishFlowLabel(falseLabel);
+        this.walk(node.elseExpression);
+        this._addAntecedent(postExpressionLabel, this._currentFlowNode);
+
+        this._currentFlowNode = this._finishFlowLabel(postExpressionLabel);
+
+        return false;
     }
 
     visitListComprehension(node: ListComprehensionNode): boolean {
