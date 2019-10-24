@@ -30,4 +30,5 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | 0           | No errors reported                                                |
 | 1           | One or more errors reported                                       |
 | 2           | Fatal error occurred with no errors or warnings reported          |
+| 3           | Config file could not be read or parsed                           |
 

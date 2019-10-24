@@ -27,7 +27,8 @@ const toolName = 'pyright';
 enum ExitStatus {
     NoErrors = 0,
     ErrorsReported = 1,
-    FatalError = 2
+    FatalError = 2,
+    ConfigFileParseError = 3
 }
 
 interface DiagnosticResult {
@@ -117,6 +118,10 @@ function processArgs() {
     service.setCompletionCallback(results => {
         if (results.fatalErrorOccurred) {
             process.exit(ExitStatus.FatalError);
+        }
+
+        if (results.configParseErrorOccurred) {
+            process.exit(ExitStatus.ConfigFileParseError);
         }
 
         let errorCount = 0;

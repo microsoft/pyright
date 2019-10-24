@@ -39,6 +39,7 @@ export interface AnalysisResults {
     filesInProgram: number;
     filesRequiringAnalysis: number;
     fatalErrorOccurred: boolean;
+    configParseErrorOccurred: boolean;
     elapsedTime: number;
 }
 
@@ -510,6 +511,7 @@ export class AnalyzerService {
                 configContents = fs.readFileSync(configPath, { encoding: 'utf8' });
             } catch {
                 this._console.log(`Config file "${ configPath }" could not be read.`);
+                this._reportConfigParseError();
                 return undefined;
             }
 
@@ -532,7 +534,8 @@ export class AnalyzerService {
             // resulting in parse errors. We'll give it a little more time and
             // try again.
             if (parseAttemptCount++ >= 5) {
-                this._console.log(`Config file "${ configPath }" could not be parsed.`);
+                this._console.log(`Config file "${ configPath }" could not be parsed. Verify that JSON is correct.`);
+                this._reportConfigParseError();
                 return undefined;
             }
         }
@@ -876,6 +879,7 @@ export class AnalyzerService {
                 filesInProgram: this._program.getFileCount(),
                 filesRequiringAnalysis: filesLeftToAnalyze,
                 fatalErrorOccurred: false,
+                configParseErrorOccurred: false,
                 elapsedTime: duration.getDurationInSeconds()
             };
 
@@ -896,6 +900,7 @@ export class AnalyzerService {
                     filesInProgram: 0,
                     filesRequiringAnalysis: 0,
                     fatalErrorOccurred: true,
+                    configParseErrorOccurred: false,
                     elapsedTime: 0
                 });
             }
@@ -912,9 +917,23 @@ export class AnalyzerService {
                     filesInProgram: this._program.getFileCount(),
                     filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
                     fatalErrorOccurred: false,
+                    configParseErrorOccurred: false,
                     elapsedTime: 0
                 });
             }
+        }
+    }
+
+    private _reportConfigParseError() {
+        if (this._onCompletionCallback) {
+            this._onCompletionCallback({
+                diagnostics: [],
+                filesInProgram: 0,
+                filesRequiringAnalysis: 0,
+                fatalErrorOccurred: false,
+                configParseErrorOccurred: true,
+                elapsedTime: 0
+            });
         }
     }
 }
