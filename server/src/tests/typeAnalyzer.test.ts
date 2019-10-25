@@ -746,3 +746,8 @@ test('Import1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import1.py']);
     validateResults(analysisResults, 0);
 });
+
+test('Overload1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
+    validateResults(analysisResults, 2);
+});

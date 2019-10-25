@@ -1152,6 +1152,24 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             return true;
         }
 
+        case TypeCategory.OverloadedFunction: {
+            // Make sure the overload counts match.
+            const functionType2 = type2 as OverloadedFunctionType;
+            if (type1.overloads.length !== functionType2.overloads.length) {
+                return false;
+            }
+
+            // We assume here that overloaded functions always appear
+            // in the same order from one analysis pass to another.
+            for (let i = 0; i < type1.overloads.length; i++) {
+                if (!isTypeSame(type1.overloads[i].type, functionType2.overloads[i].type)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         case TypeCategory.Union: {
             const unionType2 = type2 as UnionType;
             const subtypes1 = type1.subtypes;

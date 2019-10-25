@@ -990,15 +990,26 @@ export function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
             // If we encounter any declaration that doesn't have a corresponding
             // overloaded function type, don't continue to build an overload.
             if (!isFunctionOrMethodDeclaration(typedDecl)) {
-                return type || UnknownType.create();
+                return firstDeclType;
             }
 
-            if (!type || type.category !== TypeCategory.Function || !FunctionType.isOverloaded(type)) {
-                return type || UnknownType.create();
+            if (!type || type.category !== TypeCategory.Function) {
+                return firstDeclType;
             }
 
             OverloadedFunctionType.addOverload(overloadedFunction,
-                (typedDecl as FunctionDeclaration).node.id, type);
+                (typedDecl as FunctionDeclaration).node.name.id, type);
+
+            // If this was a non-overloaded function, stop here.
+            if (!FunctionType.isOverloaded(type)) {
+                break;
+            }
+        }
+
+        if (overloadedFunction.overloads.length === 0) {
+            return UnknownType.create();
+        } else if (overloadedFunction.overloads.length === 1) {
+            return overloadedFunction.overloads[0].type;
         }
 
         return overloadedFunction;

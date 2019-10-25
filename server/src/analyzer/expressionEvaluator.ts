@@ -28,7 +28,6 @@ import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parse
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { DeclarationType, VariableDeclaration } from './declaration';
-import { defaultTypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Scope } from './scope';
 import * as ScopeUtils from './scopeUtils';

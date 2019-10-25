@@ -1339,7 +1339,6 @@ if sys.version_info >= (3, 6):
     def open(file: Union[str, bytes, int, _PathLike], mode: Literal['rb', 'wb', 'r+b', 'ab'], buffering: int = ..., encoding: Optional[str] = ...,
              errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
              opener: Optional[Callable[[str, int], int]] = ...) -> IO[bytes]: ... 
-    @overload
     def open(file: Union[str, bytes, int, _PathLike], mode: str = ..., buffering: int = ..., encoding: Optional[str] = ...,
              errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
              opener: Optional[Callable[[str, int], int]] = ...) -> IO[Any]: ...
@@ -1356,7 +1355,6 @@ elif sys.version_info >= (3,):
     def open(file: Union[str, bytes, int], mode: Literal['rb', 'wb', 'r+b', 'ab'], buffering: int = ..., encoding: Optional[str] = ...,
              errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
              opener: Optional[Callable[[str, int], int]] = ...) -> IO[bytes]: ...
-    @overload
     def open(file: Union[str, bytes, int], mode: str = ..., buffering: int = ..., encoding: Optional[str] = ...,
              errors: Optional[str] = ..., newline: Optional[str] = ..., closefd: bool = ...,
              opener: Optional[Callable[[str, int], int]] = ...) -> IO[Any]: ...

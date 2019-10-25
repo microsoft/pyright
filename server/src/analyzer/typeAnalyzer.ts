@@ -31,20 +31,19 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
-import { ImportResult, ImportType } from './importResult';
 import { defaultTypeSourceId, TypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
-import { setSymbolPreservingAccess, Symbol, SymbolFlags, SymbolTable } from './symbol';
+import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { ConditionalTypeConstraintResults, TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
-    isTypeSame, ModuleType, NoneType, ObjectType, printType, PropertyType, removeNoneFromUnion,
-    removeUnboundFromUnion, removeUnknownFromUnion, Type, TypeCategory, TypeVarType,
-    UnboundType, UnknownType  } from './types';
+    isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionType, printType, PropertyType,
+    removeNoneFromUnion, removeUnboundFromUnion, removeUnknownFromUnion, Type, TypeCategory,
+    TypeVarType, UnboundType, UnknownType  } from './types';
 import * as TypeUtils from './typeUtils';
 
 interface AliasMapEntry {
@@ -3165,7 +3164,30 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        this._addTypeSourceToNameNode(nameNode, destType);
+        this._addTypeSourceToName(nameNode.nameToken.value, destType, nameNode.id);
+
+        // If we're assigning a new function override to an existing function,
+        // update the overloaded type before we apply the type constraint.
+        let effectiveDestType = destType;
+        if (srcType.category === TypeCategory.Function && declaredType) {
+            if (declaredType.category === TypeCategory.OverloadedFunction) {
+                const newOverload = OverloadedFunctionType.create();
+                declaredType.overloads.forEach(overload => {
+                    OverloadedFunctionType.addOverload(newOverload, overload.typeSourceId, overload.type);
+                });
+                OverloadedFunctionType.addOverload(newOverload, nameNode.id, srcType);
+                effectiveDestType = newOverload;
+            } else if (declaredType.category === TypeCategory.Function &&
+                    FunctionType.isOverloaded(declaredType)) {
+
+                const newOverload = OverloadedFunctionType.create();
+                OverloadedFunctionType.addOverload(newOverload, defaultTypeSourceId, declaredType);
+                OverloadedFunctionType.addOverload(newOverload, nameNode.id, srcType);
+                effectiveDestType = newOverload;
+            }
+        }
+
+        this._addAssignmentTypeConstraint(nameNode, effectiveDestType);
     }
 
     private _addTypeSourceToNameNode(node: NameNode, type: Type) {
