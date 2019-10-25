@@ -583,7 +583,7 @@ export function transformTypeObjectToClass(type: Type): Type {
         return type;
     }
 
-    return typeArg.classType;;
+    return typeArg.classType;
 }
 
 // None is always falsy. All other types are generally truthy
