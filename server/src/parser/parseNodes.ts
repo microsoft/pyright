@@ -85,8 +85,6 @@ export const enum ParseNodeType {
     YieldFrom
 }
 
-let _nextNodeId = 1;
-
 export const enum ErrorExpressionCategory {
     MissingIn,
     MissingElse,
@@ -106,6 +104,11 @@ export interface ParseNodeBase extends TextRange {
     id: number;
 
     parent?: ParseNode;
+}
+
+let _nextNodeId = 1;
+export function getNextNodeId() {
+    return _nextNodeId++;
 }
 
 export function extendRange(node: ParseNodeBase, newRange: TextRange) {
@@ -763,11 +766,16 @@ export interface AugmentedAssignmentExpressionNode extends ParseNodeBase {
     leftExpression: ExpressionNode;
     operator: OperatorType;
     rightExpression: ExpressionNode;
+
+    // The destExpression is a copy of the leftExpression
+    // node. We use it as a place to hang the result type,
+    // as opposed to the source type.
+    destExpression: ExpressionNode;
 }
 
 export namespace AugmentedAssignmentExpressionNode {
     export function create(leftExpression: ExpressionNode, rightExpression: ExpressionNode,
-            operator: OperatorType) {
+            operator: OperatorType, destExpression: ExpressionNode) {
 
         const node: AugmentedAssignmentExpressionNode = {
             start: leftExpression.start,
@@ -776,11 +784,13 @@ export namespace AugmentedAssignmentExpressionNode {
             id: _nextNodeId++,
             leftExpression,
             operator,
-            rightExpression
+            rightExpression,
+            destExpression
         };
 
         leftExpression.parent = node;
         rightExpression.parent = node;
+        destExpression.parent = node;
 
         extendRange(node, rightExpression);
 

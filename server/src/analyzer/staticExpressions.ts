@@ -13,15 +13,22 @@ import { ExpressionNode, NumberNode, ParseNodeType, TupleExpressionNode } from '
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
 // Returns undefined if the expression cannot be evaluated
-// statically or a value if it can.
-export function evaluateStaticExpression(node: ExpressionNode,
+// statically as a bool value or true/false if it can.
+export function evaluateStaticBoolExpression(node: ExpressionNode,
         execEnv: ExecutionEnvironment): boolean | undefined {
 
-    if (node.nodeType === ParseNodeType.BinaryOperation) {
+    if (node.nodeType === ParseNodeType.UnaryOperation) {
+        if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
+            const value = evaluateStaticBoolLikeExpression(node.expression, execEnv);
+            if (value !== undefined) {
+                return !value;
+            }
+        }
+    } else if (node.nodeType === ParseNodeType.BinaryOperation) {
         // Is it an OR or AND expression?
         if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
-            const leftValue = evaluateStaticExpression(node.leftExpression, execEnv);
-            const rightValue = evaluateStaticExpression(node.rightExpression, execEnv);
+            const leftValue = evaluateStaticBoolExpression(node.leftExpression, execEnv);
+            const rightValue = evaluateStaticBoolExpression(node.rightExpression, execEnv);
 
             if (leftValue === undefined || rightValue === undefined) {
                 return undefined;
@@ -81,6 +88,21 @@ export function evaluateStaticExpression(node: ExpressionNode,
     }
 
     return undefined;
+}
+
+// Similar to evaluateStaticBoolExpression except that it handles
+// other non-bool values that are statically falsy or truthy
+// (like "None").
+export function evaluateStaticBoolLikeExpression(node: ExpressionNode,
+        execEnv: ExecutionEnvironment): boolean | undefined {
+
+    if (node.nodeType === ParseNodeType.Constant) {
+        if (node.token.keywordType === KeywordType.None) {
+            return false;
+        }
+    }
+
+    return evaluateStaticBoolExpression(node, execEnv);
 }
 
 function _convertTupleToVersion(node: TupleExpressionNode): number | undefined {

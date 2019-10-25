@@ -13,8 +13,8 @@
 * TypeScript compiler.
 */
 
-import { ExpressionNode, FunctionNode, ImportFromNode, LambdaNode,
-    MemberAccessExpressionNode, NameNode } from '../parser/parseNodes';
+import { CallExpressionNode, ExpressionNode, ImportFromNode, MemberAccessExpressionNode,
+    NameNode } from '../parser/parseNodes';
 
 export enum FlowFlags {
     Unreachable    = 1 << 0,  // Unreachable code
@@ -22,39 +22,39 @@ export enum FlowFlags {
     BranchLabel    = 1 << 2,  // Junction for forward control flow
     LoopLabel      = 1 << 3,  // Junction for backward control flow
     Assignment     = 1 << 4,  // Assignment statement
-    WildcardImport = 1 << 5,  // For "from X import *" statements
-    TrueCondition  = 1 << 6,  // Condition known to be true
-    FalseCondition = 1 << 7   // Condition known to be false
+    Unbind         = 1 << 5,  // Used with assignment to indicate target should be unbound
+    WildcardImport = 1 << 6,  // For "from X import *" statements
+    TrueCondition  = 1 << 7,  // Condition known to be true
+    FalseCondition = 1 << 9,  // Condition known to be false
+    Call           = 1 << 10  // Call node
 }
 
-export interface FlowNodeBase {
+let _nextFlowNodeId = 1;
+
+export function getUniqueFlowNodeId() {
+    return _nextFlowNodeId++;
+}
+
+export interface FlowNode {
     flags: FlowFlags;
-}
-
-// FlowStart represents the start of a control flow. It
-// represents the entry point for a function or lambda,
-// including the assignment of parameters. We also use
-// this for modules and classes, although those nodes
-// have no parameters.
-export interface FlowStart extends FlowNodeBase {
-    function?: FunctionNode | LambdaNode;
+    id: number;
 }
 
 // FlowLabel represents a junction with multiple possible
 // preceding control flows.
-export interface FlowLabel extends FlowNodeBase {
+export interface FlowLabel extends FlowNode {
     antecedents: FlowNode[];
 }
 
 // FlowAssignment represents a node that assigns a value.
-export interface FlowAssignment extends FlowNodeBase {
+export interface FlowAssignment extends FlowNode {
     node: NameNode | MemberAccessExpressionNode;
     antecedent: FlowNode;
 }
 
 // Similar to FlowAssignment but used specifically for
 // wildcard "from X import *" statements.
-export interface FlowWildcardImport extends FlowNodeBase {
+export interface FlowWildcardImport extends FlowNode {
     node: ImportFromNode;
     names: string[];
     antecedent: FlowNode;
@@ -62,10 +62,14 @@ export interface FlowWildcardImport extends FlowNodeBase {
 
 // FlowCondition represents a condition that is known to
 // be true or false at the node's location in the control flow.
-export interface FlowCondition extends FlowNodeBase {
+export interface FlowCondition extends FlowNode {
     expression: ExpressionNode;
     antecedent: FlowNode;
 }
 
-export type FlowNode = FlowStart | FlowLabel | FlowAssignment |
-    FlowCondition | FlowWildcardImport;
+// Records a call, which may raise exceptions, thus affecting
+// the code flow and making subsequent code unreachable.
+export interface FlowCall extends FlowNode {
+    node: CallExpressionNode;
+    antecedent: FlowNode;
+}

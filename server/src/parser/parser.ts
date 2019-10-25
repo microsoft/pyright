@@ -26,15 +26,15 @@ import { ArgumentCategory, ArgumentNode, AssertNode, AssignmentExpressionNode, A
     AugmentedAssignmentExpressionNode, AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode,
     ClassNode, ConstantNode, ContinueNode, DecoratorNode, DelNode, DictionaryEntryNode,
     DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode, ErrorExpressionCategory,
-    ErrorExpressionNode, ExceptNode, ExpressionNode, extendRange, FormatStringNode, ForNode, FunctionNode, GlobalNode,
-    IfNode, ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode,
-    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
-    ListComprehensionIterNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode,
-    NameNode, NonlocalNode, NumberNode, ParameterCategory, ParameterNode, ParseNode,
-    ParseNodeType, PassNode, RaiseNode, ReturnNode, SetNode, SliceExpressionNode, StatementListNode,
-    StatementNode, StringListNode, StringNode, SuiteNode, TernaryExpressionNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
-    WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
+    ErrorExpressionNode, ExceptNode, ExpressionNode, extendRange, FormatStringNode, ForNode, FunctionNode, getNextNodeId,
+    GlobalNode, IfNode, ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode,
+    IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionForNode,
+    ListComprehensionIfNode, ListComprehensionIterNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode,
+    ModuleNode, NameNode, NonlocalNode, NumberNode, ParameterCategory, ParameterNode,
+    ParseNode, ParseNodeType, PassNode, RaiseNode, ReturnNode, SetNode, SliceExpressionNode,
+    StatementListNode, StatementNode, StringListNode, StringNode, SuiteNode, TernaryExpressionNode,
+    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
+    WhileNode, WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
 import * as StringTokenUtils from './stringTokenUtils';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
 import { DedentToken, IdentifierToken, KeywordToken, KeywordType, NumberToken, OperatorToken, OperatorType,
@@ -2456,7 +2456,13 @@ export class Parser {
                 this._parseTestListAsExpression(
                     ErrorExpressionCategory.MissingExpression,
                     'Expected expression to the right of operator');
-            return AugmentedAssignmentExpressionNode.create(leftExpr, rightExpr, operatorToken.operatorType);
+
+            // Make a shallow copy of the dest expression but give it a new ID.
+            const destExpr = Object.assign({}, leftExpr);
+            destExpr.id = getNextNodeId();
+
+            return AugmentedAssignmentExpressionNode.create(leftExpr, rightExpr,
+                operatorToken.operatorType, destExpr);
         }
 
         return leftExpr;

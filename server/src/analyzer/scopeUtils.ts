@@ -46,18 +46,3 @@ export function getBuiltInObject(currentScope: Scope, className: string,
 
     return nameType;
 }
-
-export function getPermanentScope(scope: Scope): Scope {
-    let curScope: Scope | undefined = scope;
-    while (curScope) {
-        if (curScope.getType() !== ScopeType.Temporary) {
-            return curScope;
-        }
-
-        curScope = curScope.getParent();
-    }
-
-    // We should never get here.
-    assert.fail('No permanent scope found');
-    return scope;
-}

@@ -184,11 +184,8 @@ export class TypeStubWriter extends ParseTreeWalker {
                     // the inference is probably incorrect. This occurs often when a base
                     // class is implemented with a NoReturn, but subclasses provide an
                     // actual return value.
-                    if (inferredReturnType.category === TypeCategory.Object) {
-                        const classType = inferredReturnType.classType;
-                        if (ClassType.isBuiltIn(classType, 'NoReturn')) {
-                            inferredReturnType = UnknownType.create();
-                        }
+                    if (TypeUtils.isNoReturnType(inferredReturnType)) {
+                        inferredReturnType = UnknownType.create();
                     }
 
                     // If the type is partially unknown, skip it.

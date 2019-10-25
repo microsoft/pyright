@@ -17,21 +17,22 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
-    BinaryExpressionNode, BreakNode, CallExpressionNode, ClassNode, ContinueNode, DecoratorNode,
+    BinaryExpressionNode, CallExpressionNode, ClassNode, DecoratorNode,
     DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode, FormatStringNode, ForNode,
     FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
     ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
     ParameterNode, ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceExpressionNode,
-    StatementNode, StringListNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    StringListNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
     WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { FlowFlags } from './codeFlow';
 import { Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
-import { defaultTypeSourceId, TypeSourceId } from './inferredType';
+import { TypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
@@ -39,11 +40,10 @@ import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
-import { ConditionalTypeConstraintResults, TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
-    isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionType, printType, PropertyType,
-    removeNoneFromUnion, removeUnboundFromUnion, removeUnknownFromUnion, Type, TypeCategory,
-    TypeVarType, UnboundType, UnknownType  } from './types';
+    isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,
+    printType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion, removeUnknownFromUnion,
+    Type, TypeCategory, TypeVarType, UnboundType, UnknownType  } from './types';
 import * as TypeUtils from './typeUtils';
 
 interface AliasMapEntry {
@@ -100,15 +100,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     analyze() {
         this._didAnalysisChange = false;
-        this._currentScope.clearAlwaysRaises();
-        this._currentScope.clearAlwaysReturns();
-        this._currentScope.clearBreaks();
 
-        this._walkStatements(this._moduleNode.statements);
-
-        // Clear out any type constraints that were collected
-        // during the processing of the scope.
-        this._currentScope.clearTypeConstraints();
+        this.walkMultiple(this._moduleNode.statements);
 
         // Apply the export filter to symbols in this scope's
         // symbol table if an export filter exists.
@@ -122,6 +115,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return this._didAnalysisChange;
+    }
+
+    walk(node: ParseNode) {
+        if (!this._isCodeUnreachable(node)) {
+            super.walk(node);
+        }
     }
 
     isAtMaxAnalysisPassCount() {
@@ -237,7 +236,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // The "total" parameter name applies only for TypedDict classes.
                 if (ClassType.isTypedDictClass(classType)) {
                     // PEP 589 specifies that the parameter must be either True or False.
-                    const constArgValue = StaticExpressions.evaluateStaticExpression(
+                    const constArgValue = StaticExpressions.evaluateStaticBoolExpression(
                             arg.valueExpression, this._fileInfo.executionEnvironment);
                     if (constArgValue === undefined) {
                         this._addError('Value for total parameter must be True or False', arg.valueExpression);
@@ -308,9 +307,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         this._assignTypeToNameNode(node.name, decoratedType);
-
         this._validateClassMethods(classType);
-        this._updateExpressionTypeForNode(node.name, decoratedType);
 
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
@@ -560,13 +557,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Validate that the function returns the declared type.
         this._validateFunctionReturn(node, functionType, functionScope);
-        this._assignTypeToNameNode(node.name, decoratedType);
+
+        // If there was no decorator, see if there are any overloads provided
+        // by previous function declarations.
+        if (decoratedType === functionType) {
+            const overloadedType = this._addOverloadsToFunctionType(node, decoratedType);
+            this._assignTypeToNameNode(node.name, overloadedType);
+        } else {
+            this._assignTypeToNameNode(node.name, decoratedType);
+        }
 
         if (containingClassNode) {
             this._validateMethod(node, functionType);
         }
-
-        this._updateExpressionTypeForNode(node.name, decoratedType);
 
         this.walkMultiple(node.decorators);
 
@@ -622,13 +625,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitCall(node: CallExpressionNode): boolean {
         // Calculate and cache the expression and report
         // any validation errors.
-        const returnValue = this._getTypeOfExpression(node);
-
-        // If the call indicates that it never returns, mark the
-        // scope as raising an exception.
-        if (TypeUtils.isNoReturnType(returnValue)) {
-            this._currentScope.setAlwaysRaises();
-        }
+        this._getTypeOfExpression(node);
 
         this._validateIsInstanceCallNecessary(node);
 
@@ -651,36 +648,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const iteratedType = evaluator.getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
 
-        const loopScope = this._enterTemporaryScope(() => {
-            this._assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
-            this.walk(node.targetExpression);
-            this.walk(node.forSuite);
-        }, true, node);
+        this._assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
+        this.walk(node.targetExpression);
+        this.walk(node.forSuite);
 
-        const elseScope = this._enterTemporaryScope(() => {
-            if (node.elseSuite) {
-                this.walk(node.elseSuite);
-            }
-        }, true);
-
-        if (loopScope.getAlwaysReturnsOrRaises() && elseScope.getAlwaysReturnsOrRaises()) {
-            // If both loop and else clauses are executed but they both return or
-            // raise an exception, mark the current scope as always returning or
-            // raising an exception.
-            if (loopScope.getAlwaysRaises() && elseScope.getAlwaysRaises()) {
-                this._currentScope.setAlwaysRaises();
-            } else {
-                this._currentScope.setAlwaysReturns();
-            }
-        } else if (loopScope.getAlwaysReturnsOrRaises()) {
-            elseScope.setUnconditional();
-            this._mergeToCurrentScope(elseScope);
-        } else if (elseScope.getAlwaysReturnsOrRaises()) {
-            loopScope.setUnconditional();
-            this._mergeToCurrentScope(loopScope);
-        } else if (!loopScope.getAlwaysReturnsOrRaises() && !elseScope.getAlwaysReturnsOrRaises()) {
-            const scopeToMerge = Scope.combineConditionalScopes([loopScope, elseScope]);
-            this._mergeToCurrentScope(scopeToMerge);
+        if (node.elseSuite) {
+            this.walk(node.elseSuite);
         }
 
         return false;
@@ -692,14 +665,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitIf(node: IfNode): boolean {
-        this._handleIfWhileCommon(node.testExpression, node.ifSuite,
-            node.elseSuite, false);
+        this._handleIfWhileCommon(node.testExpression, node.ifSuite, node.elseSuite);
         return false;
     }
 
     visitWhile(node: WhileNode): boolean {
-        this._handleIfWhileCommon(node.testExpression, node.whileSuite,
-            node.elseSuite, true);
+        this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite);
         return false;
     }
 
@@ -767,30 +738,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitReturn(node: ReturnNode): boolean {
-        let declaredReturnType: Type | undefined;
         let returnType: Type;
 
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
-        if (enclosingFunctionNode) {
-            const functionType = AnalyzerNodeInfo.getExpressionType(
-                enclosingFunctionNode) as FunctionType;
-
-            if (functionType) {
-                assert(functionType.category === TypeCategory.Function);
-
-                if (FunctionType.isGenerator(functionType)) {
-                    declaredReturnType = TypeUtils.getDeclaredGeneratorReturnType(functionType);
-                } else {
-                    declaredReturnType = FunctionType.getDeclaredReturnType(functionType);
-                }
-
-                // Ignore this check for abstract methods, which often
-                // don't actually return any value.
-                if (FunctionType.isAbstractMethod(functionType)) {
-                    declaredReturnType = undefined;
-                }
-            }
-        }
+        const declaredReturnType = enclosingFunctionNode ?
+            DeclarationUtils.getFunctionDeclaredReturnType(enclosingFunctionNode) :
+            undefined;
 
         if (node.returnExpression) {
             returnType = this._getTypeOfExpression(node.returnExpression,
@@ -800,77 +753,59 @@ export class TypeAnalyzer extends ParseTreeWalker {
             returnType = NoneType.create();
         }
 
-        const typeSourceId = node.id;
-        this._currentScope.getReturnType().addSource(returnType, typeSourceId);
+        if (this._isNodeReachable(node) && enclosingFunctionNode) {
+            const functionScope = AnalyzerNodeInfo.getScope(enclosingFunctionNode)!;
+            if (functionScope.getReturnType().addSource(returnType, node.id)) {
+                this._setAnalysisChanged('Return type changed');
+            }
 
-        if (declaredReturnType) {
-            if (TypeUtils.isNoReturnType(declaredReturnType)) {
-                this._addError(
-                    `Function with declared return type 'NoReturn' cannot include a return statement`,
-                    node);
-            } else if (!this._currentScope.getAlwaysReturnsOrRaises()) {
-                const diagAddendum = new DiagnosticAddendum();
-
-                // Specialize the return type in case it contains references to type variables.
-                // These will be replaced with the corresponding constraint or bound types.
-                const specializedDeclaredType = TypeUtils.specializeType(declaredReturnType, undefined);
-                if (!TypeUtils.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
+            if (declaredReturnType) {
+                if (TypeUtils.isNoReturnType(declaredReturnType)) {
                     this._addError(
-                        `Expression of type '${ printType(returnType) }' cannot be assigned ` +
-                            `to return type '${ printType(specializedDeclaredType) }'` +
-                            diagAddendum.getString(),
-                        node.returnExpression ? node.returnExpression : node);
+                        `Function with declared return type 'NoReturn' cannot include a return statement`,
+                        node);
+                } else {
+                    const diagAddendum = new DiagnosticAddendum();
+
+                    // Specialize the return type in case it contains references to type variables.
+                    // These will be replaced with the corresponding constraint or bound types.
+                    const specializedDeclaredType = TypeUtils.specializeType(declaredReturnType, undefined);
+                    if (!TypeUtils.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
+                        this._addError(
+                            `Expression of type '${ printType(returnType) }' cannot be assigned ` +
+                                `to return type '${ printType(specializedDeclaredType) }'` +
+                                diagAddendum.getString(),
+                            node.returnExpression ? node.returnExpression : node);
+                    }
                 }
             }
-        }
-
-        if (!this._currentScope.getAlwaysRaises()) {
-            this._currentScope.setAlwaysReturns();
         }
 
         return true;
     }
 
     visitYield(node: YieldExpressionNode) {
-        let yieldType = node.expression ? this._getTypeOfExpression(node.expression) : NoneType.create();
-        this._currentScope.getYieldType().addSource(yieldType, node.id);
+        const yieldType = node.expression ?
+            this._getTypeOfExpression(node.expression) : NoneType.create();
 
         // Wrap the yield type in an Iterator.
+        let adjYieldType = yieldType;
         const iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator');
         if (iteratorType.category === TypeCategory.Class) {
-            yieldType = ObjectType.create(ClassType.cloneForSpecialization(iteratorType, [yieldType]));
+            adjYieldType = ObjectType.create(ClassType.cloneForSpecialization(iteratorType, [yieldType]));
         } else {
-            yieldType = UnknownType.create();
+            adjYieldType = UnknownType.create();
         }
 
-        this._validateYieldType(node, yieldType);
+        this._validateYieldType(node, yieldType, adjYieldType);
 
         return true;
     }
 
     visitYieldFrom(node: YieldFromExpressionNode) {
         const yieldType = this._getTypeOfExpression(node.expression);
-        this._currentScope.getYieldType().addSource(yieldType, node.id);
+        this._validateYieldType(node, yieldType, yieldType);
 
-        this._validateYieldType(node, yieldType);
-
-        return true;
-    }
-
-    visitContinue(node: ContinueNode): boolean {
-        if (!this._currentScope.getAlwaysRaises()) {
-            this._currentScope.snapshotTypeConstraintsForContinue();
-
-            // For purposes of analysis, treat a continue as if it's a return.
-            this._currentScope.setAlwaysReturns();
-        }
-        return true;
-    }
-
-    visitBreak(node: BreakNode): boolean {
-        this._currentScope.snapshotTypeConstraintsForBreak();
-        this._currentScope.setMayBreak();
-        this._currentScope.setAlwaysBreaks();
         return true;
     }
 
@@ -938,9 +873,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (!this._currentScope.getAlwaysReturns()) {
-            this._currentScope.setAlwaysRaises();
-        }
         return true;
     }
 
@@ -973,100 +905,41 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this.walk(node.exceptSuite);
 
         if (node.name) {
-            if (!this._currentScope.getAlwaysReturnsOrRaises()) {
-                // The named target is explicitly unbound when leaving this scope.
-                // Use the type source ID of the except node to avoid conflict with
-                // the node.name type source.
-                const unboundType = UnboundType.create();
-                this._addTypeSourceToName(node.name.nameToken.value, unboundType, node.id);
-                this._addAssignmentTypeConstraint(node.name, unboundType);
-            }
+            // The named target is explicitly unbound when leaving this scope.
+            // Use the type source ID of the except node to avoid conflict with
+            // the node.name type source.
+            const unboundType = UnboundType.create();
+            this._addTypeSourceToName(node.name.nameToken.value, unboundType, node.id);
         }
 
         return false;
     }
 
     visitTry(node: TryNode): boolean {
-        const conditionalScopesToMerge: Scope[] = [];
+        this.walk(node.trySuite);
 
-        const tryScope = this._enterTemporaryScope(() => {
-            this.walk(node.trySuite);
-        });
-
-        let allPathsRaise = tryScope.getAlwaysRaises();
-        let allPathsRaiseOrReturn = tryScope.getAlwaysReturnsOrRaises();
-
-        // Clear the "always raises", "always returns" and "always breaks" flags
-        // for the try block because it may raise an exception before hitting
-        // these statements and cause code execution to resume within an except
-        // clause.
-        tryScope.clearAlwaysRaises();
-        tryScope.clearAlwaysReturns();
-        tryScope.clearBreaks();
-
-        // Unconditionally merge the try scope into its parent.
-        this._mergeToCurrentScope(tryScope);
-
-        // Analyze the else scope. This is effectively a continuation of
-        // the try scope, except that it's conditionally executed (only
-        // if there are no exceptions raised in the try scope).
-        const elseScope = this._enterTemporaryScope(() => {
-            if (node.elseSuite) {
-                this.walk(node.elseSuite);
-            }
-        });
-
-        // Consider the try/else path, which is executed if there are no exceptions
-        // raised during execution. Does this path contain any unconditional raise
-        // or return statements?
-        if (elseScope.getAlwaysRaises()) {
-            allPathsRaise = true;
+        if (node.elseSuite) {
+            this.walk(node.elseSuite);
         }
-        if (elseScope.getAlwaysReturnsOrRaises()) {
-            allPathsRaiseOrReturn = true;
-        }
-        conditionalScopesToMerge.push(elseScope);
 
-        // Now analyze the exception scopes.
         node.exceptClauses.forEach(exceptNode => {
-            const exceptScope = this._enterTemporaryScope(() => {
-                this.walk(exceptNode);
-            });
-
-            conditionalScopesToMerge.push(exceptScope);
-
-            if (!exceptScope.getAlwaysRaises()) {
-                allPathsRaise = false;
-            }
-
-            if (!exceptScope.getAlwaysReturnsOrRaises()) {
-                allPathsRaiseOrReturn = false;
-            }
+            this.walk(exceptNode);
         });
-
-        if (conditionalScopesToMerge.length > 1) {
-            // Mark the multiple scopes as conditional and merge them.
-            for (const scope of conditionalScopesToMerge) {
-                scope.setConditional();
-            }
-            this._mergeToCurrentScope(Scope.combineConditionalScopes(conditionalScopesToMerge));
-        } else if (conditionalScopesToMerge.length === 1) {
-            // We have only one scope that's contributing, so no need
-            // to mark it as conditional.
-            this._mergeToCurrentScope(conditionalScopesToMerge[0]);
-        }
-
-        if (allPathsRaise) {
-            this._currentScope.setAlwaysRaises();
-        } else if (allPathsRaiseOrReturn) {
-            this._currentScope.setAlwaysReturns();
-        }
 
         if (node.finallySuite) {
             this.walk(node.finallySuite);
         }
 
         return false;
+    }
+
+    visitAssert(node: AssertNode) {
+        if (node.exceptionExpression) {
+            this._getTypeOfExpression(node.exceptionExpression);
+        }
+
+        this._getTypeOfExpression(node.testExpression);
+        return true;
     }
 
     visitAssignment(node: AssignmentNode): boolean {
@@ -1087,8 +960,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Determine if the RHS is a constant boolean expression.
         // If so, assign it a literal type.
-        const constExprValue = StaticExpressions.evaluateStaticExpression(node.rightExpression,
-            this._fileInfo.executionEnvironment);
+        const constExprValue = StaticExpressions.evaluateStaticBoolExpression(
+            node.rightExpression, this._fileInfo.executionEnvironment);
         if (constExprValue !== undefined) {
             const boolType = ScopeUtils.getBuiltInObject(this._currentScope, 'bool');
             if (boolType.category === TypeCategory.Object) {
@@ -1126,25 +999,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         this._assignTypeToExpression(node.leftExpression, effectiveType, node.rightExpression);
-
-        return true;
-    }
-
-    visitAssert(node: AssertNode) {
-        if (node.exceptionExpression) {
-            this._getTypeOfExpression(node.exceptionExpression);
-        }
-
-        this._getTypeOfExpression(node.testExpression);
-
-        // Assume that the assert constrains types.
-        const typeConstraints = this._buildConditionalTypeConstraints(node.testExpression);
-        if (typeConstraints) {
-            typeConstraints.ifConstraints.forEach(constraint => {
-                this._currentScope.addTypeConstraint(constraint);
-            });
-        }
-
         return true;
     }
 
@@ -1162,8 +1016,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // evaluator to validate them.
         const type = this._getTypeOfExpression(node);
 
-        // Validate that the type can be written back to the LHS.
-        this._assignTypeToExpression(node.leftExpression, type, node.rightExpression);
+        // Validate that the type can be written back to the dest.
+        this._assignTypeToExpression(node.destExpression, type, node.rightExpression);
         return true;
     }
 
@@ -1323,7 +1177,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         AnalyzerNodeInfo.setExpressionType(node, symbolType);
 
         this._assignTypeToNameNode(symbolNameNode, symbolType);
-        this._updateExpressionTypeForNode(symbolNameNode, symbolType);
 
         if (node.alias) {
             this._conditionallyReportUnusedName(symbolNameNode, false,
@@ -1361,7 +1214,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (node.isWildcardImport) {
                 if (resolvedPath) {
-                    // Import the fields in the current permanent scope.
+                    // Import the fields in the current scope.
                     const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                     if (lookupInfo) {
                         lookupInfo.symbolTable.forEach((importedSymbol, name) => {
@@ -1395,10 +1248,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         symbolType = UnknownType.create();
                     }
 
-                    this._updateExpressionTypeForNode(importAs.name, symbolType);
-                    if (importAs.alias) {
-                        this._updateExpressionTypeForNode(importAs.alias, symbolType);
-                    }
                     this._addTypeSourceToName(aliasNode.nameToken.value, symbolType, node.id);
                     this._assignTypeToNameNode(aliasNode, symbolType);
                 });
@@ -1463,40 +1312,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
-    }
-
-    visitSuite(node: SuiteNode): boolean {
-        this._walkStatements(node.statements);
-        return false;
-    }
-
-    private _walkStatements(statements: StatementNode[]) {
-        // Manually walk the statements in the suite so we can flag
-        // the point where an unconditional return or raise occurs.
-        let reportedUnreachableCode = false;
-
-        statements.forEach((statement, index) => {
-            this.walk(statement);
-
-            if (this._currentScope.getAlwaysRaises() ||
-                    this._currentScope.getAlwaysReturns() ||
-                    this._currentScope.getAlwaysBreaks()) {
-
-                if (!reportedUnreachableCode) {
-                    if (index < statements.length - 1) {
-                        // Create a text range that covers the next statement through
-                        // the end of the suite.
-                        const start = statements[index + 1].start;
-                        const lastStatement = statements[statements.length - 1];
-                        const end = TextRange.getEnd(lastStatement);
-                        this._addUnusedCode({ start, length: end - start });
-                    }
-
-                    // Note that we already reported this so we don't do it again.
-                    reportedUnreachableCode = true;
-                }
-            }
-        });
     }
 
     private _getAliasedSymbolTypeForName(name: string): [Symbol | undefined, Type | undefined] {
@@ -1803,7 +1618,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (specialType) {
                 this._assignTypeToNameNode(nameNode, specialType);
-                this._updateExpressionTypeForNode(nameNode, specialType);
                 return true;
             }
         }
@@ -1915,6 +1729,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (symbol) {
             let declaredType = TypeUtils.getDeclaredTypeOfSymbol(symbol);
             if (declaredType) {
+                // If it's a property, we need to get the setter's type.
+                if (declaredType.category === TypeCategory.Property) {
+                    if (!declaredType.setter ||
+                            declaredType.setter.category !== TypeCategory.Function ||
+                            declaredType.setter.details.parameters.length < 2) {
+
+                        return undefined;
+                    }
+
+                    declaredType = declaredType.setter.details.parameters[1].type;
+                }
+
                 if (classOrObjectBase) {
                     declaredType = TypeUtils.bindFunctionToClassOrObject(classOrObjectBase,
                         declaredType);
@@ -2078,20 +1904,38 @@ export class TypeAnalyzer extends ParseTreeWalker {
         };
 
         suiteNode.statements.forEach(statement => {
-            if (statement.nodeType === ParseNodeType.StatementList) {
-                for (const substatement of statement.statements) {
-                    if (substatement.nodeType !== ParseNodeType.TypeAnnotation &&
-                            substatement.nodeType !== ParseNodeType.Ellipsis &&
-                            substatement.nodeType !== ParseNodeType.StringList &&
-                            substatement.nodeType !== ParseNodeType.Pass) {
+            if (!this._isCodeUnreachable(statement)) {
+                if (statement.nodeType === ParseNodeType.StatementList) {
+                    for (const substatement of statement.statements) {
+                        if (substatement.nodeType !== ParseNodeType.TypeAnnotation &&
+                                substatement.nodeType !== ParseNodeType.Ellipsis &&
+                                substatement.nodeType !== ParseNodeType.StringList &&
+                                substatement.nodeType !== ParseNodeType.Pass) {
 
-                        emitBadStatementError(substatement);
+                            emitBadStatementError(substatement);
+                        }
                     }
+                } else {
+                    emitBadStatementError(statement);
                 }
-            } else {
-                emitBadStatementError(statement);
             }
         });
+    }
+
+    private _isCodeUnreachable(node: ParseNode): boolean {
+        let curNode: ParseNode | undefined = node;
+
+        // Walk up the parse tree until we find a node with
+        // an associated flow node.
+        while (curNode) {
+            const flowNode = AnalyzerNodeInfo.getFlowNode(curNode);
+            if (flowNode) {
+                return !!(flowNode.flags & FlowFlags.Unreachable);
+            }
+            curNode = curNode.parent;
+        }
+
+        return false;
     }
 
     private _createAwaitableFunction(functionType: FunctionType): FunctionType {
@@ -2173,55 +2017,57 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._setAnalysisChanged('Function yield type changed');
         }
 
-        // Add the "None" type if the function doesn't always return.
-        if (!functionScope.getAlwaysReturnsOrRaises()) {
-            if (inferredReturnType.addSource(NoneType.create(), node.id)) {
-                this._setAnalysisChanged('Function inferred None changed');
-            }
+        const functionNeverReturns = !evaluator.isAfterNodeReachable(node);
+        const implicitlyReturnsNone = evaluator.isAfterNodeReachable(node.suite);
 
-            const declaredReturnType = FunctionType.isGenerator(functionType) ?
-                TypeUtils.getDeclaredGeneratorReturnType(functionType) :
-                FunctionType.getDeclaredReturnType(functionType);
-
-            if (declaredReturnType && node.returnTypeAnnotation) {
-                // Skip this check for abstract methods and functions that are declared NoReturn.
-                if (!FunctionType.isAbstractMethod(functionType) && !TypeUtils.isNoReturnType(declaredReturnType)) {
-                    const diagAddendum = new DiagnosticAddendum();
-
-                    // If the declared type isn't compatible with 'None', flag an error.
-                    if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
-                        // If the function consists entirely of "...", assume that it's
-                        // an abstract method or a protocol method and don't require that
-                        // the return type matches.
-                        if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
-                            this._addError(`Function with declared type of '${ printType(declaredReturnType) }'` +
-                                    ` must return value` + diagAddendum.getString(),
-                                node.returnTypeAnnotation);
-                        }
-                    }
-                }
-            }
-        } else if (functionScope.getAlwaysRaises() &&
-                functionScope.getReturnType().getSources().length === 0 &&
-                !FunctionType.isAbstractMethod(functionType)) {
-
-            // If the function always raises and never returns, add
-            // the "NoReturn" type. Skip this for abstract methods which
-            // often are implemented with "raise NotImplementedError()".
+        // If the function always raises and never returns, add
+        // the "NoReturn" type. Skip this for abstract methods which
+        // often are implemented with "raise NotImplementedError()".
+        if (functionNeverReturns && !FunctionType.isAbstractMethod(functionType)) {
             const noReturnType = evaluator.getTypingType('NoReturn') as ClassType;
             if (noReturnType && inferredReturnType.addSource(ObjectType.create(noReturnType), node.id)) {
                 this._setAnalysisChanged('Function inferred NoReturn changed');
             }
         } else {
-            if (inferredReturnType.removeSource(node.id)) {
-                this._setAnalysisChanged('Function inferred return type changed');
+            // Add the "None" type if the function doesn't always return.
+            if (implicitlyReturnsNone) {
+                if (inferredReturnType.addSource(NoneType.create(), node.id)) {
+                    this._setAnalysisChanged('Function inferred None changed');
+                }
+
+                const declaredReturnType = FunctionType.isGenerator(functionType) ?
+                    TypeUtils.getDeclaredGeneratorReturnType(functionType) :
+                    FunctionType.getDeclaredReturnType(functionType);
+
+                if (declaredReturnType && node.returnTypeAnnotation) {
+                    // Skip this check for abstract methods and functions that are declared NoReturn.
+                    if (!FunctionType.isAbstractMethod(functionType) && !TypeUtils.isNoReturnType(declaredReturnType)) {
+                        const diagAddendum = new DiagnosticAddendum();
+
+                        // If the declared type isn't compatible with 'None', flag an error.
+                        if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
+                            // If the function consists entirely of "...", assume that it's
+                            // an abstract method or a protocol method and don't require that
+                            // the return type matches.
+                            if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
+                                this._addError(`Function with declared type of '${ printType(declaredReturnType) }'` +
+                                        ` must return value` + diagAddendum.getString(),
+                                    node.returnTypeAnnotation);
+                            }
+                        }
+                    }
+                }
+            } else {
+                if (inferredReturnType.removeSource(node.id)) {
+                    this._setAnalysisChanged('Function inferred return type changed');
+                }
             }
         }
 
         if (node.returnTypeAnnotation) {
             const declaredReturnType = FunctionType.getDeclaredReturnType(functionType);
             if (declaredReturnType && TypeUtils.isNoReturnType(declaredReturnType)) {
-                if (!functionScope.getAlwaysRaises()) {
+                if (!functionNeverReturns && implicitlyReturnsNone) {
                     // If the function consists entirely of "...", assume that it's
                     // an abstract method or a protocol method and don't require that
                     // the return type matches.
@@ -2295,7 +2141,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     decoratorNode.arguments.forEach(arg => {
                         if (arg.name && arg.name.nameToken.value === 'init') {
                             if (arg.valueExpression) {
-                                const value = StaticExpressions.evaluateStaticExpression(
+                                const value = StaticExpressions.evaluateStaticBoolExpression(
                                     arg.valueExpression, this._fileInfo.executionEnvironment);
                                 if (!value) {
                                     skipSynthesizeInit = true;
@@ -2472,135 +2318,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _handleIfWhileCommon(testExpression: ExpressionNode, ifWhileSuite: SuiteNode,
-            elseSuite: SuiteNode | IfNode | undefined, isWhile: boolean) {
+            elseSuite: SuiteNode | IfNode | undefined) {
 
-        // Determine if the if condition is always true or always false. If so,
-        // we can treat either the if or the else clause as unconditional.
-        let constExprValue = StaticExpressions.evaluateStaticExpression(
-            testExpression, this._fileInfo.executionEnvironment);
-
-        let typeConstraints: ConditionalTypeConstraintResults | undefined;
-
-        // Speculatively get the expression type outside of the ifScope
-        // so we add any assignment type constraints unconditionally.
-        this._getTypeOfExpression(testExpression, EvaluatorFlags.None, true);
-
-        // Push a temporary scope so we can track
-        // which variables have been assigned to conditionally.
-        const ifScope = this._enterTemporaryScope(() => {
-            // Get and cache the expression type before walking it. This will apply
-            // any type constraints along the way. Note that we do this within the
-            // temporary if/while scope because in the while case, the expression type
-            // might change from one pass to the next as we analyze the loop.
-            const exprType = this._getTypeOfExpression(testExpression);
-
-            // Build the type constraints for the test expression.
-            typeConstraints = this._buildConditionalTypeConstraints(testExpression);
-
-            // Handle the case where the expression evaluates to a known
-            // true, false or None value.
-            if (exprType.category === TypeCategory.Object) {
-                const exprClass = exprType.classType;
-                if (ClassType.isBuiltIn(exprClass, 'bool')) {
-                    const literalValue = exprType.literalValue;
-                    if (typeof literalValue === 'boolean') {
-                        constExprValue = literalValue;
-                    }
-                }
-            } else if (isNoneOrNever(exprType)) {
-                constExprValue = false;
-            }
-
-            this.walk(testExpression);
-
-            // Add any applicable type constraints.
-            if (typeConstraints) {
-                typeConstraints.ifConstraints.forEach(constraint => {
-                    this._currentScope.addTypeConstraint(constraint);
-                });
-            }
-
-            if (constExprValue !== false) {
-                this.walk(ifWhileSuite);
-            }
-        }, constExprValue === undefined, isWhile ? ifWhileSuite : undefined);
-
-        // Now handle the else statement. If there are chained "elif"
-        // statements, they'll be handled recursively here.
-        const elseScope = this._enterTemporaryScope(() => {
-            // Add any applicable type constraints.
-            if (typeConstraints) {
-                typeConstraints.elseConstraints.forEach(constraint => {
-                    this._currentScope.addTypeConstraint(constraint);
-                });
-            }
-
-            if (elseSuite && constExprValue !== true) {
-                this.walk(elseSuite);
-            }
-        }, constExprValue === undefined);
-
-        let isIfUnconditional = false;
-        let isElseUnconditional = false;
-        if (constExprValue !== undefined) {
-            if (constExprValue) {
-                isIfUnconditional = true;
-                ifScope.setUnconditional();
-                if (elseSuite) {
-                    this._addUnusedCode(elseSuite);
-                }
-            } else {
-                isElseUnconditional = true;
-                elseScope.setUnconditional();
-                this._addUnusedCode(ifWhileSuite);
-            }
-        }
-
-        const ifContributions = !ifScope.getAlwaysReturnsOrRaises() &&
-            !isElseUnconditional ? ifScope : undefined;
-        const elseContributions = !elseScope.getAlwaysReturnsOrRaises() &&
-            !isIfUnconditional ? elseScope : undefined;
-
-        // Figure out how to combine the scopes.
-        if (ifContributions && elseContributions) {
-            // If both an "if" and an "else" scope exist, combine the names from both scopes.
-            const combinedScope = Scope.combineConditionalScopes(
-                [ifContributions, elseContributions]);
-            this._mergeToCurrentScope(combinedScope);
-        } else if (ifContributions) {
-            // If there's only an "if" scope executed, merge its contents.
-            ifContributions.setUnconditional();
-            this._mergeToCurrentScope(ifContributions);
-        } else if (elseContributions) {
-            // If there's only an "else" scope executed, merge its contents.
-            elseContributions.setUnconditional();
-            this._mergeToCurrentScope(elseContributions);
-        } else {
-            // If both an if and else clause are executed but they both return or
-            // raise an exception, mark the current scope as always returning or
-            // raising an exception.
-            if (ifScope.getAlwaysRaises() && elseScope.getAlwaysRaises()) {
-                this._currentScope.setAlwaysRaises();
-            } else {
-                this._currentScope.setAlwaysReturns();
-            }
-        }
-
-        if (isIfUnconditional && isWhile && !ifScope.getMayBreak()) {
-            // If this is an infinite loop, mark it as always raising
-            // So we don't assume that we'll fall through and possibly
-            // return None at the end of the function.
-            this._currentScope.setAlwaysRaises();
-        }
-
-        // Even if the if or else scopes didn't contribute symbols to the
-        // current scope, they can contribute return types.
-        if (!isElseUnconditional) {
-            this._mergeReturnAndYieldTypeToCurrentScope(ifScope);
-        }
-
-        if (!isIfUnconditional) {
-            this._mergeReturnAndYieldTypeToCurrentScope(elseScope);
+        this._getTypeOfExpression(testExpression);
+        this.walk(testExpression);
+        this.walk(ifWhileSuite);
+        if (elseSuite) {
+            this.walk(elseSuite);
         }
     }
 
@@ -2615,11 +2339,18 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return undefined;
     }
 
-    private _validateYieldType(node: YieldExpressionNode | YieldFromExpressionNode, yieldType: Type) {
+    private _validateYieldType(node: YieldExpressionNode | YieldFromExpressionNode,
+            rawYieldType: Type, adjustedYieldType: Type) {
+
         let declaredYieldType: Type | undefined;
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
 
         if (enclosingFunctionNode) {
+            const functionScope = AnalyzerNodeInfo.getScope(enclosingFunctionNode)!;
+            if (functionScope.getYieldType().addSource(rawYieldType, node.id)) {
+                this._setAnalysisChanged('Yield type changed');
+            }
+
             const functionType = AnalyzerNodeInfo.getExpressionType(
                 enclosingFunctionNode) as FunctionType;
             if (functionType) {
@@ -2629,18 +2360,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (declaredYieldType) {
-            if (TypeUtils.isNoReturnType(declaredYieldType)) {
-                this._addError(
-                    `Function with declared return type 'NoReturn' cannot include a yield statement`,
-                    node);
-            } else {
-                const diagAddendum = new DiagnosticAddendum();
-                if (!TypeUtils.canAssignType(declaredYieldType, yieldType, diagAddendum)) {
+        if (this._isNodeReachable(node)) {
+            if (declaredYieldType) {
+                if (TypeUtils.isNoReturnType(declaredYieldType)) {
                     this._addError(
-                        `Expression of type '${ printType(yieldType) }' cannot be assigned ` +
-                            `to yield type '${ printType(declaredYieldType) }'` + diagAddendum.getString(),
-                        node.expression || node);
+                        `Function with declared return type 'NoReturn' cannot include a yield statement`,
+                        node);
+                } else {
+                    const diagAddendum = new DiagnosticAddendum();
+                    if (!TypeUtils.canAssignType(declaredYieldType, adjustedYieldType, diagAddendum)) {
+                        this._addError(
+                            `Expression of type '${ printType(adjustedYieldType) }' cannot be assigned ` +
+                                `to yield type '${ printType(declaredYieldType) }'` + diagAddendum.getString(),
+                            node.expression || node);
+                    }
                 }
             }
         }
@@ -2678,20 +2411,23 @@ export class TypeAnalyzer extends ParseTreeWalker {
             resultingExceptionType = TypeUtils.doForSubtypes(iterableType, subtype => {
                 if (isAnyOrUnknown(subtype)) {
                     return subtype;
-                } else if (subtype.category === TypeCategory.Class) {
-                    if (!derivesFromBaseException(subtype)) {
+                }
+
+                const transformedSubtype = TypeUtils.transformTypeObjectToClass(subtype);
+                if (transformedSubtype.category === TypeCategory.Class) {
+                    if (!derivesFromBaseException(transformedSubtype)) {
                         isValidExceptionType = false;
                         diagAddendum.addMessage(
                             `'${ printType(exceptionType) }' does not derive from BaseException`);
                     }
 
-                    return ObjectType.create(subtype);
-                } else {
-                    isValidExceptionType = false;
-                    diagAddendum.addMessage(
-                        `'${ printType(exceptionType) }' does not derive from BaseException`);
-                    return UnknownType.create();
+                    return ObjectType.create(transformedSubtype);
                 }
+
+                isValidExceptionType = false;
+                diagAddendum.addMessage(
+                    `'${ printType(exceptionType) }' does not derive from BaseException`);
+                return UnknownType.create();
             });
         }
 
@@ -2703,17 +2439,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return resultingExceptionType || UnknownType.create();
-    }
-
-    private _addAssignmentTypeConstraint(node: ExpressionNode, assignmentType: Type) {
-        // Don't propagate an "unbound" type to the target.
-        const typeWithoutUnbound = removeUnboundFromUnion(assignmentType);
-        const typeConstraint = TypeConstraintBuilder.buildTypeConstraintForAssignment(
-            node, typeWithoutUnbound);
-
-        if (typeConstraint) {
-            this._currentScope.addTypeConstraint(typeConstraint);
-        }
     }
 
     // Associates a member variable with a specified type.
@@ -2742,7 +2467,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         let destType = srcType;
-        let addTypeConstraintForAssignment = true;
 
         const classType = AnalyzerNodeInfo.getExpressionType(classDef);
         if (classType && classType.category === TypeCategory.Class) {
@@ -2786,12 +2510,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 } else {
                     // Is the target a property?
                     const declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
-                    if (declaredType && declaredType.category === TypeCategory.Property) {
-                        // Don't add a type constraint because a property getter and
-                        // setter are not guaranteed to use the same type.
-                        addTypeConstraintForAssignment = false;
-
-                    } else {
+                    if (declaredType && declaredType.category !== TypeCategory.Property) {
                         // Handle the case where there is a class variable defined with the same
                         // name, but there's also now an instance variable introduced. Combine the
                         // type of the class variable with that of the new instance variable.
@@ -2833,39 +2552,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
         }
-
-        if (addTypeConstraintForAssignment) {
-            this._addAssignmentTypeConstraint(node, destType);
-        }
-    }
-
-    private _mergeToCurrentScope(scopeToMerge: Scope) {
-        this._currentScope.mergeScope(scopeToMerge);
-        this._mergeReturnAndYieldTypeToCurrentScope(scopeToMerge);
-    }
-
-    private _mergeReturnAndYieldTypeToCurrentScope(scopeToMerge: Scope) {
-        if (this._currentScope.mergeReturnType(scopeToMerge)) {
-            if (this._currentScope.getType() !== ScopeType.Temporary) {
-                this._setAnalysisChanged('Return type changed for scope');
-            }
-        }
-
-        if (this._currentScope.mergeYieldType(scopeToMerge)) {
-            if (this._currentScope.getType() !== ScopeType.Temporary) {
-                this._setAnalysisChanged('Yield type changed for scope');
-            }
-        }
-
-        if (!scopeToMerge.isConditional) {
-            if (scopeToMerge.getAlwaysRaises()) {
-                this._currentScope.setAlwaysRaises();
-            }
-
-            if (scopeToMerge.getAlwaysReturns()) {
-                this._currentScope.setAlwaysReturns();
-            }
-        }
     }
 
     private _postponeAnnotationEvaluation() {
@@ -2882,6 +2568,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         return TypeUtils.convertClassToObject(
             evaluator.getType(node, { method: 'get' }, evaluatorFlags));
+    }
+
+    private _isNodeReachable(node: ParseNode): boolean {
+        const evaluator = this._createEvaluator();
+        return evaluator.isNodeReachable(node);
     }
 
     private _getTypeOfExpression(node: ExpressionNode, flags?: EvaluatorFlags,
@@ -2964,7 +2655,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (declaredType) {
             if (!isTypeSame(declaredType, type)) {
                 this._addError(`Declared type '${ printType(type) }' is not compatible ` +
-                    `with previous declared type '${ printType(declaredType) }'`,
+                    `with declared type '${ printType(declaredType) }'`,
                     errorNode);
             }
         }
@@ -3139,6 +2830,44 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._evaluateExpressionForAssignment(target, srcType, srcExpr);
     }
 
+    // Given a function node and the function type associated with it, this
+    // method search for prior function nodes that are marked as @overload
+    // and creates an OverloadedFunctionType that includes this function and
+    // all previous ones.
+    private _addOverloadsToFunctionType(node: FunctionNode, type: FunctionType): Type {
+        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.name.nameToken.value);
+        if (symbolWithScope) {
+            const decls = symbolWithScope.symbol.getDeclarations();
+
+            // Find this function's declaration.
+            let declIndex = decls.findIndex(decl => {
+                return (decl.type === DeclarationType.Function || decl.type === DeclarationType.Method) && decl.node === node;
+            });
+            if (declIndex > 0) {
+                const overloadedTypes: OverloadedFunctionEntry[] = [{ type, typeSourceId: decls[declIndex].node!.id }];
+                while (declIndex > 0) {
+                    const declType = AnalyzerNodeInfo.getExpressionType(decls[declIndex - 1].node!);
+                    if (!declType || declType.category !== TypeCategory.Function || !FunctionType.isOverloaded(declType)) {
+                        break;
+                    }
+
+                    overloadedTypes.unshift({ type: declType, typeSourceId: decls[declIndex - 1].node!.id });
+                    declIndex--;
+                }
+
+                if (overloadedTypes.length > 1) {
+                    // Create a new overloaded type that copies the contents of the previous
+                    // one and adds a new function.
+                    const newOverload = OverloadedFunctionType.create();
+                    newOverload.overloads = overloadedTypes;
+                    return newOverload;
+                }
+            }
+        }
+
+        return type;
+    }
+
     private _assignTypeToNameNode(nameNode: NameNode, srcType: Type, srcExpressionNode?: ParseNode) {
         const nameValue = nameNode.nameToken.value;
 
@@ -3155,7 +2884,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             assert.fail(`Missing symbol '${ nameValue }'`);
         }
 
-        // We found an existing declared type. Make sure the newly-bound type is assignable.
+        // We found an existing declared type. Make sure the type is assignable.
         let destType = srcType;
         if (declaredType && srcExpressionNode) {
             const diagAddendum = new DiagnosticAddendum();
@@ -3173,7 +2902,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // appears to be a constant, use the strict source type. If it's a member
             // variable that can be overridden by a child class, use the more general
             // version by stripping off the literal.
-            if (ScopeUtils.getPermanentScope(this._currentScope).getType() === ScopeType.Class) {
+            if (this._currentScope.getType() === ScopeType.Class) {
                 const isConstant = SymbolNameUtils.isConstantName(nameValue);
                 const isPrivate = SymbolNameUtils.isPrivateOrProtectedName(nameValue);
                 const honorPrivateNaming = this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
@@ -3198,34 +2927,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         this._addTypeSourceToName(nameNode.nameToken.value, destType, nameNode.id);
-
-        // If we're assigning a new function override to an existing function,
-        // update the overloaded type before we apply the type constraint.
-        let effectiveDestType = destType;
-        if (srcType.category === TypeCategory.Function && declaredType) {
-            if (declaredType.category === TypeCategory.OverloadedFunction) {
-                const newOverload = OverloadedFunctionType.create();
-                declaredType.overloads.forEach(overload => {
-                    OverloadedFunctionType.addOverload(newOverload, overload.typeSourceId, overload.type);
-                });
-                OverloadedFunctionType.addOverload(newOverload, nameNode.id, srcType);
-                effectiveDestType = newOverload;
-            } else if (declaredType.category === TypeCategory.Function &&
-                    FunctionType.isOverloaded(declaredType)) {
-
-                const newOverload = OverloadedFunctionType.create();
-                OverloadedFunctionType.addOverload(newOverload, defaultTypeSourceId, declaredType);
-                OverloadedFunctionType.addOverload(newOverload, nameNode.id, srcType);
-                effectiveDestType = newOverload;
-            }
-        }
-
-        this._addAssignmentTypeConstraint(nameNode, effectiveDestType);
+        this._updateExpressionTypeForNode(nameNode, destType);
     }
 
     private _addTypeSourceToNameNode(node: NameNode, type: Type) {
         this._addTypeSourceToName(node.nameToken.value, type, node.id);
-        this._addAssignmentTypeConstraint(node, type);
     }
 
     private _addTypeSourceToName(name: string, type: Type, typeSourceId: TypeSourceId) {
@@ -3233,9 +2939,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (symbolWithScope) {
             if (!symbolWithScope.isOutsideCallerModule) {
                 if (symbolWithScope.symbol.setInferredTypeForSource(type, typeSourceId)) {
-                    if (symbolWithScope.scope.getType() !== ScopeType.Temporary) {
-                        this._setAnalysisChanged(`Inferred type of name changed for '${ name }'`);
-                    }
+                    this._setAnalysisChanged(`Inferred type of name changed for '${ name }'`);
                 }
             }
         } else {
@@ -3281,92 +2985,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return undefined;
     }
 
-    private _buildConditionalTypeConstraints(node: ExpressionNode) {
-        return TypeConstraintBuilder.buildTypeConstraintsForConditional(node,
-            (node: ExpressionNode) => this._getTypeOfExpression(node));
-    }
-
-    // Create a temporary scope that can track values of modified variables
-    // within that scope.
-    // If loopNode is specified, the scope is also persisted to that node
-    // so the analyzer to take into account type information that is gathered
-    // lower in the loop body.
-    private _enterTemporaryScope(callback: () => void, isConditional = false,
-            loopNode?: ParseNode) {
-
-        let tempScope: Scope | undefined;
-
-        if (loopNode) {
-            // Was the scope persisted during the last analysis pass?
-            tempScope = AnalyzerNodeInfo.getScope(loopNode);
-
-            if (tempScope) {
-                tempScope.setParent(this._currentScope);
-                tempScope.clearAlwaysRaises();
-                tempScope.clearAlwaysReturns();
-                tempScope.clearBreaks();
-            } else {
-                tempScope = new Scope(ScopeType.Temporary, this._currentScope);
-
-                // Mark the new scope as looping so we track any breaks within the scope.
-                tempScope.setIsLooping();
-                AnalyzerNodeInfo.setScope(loopNode, tempScope);
-            }
-
-            // If we previously analyzed this loop, determine whether we should
-            // keep the existing type constraints or start from scratch.
-            if (this._didAnalysisChange) {
-                // The analysis changed prior to getting to the loop. We need
-                // to reset the type constraints in the loop to prevent an
-                // "Unknown" value from persisting in the loop.
-                tempScope.clearTypeConstraints();
-            } else {
-                // Capture the type constraints that represent all of the ways
-                // we continued within the loop during the previous analysis pass.
-                // Mark these as conditional and use them for the initial
-                // (top-of-loop) type constraints.
-                const continueTypeConstraints = tempScope.combineContinueTypeConstraints();
-                tempScope.clearTypeConstraints();
-                tempScope.setTypeConstraints(continueTypeConstraints);
-            }
-        } else {
-            tempScope = new Scope(ScopeType.Temporary, this._currentScope);
-        }
-
-        const prevScope = this._currentScope;
-        if (isConditional) {
-            tempScope.setConditional();
-        }
-
-        this._currentScope = tempScope;
-        callback();
-
-        if (loopNode) {
-            // The bottom of the loop is an implicit conditional break
-            // if the test at the top of the loop is conditional.
-            if (isConditional) {
-                tempScope.snapshotTypeConstraintsForBreak();
-            }
-
-            // The bottom of the loop is always an implicit continue.
-            tempScope.snapshotTypeConstraintsForContinue();
-
-            // Replace the current type constraints with a combination of
-            // the "break" constraints for the loop. This is what will be
-            // "seen" by the parent scope.
-            const breakTypeConstraints = tempScope.combineBreakTypeConstraints();
-            tempScope.setTypeConstraints(breakTypeConstraints);
-        }
-
-        this._currentScope = prevScope;
-
-        // Unset the parent to allow any other temporary scopes in the
-        // chain to be deallocated.
-        tempScope.setParent(undefined);
-
-        return tempScope;
-    }
-
     private _enterScope(node: ParseNode, callback: () => void): Scope {
         const prevScope = this._currentScope;
         const newScope = AnalyzerNodeInfo.getScope(node);
@@ -3377,34 +2995,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // parameters.
         const wasDefaultValueInitializer = this._defaultValueInitializerExpression;
         this._defaultValueInitializerExpression = false;
-
-        let prevParent: Scope | undefined;
-        if (!newScope!.isIndependentlyExecutable()) {
-            // Temporary re-parent the scope in case it is contained
-            // within a temporary scope.
-            prevParent = newScope!.getParent();
-            newScope!.setParent(this._currentScope);
-        }
-
         this._currentScope = newScope!;
-
-        // Clear the raises/returns flags in case this wasn't our
-        // first time analyzing this scope.
-        this._currentScope.clearAlwaysRaises();
-        this._currentScope.clearAlwaysReturns();
-        this._currentScope.clearBreaks();
 
         callback();
 
-        // Clear out any type constraints that were collected
-        // during the processing of the scope.
-        this._currentScope.clearTypeConstraints();
-
         this._currentScope = prevScope;
-        if (prevParent) {
-            newScope!.setParent(prevParent);
-        }
-
         this._defaultValueInitializerExpression = wasDefaultValueInitializer;
 
         return newScope!;
@@ -3416,10 +3011,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _addError(message: string, textRange: TextRange) {
         return this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
-    }
-
-    private _addUnusedCode(textRange: TextRange) {
-        return this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange('Code is unreachable', textRange);
     }
 
     private _addUnusedName(nameNode: NameNode) {

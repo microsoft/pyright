@@ -31,8 +31,11 @@ interface AnalyzerNodeInfo {
     // to store symbol names and their associated types and declarations.
     scope?: Scope;
 
-    // Control flow information
+    // Control flow information for this node.
     flowNode?: FlowNode;
+
+    // Control flow information at the end of this node.
+    afterFlowNode?: FlowNode;
 
     //---------------------------------------------------------------
     // Set by TypeAnalyzer
@@ -57,6 +60,7 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
 
     delete analyzerNode.scope;
     delete analyzerNode.flowNode;
+    delete analyzerNode.afterFlowNode;
     delete analyzerNode.typeCache;
 }
 
@@ -80,15 +84,13 @@ export function setScope(node: ParseNode, scope: Scope) {
     analyzerNode.scope = scope;
 }
 
-export function getScopeRecursive(node: ParseNode, skipTemporary = true): Scope | undefined {
+export function getScopeRecursive(node: ParseNode): Scope | undefined {
     let curNode: ParseNode | undefined = node;
 
     while (curNode) {
         const scope = getScope(curNode);
         if (scope) {
-            if (!skipTemporary || scope.getType() !== ScopeType.Temporary) {
-                return scope;
-            }
+            return scope;
         }
 
         curNode = curNode.parent;
@@ -105,6 +107,16 @@ export function getFlowNode(node: ParseNode): FlowNode | undefined {
 export function setFlowNode(node: ParseNode, flowNode: FlowNode) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.flowNode = flowNode;
+}
+
+export function getAfterFlowNode(node: ParseNode): FlowNode | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode.afterFlowNode;
+}
+
+export function setAfterFlowNode(node: ParseNode, flowNode: FlowNode) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode.afterFlowNode = flowNode;
 }
 
 export function getExpressionType(node: ParseNode): Type | undefined {

@@ -604,7 +604,7 @@ export class CompletionProvider {
         while (curNode) {
             // Does this node have a scope associated with it?
             let scope = AnalyzerNodeInfo.getScope(curNode);
-            if (scope && scope.getType() !== ScopeType.Temporary) {
+            if (scope) {
                 while (scope) {
                     this._addSymbolsForSymbolTable(scope.getSymbolTable(),
                         () => true, priorWord, completionList);

@@ -10,13 +10,13 @@
 import * as assert from 'assert';
 
 import { getEmptyRange } from '../common/diagnostic';
-import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { FunctionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Symbol } from './symbol';
-import { ClassType, ModuleType, ObjectType, Type, TypeCategory } from './types';
+import { ClassType, FunctionType, ModuleType, ObjectType, Type, TypeCategory } from './types';
 import * as TypeUtils from './typeUtils';
 
 export function getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
@@ -88,6 +88,7 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
                 // time this case is used is for the hover provider.
                 const aliasDeclaration: AliasDeclaration = {
                     type: DeclarationType.Alias,
+                    node: undefined!,
                     path: importInfo.resolvedPaths[namePartIndex],
                     range: getEmptyRange(),
                     implicitImports: new Map<string, ModuleLoaderActions>()
@@ -286,6 +287,28 @@ function _getEnclosingEnumClass(node: ParseNode): ClassType | undefined {
 
         if (TypeUtils.isEnumClass(enumClass)) {
             return enumClass;
+        }
+    }
+
+    return undefined;
+}
+
+export function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefined {
+    const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
+
+    if (functionType) {
+        assert(functionType.category === TypeCategory.Function);
+
+        // Ignore this check for abstract methods, which often
+        // don't actually return any value.
+        if (FunctionType.isAbstractMethod(functionType)) {
+            return undefined;
+        }
+
+        if (FunctionType.isGenerator(functionType)) {
+            return TypeUtils.getDeclaredGeneratorReturnType(functionType);
+        } else {
+            return FunctionType.getDeclaredReturnType(functionType);
         }
     }
 

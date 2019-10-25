@@ -1,5 +1,5 @@
 # This sample tests the type checker's ability to handle type
-# inferrences within loop constructs.
+# inferences within loop constructs.
 
 def bar(a: list):
     pass

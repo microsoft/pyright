@@ -145,7 +145,7 @@ export function typeAnalyzeSampleFiles(fileNames: string[],
             };
             return analysisResult;
         } else {
-            assert(false, `Source file not found for ${ filePaths[index] }`);
+            assert.fail(`Source file not found for ${ filePaths[index] }`);
 
             const analysisResult: FileAnalysisResult = {
                 filePath: '',

@@ -12,8 +12,8 @@ import * as assert from 'assert';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
-import { DeclarationType, FunctionDeclaration } from './declaration';
-import { getTypeForDeclaration, hasTypeForDeclaration, isFunctionOrMethodDeclaration } from './declarationUtils';
+import { DeclarationType } from './declaration';
+import { getTypeForDeclaration, hasTypeForDeclaration } from './declarationUtils';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType, FunctionTypeFlags,
     InheritanceChain, isAnyOrUnknown, isNoneOrNever, isSameWithoutLiteralValue, isTypeSame,
@@ -238,6 +238,13 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
         return true;
     }
 
+    // If the source or dest is unbound, allow the assignment. The
+    // error will be reported elsewhere.
+    if (destType.category === TypeCategory.Unbound ||
+            srcType.category === TypeCategory.Unbound) {
+        return true;
+    }
+
     // Before performing any other checks, see if the dest type is a
     // TypeVar that we are attempting to match.
     if (destType.category === TypeCategory.TypeVar) {
@@ -341,12 +348,6 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
             return false;
         }
         return true;
-    }
-
-    if (destType.category === TypeCategory.Unbound ||
-            srcType.category === TypeCategory.Unbound) {
-        diag.addMessage(`Type is unbound.`);
-        return false;
     }
 
     if (destType.category === TypeCategory.None && srcType.category === TypeCategory.None) {
@@ -1013,51 +1014,18 @@ export function getInitialTypeOfSymbol(symbol: Symbol): Type {
 
 export function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
     const typedDecls = symbol.getTypedDeclarations();
+
     if (typedDecls.length > 0) {
-        // If there's more than one declared type, we will generally
-        // use the first one.
-        const firstDeclType = getTypeForDeclaration(typedDecls[0]);
+        // If there's more than one declared type, we will
+        // use the last one, which is assumed to supersede
+        // the earlier ones.
+        const lastDeclType = getTypeForDeclaration(typedDecls[typedDecls.length - 1]);
 
-        if (!firstDeclType) {
+        if (!lastDeclType) {
             return UnknownType.create();
         }
 
-        if (!isFunctionOrMethodDeclaration(typedDecls[0])) {
-            return firstDeclType;
-        }
-
-        // We'll handle function types specially because they can be overloaded.
-        const overloadedFunction = OverloadedFunctionType.create();
-
-        for (const typedDecl of typedDecls) {
-            const type = getTypeForDeclaration(typedDecl);
-
-            // If we encounter any declaration that doesn't have a corresponding
-            // overloaded function type, don't continue to build an overload.
-            if (!isFunctionOrMethodDeclaration(typedDecl)) {
-                return firstDeclType;
-            }
-
-            if (!type || type.category !== TypeCategory.Function) {
-                return firstDeclType;
-            }
-
-            OverloadedFunctionType.addOverload(overloadedFunction,
-                (typedDecl as FunctionDeclaration).node.name.id, type);
-
-            // If this was a non-overloaded function, stop here.
-            if (!FunctionType.isOverloaded(type)) {
-                break;
-            }
-        }
-
-        if (overloadedFunction.overloads.length === 0) {
-            return UnknownType.create();
-        } else if (overloadedFunction.overloads.length === 1) {
-            return overloadedFunction.overloads[0].type;
-        }
-
-        return overloadedFunction;
+        return lastDeclType;
     }
 
     return undefined;
@@ -1246,28 +1214,28 @@ export function derivesFromClassRecursive(classType: ClassType, baseClassToFind:
     return false;
 }
 
-// Filters a type such that that it is guaranteed not to
-// be falsy. For example, if a type is a union of None
+// Filters a type such that that no part of it is definitely
+// falsy. For example, if a type is a union of None
 // and an "int", this method would strip off the "None"
 // and return only the "int".
 export function removeFalsinessFromType(type: Type): Type {
     return doForSubtypes(type, subtype => {
         if (subtype.category === TypeCategory.Object) {
-            const truthyOrFalsy = subtype.literalValue;
-            if (truthyOrFalsy !== undefined) {
-                // If the object is already definitely truthy,
-                // it's fine to include.
-                if (truthyOrFalsy) {
-                    return subtype;
-                }
-            } else {
-                // If the object is potentially falsy, mark it
-                // as definitely truthy here.
-                if (canBeFalsy(subtype)) {
-                    return ObjectType.cloneWithLiteral(subtype, true);
-                }
+            if (subtype.literalValue !== undefined) {
+                // If the object is already definitely truthy, it's fine to
+                // include, otherwise it should be removed.
+                return subtype.literalValue ? subtype : undefined;
             }
-        } else if (canBeTruthy(subtype)) {
+
+            // If the object is a bool, make it "true", since
+            // "false" is a falsy value.
+            if (ClassType.isBuiltIn(subtype.classType, 'bool')) {
+                return ObjectType.cloneWithLiteral(subtype, true);
+            }
+        }
+
+        // If it's possible for the type to be truthy, include it.
+        if (canBeTruthy(subtype)) {
             return subtype;
         }
 
@@ -1275,29 +1243,29 @@ export function removeFalsinessFromType(type: Type): Type {
     });
 }
 
-// Filters a type such that that it is guaranteed not to
-// be truthy. For example, if a type is a union of None
+// Filters a type such that that no part of it is definitely
+// truthy. For example, if a type is a union of None
 // and a custom class "Foo" that has no __len__ or __nonzero__
 // method, this method would strip off the "Foo"
 // and return only the "None".
 export function removeTruthinessFromType(type: Type): Type {
     return doForSubtypes(type, subtype => {
         if (subtype.category === TypeCategory.Object) {
-            const truthyOrFalsy = subtype.literalValue;
-            if (truthyOrFalsy !== undefined) {
-                // If the object is already definitely falsy,
-                // it's fine to include.
-                if (!truthyOrFalsy) {
-                    return subtype;
-                }
-            } else {
-                // If the object is potentially truthy, mark it
-                // as definitely falsy here.
-                if (canBeTruthy(subtype)) {
-                    return ObjectType.cloneWithLiteral(subtype, false);
-                }
+            if (subtype.literalValue !== undefined) {
+                // If the object is already definitely falsy, it's fine to
+                // include, otherwise it should be removed.
+                return !subtype.literalValue ? subtype : undefined;
             }
-        } else if (canBeFalsy(subtype)) {
+
+            // If the object is a bool, make it "false", since
+            // "true" is a truthy value.
+            if (ClassType.isBuiltIn(subtype.classType, 'bool')) {
+                return ObjectType.cloneWithLiteral(subtype, false);
+            }
+        }
+
+        // If it's possible for the type to be falsy, include it.
+        if (canBeFalsy(subtype)) {
             return subtype;
         }
 

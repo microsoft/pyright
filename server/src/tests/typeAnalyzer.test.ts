@@ -268,7 +268,7 @@ test('AnnotatedVar3', () => {
 test('AnnotatedVar4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar4.py']);
 
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 5);
 });
 
 test('AnnotatedVar5', () => {

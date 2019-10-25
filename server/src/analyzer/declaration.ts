@@ -10,9 +10,9 @@
 */
 
 import { DiagnosticTextRange } from '../common/diagnostic';
-import { ClassNode, ExpressionNode, FunctionNode, NameNode,
-    ParameterNode, ParseNode, ReturnNode, StringListNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+import { ClassNode, ExpressionNode, FunctionNode, ImportAsNode,
+    ImportFromAsNode, ImportFromNode, NameNode, ParameterNode, ParseNode, ReturnNode,
+    StringListNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { Type } from './types';
 
 export const enum DeclarationType {
@@ -80,6 +80,7 @@ export interface VariableDeclaration extends DeclarationBase {
 // after the binding phase.
 export interface AliasDeclaration extends DeclarationBase {
     type: DeclarationType.Alias;
+    node: ImportAsNode | ImportFromAsNode | ImportFromNode;
 
     // The name of the symbol being imported (used for "from X import Y"
     // statements, not applicable to "import X" statements).

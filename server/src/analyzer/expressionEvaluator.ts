@@ -19,26 +19,26 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
     CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, DictionaryNode,
-    ExpressionNode, IndexExpressionNode, IndexItemsNode, isExpressionNode, LambdaNode,
-    ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode, ParameterCategory,
-    ParseNode, ParseNodeType, SetNode, SliceExpressionNode, StringListNode,
-    TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode, YieldExpressionNode,
-    YieldFromExpressionNode } from '../parser/parseNodes';
+    ExpressionNode, FunctionNode, IndexExpressionNode, IndexItemsNode, isExpressionNode,
+    LambdaNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
+    ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceExpressionNode,
+    StringListNode, TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode,
+    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { FlowAssignment, FlowCall, FlowCondition, FlowFlags, FlowLabel,
+    FlowNode, FlowWildcardImport } from './codeFlow';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { Scope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { setSymbolPreservingAccess, Symbol, SymbolFlags } from './symbol';
-import { ConditionalTypeConstraintResults, TypeConstraint,
-    TypeConstraintBuilder } from './typeConstraint';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
     FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound, isTypeSame,
-    isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType,
-    OverloadedFunctionType, printType, removeNoneFromUnion,
-    requiresSpecialization, Type, TypeCategory, TypeVarMap, TypeVarType, UnknownType } from './types';
+    isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
+    printType, removeNoneFromUnion, requiresSpecialization, Type, TypeCategory, TypeVarMap,
+    TypeVarType, UnboundType, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
 interface TypeResult {
@@ -70,6 +70,8 @@ interface ClassMemberLookup {
     // True if class member, false otherwise.
     isClassMember: boolean;
 }
+
+type TypeNarrowingCallback = (type: Type) => Type | undefined;
 
 export const enum EvaluatorFlags {
     None = 0,
@@ -170,15 +172,17 @@ const booleanOperatorMap: { [operator: number]: boolean } = {
     [OperatorType.NotIn]: true
 };
 
+const _maxFlowNodeRecursionCount = 100;
+
 export class ExpressionEvaluator {
     private _scope: Scope;
     private readonly _fileInfo: AnalyzerFileInfo;
-    private _expressionTypeConstraints: TypeConstraint[] = [];
     private _readTypeFromCache: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
     private _diagnosticSink?: TextRangeDiagnosticSink;
     private _setSymbolAccessed?: SetSymbolAccessedCallback;
-    private _isUnboundCheckSuppressed = false;
+    private _flowNodeRecursionMap = new Map<number, true>();
+    private _flowNodeRecursionCount = 0;
 
     constructor(scope: Scope, fileInfo: AnalyzerFileInfo,
             readTypeCallback: ReadTypeFromNodeCacheCallback,
@@ -194,17 +198,7 @@ export class ExpressionEvaluator {
     }
 
     getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
-        let type: Type = UnknownType.create();
-
-        if (flags & EvaluatorFlags.AllowForwardReferences) {
-            this._suppressUnboundChecks(() => {
-                type = this._getTypeFromExpression(node, usage, flags).type;
-            });
-        } else {
-            type = this._getTypeFromExpression(node, usage, flags).type;
-        }
-
-        return type;
+        return this._getTypeFromExpression(node, usage, flags).type;
     }
 
     getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
@@ -623,6 +617,24 @@ export class ExpressionEvaluator {
         return TypeUtils.getEffectiveTypeOfSymbol(symbol);
     }
 
+    isNodeReachable(node: ParseNode): boolean {
+        const flowNode = AnalyzerNodeInfo.getFlowNode(node);
+        if (!flowNode) {
+            return true;
+        }
+
+        return this._isFlowNodeReachable(flowNode);
+    }
+
+    isAfterNodeReachable(node: ParseNode): boolean {
+        const returnFlowNode = AnalyzerNodeInfo.getAfterFlowNode(node);
+        if (!returnFlowNode) {
+            return false;
+        }
+
+        return this._isFlowNodeReachable(returnFlowNode);
+    }
+
     // Determines whether the specified string literal is part
     // of a Literal['xxx'] statement. If so, we will not treat
     // the string as a normal forward-declared type annotation.
@@ -754,7 +766,7 @@ export class ExpressionEvaluator {
         } else if (node.nodeType === ParseNodeType.MemberAccess) {
             typeResult = this._getTypeFromMemberAccessExpression(node, usage, flags);
         } else if (node.nodeType === ParseNodeType.Index) {
-            typeResult = this._getTypeFromIndexExpression(node, usage);
+            typeResult = this._getTypeFromIndexExpression(node, usage, flags);
         } else if (node.nodeType === ParseNodeType.Call) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromCallExpression(node, flags);
@@ -766,15 +778,8 @@ export class ExpressionEvaluator {
         } else if (node.nodeType === ParseNodeType.StringList) {
             this._reportUsageErrorForReadOnly(node, usage);
             if (node.typeAnnotation && !ExpressionEvaluator.isAnnotationLiteralValue(node)) {
-                let typeResult: TypeResult = { node, type: UnknownType.create() };
-
-                // Temporarily suppress checks for unbound variables, since forward
-                // references are allowed within string-based annotations.
-                this._suppressUnboundChecks(() => {
-                    typeResult = this._getTypeFromExpression(node.typeAnnotation!, usage, flags);
-                });
-
-                return typeResult;
+                return this._getTypeFromExpression(
+                    node.typeAnnotation, usage, flags | EvaluatorFlags.AllowForwardReferences);
             }
 
             // Evaluate the format string expressions in this context.
@@ -825,7 +830,7 @@ export class ExpressionEvaluator {
             };
         } else if (node.nodeType === ParseNodeType.Ternary) {
             this._reportUsageErrorForReadOnly(node, usage);
-            typeResult = this._getTypeFromTernaryExpression(node, flags, usage);
+            typeResult = this._getTypeFromTernaryExpression(node, flags);
         } else if (node.nodeType === ParseNodeType.ListComprehension) {
             this._reportUsageErrorForReadOnly(node, usage);
             typeResult = this._getTypeFromListComprehensionExpression(node);
@@ -873,28 +878,21 @@ export class ExpressionEvaluator {
             typeResult = { type: UnknownType.create(), node };
         }
 
-        if (typeResult) {
-            typeResult.type = this._applyTypeConstraint(node, typeResult.type);
-        } else {
+        if (!typeResult) {
             // We shouldn't get here. If we do, report an error.
             this._addError(`Unhandled expression type '${ ParseTreeUtils.printExpression(node) }'`, node);
             typeResult = { type: UnknownType.create(), node };
         }
 
         if (this._writeTypeToCache) {
-            this._writeTypeToCache(node, typeResult.type);
+            if (usage.method === 'get' || usage.method === 'del') {
+                this._writeTypeToCache(node, typeResult.type);
+            } else if (usage.method === 'set' && usage.setType) {
+                this._writeTypeToCache(node, usage.setType);
+            }
         }
 
         return typeResult;
-    }
-
-    private _suppressUnboundChecks(callback: () => void) {
-        const wasSuppressed = this._isUnboundCheckSuppressed;
-        this._isUnboundCheckSuppressed = true;
-
-        callback();
-
-        this._isUnboundCheckSuppressed = wasSuppressed;
     }
 
     private _getTypeFromName(node: NameNode, usage: EvaluatorUsage,
@@ -910,25 +908,58 @@ export class ExpressionEvaluator {
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
             type = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+            const isSpecialBuiltIn = type && type.category === TypeCategory.Class &&
+                ClassType.isSpecialBuiltIn(type);
 
-            // Determine whether the name is unbound or possibly unbound. We
-            // can skip this check in type stub files because they are not
-            // "executed" and support forward references.
-            if (!symbolWithScope.isBeyondExecutionScope &&
-                    !this._isUnboundCheckSuppressed &&
-                    !this._fileInfo.isStubFile && symbol.isInitiallyUnbound()) {
-
-                // Apply type constraints to see if the unbound type is eliminated.
-                const initialType = TypeUtils.getInitialTypeOfSymbol(symbol);
-                const constrainedType = this._applyTypeConstraint(node, initialType);
-                if (isUnbound(constrainedType)) {
-                    this._addError(`'${ name }' is unbound`, node);
-                } else if (isPossiblyUnbound(constrainedType)) {
-                    this._addError(`'${ name }' is possibly unbound`, node);
+            // Should we specialize the class?
+            if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
+                if (type.category === TypeCategory.Class) {
+                    if (ClassType.getTypeArguments(type) === undefined) {
+                        type = this._createSpecializedClassType(type, undefined, node);
+                    }
+                } else if (type.category === TypeCategory.Object) {
+                    // If this is an object that contains a Type[X], transform it
+                    // into class X.
+                    const typeType = this._getClassFromPotentialTypeObject(type);
+                    if (typeType) {
+                        type = typeType;
+                    }
                 }
             }
 
             if (usage.method === 'get') {
+                // Don't try to use code-flow analysis if it was a special built-in
+                // type like Type or Callable because these have already been transformed
+                // by _createSpecializedClassType. And don't use code-flow analysis if
+                // forward references are allowed because the code flow order doesn't
+                // apply in that case.
+                let useCodeFlowAnalysis = !isSpecialBuiltIn &&
+                    ((flags & EvaluatorFlags.AllowForwardReferences) === 0);
+
+                if (useCodeFlowAnalysis && this._fileInfo.isStubFile) {
+                    // Type stubs allow forward references of classes, so
+                    // don't use code flow analysis in this case.
+                    const decls = symbolWithScope.symbol.getDeclarations();
+                    if (decls.length > 0 && decls[0].type === DeclarationType.Class) {
+                        useCodeFlowAnalysis = false;
+                    }
+                }
+
+                if (useCodeFlowAnalysis) {
+                    // If the type is defined outside of the current scope, use the
+                    // original type at the start. Otherwise use an unbound type at
+                    // the start.
+                    const typeAtStart = symbolWithScope.isBeyondExecutionScope ? type :
+                        symbol.isInitiallyUnbound() ? UnboundType.create() : undefined;
+                    type = this._getNarrowedTypeFromCodeFlow(node, type, typeAtStart);
+                }
+
+                if (isUnbound(type)) {
+                    this._addError(`'${ name }' is unbound`, node);
+                } else if (isPossiblyUnbound(type)) {
+                    this._addError(`'${ name }' is possibly unbound`, node);
+                }
+
                 if (this._setSymbolAccessed) {
                     this._setSymbolAccessed(symbol);
                 }
@@ -941,22 +972,6 @@ export class ExpressionEvaluator {
             type = UnknownType.create();
         }
 
-        // Should we specialize the class?
-        if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
-            if (type.category === TypeCategory.Class) {
-                if (ClassType.getTypeArguments(type) === undefined) {
-                    type = this._createSpecializedClassType(type, undefined, node);
-                }
-            } else if (type.category === TypeCategory.Object) {
-                // If this is an object that contains a Type[X], transform it
-                // into class X.
-                const typeType = this._getClassFromPotentialTypeObject(type);
-                if (typeType) {
-                    type = typeType;
-                }
-            }
-        }
-
         return { type, node };
     }
 
@@ -966,6 +981,11 @@ export class ExpressionEvaluator {
         const baseTypeResult = this._getTypeFromExpression(node.leftExpression);
         const memberType = this._getTypeFromMemberAccessExpressionWithBaseType(
             node, baseTypeResult, usage, flags);
+
+        if (usage.method === 'get') {
+            memberType.type = this._getNarrowedTypeFromCodeFlow(node,
+                memberType.type, memberType.type);
+        }
 
         if (this._writeTypeToCache) {
             // Cache the type information in the member name node as well.
@@ -1022,31 +1042,28 @@ export class ExpressionEvaluator {
                 type = UnknownType.create();
             }
         } else if (baseType.category === TypeCategory.Union) {
-            const returnTypes: Type[] = [];
-            baseType.subtypes.forEach(typeEntry => {
-                if (isNoneOrNever(typeEntry)) {
+            type = TypeUtils.doForSubtypes(baseType, subtype => {
+                if (isNoneOrNever(subtype)) {
                     this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportOptionalMemberAccess,
                         DiagnosticRule.reportOptionalMemberAccess,
                         `'${ memberName }' is not a known member of 'None'`, node.memberName);
+                    return undefined;
+                } else if (subtype.category === TypeCategory.Unbound) {
+                    // Don't do anything if it's unbound. The error will already
+                    // be reported elsewhere.
+                    return undefined;
                 } else {
                     const typeResult = this._getTypeFromMemberAccessExpressionWithBaseType(node,
                         {
-                            type: typeEntry,
+                            type: subtype,
                             node
                         },
                         usage,
                         EvaluatorFlags.None);
-
-                    if (typeResult) {
-                        returnTypes.push(typeResult.type);
-                    }
+                    return typeResult.type;
                 }
             });
-
-            if (returnTypes.length > 0) {
-                type = combineTypes(returnTypes);
-            }
         } else if (baseType.category === TypeCategory.Property) {
             if (memberName === 'getter' || memberName === 'setter' || memberName === 'deleter') {
                 // Synthesize a decorator.
@@ -1346,9 +1363,11 @@ export class ExpressionEvaluator {
         return undefined;
     }
 
-    private _getTypeFromIndexExpression(node: IndexExpressionNode, usage: EvaluatorUsage): TypeResult {
+    private _getTypeFromIndexExpression(node: IndexExpressionNode, usage: EvaluatorUsage,
+            flags: EvaluatorFlags): TypeResult {
+
         const baseTypeResult = this._getTypeFromExpression(node.baseExpression,
-            { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
+            { method: 'get' }, flags | EvaluatorFlags.DoNotSpecialize);
 
         const baseType = baseTypeResult.type;
 
@@ -1368,7 +1387,7 @@ export class ExpressionEvaluator {
             });
 
             if (isUnionOfClasses) {
-                const typeArgs = this._getTypeArgs(node.items).map(t => t.type);
+                const typeArgs = this._getTypeArgs(node.items, flags).map(t => t.type);
                 const typeVarMap = TypeUtils.buildTypeVarMap(typeParameters, typeArgs);
                 const type = TypeUtils.specializeType(baseType, typeVarMap);
                 return { type, node };
@@ -1392,7 +1411,7 @@ export class ExpressionEvaluator {
                     return this._createLiteralType(node);
                 } else if (ClassType.isBuiltIn(subtype, 'InitVar')) {
                     // Special-case InitVar, used in data classes.
-                    const typeArgs = this._getTypeArgs(node.items);
+                    const typeArgs = this._getTypeArgs(node.items, flags);
                     if (typeArgs.length === 1) {
                         return typeArgs[0].type;
                     } else {
@@ -1409,7 +1428,7 @@ export class ExpressionEvaluator {
                     // a known enum member.
                     return ObjectType.create(subtype);
                 } else {
-                    const typeArgs = this._getTypeArgs(node.items);
+                    const typeArgs = this._getTypeArgs(node.items, flags);
                     return this._createSpecializedClassType(subtype, typeArgs, node.items);
                 }
             } else if (subtype.category === TypeCategory.Object) {
@@ -1423,9 +1442,11 @@ export class ExpressionEvaluator {
 
                 return UnknownType.create();
             } else {
-                this._addError(
-                    `Object of type '${ printType(subtype) }' cannot be subscripted`,
-                    node.baseExpression);
+                if (!isUnbound(subtype)) {
+                    this._addError(
+                        `Object of type '${ printType(subtype) }' cannot be subscripted`,
+                        node.baseExpression);
+                }
 
                 return UnknownType.create();
             }
@@ -1579,28 +1600,29 @@ export class ExpressionEvaluator {
         return returnType || UnknownType.create();
     }
 
-    private _getTypeArgs(node: IndexItemsNode): TypeResult[] {
+    private _getTypeArgs(node: IndexItemsNode, flags: EvaluatorFlags): TypeResult[] {
         const typeArgs: TypeResult[] = [];
 
         node.items.forEach(expr => {
-            typeArgs.push(this._getTypeArg(expr));
+            typeArgs.push(this._getTypeArg(expr, flags));
         });
 
         return typeArgs;
     }
 
-    private _getTypeArg(node: ExpressionNode): TypeResult {
+    private _getTypeArg(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
         let typeResult: TypeResult;
 
         if (node.nodeType === ParseNodeType.List) {
             typeResult = {
                 type: UnknownType.create(),
-                typeList: node.entries.map(entry => this._getTypeFromExpression(entry)),
+                typeList: node.entries.map(entry => this._getTypeFromExpression(
+                    entry, { method: 'get' }, flags)),
                 node
             };
         } else {
             typeResult = this._getTypeFromExpression(node, { method: 'get' },
-                EvaluatorFlags.ConvertEllipsisToAny);
+                flags | EvaluatorFlags.ConvertEllipsisToAny);
         }
 
         return typeResult;
@@ -3187,21 +3209,7 @@ export class ExpressionEvaluator {
         }
 
         let leftType = this.getType(leftExpression);
-
-        // Is this an AND operator? If so, we can assume that the
-        // rightExpression won't be evaluated at runtime unless the
-        // leftExpression evaluates to true.
-        let typeConstraints: ConditionalTypeConstraintResults | undefined;
-        let useIfConstraint = true;
-        if (node.operator === OperatorType.And || node.operator === OperatorType.Or) {
-            typeConstraints = this._buildTypeConstraints(node.leftExpression);
-            useIfConstraint = node.operator === OperatorType.And;
-        }
-
-        let rightType: Type = UnknownType.create();
-        this._useExpressionTypeConstraint(typeConstraints, useIfConstraint, () => {
-            rightType = this.getType(node.rightExpression);
-        });
+        let rightType = this.getType(node.rightExpression);
 
         // Optional checks apply to all operations except for boolean operations.
         if (booleanOperatorMap[node.operator] === undefined) {
@@ -3249,6 +3257,9 @@ export class ExpressionEvaluator {
         };
 
         let type: Type | undefined;
+
+        // Don't write to the cache when we evaluate the left-hand side.
+        // We'll write the result as part of the "set" method.
         const leftType = this.getType(node.leftExpression);
         const rightType = this.getType(node.rightExpression);
 
@@ -3359,19 +3370,20 @@ export class ExpressionEvaluator {
                 });
             });
         } else if (booleanOperatorMap[operator]) {
+            // If it's an AND or OR, we need to handle short-circuiting by
+            // eliminating any known-truthy or known-falsy types.
+            if (operator === OperatorType.And) {
+                leftType = TypeUtils.removeTruthinessFromType(leftType);
+            } else if (operator === OperatorType.Or) {
+                leftType = TypeUtils.removeFalsinessFromType(leftType);
+            }
+
             type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
                 return TypeUtils.doForSubtypes(rightType, rightSubtype => {
                     // If the operator is an AND or OR, we need to combine the two types.
-                    if (operator === OperatorType.And) {
-                        return combineTypes([
-                            TypeUtils.removeTruthinessFromType(leftSubtype), rightSubtype]);
+                    if (operator === OperatorType.And || operator === OperatorType.Or) {
+                        return combineTypes([leftSubtype, rightSubtype]);
                     }
-
-                    if (operator === OperatorType.Or) {
-                        return combineTypes([
-                            TypeUtils.removeFalsinessFromType(leftSubtype), rightSubtype]);
-                    }
-
                     // The other boolean operators always return a bool value.
                     return ScopeUtils.getBuiltInObject(this._scope, 'bool');
                 });
@@ -3688,27 +3700,16 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _getTypeFromTernaryExpression(node: TernaryExpressionNode, flags: EvaluatorFlags,
-            usage: EvaluatorUsage): TypeResult {
-
+    private _getTypeFromTernaryExpression(node: TernaryExpressionNode, flags: EvaluatorFlags): TypeResult {
         this._getTypeFromExpression(node.testExpression);
 
-        // Apply the type constraint when evaluating the if and else clauses.
-        const typeConstraints = this._buildTypeConstraints(node.testExpression);
-
-        let ifType: TypeResult | undefined;
-        this._useExpressionTypeConstraint(typeConstraints, true, () => {
-            ifType = this._getTypeFromExpression(node.ifExpression,
+        const ifType = this._getTypeFromExpression(node.ifExpression,
                 { method: 'get' }, flags);
-        });
 
-        let elseType: TypeResult | undefined;
-        this._useExpressionTypeConstraint(typeConstraints, false, () => {
-            elseType = this._getTypeFromExpression(node.elseExpression,
+        const elseType = this._getTypeFromExpression(node.elseExpression,
                 { method: 'get' }, flags);
-        });
 
-        const type = combineTypes([ifType!.type, elseType!.type]);
+        const type = combineTypes([ifType.type, elseType.type]);
         return { type, node };
     }
 
@@ -3754,11 +3755,6 @@ export class ExpressionEvaluator {
         const prevScope = this._scope;
         this._scope = AnalyzerNodeInfo.getScope(node)!;
 
-        // Temporarily re-parent the scope in case the prevScope was
-        // a temporary one.
-        const prevParent = this._scope.getParent();
-        this._scope.setParent(prevScope);
-
         let expectedFunctionType: FunctionType | undefined;
         if (usage.expectedType) {
             if (usage.expectedType.category === TypeCategory.Function) {
@@ -3794,7 +3790,6 @@ export class ExpressionEvaluator {
         FunctionType.getInferredReturnType(functionType).addSource(
             returnType, node.expression.id);
 
-        this._scope.setParent(prevParent);
         this._scope = prevScope;
 
         return { type: functionType, node };
@@ -3826,11 +3821,6 @@ export class ExpressionEvaluator {
         // between analysis passes, so we never have an opportunity to
         // mark them as accessed.
         symbolWithScope.symbol.setIsAccessed();
-
-        const typeConstraint = TypeConstraintBuilder.buildTypeConstraintForAssignment(targetExpr, type);
-        if (typeConstraint) {
-            this._scope.addTypeConstraint(typeConstraint);
-        }
     }
 
     private _assignTypeToExpression(targetExpr: ExpressionNode, type: Type, srcExpr?: ExpressionNode): boolean {
@@ -3929,16 +3919,9 @@ export class ExpressionEvaluator {
         const prevScope = this._scope;
         this._scope = AnalyzerNodeInfo.getScope(node)!;
 
-        // Temporarily re-parent the scope in case the prevScope was
-        // a temporary one.
-        const prevParent = this._scope.getParent();
-        this._scope.setParent(prevScope);
-
         // There are some variants that we may not understand. If so,
         // we will set this flag and fall back on Unknown.
         let understoodType = true;
-
-        let typeConstraintsToPop = 0;
 
         // "Execute" the list comprehensions from start to finish.
         for (const comprehension of node.comprehensions) {
@@ -3957,16 +3940,6 @@ export class ExpressionEvaluator {
                 assert(comprehension.nodeType === ParseNodeType.ListComprehensionIf);
                 // Evaluate the test expression
                 this.getType(comprehension.testExpression);
-
-                // Use the if node (if present) to create a type constraint.
-                const typeConstraint = TypeConstraintBuilder.buildTypeConstraintsForConditional(
-                    comprehension.testExpression, expr => TypeUtils.stripLiteralValue(
-                        this.getType(expr)));
-
-                if (typeConstraint) {
-                    typeConstraintsToPop += typeConstraint.ifConstraints.length;
-                    this._expressionTypeConstraints.push(...typeConstraint.ifConstraints);
-                }
             }
         }
 
@@ -3990,11 +3963,6 @@ export class ExpressionEvaluator {
             }
         }
 
-        for (let i = 0; i < typeConstraintsToPop; i++) {
-            this._expressionTypeConstraints.pop();
-        }
-
-        this._scope.setParent(prevParent);
         this._scope = prevScope;
 
         return type;
@@ -4291,44 +4259,464 @@ export class ExpressionEvaluator {
         return this._createSpecialType(classType, typeArgs);
     }
 
-    private _applyTypeConstraint(node: ExpressionNode, unconstrainedType: Type): Type {
-        // Shortcut the process if the type is unknown.
-        if (isAnyOrUnknown(unconstrainedType)) {
-            return unconstrainedType;
+    private _getNarrowedTypeFromCodeFlow(node: NameNode | MemberAccessExpressionNode,
+            type: Type, typeAtStart?: Type): Type {
+
+        const flowNode = AnalyzerNodeInfo.getFlowNode(node);
+
+        // If there was no flow label, it was probably an unreachable node,
+        // so we'll return the original type.
+        if (!flowNode) {
+            assert.fail('Expected to find flow node');
         }
 
-        // Apply constraints from the current scope and its outer scopes.
-        let constrainedType = this._applyScopeTypeConstraintRecursive(
-            node, unconstrainedType);
-
-        // Apply constraints associated with the expression we're
-        // currently walking.
-        this._expressionTypeConstraints.forEach(constraint => {
-            constrainedType = constraint.applyToType(node, constrainedType);
-        });
-
-        return constrainedType;
+        const typeFromControlFlow = this._getTypeFromFlowNode(flowNode!, node, typeAtStart);
+        if (typeFromControlFlow) {
+            return typeFromControlFlow;
+        }
+        return type;
     }
 
-    private _applyScopeTypeConstraintRecursive(node: ExpressionNode, type: Type,
-            scope = this._scope): Type {
+    // If this flow has no knowledge of the target expression, it returns undefined.
+    // If the start flow node for this scope is reachable, the typeAtStart value is
+    // returned.
+    private _getTypeFromFlowNode(flowNode: FlowNode, target: NameNode | MemberAccessExpressionNode,
+            typeAtStart: Type | undefined): Type | undefined {
 
-        // If we've hit a scope that is independently executable, don't recur any further.
-        if (!scope.isIndependentlyExecutable()) {
-            // Recursively allow the parent scopes to apply their type constraints.
-            const parentScope = scope.getParent();
-            if (parentScope) {
-                type = this._applyScopeTypeConstraintRecursive(node, type, parentScope);
+        let curFlowNode = flowNode;
+
+        while (true) {
+            if (this._flowNodeRecursionMap.get(curFlowNode.id) ||
+                    this._flowNodeRecursionCount > _maxFlowNodeRecursionCount) {
+
+                return undefined;
+            }
+
+            if (curFlowNode.flags & FlowFlags.Unreachable) {
+                // We can get here if there are nodes in a compound logical expression
+                // (e.g. "False and x") that are never executed but are evaluated.
+                // The type doesn't matter in this case.
+                return undefined;
+            }
+
+            if (curFlowNode.flags & FlowFlags.Start) {
+                return typeAtStart;
+            } else if (curFlowNode.flags & FlowFlags.Assignment) {
+                const assignmentFlowNode = curFlowNode as FlowAssignment;
+                if (target.nodeType === ParseNodeType.Name || target.nodeType === ParseNodeType.MemberAccess) {
+                    if (this._isMatchingExpression(target, assignmentFlowNode.node)) {
+                        if (curFlowNode.flags & FlowFlags.Unbind) {
+                            return UnboundType.create();
+                        }
+                        return AnalyzerNodeInfo.getExpressionType(assignmentFlowNode.node);
+                    }
+                }
+
+                curFlowNode = assignmentFlowNode.antecedent;
+                continue;
+            } else if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
+                const labelNode = curFlowNode as FlowLabel;
+                const typesToCombine: Type[] = [];
+                this._preventFlowNodeRecursion(labelNode.id, () => {
+                    labelNode.antecedents.map(antecedent => {
+                        const type = this._getTypeFromFlowNode(antecedent, target, typeAtStart);
+                        if (type) {
+                            typesToCombine.push(type);
+                        }
+                    });
+                });
+                if (typesToCombine.length === 0) {
+                    return undefined;
+                }
+                return combineTypes(typesToCombine);
+            } else if (curFlowNode.flags & FlowFlags.WildcardImport) {
+                const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
+                if (target.nodeType === ParseNodeType.Name) {
+                    const nameValue = target.nameToken.value;
+                    if (wildcardImportFlowNode.names.some(name => name === nameValue)) {
+                        // TODO - need to implement
+                        return typeAtStart;
+                    }
+                }
+
+                curFlowNode = wildcardImportFlowNode.antecedent;
+                continue;
+            } else if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
+                const conditionalFlowNode = curFlowNode as FlowCondition;
+                const typeNarrowingCallback = this._getTypeNarrowingCallback(target, conditionalFlowNode);
+                if (typeNarrowingCallback) {
+                    let type: Type | undefined;
+                    this._preventFlowNodeRecursion(conditionalFlowNode.id, () => {
+                        type = this._getTypeFromFlowNode(conditionalFlowNode.antecedent,
+                            target, typeAtStart);
+                    });
+
+                    if (!type) {
+                        return undefined;
+                    }
+
+                    return typeNarrowingCallback(type);
+                } else {
+                    curFlowNode = conditionalFlowNode.antecedent;
+                    continue;
+                }
+            } else if (curFlowNode.flags & FlowFlags.Call) {
+                const callFlowNode = curFlowNode as FlowCall;
+
+                // If this function returns a "NoReturn" type, that means
+                // it always raises an exception or otherwise doesn't return,
+                // so we can assume that the code before this is unreachable.
+                const returnType = AnalyzerNodeInfo.getExpressionType(callFlowNode.node);
+                if (returnType && TypeUtils.isNoReturnType(returnType)) {
+                    return undefined;
+                }
+
+                curFlowNode = callFlowNode.antecedent;
+                continue;
+            } else {
+                // We shouldn't get here.
+                assert.fail('Unexpected flow node flags');
+                return undefined;
+            }
+        }
+    }
+
+    private _isFlowNodeReachable(flowNode: FlowNode): boolean {
+        let curFlowNode = flowNode;
+
+        while (true) {
+            if (this._flowNodeRecursionMap.get(curFlowNode.id) ||
+                    this._flowNodeRecursionCount > _maxFlowNodeRecursionCount) {
+
+                return true;
+            }
+
+            if (curFlowNode.flags & FlowFlags.Unreachable) {
+                return false;
+            }
+
+            if (curFlowNode.flags & FlowFlags.Start) {
+                return true;
+            } else if (curFlowNode.flags & FlowFlags.Assignment) {
+                const assignmentFlowNode = curFlowNode as FlowAssignment;
+                curFlowNode = assignmentFlowNode.antecedent;
+                continue;
+            } else if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
+                const labelNode = curFlowNode as FlowLabel;
+                let isReachable = false;
+                this._preventFlowNodeRecursion(labelNode.id, () => {
+                    for (const antecedent of labelNode.antecedents) {
+                        if (this._isFlowNodeReachable(antecedent)) {
+                            isReachable = true;
+                            break;
+                        }
+                    }
+                });
+                return isReachable;
+            } else if (curFlowNode.flags & FlowFlags.WildcardImport) {
+                const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
+                curFlowNode = wildcardImportFlowNode.antecedent;
+                continue;
+            } else if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
+                const conditionalFlowNode = curFlowNode as FlowCondition;
+                curFlowNode = conditionalFlowNode.antecedent;
+                continue;
+            } else if (curFlowNode.flags & FlowFlags.Call) {
+                const callFlowNode = curFlowNode as FlowCall;
+
+                // If this function returns a "NoReturn" type, that means
+                // it always raises an exception or otherwise doesn't return,
+                // so we can assume that the code before this is unreachable.
+                const returnType = AnalyzerNodeInfo.getExpressionType(callFlowNode.node);
+                if (returnType && TypeUtils.isNoReturnType(returnType)) {
+                    return false;
+                }
+
+                curFlowNode = callFlowNode.antecedent;
+                continue;
+            } else {
+                // We shouldn't get here.
+                assert.fail('Unexpected flow node flags');
+                return true;
+            }
+        }
+    }
+
+    private _preventFlowNodeRecursion(flowNodeId: number, callback: () => void) {
+        this._flowNodeRecursionMap.set(flowNodeId, true);
+        this._flowNodeRecursionCount++;
+
+        callback();
+
+        this._flowNodeRecursionMap.delete(flowNodeId);
+        this._flowNodeRecursionCount--;
+    }
+
+    // Given a target expression and a flow node, returns a callback that
+    // can be used to narrow the type described by the target expression.
+    // If the specified flow node is not associated with the target expression,
+    // it returns undefined.
+    private _getTypeNarrowingCallback(target: ExpressionNode, flowNode: FlowCondition): TypeNarrowingCallback | undefined {
+        const testExpression = flowNode.expression;
+        const isPositiveTest = !!(flowNode.flags & FlowFlags.TrueCondition);
+
+        if (testExpression.nodeType === ParseNodeType.BinaryOperation) {
+            if (testExpression.operator === OperatorType.Is || testExpression.operator === OperatorType.IsNot) {
+                // Invert the "isPositiveTest" value if this is an "is not" operation.
+                const adjIsPositiveTest = testExpression.operator === OperatorType.Is ?
+                    isPositiveTest : !isPositiveTest;
+
+                // Look for "X is None" or "X is not None". These are commonly-used
+                // patterns used in control flow.
+                if (testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
+                        testExpression.rightExpression.token.keywordType === KeywordType.None) {
+
+                    if (this._isMatchingExpression(target, testExpression.leftExpression)) {
+                        // Narrow the type by filtering on "None".
+                        return (type: Type) => {
+                            if (type.category === TypeCategory.Union) {
+                                const remainingTypes = type.subtypes.filter(t => {
+                                    if (isAnyOrUnknown(t)) {
+                                        // We need to assume that "Any" is always both None and not None,
+                                        // so it matches regardless of whether the test is positive or negative.
+                                        return true;
+                                    }
+
+                                    // See if it's a match for None.
+                                    return isNoneOrNever(t) === adjIsPositiveTest;
+                                });
+
+                                return combineTypes(remainingTypes);
+                            } else if (isNoneOrNever(type)) {
+                                if (!adjIsPositiveTest) {
+                                    // Use a "Never" type (which is a special form
+                                    // of None) to indicate that the condition will
+                                    // always evaluate to false.
+                                    return NeverType.create();
+                                }
+                            }
+
+                            return type;
+                        };
+                    }
+                }
+
+                // Look for "type(X) is Y" or "type(X) is not Y".
+                if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
+                    const callType = this.getType(testExpression.leftExpression.leftExpression);
+                    if (callType.category === TypeCategory.Class &&
+                            ClassType.isBuiltIn(callType, 'type') &&
+                            testExpression.leftExpression.arguments.length === 1 &&
+                            testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
+
+                        const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
+                        if (this._isMatchingExpression(target, arg0Expr)) {
+                            const classType = this.getType(testExpression.rightExpression);
+                            if (classType.category === TypeCategory.Class) {
+                                return (type: Type) => {
+                                    // Narrow the type based on whether the type matches the specified type.
+                                    return TypeUtils.doForSubtypes(type, subtype => {
+                                        if (subtype.category === TypeCategory.Object) {
+                                            const matches = ClassType.isSameGenericClass(subtype.classType, classType);
+                                            if (adjIsPositiveTest) {
+                                                return matches ? subtype : undefined;
+                                            } else {
+                                                return matches ? undefined : subtype;
+                                            }
+                                        } else if (isNoneOrNever(subtype)) {
+                                            return adjIsPositiveTest ? undefined : subtype;
+                                        }
+
+                                        return subtype;
+                                    });
+                                };
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // Apply the constraints within the current scope. Stop if one of
-        // them indicates that further constraints shouldn't be applied.
-        for (const constraint of scope.getTypeConstraints()) {
-            type = constraint.applyToType(node, type);
+        if (testExpression.nodeType === ParseNodeType.Call) {
+            // Look for "isinstance(X, Y)" or "issubclass(X, Y)".
+            if (testExpression.leftExpression.nodeType === ParseNodeType.Name &&
+                    (testExpression.leftExpression.nameToken.value === 'isinstance' ||
+                        testExpression.leftExpression.nameToken.value === 'issubclass') &&
+                    testExpression.arguments.length === 2) {
+
+                // Make sure the first parameter is a supported expression type
+                // and the second parameter is a valid class type or a tuple
+                // of valid class types.
+                const isInstanceCheck = testExpression.leftExpression.nameToken.value === 'isinstance';
+                const arg0Expr = testExpression.arguments[0].valueExpression;
+                const arg1Expr = testExpression.arguments[1].valueExpression;
+                if (this._isMatchingExpression(target, arg0Expr)) {
+                    const arg1Type = this.getType(arg1Expr);
+                    const classTypeList = this._getIsInstanceClassTypes(arg1Type);
+                    if (classTypeList) {
+                        return (type: Type) => {
+                            return this._narrowTypeForIsInstance(type, classTypeList, isInstanceCheck, isPositiveTest);
+                        };
+                    }
+                }
+            }
         }
 
+        if (this._isMatchingExpression(target, testExpression)) {
+            return (type: Type) => {
+                // Narrow the type based on whether the subtype can be true or false.
+                return TypeUtils.doForSubtypes(type, subtype => {
+                    if (isPositiveTest) {
+                        if (TypeUtils.canBeTruthy(subtype)) {
+                            return subtype;
+                        }
+                    } else {
+                        if (TypeUtils.canBeFalsy(subtype)) {
+                            return subtype;
+                        }
+                    }
+                    return undefined;
+                });
+            };
+        }
+
+        return undefined;
+    }
+
+    // The "isinstance" and "issubclass" calls support two forms - a simple form
+    // that accepts a single class, and a more complex form that accepts a tuple
+    // of classes. This method determines which form and returns a list of classes
+    // or undefined.
+    private _getIsInstanceClassTypes(argType: Type): ClassType[] | undefined {
+        if (argType.category === TypeCategory.Class) {
+            return [argType];
+        }
+
+        if (argType.category === TypeCategory.Object) {
+            const objClass = argType.classType;
+            if (ClassType.isBuiltIn(objClass, 'Tuple') && ClassType.getTypeArguments(objClass)) {
+                let foundNonClassType = false;
+                const classTypeList: ClassType[] = [];
+                ClassType.getTypeArguments(objClass)!.forEach(typeArg => {
+                    if (typeArg.category === TypeCategory.Class) {
+                        classTypeList.push(typeArg);
+                    } else {
+                        foundNonClassType = true;
+                    }
+                });
+
+                if (!foundNonClassType) {
+                    return classTypeList;
+                }
+            }
+        }
+
+        return undefined;
+    }
+
+    // Attempts to narrow a type (make it more constrained) based on a
+    // call to isinstance or issubclass. For example, if the original
+    // type of expression "x" is "Mammal" and the test expression is
+    // "isinstance(x, Cow)", (assuming "Cow" is a subclass of "Mammal"),
+    // we can conclude that x must be constrained to "Cow".
+    private _narrowTypeForIsInstance(type: Type, classTypeList: ClassType[],
+            isInstanceCheck: boolean, isPositiveTest: boolean): Type {
+
+        const effectiveType = TypeUtils.doForSubtypes(type, subtype => {
+            return TypeUtils.transformTypeObjectToClass(subtype);
+        });
+
+        // Filters the varType by the parameters of the isinstance
+        // and returns the list of types the varType could be after
+        // applying the filter.
+        const filterType = (varType: ClassType): (ObjectType[] | ClassType[]) => {
+            const filteredTypes: ClassType[] = [];
+
+            let foundSuperclass = false;
+            for (const filterType of classTypeList) {
+                const filterIsSuperclass = ClassType.isDerivedFrom(varType, filterType);
+                const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
+
+                if (filterIsSuperclass) {
+                    foundSuperclass = true;
+                }
+
+                if (isPositiveTest) {
+                    if (filterIsSuperclass) {
+                        // If the variable type is a subclass of the isinstance
+                        // filter, we haven't learned anything new about the
+                        // variable type.
+                        filteredTypes.push(varType);
+                    } else if (filterIsSubclass) {
+                        // If the variable type is a superclass of the isinstance
+                        // filter, we can narrow the type to the subclass.
+                        filteredTypes.push(filterType);
+                    }
+                }
+            }
+
+            // In the negative case, if one or more of the filters
+            // always match the type (i.e. they are an exact match or
+            // a superclass of the type), then there's nothing left after
+            // the filter is applied. If we didn't find any superclass
+            // match, then the original variable type survives the filter.
+            if (!isPositiveTest && !foundSuperclass) {
+                filteredTypes.push(varType);
+            }
+
+            if (!isInstanceCheck) {
+                return filteredTypes;
+            }
+
+            return filteredTypes.map(t => ObjectType.create(t));
+        };
+
+        const finalizeFilteredTypeList = (types: Type[]): Type => {
+            return combineTypes(types);
+        };
+
+        if (isInstanceCheck && effectiveType.category === TypeCategory.Object) {
+            const filteredType = filterType(effectiveType.classType);
+            return finalizeFilteredTypeList(filteredType);
+        } else if (!isInstanceCheck && effectiveType.category === TypeCategory.Class) {
+            const filteredType = filterType(effectiveType);
+            return finalizeFilteredTypeList(filteredType);
+        } else if (effectiveType.category === TypeCategory.Union) {
+            let remainingTypes: Type[] = [];
+
+            effectiveType.subtypes.forEach(t => {
+                if (isAnyOrUnknown(t)) {
+                    // Any types always remain for both positive and negative
+                    // checks because we can't say anything about them.
+                    remainingTypes.push(t);
+                } else if (isInstanceCheck && t.category === TypeCategory.Object) {
+                    remainingTypes = remainingTypes.concat(filterType(t.classType));
+                } else if (!isInstanceCheck && t.category === TypeCategory.Class) {
+                    remainingTypes = remainingTypes.concat(filterType(t));
+                } else {
+                    // All other types are never instances of a class.
+                    if (!isPositiveTest) {
+                        remainingTypes.push(t);
+                    }
+                }
+            });
+
+            return finalizeFilteredTypeList(remainingTypes);
+        }
+
+        // Return the original type.
         return type;
+    }
+
+    private _isMatchingExpression(expression1: ExpressionNode, expression2: ExpressionNode): boolean {
+        if (expression1.nodeType === ParseNodeType.Name && expression2.nodeType === ParseNodeType.Name) {
+            return expression1.nameToken.value === expression2.nameToken.value;
+        } else if (expression1.nodeType === ParseNodeType.MemberAccess && expression2.nodeType === ParseNodeType.MemberAccess) {
+            return this._isMatchingExpression(expression1.leftExpression, expression2.leftExpression) &&
+                expression1.memberName.nameToken.value === expression2.memberName.nameToken.value;
+        }
+
+        return false;
     }
 
     // Specializes the specified (potentially generic) class type using
@@ -4450,29 +4838,6 @@ export class ExpressionEvaluator {
         return specializedClass;
     }
 
-    private _useExpressionTypeConstraint(typeConstraints:
-            ConditionalTypeConstraintResults | undefined,
-            useIfClause: boolean, callback: () => void) {
-
-        // Push the specified constraints onto the list.
-        let itemsToPop = 0;
-        if (typeConstraints) {
-            const constraintsToUse = useIfClause ?
-                typeConstraints.ifConstraints : typeConstraints.elseConstraints;
-            constraintsToUse.forEach(tc => {
-                this._expressionTypeConstraints.push(tc);
-                itemsToPop++;
-            });
-        }
-
-        callback();
-
-        // Clean up after ourself.
-        for (let i = 0; i < itemsToPop; i++) {
-            this._expressionTypeConstraints.pop();
-        }
-    }
-
     private _getTypeForArgument(arg: FunctionArgument): Type {
         if (arg.type) {
             return arg.type;
@@ -4481,11 +4846,6 @@ export class ExpressionEvaluator {
         // If there was no defined type provided, there should always
         // be a value expression from which we can retrieve the type.
         return this.getType(arg.valueExpression!, { method: 'get' });
-    }
-
-    private _buildTypeConstraints(node: ExpressionNode) {
-        return TypeConstraintBuilder.buildTypeConstraintsForConditional(node,
-            (node: ExpressionNode) => this.getType(node));
     }
 
     // Disables recording of errors and warnings and disables
