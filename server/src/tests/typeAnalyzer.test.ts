@@ -110,7 +110,7 @@ test('TypeConstraint1', () => {
 test('TypeConstraint2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint2.py']);
 
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 8);
 });
 
 test('TypeConstraint3', () => {
@@ -617,6 +617,18 @@ test('UnnecessaryIsInstance1', () => {
     // Turn on errors.
     configOptions.diagnosticSettings.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance1.py'], configOptions);
+    validateResults(analysisResults, 3);
+});
+
+test('UnnecessaryIsSubclass1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsSubclass1.py'], configOptions);
+    validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticSettings.reportUnnecessaryIsInstance = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsSubclass1.py'], configOptions);
     validateResults(analysisResults, 3);
 });
 

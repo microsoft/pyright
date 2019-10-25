@@ -1324,7 +1324,8 @@ export class Binder extends ParseTreeWalker {
 
             case ParseNodeType.Call: {
                 return expression.leftExpression.nodeType === ParseNodeType.Name &&
-                    expression.leftExpression.nameToken.value === 'isinstance' &&
+                    (expression.leftExpression.nameToken.value === 'isinstance' ||
+                        expression.leftExpression.nameToken.value === 'issubclass') &&
                     expression.arguments.length === 2;
             }
         }

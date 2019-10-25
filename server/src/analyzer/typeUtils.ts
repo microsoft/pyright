@@ -561,6 +561,31 @@ export function canBeTruthy(type: Type): boolean {
     return true;
 }
 
+// If the type is a concrete class X described by the object Type[X],
+// returns X. Otherwise returns the original type.
+export function transformTypeObjectToClass(type: Type): Type {
+    if (type.category !== TypeCategory.Object) {
+        return type;
+    }
+
+    const classType = type.classType;
+    if (!ClassType.isBuiltIn(classType, 'Type')) {
+        return type;
+    }
+
+    // If it's a generic Type, we can't get the class.
+    if (!classType.typeArguments || classType.typeArguments.length < 1) {
+        return type;
+    }
+
+    const typeArg = classType.typeArguments[0];
+    if (typeArg.category !== TypeCategory.Object) {
+        return type;
+    }
+
+    return typeArg.classType;;
+}
+
 // None is always falsy. All other types are generally truthy
 // unless they are objects that support the __bool__ or __len__
 // methods.

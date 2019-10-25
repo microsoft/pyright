@@ -249,7 +249,7 @@
     "reportUnnecessaryIsInstance": {
       "$id": "#/properties/reportUnnecessaryIsInstance",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting calls to 'isinstance' where the result is statically determined to be always true or false",
+      "title": "Controls reporting calls to 'isinstance' or 'issubclass' where the result is statically determined to be always true or false",
       "default": "none"
     },
     "reportUnnecessaryCast": {

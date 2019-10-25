@@ -269,12 +269,14 @@ export class TypeConstraintBuilder {
             }
         } else if (testExpression.nodeType === ParseNodeType.Call) {
             if (testExpression.leftExpression.nodeType === ParseNodeType.Name &&
-                    testExpression.leftExpression.nameToken.value === 'isinstance' &&
+                    (testExpression.leftExpression.nameToken.value === 'isinstance' ||
+                        testExpression.leftExpression.nameToken.value === 'issubclass') &&
                     testExpression.arguments.length === 2) {
 
                 // Make sure the first parameter is a supported expression type
                 // and the second parameter is a valid class type or a tuple
                 // of valid class types.
+                const isInstanceCheck = testExpression.leftExpression.nameToken.value === 'isinstance';
                 const arg0Expr = testExpression.arguments[0].valueExpression;
                 const arg1Expr = testExpression.arguments[1].valueExpression;
 
@@ -284,8 +286,10 @@ export class TypeConstraintBuilder {
                     // Create a shared lambda for creating the actual type constraint.
                     const createIsInstanceTypeConstraint = (classList: ClassType[]) => {
                         const originalType = typeEvaluator(arg0Expr);
-                        const positiveType = this._transformTypeForIsInstanceExpression(originalType, classList, true);
-                        const negativeType = this._transformTypeForIsInstanceExpression(originalType, classList, false);
+                        const positiveType = this._transformTypeForIsInstanceExpression(
+                            originalType, classList, isInstanceCheck, true);
+                        const negativeType = this._transformTypeForIsInstanceExpression(
+                            originalType, classList, isInstanceCheck, false);
                         const trueConstraint = new TypeConstraint(arg0Expr, positiveType);
                         const falseConstraint = new TypeConstraint(arg0Expr, negativeType);
                         return {
@@ -412,15 +416,19 @@ export class TypeConstraintBuilder {
         });
     }
 
-    // Represents an "isinstance" check, potentially constraining a
+    // Represents an "isinstance" or "issubclass" check, potentially constraining a
     // union type.
     private static _transformTypeForIsInstanceExpression(type: Type, classTypeList: ClassType[],
-            isPositiveTest: boolean): Type {
+            isInstanceCheck: boolean, isPositiveTest: boolean): Type {
+
+        const effectiveType = TypeUtils.doForSubtypes(type, subtype => {
+            return TypeUtils.transformTypeObjectToClass(subtype);
+        });
 
         // Filters the varType by the parameters of the isinstance
         // and returns the list of types the varType could be after
         // applying the filter.
-        const filterType = (varType: ClassType): ObjectType[] => {
+        const filterType = (varType: ClassType): (ObjectType[] | ClassType[]) => {
             const filteredTypes: ClassType[] = [];
 
             let foundSuperclass = false;
@@ -455,6 +463,10 @@ export class TypeConstraintBuilder {
                 filteredTypes.push(varType);
             }
 
+            if (!isInstanceCheck) {
+                return filteredTypes;
+            }
+
             return filteredTypes.map(t => ObjectType.create(t));
         };
 
@@ -462,20 +474,24 @@ export class TypeConstraintBuilder {
             return combineTypes(types);
         };
 
-        if (type.category === TypeCategory.Object) {
-            const filteredType = filterType(type.classType);
+        if (isInstanceCheck && effectiveType.category === TypeCategory.Object) {
+            const filteredType = filterType(effectiveType.classType);
             return finalizeFilteredTypeList(filteredType);
-        } else if (type.category === TypeCategory.Union) {
+        } else if (!isInstanceCheck && effectiveType.category === TypeCategory.Class) {
+            const filteredType = filterType(effectiveType);
+            return finalizeFilteredTypeList(filteredType);
+        } else if (effectiveType.category === TypeCategory.Union) {
             let remainingTypes: Type[] = [];
 
-            type.subtypes.forEach(t => {
+            effectiveType.subtypes.forEach(t => {
                 if (isAnyOrUnknown(t)) {
                     // Any types always remain for both positive and negative
                     // checks because we can't say anything about them.
                     remainingTypes.push(t);
-                } else if (t.category === TypeCategory.Object) {
-                    remainingTypes = remainingTypes.concat(
-                        filterType(t.classType));
+                } else if (isInstanceCheck && t.category === TypeCategory.Object) {
+                    remainingTypes = remainingTypes.concat(filterType(t.classType));
+                } else if (!isInstanceCheck && t.category === TypeCategory.Class) {
+                    remainingTypes = remainingTypes.concat(filterType(t));
                 } else {
                     // All other types are never instances of a class.
                     if (!isPositiveTest) {

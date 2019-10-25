@@ -139,7 +139,7 @@ export interface DiagnosticSettings {
     // initialization expression?
     reportCallInDefaultInitializer: DiagnosticLevel;
 
-    // Report calls to isinstance that are statically determined
+    // Report calls to isinstance or issubclass that are statically determined
     // to always be true or false.
     reportUnnecessaryIsInstance: DiagnosticLevel;
 

@@ -1547,7 +1547,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return moduleType;
     }
 
-    // Validates that a call to isinstance is necessary. This is a
+    // Validates that a call to isinstance or issubclass are necessary. This is a
     // common source of programming errors.
     private _validateIsInstanceCallNecessary(node: CallExpressionNode) {
         if (this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance === 'none') {
@@ -1564,12 +1564,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (node.leftExpression.nodeType !== ParseNodeType.Name ||
-                node.leftExpression.nameToken.value !== 'isinstance' ||
+                (node.leftExpression.nameToken.value !== 'isinstance' &&
+                    node.leftExpression.nameToken.value !== 'issubclass') ||
                 node.arguments.length !== 2) {
             return;
         }
 
-        const arg0Type = this._getTypeOfExpression(node.arguments[0].valueExpression);
+        const callName = node.leftExpression.nameToken.value;
+        const isInstanceCheck = callName === 'isinstance';
+        const arg0Type = TypeUtils.doForSubtypes(
+            this._getTypeOfExpression(node.arguments[0].valueExpression),
+                subtype => {
+
+            return TypeUtils.transformTypeObjectToClass(subtype);
+        });
+
         if (isAnyOrUnknown(arg0Type)) {
             return;
         }
@@ -1580,7 +1589,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (arg1Type.category === TypeCategory.Class) {
             classTypeList.push(arg1Type);
         } else if (arg1Type.category === TypeCategory.Object) {
-            // The isinstance call supports a variation where the second
+            // The isinstance and issubclass call supports a variation where the second
             // parameter is a tuple of classes.
             const objClass = arg1Type.classType;
             if (ClassType.isBuiltIn(objClass, 'Tuple') && ClassType.getTypeArguments(objClass)) {
@@ -1600,7 +1609,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return combineTypes(types);
         };
 
-        const filterType = (varType: ClassType): ObjectType[] => {
+        const filterType = (varType: ClassType): (ObjectType[] | ClassType[]) => {
             const filteredTypes: ClassType[] = [];
 
             for (const filterType of classTypeList) {
@@ -1619,12 +1628,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
 
+            if (!isInstanceCheck) {
+                return filteredTypes;
+            }
+
             return filteredTypes.map(t => ObjectType.create(t));
         };
 
         let filteredType: Type;
-        if (arg0Type.category === TypeCategory.Object) {
+        if (isInstanceCheck && arg0Type.category === TypeCategory.Object) {
             const remainingTypes = filterType(arg0Type.classType);
+            filteredType = finalizeFilteredTypeList(remainingTypes);
+        } else if (!isInstanceCheck && arg0Type.category === TypeCategory.Class) {
+            const remainingTypes = filterType(arg0Type);
             filteredType = finalizeFilteredTypeList(remainingTypes);
         } else if (arg0Type.category === TypeCategory.Union) {
             let remainingTypes: Type[] = [];
@@ -1635,9 +1651,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     foundAnyType = true;
                 }
 
-                if (t.category === TypeCategory.Object) {
-                    remainingTypes = remainingTypes.concat(
-                        filterType(t.classType));
+                if (isInstanceCheck && t.category === TypeCategory.Object) {
+                    remainingTypes = remainingTypes.concat(filterType(t.classType));
+                } else if (!isInstanceCheck && t.category === TypeCategory.Class) {
+                    remainingTypes = remainingTypes.concat(filterType(t));
                 }
             });
 
@@ -1656,19 +1673,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return combineTypes(objTypeList);
         };
 
+        const callType = isInstanceCheck ? 'instance' : 'subclass';
         if (filteredType.category === TypeCategory.Never) {
             this._addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
-                `Unnecessary isinstance call: '${ printType(arg0Type) }' ` +
-                    `is never instance of '${ printType(getTestType()) }'`,
+                `Unnecessary ${ callName } call: '${ printType(arg0Type) }' ` +
+                    `is never ${ callType } of '${ printType(getTestType()) }'`,
                 node);
         } else if (isTypeSame(filteredType, arg0Type)) {
             this._addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
-                `Unnecessary isinstance call: '${ printType(arg0Type) }' ` +
-                    `is always instance of '${ printType(getTestType()) }'`,
+                `Unnecessary ${ callName } call: '${ printType(arg0Type) }' ` +
+                    `is always ${ callType } of '${ printType(getTestType()) }'`,
                 node);
         }
     }
