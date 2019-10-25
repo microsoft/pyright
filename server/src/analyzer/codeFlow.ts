@@ -13,14 +13,15 @@
 * TypeScript compiler.
 */
 
-import { ExpressionNode, FunctionNode, LambdaNode, MemberAccessExpressionNode,
-    NameNode } from '../parser/parseNodes';
+import { ExpressionNode, FunctionNode, ImportFromNode, LambdaNode,
+    MemberAccessExpressionNode, NameNode } from '../parser/parseNodes';
 
 export enum FlowFlags {
     Unreachable    = 1 << 0,  // Unreachable code
     Start          = 1 << 1,  // Entry point
     Label          = 1 << 2,  // Junction
-    Assignment     = 1 << 4,  // Assignment statement
+    Assignment     = 1 << 3,  // Assignment statement
+    WildcardImport = 1 << 4,  // For "from X import *" statements
     TrueCondition  = 1 << 5,  // Condition known to be true
     FalseCondition = 1 << 6   // Condition known to be false
 }
@@ -50,6 +51,14 @@ export interface FlowAssignment extends FlowNodeBase {
     antecedent: FlowNode;
 }
 
+// Similar to FlowAssignment but used specifically for
+// wildcard "from X import *" statements.
+export interface FlowWildcardImport extends FlowNodeBase {
+    node: ImportFromNode;
+    names: string[];
+    antecedent: FlowNode;
+}
+
 // FlowCondition represents a condition that is known to
 // be true or false at the node's location in the control flow.
 export interface FlowCondition extends FlowNodeBase {
@@ -57,4 +66,5 @@ export interface FlowCondition extends FlowNodeBase {
     antecedent: FlowNode;
 }
 
-export type FlowNode = FlowStart | FlowLabel | FlowAssignment | FlowCondition;
+export type FlowNode = FlowStart | FlowLabel | FlowAssignment |
+    FlowCondition | FlowWildcardImport;
