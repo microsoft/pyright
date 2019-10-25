@@ -1761,9 +1761,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             }
                         }
                     } else if (specialTypes[assignedName].module === 'self') {
-                        const symbol = this._currentScope.lookUpSymbol(baseClassName);
-                        if (symbol) {
-                            aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+                        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(baseClassName);
+                        if (symbolWithScope) {
+                            aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbolWithScope.symbol);
                         }
                     }
 

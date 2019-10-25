@@ -1,7 +1,6 @@
 # This sample tests the type analyzer's handling of TypedDict classes.
 
-from typing import Dict, Any
-from typing_extensions import TypedDict
+from typing import Any, Dict, TypedDict
 
 not_total = False
 
