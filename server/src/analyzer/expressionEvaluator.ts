@@ -3911,7 +3911,7 @@ export class ExpressionEvaluator {
         // we will set this flag and fall back on Unknown.
         let understoodType = true;
 
-        let typeConstraints: ConditionalTypeConstraintResults | undefined;
+        let typeConstraintsToPop = 0;
 
         // "Execute" the list comprehensions from start to finish.
         for (const comprehension of node.comprehensions) {
@@ -3932,33 +3932,40 @@ export class ExpressionEvaluator {
                 this.getType(comprehension.testExpression);
 
                 // Use the if node (if present) to create a type constraint.
-                typeConstraints = TypeConstraintBuilder.buildTypeConstraintsForConditional(
+                const typeConstraint = TypeConstraintBuilder.buildTypeConstraintsForConditional(
                     comprehension.testExpression, expr => TypeUtils.stripLiteralValue(
                         this.getType(expr)));
+
+                if (typeConstraint) {
+                    typeConstraintsToPop += typeConstraint.ifConstraints.length;
+                    this._expressionTypeConstraints.push(...typeConstraint.ifConstraints);
+                }
             }
         }
 
         let type: Type = UnknownType.create();
-        this._useExpressionTypeConstraint(typeConstraints, true, () => {
-            if (understoodType) {
-                if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                    // Create a tuple with the key/value types.
-                    const keyType = TypeUtils.stripLiteralValue(
-                        this.getType(node.expression.keyExpression));
-                    const valueType = TypeUtils.stripLiteralValue(
-                        this.getType(node.expression.valueExpression));
+        if (understoodType) {
+            if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
+                // Create a tuple with the key/value types.
+                const keyType = TypeUtils.stripLiteralValue(
+                    this.getType(node.expression.keyExpression));
+                const valueType = TypeUtils.stripLiteralValue(
+                    this.getType(node.expression.valueExpression));
 
-                    type = ScopeUtils.getBuiltInObject(
-                        this._scope, 'Tuple', [keyType, valueType]);
-                } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
-                    const unexpandedType = this.getType(node.expression.expandExpression);
+                type = ScopeUtils.getBuiltInObject(
+                    this._scope, 'Tuple', [keyType, valueType]);
+            } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
+                const unexpandedType = this.getType(node.expression.expandExpression);
 
-                    // TODO - need to implement
-                } else if (isExpressionNode(node)) {
-                    type = TypeUtils.stripLiteralValue(this.getType(node.expression as ExpressionNode));
-                }
+                // TODO - need to implement
+            } else if (isExpressionNode(node)) {
+                type = TypeUtils.stripLiteralValue(this.getType(node.expression as ExpressionNode));
             }
-        });
+        }
+
+        for (let i = 0; i < typeConstraintsToPop; i++) {
+            this._expressionTypeConstraints.pop();
+        }
 
         this._scope.setParent(prevParent);
         this._scope = prevScope;
