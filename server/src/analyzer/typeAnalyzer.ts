@@ -2347,7 +2347,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         return inputFunctionType;
                     }
 
-                    case 'property': {
+                    case 'property':
+                    case 'abstractproperty': {
                         if (inputFunctionType.category === TypeCategory.Function) {
                             // Allocate a property only during the first analysis pass.
                             // Otherwise the analysis won't converge if there are setters

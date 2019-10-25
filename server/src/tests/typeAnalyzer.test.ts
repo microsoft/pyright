@@ -283,6 +283,12 @@ test('Properties1', () => {
     validateResults(analysisResults, 5);
 });
 
+test('Properties2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties2.py']);
+
+    validateResults(analysisResults, 2);
+});
+
 test('Operators1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators1.py']);
 
