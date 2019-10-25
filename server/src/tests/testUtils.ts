@@ -103,7 +103,7 @@ export function bindSampleFile(fileName: string,
 
     const fileInfo = buildAnalyzerFileInfo(filePath, parseResults, configOptions);
     const binder = new Binder(fileInfo);
-    binder.bind(parseResults.parseTree);
+    binder.bindModule(parseResults.parseTree);
 
     // Walk the AST to verify internal consistency.
     const testWalker = new TestWalker();

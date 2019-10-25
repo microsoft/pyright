@@ -25,17 +25,18 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
-    AwaitExpressionNode, ClassNode, DelNode, ExceptNode, ExpressionNode, ForNode,
-    FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromNode, LambdaNode,
-    ListComprehensionNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode,
-    NonlocalNode, ParseNode, ParseNodeType, RaiseNode, StatementNode,
-    StringListNode, SuiteNode, TryNode, TypeAnnotationExpressionNode, WhileNode,
-    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { ArgumentCategory, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
+    AwaitExpressionNode, BinaryExpressionNode, BreakNode, ClassNode, ContinueNode, DelNode, ExceptNode,
+    ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromNode,
+    LambdaNode, ListComprehensionNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode,
+    NameNode, NonlocalNode, ParseNode, ParseNodeType, RaiseNode, ReturnNode, StatementNode,
+    StringListNode, SuiteNode, TernaryExpressionNode, TryNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
+    WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
-import { StringTokenFlags } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
+import { FlowAssignment, FlowCondition, FlowFlags, FlowLabel, FlowNode, FlowStart, FlowWildcardImport } from './codeFlow';
 import { AliasDeclaration, DeclarationType, ModuleLoaderActions,
     VariableDeclaration } from './declaration';
 import * as DocStringUtils from './docStringUtils';
@@ -66,25 +67,25 @@ interface MemberAccessInfo {
     isInstanceMember: boolean;
 }
 
-interface DeferredAnalysis {
+interface DeferredBindingTask {
     scope: Scope;
     nonLocalBindingsMap: StringMap<NameBindingType>;
     callback: () => void;
 }
 
 export class Binder extends ParseTreeWalker {
-    protected readonly _fileInfo: AnalyzerFileInfo;
+    private readonly _fileInfo: AnalyzerFileInfo;
 
     // A queue of deferred analysis operations.
-    protected _deferredAnalysis: DeferredAnalysis[] = [];
+    private _deferredBindingTasks: DeferredBindingTask[] = [];
 
     // The current scope in effect. This is either the base scope or a
     // "temporary scope", used for analyzing conditional code blocks. Their
     // contents are eventually merged in to the base scope.
-    protected _currentScope: Scope;
+    private _currentScope: Scope;
 
     // Name bindings that are not local to the current scope.
-    protected _notLocalBindings = new StringMap<NameBindingType>();
+    private _notLocalBindings = new StringMap<NameBindingType>();
 
     // Number of nested except statements at current point of analysis.
     // Used to determine if a naked "raise" statement is allowed.
@@ -92,7 +93,34 @@ export class Binder extends ParseTreeWalker {
 
     // Indicates that any name that's encountered should be ignored
     // because it's in an unexecuted section of code.
-    protected _isUnexecutedCode = false;
+    private _isUnexecutedCode = false;
+
+    // Current control-flow node.
+    private _currentFlowNode: FlowNode;
+
+    // Flow node label that is the target of all return
+    // statements (including implicit returns).
+    private _currentReturnTarget?: FlowLabel;
+
+    // Flow node label that is the target of all yield
+    // statements.
+    private _currentYieldTarget?: FlowLabel;
+
+    // Flow node label that is the target of a "break" statement.
+    private _currentBreakTarget?: FlowLabel;
+
+    // Flow node label that is the target of a "continue" statement.
+    private _currentContinueTarget?: FlowLabel;
+
+    // Flow nodes used for if/else and while/else statements.
+    private _currentTrueTarget?: FlowLabel;
+    private _currentFalseTarget?: FlowLabel;
+
+    // Flow nodes used within try blocks.
+    private _currentExceptTargets?: FlowLabel[];
+
+    // Flow node that is used for unreachable code.
+    private static _unreachableFlowNode: FlowNode = { flags: FlowFlags.Unreachable };
 
     constructor(fileInfo: AnalyzerFileInfo) {
         super();
@@ -100,7 +128,7 @@ export class Binder extends ParseTreeWalker {
         this._fileInfo = fileInfo;
     }
 
-    bind(node: ModuleNode) {
+    bindModule(node: ModuleNode) {
         // We'll assume that if there is no builtins scope provided, we must be
         // binding the builtins module itself.
         const isBuiltInModule = this._fileInfo.builtinsScope === undefined;
@@ -164,11 +192,14 @@ export class Binder extends ParseTreeWalker {
             this._addBuiltInSymbolToCurrentScope('__file__', builtinStrObj);
             this._addBuiltInSymbolToCurrentScope('__cached__', builtinStrObj);
 
+            // Create a start node for the module.
+            this._currentFlowNode = this._createStartFlowNode();
+
             this.walkMultiple(node.statements);
         });
 
         // Perform all analysis that was deferred during the first pass.
-        this._analyzeDeferred();
+        this._bindDeferred();
 
         return this._getDocString((node).statements);
     }
@@ -301,6 +332,9 @@ export class Binder extends ParseTreeWalker {
                     ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
             }
 
+            // Create a start node for the class.
+            this._currentFlowNode = this._createStartFlowNode();
+
             // Analyze the suite.
             this.walk(node.suite);
         });
@@ -418,7 +452,7 @@ export class Binder extends ParseTreeWalker {
                 }
             }
 
-            this._deferAnalysis(() => {
+            this._deferBinding(() => {
                 node.parameters.forEach(paramNode => {
                     if (paramNode.name) {
                         const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
@@ -434,8 +468,23 @@ export class Binder extends ParseTreeWalker {
                     }
                 });
 
+                // Create a control flow label that represents the target
+                // of all return statements (including implicit returns).
+                this._currentReturnTarget = this._createFlowLabel();
+                AnalyzerNodeInfo.setFlowNode(node, this._currentReturnTarget);
+
+                // Create a control flow label that represents the target
+                // of all yield statements.
+                this._currentYieldTarget = this._createFlowLabel();
+
+                // Create a start node for the function.
+                this._currentFlowNode = this._createStartFlowNode(node);
+
                 // Walk the statements that make up the function.
                 this.walk(node.suite);
+
+                this._currentReturnTarget = undefined;
+                this._currentYieldTarget = undefined;
             });
         });
 
@@ -455,7 +504,7 @@ export class Binder extends ParseTreeWalker {
         this._createNewScope(ScopeType.Function, this._currentScope, () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
-            this._deferAnalysis(() => {
+            this._deferBinding(() => {
                 node.parameters.forEach(paramNode => {
                     if (paramNode.name) {
                         const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
@@ -470,6 +519,9 @@ export class Binder extends ParseTreeWalker {
                         }
                     }
                 });
+
+                // Create a start node for the lambda.
+                this._currentFlowNode = this._createStartFlowNode(node);
 
                 // Walk the expression that make up the lambda body.
                 this.walk(node.expression);
@@ -492,18 +544,27 @@ export class Binder extends ParseTreeWalker {
 
             this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression);
         }
+
+        this._createAssignmentTargetFlowNodes(node.leftExpression);
+
         return true;
     }
 
     visitAssignmentExpression(node: AssignmentExpressionNode) {
         this._bindPossibleTupleNamedTarget(node.name);
         this._addInferredTypeAssignmentForVariable(node.name, node.rightExpression);
+
+        this._createAssignmentTargetFlowNodes(node.name);
+
         return true;
     }
 
     visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode) {
         this._bindPossibleTupleNamedTarget(node.leftExpression);
         this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression);
+
+        this._createAssignmentTargetFlowNodes(node.leftExpression);
+
         return true;
     }
 
@@ -511,6 +572,11 @@ export class Binder extends ParseTreeWalker {
         node.expressions.forEach(expr => {
             this._bindPossibleTupleNamedTarget(expr);
         });
+
+        node.expressions.forEach(expr => {
+            this._createAssignmentTargetFlowNodes(expr);
+        });
+
         return true;
     }
 
@@ -525,32 +591,94 @@ export class Binder extends ParseTreeWalker {
     visitFor(node: ForNode) {
         this._bindPossibleTupleNamedTarget(node.targetExpression);
         this._addInferredTypeAssignmentForVariable(node.targetExpression, node);
+
+        this.walk(node.iterableExpression);
+
+        const preLoopLabel = this._createFlowLabel();
+        const postLoopLabel = this._createFlowLabel();
+        const postForElseLabel = this._createFlowLabel();
+        const preElseFlowNode = this._currentFlowNode;
+
+        this._addAntecedent(preLoopLabel, this._currentFlowNode);
+
+        this._bindLoopStatement(preLoopLabel, postLoopLabel, () => {
+            this._currentFlowNode = preLoopLabel;
+            this.walk(node.targetExpression);
+            this._createAssignmentTargetFlowNodes(node.targetExpression);
+            this.walk(node.forSuite);
+            this._addAntecedent(preLoopLabel, this._currentFlowNode);
+            this._addAntecedent(postLoopLabel, this._currentFlowNode);
+        });
+        this._addAntecedent(postForElseLabel, postLoopLabel);
+
+        if (node.elseSuite) {
+            this._currentFlowNode = preElseFlowNode;
+            this.walk(node.forSuite);
+            this._addAntecedent(postForElseLabel, this._currentFlowNode);
+        }
+
+        this._currentFlowNode = this._finishFlowLabel(postForElseLabel);
+
+        return false;
+    }
+
+    visitContinue(node: ContinueNode): boolean {
+        if (this._currentContinueTarget) {
+            this._addAntecedent(this._currentContinueTarget, this._currentFlowNode);
+        }
+        this._currentFlowNode = Binder._unreachableFlowNode;
+        return true;
+    }
+
+    visitBreak(node: BreakNode): boolean {
+        if (this._currentBreakTarget) {
+            this._addAntecedent(this._currentBreakTarget, this._currentFlowNode);
+        }
+        this._currentFlowNode = Binder._unreachableFlowNode;
+        return true;
+    }
+
+    visitReturn(node: ReturnNode): boolean {
+        if (this._currentReturnTarget) {
+            this._addAntecedent(this._currentReturnTarget, this._currentFlowNode);
+        }
+
+        this._currentFlowNode = Binder._unreachableFlowNode;
         return true;
     }
 
     visitYield(node: YieldExpressionNode): boolean {
         this._validateYieldUsage(node);
+
+        if (this._currentYieldTarget) {
+            this._addAntecedent(this._currentYieldTarget, this._currentFlowNode);
+        }
         return true;
     }
 
     visitYieldFrom(node: YieldFromExpressionNode): boolean {
         this._validateYieldUsage(node);
+
+        if (this._currentYieldTarget) {
+            this._addAntecedent(this._currentYieldTarget, this._currentFlowNode);
+        }
         return true;
     }
 
     visitIf(node: IfNode): boolean {
-        this._handleIfWhileCommon(node.testExpression, node.ifSuite, node.elseSuite);
+        this._handleIfWhileCommon(node.testExpression, node.ifSuite, node.elseSuite, false);
         return false;
     }
 
     visitWhile(node: WhileNode): boolean {
-        this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite);
+        this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite, true);
         return false;
     }
 
     visitExcept(node: ExceptNode): boolean {
         if (node.name) {
             const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+            this._createAssignmentTargetFlowNodes(node.name);
             if (symbol) {
                 const declaration: VariableDeclaration = {
                     type: DeclarationType.Variable,
@@ -576,26 +704,40 @@ export class Binder extends ParseTreeWalker {
                 node);
         }
 
+        this._currentFlowNode = Binder._unreachableFlowNode;
         return true;
     }
 
     visitTry(node: TryNode): boolean {
+        // Create one flow label for every except clause.
+        const curExceptTargets = node.exceptClauses.map(() => this._createFlowLabel());
+        const preFinallyLabel = this._createFlowLabel();
+
+        // Handle the try block.
+        const prevExceptTargets = this._currentExceptTargets;
+        this._currentExceptTargets = curExceptTargets;
         this.walk(node.trySuite);
+        this._currentExceptTargets = prevExceptTargets;
 
-        // Wrap the except clauses in a conditional scope
-        // so we can throw away any names that are bound
-        // in this scope.
-        this._nestedExceptDepth++;
-        node.exceptClauses.forEach(exceptNode => {
-            this.walk(exceptNode);
-        });
-        this._nestedExceptDepth--;
-
+        // Handle the else block, which is executed only if
+        // execution falls through the try block.
         if (node.elseSuite) {
             this.walk(node.elseSuite);
         }
+        this._addAntecedent(preFinallyLabel, this._currentFlowNode);
 
+        // Handle the except blocks.
+        this._nestedExceptDepth++;
+        node.exceptClauses.forEach((exceptNode, index) => {
+            this._currentFlowNode = this._finishFlowLabel(curExceptTargets[index]);
+            this.walk(exceptNode);
+            this._addAntecedent(preFinallyLabel, this._currentFlowNode);
+        });
+        this._nestedExceptDepth--;
+
+        // Handle the finally block.
         if (node.finallySuite) {
+            this._currentFlowNode = this._finishFlowLabel(preFinallyLabel);
             this.walk(node.finallySuite);
         }
 
@@ -793,6 +935,9 @@ export class Binder extends ParseTreeWalker {
                     symbol.addDeclaration(newDecl);
                 }
             }
+
+            this._createFlowAssignment(node.alias ?
+                node.alias : node.module.nameParts[0]);
         }
 
         return true;
@@ -808,19 +953,25 @@ export class Binder extends ParseTreeWalker {
 
         if (node.isWildcardImport) {
             if (importInfo && importInfo.implicitImports) {
+                const names: string[] = [];
                 const lookupInfo = this._fileInfo.importLookup(resolvedPath);
+
                 if (lookupInfo) {
-                    lookupInfo.symbolTable.forEach((_, name) => {
-                        const symbol = this._bindNameToScope(this._currentScope, name);
-                        if (symbol) {
-                            const aliasDecl: AliasDeclaration = {
-                                type: DeclarationType.Alias,
-                                path: resolvedPath,
-                                range: getEmptyRange(),
-                                symbolName: name,
-                                implicitImports: new Map<string, ModuleLoaderActions>()
-                            };
-                            symbol.addDeclaration(aliasDecl);
+                    lookupInfo.symbolTable.forEach((symbol, name) => {
+                        // Don't include the implicit names in the symbol table.
+                        if (!symbol.isIgnoredForProtocolMatch()) {
+                            const symbol = this._bindNameToScope(this._currentScope, name);
+                            if (symbol) {
+                                const aliasDecl: AliasDeclaration = {
+                                    type: DeclarationType.Alias,
+                                    path: resolvedPath,
+                                    range: getEmptyRange(),
+                                    symbolName: name,
+                                    implicitImports: new Map<string, ModuleLoaderActions>()
+                                };
+                                symbol.addDeclaration(aliasDecl);
+                                names.push(name);
+                            }
                         }
                     });
                 }
@@ -837,8 +988,11 @@ export class Binder extends ParseTreeWalker {
                             implicitImports: new Map<string, ModuleLoaderActions>()
                         };
                         symbol.addDeclaration(aliasDecl);
+                        names.push(implicitImport.name);
                     }
                 });
+
+                this._createFlowWildcardImport(node, names);
             }
         } else {
             node.imports.forEach(importSymbolNode => {
@@ -887,8 +1041,68 @@ export class Binder extends ParseTreeWalker {
             if (item.target) {
                 this._bindPossibleTupleNamedTarget(item.target);
                 this._addInferredTypeAssignmentForVariable(item.target, item);
+                this._createAssignmentTargetFlowNodes(item.target);
             }
         });
+
+        return true;
+    }
+
+    visitTernary(node: TernaryExpressionNode): boolean {
+        const trueLabel = this._createFlowLabel();
+        const falseLabel = this._createFlowLabel();
+        const postExpressionLabel = this._createFlowLabel();
+
+        // Handle the test expression.
+        this._bindConditional(node.testExpression, trueLabel, falseLabel);
+
+        // Handle the "true" portion (the "if" expression).
+        this._currentFlowNode = this._finishFlowLabel(trueLabel);
+        this.walk(node.ifExpression);
+        this._addAntecedent(postExpressionLabel, this._currentFlowNode);
+
+        // Handle the "false" portion (the "else" expression).
+        this._currentFlowNode = this._finishFlowLabel(falseLabel);
+        this.walk(node.elseExpression);
+        this._addAntecedent(postExpressionLabel, this._currentFlowNode);
+
+        this._currentFlowNode = this._finishFlowLabel(postExpressionLabel);
+
+        return false;
+    }
+
+    visitUnaryOperation(node: UnaryExpressionNode): boolean {
+        if (node.operator === OperatorType.Not) {
+            // Temporarily swap the true and false targets.
+            const saveTrueTarget = this._currentTrueTarget;
+            this._currentTrueTarget = this._currentFalseTarget;
+            this._currentFalseTarget = saveTrueTarget;
+
+            // Evaluate the operand expression.
+            this.walk(node.expression);
+
+            // Swap the true and false targets back.
+            this._currentFalseTarget = this._currentTrueTarget;
+            this._currentTrueTarget = saveTrueTarget;
+            return false;
+        }
+
+        return true;
+    }
+
+    visitBinaryOperation(node: BinaryExpressionNode): boolean {
+        if (node.operator === OperatorType.And || node.operator === OperatorType.Or) {
+            if (this._isTopLevelLogicalExpression(node)) {
+                const postExpressionLabel = this._createFlowLabel();
+                this._bindLogicalExpression(node, postExpressionLabel, postExpressionLabel);
+                this._currentFlowNode = this._finishFlowLabel(postExpressionLabel);
+            } else {
+                this._bindLogicalExpression(node, this._currentTrueTarget!,
+                    this._currentFalseTarget!);
+            }
+
+            return false;
+        }
 
         return true;
     }
@@ -897,19 +1111,26 @@ export class Binder extends ParseTreeWalker {
         // Allocate a new scope.
         const prevScope = this._currentScope;
         this._currentScope = new Scope(ScopeType.ListComprehension, prevScope);
+        const falseLabel = this._createFlowLabel();
 
-        node.comprehensions.forEach(compr => {
+        for (let i = 0; i < node.comprehensions.length; i++) {
+            const compr = node.comprehensions[i];
             if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
                 this.walk(compr.iterableExpression);
 
                 this._bindPossibleTupleNamedTarget(compr.targetExpression);
+                this._createAssignmentTargetFlowNodes(compr.targetExpression);
                 this.walk(compr.targetExpression);
             } else {
-                this.walk(compr.testExpression);
+                const trueLabel = this._createFlowLabel();
+                this._bindConditional(compr.testExpression, trueLabel, falseLabel);
+                this._currentFlowNode = this._finishFlowLabel(trueLabel);
             }
-        });
+        }
 
         this.walk(node.expression);
+        this._addAntecedent(falseLabel, this._currentFlowNode);
+        this._currentFlowNode = this._finishFlowLabel(falseLabel);
 
         AnalyzerNodeInfo.setScope(node, this._currentScope);
 
@@ -918,7 +1139,277 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    protected _bindNameToScope(scope: Scope, name: string) {
+    private _createStartFlowNode(node?: FunctionNode | LambdaNode) {
+        const flowNode: FlowStart = {
+            flags: FlowFlags.Start,
+            function: node
+        };
+        return flowNode;
+    }
+
+    private _createFlowLabel() {
+        const flowNode: FlowLabel = {
+            flags: FlowFlags.Label,
+            antecedents: []
+        };
+        return flowNode;
+    }
+
+    private _finishFlowLabel(node: FlowLabel) {
+        // If there were no antecedents, this is unreachable.
+        if (node.antecedents.length === 0) {
+            return Binder._unreachableFlowNode;
+        }
+
+        // If there was only one antecedent, there's no need
+        // for a label to exist.
+        if (node.antecedents.length === 1) {
+            return node.antecedents[0];
+        }
+
+        return node;
+    }
+
+    private _bindConditional(node: ExpressionNode, trueTarget: FlowLabel, falseTarget: FlowLabel) {
+        const savedTrueTarget = this._currentTrueTarget;
+        const savedFalseTarget = this._currentFalseTarget;
+        this._currentTrueTarget = trueTarget;
+        this._currentFalseTarget = falseTarget;
+
+        this.walk(node);
+
+        this._currentTrueTarget = savedTrueTarget;
+        this._currentFalseTarget = savedFalseTarget;
+
+        if (!this._isLogicalExpression(node)) {
+            this._addAntecedent(trueTarget,
+                this._createFlowConditional(FlowFlags.TrueCondition,
+                this._currentFlowNode, node));
+            this._addAntecedent(falseTarget,
+                this._createFlowConditional(FlowFlags.FalseCondition,
+                this._currentFlowNode, node));
+        }
+    }
+
+    private _createFlowConditional(flags: FlowFlags, antecedent: FlowNode,
+            expression: ExpressionNode): FlowNode {
+
+        if (antecedent.flags & FlowFlags.Unreachable) {
+            return antecedent;
+        }
+        const staticValue = StaticExpressions.evaluateStaticExpression(
+            expression, this._fileInfo.executionEnvironment);
+        if (staticValue === true && (flags & FlowFlags.FalseCondition) ||
+                staticValue === false && (flags & FlowFlags.TrueCondition)) {
+
+            return Binder._unreachableFlowNode;
+        }
+
+        if (!this._isNarrowingExpression(expression)) {
+            return antecedent;
+        }
+
+        const conditionalFlowNode: FlowCondition = {
+            flags,
+            expression,
+            antecedent
+        };
+
+        return conditionalFlowNode;
+    }
+
+    private _isTopLevelLogicalExpression(node: ExpressionNode): boolean {
+        let curNode = node as ParseNode;
+        while (curNode.parent &&
+                curNode.parent.nodeType === ParseNodeType.UnaryOperation &&
+                curNode.parent.operator === OperatorType.Not) {
+
+            curNode = curNode.parent;
+        }
+
+        const parentNode = curNode.parent;
+        if (!parentNode) {
+            return true;
+        }
+
+        switch (parentNode.nodeType) {
+            case ParseNodeType.If:
+            case ParseNodeType.While:
+            case ParseNodeType.Ternary:
+            case ParseNodeType.ListComprehensionIf:
+                if (parentNode.testExpression === node) {
+                    return false;
+                }
+                break;
+
+            case ParseNodeType.BinaryOperation:
+            case ParseNodeType.UnaryOperation:
+               return !this._isLogicalExpression(parentNode);
+        }
+
+        return true;
+    }
+
+    private _bindLogicalExpression(node: BinaryExpressionNode,
+            trueTarget: FlowLabel, falseTarget: FlowLabel) {
+
+        const preRightLabel = this._createFlowLabel();
+        if (node.operator === OperatorType.And) {
+            this._bindConditional(node.leftExpression, preRightLabel, falseTarget);
+        } else {
+            this._bindConditional(node.leftExpression, trueTarget, preRightLabel);
+        }
+        this._currentFlowNode = this._finishFlowLabel(preRightLabel);
+        this._bindConditional(node.rightExpression, trueTarget, falseTarget);
+    }
+
+    // Indicates whether the expression is a NOT, AND or OR expression.
+    private _isLogicalExpression(expression: ExpressionNode): boolean {
+        switch (expression.nodeType) {
+            case ParseNodeType.UnaryOperation: {
+                return expression.operator === OperatorType.Not &&
+                    this._isLogicalExpression(expression.expression);
+            }
+
+            case ParseNodeType.BinaryOperation: {
+                return expression.operator === OperatorType.And ||
+                    expression.operator === OperatorType.Or;
+            }
+        }
+
+        return false;
+    }
+
+    private _isNarrowingExpression(expression: ExpressionNode): boolean {
+        switch (expression.nodeType) {
+            case ParseNodeType.Name:
+            case ParseNodeType.MemberAccess: {
+                return true;
+            }
+
+            case ParseNodeType.BinaryOperation: {
+                if (expression.operator === OperatorType.Is ||
+                        expression.operator === OperatorType.IsNot) {
+
+                    // Look for "X is None" or "X is not None". These are commonly-used
+                    // patterns used in control flow.
+                    if (expression.rightExpression.nodeType === ParseNodeType.Constant &&
+                            expression.rightExpression.token.keywordType === KeywordType.None) {
+
+                        return true;
+                    }
+
+                    // Look for "type(X) is Y" or "type(X) is not Y".
+                    if (expression.leftExpression.nodeType === ParseNodeType.Call &&
+                        expression.leftExpression.leftExpression.nodeType === ParseNodeType.Name &&
+                        expression.leftExpression.leftExpression.nameToken.value === 'type' &&
+                        expression.leftExpression.arguments.length === 1 &&
+                            expression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
+
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            case ParseNodeType.UnaryOperation: {
+                return expression.operator === OperatorType.Not &&
+                    this._isNarrowingExpression(expression.expression);
+            }
+
+            case ParseNodeType.AugmentedAssignment: {
+                return this._isNarrowingExpression(expression.rightExpression);
+            }
+
+            case ParseNodeType.Call: {
+                return expression.leftExpression.nodeType === ParseNodeType.Name &&
+                    expression.leftExpression.nameToken.value === 'isinstance' &&
+                    expression.arguments.length === 2;
+            }
+        }
+
+        return false;
+    }
+
+    private _createAssignmentTargetFlowNodes(target: ExpressionNode) {
+        if (target.nodeType === ParseNodeType.Name || target.nodeType === ParseNodeType.MemberAccess) {
+            this._createFlowAssignment(target);
+        } else if (target.nodeType === ParseNodeType.Tuple) {
+            target.expressions.forEach(expr => {
+                this._createAssignmentTargetFlowNodes(expr);
+            });
+        } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
+            this._createAssignmentTargetFlowNodes(target.valueExpression);
+        } else if (target.nodeType === ParseNodeType.Unpack) {
+            this._createAssignmentTargetFlowNodes(target.expression);
+        } else if (target.nodeType === ParseNodeType.List) {
+            target.entries.forEach(entry => {
+                this._createAssignmentTargetFlowNodes(entry);
+            });
+        }
+    }
+
+    private _createFlowAssignment(node: NameNode | MemberAccessExpressionNode) {
+        if (!(this._currentFlowNode.flags & FlowFlags.Unreachable)) {
+            const flowNode: FlowAssignment = {
+                flags: FlowFlags.Assignment,
+                node,
+                antecedent: this._currentFlowNode
+            };
+
+            this._addExceptTargets(flowNode);
+            this._currentFlowNode = flowNode;
+        }
+
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+    }
+
+    private _createFlowWildcardImport(node: ImportFromNode, names: string[]) {
+        if (!(this._currentFlowNode.flags & FlowFlags.Unreachable)) {
+            const flowNode: FlowWildcardImport = {
+                flags: FlowFlags.WildcardImport,
+                node,
+                names,
+                antecedent: this._currentFlowNode
+            };
+
+            this._addExceptTargets(flowNode);
+            this._currentFlowNode = flowNode;
+        }
+
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+    }
+
+    private _addExceptTargets(flowNode: FlowNode) {
+            // If there are any except targets, then we're in a try block, and we
+            // have to assume that an exception can be raised after every assignment.
+            if (this._currentExceptTargets) {
+                this._currentExceptTargets.forEach(label => {
+                    this._addAntecedent(label, flowNode);
+                });
+            }
+    }
+
+    private _bindLoopStatement(preLoopLabel: FlowLabel, postLoopLabel: FlowLabel, callback: () => void) {
+        const savedContinueTarget = this._currentContinueTarget;
+        const savedBreakTarget = this._currentBreakTarget;
+        this._currentContinueTarget = preLoopLabel;
+        this._currentBreakTarget = postLoopLabel;
+
+        callback();
+
+        this._currentContinueTarget = savedContinueTarget;
+        this._currentBreakTarget = savedBreakTarget;
+    }
+
+    private _addAntecedent(label: FlowLabel, antecedent: FlowNode) {
+        if (!(this._currentFlowNode.flags & FlowFlags.Unreachable)) {
+            label.antecedents.push(antecedent);
+        }
+    }
+
+    private _bindNameToScope(scope: Scope, name: string) {
         if (this._notLocalBindings.get(name) === undefined) {
             // Don't overwrite an existing symbol.
             let symbol = scope.lookUpSymbol(name);
@@ -933,7 +1424,7 @@ export class Binder extends ParseTreeWalker {
         return undefined;
     }
 
-    protected _bindPossibleTupleNamedTarget(target: ExpressionNode) {
+    private _bindPossibleTupleNamedTarget(target: ExpressionNode) {
         if (target.nodeType === ParseNodeType.Name) {
             this._bindNameToScope(this._currentScope, target.nameToken.value);
         } else if (target.nodeType === ParseNodeType.Tuple) {
@@ -951,7 +1442,7 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    protected _addBuiltInSymbolToCurrentScope(nameValue: string, type: Type) {
+    private _addBuiltInSymbolToCurrentScope(nameValue: string, type: Type) {
         // Handle a special case where a built-in type is not known
         // at binding time. This happens specifically when binding
         // the buitins.pyi module. We'll convert the Unknown types
@@ -975,7 +1466,7 @@ export class Binder extends ParseTreeWalker {
 
     // Finds the nearest permanent scope (as opposed to temporary scope) and
     // adds a new symbol with the specified name if it doesn't already exist.
-    protected _addSymbolToCurrentScope(nameValue: string, type: Type, typeSourceId: TypeSourceId) {
+    private _addSymbolToCurrentScope(nameValue: string, type: Type, typeSourceId: TypeSourceId) {
         if (this._isUnexecutedCode) {
             return;
         }
@@ -1006,7 +1497,7 @@ export class Binder extends ParseTreeWalker {
         return symbol;
     }
 
-    protected _getDocString(statements: StatementNode[]): string | undefined {
+    private _getDocString(statements: StatementNode[]): string | undefined {
         // See if the first statement in the suite is a triple-quote string.
         if (statements.length === 0) {
             return undefined;
@@ -1350,17 +1841,17 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    private _deferAnalysis(callback: () => void) {
-        this._deferredAnalysis.push({
+    private _deferBinding(callback: () => void) {
+        this._deferredBindingTasks.push({
             scope: this._currentScope,
             nonLocalBindingsMap: this._notLocalBindings,
             callback
         });
     }
 
-    private _analyzeDeferred() {
-        while (this._deferredAnalysis.length > 0) {
-            const nextItem = this._deferredAnalysis.shift()!;
+    private _bindDeferred() {
+        while (this._deferredBindingTasks.length > 0) {
+            const nextItem = this._deferredBindingTasks.shift()!;
 
             // Reset the state
             this._currentScope = nextItem.scope;
@@ -1387,28 +1878,48 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _handleIfWhileCommon(testExpression: ExpressionNode, ifWhileSuite: SuiteNode,
-            elseSuite: SuiteNode | IfNode | undefined) {
+            elseSuite: SuiteNode | IfNode | undefined, isWhile: boolean) {
 
-        this.walk(testExpression);
+        const thenLabel = this._createFlowLabel();
+        const elseLabel = this._createFlowLabel();
+        const postIfLabel = this._createFlowLabel();
+
+        this._bindConditional(testExpression, thenLabel, elseLabel);
 
         // Determine if the if condition is always true or always false. If so,
         // we can treat either the if or the else clause as unconditional.
         const constExprValue = StaticExpressions.evaluateStaticExpression(
             testExpression, this._fileInfo.executionEnvironment);
 
-        // which variables have been assigned to conditionally.
-        this._markNotExecuted(constExprValue !== false, () => {
-            this.walk(ifWhileSuite);
-        });
+        if (isWhile) {
+            const preWhileLabel = this._createFlowLabel();
+            this._currentFlowNode = preWhileLabel;
+            this._bindConditional(testExpression, thenLabel, postIfLabel);
+            this._bindLoopStatement(preWhileLabel, postIfLabel, () => {
+                this._markNotExecuted(constExprValue !== false, () => {
+                    this.walk(ifWhileSuite);
+                });
+            });
+            this._addAntecedent(preWhileLabel, this._currentFlowNode);
+        } else {
+            this._currentFlowNode = this._finishFlowLabel(thenLabel);
+            this._markNotExecuted(constExprValue !== false, () => {
+                this.walk(ifWhileSuite);
+            });
+            this._addAntecedent(postIfLabel, this._currentFlowNode);
+        }
 
         // Now handle the else statement if it's present. If there
         // are chained "else if" statements, they'll be handled
         // recursively here.
+        this._currentFlowNode = this._finishFlowLabel(elseLabel);
         if (elseSuite) {
             this._markNotExecuted(constExprValue !== true, () => {
                 this.walk(elseSuite);
             });
         }
+        this._addAntecedent(postIfLabel, this._currentFlowNode);
+        this._currentFlowNode = this._finishFlowLabel(postIfLabel);
     }
 
     private _markNotExecuted(isExecutable: boolean, callback: () => void) {

@@ -11,6 +11,7 @@
 */
 
 import { ParseNode } from '../parser/parseNodes';
+import { FlowNode } from './codeFlow';
 import { ImportResult } from './importResult';
 import { Scope, ScopeType } from './scope';
 import { Type } from './types';
@@ -29,6 +30,9 @@ interface AnalyzerNodeInfo {
     // classes, lambdas, and list comprehensions. A scope is used
     // to store symbol names and their associated types and declarations.
     scope?: Scope;
+
+    // Control flow information
+    flowNode?: FlowNode;
 
     //---------------------------------------------------------------
     // Set by TypeAnalyzer
@@ -55,7 +59,18 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
     const analyzerNode = node as AnalyzerNodeInfo;
 
     delete analyzerNode.scope;
+    delete analyzerNode.flowNode;
     delete analyzerNode.typeCache;
+}
+
+export function getImportInfo(node: ParseNode): ImportResult | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode.importInfo;
+}
+
+export function setImportInfo(node: ParseNode, importInfo: ImportResult) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode.importInfo = importInfo;
 }
 
 export function getScope(node: ParseNode): Scope | undefined {
@@ -85,14 +100,14 @@ export function getScopeRecursive(node: ParseNode, skipTemporary = true): Scope 
     return undefined;
 }
 
-export function getImportInfo(node: ParseNode): ImportResult | undefined {
+export function getFlowNode(node: ParseNode): FlowNode | undefined {
     const analyzerNode = node as AnalyzerNodeInfo;
-    return analyzerNode.importInfo;
+    return analyzerNode.flowNode;
 }
 
-export function setImportInfo(node: ParseNode, importInfo: ImportResult) {
+export function setFlowNode(node: ParseNode, flowNode: FlowNode) {
     const analyzerNode = node as AnalyzerNodeInfo;
-    analyzerNode.importInfo = importInfo;
+    analyzerNode.flowNode = flowNode;
 }
 
 export function getExpressionType(node: ParseNode): Type | undefined {
