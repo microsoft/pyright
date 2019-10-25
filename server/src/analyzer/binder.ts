@@ -1104,11 +1104,6 @@ export class Binder extends ParseTreeWalker {
             return false;
         }
 
-        if (node.operator === OperatorType.Assign) {
-            this._createAssignmentTargetFlowNodes(node.leftExpression);
-            return true;
-        }
-
         return true;
     }
 
@@ -1116,19 +1111,26 @@ export class Binder extends ParseTreeWalker {
         // Allocate a new scope.
         const prevScope = this._currentScope;
         this._currentScope = new Scope(ScopeType.ListComprehension, prevScope);
+        const falseLabel = this._createFlowLabel();
 
-        for (const compr of node.comprehensions) {
+        for (let i = 0; i < node.comprehensions.length; i++) {
+            const compr = node.comprehensions[i];
             if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
                 this.walk(compr.iterableExpression);
 
                 this._bindPossibleTupleNamedTarget(compr.targetExpression);
+                this._createAssignmentTargetFlowNodes(compr.targetExpression);
                 this.walk(compr.targetExpression);
             } else {
-                this.walk(compr.testExpression);
+                const trueLabel = this._createFlowLabel();
+                this._bindConditional(compr.testExpression, trueLabel, falseLabel);
+                this._currentFlowNode = this._finishFlowLabel(trueLabel);
             }
         }
 
         this.walk(node.expression);
+        this._addAntecedent(falseLabel, this._currentFlowNode);
+        this._currentFlowNode = this._finishFlowLabel(falseLabel);
 
         AnalyzerNodeInfo.setScope(node, this._currentScope);
 
@@ -1234,6 +1236,7 @@ export class Binder extends ParseTreeWalker {
             case ParseNodeType.If:
             case ParseNodeType.While:
             case ParseNodeType.Ternary:
+            case ParseNodeType.ListComprehensionIf:
                 if (parentNode.testExpression === node) {
                     return false;
                 }
