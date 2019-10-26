@@ -797,7 +797,8 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
             if (typeArgs && typeArgs.length >= 1) {
                 const firstTypeArg = typeArgs[0];
                 if (firstTypeArg.category === TypeCategory.Object) {
-                    return firstTypeArg.classType;
+                    return specializeType(firstTypeArg.classType, typeVarMap,
+                        makeConcrete, recursionLevel + 1);
                 } else if (firstTypeArg.category === TypeCategory.TypeVar) {
                     if (typeVarMap) {
                         const replacementType = typeVarMap.get(firstTypeArg.name);

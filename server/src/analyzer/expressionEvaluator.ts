@@ -242,9 +242,13 @@ export class ExpressionEvaluator {
     }
 
     // Gets a member type from an object and if it's a function binds
-    // it to the object.
+    // it to the object. If bindToClass is undefined, the binding is done
+    // using the objectType parameter. Callers can specify these separately
+    // to handle the case where we're fetching the object member from a
+    // metaclass but binding to the class.
     getTypeFromObjectMember(errorNode: ExpressionNode, objectType: ObjectType, memberName: string,
-            usage: EvaluatorUsage, memberAccessFlags = MemberAccessFlags.None): Type | undefined {
+            usage: EvaluatorUsage, memberAccessFlags = MemberAccessFlags.None,
+            bindToClass?: ClassType): Type | undefined {
 
         const memberInfo = this._getTypeFromClassMemberName(errorNode,
             objectType.classType, memberName, usage, memberAccessFlags);
@@ -253,7 +257,8 @@ export class ExpressionEvaluator {
         if (resultType) {
             if (resultType.category === TypeCategory.Function || resultType.category === TypeCategory.OverloadedFunction) {
                 if (memberInfo!.isClassMember) {
-                    resultType = TypeUtils.bindFunctionToClassOrObject(objectType, resultType);
+                    resultType = TypeUtils.bindFunctionToClassOrObject(
+                        bindToClass || objectType, resultType, !!bindToClass);
                 }
             }
         }
@@ -3391,10 +3396,11 @@ export class ExpressionEvaluator {
         let magicMethodSupported = true;
 
         // Create a helper lambda for object subtypes.
-        const handleObjectSubtype = (subtype: ObjectType) => {
+        const handleObjectSubtype = (subtype: ObjectType, bindToClassType?: ClassType) => {
             const magicMethodType = this.getTypeFromObjectMember(errorNode,
                 subtype, magicMethodName,
-                { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
+                { method: 'get' }, MemberAccessFlags.SkipForMethodLookup,
+                bindToClassType);
 
             if (magicMethodType) {
                 const functionArgs = args.map(arg => {
@@ -3433,7 +3439,7 @@ export class ExpressionEvaluator {
                 // See if the class has a metaclass that handles the operation.
                 const metaclass = TypeUtils.getMetaclass(subtype);
                 if (metaclass && metaclass.category === TypeCategory.Class) {
-                    return handleObjectSubtype(ObjectType.create(metaclass));
+                    return handleObjectSubtype(ObjectType.create(metaclass), subtype);
                 }
             } else if (isNoneOrNever(subtype)) {
                 // NoneType derives from 'object', so do the lookup on 'object'
