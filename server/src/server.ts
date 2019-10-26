@@ -185,16 +185,6 @@ _connection.onInitialize((params): InitializeResult => {
         });
     }
 
-    // Create a default workspace for files that are outside
-    // of all workspaces.
-    _workspaceMap.set(_defaultWorkspacePath, {
-        workspaceName: '',
-        rootPath: '',
-        rootUri: '',
-        serviceInstance: _createAnalyzerService('<default>'),
-        disableLanguageServices: false
-    });
-
     _connection.console.log(`Fetching settings for workspace(s)`);
     updateSettingsForAllWorkspaces();
 
@@ -247,7 +237,21 @@ function _getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
     });
 
     if (bestInstance === undefined) {
-        return _workspaceMap.get(_defaultWorkspacePath)!;
+        let defaultWorkspace = _workspaceMap.get(_defaultWorkspacePath);
+        if (!defaultWorkspace) {
+            // Create a default workspace for files that are outside
+            // of all workspaces.
+            defaultWorkspace = {
+                workspaceName: '',
+                rootPath: '',
+                rootUri: '',
+                serviceInstance: _createAnalyzerService('<default>'),
+                disableLanguageServices: false
+            };
+            _workspaceMap.set(_defaultWorkspacePath, defaultWorkspace);
+        }
+
+        return defaultWorkspace;
     }
 
     return bestInstance;
