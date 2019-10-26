@@ -11,7 +11,8 @@
 
 import { DiagnosticTextRange } from '../common/diagnostic';
 import { ClassNode, ExpressionNode, FunctionNode, NameNode,
-    ParameterNode, ParseNode, StringListNode } from '../parser/parseNodes';
+    ParameterNode, ParseNode, ReturnNode, StringListNode, YieldExpressionNode,
+    YieldFromExpressionNode } from '../parser/parseNodes';
 import { Type } from './types';
 
 export const enum DeclarationType {
@@ -51,6 +52,8 @@ export interface ClassDeclaration extends DeclarationBase {
 export interface FunctionDeclaration extends DeclarationBase {
     type: DeclarationType.Function | DeclarationType.Method;
     node: FunctionNode;
+    returnExpressions?: ReturnNode[];
+    yieldExpressions?: (YieldExpressionNode | YieldFromExpressionNode)[];
 }
 
 export interface ParameterDeclaration extends DeclarationBase {

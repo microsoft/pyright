@@ -19,11 +19,12 @@ import { ExpressionNode, FunctionNode, ImportFromNode, LambdaNode,
 export enum FlowFlags {
     Unreachable    = 1 << 0,  // Unreachable code
     Start          = 1 << 1,  // Entry point
-    Label          = 1 << 2,  // Junction
-    Assignment     = 1 << 3,  // Assignment statement
-    WildcardImport = 1 << 4,  // For "from X import *" statements
-    TrueCondition  = 1 << 5,  // Condition known to be true
-    FalseCondition = 1 << 6   // Condition known to be false
+    BranchLabel    = 1 << 2,  // Junction for forward control flow
+    LoopLabel      = 1 << 3,  // Junction for backward control flow
+    Assignment     = 1 << 4,  // Assignment statement
+    WildcardImport = 1 << 5,  // For "from X import *" statements
+    TrueCondition  = 1 << 6,  // Condition known to be true
+    FalseCondition = 1 << 7   // Condition known to be false
 }
 
 export interface FlowNodeBase {

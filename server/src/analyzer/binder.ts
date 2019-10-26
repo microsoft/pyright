@@ -25,19 +25,21 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { ArgumentCategory, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
-    AwaitExpressionNode, BinaryExpressionNode, BreakNode, ClassNode, ContinueNode, DelNode, ExceptNode,
-    ExpressionNode, ForNode, FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromNode,
-    LambdaNode, ListComprehensionNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode,
-    NameNode, NonlocalNode, ParseNode, ParseNodeType, RaiseNode, ReturnNode, StatementNode,
-    StringListNode, SuiteNode, TernaryExpressionNode, TryNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
+import { ArgumentCategory, AssertNode, AssignmentExpressionNode, AssignmentNode,
+    AugmentedAssignmentExpressionNode, AwaitExpressionNode, BinaryExpressionNode, BreakNode,
+    ClassNode, ContinueNode, DelNode, ExceptNode, ExpressionNode, ForNode, FunctionNode,
+    GlobalNode, IfNode, ImportAsNode, ImportFromNode, LambdaNode, ListComprehensionNode,
+    MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode, ParseNode,
+    ParseNodeType, RaiseNode, ReturnNode, StatementNode, StringListNode, SuiteNode,
+    TernaryExpressionNode, TryNode, TypeAnnotationExpressionNode, UnaryExpressionNode,
     WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { FlowAssignment, FlowCondition, FlowFlags, FlowLabel, FlowNode, FlowStart, FlowWildcardImport } from './codeFlow';
-import { AliasDeclaration, DeclarationType, ModuleLoaderActions,
+import { FlowAssignment, FlowCondition, FlowFlags, FlowLabel, FlowNode, FlowStart,
+    FlowWildcardImport } from './codeFlow';
+import { AliasDeclaration, DeclarationType, FunctionDeclaration, ModuleLoaderActions,
     VariableDeclaration } from './declaration';
 import * as DocStringUtils from './docStringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
@@ -98,13 +100,10 @@ export class Binder extends ParseTreeWalker {
     // Current control-flow node.
     private _currentFlowNode: FlowNode;
 
-    // Flow node label that is the target of all return
-    // statements (including implicit returns).
-    private _currentReturnTarget?: FlowLabel;
-
-    // Flow node label that is the target of all yield
-    // statements.
-    private _currentYieldTarget?: FlowLabel;
+    // Current target function declaration, if currently binding
+    // a function. This allows return and yield statements to be
+    // added to the function declaration.
+    private _targetFunctionDeclaration: FunctionDeclaration | undefined;
 
     // Flow node label that is the target of a "break" statement.
     private _currentBreakTarget?: FlowLabel;
@@ -357,22 +356,28 @@ export class Binder extends ParseTreeWalker {
             functionFlags &= ~FunctionTypeFlags.InstanceMethod;
         }
 
+        const savedTargetFunctionDeclaration = this._targetFunctionDeclaration;
+        this._targetFunctionDeclaration = undefined;
+
         const functionType = FunctionType.create(functionFlags,
             this._getDocString(node.suite.statements));
 
         const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
-        if (symbol) {
-            if (!this._isUnexecutedCode) {
-                const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
-                const declarationType = containingClassNode ?
-                    DeclarationType.Method : DeclarationType.Function;
-                symbol.addDeclaration({
-                    type: declarationType,
-                    node,
-                    path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
-                        this._fileInfo.lines)
-                });
+        if (!this._isUnexecutedCode) {
+            const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+            const declarationType = containingClassNode ?
+                DeclarationType.Method : DeclarationType.Function;
+            const functionDeclaration: FunctionDeclaration = {
+                type: declarationType,
+                node,
+                path: this._fileInfo.filePath,
+                range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
+                    this._fileInfo.lines)
+            };
+            this._targetFunctionDeclaration = functionDeclaration;
+
+            if (symbol) {
+                symbol.addDeclaration(functionDeclaration);
             }
         }
 
@@ -468,27 +473,18 @@ export class Binder extends ParseTreeWalker {
                     }
                 });
 
-                // Create a control flow label that represents the target
-                // of all return statements (including implicit returns).
-                this._currentReturnTarget = this._createFlowLabel();
-                AnalyzerNodeInfo.setFlowNode(node, this._currentReturnTarget);
-
-                // Create a control flow label that represents the target
-                // of all yield statements.
-                this._currentYieldTarget = this._createFlowLabel();
-
                 // Create a start node for the function.
                 this._currentFlowNode = this._createStartFlowNode(node);
 
                 // Walk the statements that make up the function.
                 this.walk(node.suite);
-
-                this._currentReturnTarget = undefined;
-                this._currentYieldTarget = undefined;
             });
         });
 
-        // We'll walk the child nodes in a deffered manner.
+        this._targetFunctionDeclaration = savedTargetFunctionDeclaration;
+
+        // We'll walk the child nodes in a deffered manner, so don't walk
+        // them now.
         return false;
     }
 
@@ -594,9 +590,9 @@ export class Binder extends ParseTreeWalker {
 
         this.walk(node.iterableExpression);
 
-        const preLoopLabel = this._createFlowLabel();
-        const postLoopLabel = this._createFlowLabel();
-        const postForElseLabel = this._createFlowLabel();
+        const preLoopLabel = this._createLoopLabel();
+        const postLoopLabel = this._createBranchLabel();
+        const postForElseLabel = this._createBranchLabel();
         const preElseFlowNode = this._currentFlowNode;
 
         this._addAntecedent(preLoopLabel, this._currentFlowNode);
@@ -639,8 +635,11 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitReturn(node: ReturnNode): boolean {
-        if (this._currentReturnTarget) {
-            this._addAntecedent(this._currentReturnTarget, this._currentFlowNode);
+        if (this._targetFunctionDeclaration) {
+            if (!this._targetFunctionDeclaration.returnExpressions) {
+                this._targetFunctionDeclaration.returnExpressions = [];
+            }
+            this._targetFunctionDeclaration.returnExpressions.push(node);
         }
 
         this._currentFlowNode = Binder._unreachableFlowNode;
@@ -650,17 +649,35 @@ export class Binder extends ParseTreeWalker {
     visitYield(node: YieldExpressionNode): boolean {
         this._validateYieldUsage(node);
 
-        if (this._currentYieldTarget) {
-            this._addAntecedent(this._currentYieldTarget, this._currentFlowNode);
+        if (this._targetFunctionDeclaration) {
+            if (!this._targetFunctionDeclaration.yieldExpressions) {
+                this._targetFunctionDeclaration.yieldExpressions = [];
+            }
+            this._targetFunctionDeclaration.yieldExpressions.push(node);
         }
+
         return true;
+    }
+
+    visitMemberAccess(node: MemberAccessExpressionNode): boolean {
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+        return true;
+    }
+
+    visitName(node: NameNode): boolean {
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+        // Names have no children.
+        return false;
     }
 
     visitYieldFrom(node: YieldFromExpressionNode): boolean {
         this._validateYieldUsage(node);
 
-        if (this._currentYieldTarget) {
-            this._addAntecedent(this._currentYieldTarget, this._currentFlowNode);
+        if (this._targetFunctionDeclaration) {
+            if (!this._targetFunctionDeclaration.yieldExpressions) {
+                this._targetFunctionDeclaration.yieldExpressions = [];
+            }
+            this._targetFunctionDeclaration.yieldExpressions.push(node);
         }
         return true;
     }
@@ -672,6 +689,21 @@ export class Binder extends ParseTreeWalker {
 
     visitWhile(node: WhileNode): boolean {
         this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite, true);
+        return false;
+    }
+
+    visitAssert(node: AssertNode): boolean {
+        const assertTrueLabel = this._createBranchLabel();
+        const assertFalseLabel = this._createBranchLabel();
+
+        this._bindConditional(node.testExpression, assertTrueLabel, assertFalseLabel);
+
+        if (node.exceptionExpression) {
+            this._currentFlowNode = this._finishFlowLabel(assertFalseLabel);
+            this.walk(node.exceptionExpression);
+        }
+
+        this._currentFlowNode = this._finishFlowLabel(assertTrueLabel);
         return false;
     }
 
@@ -710,8 +742,8 @@ export class Binder extends ParseTreeWalker {
 
     visitTry(node: TryNode): boolean {
         // Create one flow label for every except clause.
-        const curExceptTargets = node.exceptClauses.map(() => this._createFlowLabel());
-        const preFinallyLabel = this._createFlowLabel();
+        const curExceptTargets = node.exceptClauses.map(() => this._createBranchLabel());
+        const preFinallyLabel = this._createBranchLabel();
 
         // Handle the try block.
         const prevExceptTargets = this._currentExceptTargets;
@@ -1049,9 +1081,9 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitTernary(node: TernaryExpressionNode): boolean {
-        const trueLabel = this._createFlowLabel();
-        const falseLabel = this._createFlowLabel();
-        const postExpressionLabel = this._createFlowLabel();
+        const trueLabel = this._createBranchLabel();
+        const falseLabel = this._createBranchLabel();
+        const postExpressionLabel = this._createBranchLabel();
 
         // Handle the test expression.
         this._bindConditional(node.testExpression, trueLabel, falseLabel);
@@ -1093,7 +1125,7 @@ export class Binder extends ParseTreeWalker {
     visitBinaryOperation(node: BinaryExpressionNode): boolean {
         if (node.operator === OperatorType.And || node.operator === OperatorType.Or) {
             if (this._isTopLevelLogicalExpression(node)) {
-                const postExpressionLabel = this._createFlowLabel();
+                const postExpressionLabel = this._createBranchLabel();
                 this._bindLogicalExpression(node, postExpressionLabel, postExpressionLabel);
                 this._currentFlowNode = this._finishFlowLabel(postExpressionLabel);
             } else {
@@ -1111,7 +1143,7 @@ export class Binder extends ParseTreeWalker {
         // Allocate a new scope.
         const prevScope = this._currentScope;
         this._currentScope = new Scope(ScopeType.ListComprehension, prevScope);
-        const falseLabel = this._createFlowLabel();
+        const falseLabel = this._createBranchLabel();
 
         for (let i = 0; i < node.comprehensions.length; i++) {
             const compr = node.comprehensions[i];
@@ -1122,7 +1154,7 @@ export class Binder extends ParseTreeWalker {
                 this._createAssignmentTargetFlowNodes(compr.targetExpression);
                 this.walk(compr.targetExpression);
             } else {
-                const trueLabel = this._createFlowLabel();
+                const trueLabel = this._createBranchLabel();
                 this._bindConditional(compr.testExpression, trueLabel, falseLabel);
                 this._currentFlowNode = this._finishFlowLabel(trueLabel);
             }
@@ -1147,9 +1179,17 @@ export class Binder extends ParseTreeWalker {
         return flowNode;
     }
 
-    private _createFlowLabel() {
+    private _createBranchLabel() {
         const flowNode: FlowLabel = {
-            flags: FlowFlags.Label,
+            flags: FlowFlags.BranchLabel,
+            antecedents: []
+        };
+        return flowNode;
+    }
+
+    private _createLoopLabel() {
+        const flowNode: FlowLabel = {
+            flags: FlowFlags.LoopLabel,
             antecedents: []
         };
         return flowNode;
@@ -1253,7 +1293,7 @@ export class Binder extends ParseTreeWalker {
     private _bindLogicalExpression(node: BinaryExpressionNode,
             trueTarget: FlowLabel, falseTarget: FlowLabel) {
 
-        const preRightLabel = this._createFlowLabel();
+        const preRightLabel = this._createBranchLabel();
         if (node.operator === OperatorType.And) {
             this._bindConditional(node.leftExpression, preRightLabel, falseTarget);
         } else {
@@ -1881,29 +1921,25 @@ export class Binder extends ParseTreeWalker {
     private _handleIfWhileCommon(testExpression: ExpressionNode, ifWhileSuite: SuiteNode,
             elseSuite: SuiteNode | IfNode | undefined, isWhile: boolean) {
 
-        const thenLabel = this._createFlowLabel();
-        const elseLabel = this._createFlowLabel();
-        const postIfLabel = this._createFlowLabel();
-
-        this._bindConditional(testExpression, thenLabel, elseLabel);
+        const thenLabel = isWhile ? this._createLoopLabel() : this._createBranchLabel();
+        const elseLabel = this._createBranchLabel();
+        const postIfLabel = this._createBranchLabel();
 
         // Determine if the if condition is always true or always false. If so,
         // we can treat either the if or the else clause as unconditional.
         const constExprValue = StaticExpressions.evaluateStaticExpression(
             testExpression, this._fileInfo.executionEnvironment);
 
+        this._bindConditional(testExpression, thenLabel, elseLabel);
+        this._currentFlowNode = this._finishFlowLabel(thenLabel);
         if (isWhile) {
-            const preWhileLabel = this._createFlowLabel();
-            this._currentFlowNode = preWhileLabel;
-            this._bindConditional(testExpression, thenLabel, postIfLabel);
-            this._bindLoopStatement(preWhileLabel, postIfLabel, () => {
+            this._bindLoopStatement(thenLabel, postIfLabel, () => {
                 this._markNotExecuted(constExprValue !== false, () => {
                     this.walk(ifWhileSuite);
                 });
             });
-            this._addAntecedent(preWhileLabel, this._currentFlowNode);
+            this._addAntecedent(thenLabel, this._currentFlowNode);
         } else {
-            this._currentFlowNode = this._finishFlowLabel(thenLabel);
             this._markNotExecuted(constExprValue !== false, () => {
                 this.walk(ifWhileSuite);
             });
