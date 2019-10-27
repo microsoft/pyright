@@ -887,6 +887,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitImportAs(node: ImportAsNode): boolean {
+        if (this._isUnexecutedCode) {
+            return true;
+        }
+
         if (node.module.nameParts.length > 0) {
             const firstNamePartValue = node.module.nameParts[0].nameToken.value;
 
@@ -976,6 +980,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitImportFrom(node: ImportFromNode): boolean {
+        if (this._isUnexecutedCode) {
+            return true;
+        }
+
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
         let resolvedPath = '';
