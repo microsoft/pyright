@@ -174,22 +174,22 @@ export class ExpressionEvaluator {
     private _scope: Scope;
     private readonly _fileInfo: AnalyzerFileInfo;
     private _expressionTypeConstraints: TypeConstraint[] = [];
-    private _diagnosticSink?: TextRangeDiagnosticSink;
-    private _readTypeFromCache?: ReadTypeFromNodeCacheCallback;
+    private _readTypeFromCache: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
+    private _diagnosticSink?: TextRangeDiagnosticSink;
     private _setSymbolAccessed?: SetSymbolAccessedCallback;
     private _isUnboundCheckSuppressed = false;
 
     constructor(scope: Scope, fileInfo: AnalyzerFileInfo,
-            diagnosticSink?: TextRangeDiagnosticSink,
-            readTypeCallback?: ReadTypeFromNodeCacheCallback,
+            readTypeCallback: ReadTypeFromNodeCacheCallback,
             writeTypeCallback?: WriteTypeToNodeCacheCallback,
+            diagnosticSink?: TextRangeDiagnosticSink,
             setSymbolAccessedCallback?: SetSymbolAccessedCallback) {
         this._scope = scope;
         this._fileInfo = fileInfo;
-        this._diagnosticSink = diagnosticSink;
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
+        this._diagnosticSink = diagnosticSink;
         this._setSymbolAccessed = setSymbolAccessedCallback;
     }
 
@@ -742,11 +742,9 @@ export class ExpressionEvaluator {
             flags = EvaluatorFlags.None): TypeResult {
 
         // Is this type already cached?
-        if (this._readTypeFromCache) {
-            const cachedType = this._readTypeFromCache(node);
-            if (cachedType) {
-                return { type: cachedType, node };
-            }
+        const cachedType = this._readTypeFromCache(node);
+        if (cachedType) {
+            return { type: cachedType, node };
         }
 
         let typeResult: TypeResult | undefined;
@@ -4473,15 +4471,12 @@ export class ExpressionEvaluator {
     private _silenceDiagnostics(callback: () => void) {
         const oldDiagSink = this._diagnosticSink;
         this._diagnosticSink = undefined;
-        const oldReadCacheCallback = this._readTypeFromCache;
-        this._readTypeFromCache = undefined;
         const oldWriteCacheCallback = this._writeTypeToCache;
         this._writeTypeToCache = undefined;
 
         callback();
 
         this._diagnosticSink = oldDiagSink;
-        this._readTypeFromCache = oldReadCacheCallback;
         this._writeTypeToCache = oldWriteCacheCallback;
     }
 

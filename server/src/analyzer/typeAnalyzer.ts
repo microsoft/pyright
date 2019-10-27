@@ -3432,11 +3432,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _createEvaluator(speculativelyExecute = false) {
         return new ExpressionEvaluator(this._currentScope,
             this._fileInfo,
-            speculativelyExecute ? undefined : this._fileInfo.diagnosticSink,
-            speculativelyExecute ? undefined : node => this._readExpressionTypeFromNodeCache(node),
+            node => this._readExpressionTypeFromNodeCache(node),
             speculativelyExecute ? undefined : (node, type) => {
                 this._updateExpressionTypeForNode(node, type);
             },
+            speculativelyExecute ? undefined : this._fileInfo.diagnosticSink,
             speculativelyExecute ? undefined : symbol => {
                 this._setSymbolAccessed(symbol);
             });
