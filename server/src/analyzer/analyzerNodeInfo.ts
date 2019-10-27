@@ -48,9 +48,6 @@ interface ExpressionTypeCache {
 
     // Analysis pass that last wrote to the cache.
     writeVersion?: number;
-
-    // Analysis pass that last accessed the cache.
-    readVersion?: number;
 }
 
 // Cleans out all fields that are added by the analyzer phases
@@ -141,22 +138,5 @@ export function setExpressionTypeWriteVersion(node: ParseNode, version: number) 
         analyzerNode.typeCache.writeVersion = version;
     } else {
         analyzerNode.typeCache = { writeVersion: version };
-    }
-}
-
-export function getExpressionTypeReadVersion(node: ParseNode): number | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    if (analyzerNode.typeCache) {
-        return analyzerNode.typeCache.readVersion;
-    }
-    return undefined;
-}
-
-export function setExpressionTypeReadVersion(node: ParseNode, version: number) {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    if (analyzerNode.typeCache) {
-        analyzerNode.typeCache.readVersion = version;
-    } else {
-        analyzerNode.typeCache = { readVersion: version };
     }
 }

@@ -2892,7 +2892,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (cachedVersion === this._analysisVersion) {
             const cachedType = AnalyzerNodeInfo.getExpressionType(node);
             assert(cachedType !== undefined);
-            AnalyzerNodeInfo.setExpressionTypeReadVersion(node, this._analysisVersion);
             return cachedType;
         }
 
@@ -2902,12 +2901,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
         const oldType = AnalyzerNodeInfo.getExpressionType(node);
         AnalyzerNodeInfo.setExpressionTypeWriteVersion(node, this._analysisVersion);
-        const prevReadVersion = AnalyzerNodeInfo.getExpressionTypeReadVersion(node);
-
-        // Any time this method is called, we're effectively writing to the cache
-        // and reading the value immediately, so we need to update the read version
-        // as well.
-        AnalyzerNodeInfo.setExpressionTypeReadVersion(node, this._analysisVersion);
 
         if (!oldType || !isTypeSame(oldType, exprType)) {
             let replaceType = true;
@@ -2925,11 +2918,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (replaceType) {
-                // If someone has already accessed this expression cache entry during
-                // this pass, we need to perform another pass.
-                if (prevReadVersion === this._analysisVersion) {
-                    this._setAnalysisChanged('Expression type changed');
-                }
+                this._setAnalysisChanged('Expression type changed');
                 AnalyzerNodeInfo.setExpressionType(node, exprType);
             }
         }
