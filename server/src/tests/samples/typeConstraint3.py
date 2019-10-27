@@ -2,7 +2,7 @@
 
 from typing import Union
 
-condition = True
+condition: bool
 
 def foo(a: Union[str, int]) -> int:
 
