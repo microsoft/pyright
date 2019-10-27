@@ -1255,6 +1255,8 @@ export class Binder extends ParseTreeWalker {
             antecedent
         };
 
+        this._addExceptTargets(conditionalFlowNode);
+
         return conditionalFlowNode;
     }
 
