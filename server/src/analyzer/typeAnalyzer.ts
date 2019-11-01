@@ -22,9 +22,9 @@ import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignme
     FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
     ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
     ParameterNode, ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceExpressionNode,
-    StringListNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode, WithNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    StatementNode, StringListNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
+    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -100,8 +100,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     analyze() {
         this._didAnalysisChange = false;
+        this._currentScope.clearAlwaysRaises();
+        this._currentScope.clearAlwaysReturns();
+        this._currentScope.clearBreaks();
 
-        this.walk(this._moduleNode);
+        this._walkStatements(this._moduleNode.statements);
 
         // Clear out any type constraints that were collected
         // during the processing of the scope.
@@ -1461,11 +1464,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitSuite(node: SuiteNode): boolean {
+        this._walkStatements(node.statements);
+        return false;
+    }
+
+    private _walkStatements(statements: StatementNode[]) {
         // Manually walk the statements in the suite so we can flag
         // the point where an unconditional return or raise occurs.
         let reportedUnreachableCode = false;
 
-        node.statements.forEach((statement, index) => {
+        statements.forEach((statement, index) => {
             this.walk(statement);
 
             if (this._currentScope.getAlwaysRaises() ||
@@ -1473,11 +1481,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._currentScope.getAlwaysBreaks()) {
 
                 if (!reportedUnreachableCode) {
-                    if (index < node.statements.length - 1) {
+                    if (index < statements.length - 1) {
                         // Create a text range that covers the next statement through
                         // the end of the suite.
-                        const start = node.statements[index + 1].start;
-                        const lastStatement = node.statements[node.statements.length - 1];
+                        const start = statements[index + 1].start;
+                        const lastStatement = statements[statements.length - 1];
                         const end = TextRange.getEnd(lastStatement);
                         this._addUnusedCode({ start, length: end - start });
                     }
@@ -1487,8 +1495,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
         });
-
-        return false;
     }
 
     private _getAliasedSymbolTypeForName(name: string): [Symbol | undefined, Type | undefined] {
