@@ -1607,13 +1607,13 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromTupleExpression(node: TupleExpressionNode, usage: EvaluatorUsage): TypeResult {
-        // Buid an array of expected types.
+        // Build an array of expected types.
         const expectedTypes: Type[] = [];
         if (usage.expectedType && usage.expectedType.category === TypeCategory.Object) {
             const tupleClass = usage.expectedType.classType;
 
             if (ClassType.isBuiltIn(tupleClass, 'Tuple') && tupleClass.typeArguments) {
-                // Is this a homoeneous tuple of indeterminate length? If so,
+                // Is this a homogeneous tuple of indeterminate length? If so,
                 // match the number of expected types to the number of entries
                 // in the tuple expression.
                 if (tupleClass.typeArguments.length === 2 && TypeUtils.isEllipsisType(tupleClass.typeArguments[1])) {
@@ -1649,7 +1649,7 @@ export class ExpressionEvaluator {
                         const typeArgs = ClassType.getTypeArguments(typeResult.unpackedType.classType);
 
                         // If the Tuple wasn't specialized or has a "..." type parameter, we can't
-                        // make anydetermination about its contents.
+                        // make any determination about its contents.
                         if (!typeArgs || typeArgs.some(t => t.category === TypeCategory.Any && t.isEllipsis)) {
                             tupleTypes = [AnyType.create(false), AnyType.create(true)];
                             break;
@@ -3882,6 +3882,29 @@ export class ExpressionEvaluator {
                 const typeList = targetTypes[index];
                 const targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
                 if (!this._assignTypeToExpression(expr, targetType, srcExpr)) {
+                    understoodType = false;
+                }
+            });
+        } else if (targetExpr.nodeType === ParseNodeType.Unpack) {
+            if (targetExpr.expression.nodeType === ParseNodeType.Name) {
+                if (!isAnyOrUnknown(type)) {
+                    // Make a list type from the source.
+                    const listType = ScopeUtils.getBuiltInType(this._scope, 'List');
+                    if (listType.category === TypeCategory.Class) {
+                        type = ObjectType.create(ClassType.cloneForSpecialization(listType, [type]));
+                    } else {
+                        type = UnknownType.create();
+                    }
+                }
+                this._assignTypeToNameNode(targetExpr.expression, type);
+            }
+        } else if (targetExpr.nodeType === ParseNodeType.List) {
+            // The assigned expression had better be some iterable type.
+            const iteratedType = this.getTypeFromIterable(
+                type, false, srcExpr, false);
+
+            targetExpr.entries.forEach(entry => {
+                if (!this._assignTypeToExpression(entry, iteratedType, srcExpr)) {
                     understoodType = false;
                 }
             });

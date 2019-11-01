@@ -3105,8 +3105,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._assignTypeToNameNode(target.expression, srcType, srcExpr);
             }
         } else if (target.nodeType === ParseNodeType.List) {
+            // The assigned expression had better be some iterable type.
+            const evaluator = this._createEvaluator();
+            const iteratedType = evaluator.getTypeFromIterable(
+                srcType, false, srcExpr, false);
+
             target.entries.forEach(entry => {
-                this._assignTypeToExpression(entry, UnknownType.create(), srcExpr);
+                this._assignTypeToExpression(entry, iteratedType, srcExpr);
             });
         }
 

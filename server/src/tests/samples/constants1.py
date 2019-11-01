@@ -23,10 +23,10 @@ del None
 -3 = 2
 
 # This should generate an error
-[4] = 2
+[4] = [2]
 
 # This should generate an error
-[True] = 3
+[True] = [3]
 
 # This should generate an error
 (True) = 3
