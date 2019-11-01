@@ -9,7 +9,7 @@
 */
 
 import { Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode-languageserver';
-import VSCodeUri from 'vscode-uri';
+import { URI } from 'vscode-uri';
 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
@@ -152,7 +152,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
         }
 
         const location: Location = {
-            uri: VSCodeUri.file(this._filePath).toString(),
+            uri: URI.file(this._filePath).toString(),
             range: this._convertRange(declaration.range)
         };
 

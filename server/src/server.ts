@@ -11,7 +11,7 @@ import {
     Position, Range, ResponseError, SignatureInformation, SymbolInformation, TextDocuments,
     TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
-import VSCodeUri from 'vscode-uri';
+import { URI } from 'vscode-uri';
 
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
@@ -770,7 +770,7 @@ function _convertPosition(position?: DiagnosticTextPosition): Position {
 }
 
 function _convertUriToPath(uriString: string): string {
-    const uri = VSCodeUri.parse(uriString);
+    const uri = URI.parse(uriString);
     let convertedPath = normalizePath(uri.path);
 
     // If this is a DOS-style path with a drive letter, remove
@@ -783,7 +783,7 @@ function _convertUriToPath(uriString: string): string {
 }
 
 function _convertPathToUri(path: string): string {
-    return VSCodeUri.file(path).toString();
+    return URI.file(path).toString();
 }
 
 function _recordUserInteractionTime() {
