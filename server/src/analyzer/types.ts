@@ -444,6 +444,14 @@ export namespace ClassType {
         // each instance, so we need to rely on a name comparison.
         if (isSpecialBuiltIn(classType) && isSpecialBuiltIn(type2) &&
                 getClassName(classType) === getClassName(type2)) {
+
+            // In a few cases (e.g. with NamedTuple classes) we allocate a
+            // new class type for every type analysis pass. To detect this
+            // case, we will use the typeSourceId field.
+            if (classType.details.typeSourceId !== type2.details.typeSourceId) {
+                return false;
+            }
+
             return true;
         }
 
@@ -1062,14 +1070,6 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
 
             // If the details are not the same it's not the same class.
             if (!ClassType.isSameGenericClass(type1, classType2)) {
-                return false;
-            }
-
-            // If the class details are common, it's the same class.
-            // In a few cases (e.g. with NamedTuple classes) we allocate a
-            // new class type for every type analysis pass. To detect this
-            // case, we will use the typeSourceId field.
-            if (ClassType.getTypeSourceId(type1) !== ClassType.getTypeSourceId(classType2)) {
                 return false;
             }
 
