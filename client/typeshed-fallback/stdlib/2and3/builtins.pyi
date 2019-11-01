@@ -782,6 +782,9 @@ class memoryview(Sized, Container[_mv_container_type]):
     readonly: bool
     ndim: int
 
+    if sys.version_info >= (3,3):
+        obj: Any
+
     if sys.version_info >= (3,):
         c_contiguous: bool
         f_contiguous: bool
@@ -812,8 +815,17 @@ class memoryview(Sized, Container[_mv_container_type]):
     def tobytes(self) -> bytes: ...
     def tolist(self) -> List[int]: ...
 
+    if sys.version_info >= (3, 2):
+        def release(self) -> None: ...
+
+    if sys.version_info >= (3, 3):
+        def cast(self, format: str, shape: Optional[list[int]] = ...) -> memoryview: ...
+
     if sys.version_info >= (3, 5):
         def hex(self) -> str: ...
+
+    if sys.version_info >= (3, 8):
+        def toreadonly(self) -> memoryview: ...
 
 class bool(int):
     def __init__(self, o: object = ...) -> None: ...
