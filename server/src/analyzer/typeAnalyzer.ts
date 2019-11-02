@@ -1436,7 +1436,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // If this annotation isn't part of an assignment operation,
         // update the type on the name node for the hover provider.
         // If it's part of an assignment operation, the assignment
-        // operation will set thetype.
+        // operation will set the type.
         if (node.parent && node.parent.nodeType !== ParseNodeType.Assignment) {
             this._updateExpressionTypeForNode(node.valueExpression, declaredType);
         }
@@ -1747,7 +1747,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                 const aliasMapEntry = specialTypes[assignedName];
                 if (aliasMapEntry) {
-                    // The binder should have already synteshized the class.
+                    // The binder should have already synthesized the class.
                     const specialClassType = AnalyzerNodeInfo.getExpressionType(nameNode)!;
                     assert(specialClassType !== undefined && specialClassType.category === TypeCategory.Class);
                     specialType = specialClassType;

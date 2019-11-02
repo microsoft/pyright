@@ -483,7 +483,7 @@ export class Binder extends ParseTreeWalker {
 
         this._targetFunctionDeclaration = savedTargetFunctionDeclaration;
 
-        // We'll walk the child nodes in a deffered manner, so don't walk
+        // We'll walk the child nodes in a deferred manner, so don't walk
         // them now.
         return false;
     }
@@ -524,7 +524,7 @@ export class Binder extends ParseTreeWalker {
             });
         });
 
-        // We'll walk the child nodes in a deffered manner.
+        // We'll walk the child nodes in a deferred manner.
         return false;
     }
 
@@ -910,7 +910,7 @@ export class Binder extends ParseTreeWalker {
             assert(importInfo !== undefined);
 
             if (importInfo && importInfo.isImportFound && importInfo.resolvedPaths.length > 0 && symbol) {
-                // See if there's already a matching alias delaration for this import.
+                // See if there's already a matching alias declaration for this import.
                 // if so, we'll update it rather than creating a new one. This is required
                 // to handle cases where multiple import statements target the same
                 // starting symbol such as "import a.b.c" and "import a.d". In this case,
@@ -994,11 +994,11 @@ export class Binder extends ParseTreeWalker {
         if (node.isWildcardImport) {
             if (importInfo && importInfo.implicitImports) {
                 const names: string[] = [];
-                const lookupInfo = this._fileInfo.importLookup(resolvedPath);
 
+                const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                 if (lookupInfo) {
                     lookupInfo.symbolTable.forEach((symbol, name) => {
-                        // Don't include the implicit names in the symbol table.
+                        // Don't include the ignored names in the symbol table.
                         if (!symbol.isIgnoredForProtocolMatch()) {
                             const symbol = this._bindNameToScope(this._currentScope, name);
                             if (symbol) {
@@ -1017,7 +1017,7 @@ export class Binder extends ParseTreeWalker {
                 }
 
                 // Also add all of the implicitly-imported modules for
-                // the import  module.
+                // the import module.
                 importInfo.implicitImports.forEach(implicitImport => {
                     const symbol = this._bindNameToScope(this._currentScope, implicitImport.name);
                     if (symbol) {
@@ -1496,7 +1496,7 @@ export class Binder extends ParseTreeWalker {
     private _addBuiltInSymbolToCurrentScope(nameValue: string, type: Type) {
         // Handle a special case where a built-in type is not known
         // at binding time. This happens specifically when binding
-        // the buitins.pyi module. We'll convert the Unknown types
+        // the builtins.pyi module. We'll convert the Unknown types
         // into Any and not add a real declaration so other classes
         // can override the type without getting an error.
         if (type.category === TypeCategory.Unknown) {
