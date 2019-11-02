@@ -14,7 +14,6 @@ import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType, FunctionDeclaration } from './declaration';
 import { getTypeForDeclaration, hasTypeForDeclaration, isFunctionOrMethodDeclaration } from './declarationUtils';
-import { defaultTypeSourceId } from './inferredType';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType, FunctionTypeFlags,
     InheritanceChain, isAnyOrUnknown, isNoneOrNever, isSameWithoutLiteralValue, isTypeSame,
@@ -244,7 +243,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
     if (destType.category === TypeCategory.TypeVar) {
         if (typeVarMap) {
             // Strip any literal value first, since type matching never uses literals.
-            const noLiteralSrcType = stripLiteralValue(srcType);
+            let noLiteralSrcType = stripLiteralValue(srcType);
 
             const existingTypeVarMapping = typeVarMap.get(destType.name);
             if (existingTypeVarMapping) {
@@ -252,7 +251,27 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                 if (!canAssignType(existingTypeVarMapping, noLiteralSrcType, diagAddendum,
                     typeVarMap, flags, recursionCount + 1)) {
 
-                    // See if we can expand the type. If it was already expanded, then
+                    // Determine if one of the existing subtypes is a subclass of the new
+                    // type. If so, we can avoid adding the new type. Strip it out.
+                    noLiteralSrcType = doForSubtypes(noLiteralSrcType, srcSubtype => {
+                        let foundSubclass = false;
+                        if (srcSubtype.category === TypeCategory.Class || srcSubtype.category === TypeCategory.Object) {
+                            doForSubtypes(existingTypeVarMapping, destSubtype => {
+                                if (destSubtype.category === TypeCategory.Class || destSubtype.category === TypeCategory.Object) {
+                                    if (canAssignType(srcSubtype, destSubtype, new DiagnosticAddendum(),
+                                            undefined, flags, recursionCount + 1)) {
+
+                                        foundSubclass = true;
+                                    }
+                                }
+                                return undefined;
+                            });
+                        }
+
+                        return foundSubclass ? undefined : srcSubtype;
+                    });
+
+                    // See if we can widen the type. If it was already widened, then
                     // it's a failure case.
                     const combinedType = combineTypes([existingTypeVarMapping, noLiteralSrcType]);
                     if (isTypeSame(existingTypeVarMapping, combinedType)) {
