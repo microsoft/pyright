@@ -336,7 +336,7 @@ export class SourceFile {
         this._isTypeAnalysisFinalized = false;
         this._isTypeAnalysisPassNeeded = true;
 
-        // If the file continas a wildcard import, we need to rebind
+        // If the file contains a wildcard import, we need to rebind
         // also because the dependent import may have changed.
         if (this._parseResults && this._parseResults.containsWildcardImport) {
             this._isBindingNeeded = true;
