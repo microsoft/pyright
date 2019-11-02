@@ -19,7 +19,7 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
     CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, DictionaryNode,
-    ExpressionNode, FunctionNode, IndexExpressionNode, IndexItemsNode, isExpressionNode,
+    ExpressionNode, IndexExpressionNode, IndexItemsNode, isExpressionNode,
     LambdaNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
     ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceExpressionNode,
     StringListNode, TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode,
@@ -172,8 +172,6 @@ const booleanOperatorMap: { [operator: number]: boolean } = {
     [OperatorType.NotIn]: true
 };
 
-const _maxFlowNodeRecursionCount = 100;
-
 export class ExpressionEvaluator {
     private _scope: Scope;
     private readonly _fileInfo: AnalyzerFileInfo;
@@ -182,7 +180,6 @@ export class ExpressionEvaluator {
     private _diagnosticSink?: TextRangeDiagnosticSink;
     private _setSymbolAccessed?: SetSymbolAccessedCallback;
     private _flowNodeRecursionMap = new Map<number, true>();
-    private _flowNodeRecursionCount = 0;
 
     constructor(scope: Scope, fileInfo: AnalyzerFileInfo,
             readTypeCallback: ReadTypeFromNodeCacheCallback,
@@ -476,14 +473,14 @@ export class ExpressionEvaluator {
                         if (statement.leftExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.leftExpression;
                             variableType = TypeUtils.stripLiteralValue(
-                                this.getType(statement.rightExpression, { method: 'get' }));
+                                this._getTypeFromExpression(statement.rightExpression, { method: 'get' }).type);
                         } else if (statement.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
                                 statement.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
 
                             variableNameNode = statement.leftExpression.valueExpression;
                             variableType = TypeUtils.convertClassToObject(
-                                this.getType(statement.leftExpression.typeAnnotation, { method: 'get' },
-                                    EvaluatorFlags.ConvertEllipsisToAny));
+                                this._getTypeFromExpression(statement.leftExpression.typeAnnotation, { method: 'get' },
+                                    EvaluatorFlags.ConvertEllipsisToAny).type);
                         }
 
                         hasDefaultValue = true;
@@ -491,8 +488,8 @@ export class ExpressionEvaluator {
                         if (statement.valueExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.valueExpression;
                             variableType = TypeUtils.convertClassToObject(
-                                this.getType(statement.typeAnnotation, { method: 'get' },
-                                    EvaluatorFlags.ConvertEllipsisToAny));
+                                this._getTypeFromExpression(statement.typeAnnotation, { method: 'get' },
+                                    EvaluatorFlags.ConvertEllipsisToAny).type);
                         }
                     }
 
@@ -786,7 +783,7 @@ export class ExpressionEvaluator {
             node.strings.forEach(str => {
                 if (str.nodeType === ParseNodeType.FormatString) {
                     str.expressions.forEach(expr => {
-                        this.getType(expr);
+                        this._getTypeFromExpression(expr);
                     });
                 }
             });
@@ -951,7 +948,7 @@ export class ExpressionEvaluator {
                     // the start.
                     const typeAtStart = symbolWithScope.isBeyondExecutionScope ? type :
                         symbol.isInitiallyUnbound() ? UnboundType.create() : undefined;
-                    type = this._getNarrowedTypeFromCodeFlow(node, type, typeAtStart);
+                    type = this._getFlowTypeOfReference(node, typeAtStart) || type;
                 }
 
                 if (isUnbound(type)) {
@@ -983,8 +980,8 @@ export class ExpressionEvaluator {
             node, baseTypeResult, usage, flags);
 
         if (usage.method === 'get') {
-            memberType.type = this._getNarrowedTypeFromCodeFlow(node,
-                memberType.type, memberType.type);
+            memberType.type = this._getFlowTypeOfReference(node, memberType.type) ||
+                memberType.type;
         }
 
         if (this._writeTypeToCache) {
@@ -1474,7 +1471,7 @@ export class ExpressionEvaluator {
             const entries = new StringMap<TypeUtils.TypedDictEntry>();
             TypeUtils.getTypedDictMembersForClassRecursive(baseType.classType, entries);
 
-            const indexType = this.getType(node.items.items[0]);
+            const indexType = this._getTypeFromExpression(node.items.items[0]).type;
             const diag = new DiagnosticAddendum();
             const resultingType = TypeUtils.doForSubtypes(indexType, subtype => {
                 if (isAnyOrUnknown(subtype)) {
@@ -1544,7 +1541,7 @@ export class ExpressionEvaluator {
             return UnknownType.create();
         }
 
-        const indexTypeList = node.items.items.map(item => this.getType(item));
+        const indexTypeList = node.items.items.map(item => this._getTypeFromExpression(item).type);
 
         let indexType: Type;
         if (indexTypeList.length === 1) {
@@ -1716,7 +1713,7 @@ export class ExpressionEvaluator {
                 node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
                 node.arguments[0].name === undefined) {
 
-            const type = this.getType(node.arguments[0].valueExpression);
+            const type = this._getTypeFromExpression(node.arguments[0].valueExpression).type;
             const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
             this._addWarning(
                 `Type of '${ exprString }' is '${ printType(type) }'`,
@@ -3144,7 +3141,7 @@ export class ExpressionEvaluator {
     }
 
     private _getTypeFromUnaryExpression(node: UnaryExpressionNode): TypeResult {
-        let exprType = this.getType(node.expression);
+        let exprType = this._getTypeFromExpression(node.expression).type;
 
         // Map unary operators to magic functions. Note that the bitwise
         // invert has two magic functions that are aliases of each other.
@@ -3208,8 +3205,8 @@ export class ExpressionEvaluator {
             }
         }
 
-        let leftType = this.getType(leftExpression);
-        let rightType = this.getType(node.rightExpression);
+        let leftType = this._getTypeFromExpression(leftExpression).type;
+        let rightType = this._getTypeFromExpression(node.rightExpression).type;
 
         // Optional checks apply to all operations except for boolean operations.
         if (booleanOperatorMap[node.operator] === undefined) {
@@ -3260,8 +3257,8 @@ export class ExpressionEvaluator {
 
         // Don't write to the cache when we evaluate the left-hand side.
         // We'll write the result as part of the "set" method.
-        const leftType = this.getType(node.leftExpression);
-        const rightType = this.getType(node.rightExpression);
+        const leftType = this._getTypeFromExpression(node.leftExpression).type;
+        const rightType = this._getTypeFromExpression(node.rightExpression).type;
 
         type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
             return TypeUtils.doForSubtypes(rightType, rightSubtype => {
@@ -3543,12 +3540,14 @@ export class ExpressionEvaluator {
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                keyTypes.push(this.getType(entryNode.keyExpression, { method: 'get', expectedType: expectedKeyType }));
-                valueTypes.push(this.getType(entryNode.valueExpression, { method: 'get', expectedType: expectedValueType }));
+                keyTypes.push(this._getTypeFromExpression(entryNode.keyExpression,
+                    { method: 'get', expectedType: expectedKeyType }).type);
+                valueTypes.push(this._getTypeFromExpression(entryNode.valueExpression,
+                    { method: 'get', expectedType: expectedValueType }).type);
                 addUnknown = false;
 
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
-                const unexpandedType = this.getType(entryNode.expandExpression);
+                const unexpandedType = this._getTypeFromExpression(entryNode.expandExpression).type;
                 if (isAnyOrUnknown(unexpandedType)) {
                     addUnknown = false;
                 } else {
@@ -3664,7 +3663,7 @@ export class ExpressionEvaluator {
         if (node.entries.length === 1 && node.entries[0].nodeType === ParseNodeType.ListComprehension) {
             listEntryType = this._getElementTypeFromListComprehensionExpression(node.entries[0]);
         } else {
-            let entryTypes = node.entries.map(entry => this.getType(entry));
+            let entryTypes = node.entries.map(entry => this._getTypeFromExpression(entry).type);
 
             // If there is an expected type, see if we can match any parts of it.
             if (usage.expectedType && entryTypes.length > 0) {
@@ -3786,7 +3785,7 @@ export class ExpressionEvaluator {
             FunctionType.addParameter(functionType, functionParam);
         });
 
-        const returnType = this.getType(node.expression, { method: 'get' });
+        const returnType = this._getTypeFromExpression(node.expression, { method: 'get' }).type;
         FunctionType.getInferredReturnType(functionType).addSource(
             returnType, node.expression.id);
 
@@ -3927,7 +3926,7 @@ export class ExpressionEvaluator {
         for (const comprehension of node.comprehensions) {
             if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
                 const iterableType = TypeUtils.stripLiteralValue(
-                    this.getType(comprehension.iterableExpression));
+                    this._getTypeFromExpression(comprehension.iterableExpression).type);
                 const itemType = this.getTypeFromIterable(iterableType, !!comprehension.isAsync,
                     comprehension.iterableExpression, false);
 
@@ -3939,7 +3938,7 @@ export class ExpressionEvaluator {
             } else {
                 assert(comprehension.nodeType === ParseNodeType.ListComprehensionIf);
                 // Evaluate the test expression
-                this.getType(comprehension.testExpression);
+                this._getTypeFromExpression(comprehension.testExpression);
             }
         }
 
@@ -3948,18 +3947,19 @@ export class ExpressionEvaluator {
             if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
                 // Create a tuple with the key/value types.
                 const keyType = TypeUtils.stripLiteralValue(
-                    this.getType(node.expression.keyExpression));
+                    this._getTypeFromExpression(node.expression.keyExpression).type);
                 const valueType = TypeUtils.stripLiteralValue(
-                    this.getType(node.expression.valueExpression));
+                    this._getTypeFromExpression(node.expression.valueExpression).type);
 
                 type = ScopeUtils.getBuiltInObject(
                     this._scope, 'Tuple', [keyType, valueType]);
             } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
-                const unexpandedType = this.getType(node.expression.expandExpression);
+                const unexpandedType = this._getTypeFromExpression(node.expression.expandExpression);
 
                 // TODO - need to implement
             } else if (isExpressionNode(node)) {
-                type = TypeUtils.stripLiteralValue(this.getType(node.expression as ExpressionNode));
+                type = TypeUtils.stripLiteralValue(
+                    this._getTypeFromExpression(node.expression as ExpressionNode).type);
             }
         }
 
@@ -3973,7 +3973,7 @@ export class ExpressionEvaluator {
         const optionalIntObject = combineTypes([intObject, NoneType.create()]);
 
         const validateIndexType = (indexExpr: ExpressionNode) => {
-            const exprType = TypeUtils.stripLiteralValue(this.getType(indexExpr));
+            const exprType = TypeUtils.stripLiteralValue(this._getTypeFromExpression(indexExpr).type);
 
             const diag = new DiagnosticAddendum();
             if (!TypeUtils.canAssignType(optionalIntObject, exprType, diag)) {
@@ -4259,36 +4259,23 @@ export class ExpressionEvaluator {
         return this._createSpecialType(classType, typeArgs);
     }
 
-    private _getNarrowedTypeFromCodeFlow(node: NameNode | MemberAccessExpressionNode,
-            type: Type, typeAtStart?: Type): Type {
+    private _getFlowTypeOfReference(reference: NameNode | MemberAccessExpressionNode,
+            initialType: Type | undefined): Type | undefined {
 
-        const flowNode = AnalyzerNodeInfo.getFlowNode(node);
-
-        // If there was no flow label, it was probably an unreachable node,
-        // so we'll return the original type.
-        if (!flowNode) {
-            assert.fail('Expected to find flow node');
-        }
-
-        const typeFromControlFlow = this._getTypeFromFlowNode(flowNode!, node, typeAtStart);
-        if (typeFromControlFlow) {
-            return typeFromControlFlow;
-        }
-        return type;
+        const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
+        return this._getTypeFromFlowNode(flowNode!, reference, initialType);
     }
 
     // If this flow has no knowledge of the target expression, it returns undefined.
     // If the start flow node for this scope is reachable, the typeAtStart value is
     // returned.
-    private _getTypeFromFlowNode(flowNode: FlowNode, target: NameNode | MemberAccessExpressionNode,
-            typeAtStart: Type | undefined): Type | undefined {
+    private _getTypeFromFlowNode(flowNode: FlowNode, reference: NameNode | MemberAccessExpressionNode,
+            initialType: Type | undefined): Type | undefined {
 
         let curFlowNode = flowNode;
 
         while (true) {
-            if (this._flowNodeRecursionMap.get(curFlowNode.id) ||
-                    this._flowNodeRecursionCount > _maxFlowNodeRecursionCount) {
-
+            if (this._flowNodeRecursionMap.get(curFlowNode.id)) {
                 return undefined;
             }
 
@@ -4300,11 +4287,11 @@ export class ExpressionEvaluator {
             }
 
             if (curFlowNode.flags & FlowFlags.Start) {
-                return typeAtStart;
+                return initialType;
             } else if (curFlowNode.flags & FlowFlags.Assignment) {
                 const assignmentFlowNode = curFlowNode as FlowAssignment;
-                if (target.nodeType === ParseNodeType.Name || target.nodeType === ParseNodeType.MemberAccess) {
-                    if (this._isMatchingExpression(target, assignmentFlowNode.node)) {
+                if (reference.nodeType === ParseNodeType.Name || reference.nodeType === ParseNodeType.MemberAccess) {
+                    if (this._isMatchingExpression(reference, assignmentFlowNode.node)) {
                         if (curFlowNode.flags & FlowFlags.Unbind) {
                             return UnboundType.create();
                         }
@@ -4319,7 +4306,7 @@ export class ExpressionEvaluator {
                 const typesToCombine: Type[] = [];
                 this._preventFlowNodeRecursion(labelNode.id, () => {
                     labelNode.antecedents.map(antecedent => {
-                        const type = this._getTypeFromFlowNode(antecedent, target, typeAtStart);
+                        const type = this._getTypeFromFlowNode(antecedent, reference, initialType);
                         if (type) {
                             typesToCombine.push(type);
                         }
@@ -4331,11 +4318,11 @@ export class ExpressionEvaluator {
                 return combineTypes(typesToCombine);
             } else if (curFlowNode.flags & FlowFlags.WildcardImport) {
                 const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
-                if (target.nodeType === ParseNodeType.Name) {
-                    const nameValue = target.nameToken.value;
+                if (reference.nodeType === ParseNodeType.Name) {
+                    const nameValue = reference.nameToken.value;
                     if (wildcardImportFlowNode.names.some(name => name === nameValue)) {
                         // TODO - need to implement
-                        return typeAtStart;
+                        return initialType;
                     }
                 }
 
@@ -4343,12 +4330,12 @@ export class ExpressionEvaluator {
                 continue;
             } else if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                 const conditionalFlowNode = curFlowNode as FlowCondition;
-                const typeNarrowingCallback = this._getTypeNarrowingCallback(target, conditionalFlowNode);
+                const typeNarrowingCallback = this._getTypeNarrowingCallback(reference, conditionalFlowNode);
                 if (typeNarrowingCallback) {
                     let type: Type | undefined;
                     this._preventFlowNodeRecursion(conditionalFlowNode.id, () => {
                         type = this._getTypeFromFlowNode(conditionalFlowNode.antecedent,
-                            target, typeAtStart);
+                            reference, initialType);
                     });
 
                     if (!type) {
@@ -4385,9 +4372,7 @@ export class ExpressionEvaluator {
         let curFlowNode = flowNode;
 
         while (true) {
-            if (this._flowNodeRecursionMap.get(curFlowNode.id) ||
-                    this._flowNodeRecursionCount > _maxFlowNodeRecursionCount) {
-
+            if (this._flowNodeRecursionMap.get(curFlowNode.id)) {
                 return true;
             }
 
@@ -4444,19 +4429,15 @@ export class ExpressionEvaluator {
 
     private _preventFlowNodeRecursion(flowNodeId: number, callback: () => void) {
         this._flowNodeRecursionMap.set(flowNodeId, true);
-        this._flowNodeRecursionCount++;
-
         callback();
-
         this._flowNodeRecursionMap.delete(flowNodeId);
-        this._flowNodeRecursionCount--;
     }
 
-    // Given a target expression and a flow node, returns a callback that
+    // Given a reference expression and a flow node, returns a callback that
     // can be used to narrow the type described by the target expression.
     // If the specified flow node is not associated with the target expression,
     // it returns undefined.
-    private _getTypeNarrowingCallback(target: ExpressionNode, flowNode: FlowCondition): TypeNarrowingCallback | undefined {
+    private _getTypeNarrowingCallback(reference: ExpressionNode, flowNode: FlowCondition): TypeNarrowingCallback | undefined {
         const testExpression = flowNode.expression;
         const isPositiveTest = !!(flowNode.flags & FlowFlags.TrueCondition);
 
@@ -4471,7 +4452,7 @@ export class ExpressionEvaluator {
                 if (testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
                         testExpression.rightExpression.token.keywordType === KeywordType.None) {
 
-                    if (this._isMatchingExpression(target, testExpression.leftExpression)) {
+                    if (this._isMatchingExpression(reference, testExpression.leftExpression)) {
                         // Narrow the type by filtering on "None".
                         return (type: Type) => {
                             if (type.category === TypeCategory.Union) {
@@ -4503,15 +4484,15 @@ export class ExpressionEvaluator {
 
                 // Look for "type(X) is Y" or "type(X) is not Y".
                 if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
-                    const callType = this.getType(testExpression.leftExpression.leftExpression);
+                    const callType = this._getTypeFromExpression(testExpression.leftExpression.leftExpression).type;
                     if (callType.category === TypeCategory.Class &&
                             ClassType.isBuiltIn(callType, 'type') &&
                             testExpression.leftExpression.arguments.length === 1 &&
                             testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
 
                         const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
-                        if (this._isMatchingExpression(target, arg0Expr)) {
-                            const classType = this.getType(testExpression.rightExpression);
+                        if (this._isMatchingExpression(reference, arg0Expr)) {
+                            const classType = this._getTypeFromExpression(testExpression.rightExpression).type;
                             if (classType.category === TypeCategory.Class) {
                                 return (type: Type) => {
                                     // Narrow the type based on whether the type matches the specified type.
@@ -4550,8 +4531,8 @@ export class ExpressionEvaluator {
                 const isInstanceCheck = testExpression.leftExpression.nameToken.value === 'isinstance';
                 const arg0Expr = testExpression.arguments[0].valueExpression;
                 const arg1Expr = testExpression.arguments[1].valueExpression;
-                if (this._isMatchingExpression(target, arg0Expr)) {
-                    const arg1Type = this.getType(arg1Expr);
+                if (this._isMatchingExpression(reference, arg0Expr)) {
+                    const arg1Type = this._getTypeFromExpression(arg1Expr).type;
                     const classTypeList = this._getIsInstanceClassTypes(arg1Type);
                     if (classTypeList) {
                         return (type: Type) => {
@@ -4562,7 +4543,7 @@ export class ExpressionEvaluator {
             }
         }
 
-        if (this._isMatchingExpression(target, testExpression)) {
+        if (this._isMatchingExpression(reference, testExpression)) {
             return (type: Type) => {
                 // Narrow the type based on whether the subtype can be true or false.
                 return TypeUtils.doForSubtypes(type, subtype => {
@@ -4845,7 +4826,7 @@ export class ExpressionEvaluator {
 
         // If there was no defined type provided, there should always
         // be a value expression from which we can retrieve the type.
-        return this.getType(arg.valueExpression!, { method: 'get' });
+        return this._getTypeFromExpression(arg.valueExpression!, { method: 'get' }).type;
     }
 
     // Disables recording of errors and warnings and disables
