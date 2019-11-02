@@ -199,10 +199,12 @@ export class SourceFile {
             return undefined;
         }
 
+        let includeWarningsAndErrors = true;
+
         // If a file was imported as a third-party file, don't report
         // any errors for it. The user can't fix them anyway.
         if (this._isThirdPartyImport) {
-            return undefined;
+            includeWarningsAndErrors = false;
         }
 
         let diagList: Diagnostic[] = [];
@@ -246,7 +248,7 @@ export class SourceFile {
 
         if (this._isTypeshedStubFile) {
             if (options.diagnosticSettings.reportTypeshedErrors === 'none') {
-                return undefined;
+                includeWarningsAndErrors = false;
             } else if (options.diagnosticSettings.reportTypeshedErrors === 'warning') {
                 // Convert all the errors to warnings.
                 diagList = diagList.map(diag => {
@@ -270,6 +272,13 @@ export class SourceFile {
             if (this._parseResults && this._parseResults.tokenizerOutput.typeIgnoreAll) {
                 diagList = [];
             }
+        }
+
+        // If we're not returning any diagnostics, filter out all of
+        // the errors and warnings, leaving only the unreachable code
+        // diagnostics.
+        if (!includeWarningsAndErrors) {
+            diagList = diagList.filter(diag => diag.category === DiagnosticCategory.UnusedCode);
         }
 
         return diagList;
