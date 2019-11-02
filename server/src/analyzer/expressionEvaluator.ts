@@ -4369,62 +4369,69 @@ export class ExpressionEvaluator {
     }
 
     private _isFlowNodeReachable(flowNode: FlowNode): boolean {
-        let curFlowNode = flowNode;
+        const visitedFlowNodeMap = new Map<number, true>();
 
-        while (true) {
-            if (this._flowNodeRecursionMap.get(curFlowNode.id)) {
-                return true;
-            }
+        function isFlowNodeReachableRecursive(flowNode: FlowNode) {
+            let curFlowNode = flowNode;
 
-            if (curFlowNode.flags & FlowFlags.Unreachable) {
-                return false;
-            }
-
-            if (curFlowNode.flags & FlowFlags.Start) {
-                return true;
-            } else if (curFlowNode.flags & FlowFlags.Assignment) {
-                const assignmentFlowNode = curFlowNode as FlowAssignment;
-                curFlowNode = assignmentFlowNode.antecedent;
-                continue;
-            } else if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
-                const labelNode = curFlowNode as FlowLabel;
-                let isReachable = false;
-                this._preventFlowNodeRecursion(labelNode.id, () => {
-                    for (const antecedent of labelNode.antecedents) {
-                        if (this._isFlowNodeReachable(antecedent)) {
-                            isReachable = true;
-                            break;
-                        }
-                    }
-                });
-                return isReachable;
-            } else if (curFlowNode.flags & FlowFlags.WildcardImport) {
-                const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
-                curFlowNode = wildcardImportFlowNode.antecedent;
-                continue;
-            } else if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
-                const conditionalFlowNode = curFlowNode as FlowCondition;
-                curFlowNode = conditionalFlowNode.antecedent;
-                continue;
-            } else if (curFlowNode.flags & FlowFlags.Call) {
-                const callFlowNode = curFlowNode as FlowCall;
-
-                // If this function returns a "NoReturn" type, that means
-                // it always raises an exception or otherwise doesn't return,
-                // so we can assume that the code before this is unreachable.
-                const returnType = AnalyzerNodeInfo.getExpressionType(callFlowNode.node);
-                if (returnType && TypeUtils.isNoReturnType(returnType)) {
+            while (true) {
+                // If we've already visited this node, we can assume
+                // it wasn't reachable.
+                if (visitedFlowNodeMap.has(curFlowNode.id)) {
                     return false;
                 }
 
-                curFlowNode = callFlowNode.antecedent;
-                continue;
-            } else {
-                // We shouldn't get here.
-                assert.fail('Unexpected flow node flags');
-                return true;
+                // Note that we've been here before.
+                visitedFlowNodeMap.set(curFlowNode.id, true);
+
+                if (curFlowNode.flags & FlowFlags.Unreachable) {
+                    return false;
+                }
+
+                if (curFlowNode.flags & FlowFlags.Start) {
+                    return true;
+                } else if (curFlowNode.flags & FlowFlags.Assignment) {
+                    const assignmentFlowNode = curFlowNode as FlowAssignment;
+                    curFlowNode = assignmentFlowNode.antecedent;
+                    continue;
+                } else if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
+                    const labelNode = curFlowNode as FlowLabel;
+                    for (const antecedent of labelNode.antecedents) {
+                        if (isFlowNodeReachableRecursive(antecedent)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                } else if (curFlowNode.flags & FlowFlags.WildcardImport) {
+                    const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
+                    curFlowNode = wildcardImportFlowNode.antecedent;
+                    continue;
+                } else if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
+                    const conditionalFlowNode = curFlowNode as FlowCondition;
+                    curFlowNode = conditionalFlowNode.antecedent;
+                    continue;
+                } else if (curFlowNode.flags & FlowFlags.Call) {
+                    const callFlowNode = curFlowNode as FlowCall;
+
+                    // If this function returns a "NoReturn" type, that means
+                    // it always raises an exception or otherwise doesn't return,
+                    // so we can assume that the code before this is unreachable.
+                    const returnType = AnalyzerNodeInfo.getExpressionType(callFlowNode.node);
+                    if (returnType && TypeUtils.isNoReturnType(returnType)) {
+                        return false;
+                    }
+
+                    curFlowNode = callFlowNode.antecedent;
+                    continue;
+                } else {
+                    // We shouldn't get here.
+                    assert.fail('Unexpected flow node flags');
+                    return false;
+                }
             }
         }
+
+        return isFlowNodeReachableRecursive(flowNode);
     }
 
     private _preventFlowNodeRecursion(flowNodeId: number, callback: () => void) {

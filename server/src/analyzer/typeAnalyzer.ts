@@ -71,6 +71,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
     private _currentScope: Scope;
+
+    // Indicates that we're currently analyzing an expression
+    // that is a parameter default value initializer.
     private _defaultValueInitializerExpression = false;
 
     // Indicates where there was a change in the type analysis
