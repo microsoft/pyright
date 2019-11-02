@@ -98,17 +98,14 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
             }
         }
     } else {
-        const scopeNode = ParseTreeUtils.getScopeNodeForNode(node);
-        if (scopeNode) {
-            const scope = getScopeForNode(scopeNode);
-            if (scope) {
-                const symbolInScope = scope.lookUpSymbolRecursive(nameValue);
-                if (!symbolInScope) {
-                    return;
-                }
-
-                declarations.push(...symbolInScope.symbol.getDeclarations());
+        const scope = getScopeForNode(node);
+        if (scope) {
+            const symbolInScope = scope.lookUpSymbolRecursive(nameValue);
+            if (!symbolInScope) {
+                return;
             }
+
+            declarations.push(...symbolInScope.symbol.getDeclarations());
         }
     }
 
