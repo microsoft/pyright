@@ -70,6 +70,7 @@ const _checkForBeatingUnknownPassCount = 16;
 export class TypeAnalyzer extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
+    private readonly _evaluator: ExpressionEvaluator;
     private _currentScope: Scope;
 
     // Indicates that we're currently analyzing an expression
@@ -97,6 +98,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._moduleNode = node;
         this._fileInfo = fileInfo;
         this._currentScope = AnalyzerNodeInfo.getScope(node)!;
+        this._evaluator = this._createEvaluator();
         this._didAnalysisChange = false;
         this._analysisVersion = analysisVersion;
     }
@@ -282,8 +284,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (ClassType.isDataClass(classType)) {
-            const evaluator = this._createEvaluator();
-
             let skipSynthesizedInit = ClassType.isSkipSynthesizedInit(classType);
             if (!skipSynthesizedInit) {
                 // See if there's already a non-synthesized __init__ method.
@@ -301,12 +301,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
 
-            evaluator.synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
+            this._evaluator.synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
         }
 
         if (ClassType.isTypedDictClass(classType)) {
-            const evaluator = this._createEvaluator();
-            evaluator.synthesizeTypedDictClassMethods(classType);
+            this._evaluator.synthesizeTypedDictClassMethods(classType);
         }
 
         this._assignTypeToNameNode(node.name, decoratedType);
@@ -647,8 +646,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this.walk(node.iterableExpression);
 
         const iteratorType = this._getTypeOfExpression(node.iterableExpression);
-        const evaluator = this._createEvaluator();
-        const iteratedType = evaluator.getTypeFromIterable(
+        const iteratedType = this._evaluator.getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
 
         this._assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
@@ -702,8 +700,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 if (subtype.category === TypeCategory.Object) {
-                    const evaluator = this._createEvaluator();
-                    const memberType = evaluator.getTypeFromObjectMember(item.expression,
+                    const memberType = this._evaluator.getTypeFromObjectMember(item.expression,
                         subtype, enterMethodName, { method: 'get' });
 
                     if (memberType) {
@@ -716,7 +713,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                         // For "async while", an implicit "await" is performed.
                         if (node.isAsync) {
-                            memberReturnType = evaluator.getTypeFromAwaitable(
+                            memberReturnType = this._evaluator.getTypeFromAwaitable(
                                 memberReturnType, item);
                         }
 
@@ -1945,14 +1942,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const returnType = FunctionType.getEffectiveReturnType(functionType);
 
         let awaitableReturnType: Type | undefined;
-        const evaluator = this._createEvaluator();
 
         if (returnType.category === TypeCategory.Object) {
             const classType = returnType.classType;
             if (ClassType.isBuiltIn(classType)) {
                 if (ClassType.getClassName(classType) === 'Generator') {
                     // If the return type is a Generator, change it to an AsyncGenerator.
-                    const asyncGeneratorType = evaluator.getTypingType('AsyncGenerator');
+                    const asyncGeneratorType = this._evaluator.getTypingType('AsyncGenerator');
                     if (asyncGeneratorType && asyncGeneratorType.category === TypeCategory.Class) {
                         const typeArgs: Type[] = [];
                         const generatorTypeArgs = ClassType.getTypeArguments(classType);
@@ -1974,7 +1970,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (!awaitableReturnType) {
-            const awaitableType = evaluator.getTypingType('Awaitable');
+            const awaitableType = this._evaluator.getTypingType('Awaitable');
             if (awaitableType && awaitableType.category === TypeCategory.Class) {
                 awaitableReturnType = ObjectType.create(
                     ClassType.cloneForSpecialization(awaitableType, [returnType]));
@@ -2016,8 +2012,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Inferred yield types need to be wrapped in a Generator to
         // produce the final result.
-        const evaluator = this._createEvaluator();
-        const generatorType = evaluator.getTypingType('Generator');
+        const generatorType = this._evaluator.getTypingType('Generator');
         if (generatorType && generatorType.category === TypeCategory.Class) {
             inferredYieldType.setGenericClassWrapper(generatorType);
         }
@@ -2026,14 +2021,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._setAnalysisChanged('Function yield type changed');
         }
 
-        const functionNeverReturns = !evaluator.isAfterNodeReachable(node);
-        const implicitlyReturnsNone = evaluator.isAfterNodeReachable(node.suite);
+        const functionNeverReturns = !this._evaluator.isAfterNodeReachable(node);
+        const implicitlyReturnsNone = this._evaluator.isAfterNodeReachable(node.suite);
 
         // If the function always raises and never returns, add
         // the "NoReturn" type. Skip this for abstract methods which
         // often are implemented with "raise NotImplementedError()".
         if (functionNeverReturns && !FunctionType.isAbstractMethod(functionType)) {
-            const noReturnType = evaluator.getTypingType('NoReturn') as ClassType;
+            const noReturnType = this._evaluator.getTypingType('NoReturn') as ClassType;
             if (noReturnType && inferredReturnType.addSource(ObjectType.create(noReturnType), node.id)) {
                 this._setAnalysisChanged('Function inferred NoReturn changed');
             }
@@ -2161,8 +2156,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        const evaluator = this._createEvaluator();
-        return evaluator.getTypeFromDecorator(decoratorNode, inputClassType);
+        return this._evaluator.getTypeFromDecorator(decoratorNode, inputClassType);
     }
 
     // Transforms the input function type into an output type based on the
@@ -2180,8 +2174,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        const evaluator = this._createEvaluator();
-        const returnType = evaluator.getTypeFromDecorator(decoratorNode, inputFunctionType);
+        const returnType = this._evaluator.getTypeFromDecorator(decoratorNode, inputFunctionType);
 
         // Check for some built-in decorator types with known semantics.
         if (decoratorType.category === TypeCategory.Function) {
@@ -2410,8 +2403,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
             resultingExceptionType = ObjectType.create(exceptionType);
         } else if (exceptionType.category === TypeCategory.Object) {
-            const evaluator = this._createEvaluator();
-            const iterableType = evaluator.getTypeFromIterable(exceptionType, false, errorNode, false);
+            const iterableType = this._evaluator.getTypeFromIterable(
+                exceptionType, false, errorNode, false);
 
             resultingExceptionType = TypeUtils.doForSubtypes(iterableType, subtype => {
                 if (isAnyOrUnknown(subtype)) {
@@ -2565,41 +2558,38 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _getTypeOfAnnotation(node: ExpressionNode): Type {
-        const evaluator = this._createEvaluator();
         let evaluatorFlags = EvaluatorFlags.ConvertEllipsisToAny;
         if (this._postponeAnnotationEvaluation()) {
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
         }
 
         return TypeUtils.convertClassToObject(
-            evaluator.getType(node, { method: 'get' }, evaluatorFlags));
+            this._evaluator.getType(node, { method: 'get' }, evaluatorFlags));
     }
 
     private _isNodeReachable(node: ParseNode): boolean {
-        const evaluator = this._createEvaluator();
-        return evaluator.isNodeReachable(node);
+        return this._evaluator.isNodeReachable(node);
     }
 
     private _getTypeOfExpression(node: ExpressionNode, flags?: EvaluatorFlags,
             speculativelyExecute = false, expectedType?: Type): Type {
 
-        const evaluator = this._createEvaluator(speculativelyExecute);
-
         // If the caller didn't specify the flags, use the defaults.
         if (flags === undefined) {
             flags = EvaluatorFlags.None;
         }
-        return evaluator.getType(node, { method: 'get', expectedType }, flags);
+        if (speculativelyExecute) {
+            return this._evaluator.getTypeSpeculative(node, { method: 'get', expectedType }, flags);
+        }
+        return this._evaluator.getType(node, { method: 'get', expectedType }, flags);
     }
 
     private _evaluateExpressionForAssignment(node: ExpressionNode, type: Type, errorNode: ExpressionNode) {
-        const evaluator = this._createEvaluator();
-        evaluator.getType(node, { method: 'set', setType: type, setErrorNode: errorNode }, EvaluatorFlags.None);
+        this._evaluator.getType(node, { method: 'set', setType: type, setErrorNode: errorNode }, EvaluatorFlags.None);
     }
 
     private _evaluateExpressionForDeletion(node: ExpressionNode): Type {
-        const evaluator = this._createEvaluator();
-        return evaluator.getType(node, { method: 'del' }, EvaluatorFlags.None);
+        return this._evaluator.getType(node, { method: 'del' }, EvaluatorFlags.None);
     }
 
     private _readExpressionTypeFromNodeCache(node: ExpressionNode): Type | undefined {
@@ -2783,8 +2773,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 } else {
                     // The assigned expression isn't a tuple, so it had better
                     // be some iterable type.
-                    const evaluator = this._createEvaluator();
-                    const iterableType = evaluator.getTypeFromIterable(subtype, false, srcExpr, false);
+                    const iterableType = this._evaluator.getTypeFromIterable(
+                        subtype, false, srcExpr, false);
                     for (let index = 0; index < target.expressions.length; index++) {
                         targetTypes[index].push(iterableType);
                     }
@@ -2822,8 +2812,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         } else if (target.nodeType === ParseNodeType.List) {
             // The assigned expression had better be some iterable type.
-            const evaluator = this._createEvaluator();
-            const iteratedType = evaluator.getTypeFromIterable(
+            const iteratedType = this._evaluator.getTypeFromIterable(
                 srcType, false, srcExpr, false);
 
             target.entries.forEach(entry => {
@@ -3039,15 +3028,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return diagnostic;
     }
 
-    private _createEvaluator(speculativelyExecute = false) {
+    private _createEvaluator() {
         return new ExpressionEvaluator(
             this._fileInfo,
             node => this._readExpressionTypeFromNodeCache(node),
-            speculativelyExecute ? undefined : (node, type) => {
+            (node, type) => {
                 this._updateExpressionTypeForNode(node, type);
             },
-            speculativelyExecute ? undefined : this._fileInfo.diagnosticSink,
-            speculativelyExecute ? undefined : symbol => {
+            this._fileInfo.diagnosticSink,
+            symbol => {
                 this._setSymbolAccessed(symbol);
             });
     }

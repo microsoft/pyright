@@ -31,7 +31,6 @@ import { FlowAssignment, FlowCall, FlowCondition, FlowFlags, FlowLabel,
     FlowNode, FlowWildcardImport } from './codeFlow';
 import { DeclarationType, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
-import { Scope } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { setSymbolPreservingAccess, Symbol, SymbolFlags } from './symbol';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
@@ -199,6 +198,14 @@ export class ExpressionEvaluator {
 
     getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
         return this._getTypeFromExpression(node, usage, flags).type;
+    }
+
+    getTypeSpeculative(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
+        let type: Type | undefined;
+        this._silenceDiagnostics(() => {
+            type = this._getTypeFromExpression(node, usage, flags).type;
+        });
+        return type!;
     }
 
     getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
@@ -4855,13 +4862,18 @@ export class ExpressionEvaluator {
     private _silenceDiagnostics(callback: () => void) {
         const oldDiagSink = this._diagnosticSink;
         this._diagnosticSink = undefined;
+
         const oldWriteCacheCallback = this._writeTypeToCache;
         this._writeTypeToCache = undefined;
+
+        const oldSetSymbolAccessedCallback = this._setSymbolAccessed;
+        this._setSymbolAccessed = undefined;
 
         callback();
 
         this._diagnosticSink = oldDiagSink;
         this._writeTypeToCache = oldWriteCacheCallback;
+        this._setSymbolAccessed = oldSetSymbolAccessedCallback;
     }
 
     private _addWarning(message: string, range: TextRange) {
