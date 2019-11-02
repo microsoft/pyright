@@ -1159,10 +1159,14 @@ export class Program {
         return false;
     }
 
-    private _isImportAllowed(importResult: ImportResult, isImportStubFile: boolean): boolean {
+    private _isImportAllowed(importer: SourceFileInfo, importResult: ImportResult,
+            isImportStubFile: boolean): boolean {
+
         let thirdPartyImportAllowed = false;
 
-        if (importResult.importType === ImportType.ThirdParty) {
+        if (importResult.importType === ImportType.ThirdParty ||
+                (importer.isThirdPartyImport && importResult.importType === ImportType.Local)) {
+
             if (this._allowedThirdPartyImports) {
                 if (importResult.isRelative) {
                     // If it's a relative import, we'll allow it because the
@@ -1211,24 +1215,26 @@ export class Program {
         const newImportPathMap = new Map<string, UpdateImportInfo>();
         imports.forEach(importResult => {
             if (importResult.isImportFound) {
-                if (this._isImportAllowed(importResult, importResult.isStubFile)) {
+                if (this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
                     if (importResult.resolvedPaths.length > 0) {
                         const filePath = importResult.resolvedPaths[
                             importResult.resolvedPaths.length - 1];
                         if (filePath) {
                             newImportPathMap.set(filePath, {
                                 isTypeshedFile: !!importResult.isTypeshedFile,
-                                isThirdPartyImport: importResult.importType === ImportType.ThirdParty
+                                isThirdPartyImport: importResult.importType === ImportType.ThirdParty ||
+                                    (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local)
                             });
                         }
                     }
                 }
 
                 importResult.implicitImports.forEach(implicitImport => {
-                    if (this._isImportAllowed(importResult, implicitImport.isStubFile)) {
+                    if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
                         newImportPathMap.set(implicitImport.path, {
                             isTypeshedFile: !!importResult.isTypeshedFile,
-                            isThirdPartyImport: importResult.importType === ImportType.ThirdParty
+                            isThirdPartyImport: importResult.importType === ImportType.ThirdParty ||
+                                (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local)
                         });
                     }
                 });

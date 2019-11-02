@@ -1364,11 +1364,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // Import the fields in the current permanent scope.
                     const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                     if (lookupInfo) {
-                        lookupInfo.symbolTable.forEach((_, name) => {
-                            [symbol, symbolType] = this._getAliasedSymbolTypeForName(name);
-                            if (symbol) {
-                                this._addTypeSourceToName(name, symbolType || UnknownType.create(),
-                                    node.id);
+                        lookupInfo.symbolTable.forEach((importedSymbol, name) => {
+                            if (!importedSymbol.isIgnoredForProtocolMatch()) {
+                                [symbol, symbolType] = this._getAliasedSymbolTypeForName(name);
+                                if (symbol) {
+                                    this._addTypeSourceToName(name, symbolType || UnknownType.create(),
+                                        node.id);
+                                }
                             }
                         });
                     }
