@@ -2000,13 +2000,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return;
         }
 
-        // Add all of the return and yield types that were found within the function.
-        const inferredReturnType = FunctionType.getInferredReturnType(functionType);
-        if (inferredReturnType.addSources(functionScope.getReturnType())) {
-            this._setAnalysisChanged('Function return inferred type changed');
-        }
+        const declaredReturnType = FunctionType.isGenerator(functionType) ?
+            TypeUtils.getDeclaredGeneratorReturnType(functionType) :
+            FunctionType.getDeclaredReturnType(functionType);
 
+        const inferredReturnType = FunctionType.getInferredReturnType(functionType);
         const inferredYieldType = FunctionType.getInferredYieldType(functionType);
+
+        // If there was no return type declared, infer the return type.
+        if (!declaredReturnType) {
+            if (inferredReturnType.addSources(functionScope.getReturnType())) {
+                this._setAnalysisChanged('Function return inferred type changed');
+            }
+        }
 
         // Inferred yield types need to be wrapped in a Generator to
         // produce the final result.
@@ -2037,10 +2043,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (inferredReturnType.addSource(NoneType.create(), node.id)) {
                     this._setAnalysisChanged('Function inferred None changed');
                 }
-
-                const declaredReturnType = FunctionType.isGenerator(functionType) ?
-                    TypeUtils.getDeclaredGeneratorReturnType(functionType) :
-                    FunctionType.getDeclaredReturnType(functionType);
 
                 if (declaredReturnType && node.returnTypeAnnotation) {
                     // Skip this check for abstract methods and functions that are declared NoReturn.
