@@ -1628,7 +1628,10 @@ export class Binder extends ParseTreeWalker {
 
     private _addAntecedent(label: FlowLabel, antecedent: FlowNode) {
         if (!(this._currentFlowNode.flags & FlowFlags.Unreachable)) {
-            label.antecedents.push(antecedent);
+            // Don't add the same antecedent twice.
+            if (!label.antecedents.some(existing => existing.id === antecedent.id)) {
+                label.antecedents.push(antecedent);
+            }
         }
     }
 
