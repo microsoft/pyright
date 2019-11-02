@@ -14,11 +14,12 @@ import StringMap from '../common/stringMap';
 import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentExpressionNode,
     ClassNode, DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode,
     ImportFromNode, ImportNode, ModuleNameNode, NameNode, ParameterCategory, ParameterNode,
-    ParseNode, ParseNodeType, StatementListNode, StringNode, TryNode, TypeAnnotationExpressionNode,
+    ParseNodeType, StatementListNode, StringNode, TryNode, TypeAnnotationExpressionNode,
     WhileNode, WithNode } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
+import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -362,7 +363,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             return false;
         }
 
-        const currentScope = AnalyzerNodeInfo.getScopeRecursive(node);
+        const currentScope = getScopeForNode(node);
         if (currentScope) {
             // Record the input for later.
             node.list.forEach(imp => {
@@ -390,7 +391,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             return false;
         }
 
-        const currentScope = AnalyzerNodeInfo.getScopeRecursive(node);
+        const currentScope = getScopeForNode(node);
         if (currentScope) {
             // Record the input for later.
             const moduleName = this._printModuleName(node.module);

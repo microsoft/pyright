@@ -15,6 +15,7 @@ import { ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
+import { getScopeForNode } from './scopeUtils';
 import { Symbol } from './symbol';
 import { ClassType, FunctionType, ModuleType, ObjectType, Type, TypeCategory } from './types';
 import * as TypeUtils from './typeUtils';
@@ -99,7 +100,7 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
     } else {
         const scopeNode = ParseTreeUtils.getScopeNodeForNode(node);
         if (scopeNode) {
-            const scope = AnalyzerNodeInfo.getScopeRecursive(scopeNode);
+            const scope = getScopeForNode(scopeNode);
             if (scope) {
                 const symbolInScope = scope.lookUpSymbolRecursive(nameValue);
                 if (!symbolInScope) {

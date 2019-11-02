@@ -178,7 +178,6 @@ const booleanOperatorMap: { [operator: number]: boolean } = {
 };
 
 export class ExpressionEvaluator {
-    private _scope: Scope;
     private readonly _fileInfo: AnalyzerFileInfo;
     private _readTypeFromCache: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
@@ -186,12 +185,11 @@ export class ExpressionEvaluator {
     private _setSymbolAccessed?: SetSymbolAccessedCallback;
     private _typeFlowRecursionMap = new Map<number, true>();
 
-    constructor(scope: Scope, fileInfo: AnalyzerFileInfo,
+    constructor(fileInfo: AnalyzerFileInfo,
             readTypeCallback: ReadTypeFromNodeCacheCallback,
             writeTypeCallback?: WriteTypeToNodeCacheCallback,
             diagnosticSink?: TextRangeDiagnosticSink,
             setSymbolAccessedCallback?: SetSymbolAccessedCallback) {
-        this._scope = scope;
         this._fileInfo = fileInfo;
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
@@ -794,18 +792,18 @@ export class ExpressionEvaluator {
             });
 
             const isBytes = (node.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
-            typeResult = { node, type: this._cloneBuiltinTypeWithLiteral(
+            typeResult = { node, type: this._cloneBuiltinTypeWithLiteral(node,
                 isBytes ? 'bytes' : 'str', node.strings.map(s => s.value).join('')) };
         } else if (node.nodeType === ParseNodeType.Number) {
             this._reportUsageErrorForReadOnly(node, usage);
-            typeResult = { node, type: this._cloneBuiltinTypeWithLiteral(
+            typeResult = { node, type: this._cloneBuiltinTypeWithLiteral(node,
                 node.token.isInteger ? 'int' : 'float', node.token.value) };
         } else if (node.nodeType === ParseNodeType.Ellipsis) {
             this._reportUsageErrorForReadOnly(node, usage);
             if ((flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0) {
                 typeResult = { type: AnyType.create(true), node };
             } else {
-                const ellipsisType = ScopeUtils.getBuiltInType(this._scope, 'ellipsis') ||
+                const ellipsisType = this._getBuiltInType(node, 'ellipsis') ||
                     AnyType.create();
                 typeResult = { type: ellipsisType, node };
             }
@@ -905,7 +903,7 @@ export class ExpressionEvaluator {
 
         // Look for the scope that contains the value definition and
         // see if it has a declared type.
-        const symbolWithScope = this._scope.lookUpSymbolRecursive(name);
+        const symbolWithScope = this._lookUpSymbolRecursive(node, name);
 
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
@@ -1575,7 +1573,7 @@ export class ExpressionEvaluator {
         } else {
             // Handle the case where the index expression is a tuple. This
             // isn't used in most cases, but it is supported by the language.
-            const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
+            const builtInTupleType = this._getBuiltInType(node, 'Tuple');
             if (builtInTupleType.category === TypeCategory.Class) {
                 indexType = TypeUtils.convertClassToObject(
                     ClassType.cloneForSpecialization(builtInTupleType, indexTypeList));
@@ -1657,7 +1655,7 @@ export class ExpressionEvaluator {
                 { method: usage.method, expectedType: index < expectedTypes.length ? expectedTypes[index] : undefined}));
 
         let type: Type = UnknownType.create();
-        const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
+        const builtInTupleType = this._getBuiltInType(node, 'Tuple');
 
         if (builtInTupleType.category === TypeCategory.Class) {
             let tupleTypes: Type[] = [];
@@ -1876,7 +1874,7 @@ export class ExpressionEvaluator {
                     type = this._createTypedDictType(errorNode, callType, argList,
                         cachedExpressionNode);
                 } else if (className === 'auto' && argList.length === 0) {
-                    type = ScopeUtils.getBuiltInObject(this._scope, 'int');
+                    type = this._getBuiltInObject(errorNode, 'int');
                 }
             } else if (ClassType.isAbstractClass(callType)) {
                 // If the class is abstract, it can't be instantiated.
@@ -2909,7 +2907,7 @@ export class ExpressionEvaluator {
         setSymbolPreservingAccess(classFields, '__class__',
             Symbol.createWithType(SymbolFlags.ClassMember, classType));
 
-        const builtInTupleType = ScopeUtils.getBuiltInType(this._scope, 'Tuple');
+        const builtInTupleType = this._getBuiltInType(errorNode, 'Tuple');
         if (builtInTupleType.category === TypeCategory.Class) {
             const constructorType = FunctionType.create(
                 FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod |
@@ -3075,8 +3073,8 @@ export class ExpressionEvaluator {
                 Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
             const keysItemType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
-            FunctionType.setDeclaredReturnType(keysItemType, ScopeUtils.getBuiltInObject(this._scope, 'list',
-                [ScopeUtils.getBuiltInObject(this._scope, 'str')]));
+            FunctionType.setDeclaredReturnType(keysItemType, this._getBuiltInObject(errorNode, 'list',
+                [this._getBuiltInObject(errorNode, 'str')]));
             setSymbolPreservingAccess(classFields, 'keys',
                 Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
             setSymbolPreservingAccess(classFields, 'items',
@@ -3084,7 +3082,7 @@ export class ExpressionEvaluator {
 
             const lenType = FunctionType.create(
                 FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
-            FunctionType.setDeclaredReturnType(lenType, ScopeUtils.getBuiltInObject(this._scope, 'int'));
+            FunctionType.setDeclaredReturnType(lenType, this._getBuiltInObject(errorNode, 'int'));
             FunctionType.addParameter(lenType, selfParameter);
             setSymbolPreservingAccess(classFields, '__len__',
                 Symbol.createWithType(SymbolFlags.ClassMember, lenType));
@@ -3097,7 +3095,7 @@ export class ExpressionEvaluator {
                 FunctionType.addParameter(getAttribType, {
                     category: ParameterCategory.Simple,
                     name: 'name',
-                    type: ScopeUtils.getBuiltInObject(this._scope, 'str')
+                    type: this._getBuiltInObject(errorNode, 'str')
                 });
                 setSymbolPreservingAccess(classFields, '__getattribute__',
                     Symbol.createWithType(SymbolFlags.ClassMember, getAttribType));
@@ -3124,7 +3122,7 @@ export class ExpressionEvaluator {
             } else if (node.token.keywordType === KeywordType.True ||
                     node.token.keywordType === KeywordType.False ||
                     node.token.keywordType === KeywordType.Debug) {
-                type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
+                type = this._getBuiltInObject(node, 'bool');
 
                 // For True and False, we can create truthy and falsy
                 // versions of 'bool'.
@@ -3172,7 +3170,7 @@ export class ExpressionEvaluator {
 
         // __not__ always returns a boolean.
         if (node.operator === OperatorType.Not) {
-            type = ScopeUtils.getBuiltInObject(this._scope, 'bool');
+            type = this._getBuiltInObject(node, 'bool');
             if (!type) {
                 type = UnknownType.create();
             }
@@ -3387,7 +3385,7 @@ export class ExpressionEvaluator {
                         return combineTypes([leftSubtype, rightSubtype]);
                     }
                     // The other boolean operators always return a bool value.
-                    return ScopeUtils.getBuiltInObject(this._scope, 'bool');
+                    return this._getBuiltInObject(errorNode, 'bool');
                 });
             });
         }
@@ -3456,7 +3454,7 @@ export class ExpressionEvaluator {
             } else if (isNoneOrNever(subtype)) {
                 // NoneType derives from 'object', so do the lookup on 'object'
                 // in this case.
-                const obj = ScopeUtils.getBuiltInObject(this._scope, 'object');
+                const obj = this._getBuiltInObject(errorNode, 'object');
                 if (obj.category === TypeCategory.Object) {
                     return handleObjectSubtype(obj);
                 }
@@ -3496,8 +3494,7 @@ export class ExpressionEvaluator {
 
         // If there is an expected type, see if we can match any parts of it.
         if (usage.expectedType && entryTypes.length > 0) {
-            const specificSetType = ScopeUtils.getBuiltInObject(
-                this._scope, 'set', [combineTypes(entryTypes)]);
+            const specificSetType = this._getBuiltInObject(node, 'set', [combineTypes(entryTypes)]);
             const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
                 usage.expectedType, specificSetType);
 
@@ -3515,7 +3512,7 @@ export class ExpressionEvaluator {
             combineTypes(entryTypes.map(t => TypeUtils.stripLiteralValue(t))) :
             AnyType.create();
 
-        const type = ScopeUtils.getBuiltInObject(this._scope, 'set', [inferredEntryType]);
+        const type = this._getBuiltInObject(node, 'set', [inferredEntryType]);
 
         return { type, node };
     }
@@ -3620,15 +3617,16 @@ export class ExpressionEvaluator {
             }
 
             if (keyTypes.length > 0) {
-                const specificDictType = ScopeUtils.getBuiltInObject(
-                    this._scope, 'dict', [combineTypes(keyTypes), combineTypes(valueTypes)]);
+                const specificDictType = this._getBuiltInObject(node, 'dict',
+                    [combineTypes(keyTypes), combineTypes(valueTypes)]);
                 const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
                     usage.expectedType, specificDictType);
 
                 // Have we eliminated all of the expected subtypes? If not, return
                 // the remaining one(s) that match the specific type.
                 if (remainingExpectedType.category !== TypeCategory.Never) {
-                    const specializedType = this._specializeExpectedType(remainingExpectedType, specificDictType);
+                    const specializedType = this._specializeExpectedType(
+                        remainingExpectedType, specificDictType);
                     return { type: specializedType, node };
                 }
 
@@ -3657,7 +3655,7 @@ export class ExpressionEvaluator {
             valueType = AnyType.create();
         }
 
-        const type = ScopeUtils.getBuiltInObject(this._scope, 'dict', [keyType, valueType]);
+        const type = this._getBuiltInObject(node, 'dict', [keyType, valueType]);
 
         return { type, node };
     }
@@ -3672,8 +3670,7 @@ export class ExpressionEvaluator {
 
             // If there is an expected type, see if we can match any parts of it.
             if (usage.expectedType && entryTypes.length > 0) {
-                const specificListType = ScopeUtils.getBuiltInObject(
-                    this._scope, 'list', [combineTypes(entryTypes)]);
+                const specificListType = this._getBuiltInObject(node, 'list', [combineTypes(entryTypes)]);
                 const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
                     usage.expectedType, specificListType);
 
@@ -3699,7 +3696,7 @@ export class ExpressionEvaluator {
             }
         }
 
-        const type = ScopeUtils.getBuiltInObject(this._scope, 'list', [listEntryType]);
+        const type = this._getBuiltInObject(node, 'list', [listEntryType]);
 
         return { type, node };
     }
@@ -3754,11 +3751,6 @@ export class ExpressionEvaluator {
     private _getTypeFromLambdaExpression(node: LambdaNode, usage: EvaluatorUsage): TypeResult {
         const functionType = FunctionType.create(FunctionTypeFlags.None);
 
-        // Switch to a dedicated scope since list comprehension target
-        // variables are private to the list comprehension expression.
-        const prevScope = this._scope;
-        this._scope = AnalyzerNodeInfo.getScope(node)!;
-
         let expectedFunctionType: FunctionType | undefined;
         if (usage.expectedType) {
             if (usage.expectedType.category === TypeCategory.Function) {
@@ -3794,8 +3786,6 @@ export class ExpressionEvaluator {
         FunctionType.getInferredReturnType(functionType).addSource(
             returnType, node.expression.id);
 
-        this._scope = prevScope;
-
         return { type: functionType, node };
     }
 
@@ -3813,7 +3803,7 @@ export class ExpressionEvaluator {
     }
 
     private _assignTypeToNameNode(targetExpr: NameNode, type: Type) {
-        const symbolWithScope = this._scope.lookUpSymbolRecursive(targetExpr.nameToken.value)!;
+        const symbolWithScope = this._lookUpSymbolRecursive(targetExpr, targetExpr.nameToken.value)!;
         if (symbolWithScope === undefined) {
             assert.fail(`Missing symbol '${ targetExpr.nameToken.value }'`);
         }
@@ -3883,7 +3873,7 @@ export class ExpressionEvaluator {
             if (targetExpr.expression.nodeType === ParseNodeType.Name) {
                 if (!isAnyOrUnknown(type)) {
                     // Make a list type from the source.
-                    const listType = ScopeUtils.getBuiltInType(this._scope, 'List');
+                    const listType = this._getBuiltInType(targetExpr, 'List');
                     if (listType.category === TypeCategory.Class) {
                         type = ObjectType.create(ClassType.cloneForSpecialization(listType, [type]));
                     } else {
@@ -3918,11 +3908,6 @@ export class ExpressionEvaluator {
     // Returns the type of one entry returned by the list comprehension,
     // as opposed to the entire list.
     private _getElementTypeFromListComprehensionExpression(node: ListComprehensionNode): Type {
-        // Switch to a dedicated scope since list comprehension target
-        // variables are private to the list comprehension expression.
-        const prevScope = this._scope;
-        this._scope = AnalyzerNodeInfo.getScope(node)!;
-
         // There are some variants that we may not understand. If so,
         // we will set this flag and fall back on Unknown.
         let understoodType = true;
@@ -3956,8 +3941,7 @@ export class ExpressionEvaluator {
                 const valueType = TypeUtils.stripLiteralValue(
                     this._getTypeFromExpression(node.expression.valueExpression).type);
 
-                type = ScopeUtils.getBuiltInObject(
-                    this._scope, 'Tuple', [keyType, valueType]);
+                type = this._getBuiltInObject(node, 'Tuple', [keyType, valueType]);
             } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
                 const unexpandedType = this._getTypeFromExpression(node.expression.expandExpression);
 
@@ -3968,13 +3952,11 @@ export class ExpressionEvaluator {
             }
         }
 
-        this._scope = prevScope;
-
         return type;
     }
 
     private _getTypeFromSliceExpression(node: SliceExpressionNode): TypeResult {
-        const intObject = ScopeUtils.getBuiltInObject(this._scope, 'int');
+        const intObject = this._getBuiltInObject(node, 'int');
         const optionalIntObject = combineTypes([intObject, NoneType.create()]);
 
         const validateIndexType = (indexExpr: ExpressionNode) => {
@@ -4001,7 +3983,7 @@ export class ExpressionEvaluator {
             validateIndexType(node.stepValue);
         }
 
-        const sliceObject = ScopeUtils.getBuiltInObject(this._scope, 'slice');
+        const sliceObject = this._getBuiltInObject(node, 'slice');
         return { type: sliceObject, node };
     }
 
@@ -4073,8 +4055,8 @@ export class ExpressionEvaluator {
             NoneType.create()]);
     }
 
-    private _cloneBuiltinTypeWithLiteral(builtInName: string, value: LiteralValue): Type {
-        let type = ScopeUtils.getBuiltInObject(this._scope, builtInName);
+    private _cloneBuiltinTypeWithLiteral(node: ParseNode, builtInName: string, value: LiteralValue): Type {
+        let type = this._getBuiltInObject(node, builtInName);
         if (type.category === TypeCategory.Object) {
             type = ObjectType.cloneWithLiteral(type, value);
         }
@@ -4101,19 +4083,19 @@ export class ExpressionEvaluator {
                 const isBytes = (item.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
                 const value = item.strings.map(s => s.value).join('');
                 if (isBytes) {
-                    type = this._cloneBuiltinTypeWithLiteral('bytes', value);
+                    type = this._cloneBuiltinTypeWithLiteral(node, 'bytes', value);
                 } else {
-                    type = this._cloneBuiltinTypeWithLiteral('str', value);
+                    type = this._cloneBuiltinTypeWithLiteral(node, 'str', value);
                 }
             } else if (item.nodeType === ParseNodeType.Number) {
                 if (item.token.isInteger) {
-                    type = this._cloneBuiltinTypeWithLiteral('int', item.token.value);
+                    type = this._cloneBuiltinTypeWithLiteral(node, 'int', item.token.value);
                 }
             } else if (item.nodeType === ParseNodeType.Constant) {
                 if (item.token.keywordType === KeywordType.True) {
-                    type = this._cloneBuiltinTypeWithLiteral('bool', true);
+                    type = this._cloneBuiltinTypeWithLiteral(node, 'bool', true);
                 } else if (item.token.keywordType === KeywordType.False) {
-                    type = this._cloneBuiltinTypeWithLiteral('bool', false);
+                    type = this._cloneBuiltinTypeWithLiteral(node, 'bool', false);
                 }
             }
 
@@ -4850,6 +4832,21 @@ export class ExpressionEvaluator {
         // If there was no defined type provided, there should always
         // be a value expression from which we can retrieve the type.
         return this._getTypeFromExpression(arg.valueExpression!, { method: 'get' }).type;
+    }
+
+    private _getBuiltInType(node: ParseNode, name: string): Type {
+        const scope = ScopeUtils.getScopeForNode(node);
+        return ScopeUtils.getBuiltInType(scope, name);
+    }
+
+    private _getBuiltInObject(node: ParseNode, name: string, typeArguments?: Type[]) {
+        const scope = ScopeUtils.getScopeForNode(node);
+        return ScopeUtils.getBuiltInObject(scope, name, typeArguments);
+    }
+
+    private _lookUpSymbolRecursive(node: ParseNode, name: string) {
+        const scope = ScopeUtils.getScopeForNode(node);
+        return scope.lookUpSymbolRecursive(name);
     }
 
     // Disables recording of errors and warnings and disables

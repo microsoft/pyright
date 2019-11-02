@@ -3038,7 +3038,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _createEvaluator(speculativelyExecute = false) {
-        return new ExpressionEvaluator(this._currentScope,
+        return new ExpressionEvaluator(
             this._fileInfo,
             node => this._readExpressionTypeFromNodeCache(node),
             speculativelyExecute ? undefined : (node, type) => {

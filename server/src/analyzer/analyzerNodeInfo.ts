@@ -84,21 +84,6 @@ export function setScope(node: ParseNode, scope: Scope) {
     analyzerNode.scope = scope;
 }
 
-export function getScopeRecursive(node: ParseNode): Scope | undefined {
-    let curNode: ParseNode | undefined = node;
-
-    while (curNode) {
-        const scope = getScope(curNode);
-        if (scope) {
-            return scope;
-        }
-
-        curNode = curNode.parent;
-    }
-
-    return undefined;
-}
-
 export function getFlowNode(node: ParseNode): FlowNode | undefined {
     const analyzerNode = node as AnalyzerNodeInfo;
     return analyzerNode.flowNode;
