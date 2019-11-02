@@ -1448,15 +1448,18 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
 }
 
 export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolTable) {
-    moduleType.fields.forEach((symbol, name) => {
-        symbolTable.set(name, symbol);
-    });
-
+    // Start with the loader fields. If there are any symbols of the
+    // same name defined within the module, they will overwrite the
+    // loader fields.
     if (moduleType.loaderFields) {
         moduleType.loaderFields.forEach((symbol, name) => {
             symbolTable.set(name, symbol);
         });
     }
+
+    moduleType.fields.forEach((symbol, name) => {
+        symbolTable.set(name, symbol);
+    });
 }
 
 export function containsUnknown(type: Type, recursionCount = 0): boolean {

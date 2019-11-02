@@ -129,12 +129,13 @@ export namespace ModuleType {
     }
 
     export function getField(moduleType: ModuleType, name: string): Symbol | undefined {
-        let symbol: Symbol | undefined;
-        if (moduleType.loaderFields) {
+        // Always look for the symbol in the module's fields before consulting
+        // the loader fields. The loader runs before the module, so its values
+        // will be overwritten by the module.
+        let symbol = moduleType.fields.get(name);
+
+        if (!symbol && moduleType.loaderFields) {
             symbol = moduleType.loaderFields.get(name);
-        }
-        if (!symbol) {
-            symbol = moduleType.fields.get(name);
         }
         return symbol;
     }

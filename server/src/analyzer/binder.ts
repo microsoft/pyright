@@ -925,8 +925,7 @@ export class Binder extends ParseTreeWalker {
                     type: DeclarationType.Alias,
                     path: '',
                     range: getEmptyRange(),
-                    firstNamePart: firstNamePartValue,
-                    implicitImports: new Map<string, ModuleLoaderActions>()
+                    firstNamePart: firstNamePartValue
                 };
 
                 // Add the implicit imports for this module if it's the last
@@ -946,13 +945,18 @@ export class Binder extends ParseTreeWalker {
                         const namePartValue = node.module.nameParts[i].nameToken.value;
 
                         // Is there an existing loader action for this name?
-                        let loaderActions = curLoaderActions.implicitImports.get(namePartValue);
+                        let loaderActions = curLoaderActions.implicitImports ?
+                            curLoaderActions.implicitImports.get(namePartValue) :
+                            undefined;
                         if (!loaderActions) {
                             // Allocate a new loader action.
                             loaderActions = {
                                 path: '',
                                 implicitImports: new Map<string, ModuleLoaderActions>()
                             };
+                            if (!curLoaderActions.implicitImports) {
+                                curLoaderActions.implicitImports = new Map<string, ModuleLoaderActions>();
+                            }
                             curLoaderActions.implicitImports.set(namePartValue, loaderActions);
                         }
 
@@ -1006,8 +1010,7 @@ export class Binder extends ParseTreeWalker {
                                     type: DeclarationType.Alias,
                                     path: resolvedPath,
                                     range: getEmptyRange(),
-                                    symbolName: name,
-                                    implicitImports: new Map<string, ModuleLoaderActions>()
+                                    symbolName: name
                                 };
                                 symbol.addDeclaration(aliasDecl);
                                 names.push(name);
@@ -1019,16 +1022,27 @@ export class Binder extends ParseTreeWalker {
                 // Also add all of the implicitly-imported modules for
                 // the import module.
                 importInfo.implicitImports.forEach(implicitImport => {
-                    const symbol = this._bindNameToScope(this._currentScope, implicitImport.name);
-                    if (symbol) {
-                        const aliasDecl: AliasDeclaration = {
-                            type: DeclarationType.Alias,
-                            path: implicitImport.path,
-                            range: getEmptyRange(),
-                            implicitImports: new Map<string, ModuleLoaderActions>()
-                        };
-                        symbol.addDeclaration(aliasDecl);
-                        names.push(implicitImport.name);
+                    // Don't overwrite a symbol that was imported from the module.
+                    if (!names.some(name => name === implicitImport.name)) {
+                        const symbol = this._bindNameToScope(this._currentScope, implicitImport.name);
+                        if (symbol) {
+                            const submoduleFallback: AliasDeclaration = {
+                                type: DeclarationType.Alias,
+                                path: implicitImport.path,
+                                range: getEmptyRange()
+                            };
+
+                            const aliasDecl: AliasDeclaration = {
+                                type: DeclarationType.Alias,
+                                path: resolvedPath,
+                                symbolName: implicitImport.name,
+                                submoduleFallback,
+                                range: getEmptyRange()
+                            };
+
+                            symbol.addDeclaration(aliasDecl);
+                            names.push(implicitImport.name);
+                        }
                     }
                 });
 
@@ -1041,34 +1055,37 @@ export class Binder extends ParseTreeWalker {
                 const symbol = this._bindNameToScope(this._currentScope, nameNode.nameToken.value);
 
                 if (symbol) {
-                    let aliasDecl: AliasDeclaration | undefined;
-
                     // Is the import referring to an implicitly-imported module?
                     let implicitImport: ImplicitImport | undefined;
                     if (importInfo && importInfo.implicitImports) {
                         implicitImport = importInfo.implicitImports.find(imp => imp.name === importedName);
                     }
 
+                    let submoduleFallback: AliasDeclaration | undefined;
                     if (implicitImport) {
-                        aliasDecl = {
+                        submoduleFallback = {
                             type: DeclarationType.Alias,
                             path: implicitImport.path,
-                            range: getEmptyRange(),
-                            implicitImports: new Map<string, ModuleLoaderActions>()
+                            range: getEmptyRange()
                         };
-                    } else if (resolvedPath) {
-                        aliasDecl = {
-                            type: DeclarationType.Alias,
-                            path: resolvedPath,
-                            range: getEmptyRange(),
-                            symbolName: importedName,
-                            implicitImports: new Map<string, ModuleLoaderActions>()
-                        };
+
+                        // Handle the case of "from . import X". In this case,
+                        // we want to always resolve to the submodule rather than
+                        // the resolved path.
+                        if (node.module.nameParts.length === 0) {
+                            resolvedPath = '';
+                        }
                     }
 
-                    if (aliasDecl) {
-                        symbol.addDeclaration(aliasDecl);
-                    }
+                    const aliasDecl: AliasDeclaration = {
+                        type: DeclarationType.Alias,
+                        path: resolvedPath,
+                        symbolName: importedName,
+                        submoduleFallback,
+                        range: getEmptyRange()
+                    };
+
+                    symbol.addDeclaration(aliasDecl);
                 }
             });
         }
@@ -1801,10 +1818,15 @@ export class Binder extends ParseTreeWalker {
 
     private _addImplicitImportsToLoaderActions(importResult: ImportResult, loaderActions: ModuleLoaderActions) {
         importResult.implicitImports.forEach(implicitImport => {
-            const existingLoaderAction = loaderActions.implicitImports.get(implicitImport.name);
+            const existingLoaderAction = loaderActions.implicitImports ?
+                loaderActions.implicitImports.get(implicitImport.name) :
+                undefined;
             if (existingLoaderAction) {
                 existingLoaderAction.path = implicitImport.path;
             } else {
+                if (!loaderActions.implicitImports) {
+                    loaderActions.implicitImports = new Map<string, ModuleLoaderActions>();
+                }
                 loaderActions.implicitImports.set(implicitImport.name, {
                     path: implicitImport.path,
                     implicitImports: new Map<string, ModuleLoaderActions>()

@@ -11,7 +11,7 @@ import * as assert from 'assert';
 
 import { getEmptyRange } from '../common/diagnostic';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
-import { ImportLookup } from './analyzerFileInfo';
+import { ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -137,13 +137,21 @@ export function resolveAliasDeclaration(declaration: Declaration, importLookup: 
             return curDeclaration;
         }
 
-        const lookupResult = importLookup(curDeclaration.path);
-        if (!lookupResult) {
-            return undefined;
+        let lookupResult: ImportLookupResult | undefined;
+        if (curDeclaration.path) {
+            lookupResult = importLookup(curDeclaration.path);
+            if (!lookupResult) {
+                return undefined;
+            }
         }
 
-        const symbol = lookupResult.symbolTable.get(curDeclaration.symbolName);
+        const symbol: Symbol | undefined = lookupResult ?
+            lookupResult.symbolTable.get(curDeclaration.symbolName) :
+            undefined;
         if (!symbol) {
+            if (curDeclaration.submoduleFallback) {
+                return resolveAliasDeclaration(curDeclaration.submoduleFallback, importLookup);
+            }
             return undefined;
         }
 

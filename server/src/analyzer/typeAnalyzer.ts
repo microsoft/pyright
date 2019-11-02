@@ -1508,22 +1508,32 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let symbolType: Type | undefined;
         if (aliasDecl && aliasDecl.type === DeclarationType.Alias) {
-            if (aliasDecl.symbolName) {
-                assert(aliasDecl.path);
+            if (aliasDecl.symbolName && aliasDecl.path) {
                 const lookupResults = this._fileInfo.importLookup(aliasDecl.path);
                 if (lookupResults) {
                     const symbol = lookupResults.symbolTable.get(aliasDecl.symbolName);
                     if (symbol) {
                         symbolType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
                     }
-                } else {
-                    symbolType = UnknownType.create();
                 }
-            } else {
+            }
+
+            // If there was no symbol in the target module with the
+            // imported symbol name, see if there's a submodule that
+            // contains that name.
+            if (!symbolType) {
                 // Build a module type that corresponds to the declaration and
                 // its associated loader actions.
                 const moduleType = ModuleType.create();
-                symbolType = this._applyLoaderActionsToModuleType(moduleType, aliasDecl);
+                if (aliasDecl.symbolName) {
+                    if (aliasDecl.submoduleFallback) {
+                        symbolType = this._applyLoaderActionsToModuleType(
+                            moduleType, aliasDecl.symbolName && aliasDecl.submoduleFallback ?
+                                aliasDecl.submoduleFallback : aliasDecl);
+                    }
+                } else {
+                    symbolType = this._applyLoaderActionsToModuleType(moduleType, aliasDecl);
+                }
             }
         }
 
@@ -1541,14 +1551,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        loaderActions.implicitImports.forEach((implicitImport, name) => {
-            // Recursively apply loader actions.
-            const importedModuleType = ModuleType.create();
-            const symbolType = this._applyLoaderActionsToModuleType(importedModuleType, implicitImport);
+        if (loaderActions.implicitImports) {
+            loaderActions.implicitImports.forEach((implicitImport, name) => {
+                // Recursively apply loader actions.
+                const importedModuleType = ModuleType.create();
+                const symbolType = this._applyLoaderActionsToModuleType(importedModuleType, implicitImport);
 
-            const importedModuleSymbol = Symbol.createWithType(SymbolFlags.None, symbolType);
-            moduleType.loaderFields.set(name, importedModuleSymbol);
-        });
+                const importedModuleSymbol = Symbol.createWithType(SymbolFlags.None, symbolType);
+                moduleType.loaderFields.set(name, importedModuleSymbol);
+            });
+        }
 
         return moduleType;
     }
