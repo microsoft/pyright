@@ -236,16 +236,24 @@ function _getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
         }
     });
 
+    // If there were multiple workspaces or we couldn't find any,
+    // create a default one to use for this file.
     if (bestInstance === undefined) {
         let defaultWorkspace = _workspaceMap.get(_defaultWorkspacePath);
         if (!defaultWorkspace) {
+            // If there is only one workspace, use that one.
+            const workspaceNames = _workspaceMap.getKeys();
+            if (workspaceNames.length === 1) {
+                return _workspaceMap.get(workspaceNames[0])!;
+            }
+
             // Create a default workspace for files that are outside
             // of all workspaces.
             defaultWorkspace = {
                 workspaceName: '',
                 rootPath: '',
                 rootUri: '',
-                serviceInstance: _createAnalyzerService('<default>'),
+                serviceInstance: _createAnalyzerService(_defaultWorkspacePath),
                 disableLanguageServices: false
             };
             _workspaceMap.set(_defaultWorkspacePath, defaultWorkspace);
