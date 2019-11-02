@@ -135,6 +135,11 @@ export type ReadTypeFromNodeCacheCallback = (node: ExpressionNode) => Type | und
 export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) => void;
 export type SetSymbolAccessedCallback = (symbol: Symbol) => void;
 
+interface FlowNodeType {
+    type: Type;
+    isIncomplete: boolean;
+}
+
 const arithmeticOperatorMap: { [operator: number]: [string, string] } = {
     [OperatorType.Add]: ['__add__', '__radd__'],
     [OperatorType.Subtract]: ['__sub__', '__rsub__'],
@@ -179,7 +184,7 @@ export class ExpressionEvaluator {
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
     private _diagnosticSink?: TextRangeDiagnosticSink;
     private _setSymbolAccessed?: SetSymbolAccessedCallback;
-    private _flowNodeRecursionMap = new Map<number, true>();
+    private _typeFlowRecursionMap = new Map<number, true>();
 
     constructor(scope: Scope, fileInfo: AnalyzerFileInfo,
             readTypeCallback: ReadTypeFromNodeCacheCallback,
@@ -4263,109 +4268,137 @@ export class ExpressionEvaluator {
             initialType: Type | undefined): Type | undefined {
 
         const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
-        return this._getTypeFromFlowNode(flowNode!, reference, initialType);
-    }
+        const flowNodeTypeCache = new Map<number, FlowNodeType | undefined>();
+        const expressionEvaluator = this;
 
-    // If this flow has no knowledge of the target expression, it returns undefined.
-    // If the start flow node for this scope is reachable, the typeAtStart value is
-    // returned.
-    private _getTypeFromFlowNode(flowNode: FlowNode, reference: NameNode | MemberAccessExpressionNode,
-            initialType: Type | undefined): Type | undefined {
+        function preventFlowNodeRecursion(flowNodeId: number, callback: () => void) {
+            expressionEvaluator._typeFlowRecursionMap.set(flowNodeId, true);
+            callback();
+            expressionEvaluator._typeFlowRecursionMap.delete(flowNodeId);
+        }
 
-        let curFlowNode = flowNode;
+        // Caches the type of the flow node in our local cache, keyed by the flow node ID.
+        function setCacheEntry(flowNode: FlowNode, type?: Type, isIncomplete = false): FlowNodeType | undefined {
+            const flowType = type ? { type, isIncomplete } : undefined;
+            flowNodeTypeCache.set(flowNode.id, flowType);
+            return flowType;
+        }
 
-        while (true) {
-            if (this._flowNodeRecursionMap.get(curFlowNode.id)) {
-                return undefined;
-            }
+        // If this flow has no knowledge of the target expression, it returns undefined.
+        // If the start flow node for this scope is reachable, the typeAtStart value is
+        // returned.
+        function getTypeFromFlowNode(flowNode: FlowNode, reference: NameNode | MemberAccessExpressionNode,
+                initialType: Type | undefined): FlowNodeType | undefined {
 
-            if (curFlowNode.flags & FlowFlags.Unreachable) {
-                // We can get here if there are nodes in a compound logical expression
-                // (e.g. "False and x") that are never executed but are evaluated.
-                // The type doesn't matter in this case.
-                return undefined;
-            }
+            let curFlowNode = flowNode;
 
-            if (curFlowNode.flags & FlowFlags.Start) {
-                return initialType;
-            } else if (curFlowNode.flags & FlowFlags.Assignment) {
-                const assignmentFlowNode = curFlowNode as FlowAssignment;
-                if (reference.nodeType === ParseNodeType.Name || reference.nodeType === ParseNodeType.MemberAccess) {
-                    if (this._isMatchingExpression(reference, assignmentFlowNode.node)) {
-                        if (curFlowNode.flags & FlowFlags.Unbind) {
-                            return UnboundType.create();
-                        }
-                        return AnalyzerNodeInfo.getExpressionType(assignmentFlowNode.node);
-                    }
+            while (true) {
+                // Have we already been here? If so, use the cached value.
+                const cachedEntry = flowNodeTypeCache.get(curFlowNode.id);
+                if (cachedEntry) {
+                    return cachedEntry;
                 }
 
-                curFlowNode = assignmentFlowNode.antecedent;
-                continue;
-            } else if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
-                const labelNode = curFlowNode as FlowLabel;
-                const typesToCombine: Type[] = [];
-                this._preventFlowNodeRecursion(labelNode.id, () => {
-                    labelNode.antecedents.map(antecedent => {
-                        const type = this._getTypeFromFlowNode(antecedent, reference, initialType);
-                        if (type) {
-                            typesToCombine.push(type);
-                        }
-                    });
-                });
-                if (typesToCombine.length === 0) {
+                // Avoid infinite recursion.
+                if (expressionEvaluator._typeFlowRecursionMap.has(curFlowNode.id)) {
                     return undefined;
                 }
-                return combineTypes(typesToCombine);
-            } else if (curFlowNode.flags & FlowFlags.WildcardImport) {
-                const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
-                if (reference.nodeType === ParseNodeType.Name) {
-                    const nameValue = reference.nameToken.value;
-                    if (wildcardImportFlowNode.names.some(name => name === nameValue)) {
-                        // TODO - need to implement
-                        return initialType;
-                    }
+
+                if (curFlowNode.flags & FlowFlags.Unreachable) {
+                    // We can get here if there are nodes in a compound logical expression
+                    // (e.g. "False and x") that are never executed but are evaluated.
+                    // The type doesn't matter in this case.
+                    return setCacheEntry(curFlowNode, undefined);
                 }
 
-                curFlowNode = wildcardImportFlowNode.antecedent;
-                continue;
-            } else if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
-                const conditionalFlowNode = curFlowNode as FlowCondition;
-                const typeNarrowingCallback = this._getTypeNarrowingCallback(reference, conditionalFlowNode);
-                if (typeNarrowingCallback) {
-                    let type: Type | undefined;
-                    this._preventFlowNodeRecursion(conditionalFlowNode.id, () => {
-                        type = this._getTypeFromFlowNode(conditionalFlowNode.antecedent,
-                            reference, initialType);
-                    });
+                if (curFlowNode.flags & FlowFlags.Start) {
+                    return setCacheEntry(curFlowNode, initialType);
+                }
 
-                    if (!type) {
-                        return undefined;
+                if (curFlowNode.flags & FlowFlags.Assignment) {
+                    const assignmentFlowNode = curFlowNode as FlowAssignment;
+                    if (reference.nodeType === ParseNodeType.Name || reference.nodeType === ParseNodeType.MemberAccess) {
+                        if (ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)) {
+                            if (curFlowNode.flags & FlowFlags.Unbind) {
+                                return setCacheEntry(curFlowNode, UnboundType.create());
+                            }
+                            return setCacheEntry(curFlowNode, AnalyzerNodeInfo.getExpressionType(assignmentFlowNode.node));
+                        }
                     }
 
-                    return typeNarrowingCallback(type);
-                } else {
+                    curFlowNode = assignmentFlowNode.antecedent;
+                    continue;
+                }
+
+                if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
+                    const labelNode = curFlowNode as FlowLabel;
+                    const typesToCombine: Type[] = [];
+                    preventFlowNodeRecursion(curFlowNode.id, () => {
+                        labelNode.antecedents.map(antecedent => {
+                            const flowType = getTypeFromFlowNode(antecedent, reference, initialType);
+                            if (flowType) {
+                                typesToCombine.push(flowType.type);
+                            }
+                        });
+                    });
+                    if (typesToCombine.length === 0) {
+                        return setCacheEntry(curFlowNode, undefined);
+                    }
+                    return setCacheEntry(curFlowNode, combineTypes(typesToCombine));
+                }
+
+                if (curFlowNode.flags & FlowFlags.WildcardImport) {
+                    const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
+                    if (reference.nodeType === ParseNodeType.Name) {
+                        const nameValue = reference.nameToken.value;
+                        if (wildcardImportFlowNode.names.some(name => name === nameValue)) {
+                            // TODO - need to implement
+                            return setCacheEntry(curFlowNode, initialType);
+                        }
+                    }
+
+                    curFlowNode = wildcardImportFlowNode.antecedent;
+                    continue;
+                }
+
+                if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
+                    const conditionalFlowNode = curFlowNode as FlowCondition;
+                    const typeNarrowingCallback = expressionEvaluator._getTypeNarrowingCallback(reference, conditionalFlowNode);
+                    if (typeNarrowingCallback) {
+                        let flowType: FlowNodeType | undefined;
+                        preventFlowNodeRecursion(curFlowNode.id, () => {
+                            flowType = getTypeFromFlowNode(conditionalFlowNode.antecedent, reference, initialType);
+                        });
+                        return setCacheEntry(curFlowNode, flowType ? typeNarrowingCallback(flowType.type) : undefined);
+                    }
+
                     curFlowNode = conditionalFlowNode.antecedent;
                     continue;
                 }
-            } else if (curFlowNode.flags & FlowFlags.Call) {
-                const callFlowNode = curFlowNode as FlowCall;
 
-                // If this function returns a "NoReturn" type, that means
-                // it always raises an exception or otherwise doesn't return,
-                // so we can assume that the code before this is unreachable.
-                const returnType = AnalyzerNodeInfo.getExpressionType(callFlowNode.node);
-                if (returnType && TypeUtils.isNoReturnType(returnType)) {
-                    return undefined;
+                if (curFlowNode.flags & FlowFlags.Call) {
+                    const callFlowNode = curFlowNode as FlowCall;
+
+                    // If this function returns a "NoReturn" type, that means
+                    // it always raises an exception or otherwise doesn't return,
+                    // so we can assume that the code before this is unreachable.
+                    const returnType = AnalyzerNodeInfo.getExpressionType(callFlowNode.node);
+                    if (returnType && TypeUtils.isNoReturnType(returnType)) {
+                        return setCacheEntry(curFlowNode, undefined);
+                    }
+
+                    curFlowNode = callFlowNode.antecedent;
+                    continue;
                 }
 
-                curFlowNode = callFlowNode.antecedent;
-                continue;
-            } else {
                 // We shouldn't get here.
                 assert.fail('Unexpected flow node flags');
-                return undefined;
+                return setCacheEntry(curFlowNode, undefined);
             }
         }
+
+        const flowType = getTypeFromFlowNode(flowNode!, reference, initialType);
+        return flowType ? flowType.type : undefined;
     }
 
     private _isFlowNodeReachable(flowNode: FlowNode): boolean {
@@ -4434,12 +4467,6 @@ export class ExpressionEvaluator {
         return isFlowNodeReachableRecursive(flowNode);
     }
 
-    private _preventFlowNodeRecursion(flowNodeId: number, callback: () => void) {
-        this._flowNodeRecursionMap.set(flowNodeId, true);
-        callback();
-        this._flowNodeRecursionMap.delete(flowNodeId);
-    }
-
     // Given a reference expression and a flow node, returns a callback that
     // can be used to narrow the type described by the target expression.
     // If the specified flow node is not associated with the target expression,
@@ -4459,7 +4486,7 @@ export class ExpressionEvaluator {
                 if (testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
                         testExpression.rightExpression.token.keywordType === KeywordType.None) {
 
-                    if (this._isMatchingExpression(reference, testExpression.leftExpression)) {
+                    if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
                         // Narrow the type by filtering on "None".
                         return (type: Type) => {
                             if (type.category === TypeCategory.Union) {
@@ -4498,7 +4525,7 @@ export class ExpressionEvaluator {
                             testExpression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
 
                         const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
-                        if (this._isMatchingExpression(reference, arg0Expr)) {
+                        if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                             const classType = this._getTypeFromExpression(testExpression.rightExpression).type;
                             if (classType.category === TypeCategory.Class) {
                                 return (type: Type) => {
@@ -4538,7 +4565,7 @@ export class ExpressionEvaluator {
                 const isInstanceCheck = testExpression.leftExpression.nameToken.value === 'isinstance';
                 const arg0Expr = testExpression.arguments[0].valueExpression;
                 const arg1Expr = testExpression.arguments[1].valueExpression;
-                if (this._isMatchingExpression(reference, arg0Expr)) {
+                if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                     const arg1Type = this._getTypeFromExpression(arg1Expr).type;
                     const classTypeList = this._getIsInstanceClassTypes(arg1Type);
                     if (classTypeList) {
@@ -4550,7 +4577,7 @@ export class ExpressionEvaluator {
             }
         }
 
-        if (this._isMatchingExpression(reference, testExpression)) {
+        if (ParseTreeUtils.isMatchingExpression(reference, testExpression)) {
             return (type: Type) => {
                 // Narrow the type based on whether the subtype can be true or false.
                 return TypeUtils.doForSubtypes(type, subtype => {
@@ -4694,17 +4721,6 @@ export class ExpressionEvaluator {
 
         // Return the original type.
         return type;
-    }
-
-    private _isMatchingExpression(expression1: ExpressionNode, expression2: ExpressionNode): boolean {
-        if (expression1.nodeType === ParseNodeType.Name && expression2.nodeType === ParseNodeType.Name) {
-            return expression1.nameToken.value === expression2.nameToken.value;
-        } else if (expression1.nodeType === ParseNodeType.MemberAccess && expression2.nodeType === ParseNodeType.MemberAccess) {
-            return this._isMatchingExpression(expression1.leftExpression, expression2.leftExpression) &&
-                expression1.memberName.nameToken.value === expression2.memberName.nameToken.value;
-        }
-
-        return false;
     }
 
     // Specializes the specified (potentially generic) class type using
