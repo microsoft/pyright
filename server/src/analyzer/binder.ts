@@ -360,9 +360,6 @@ export class Binder extends ParseTreeWalker {
             functionFlags &= ~FunctionTypeFlags.InstanceMethod;
         }
 
-        const savedTargetFunctionDeclaration = this._targetFunctionDeclaration;
-        this._targetFunctionDeclaration = undefined;
-
         const functionType = FunctionType.create(functionFlags,
             this._getDocString(node.suite.statements));
 
@@ -378,8 +375,6 @@ export class Binder extends ParseTreeWalker {
             range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
                 this._fileInfo.lines)
         };
-
-        this._targetFunctionDeclaration = functionDeclaration;
 
         if (symbol) {
             symbol.addDeclaration(functionDeclaration);
@@ -1314,33 +1309,30 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitListComprehension(node: ListComprehensionNode): boolean {
-        // Allocate a new scope.
-        const prevScope = this._currentScope;
-        this._currentScope = new Scope(ScopeType.ListComprehension, prevScope);
-        const falseLabel = this._createBranchLabel();
+        this._createNewScope(ScopeType.ListComprehension, this._currentScope, () => {
+            AnalyzerNodeInfo.setScope(node, this._currentScope);
 
-        for (let i = 0; i < node.comprehensions.length; i++) {
-            const compr = node.comprehensions[i];
-            if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
-                this.walk(compr.iterableExpression);
+            const falseLabel = this._createBranchLabel();
 
-                this._bindPossibleTupleNamedTarget(compr.targetExpression);
-                this._createAssignmentTargetFlowNodes(compr.targetExpression);
-                this.walk(compr.targetExpression);
-            } else {
-                const trueLabel = this._createBranchLabel();
-                this._bindConditional(compr.testExpression, trueLabel, falseLabel);
-                this._currentFlowNode = this._finishFlowLabel(trueLabel);
+            for (let i = 0; i < node.comprehensions.length; i++) {
+                const compr = node.comprehensions[i];
+                if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
+                    this.walk(compr.iterableExpression);
+
+                    this._bindPossibleTupleNamedTarget(compr.targetExpression);
+                    this._createAssignmentTargetFlowNodes(compr.targetExpression);
+                    this.walk(compr.targetExpression);
+                } else {
+                    const trueLabel = this._createBranchLabel();
+                    this._bindConditional(compr.testExpression, trueLabel, falseLabel);
+                    this._currentFlowNode = this._finishFlowLabel(trueLabel);
+                }
             }
-        }
 
-        this.walk(node.expression);
-        this._addAntecedent(falseLabel, this._currentFlowNode);
-        this._currentFlowNode = this._finishFlowLabel(falseLabel);
-
-        AnalyzerNodeInfo.setScope(node, this._currentScope);
-
-        this._currentScope = prevScope;
+            this.walk(node.expression);
+            this._addAntecedent(falseLabel, this._currentFlowNode);
+            this._currentFlowNode = this._finishFlowLabel(falseLabel);
+        });
 
         return false;
     }
