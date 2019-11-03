@@ -104,6 +104,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             },
             symbol => {
                 this._setSymbolAccessed(symbol);
+            },
+            reason => {
+                this._setAnalysisChanged(reason);
             });
     }
 
@@ -312,7 +315,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._evaluator.synthesizeTypedDictClassMethods(classType);
         }
 
-        this._assignTypeToNameNode(node.name, decoratedType);
+        this._evaluator.assignTypeToNameNode(node.name, decoratedType);
         this._validateClassMethods(classType);
 
         this.walkMultiple(node.decorators);
@@ -571,9 +574,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // by previous function declarations.
         if (decoratedType === functionType) {
             const overloadedType = this._addOverloadsToFunctionType(node, decoratedType);
-            this._assignTypeToNameNode(node.name, overloadedType);
+            this._evaluator.assignTypeToNameNode(node.name, overloadedType);
         } else {
-            this._assignTypeToNameNode(node.name, decoratedType);
+            this._evaluator.assignTypeToNameNode(node.name, decoratedType);
         }
 
         if (containingClassNode) {
@@ -918,7 +921,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Use the type source ID of the except node to avoid conflict with
             // the node.name type source.
             const unboundType = UnboundType.create();
-            this._addTypeSourceToName(node.name.nameToken.value, unboundType, node.id);
+            this._evaluator.addTypeSourceToName(node, node.name.nameToken.value,
+                unboundType, node.id);
         }
 
         return false;
@@ -1185,7 +1189,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // Cache the module type for subsequent passes.
         AnalyzerNodeInfo.setExpressionType(node, symbolType);
 
-        this._assignTypeToNameNode(symbolNameNode, symbolType);
+        this._evaluator.assignTypeToNameNode(symbolNameNode, symbolType);
 
         if (node.alias) {
             this._conditionallyReportUnusedName(symbolNameNode, false,
@@ -1230,8 +1234,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             if (!importedSymbol.isIgnoredForProtocolMatch()) {
                                 [symbol, symbolType] = this._getAliasedSymbolTypeForName(name);
                                 if (symbol) {
-                                    this._addTypeSourceToName(name, symbolType || UnknownType.create(),
-                                        node.id);
+                                    this._evaluator.addTypeSourceToName(node, name,
+                                        symbolType || UnknownType.create(), node.id);
                                 }
                             }
                         });
@@ -1240,7 +1244,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     importInfo.implicitImports.forEach(implicitImport => {
                         [symbol, symbolType] = this._getAliasedSymbolTypeForName(implicitImport.name);
                         if (symbol) {
-                            this._addTypeSourceToName(implicitImport.name,
+                            this._evaluator.addTypeSourceToName(node, implicitImport.name,
                                 symbolType || UnknownType.create(), node.id);
                         }
                     });
@@ -1257,8 +1261,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         symbolType = UnknownType.create();
                     }
 
-                    this._addTypeSourceToName(aliasNode.nameToken.value, symbolType, node.id);
-                    this._assignTypeToNameNode(aliasNode, symbolType);
+                    this._evaluator.addTypeSourceToName(node, aliasNode.nameToken.value,
+                        symbolType, node.id);
+                    this._evaluator.assignTypeToNameNode(aliasNode, symbolType);
                 });
             }
         }
@@ -1626,7 +1631,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             if (specialType) {
-                this._assignTypeToNameNode(nameNode, specialType);
+                this._evaluator.assignTypeToNameNode(nameNode, specialType);
                 return true;
             }
         }
@@ -2596,7 +2601,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 DiagnosticRule.reportUnknownVariableType,
                 target, srcType, srcExpr);
 
-            this._assignTypeToNameNode(target, srcType, srcExpr);
+            this._evaluator.assignTypeToNameNode(target, srcType, srcExpr);
         } else if (target.nodeType === ParseNodeType.MemberAccess) {
             const targetNode = target.leftExpression;
 
@@ -2720,7 +2725,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         srcType = UnknownType.create();
                     }
                 }
-                this._assignTypeToNameNode(target.expression, srcType, srcExpr);
+                this._evaluator.assignTypeToNameNode(target.expression, srcType, srcExpr);
             }
         } else if (target.nodeType === ParseNodeType.List) {
             // The assigned expression had better be some iterable type.
@@ -2774,85 +2779,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return type;
     }
 
-    private _assignTypeToNameNode(nameNode: NameNode, srcType: Type, srcExpressionNode?: ParseNode) {
-        const nameValue = nameNode.nameToken.value;
-
-        // Determine if there's a declared type for this symbol.
-        let declaredType: Type | undefined;
-        let declarations: Declaration[] = [];
-
-        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
-        if (symbolWithScope) {
-            declarations = symbolWithScope.symbol.getDeclarations();
-            declaredType = TypeUtils.getDeclaredTypeOfSymbol(symbolWithScope.symbol);
-        } else {
-            // We should never get here.
-            assert.fail(`Missing symbol '${ nameValue }'`);
-        }
-
-        // We found an existing declared type. Make sure the type is assignable.
-        let destType = srcType;
-        if (declaredType && srcExpressionNode) {
-            const diagAddendum = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(declaredType, srcType, diagAddendum)) {
-                this._evaluator.addError(`Expression of type '${ printType(srcType) }' cannot be ` +
-                    `assigned to declared type '${ printType(declaredType) }'` + diagAddendum.getString(),
-                    srcExpressionNode || nameNode);
-                destType = declaredType;
-            } else {
-                // Constrain the resulting type to match the declared type.
-                destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(declaredType, srcType);
-            }
-        } else {
-            // If this is a member name (within a class scope) and the member name
-            // appears to be a constant, use the strict source type. If it's a member
-            // variable that can be overridden by a child class, use the more general
-            // version by stripping off the literal.
-            if (this._currentScope.getType() === ScopeType.Class) {
-                const isConstant = SymbolNameUtils.isConstantName(nameValue);
-                const isPrivate = SymbolNameUtils.isPrivateOrProtectedName(nameValue);
-                const honorPrivateNaming = this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
-
-                if (!isConstant && (!isPrivate || !honorPrivateNaming)) {
-                    destType = TypeUtils.stripLiteralValue(destType);
-                }
-            }
-        }
-
-        const varDecl: Declaration | undefined = declarations.find(
-            decl => decl.type === DeclarationType.Variable);
-        if (varDecl && varDecl.type === DeclarationType.Variable &&
-                varDecl.isConstant && srcExpressionNode) {
-
-            if (nameNode !== declarations[0].node) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportConstantRedefinition,
-                    DiagnosticRule.reportConstantRedefinition,
-                    `'${ nameValue }' is constant and cannot be redefined`,
-                    nameNode);
-            }
-        }
-
-        this._addTypeSourceToName(nameNode.nameToken.value, destType, nameNode.id);
-        this._updateExpressionTypeForNode(nameNode, destType);
-    }
-
     private _addTypeSourceToNameNode(node: NameNode, type: Type) {
-        this._addTypeSourceToName(node.nameToken.value, type, node.id);
-    }
-
-    private _addTypeSourceToName(name: string, type: Type, typeSourceId: TypeSourceId) {
-        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name);
-        if (symbolWithScope) {
-            if (!symbolWithScope.isOutsideCallerModule) {
-                if (symbolWithScope.symbol.setInferredTypeForSource(type, typeSourceId)) {
-                    this._setAnalysisChanged(`Inferred type of name changed for '${ name }'`);
-                }
-            }
-        } else {
-            // We should never get here!
-            assert.fail(`Missing symbol '${ name }'`);
-        }
+        this._evaluator.addTypeSourceToName(node, node.nameToken.value, type, node.id);
     }
 
     private _transformTypeForPossibleEnumClass(node: NameNode, typeOfExpr: Type): Type {

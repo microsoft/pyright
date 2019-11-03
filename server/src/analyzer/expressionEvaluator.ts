@@ -28,10 +28,13 @@ import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parse
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowCall, FlowCondition, FlowFlags, FlowLabel,
     FlowNode, FlowWildcardImport } from './codeFlow';
-import { DeclarationType, VariableDeclaration } from './declaration';
+import { Declaration, DeclarationType, VariableDeclaration } from './declaration';
+import { TypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
+import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { setSymbolPreservingAccess, Symbol, SymbolFlags } from './symbol';
+import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
     FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound, isTypeSame,
     isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
@@ -132,6 +135,7 @@ interface ParamAssignmentInfo {
 export type ReadTypeFromNodeCacheCallback = (node: ExpressionNode) => Type | undefined;
 export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) => void;
 export type SetSymbolAccessedCallback = (symbol: Symbol) => void;
+export type SetAnalysisChangedCallback = (reason: string) => void;
 
 interface FlowNodeType {
     type: Type;
@@ -181,13 +185,15 @@ export class ExpressionEvaluator {
     private _readTypeFromCache: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
     private _setSymbolAccessed?: SetSymbolAccessedCallback;
+    private _setAnalysisChanged: SetAnalysisChangedCallback;
     private _typeFlowRecursionMap = new Map<number, true>();
 
     constructor(
             diagnosticSink: TextRangeDiagnosticSink,
             readTypeCallback: ReadTypeFromNodeCacheCallback,
-            writeTypeCallback?: WriteTypeToNodeCacheCallback,
-            setSymbolAccessedCallback?: SetSymbolAccessedCallback) {
+            writeTypeCallback: WriteTypeToNodeCacheCallback,
+            setSymbolAccessedCallback: SetSymbolAccessedCallback,
+            setAnalysisChangedCallback: SetAnalysisChangedCallback) {
 
         this._diagnosticSink = diagnosticSink;
         this._logDiagnostics = true;
@@ -195,6 +201,7 @@ export class ExpressionEvaluator {
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
         this._setSymbolAccessed = setSymbolAccessedCallback;
+        this._setAnalysisChanged = setAnalysisChangedCallback;
     }
 
     getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
@@ -774,6 +781,84 @@ export class ExpressionEvaluator {
         }
 
         return diagnostic;
+    }
+
+    assignTypeToNameNode(nameNode: NameNode, type: Type, srcExpression?: ParseNode) {
+        const nameValue = nameNode.nameToken.value;
+
+        const symbolWithScope = this._lookUpSymbolRecursive(nameNode, nameValue);
+        if (!symbolWithScope) {
+            assert.fail(`Missing symbol '${ nameValue }'`);
+            return;
+        }
+
+        const declarations = symbolWithScope.symbol.getDeclarations();
+        const declaredType = TypeUtils.getDeclaredTypeOfSymbol(symbolWithScope.symbol);
+
+        // We found an existing declared type. Make sure the type is assignable.
+        let destType = type;
+        if (declaredType && srcExpression) {
+            const diagAddendum = new DiagnosticAddendum();
+            if (!TypeUtils.canAssignType(declaredType, type, diagAddendum)) {
+                this.addError(`Expression of type '${ printType(type) }' cannot be ` +
+                    `assigned to declared type '${ printType(declaredType) }'` + diagAddendum.getString(),
+                    srcExpression || nameNode);
+                destType = declaredType;
+            } else {
+                // Constrain the resulting type to match the declared type.
+                destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(declaredType, type);
+            }
+        } else {
+            // If this is a member name (within a class scope) and the member name
+            // appears to be a constant, use the strict source type. If it's a member
+            // variable that can be overridden by a child class, use the more general
+            // version by stripping off the literal.
+            const scope = ScopeUtils.getScopeForNode(nameNode);
+            if (scope.getType() === ScopeType.Class) {
+                const isConstant = isConstantName(nameValue);
+                const isPrivate = isPrivateOrProtectedName(nameValue);
+
+                if (!isConstant && (!isPrivate ||
+                        this._getFileInfo(nameNode).diagnosticSettings.reportPrivateUsage === 'none')) {
+                    destType = TypeUtils.stripLiteralValue(destType);
+                }
+            }
+        }
+
+        const varDecl: Declaration | undefined = declarations.find(
+            decl => decl.type === DeclarationType.Variable);
+        if (varDecl && varDecl.type === DeclarationType.Variable &&
+                varDecl.isConstant && srcExpression) {
+
+            if (nameNode !== declarations[0].node) {
+                this.addDiagnostic(
+                    this._getFileInfo(nameNode).diagnosticSettings.reportConstantRedefinition,
+                    DiagnosticRule.reportConstantRedefinition,
+                    `'${ nameValue }' is constant and cannot be redefined`,
+                    nameNode);
+            }
+        }
+
+        this.addTypeSourceToName(nameNode, nameNode.nameToken.value, destType, nameNode.id);
+        if (this._writeTypeToCache) {
+            this._writeTypeToCache(nameNode, destType);
+        }
+    }
+
+    addTypeSourceToName(node: ParseNode, name: string,
+            type: Type, typeSourceId: TypeSourceId) {
+
+        const symbolWithScope = this._lookUpSymbolRecursive(node, name);
+        if (symbolWithScope) {
+            if (!symbolWithScope.isOutsideCallerModule) {
+                if (symbolWithScope.symbol.setInferredTypeForSource(type, typeSourceId)) {
+                    this._setAnalysisChanged(`Inferred type of name changed for '${ name }'`);
+                }
+            }
+        } else {
+            // We should never get here!
+            assert.fail(`Missing symbol '${ name }'`);
+        }
     }
 
     // Builds a sorted list of dataclass parameters that are inherited by
@@ -3925,26 +4010,11 @@ export class ExpressionEvaluator {
         return { type, node };
     }
 
-    private _assignTypeToNameNode(targetExpr: NameNode, type: Type) {
-        const symbolWithScope = this._lookUpSymbolRecursive(targetExpr, targetExpr.nameToken.value)!;
-        if (symbolWithScope === undefined) {
-            assert.fail(`Missing symbol '${ targetExpr.nameToken.value }'`);
-        }
-        if (!symbolWithScope.isOutsideCallerModule) {
-            symbolWithScope.symbol.setInferredTypeForSource(type, targetExpr.id);
-        }
-
-        // Mark the symbol as accessed. These symbols are not persisted
-        // between analysis passes, so we never have an opportunity to
-        // mark them as accessed.
-        symbolWithScope.symbol.setIsAccessed();
-    }
-
     private _assignTypeToExpression(targetExpr: ExpressionNode, type: Type, srcExpr?: ExpressionNode): boolean {
         let understoodType = true;
 
         if (targetExpr.nodeType === ParseNodeType.Name) {
-            this._assignTypeToNameNode(targetExpr, type);
+            this.assignTypeToNameNode(targetExpr, type);
         } else if (targetExpr.nodeType === ParseNodeType.Tuple) {
             // Initialize the array of target types, one for each target.
             const targetTypes: Type[][] = new Array(targetExpr.expressions.length);
@@ -4003,7 +4073,7 @@ export class ExpressionEvaluator {
                         type = UnknownType.create();
                     }
                 }
-                this._assignTypeToNameNode(targetExpr.expression, type);
+                this.assignTypeToNameNode(targetExpr.expression, type);
             }
         } else if (targetExpr.nodeType === ParseNodeType.List) {
             // The assigned expression had better be some iterable type.
