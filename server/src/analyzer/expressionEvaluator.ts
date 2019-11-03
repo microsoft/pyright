@@ -127,14 +127,6 @@ export const enum MemberAccessFlags {
     SkipForMethodLookup = SkipInstanceMembers | SkipGetAttributeCheck | SkipGetCheck
 }
 
-// There are rare circumstances where we can get into a "beating
-// pattern" where one variable is assigned to another in one pass
-// and the second assigned to the first in the second pass and
-// they both contain an "unknown" in their union. In this case,
-// we will never converge. Look for this particular case after
-// several analysis passes.
-const _checkForBeatingUnknownPassCount = 16;
-
 interface ParamAssignmentInfo {
     argsNeeded: number;
     argsReceived: number;
@@ -1206,24 +1198,8 @@ export class ExpressionEvaluator {
             AnalyzerNodeInfo.setExpressionTypeWriteVersion(node, this._analysisVersion);
 
             if (!oldType || !isTypeSame(oldType, exprType)) {
-                let replaceType = true;
-
-                // In rare cases, we can run into a situation where an "unknown"
-                // is passed back and forth between two variables, preventing
-                // us from ever converging. Detect this rare condition here.
-                if (this._analysisVersion > _checkForBeatingUnknownPassCount) {
-                    if (oldType && exprType.category === TypeCategory.Union) {
-                        const simplifiedExprType = removeUnknownFromUnion(exprType);
-                        if (isTypeSame(oldType, simplifiedExprType)) {
-                            replaceType = false;
-                        }
-                    }
-                }
-
-                if (replaceType) {
-                    this._setAnalysisChanged('Expression type changed');
-                    AnalyzerNodeInfo.setExpressionType(node, exprType);
-                }
+                this._setAnalysisChanged('Expression type changed');
+                AnalyzerNodeInfo.setExpressionType(node, exprType);
             }
         }
     }
