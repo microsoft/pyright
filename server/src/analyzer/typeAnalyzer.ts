@@ -29,10 +29,9 @@ import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowFlags } from './codeFlow';
-import { Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
+import { DeclarationType, ModuleLoaderActions } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
-import { TypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
@@ -42,7 +41,7 @@ import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,
-    printType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion, removeUnknownFromUnion,
+    printType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion,
     Type, TypeCategory, TypeVarType, UnboundType, UnknownType  } from './types';
 import * as TypeUtils from './typeUtils';
 
@@ -58,14 +57,6 @@ interface AliasMapEntry {
 // 21 or so to handle all of the import cycles in the stdlib
 // files.
 const _maxAnalysisPassCount = 25;
-
-// There are rare circumstances where we can get into a "beating
-// pattern" where one variable is assigned to another in one pass
-// and the second assigned to the first in the second pass and
-// they both contain an "unknown" in their union. In this case,
-// we will never converge. Look for this particular case after
-// several analysis passes.
-const _checkForBeatingUnknownPassCount = 16;
 
 export class TypeAnalyzer extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
@@ -98,10 +89,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._analysisVersion = analysisVersion;
         this._evaluator = new ExpressionEvaluator(
             this._fileInfo.diagnosticSink,
-            node => this._readExpressionTypeFromNodeCache(node),
-            (node, type) => {
-                this._updateExpressionTypeForNode(node, type);
-            },
+            this._analysisVersion,
             reason => {
                 this._setAnalysisChanged(reason);
             });
@@ -552,7 +540,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // is no bound or constraint).
                     const variadicParamType = this._getVariadicParamType(param.category, specializedParamType);
                     this._addTypeSourceToNameNode(paramNode.name, variadicParamType);
-                    this._updateExpressionTypeForNode(paramNode.name, variadicParamType);
+                    this._evaluator.updateExpressionTypeForNode(paramNode.name, variadicParamType);
 
                     // Cache the type for the hover provider. Don't walk
                     // the default value because it needs to be evaluated
@@ -907,7 +895,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 });
 
                 this._addTypeSourceToNameNode(node.name, exceptionType);
-                this._updateExpressionTypeForNode(node.name, exceptionType);
+                this._evaluator.updateExpressionTypeForNode(node.name, exceptionType);
             }
         }
 
@@ -1300,7 +1288,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // If it's part of an assignment operation, the assignment
         // operation will set the type.
         if (node.parent && node.parent.nodeType !== ParseNodeType.Assignment) {
-            this._updateExpressionTypeForNode(node.valueExpression, declaredType);
+            this._evaluator.updateExpressionTypeForNode(node.valueExpression, declaredType);
         }
 
         this._validateDeclaredTypeMatches(node.valueExpression, declaredType,
@@ -2346,44 +2334,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _evaluateExpressionForDeletion(node: ExpressionNode): Type {
         return this._evaluator.getType(node, { method: 'del' }, EvaluatorFlags.None);
-    }
-
-    private _readExpressionTypeFromNodeCache(node: ExpressionNode): Type | undefined {
-        const cachedVersion = AnalyzerNodeInfo.getExpressionTypeWriteVersion(node);
-
-        if (cachedVersion === this._analysisVersion) {
-            const cachedType = AnalyzerNodeInfo.getExpressionType(node);
-            assert(cachedType !== undefined);
-            return cachedType;
-        }
-
-        return undefined;
-    }
-
-    private _updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
-        const oldType = AnalyzerNodeInfo.getExpressionType(node);
-        AnalyzerNodeInfo.setExpressionTypeWriteVersion(node, this._analysisVersion);
-
-        if (!oldType || !isTypeSame(oldType, exprType)) {
-            let replaceType = true;
-
-            // In rare cases, we can run into a situation where an "unknown"
-            // is passed back and forth between two variables, preventing
-            // us from ever converging. Detect this rare condition here.
-            if (this._analysisVersion > _checkForBeatingUnknownPassCount) {
-                if (oldType && exprType.category === TypeCategory.Union) {
-                    const simplifiedExprType = removeUnknownFromUnion(exprType);
-                    if (isTypeSame(oldType, simplifiedExprType)) {
-                        replaceType = false;
-                    }
-                }
-            }
-
-            if (replaceType) {
-                this._setAnalysisChanged('Expression type changed');
-                AnalyzerNodeInfo.setExpressionType(node, exprType);
-            }
-        }
     }
 
     // Validates that a new type declaration doesn't conflict with an

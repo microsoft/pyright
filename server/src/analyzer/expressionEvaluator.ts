@@ -38,8 +38,8 @@ import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
     FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound, isTypeSame,
     isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
-    printType, removeNoneFromUnion, removeUnboundFromUnion, requiresSpecialization, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
+    printType, removeNoneFromUnion, removeUnboundFromUnion, removeUnknownFromUnion, requiresSpecialization, Type,
+    TypeCategory, TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
 interface TypeResult {
@@ -127,13 +127,19 @@ export const enum MemberAccessFlags {
     SkipForMethodLookup = SkipInstanceMembers | SkipGetAttributeCheck | SkipGetCheck
 }
 
+// There are rare circumstances where we can get into a "beating
+// pattern" where one variable is assigned to another in one pass
+// and the second assigned to the first in the second pass and
+// they both contain an "unknown" in their union. In this case,
+// we will never converge. Look for this particular case after
+// several analysis passes.
+const _checkForBeatingUnknownPassCount = 16;
+
 interface ParamAssignmentInfo {
     argsNeeded: number;
     argsReceived: number;
 }
 
-export type ReadTypeFromNodeCacheCallback = (node: ExpressionNode) => Type | undefined;
-export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) => void;
 export type SetAnalysisChangedCallback = (reason: string) => void;
 
 interface FlowNodeType {
@@ -180,8 +186,7 @@ const booleanOperatorMap: { [operator: number]: boolean } = {
 
 export class ExpressionEvaluator {
     private _diagnosticSink: TextRangeDiagnosticSink;
-    private _readTypeFromCache: ReadTypeFromNodeCacheCallback;
-    private _writeTypeToCache: WriteTypeToNodeCacheCallback;
+    private _analysisVersion: number;
     private _setAnalysisChanged: SetAnalysisChangedCallback;
     private _typeFlowRecursionMap = new Map<number, true>();
 
@@ -192,15 +197,13 @@ export class ExpressionEvaluator {
 
     constructor(
             diagnosticSink: TextRangeDiagnosticSink,
-            readTypeCallback: ReadTypeFromNodeCacheCallback,
-            writeTypeCallback: WriteTypeToNodeCacheCallback,
+            analysisVersion: number,
             setAnalysisChangedCallback: SetAnalysisChangedCallback) {
 
         this._diagnosticSink = diagnosticSink;
+        this._analysisVersion = analysisVersion;
         this._isSpeculativeMode = false;
 
-        this._readTypeFromCache = readTypeCallback;
-        this._writeTypeToCache = writeTypeCallback;
         this._setAnalysisChanged = setAnalysisChangedCallback;
     }
 
@@ -855,10 +858,8 @@ export class ExpressionEvaluator {
             }
         }
 
-        if (!this._isSpeculativeMode) {
-            this.addTypeSourceToName(nameNode, nameNode.nameToken.value, destType, nameNode.id);
-            this._writeTypeToCache(nameNode, destType);
-        }
+        this.addTypeSourceToName(nameNode, nameNode.nameToken.value, destType, nameNode.id);
+        this.updateExpressionTypeForNode(nameNode, destType);
     }
 
     assignTypeToMemberAccessNode(target: MemberAccessExpressionNode, type: Type, srcExpr?: ExpressionNode) {
@@ -1088,16 +1089,18 @@ export class ExpressionEvaluator {
     addTypeSourceToName(node: ParseNode, name: string,
             type: Type, typeSourceId: TypeSourceId) {
 
-        const symbolWithScope = this._lookUpSymbolRecursive(node, name);
-        if (symbolWithScope) {
-            if (!symbolWithScope.isOutsideCallerModule) {
-                if (symbolWithScope.symbol.setInferredTypeForSource(type, typeSourceId)) {
-                    this._setAnalysisChanged(`Inferred type of name changed for '${ name }'`);
+        if (!this._isSpeculativeMode) {
+            const symbolWithScope = this._lookUpSymbolRecursive(node, name);
+            if (symbolWithScope) {
+                if (!symbolWithScope.isOutsideCallerModule) {
+                    if (symbolWithScope.symbol.setInferredTypeForSource(type, typeSourceId)) {
+                        this._setAnalysisChanged(`Inferred type of name changed for '${ name }'`);
+                    }
                 }
+            } else {
+                // We should never get here!
+                assert.fail(`Missing symbol '${ name }'`);
             }
-        } else {
-            // We should never get here!
-            assert.fail(`Missing symbol '${ name }'`);
         }
     }
 
@@ -1180,6 +1183,46 @@ export class ExpressionEvaluator {
 
                 if (symbolWithScope) {
                     this._setSymbolAccessed(symbolWithScope.symbol);
+                }
+            }
+        }
+    }
+
+    readExpressionTypeFromNodeCache(node: ExpressionNode): Type | undefined {
+        const cachedVersion = AnalyzerNodeInfo.getExpressionTypeWriteVersion(node);
+
+        if (cachedVersion === this._analysisVersion) {
+            const cachedType = AnalyzerNodeInfo.getExpressionType(node);
+            assert(cachedType !== undefined);
+            return cachedType;
+        }
+
+        return undefined;
+    }
+
+    updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
+        if (!this._isSpeculativeMode) {
+            const oldType = AnalyzerNodeInfo.getExpressionType(node);
+            AnalyzerNodeInfo.setExpressionTypeWriteVersion(node, this._analysisVersion);
+
+            if (!oldType || !isTypeSame(oldType, exprType)) {
+                let replaceType = true;
+
+                // In rare cases, we can run into a situation where an "unknown"
+                // is passed back and forth between two variables, preventing
+                // us from ever converging. Detect this rare condition here.
+                if (this._analysisVersion > _checkForBeatingUnknownPassCount) {
+                    if (oldType && exprType.category === TypeCategory.Union) {
+                        const simplifiedExprType = removeUnknownFromUnion(exprType);
+                        if (isTypeSame(oldType, simplifiedExprType)) {
+                            replaceType = false;
+                        }
+                    }
+                }
+
+                if (replaceType) {
+                    this._setAnalysisChanged('Expression type changed');
+                    AnalyzerNodeInfo.setExpressionType(node, exprType);
                 }
             }
         }
@@ -1293,7 +1336,7 @@ export class ExpressionEvaluator {
             flags = EvaluatorFlags.None): TypeResult {
 
         // Is this type already cached?
-        const cachedType = this._readTypeFromCache(node);
+        const cachedType = this.readExpressionTypeFromNodeCache(node);
         if (cachedType) {
             return { type: cachedType, node };
         }
@@ -1423,12 +1466,10 @@ export class ExpressionEvaluator {
             typeResult = { type: UnknownType.create(), node };
         }
 
-        if (!this._isSpeculativeMode) {
-            if (usage.method === 'get' || usage.method === 'del') {
-                this._writeTypeToCache(node, typeResult.type);
-            } else if (usage.method === 'set' && usage.setType) {
-                this._writeTypeToCache(node, usage.setType);
-            }
+        if (usage.method === 'get' || usage.method === 'del') {
+            this.updateExpressionTypeForNode(node, typeResult.type);
+        } else if (usage.method === 'set' && usage.setType) {
+            this.updateExpressionTypeForNode(node, usage.setType);
         }
 
         return typeResult;
@@ -1524,10 +1565,8 @@ export class ExpressionEvaluator {
                 memberType.type;
         }
 
-        if (!this._isSpeculativeMode) {
-            // Cache the type information in the member name node as well.
-            this._writeTypeToCache(node.memberName, memberType.type);
-        }
+        // Cache the type information in the member name node as well.
+        this.updateExpressionTypeForNode(node.memberName, memberType.type);
 
         return memberType;
     }
