@@ -597,7 +597,7 @@ export class Binder extends ParseTreeWalker {
     visitDel(node: DelNode) {
         node.expressions.forEach(expr => {
             this._bindPossibleTupleNamedTarget(expr);
-            this._createAssignmentTargetFlowNodes(expr);
+            this._createAssignmentTargetFlowNodes(expr, true);
         });
 
         return true;
@@ -1524,20 +1524,20 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    private _createAssignmentTargetFlowNodes(target: ExpressionNode) {
+    private _createAssignmentTargetFlowNodes(target: ExpressionNode, unbound = false) {
         if (target.nodeType === ParseNodeType.Name || target.nodeType === ParseNodeType.MemberAccess) {
-            this._createFlowAssignment(target);
+            this._createFlowAssignment(target, unbound);
         } else if (target.nodeType === ParseNodeType.Tuple) {
             target.expressions.forEach(expr => {
-                this._createAssignmentTargetFlowNodes(expr);
+                this._createAssignmentTargetFlowNodes(expr, unbound);
             });
         } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
-            this._createAssignmentTargetFlowNodes(target.valueExpression);
+            this._createAssignmentTargetFlowNodes(target.valueExpression, unbound);
         } else if (target.nodeType === ParseNodeType.Unpack) {
-            this._createAssignmentTargetFlowNodes(target.expression);
+            this._createAssignmentTargetFlowNodes(target.expression, unbound);
         } else if (target.nodeType === ParseNodeType.List) {
             target.entries.forEach(entry => {
-                this._createAssignmentTargetFlowNodes(entry);
+                this._createAssignmentTargetFlowNodes(entry, unbound);
             });
         }
     }
