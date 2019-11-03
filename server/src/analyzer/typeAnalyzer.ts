@@ -12,7 +12,7 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
+import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
@@ -96,7 +96,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._currentScope = AnalyzerNodeInfo.getScope(node)!;
         this._didAnalysisChange = false;
         this._analysisVersion = analysisVersion;
-        this._evaluator = this._createEvaluator();
+        this._evaluator = new ExpressionEvaluator(
+            this._fileInfo.diagnosticSink,
+            node => this._readExpressionTypeFromNodeCache(node),
+            (node, type) => {
+                this._updateExpressionTypeForNode(node, type);
+            },
+            symbol => {
+                this._setSymbolAccessed(symbol);
+            });
     }
 
     analyze() {
@@ -175,7 +183,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         }
 
                         if (reportBaseClassError) {
-                            this._addError(`Argument to class must be a base class`, arg);
+                            this._evaluator.addError(`Argument to class must be a base class`, arg);
                             argType = UnknownType.create();
                         }
                     }
@@ -184,7 +192,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (argType.category === TypeCategory.Class) {
                     if (ClassType.isBuiltIn(argType, 'Protocol')) {
                         if (!this._fileInfo.isStubFile && this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37) {
-                            this._addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
+                            this._evaluator.addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
                         }
                     }
 
@@ -203,14 +211,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
                         // TypedDict classes must derive only from other
                         // TypedDict classes.
-                        this._addError(`All base classes for TypedDict classes must ` +
+                        this._evaluator.addError(`All base classes for TypedDict classes must ` +
                             'als be TypedDict classes', arg);
                     }
 
                     // Validate that the class isn't deriving from itself, creating a
                     // circular dependency.
                     if (TypeUtils.derivesFromClassRecursive(argType, classType)) {
-                        this._addError(`Class cannot derive from itself`, arg);
+                        this._evaluator.addError(`Class cannot derive from itself`, arg);
                         argType = UnknownType.create();
                     }
                 }
@@ -218,7 +226,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (argType.category === TypeCategory.Unknown ||
                         argType.category === TypeCategory.Union && argType.subtypes.some(t => t.category === TypeCategory.Unknown)) {
 
-                    this._addDiagnostic(
+                    this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportUntypedBaseClass,
                         DiagnosticRule.reportUntypedBaseClass,
                         `Base class type is unknown, obscuring type of derived class`,
@@ -240,7 +248,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const constArgValue = StaticExpressions.evaluateStaticBoolExpression(
                             arg.valueExpression, this._fileInfo.executionEnvironment);
                     if (constArgValue === undefined) {
-                        this._addError('Value for total parameter must be True or False', arg.valueExpression);
+                        this._evaluator.addError('Value for total parameter must be True or False', arg.valueExpression);
                     } else if (!constArgValue) {
                         ClassType.setCanOmitDictValues(classType);
                     }
@@ -268,7 +276,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (decoratedType.category === TypeCategory.Unknown) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
-                    this._addDiagnostic(
+                    this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportUntypedClassDecorator,
                         DiagnosticRule.reportUntypedClassDecorator,
                         `Untyped class declarator obscures type of class`,
@@ -353,7 +361,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (decoratedType.category === TypeCategory.Unknown) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
-                    this._addDiagnostic(
+                    this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
                         DiagnosticRule.reportUntypedFunctionDecorator,
                         `Untyped function declarator obscures type of function`,
@@ -422,7 +430,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const diagAddendum = new DiagnosticAddendum();
 
                     if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum, undefined)) {
-                        const diag = this._addError(
+                        const diag = this._evaluator.addError(
                             `Value of type '${ printType(defaultValueType) }' cannot` +
                                 ` be assigned to parameter of type '${ printType(annotatedType) }'` +
                                 diagAddendum.getString(),
@@ -433,7 +441,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 action: 'pyright.addoptionalforparam',
                                 offsetOfTypeNode: param.typeAnnotation.start + 1
                             };
-                            diag.addAction(addOptionalAction);
+                            if (diag) {
+                                diag.addAction(addOptionalAction);
+                            }
                         }
                     }
                 }
@@ -481,7 +491,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
             } else {
                 // There is no annotation, and we can't infer the type.
                 if (param.name) {
-                    this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                         DiagnosticRule.reportUnknownParameterType,
                         `Type of '${ param.name.nameToken.value }' is unknown`,
                         param.name);
@@ -511,18 +522,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Include Any in this check. If "Any" really is desired, it should
             // be made explicit through a type annotation.
             if (inferredReturnType.category === TypeCategory.Unknown) {
-                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
                     `Inferred return type is unknown`, node.name);
             } else if (TypeUtils.containsUnknown(inferredReturnType)) {
-                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
                     `Return type '${ printType(inferredReturnType) }' is partially unknown`,
                     node.name);
             }
         }
 
-        const functionScope = this._enterScope(node, () => {
+        this._enterScope(node, () => {
             const parameters = FunctionType.getParameters(functionType);
             assert(parameters.length === node.parameters.length);
 
@@ -552,7 +565,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         // Validate that the function returns the declared type.
-        this._validateFunctionReturn(node, functionType, functionScope);
+        this._validateFunctionReturn(node, functionType);
 
         // If there was no decorator, see if there are any overloads provided
         // by previous function declarations.
@@ -588,12 +601,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (param.name) {
                     const paramType = this._getTypeOfExpression(param.name);
                     if (paramType.category === TypeCategory.Unknown) {
-                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                             DiagnosticRule.reportUnknownLambdaType,
                             `Type of '${ param.name.nameToken.value }' is unknown`,
                             param.name);
                     } else if (TypeUtils.containsUnknown(paramType)) {
-                        this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                             DiagnosticRule.reportUnknownLambdaType,
                             `Type of '${ param.name.nameToken.value }', ` +
                             `'${ printType(paramType) }', is partially unknown`,
@@ -604,11 +619,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             const returnType = this._getTypeOfExpression(node.expression);
             if (returnType.category === TypeCategory.Unknown) {
-                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                     DiagnosticRule.reportUnknownLambdaType,
                     `Type of lambda expression is unknown`, node.expression);
             } else if (TypeUtils.containsUnknown(returnType)) {
-                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                     DiagnosticRule.reportUnknownLambdaType,
                     `Type of lambda expression, '${ printType(returnType) }', is partially unknown`,
                     node.expression);
@@ -626,7 +643,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._validateIsInstanceCallNecessary(node);
 
         if (ParseTreeUtils.isWithinDefaultParamInitializer(node) && !this._fileInfo.isStubFile) {
-            this._addDiagnostic(
+            this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportCallInDefaultInitializer,
                 DiagnosticRule.reportCallInDefaultInitializer,
                 `Function calls within default value initializer are not permitted`,
@@ -678,7 +695,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let exprType = this._getTypeOfExpression(item.expression);
 
             if (TypeUtils.isOptionalType(exprType)) {
-                this._addDiagnostic(
+                this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportOptionalContextManager,
                     DiagnosticRule.reportOptionalContextManager,
                     `Object of type 'None' cannot be used with 'with'`,
@@ -715,7 +732,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
 
-                this._addError(`Type ${ printType(subtype) } cannot be used ` +
+                this._evaluator.addError(`Type ${ printType(subtype) } cannot be used ` +
                     `with 'with' because it does not implement '${ enterMethodName }'`,
                     item.expression);
                 return UnknownType.create();
@@ -755,7 +772,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (declaredReturnType) {
                 if (TypeUtils.isNoReturnType(declaredReturnType)) {
-                    this._addError(
+                    this._evaluator.addError(
                         `Function with declared return type 'NoReturn' cannot include a return statement`,
                         node);
                 } else {
@@ -765,7 +782,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // These will be replaced with the corresponding constraint or bound types.
                     const specializedDeclaredType = TypeUtils.specializeType(declaredReturnType, undefined);
                     if (!TypeUtils.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
-                        this._addError(
+                        this._evaluator.addError(
                             `Expression of type '${ printType(returnType) }' cannot be assigned ` +
                                 `to return type '${ printType(specializedDeclaredType) }'` +
                                 diagAddendum.getString(),
@@ -835,7 +852,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 });
 
                 if (diagAddendum.getMessageCount() > 0) {
-                    this._addError(`Expected exception class or object` + diagAddendum.getString(), node.typeExpression);
+                    this._evaluator.addError(`Expected exception class or object` + diagAddendum.getString(), node.typeExpression);
                 }
             }
         }
@@ -862,7 +879,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 });
 
                 if (diagAddendum.getMessageCount() > 0) {
-                    this._addError(`Expected exception object or None` + diagAddendum.getString(), node.valueExpression);
+                    this._evaluator.addError(`Expected exception object or None` + diagAddendum.getString(), node.valueExpression);
                 }
             }
         }
@@ -1053,7 +1070,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     visitStringList(node: StringListNode): boolean {
         if (node.typeAnnotation) {
             // Should we ignore this type annotation?
-            if (ExpressionEvaluator.isAnnotationLiteralValue(node)) {
+            if (this._evaluator.isAnnotationLiteralValue(node)) {
                 return false;
             }
 
@@ -1108,9 +1125,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     if (symbolWithScope.symbol.hasDeclarations()) {
                         const declType = symbolWithScope.symbol.getDeclarations()[0].type;
                         if (declType === DeclarationType.Function || declType === DeclarationType.Method) {
-                            this._addError('Del should not be applied to function', expr);
+                            this._evaluator.addError('Del should not be applied to function', expr);
                         } else if (declType === DeclarationType.Class) {
-                            this._addError('Del should not be applied to class', expr);
+                            this._evaluator.addError('Del should not be applied to class', expr);
                         }
                     }
                 }
@@ -1187,7 +1204,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
                         `'${ multipartName }' is not accessed`, textRange);
 
-                    this._addDiagnostic(this._fileInfo.diagnosticSettings.reportUnusedImport,
+                    this._evaluator.addDiagnostic(this._fileInfo.diagnosticSettings.reportUnusedImport,
                         DiagnosticRule.reportUnusedImport,
                         `Import '${ multipartName }' is not accessed`, textRange);
                 }
@@ -1235,7 +1252,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const aliasNode = importAs.alias || importAs.name;
                     [symbol, symbolType] = this._getAliasedSymbolTypeForName(aliasNode.nameToken.value);
                     if (!symbolType) {
-                        this._addError(
+                        this._evaluator.addError(
                             `'${ importAs.name.nameToken.value }' is unknown import symbol`,
                             importAs.name
                         );
@@ -1504,14 +1521,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const callType = isInstanceCheck ? 'instance' : 'subclass';
         if (filteredType.category === TypeCategory.Never) {
-            this._addDiagnostic(
+            this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
                 `Unnecessary ${ callName } call: '${ printType(arg0Type) }' ` +
                     `is never ${ callType } of '${ printType(getTestType()) }'`,
                 node);
         } else if (isTypeSame(filteredType, arg0Type)) {
-            this._addDiagnostic(
+            this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
                 `Unnecessary ${ callName } call: '${ printType(arg0Type) }' ` +
@@ -1654,14 +1671,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const nameValue = target.nameToken.value;
         const simplifiedType = removeUnboundFromUnion(type);
         if (simplifiedType.category === TypeCategory.Unknown) {
-            this._addDiagnostic(diagLevel,
+            this._evaluator.addDiagnostic(diagLevel,
                 rule,
                 `Inferred type of '${ nameValue }' is unknown`, srcExpr);
         } else if (TypeUtils.containsUnknown(simplifiedType)) {
             // Sometimes variables contain an "unbound" type if they're
             // assigned only within conditional statements. Remove this
             // to avoid confusion.
-            this._addDiagnostic(diagLevel,
+            this._evaluator.addDiagnostic(diagLevel,
                 rule,
                 `Inferred type of '${ nameValue }', '${ printType(simplifiedType) }', ` +
                 `is partially unknown`, srcExpr);
@@ -1790,7 +1807,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             this._addUnusedName(node);
-            this._addDiagnostic(diagLevel, rule, message, node);
+            this._evaluator.addDiagnostic(diagLevel, rule, message, node);
         }
     }
 
@@ -1872,7 +1889,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (classOrModuleNode && !ParseTreeUtils.isNodeContainedWithin(node, classOrModuleNode)) {
             if (isProtectedAccess) {
-                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportPrivateUsage,
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportPrivateUsage,
                     DiagnosticRule.reportPrivateUsage,
                     `'${ nameValue }' is protected and used outside of a derived class`,
                     node);
@@ -1880,7 +1898,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const scopeName = classOrModuleNode.nodeType === ParseNodeType.Class ?
                     'class' : 'module';
 
-                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportPrivateUsage,
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportPrivateUsage,
                     DiagnosticRule.reportPrivateUsage,
                     `'${ nameValue }' is private and used outside of the ${ scopeName } in which it is declared`,
                     node);
@@ -1893,7 +1912,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // strings, and "pass" statements or ellipses.
     private _validateTypedDictClassSuite(suiteNode: SuiteNode) {
         const emitBadStatementError = (node: ParseNode) => {
-            this._addError(`TypedDict classes can contain only type annotations`,
+            this._evaluator.addError(`TypedDict classes can contain only type annotations`,
                 node);
         };
 
@@ -1981,9 +2000,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return awaitableFunctionType;
     }
 
-    private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType,
-            functionScope: Scope) {
-
+    private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType) {
         // Stub files are allowed not to return an actual value,
         // so skip this if it's a stub file.
         if (this._fileInfo.isStubFile) {
@@ -1999,7 +2016,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // If there was no return type declared, infer the return type.
         if (!declaredReturnType) {
-            if (inferredReturnType.addSources(functionScope.getReturnType())) {
+            if (inferredReturnType.addSources(this._currentScope.getReturnType())) {
                 this._setAnalysisChanged('Function return inferred type changed');
             }
         }
@@ -2011,7 +2028,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             inferredYieldType.setGenericClassWrapper(generatorType);
         }
 
-        if (inferredYieldType.addSources(functionScope.getYieldType())) {
+        if (inferredYieldType.addSources(this._currentScope.getYieldType())) {
             this._setAnalysisChanged('Function yield type changed');
         }
 
@@ -2044,7 +2061,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             // an abstract method or a protocol method and don't require that
                             // the return type matches.
                             if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
-                                this._addError(`Function with declared type of '${ printType(declaredReturnType) }'` +
+                                this._evaluator.addError(`Function with declared type of '${ printType(declaredReturnType) }'` +
                                         ` must return value` + diagAddendum.getString(),
                                     node.returnTypeAnnotation);
                             }
@@ -2066,7 +2083,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     // an abstract method or a protocol method and don't require that
                     // the return type matches.
                     if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
-                        this._addError(`Function with declared type of 'NoReturn' cannot return 'None'`,
+                        this._evaluator.addError(`Function with declared type of 'NoReturn' cannot return 'None'`,
                             node.returnTypeAnnotation);
                     }
                 }
@@ -2107,7 +2124,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             const declarations = symbol.getDeclarations();
                             const errorNode = declarations[0].node;
                             if (errorNode) {
-                                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
+                                this._evaluator.addDiagnostic(
+                                    this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
                                     DiagnosticRule.reportIncompatibleMethodOverride,
                                     `Method '${ name }' overrides class '${ ClassType.getClassName(baseClassAndSymbol.class) }' ` +
                                         `in an incompatible manner` + diagAddendum.getString(), errorNode);
@@ -2237,7 +2255,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (node.parameters.length === 0 || !node.parameters[0].name ||
                     (node.parameters[0].name.nameToken.value !== 'cls' &&
                     node.parameters[0].name.nameToken.value !== 'mcs')) {
-                this._addError(
+                this._evaluator.addError(
                     `The __new__ override should take a 'cls' parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name);
             }
@@ -2245,7 +2263,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // __init_subclass__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name ||
                     node.parameters[0].name.nameToken.value !== 'cls') {
-                this._addError(
+                this._evaluator.addError(
                     `The __init_subclass__ override should take a 'cls' parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name);
             }
@@ -2254,7 +2272,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (node.parameters.length > 0 && node.parameters[0].name) {
                 const paramName = node.parameters[0].name.nameToken.value;
                 if (paramName === 'self' || paramName === 'cls') {
-                    this._addError(
+                    this._evaluator.addError(
                         `Static methods should not take a 'self' or 'cls' parameter`,
                         node.parameters[0].name);
                 }
@@ -2269,7 +2287,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 // cases in the stdlib pyi files.
             if (paramName !== 'cls') {
                 if (!this._fileInfo.isStubFile || (!paramName.startsWith('_') && paramName !== 'metacls')) {
-                    this._addError(
+                    this._evaluator.addError(
                         `Class methods should take a 'cls' parameter`,
                         node.parameters.length > 0 ? node.parameters[0] : node.name);
                 }
@@ -2300,7 +2318,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         node.name.nameToken.value === 'register';
 
                     if (!isRegisterMethod) {
-                        this._addError(
+                        this._evaluator.addError(
                             `Instance methods should take a 'self' parameter`,
                             node.parameters.length > 0 ? node.parameters[0] : node.name);
                     }
@@ -2355,13 +2373,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (this._isNodeReachable(node)) {
             if (declaredYieldType) {
                 if (TypeUtils.isNoReturnType(declaredYieldType)) {
-                    this._addError(
+                    this._evaluator.addError(
                         `Function with declared return type 'NoReturn' cannot include a yield statement`,
                         node);
                 } else {
                     const diagAddendum = new DiagnosticAddendum();
                     if (!TypeUtils.canAssignType(declaredYieldType, adjustedYieldType, diagAddendum)) {
-                        this._addError(
+                        this._evaluator.addError(
                             `Expression of type '${ printType(adjustedYieldType) }' cannot be assigned ` +
                                 `to yield type '${ printType(declaredYieldType) }'` + diagAddendum.getString(),
                             node.expression || node);
@@ -2424,7 +2442,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (!isValidExceptionType) {
-            this._addError(
+            this._evaluator.addError(
                 `'${ printType(exceptionType) }' is not valid exception class` +
                     diagAddendum.getString(),
                 errorNode);
@@ -2493,7 +2511,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             typedDecls[0].isConstant && srcExprNode) {
 
                         if (node.memberName !== typedDecls[0].node) {
-                            this._addDiagnostic(this._fileInfo.diagnosticSettings.reportConstantRedefinition,
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticSettings.reportConstantRedefinition,
                                 DiagnosticRule.reportConstantRedefinition,
                                 `'${ node.memberName.nameToken.value }' is constant and cannot be redefined`,
                                 node.memberName);
@@ -2643,7 +2662,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const declaredType = this._getDeclaredTypeForExpression(node);
         if (declaredType) {
             if (!isTypeSame(declaredType, type)) {
-                this._addError(`Declared type '${ printType(type) }' is not compatible ` +
+                this._evaluator.addError(`Declared type '${ printType(type) }' is not compatible ` +
                     `with declared type '${ printType(declaredType) }'`,
                     errorNode);
             }
@@ -2744,7 +2763,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                             targetTypes[target.expressions.length - 1].push(combineTypes(remainingTypes));
                         } else {
-                            this._addError(
+                            this._evaluator.addError(
                                 `Tuple size mismatch: expected at least ${ target.expressions.length } entries` +
                                     ` but got ${ entryCount }`,
                                 target);
@@ -2758,7 +2777,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 targetTypes[index].push(entryType);
                             }
                         } else {
-                            this._addError(
+                            this._evaluator.addError(
                                 `Tuple size mismatch: expected ${ target.expressions.length }` +
                                     ` but got ${ entryCount }`,
                                 target);
@@ -2877,7 +2896,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (declaredType && srcExpressionNode) {
             const diagAddendum = new DiagnosticAddendum();
             if (!TypeUtils.canAssignType(declaredType, srcType, diagAddendum)) {
-                this._addError(`Expression of type '${ printType(srcType) }' cannot be ` +
+                this._evaluator.addError(`Expression of type '${ printType(srcType) }' cannot be ` +
                     `assigned to declared type '${ printType(declaredType) }'` + diagAddendum.getString(),
                     srcExpressionNode || nameNode);
                 destType = declaredType;
@@ -2907,7 +2926,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 varDecl.isConstant && srcExpressionNode) {
 
             if (nameNode !== declarations[0].node) {
-                this._addDiagnostic(this._fileInfo.diagnosticSettings.reportConstantRedefinition,
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportConstantRedefinition,
                     DiagnosticRule.reportConstantRedefinition,
                     `'${ nameValue }' is constant and cannot be redefined`,
                     nameNode);
@@ -2973,59 +2993,21 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return undefined;
     }
 
-    private _enterScope(node: ParseNode, callback: () => void): Scope {
+    private _enterScope(node: ParseNode, callback: () => void) {
         const prevScope = this._currentScope;
-        const newScope = AnalyzerNodeInfo.getScope(node);
+        const newScope = AnalyzerNodeInfo.getScope(node)!;
         assert(newScope !== undefined);
 
-        this._currentScope = newScope!;
+        this._currentScope = newScope;
 
         callback();
 
         this._currentScope = prevScope;
-
-        return newScope!;
-    }
-
-    private _addWarning(message: string, range: TextRange) {
-        return this._fileInfo.diagnosticSink.addWarningWithTextRange(message, range);
-    }
-
-    private _addError(message: string, textRange: TextRange) {
-        return this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
     }
 
     private _addUnusedName(nameNode: NameNode) {
         return this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
             `'${ nameNode.nameToken.value }' is not accessed`, nameNode);
-    }
-
-    private _addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {
-        let diagnostic: Diagnostic | undefined;
-
-        if (diagLevel === 'error') {
-            diagnostic = this._addError(message, textRange);
-        } else if (diagLevel === 'warning') {
-            diagnostic = this._addWarning(message, textRange);
-        }
-
-        if (diagnostic) {
-            diagnostic.setRule(rule);
-        }
-
-        return diagnostic;
-    }
-
-    private _createEvaluator() {
-        return new ExpressionEvaluator(
-            this._fileInfo.diagnosticSink,
-            node => this._readExpressionTypeFromNodeCache(node),
-            (node, type) => {
-                this._updateExpressionTypeForNode(node, type);
-            },
-            symbol => {
-                this._setSymbolAccessed(symbol);
-            });
     }
 
     private _setSymbolAccessed(symbol: Symbol) {

@@ -328,7 +328,7 @@ export class ExpressionEvaluator {
             }
 
             if (errorNode) {
-                this._addError(`'${ printType(subtype) }' is not awaitable`, errorNode);
+                this.addError(`'${ printType(subtype) }' is not awaitable`, errorNode);
             }
 
             return UnknownType.create();
@@ -346,7 +346,7 @@ export class ExpressionEvaluator {
 
         if (type.category === TypeCategory.Union && type.subtypes.some(t => isNoneOrNever(t))) {
             if (errorNode) {
-                this._addDiagnostic(
+                this.addDiagnostic(
                     this._getFileInfo(errorNode).diagnosticSettings.reportOptionalIterable,
                     DiagnosticRule.reportOptionalIterable,
                     `Object of type 'None' cannot be used as iterable value`,
@@ -430,7 +430,7 @@ export class ExpressionEvaluator {
             }
 
             if (errorNode) {
-                this._addError(`'${ printType(subtype) }' is not iterable` + diag.getString(),
+                this.addError(`'${ printType(subtype) }' is not iterable` + diag.getString(),
                     errorNode);
             }
 
@@ -535,7 +535,7 @@ export class ExpressionEvaluator {
                         // all subsequent variables must also have default values.
                         const firstDefaultValueIndex = fullDataClassParameters.findIndex(p => p.hasDefault);
                         if (!hasDefaultValue && firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
-                            this._addError(`Data fields without default value cannot appear after ` +
+                            this.addError(`Data fields without default value cannot appear after ` +
                                 `data fields with default values`, variableNameNode);
                         }
                     }
@@ -646,7 +646,7 @@ export class ExpressionEvaluator {
     // Determines whether the specified string literal is part
     // of a Literal['xxx'] statement. If so, we will not treat
     // the string as a normal forward-declared type annotation.
-    static isAnnotationLiteralValue(node: StringListNode): boolean {
+    isAnnotationLiteralValue(node: StringListNode): boolean {
         if (node.parent && node.parent.nodeType === ParseNodeType.IndexItems) {
             const indexItemsNode = node.parent;
             if (indexItemsNode.parent && indexItemsNode.parent.nodeType === ParseNodeType.Index) {
@@ -661,6 +661,38 @@ export class ExpressionEvaluator {
         }
 
         return false;
+    }
+
+    addWarning(message: string, range: TextRange) {
+        if (this._logDiagnostics) {
+            return this._diagnosticSink.addWarningWithTextRange(message, range);
+        }
+
+        return undefined;
+    }
+
+    addError(message: string, range: TextRange) {
+        if (this._logDiagnostics) {
+            return this._diagnosticSink.addErrorWithTextRange(message, range);
+        }
+
+        return undefined;
+    }
+
+    addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {
+        let diagnostic: Diagnostic | undefined;
+
+        if (diagLevel === 'error') {
+            diagnostic = this.addError(message, textRange);
+        } else if (diagLevel === 'warning') {
+            diagnostic = this.addWarning(message, textRange);
+        }
+
+        if (diagnostic) {
+            diagnostic.setRule(rule);
+        }
+
+        return diagnostic;
     }
 
     // Builds a sorted list of dataclass parameters that are inherited by
@@ -785,7 +817,7 @@ export class ExpressionEvaluator {
             typeResult = this._getTypeFromConstantExpression(node);
         } else if (node.nodeType === ParseNodeType.StringList) {
             this._reportUsageErrorForReadOnly(node, usage);
-            if (node.typeAnnotation && !ExpressionEvaluator.isAnnotationLiteralValue(node)) {
+            if (node.typeAnnotation && !this.isAnnotationLiteralValue(node)) {
                 return this._getTypeFromExpression(
                     node.typeAnnotation, usage, flags | EvaluatorFlags.AllowForwardReferences);
             }
@@ -888,7 +920,7 @@ export class ExpressionEvaluator {
 
         if (!typeResult) {
             // We shouldn't get here. If we do, report an error.
-            this._addError(`Unhandled expression type '${ ParseTreeUtils.printExpression(node) }'`, node);
+            this.addError(`Unhandled expression type '${ ParseTreeUtils.printExpression(node) }'`, node);
             typeResult = { type: UnknownType.create(), node };
         }
 
@@ -963,9 +995,9 @@ export class ExpressionEvaluator {
                 }
 
                 if (isUnbound(type)) {
-                    this._addError(`'${ name }' is unbound`, node);
+                    this.addError(`'${ name }' is unbound`, node);
                 } else if (isPossiblyUnbound(type)) {
-                    this._addError(`'${ name }' is possibly unbound`, node);
+                    this.addError(`'${ name }' is possibly unbound`, node);
                 }
 
                 if (this._setSymbolAccessed) {
@@ -975,7 +1007,7 @@ export class ExpressionEvaluator {
         } else {
             // Handle the special case of "reveal_type".
             if (name !== 'reveal_type') {
-                this._addError(`'${ name }' is not defined`, node);
+                this.addError(`'${ name }' is not defined`, node);
             }
             type = UnknownType.create();
         }
@@ -1046,13 +1078,13 @@ export class ExpressionEvaluator {
                 }
                 type = TypeUtils.getEffectiveTypeOfSymbol(symbol);
             } else {
-                this._addError(`'${ memberName }' is not a known member of module`, node.memberName);
+                this.addError(`'${ memberName }' is not a known member of module`, node.memberName);
                 type = UnknownType.create();
             }
         } else if (baseType.category === TypeCategory.Union) {
             type = TypeUtils.doForSubtypes(baseType, subtype => {
                 if (isNoneOrNever(subtype)) {
-                    this._addDiagnostic(
+                    this.addDiagnostic(
                         this._getFileInfo(node).diagnosticSettings.reportOptionalMemberAccess,
                         DiagnosticRule.reportOptionalMemberAccess,
                         `'${ memberName }' is not a known member of 'None'`, node.memberName);
@@ -1111,7 +1143,7 @@ export class ExpressionEvaluator {
                 operationName = 'delete';
             }
 
-            this._addError(
+            this.addError(
                 `Cannot ${ operationName } member '${ memberName }' ` +
                 `for type '${ printType(baseType) }'` + diag.getString(),
                 node.memberName);
@@ -1304,7 +1336,7 @@ export class ExpressionEvaluator {
                 // Verify that the assigned type is compatible.
                 const diag = new DiagnosticAddendum();
                 if (!TypeUtils.canAssignType(effectiveType, usage.setType!, diag.createAddendum())) {
-                    this._addError(
+                    this.addError(
                         `Expression of type '${ printType(usage.setType!) }'` +
                             ` cannot be assigned to member '${ memberName }'` +
                             ` of class '${ printType(classType) }'` +
@@ -1409,9 +1441,9 @@ export class ExpressionEvaluator {
                 // Setting the value of an indexed class will always result
                 // in an exception.
                 if (usage.method === 'set') {
-                    this._addError(`Generic class type cannot be assigned`, node.baseExpression);
+                    this.addError(`Generic class type cannot be assigned`, node.baseExpression);
                 } else if (usage.method === 'del') {
-                    this._addError(`Generic class type cannot be deleted`, node.baseExpression);
+                    this.addError(`Generic class type cannot be deleted`, node.baseExpression);
                 }
 
                 if (ClassType.isSpecialBuiltIn(subtype, 'Literal')) {
@@ -1423,7 +1455,7 @@ export class ExpressionEvaluator {
                     if (typeArgs.length === 1) {
                         return typeArgs[0].type;
                     } else {
-                        this._addError(
+                        this.addError(
                             `Expected one type argument for 'InitVar' but got ${ typeArgs.length }`,
                             node.baseExpression);
                         return UnknownType.create();
@@ -1442,7 +1474,7 @@ export class ExpressionEvaluator {
             } else if (subtype.category === TypeCategory.Object) {
                 return this._getTypeFromIndexedObject(node, subtype, usage);
             } else if (isNoneOrNever(subtype)) {
-                this._addDiagnostic(
+                this.addDiagnostic(
                     this._getFileInfo(node).diagnosticSettings.reportOptionalSubscript,
                     DiagnosticRule.reportOptionalSubscript,
                     `Optional of type 'None' cannot be subscripted`,
@@ -1451,7 +1483,7 @@ export class ExpressionEvaluator {
                 return UnknownType.create();
             } else {
                 if (!isUnbound(subtype)) {
-                    this._addError(
+                    this.addError(
                         `Object of type '${ printType(subtype) }' cannot be subscripted`,
                         node.baseExpression);
                 }
@@ -1475,7 +1507,7 @@ export class ExpressionEvaluator {
         // Handle index operations for TypedDict classes specially.
         if (ClassType.isTypedDictClass(baseType.classType)) {
             if (node.items.items.length !== 1) {
-                this._addError('Expected a one index argument', node);
+                this.addError('Expected a one index argument', node);
                 return UnknownType.create();
             }
 
@@ -1505,7 +1537,7 @@ export class ExpressionEvaluator {
                     if (usage.method === 'set') {
                         TypeUtils.canAssignType(entry.valueType, usage.setType!, diag);
                     } else if (usage.method === 'del' && entry.isRequired) {
-                        this._addError(
+                        this.addError(
                             `'${ entryName }' is a required key and cannot be deleted`, node);
                     }
 
@@ -1523,7 +1555,7 @@ export class ExpressionEvaluator {
                 } else if (usage.method === 'del') {
                     operationName = 'delete';
                 }
-                this._addError(`Could not ${ operationName } item in TypedDict` + diag.getString(),
+                this.addError(`Could not ${ operationName } item in TypedDict` + diag.getString(),
                     node);
             }
 
@@ -1545,7 +1577,7 @@ export class ExpressionEvaluator {
                 MemberAccessFlags.SkipForMethodLookup);
 
         if (!itemMethodType) {
-            this._addError(
+            this.addError(
                 `Object of type '${ printType(baseType) }' does not define ` +
                     `'${ magicMethodName }'`,
                 node.baseExpression);
@@ -1726,7 +1758,7 @@ export class ExpressionEvaluator {
 
             const type = this._getTypeFromExpression(node.arguments[0].valueExpression).type;
             const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
-            this._addWarning(
+            this.addWarning(
                 `Type of '${ exprString }' is '${ printType(type) }'`,
                 node.arguments[0]);
             return { type: AnyType.create(), node };
@@ -1747,7 +1779,7 @@ export class ExpressionEvaluator {
 
     private _getTypeFromSuperCall(node: CallExpressionNode): Type {
         if (node.arguments.length > 2) {
-            this._addError(
+            this.addError(
                 `Expecting no more than two arguments to super'`,
                 node.arguments[2]);
         }
@@ -1759,7 +1791,7 @@ export class ExpressionEvaluator {
             targetClassType = this._getTypeFromExpression(node.arguments[0].valueExpression).type;
 
             if (!isAnyOrUnknown(targetClassType) && !(targetClassType.category === TypeCategory.Class)) {
-                this._addError(
+                this.addError(
                     `Expected class type as first argument to super() call but received ` +
                         `'${ printType(targetClassType) }'`,
                     node.arguments[0].valueExpression);
@@ -1769,7 +1801,7 @@ export class ExpressionEvaluator {
             if (enclosingClass) {
                 targetClassType = AnalyzerNodeInfo.getExpressionType(enclosingClass) as ClassType;
             } else {
-                this._addError(
+                this.addError(
                     `Zero-argument form of super call is valid only within a class'`,
                     node.leftExpression);
                 targetClassType = UnknownType.create();
@@ -1803,7 +1835,7 @@ export class ExpressionEvaluator {
             }
 
             if (reportError) {
-                this._addError(
+                this.addError(
                     `Second argument to super() call must be object or class that derives from '${ printType(targetClassType) }'`,
                     node.arguments[1].valueExpression);
             }
@@ -1873,7 +1905,7 @@ export class ExpressionEvaluator {
                         cachedExpressionNode);
                 } else if (className === 'Protocol' || className === 'Generic' ||
                         className === 'Callable' || className === 'Type') {
-                    this._addError(`'${ className }' cannot be instantiated directly`, errorNode);
+                    this.addError(`'${ className }' cannot be instantiated directly`, errorNode);
                 } else if (className === 'Enum' || className === 'IntEnum' ||
                         className === 'Flag' || className === 'IntFlag') {
                     type = this._createEnumType(errorNode, callType, argList,
@@ -1906,7 +1938,7 @@ export class ExpressionEvaluator {
                     }
                 });
 
-                this._addError(
+                this.addError(
                     `Cannot instantiate abstract class '${ ClassType.getClassName(callType) }'` +
                         diagAddendum.getString(),
                     errorNode);
@@ -1920,7 +1952,7 @@ export class ExpressionEvaluator {
             // The stdlib collections/__init__.pyi stub file defines namedtuple
             // as a function rather than a class, so we need to check for it here.
             if (FunctionType.getBuiltInName(callType) === 'namedtuple') {
-                this._addDiagnostic(
+                this.addDiagnostic(
                     this._getFileInfo(errorNode).diagnosticSettings.reportUntypedNamedTuple,
                     DiagnosticRule.reportUntypedNamedTuple,
                     `'namedtuple' provides no types for tuple entries. Use 'NamedTuple' instead.`,
@@ -1962,7 +1994,7 @@ export class ExpressionEvaluator {
                     const castFromType = this._getTypeForArgument(argList[1]);
                     if (castToType.category === TypeCategory.Class && castFromType.category === TypeCategory.Object) {
                         if (isTypeSame(castToType, castFromType.classType)) {
-                            this._addDiagnostic(
+                            this.addDiagnostic(
                                 this._getFileInfo(errorNode).diagnosticSettings.reportUnnecessaryCast,
                                 DiagnosticRule.reportUnnecessaryCast,
                                 `Unnecessary call to cast: type is already ${ printType(castFromType) }`,
@@ -1981,7 +2013,7 @@ export class ExpressionEvaluator {
                 const diagAddendum = new DiagnosticAddendum();
                 const argTypes = argList.map(t => printType(this._getTypeForArgument(t)));
                 diagAddendum.addMessage(`Argument types: (${ argTypes.join(', ') })`);
-                this._addError(
+                this.addError(
                     `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
                     errorNode);
                 type = UnknownType.create();
@@ -2010,7 +2042,7 @@ export class ExpressionEvaluator {
             const returnTypes: Type[] = [];
             callType.subtypes.forEach(typeEntry => {
                 if (isNoneOrNever(typeEntry)) {
-                    this._addDiagnostic(
+                    this.addDiagnostic(
                         this._getFileInfo(errorNode).diagnosticSettings.reportOptionalCall,
                         DiagnosticRule.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
@@ -2040,7 +2072,7 @@ export class ExpressionEvaluator {
         }
 
         if (!type) {
-            this._addError(
+            this.addError(
                 `'${ ParseTreeUtils.printExpression(errorNode) }' has type ` +
                 `'${ printType(callType) }' and is not callable`,
                 errorNode);
@@ -2132,7 +2164,7 @@ export class ExpressionEvaluator {
         }
 
         if (!validatedTypes && argList.length > 0) {
-            this._addError(
+            this.addError(
                 `Expected no arguments to '${ ClassType.getClassName(type) }' constructor`, errorNode);
         } else if (!returnType) {
             // There was no __new__ or __init__, so fall back on the
@@ -2175,7 +2207,7 @@ export class ExpressionEvaluator {
                 const diagAddendum = new DiagnosticAddendum();
                 const argTypes = argList.map(t => printType(this._getTypeForArgument(t)));
                 diagAddendum.addMessage(`Argument types: (${ argTypes.join(', ') })`);
-                this._addError(
+                this.addError(
                     `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
                     errorNode);
             }
@@ -2183,7 +2215,7 @@ export class ExpressionEvaluator {
             if (!ClassType.isSpecialBuiltIn(callType)) {
                 returnType = this._validateConstructorArguments(errorNode, argList, callType);
             } else {
-                this._addError(
+                this.addError(
                     `'${ ClassType.getClassName(callType) }' cannot be instantiated`,
                     errorNode);
             }
@@ -2202,7 +2234,7 @@ export class ExpressionEvaluator {
 
             for (const type of callType.subtypes) {
                 if (isNoneOrNever(type)) {
-                    this._addDiagnostic(
+                    this.addDiagnostic(
                         this._getFileInfo(errorNode).diagnosticSettings.reportOptionalCall,
                         DiagnosticRule.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
@@ -2314,13 +2346,13 @@ export class ExpressionEvaluator {
             }
 
             if (argIndex < positionalOnlyIndex && argList[argIndex].name) {
-                this._addError(`Expected positional argument`, argList[argIndex].name!);
+                this.addError(`Expected positional argument`, argList[argIndex].name!);
             }
 
             if (paramIndex >= positionalParamCount) {
                 if (argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
                     const adjustedCount = positionalParamCount;
-                    this._addError(
+                    this.addError(
                         `Expected ${ adjustedCount } positional ` +
                         `${ adjustedCount === 1 ? 'argument' : 'arguments' }`,
                         argList[argIndex].valueExpression || errorNode);
@@ -2399,7 +2431,7 @@ export class ExpressionEvaluator {
                         const paramEntry = paramMap.get(paramNameValue);
                         if (paramEntry) {
                             if (paramEntry.argsReceived > 0) {
-                                this._addError(
+                                this.addError(
                                     `Parameter '${ paramNameValue }' is already assigned`, paramName);
                                 reportedArgError = true;
                             } else {
@@ -2427,7 +2459,7 @@ export class ExpressionEvaluator {
                                 paramName: paramNameValue
                             });
                         } else {
-                            this._addError(
+                            this.addError(
                                 `No parameter named '${ paramName.nameToken.value }'`, paramName);
                             reportedArgError = true;
                         }
@@ -2450,7 +2482,7 @@ export class ExpressionEvaluator {
                 });
 
                 if (unassignedParams.length > 0) {
-                    this._addError(
+                    this.addError(
                         `Argument missing for parameter${ unassignedParams.length === 1 ? '' : 's' } ` +
                         unassignedParams.map(p => `'${ p }'`).join(', '), errorNode);
                     reportedArgError = true;
@@ -2501,7 +2533,7 @@ export class ExpressionEvaluator {
         const diag = new DiagnosticAddendum();
         if (!TypeUtils.canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
             const optionalParamName = argParam.paramName ? `'${ argParam.paramName }' ` : '';
-            this._addError(
+            this.addError(
                 `Argument of type '${ printType(argType) }'` +
                     ` cannot be assigned to parameter ${ optionalParamName }` +
                     `of type '${ printType(argParam.paramType) }'` +
@@ -2516,7 +2548,7 @@ export class ExpressionEvaluator {
     private _createTypeVarType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
         let typeVarName = '';
         if (argList.length === 0) {
-            this._addError('Expected name of type var', errorNode);
+            this.addError('Expected name of type var', errorNode);
             return undefined;
         }
 
@@ -2524,7 +2556,7 @@ export class ExpressionEvaluator {
         if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
             typeVarName = firstArg.valueExpression.strings.map(s => s.value).join('');
         } else {
-            this._addError('Expected name of type var as first parameter',
+            this.addError('Expected name of type var as first parameter',
                 firstArg.valueExpression || errorNode);
         }
 
@@ -2538,19 +2570,19 @@ export class ExpressionEvaluator {
 
             if (paramName) {
                 if (paramNameMap.get(paramName)) {
-                    this._addError(
+                    this.addError(
                         `Duplicate parameter name '${ paramName }' not allowed`,
                         argList[i].valueExpression || errorNode);
                 }
 
                 if (paramName === 'bound') {
                     if (typeVar.constraints.length > 0) {
-                        this._addError(
+                        this.addError(
                             `A TypeVar cannot be both bound and constrained`,
                             argList[i].valueExpression || errorNode);
                     } else {
                         if (requiresSpecialization(this._getTypeForArgument(argList[i]))) {
-                            this._addError(
+                            this.addError(
                                 `A TypeVar bound type cannot be generic`,
                                 argList[i].valueExpression || errorNode);
                         }
@@ -2560,7 +2592,7 @@ export class ExpressionEvaluator {
                 } else if (paramName === 'covariant') {
                     if (argList[i].valueExpression && this._getBooleanValue(argList[i].valueExpression!)) {
                         if (typeVar.isContravariant) {
-                            this._addError(
+                            this.addError(
                                 `A TypeVar cannot be both covariant and contravariant`,
                                 argList[i].valueExpression!);
                         } else {
@@ -2570,7 +2602,7 @@ export class ExpressionEvaluator {
                 } else if (paramName === 'contravariant') {
                     if (argList[i].valueExpression && this._getBooleanValue(argList[i].valueExpression!)) {
                         if (typeVar.isContravariant) {
-                            this._addError(
+                            this.addError(
                                 `A TypeVar cannot be both covariant and contravariant`,
                                 argList[i].valueExpression!);
                         } else {
@@ -2578,7 +2610,7 @@ export class ExpressionEvaluator {
                         }
                     }
                 } else {
-                    this._addError(
+                    this.addError(
                         `'${ paramName }' is unknown parameter to TypeVar`,
                         argList[i].valueExpression || errorNode);
                 }
@@ -2586,12 +2618,12 @@ export class ExpressionEvaluator {
                 paramNameMap.set(paramName, paramName);
             } else {
                 if (typeVar.boundType) {
-                    this._addError(
+                    this.addError(
                         `A TypeVar cannot be both bound and constrained`,
                         argList[i].valueExpression || errorNode);
                 } else {
                     if (requiresSpecialization(this._getTypeForArgument(argList[i]))) {
-                        this._addError(
+                        this.addError(
                             `A TypeVar constraint type cannot be generic`,
                             argList[i].valueExpression || errorNode);
                     }
@@ -2615,7 +2647,7 @@ export class ExpressionEvaluator {
             }
         }
 
-        this._addError('Expected True or False', node);
+        this.addError('Expected True or False', node);
         return false;
     }
 
@@ -2625,11 +2657,11 @@ export class ExpressionEvaluator {
 
         let className = 'enum';
         if (argList.length === 0) {
-            this._addError('Expected enum class name as first parameter', errorNode);
+            this.addError('Expected enum class name as first parameter', errorNode);
         } else {
             const nameArg = argList[0];
             if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
-                this._addError('Expected enum class name as first parameter',
+                this.addError('Expected enum class name as first parameter',
                     argList[0].valueExpression || errorNode);
             } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
                 className = nameArg.valueExpression.strings.map(s => s.value).join('');
@@ -2658,14 +2690,14 @@ export class ExpressionEvaluator {
             Symbol.createWithType(SymbolFlags.ClassMember, classType));
 
         if (argList.length < 2) {
-            this._addError('Expected enum item string as second parameter', errorNode);
+            this.addError('Expected enum item string as second parameter', errorNode);
         } else {
             const entriesArg = argList[1];
             if (entriesArg.argumentCategory !== ArgumentCategory.Simple ||
                     !entriesArg.valueExpression ||
                     entriesArg.valueExpression.nodeType !== ParseNodeType.StringList) {
 
-                this._addError('Expected enum item string as second parameter', errorNode);
+                this.addError('Expected enum item string as second parameter', errorNode);
             } else {
                 const entries = entriesArg.valueExpression.strings.map(s => s.value).join('').split(' ');
                 entries.forEach(entryName => {
@@ -2751,13 +2783,13 @@ export class ExpressionEvaluator {
 
         let className = 'TypedDict';
         if (argList.length === 0) {
-            this._addError('Expected TypedDict class name as first parameter', errorNode);
+            this.addError('Expected TypedDict class name as first parameter', errorNode);
         } else {
             const nameArg = argList[0];
             if (nameArg.argumentCategory !== ArgumentCategory.Simple ||
                     !nameArg.valueExpression ||
                     nameArg.valueExpression.nodeType !== ParseNodeType.StringList) {
-                this._addError('Expected TypedDict class name as first parameter',
+                this.addError('Expected TypedDict class name as first parameter',
                     argList[0].valueExpression || errorNode);
             } else {
                 className = nameArg.valueExpression.strings.map(s => s.value).join('');
@@ -2790,7 +2822,7 @@ export class ExpressionEvaluator {
                     !(argList[2].valueExpression.token.keywordType === KeywordType.False ||
                         argList[2].valueExpression.token.keywordType === KeywordType.True)) {
 
-                this._addError(`Expected 'total' parameter to have a value of 'True' or 'False'`,
+                this.addError(`Expected 'total' parameter to have a value of 'True' or 'False'`,
                     argList[2].valueExpression || errorNode);
             } else if (argList[2].valueExpression.token.keywordType === KeywordType.False) {
                 ClassType.setCanOmitDictValues(classType);
@@ -2798,7 +2830,7 @@ export class ExpressionEvaluator {
         }
 
         if (argList.length > 3) {
-            this._addError('Extra TypedDict arguments not supported', argList[3].valueExpression || errorNode);
+            this.addError('Extra TypedDict arguments not supported', argList[3].valueExpression || errorNode);
         }
 
         const classFields = ClassType.getFields(classType);
@@ -2806,20 +2838,20 @@ export class ExpressionEvaluator {
             Symbol.createWithType(SymbolFlags.ClassMember, classType));
 
         if (argList.length < 2) {
-            this._addError('Expected dict as second parameter', errorNode);
+            this.addError('Expected dict as second parameter', errorNode);
         } else {
             const entriesArg = argList[1];
             if (entriesArg.argumentCategory !== ArgumentCategory.Simple ||
                     !entriesArg.valueExpression ||
                     entriesArg.valueExpression.nodeType !== ParseNodeType.Dictionary) {
-                this._addError('Expected dict as second parameter', errorNode);
+                this.addError('Expected dict as second parameter', errorNode);
             } else {
                 const entryDict = entriesArg.valueExpression;
                 const entryMap = new StringMap<boolean>();
 
                 entryDict.entries.forEach(entry => {
                     if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
-                        this._addError('Expected simple dictionary entry', entry);
+                        this.addError('Expected simple dictionary entry', entry);
                         return;
                     }
 
@@ -2832,19 +2864,19 @@ export class ExpressionEvaluator {
                     }
 
                     if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
-                        this._addError('Expected string literal for entry name', entry.keyExpression);
+                        this.addError('Expected string literal for entry name', entry.keyExpression);
                         return;
                     }
 
                     const entryName = entry.keyExpression.strings.map(s => s.value).join('');
                     if (!entryName) {
-                        this._addError(
+                        this.addError(
                             'Names within a TypedDict cannot be empty', entry.keyExpression);
                         return;
                     }
 
                     if (entryMap.get(entryName)) {
-                        this._addError(
+                        this.addError(
                             'Names within a named tuple must be unique', entry.keyExpression);
                         return;
                     }
@@ -2881,12 +2913,12 @@ export class ExpressionEvaluator {
 
         let className = 'namedtuple';
         if (argList.length === 0) {
-            this._addError('Expected named tuple class name as first parameter',
+            this.addError('Expected named tuple class name as first parameter',
                 errorNode);
         } else {
             const nameArg = argList[0];
             if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
-                this._addError('Expected named tuple class name as first parameter',
+                this.addError('Expected named tuple class name as first parameter',
                     argList[0].valueExpression || errorNode);
             } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
                 className = nameArg.valueExpression.strings.map(s => s.value).join('');
@@ -2937,7 +2969,7 @@ export class ExpressionEvaluator {
             let addGenericGetAttribute = false;
 
             if (argList.length < 2) {
-                this._addError('Expected named tuple entry list as second parameter', errorNode);
+                this.addError('Expected named tuple entry list as second parameter', errorNode);
                 addGenericGetAttribute = true;
             } else {
                 const entriesArg = argList[1];
@@ -2998,7 +3030,7 @@ export class ExpressionEvaluator {
                                         entryType = TypeUtils.convertClassToObject(entryTypeInfo.type);
                                     }
                                 } else {
-                                    this._addError(
+                                    this.addError(
                                         'Expected two-entry tuple specifying entry name and type', entry);
                                 }
                             } else {
@@ -3009,11 +3041,11 @@ export class ExpressionEvaluator {
                             if (entryNameNode && entryNameNode.nodeType === ParseNodeType.StringList) {
                                 entryName = entryNameNode.strings.map(s => s.value).join('');
                                 if (!entryName) {
-                                    this._addError(
+                                    this.addError(
                                         'Names within a named tuple cannot be empty', entryNameNode);
                                 }
                             } else {
-                                this._addError(
+                                this.addError(
                                     'Expected string literal for entry name', entryNameNode || entry);
                             }
 
@@ -3022,7 +3054,7 @@ export class ExpressionEvaluator {
                             }
 
                             if (entryMap[entryName]) {
-                                this._addError(
+                                this.addError(
                                     'Names within a named tuple must be unique', entryNameNode || entry);
                             }
 
@@ -3117,9 +3149,9 @@ export class ExpressionEvaluator {
 
     private _reportUsageErrorForReadOnly(node: ParseNode, usage: EvaluatorUsage) {
         if (usage.method === 'set') {
-            this._addError(`Constant value cannot be assigned`, node);
+            this.addError(`Constant value cannot be assigned`, node);
         } else if (usage.method === 'del') {
-            this._addError(`Constant value cannot be deleted`, node);
+            this.addError(`Constant value cannot be deleted`, node);
         }
     }
 
@@ -3168,7 +3200,7 @@ export class ExpressionEvaluator {
 
         if (node.operator !== OperatorType.Not) {
             if (TypeUtils.isOptionalType(exprType)) {
-                this._addDiagnostic(
+                this.addDiagnostic(
                     this._getFileInfo(node).diagnosticSettings.reportOptionalOperand,
                     DiagnosticRule.reportOptionalOperand,
                     `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
@@ -3194,7 +3226,7 @@ export class ExpressionEvaluator {
             }
 
             if (!type) {
-                this._addError(`Operator '${ ParseTreeUtils.printOperator(node.operator) }'` +
+                this.addError(`Operator '${ ParseTreeUtils.printOperator(node.operator) }'` +
                     ` not supported for type '${ printType(exprType) }'`,
                     node);
                 type = UnknownType.create();
@@ -3227,7 +3259,7 @@ export class ExpressionEvaluator {
                 // Skip the optional error reporting for == and !=, since
                 // None is a valid operand for these operators.
                 if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
-                    this._addDiagnostic(
+                    this.addDiagnostic(
                         this._getFileInfo(node).diagnosticSettings.reportOptionalOperand,
                         DiagnosticRule.reportOptionalOperand,
                         `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
@@ -3401,7 +3433,7 @@ export class ExpressionEvaluator {
         }
 
         if (!type || type.category === TypeCategory.Never) {
-            this._addError(`Operator '${ ParseTreeUtils.printOperator(operator) }' not ` +
+            this.addError(`Operator '${ ParseTreeUtils.printOperator(operator) }' not ` +
                 `supported for types '${ printType(leftType) }' and '${ printType(rightType) }'`,
                 errorNode);
             type = UnknownType.create();
@@ -3974,7 +4006,7 @@ export class ExpressionEvaluator {
 
             const diag = new DiagnosticAddendum();
             if (!TypeUtils.canAssignType(optionalIntObject, exprType, diag)) {
-                this._addError(
+                this.addError(
                     `Index for slice operation must be an int value or None` + diag.getString(),
                     indexExpr);
             }
@@ -4009,9 +4041,9 @@ export class ExpressionEvaluator {
             if (typeArgs[0].typeList) {
                 typeArgs[0].typeList.forEach((entry, index) => {
                     if (TypeUtils.isEllipsisType(entry.type)) {
-                        this._addError(`'...' not allowed in this context`, entry.node);
+                        this.addError(`'...' not allowed in this context`, entry.node);
                     } else if (entry.type.category === TypeCategory.Module) {
-                        this._addError(`Module not allowed in this context`, entry.node);
+                        this.addError(`Module not allowed in this context`, entry.node);
                     }
 
                     FunctionType.addParameter(functionType, {
@@ -4023,7 +4055,7 @@ export class ExpressionEvaluator {
             } else if (TypeUtils.isEllipsisType(typeArgs[0].type)) {
                 TypeUtils.addDefaultFunctionParameters(functionType);
             } else {
-                this._addError(`Expected parameter type list or '...'`, typeArgs[0].node);
+                this.addError(`Expected parameter type list or '...'`, typeArgs[0].node);
             }
         } else {
             TypeUtils.addDefaultFunctionParameters(functionType);
@@ -4031,9 +4063,9 @@ export class ExpressionEvaluator {
 
         if (typeArgs && typeArgs.length > 1) {
             if (TypeUtils.isEllipsisType(typeArgs[1].type)) {
-                this._addError(`'...' not allowed in this context`, typeArgs[1].node);
+                this.addError(`'...' not allowed in this context`, typeArgs[1].node);
             } else if (typeArgs[1].type.category === TypeCategory.Module) {
-                this._addError(`Module not allowed in this context`, typeArgs[1].node);
+                this.addError(`Module not allowed in this context`, typeArgs[1].node);
             }
             FunctionType.setDeclaredReturnType(functionType, TypeUtils.convertClassToObject(typeArgs[1].type));
         } else {
@@ -4041,7 +4073,7 @@ export class ExpressionEvaluator {
         }
 
         if (typeArgs && typeArgs.length > 2) {
-            this._addError(`Expected only two type arguments to 'Callable'`, typeArgs[2].node);
+            this.addError(`Expected only two type arguments to 'Callable'`, typeArgs[2].node);
         }
 
         return functionType;
@@ -4050,14 +4082,14 @@ export class ExpressionEvaluator {
     // Creates an Optional[X, Y, Z] type.
     private _createOptionalType(errorNode: ParseNode, typeArgs?: TypeResult[]): Type {
         if (!typeArgs || typeArgs.length !== 1) {
-            this._addError(`Expected one type parameter after Optional`, errorNode);
+            this.addError(`Expected one type parameter after Optional`, errorNode);
             return UnknownType.create();
         }
 
         if (TypeUtils.isEllipsisType(typeArgs[0].type)) {
-            this._addError(`'...' not allowed in this context`, typeArgs[0].node);
+            this.addError(`'...' not allowed in this context`, typeArgs[0].node);
         } else if (typeArgs[0].type.category === TypeCategory.Module) {
-            this._addError(`Module not allowed in this context`, typeArgs[0].node);
+            this.addError(`Module not allowed in this context`, typeArgs[0].node);
         }
 
         return combineTypes([
@@ -4079,7 +4111,7 @@ export class ExpressionEvaluator {
     // https://mypy.readthedocs.io/en/latest/literal_types.html
     private _createLiteralType(node: IndexExpressionNode): Type {
         if (node.items.items.length === 0) {
-            this._addError(`Expected a type parameter after Literal`, node.baseExpression);
+            this.addError(`Expected a type parameter after Literal`, node.baseExpression);
             return UnknownType.create();
         }
 
@@ -4110,7 +4142,7 @@ export class ExpressionEvaluator {
             }
 
             if (!type) {
-                this._addError(`Type arguments for Literal must be an int, bool, str, or bytes value`,
+                this.addError(`Type arguments for Literal must be an int, bool, str, or bytes value`,
                     item);
                 type = UnknownType.create();
             }
@@ -4124,10 +4156,10 @@ export class ExpressionEvaluator {
     // Creates a ClassVar type.
     private _createClassVarType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
         if (!typeArgs || typeArgs.length === 0) {
-            this._addError(`Expected a type parameter after ClassVar`, errorNode);
+            this.addError(`Expected a type parameter after ClassVar`, errorNode);
             return UnknownType.create();
         } else if (typeArgs.length > 1) {
-            this._addError(`Expected only one type parameter after ClassVar`, typeArgs[1].node);
+            this.addError(`Expected only one type parameter after ClassVar`, typeArgs[1].node);
             return UnknownType.create();
         }
 
@@ -4154,12 +4186,12 @@ export class ExpressionEvaluator {
             typeArgs.forEach((typeArg, index) => {
                 if (TypeUtils.isEllipsisType(typeArg.type)) {
                     if (!allowEllipsis) {
-                        this._addError(`'...' not allowed in this context`, typeArgs[index].node);
+                        this.addError(`'...' not allowed in this context`, typeArgs[index].node);
                     } else if (typeArgs.length !== 2 || index !== 1) {
-                        this._addError(`'...' allowed only as the second of two arguments`, typeArgs[index].node);
+                        this.addError(`'...' allowed only as the second of two arguments`, typeArgs[index].node);
                     }
                     if (typeArg.type.category === TypeCategory.Module) {
-                        this._addError(`Module not allowed in this context`, typeArg.node);
+                        this.addError(`Module not allowed in this context`, typeArg.node);
                     }
                 }
             });
@@ -4171,7 +4203,7 @@ export class ExpressionEvaluator {
         // Make sure the argument list count is correct.
         if (paramLimit !== undefined) {
             if (typeArgs && typeArgTypes.length > paramLimit) {
-                this._addError(
+                this.addError(
                     `Expected at most ${ paramLimit } type ` +
                     `${ paramLimit === 1 ? 'argument' : 'arguments' }`,
                     typeArgs[paramLimit].node);
@@ -4207,9 +4239,9 @@ export class ExpressionEvaluator {
 
                 // Verify that we didn't receive any inappropriate ellipses.
                 if (TypeUtils.isEllipsisType(typeArg.type)) {
-                    this._addError(`'...' not allowed in this context`, typeArg.node);
+                    this.addError(`'...' not allowed in this context`, typeArg.node);
                 } else if (typeArg.type.category === TypeCategory.Module) {
-                    this._addError(`Module not allowed in this context`, typeArg.node);
+                    this.addError(`Module not allowed in this context`, typeArg.node);
                 }
             }
         }
@@ -4228,7 +4260,7 @@ export class ExpressionEvaluator {
 
         // Make sure there's at least one type arg.
         if (!typeArgs || typeArgs.length === 0) {
-            this._addError(
+            this.addError(
                 `'Generic' requires at least one type argument`, errorNode);
         }
 
@@ -4237,12 +4269,12 @@ export class ExpressionEvaluator {
         if (typeArgs) {
             typeArgs.forEach(typeArg => {
                 if (!(typeArg.type.category === TypeCategory.TypeVar)) {
-                    this._addError(
+                    this.addError(
                         `Type argument for 'Generic' must be a type variable`, typeArg.node);
                 } else {
                     for (const typeVar of uniqueTypeVars) {
                         if (typeVar === typeArg.type) {
-                            this._addError(
+                            this.addError(
                                 `Type argument for 'Generic' must be unique`, typeArg.node);
                             break;
                         }
@@ -4787,10 +4819,10 @@ export class ExpressionEvaluator {
 
         if (typeArgs && typeArgCount > typeParameters.length) {
             if (typeParameters.length === 0) {
-                this._addError(`Expected no type arguments`,
+                this.addError(`Expected no type arguments`,
                     typeArgs[typeParameters.length].node);
             } else {
-                this._addError(
+                this.addError(
                     `Expected at most ${ typeParameters.length } ` +
                         `type ${ typeParameters.length === 1 ? 'argument' : 'arguments' } `,
                     typeArgs[typeParameters.length].node);
@@ -4802,9 +4834,9 @@ export class ExpressionEvaluator {
             typeArgs.forEach(typeArg => {
                 // Verify that we didn't receive any inappropriate ellipses or modules.
                 if (TypeUtils.isEllipsisType(typeArg.type)) {
-                    this._addError(`'...' not allowed in this context`, typeArg.node);
+                    this.addError(`'...' not allowed in this context`, typeArg.node);
                 } else if (typeArg.type.category === TypeCategory.Module) {
-                    this._addError(`Module not allowed in this context`, typeArg.node);
+                    this.addError(`Module not allowed in this context`, typeArg.node);
                 }
             });
         }
@@ -4821,7 +4853,7 @@ export class ExpressionEvaluator {
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
                 if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
-                    this._addError(`Type '${ printType(typeArgType) }' ` +
+                    this.addError(`Type '${ printType(typeArgType) }' ` +
                             `cannot be assigned to type variable '${ typeParameters[index].name }'` +
                             diag.getString(),
                         typeArgs![index].node);
@@ -4877,36 +4909,6 @@ export class ExpressionEvaluator {
         this._logDiagnostics = oldLogDiagnostics;
         this._writeTypeToCache = oldWriteCacheCallback;
         this._setSymbolAccessed = oldSetSymbolAccessedCallback;
-    }
-
-    private _addWarning(message: string, range: TextRange) {
-        if (this._logDiagnostics) {
-            return this._diagnosticSink.addWarningWithTextRange(message, range);
-        }
-
-        return undefined;
-    }
-
-    private _addError(message: string, range: TextRange) {
-        if (this._logDiagnostics) {
-            return this._diagnosticSink.addErrorWithTextRange(message, range);
-        }
-
-        return undefined;
-    }
-
-    private _addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {
-        let diagnostic: Diagnostic | undefined;
-
-        if (diagLevel === 'error') {
-            diagnostic = this._addError(message, textRange);
-        } else if (diagLevel === 'warning') {
-            diagnostic = this._addWarning(message, textRange);
-        }
-
-        if (diagnostic) {
-            diagnostic.setRule(rule);
-        }
     }
 
     private _getFileInfo(node: ParseNode) {
