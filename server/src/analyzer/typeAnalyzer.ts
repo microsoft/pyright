@@ -400,7 +400,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             let isNoneWithoutOptional = false;
 
             if (param.typeAnnotation) {
-                annotatedType = this._getTypeOfAnnotation(param.typeAnnotation);
+                annotatedType = this._evaluator.getTypeOfAnnotation(param.typeAnnotation);
 
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
@@ -504,7 +504,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         });
 
         if (node.returnTypeAnnotation) {
-            const returnType = this._getTypeOfAnnotation(node.returnTypeAnnotation);
+            const returnType = this._evaluator.getTypeOfAnnotation(node.returnTypeAnnotation);
             if (FunctionType.setDeclaredReturnType(functionType, returnType)) {
                 this._setAnalysisChanged('Function return type annotation changed');
             }
@@ -1001,7 +1001,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (node.typeAnnotationComment) {
             // Evaluate the annotated type.
-            const declaredType = this._getTypeOfAnnotation(node.typeAnnotationComment);
+            const declaredType = this._evaluator.getTypeOfAnnotation(node.typeAnnotationComment);
             this._validateDeclaredTypeMatches(node.leftExpression, declaredType,
                 node.typeAnnotationComment);
         }
@@ -1290,7 +1290,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
         // Evaluate the annotated type.
-        let declaredType = this._getTypeOfAnnotation(node.typeAnnotation);
+        let declaredType = this._evaluator.getTypeOfAnnotation(node.typeAnnotation);
 
         // If this is within an enum, transform the type.
         if (node.valueExpression && node.valueExpression.nodeType === ParseNodeType.Name) {
@@ -1674,15 +1674,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const nameValue = target.nameToken.value;
         const simplifiedType = removeUnboundFromUnion(type);
         if (simplifiedType.category === TypeCategory.Unknown) {
-            this._evaluator.addDiagnostic(diagLevel,
-                rule,
+            this._evaluator.addDiagnostic(diagLevel, rule,
                 `Inferred type of '${ nameValue }' is unknown`, srcExpr);
         } else if (TypeUtils.containsUnknown(simplifiedType)) {
             // Sometimes variables contain an "unbound" type if they're
             // assigned only within conditional statements. Remove this
             // to avoid confusion.
-            this._evaluator.addDiagnostic(diagLevel,
-                rule,
+            this._evaluator.addDiagnostic(diagLevel, rule,
                 `Inferred type of '${ nameValue }', '${ printType(simplifiedType) }', ` +
                 `is partially unknown`, srcExpr);
         }
@@ -2478,21 +2476,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _postponeAnnotationEvaluation() {
-        return this._fileInfo.futureImports.get('annotations') !== undefined ||
-            this._fileInfo.isStubFile;
-    }
-
-    private _getTypeOfAnnotation(node: ExpressionNode): Type {
-        let evaluatorFlags = EvaluatorFlags.ConvertEllipsisToAny;
-        if (this._postponeAnnotationEvaluation()) {
-            evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
-        }
-
-        return TypeUtils.convertClassToObject(
-            this._evaluator.getType(node, { method: 'get' }, evaluatorFlags));
-    }
-
     private _isNodeReachable(node: ParseNode): boolean {
         return this._evaluator.isNodeReachable(node);
     }
@@ -2707,7 +2690,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 this._assignTypeToExpression(expr, targetType, srcExpr);
             });
         } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
-            const typeHintType = this._getTypeOfAnnotation(target.typeAnnotation);
+            const typeHintType = this._evaluator.getTypeOfAnnotation(target.typeAnnotation);
             const diagAddendum = new DiagnosticAddendum();
             if (TypeUtils.canAssignType(typeHintType, srcType, diagAddendum)) {
                 srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(typeHintType, srcType);
