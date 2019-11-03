@@ -176,11 +176,11 @@ const booleanOperatorMap: { [operator: number]: boolean } = {
 };
 
 export class ExpressionEvaluator {
+    private _diagnosticSink: TextRangeDiagnosticSink;
+    private _logDiagnostics: boolean;
     private _readTypeFromCache: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
-    private _diagnosticSink: TextRangeDiagnosticSink;
     private _setSymbolAccessed?: SetSymbolAccessedCallback;
-    private _logDiagnostics: boolean;
     private _typeFlowRecursionMap = new Map<number, true>();
 
     constructor(
@@ -190,17 +190,18 @@ export class ExpressionEvaluator {
             setSymbolAccessedCallback?: SetSymbolAccessedCallback) {
 
         this._diagnosticSink = diagnosticSink;
+        this._logDiagnostics = true;
+
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
         this._setSymbolAccessed = setSymbolAccessedCallback;
-        this._logDiagnostics = true;
     }
 
     getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
         return this._getTypeFromExpression(node, usage, flags).type;
     }
 
-    getTypeSpeculative(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
+    getTypeNoCache(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
         let type: Type | undefined;
         this._silenceDiagnostics(() => {
             type = this._getTypeFromExpression(node, usage, flags).type;
@@ -285,6 +286,86 @@ export class ExpressionEvaluator {
         }
 
         return resultType;
+    }
+
+    // Determines whether the specified expression is a symbol with a declared type
+    // (either a simple name or a member variable). If so, the type is returned.
+    getDeclaredTypeForExpression(expression: ExpressionNode): Type | undefined {
+        let symbol: Symbol | undefined;
+        let classOrObjectBase: ClassType | ObjectType | undefined;
+
+        if (expression.nodeType === ParseNodeType.Name) {
+            const symbolWithScope = this._lookUpSymbolRecursive(
+                expression, expression.nameToken.value);
+            if (symbolWithScope) {
+                symbol = symbolWithScope.symbol;
+            }
+        } else if (expression.nodeType === ParseNodeType.TypeAnnotation) {
+            return this.getDeclaredTypeForExpression(expression.valueExpression);
+        } else if (expression.nodeType === ParseNodeType.MemberAccess) {
+            // Get the base type but do so speculative because we're going to call again
+            // with a 'set' usage type below, and we don't want to skip that logic.
+            const baseType = this.getTypeNoCache(expression.leftExpression);
+            let classMemberInfo: TypeUtils.ClassMember | undefined;
+
+            if (baseType.category === TypeCategory.Object) {
+                classMemberInfo = TypeUtils.lookUpObjectMember(baseType,
+                    expression.memberName.nameToken.value,
+                    TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+                classOrObjectBase = baseType;
+            } else if (baseType.category === TypeCategory.Class) {
+                classMemberInfo = TypeUtils.lookUpClassMember(baseType,
+                    expression.memberName.nameToken.value,
+                    TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables |
+                    TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+                classOrObjectBase = baseType;
+            }
+
+            if (classMemberInfo) {
+                symbol = classMemberInfo.symbol;
+            }
+        } else if (expression.nodeType === ParseNodeType.Index) {
+            const baseType = this.getDeclaredTypeForExpression(expression.baseExpression);
+            if (baseType && baseType.category === TypeCategory.Object) {
+                const setItemMember = TypeUtils.lookUpClassMember(baseType.classType, '__setitem__');
+                if (setItemMember) {
+                    if (setItemMember.symbolType.category === TypeCategory.Function) {
+                        const boundFunction = TypeUtils.bindFunctionToClassOrObject(baseType, setItemMember.symbolType);
+                        if (boundFunction.category === TypeCategory.Function) {
+                            if (boundFunction.details.parameters.length === 2) {
+                                return FunctionType.getEffectiveParameterType(boundFunction, 1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (symbol) {
+            let declaredType = TypeUtils.getDeclaredTypeOfSymbol(symbol);
+            if (declaredType) {
+                // If it's a property, we need to get the setter's type.
+                if (declaredType.category === TypeCategory.Property) {
+                    if (!declaredType.setter ||
+                            declaredType.setter.category !== TypeCategory.Function ||
+                            declaredType.setter.details.parameters.length < 2) {
+
+                        return undefined;
+                    }
+
+                    declaredType = declaredType.setter.details.parameters[1].type;
+                }
+
+                if (classOrObjectBase) {
+                    declaredType = TypeUtils.bindFunctionToClassOrObject(classOrObjectBase,
+                        declaredType);
+                }
+
+                return declaredType;
+            }
+        }
+
+        return undefined;
     }
 
     // Applies an "await" operation to the specified type and returns

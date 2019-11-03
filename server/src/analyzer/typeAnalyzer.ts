@@ -418,7 +418,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (param.defaultValue) {
                 defaultValueType = this._getTypeOfExpression(param.defaultValue,
-                    EvaluatorFlags.ConvertEllipsisToAny, false, annotatedType);
+                    EvaluatorFlags.ConvertEllipsisToAny, annotatedType);
 
                 this.walk(param.defaultValue);
             }
@@ -636,8 +636,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitCall(node: CallExpressionNode): boolean {
-        // Calculate and cache the expression and report
-        // any validation errors.
         this._getTypeOfExpression(node);
 
         this._validateIsInstanceCallNecessary(node);
@@ -677,13 +675,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitIf(node: IfNode): boolean {
-        this._handleIfWhileCommon(node.testExpression, node.ifSuite, node.elseSuite);
-        return false;
+        this._getTypeOfExpression(node.testExpression);
+        return true;
     }
 
     visitWhile(node: WhileNode): boolean {
-        this._handleIfWhileCommon(node.testExpression, node.whileSuite, node.elseSuite);
-        return false;
+        this._getTypeOfExpression(node.testExpression);
+        return true;
     }
 
     visitWith(node: WithNode): boolean {
@@ -758,7 +756,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (node.returnExpression) {
             returnType = this._getTypeOfExpression(node.returnExpression,
-                EvaluatorFlags.None, false, declaredReturnType);
+                EvaluatorFlags.None, declaredReturnType);
         } else {
             // There is no return expression, so "None" is assumed.
             returnType = NoneType.create();
@@ -961,13 +959,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         // Determine whether there is a declared type.
-        const declaredType = this._getDeclaredTypeForExpression(node.leftExpression);
+        const declaredType = this._evaluator.getDeclaredTypeForExpression(node.leftExpression);
 
         // Evaluate the type of the right-hand side.
         // An assignment of ellipsis means "Any" within a type stub file.
         let srcType = this._getTypeOfExpression(node.rightExpression,
             this._fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined,
-            false, declaredType);
+            declaredType);
 
         // Determine if the RHS is a constant boolean expression.
         // If so, assign it a literal type.
@@ -1685,85 +1683,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    // Determines whether the specified expression is a symbol with a declared type
-    // (either a simple name or a member variable). If so, the type is returned.
-    private _getDeclaredTypeForExpression(expression: ExpressionNode): Type | undefined {
-        let symbol: Symbol | undefined;
-        let classOrObjectBase: ClassType | ObjectType | undefined;
-
-        if (expression.nodeType === ParseNodeType.Name) {
-            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(expression.nameToken.value);
-            if (symbolWithScope) {
-                symbol = symbolWithScope.symbol;
-            }
-        } else if (expression.nodeType === ParseNodeType.TypeAnnotation) {
-            return this._getDeclaredTypeForExpression(expression.valueExpression);
-        } else if (expression.nodeType === ParseNodeType.MemberAccess) {
-            // Get the base type but do so speculative because we're going to call again
-            // with a 'set' usage type below, and we don't want to skip that logic.
-            const baseType = this._getTypeOfExpression(expression.leftExpression, EvaluatorFlags.None, true);
-            let classMemberInfo: TypeUtils.ClassMember | undefined;
-
-            if (baseType.category === TypeCategory.Object) {
-                classMemberInfo = TypeUtils.lookUpObjectMember(baseType,
-                    expression.memberName.nameToken.value,
-                    TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
-                classOrObjectBase = baseType;
-            } else if (baseType.category === TypeCategory.Class) {
-                classMemberInfo = TypeUtils.lookUpClassMember(baseType,
-                    expression.memberName.nameToken.value,
-                    TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables |
-                    TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
-                classOrObjectBase = baseType;
-            }
-
-            if (classMemberInfo) {
-                symbol = classMemberInfo.symbol;
-            }
-        } else if (expression.nodeType === ParseNodeType.Index) {
-            const baseType = this._getDeclaredTypeForExpression(expression.baseExpression);
-            if (baseType && baseType.category === TypeCategory.Object) {
-                const setItemMember = TypeUtils.lookUpClassMember(baseType.classType, '__setitem__');
-                if (setItemMember) {
-                    if (setItemMember.symbolType.category === TypeCategory.Function) {
-                        const boundFunction = TypeUtils.bindFunctionToClassOrObject(baseType, setItemMember.symbolType);
-                        if (boundFunction.category === TypeCategory.Function) {
-                            if (boundFunction.details.parameters.length === 2) {
-                                return FunctionType.getEffectiveParameterType(boundFunction, 1);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (symbol) {
-            let declaredType = TypeUtils.getDeclaredTypeOfSymbol(symbol);
-            if (declaredType) {
-                // If it's a property, we need to get the setter's type.
-                if (declaredType.category === TypeCategory.Property) {
-                    if (!declaredType.setter ||
-                            declaredType.setter.category !== TypeCategory.Function ||
-                            declaredType.setter.details.parameters.length < 2) {
-
-                        return undefined;
-                    }
-
-                    declaredType = declaredType.setter.details.parameters[1].type;
-                }
-
-                if (classOrObjectBase) {
-                    declaredType = TypeUtils.bindFunctionToClassOrObject(classOrObjectBase,
-                        declaredType);
-                }
-
-                return declaredType;
-            }
-        }
-
-        return undefined;
-    }
-
     private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
         // See if the symbol is private.
         if (SymbolNameUtils.isPrivateName(nameValue)) {
@@ -2327,17 +2246,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _handleIfWhileCommon(testExpression: ExpressionNode, ifWhileSuite: SuiteNode,
-            elseSuite: SuiteNode | IfNode | undefined) {
-
-        this._getTypeOfExpression(testExpression);
-        this.walk(testExpression);
-        this.walk(ifWhileSuite);
-        if (elseSuite) {
-            this.walk(elseSuite);
-        }
-    }
-
     private _findCollectionsImportSymbolTable(): SymbolTable | undefined {
         if (this._fileInfo.collectionsModulePath) {
             const lookupResult = this._fileInfo.importLookup(this._fileInfo.collectionsModulePath);
@@ -2584,16 +2492,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return this._evaluator.isNodeReachable(node);
     }
 
-    private _getTypeOfExpression(node: ExpressionNode, flags?: EvaluatorFlags,
-            speculativelyExecute = false, expectedType?: Type): Type {
-
-        // If the caller didn't specify the flags, use the defaults.
-        if (flags === undefined) {
-            flags = EvaluatorFlags.None;
-        }
-        if (speculativelyExecute) {
-            return this._evaluator.getTypeSpeculative(node, { method: 'get', expectedType }, flags);
-        }
+    private _getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): Type {
         return this._evaluator.getType(node, { method: 'get', expectedType }, flags);
     }
 
@@ -2659,7 +2558,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _validateDeclaredTypeMatches(node: ExpressionNode, type: Type,
             errorNode: ExpressionNode) {
 
-        const declaredType = this._getDeclaredTypeForExpression(node);
+        const declaredType = this._evaluator.getDeclaredTypeForExpression(node);
         if (declaredType) {
             if (!isTypeSame(declaredType, type)) {
                 this._evaluator.addError(`Declared type '${ printType(type) }' is not compatible ` +
