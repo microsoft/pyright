@@ -562,10 +562,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             });
 
             this.walk(node.suite);
-        });
 
-        // Validate that the function returns the declared type.
-        this._validateFunctionReturn(node, functionType);
+            // Validate that the function returns the declared type.
+            this._validateFunctionReturn(node, functionType);
+        });
 
         // If there was no decorator, see if there are any overloads provided
         // by previous function declarations.
