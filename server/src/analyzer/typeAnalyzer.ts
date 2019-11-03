@@ -31,7 +31,7 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowFlags } from './codeFlow';
 import { DeclarationType, ModuleLoaderActions } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
-import { EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
+import { createExpressionEvaluator, EvaluatorFlags, ExpressionEvaluator, MemberAccessFlags } from './expressionEvaluator';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
@@ -87,7 +87,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._currentScope = AnalyzerNodeInfo.getScope(node)!;
         this._didAnalysisChange = false;
         this._analysisVersion = analysisVersion;
-        this._evaluator = new ExpressionEvaluator(
+        this._evaluator = createExpressionEvaluator(
             this._fileInfo.diagnosticSink,
             this._analysisVersion,
             reason => {
@@ -685,7 +685,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                 if (subtype.category === TypeCategory.Object) {
                     const memberType = this._evaluator.getTypeFromObjectMember(item.expression,
-                        subtype, enterMethodName, { method: 'get' });
+                        subtype, enterMethodName, { method: 'get' }, MemberAccessFlags.None);
 
                     if (memberType) {
                         let memberReturnType: Type;
@@ -2131,8 +2131,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 paramName = node.parameters[0].name.nameToken.value;
             }
             // Class methods should have a "cls" parameter. We'll exempt parameter
-                // names that start with an underscore since those are used in a few
-                // cases in the stdlib pyi files.
+            // names that start with an underscore since those are used in a few
+            // cases in the stdlib pyi files.
             if (paramName !== 'cls') {
                 if (!this._fileInfo.isStubFile || (!paramName.startsWith('_') && paramName !== 'metacls')) {
                     this._evaluator.addError(
