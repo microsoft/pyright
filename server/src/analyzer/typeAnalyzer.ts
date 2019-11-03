@@ -22,7 +22,7 @@ import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignme
     FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
     ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
     ParameterNode, ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceExpressionNode,
-    StringListNode, SuiteNode, TernaryExpressionNode, TryNode, TupleExpressionNode,
+    StringListNode, SuiteNode, TernaryExpressionNode, TupleExpressionNode,
     TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
     WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';

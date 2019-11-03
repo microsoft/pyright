@@ -38,7 +38,7 @@ import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
     FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound, isTypeSame,
     isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
-    printType, removeNoneFromUnion, removeUnboundFromUnion, removeUnknownFromUnion, requiresSpecialization, Type,
+    printType, removeNoneFromUnion, removeUnboundFromUnion, requiresSpecialization, Type,
     TypeCategory, TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
@@ -4723,6 +4723,75 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return createSpecialType(classType, typeArgs);
     }
 
+    function getTypeOfAssignmentTarget(target: ParseNode): Type | undefined {
+        let assignmentNode: ParseNode | undefined = target;
+        while (assignmentNode) {
+            switch (assignmentNode.nodeType) {
+                case ParseNodeType.Assignment:
+                case ParseNodeType.AssignmentExpression: {
+
+                    // TODO - need to implement
+                    return undefined;
+                }
+
+                case ParseNodeType.AugmentedAssignment: {
+                    // TODO - need to implement
+                    return undefined;
+                }
+
+                case ParseNodeType.Class: {
+                    // TODO - need to implement
+                    return undefined;
+                }
+
+                case ParseNodeType.Parameter: {
+                    // TODO - need to implement
+                    return undefined;
+                }
+
+                case ParseNodeType.Function: {
+                    // TODO - need to implement
+                    return undefined;
+                }
+
+                case ParseNodeType.For: {
+                    // TODO - need to implement
+                    return undefined;
+                }
+
+                case ParseNodeType.Except: {
+                    // TODO - need to implement
+                    return undefined;
+                }
+
+                case ParseNodeType.WithItem: {
+                    // TODO - need to implement
+                    return undefined;
+                }
+
+                case ParseNodeType.ListComprehensionFor: {
+                    // TODO - need to implement
+                    return undefined;
+                }
+
+                case ParseNodeType.ImportAs: {
+                    // TODO - need to implement
+                    return undefined;
+                }
+
+                case ParseNodeType.ImportFrom: {
+                    // TODO - need to implement
+                    return undefined;
+                }
+            }
+
+            assignmentNode = assignmentNode.parent;
+        }
+
+        assert.fail('Unexpected assignment target');
+        return undefined;
+    }
+
     function getFlowTypeOfReference(reference: NameNode | MemberAccessExpressionNode,
             initialType: Type | undefined): Type | undefined {
 
@@ -4740,6 +4809,16 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             const flowType = type ? { type, isIncomplete } : undefined;
             flowNodeTypeCache.set(flowNode.id, flowType);
             return flowType;
+        }
+
+        function evaluateAssignmentFlowNode(flowNode: FlowAssignment): FlowNodeType | undefined {
+            let cachedType = AnalyzerNodeInfo.getExpressionType(flowNode.node);
+            if (!cachedType) {
+                // There is no cached type for this expression, so we need to
+                // evaluate it.
+                cachedType = getTypeOfAssignmentTarget(flowNode.node);
+            }
+            return setCacheEntry(flowNode, cachedType);
         }
 
         // If this flow has no knowledge of the target expression, it returns undefined.
@@ -4777,10 +4856,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     const assignmentFlowNode = curFlowNode as FlowAssignment;
                     if (reference.nodeType === ParseNodeType.Name || reference.nodeType === ParseNodeType.MemberAccess) {
                         if (ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)) {
+                            // Is this a special "unbind" assignment? If so,
+                            // we can handle it immediately without any further evaluation.
                             if (curFlowNode.flags & FlowFlags.Unbind) {
                                 return setCacheEntry(curFlowNode, UnboundType.create());
                             }
-                            return setCacheEntry(curFlowNode, AnalyzerNodeInfo.getExpressionType(assignmentFlowNode.node));
+
+                            return evaluateAssignmentFlowNode(assignmentFlowNode);
                         }
                     }
 
