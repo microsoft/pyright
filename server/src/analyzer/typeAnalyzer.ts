@@ -73,10 +73,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private readonly _evaluator: ExpressionEvaluator;
     private _currentScope: Scope;
 
-    // Indicates that we're currently analyzing an expression
-    // that is a parameter default value initializer.
-    private _defaultValueInitializerExpression = false;
-
     // Indicates where there was a change in the type analysis
     // the last time analyze() was called. Callers should repeatedly
     // call analyze() until this returns false.
@@ -98,9 +94,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._moduleNode = node;
         this._fileInfo = fileInfo;
         this._currentScope = AnalyzerNodeInfo.getScope(node)!;
-        this._evaluator = this._createEvaluator();
         this._didAnalysisChange = false;
         this._analysisVersion = analysisVersion;
+        this._evaluator = this._createEvaluator();
     }
 
     analyze() {
@@ -344,7 +340,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         let asyncType = functionType;
         if (node.isAsync) {
-            asyncType = this._createAwaitableFunction(functionType);
+            asyncType = this._createAwaitableFunction(node, functionType);
         }
 
         // Apply all of the decorators in reverse order.
@@ -416,9 +412,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 defaultValueType = this._getTypeOfExpression(param.defaultValue,
                     EvaluatorFlags.ConvertEllipsisToAny, false, annotatedType);
 
-                this._defaultValueInitializerExpression = true;
                 this.walk(param.defaultValue);
-                this._defaultValueInitializerExpression = false;
             }
 
             if (param.typeAnnotation && annotatedType) {
@@ -631,7 +625,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this._validateIsInstanceCallNecessary(node);
 
-        if (this._defaultValueInitializerExpression && !this._fileInfo.isStubFile) {
+        if (ParseTreeUtils.isWithinDefaultParamInitializer(node) && !this._fileInfo.isStubFile) {
             this._addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportCallInDefaultInitializer,
                 DiagnosticRule.reportCallInDefaultInitializer,
@@ -1938,7 +1932,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    private _createAwaitableFunction(functionType: FunctionType): FunctionType {
+    private _createAwaitableFunction(node: FunctionNode, functionType: FunctionType): FunctionType {
         const returnType = FunctionType.getEffectiveReturnType(functionType);
 
         let awaitableReturnType: Type | undefined;
@@ -2984,17 +2978,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const newScope = AnalyzerNodeInfo.getScope(node);
         assert(newScope !== undefined);
 
-        // Clear the defaultValueInitializerExpression because we want
-        // to allow calls within lambdas that are used to initialize
-        // parameters.
-        const wasDefaultValueInitializer = this._defaultValueInitializerExpression;
-        this._defaultValueInitializerExpression = false;
         this._currentScope = newScope!;
 
         callback();
 
         this._currentScope = prevScope;
-        this._defaultValueInitializerExpression = wasDefaultValueInitializer;
 
         return newScope!;
     }
