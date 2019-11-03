@@ -640,21 +640,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitFor(node: ForNode): boolean {
-        this.walk(node.iterableExpression);
-
         const iteratorType = this._getTypeOfExpression(node.iterableExpression);
         const iteratedType = this._evaluator.getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
 
         this._evaluator.assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
-        this.walk(node.targetExpression);
-        this.walk(node.forSuite);
-
-        if (node.elseSuite) {
-            this.walk(node.elseSuite);
-        }
-
-        return false;
+        return true;
     }
 
     visitListComprehension(node: ListComprehensionNode): boolean {
@@ -673,10 +664,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitWith(node: WithNode): boolean {
-        node.withItems.forEach(item => {
-            this.walk(item.expression);
-        });
-
         node.withItems.forEach(item => {
             let exprType = this._getTypeOfExpression(item.expression);
 
@@ -726,12 +713,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             if (item.target) {
                 this._evaluator.assignTypeToExpression(item.target, scopedType, item.target);
-                this.walk(item.target);
             }
         });
 
-        this.walk(node.suite);
-        return false;
+        return true;
     }
 
     visitReturn(node: ReturnNode): boolean {
@@ -899,36 +884,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        this.walk(node.exceptSuite);
-
         if (node.name) {
             // The named target is explicitly unbound when leaving this scope.
             // Use the type source ID of the except node to avoid conflict with
             // the node.name type source.
-            const unboundType = UnboundType.create();
             this._evaluator.addTypeSourceToName(node, node.name.nameToken.value,
-                unboundType, node.id);
+                UnboundType.create(), node.id);
         }
 
-        return false;
-    }
-
-    visitTry(node: TryNode): boolean {
-        this.walk(node.trySuite);
-
-        if (node.elseSuite) {
-            this.walk(node.elseSuite);
-        }
-
-        node.exceptClauses.forEach(exceptNode => {
-            this.walk(exceptNode);
-        });
-
-        if (node.finallySuite) {
-            this.walk(node.finallySuite);
-        }
-
-        return false;
+        return true;
     }
 
     visitAssert(node: AssertNode) {
