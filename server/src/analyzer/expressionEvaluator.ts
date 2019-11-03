@@ -25,7 +25,6 @@ import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNo
     StringListNode, TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
-import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowCall, FlowCondition, FlowFlags, FlowLabel,
     FlowNode, FlowWildcardImport } from './codeFlow';
@@ -177,23 +176,24 @@ const booleanOperatorMap: { [operator: number]: boolean } = {
 };
 
 export class ExpressionEvaluator {
-    private readonly _fileInfo: AnalyzerFileInfo;
     private _readTypeFromCache: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache?: WriteTypeToNodeCacheCallback;
-    private _diagnosticSink?: TextRangeDiagnosticSink;
+    private _diagnosticSink: TextRangeDiagnosticSink;
     private _setSymbolAccessed?: SetSymbolAccessedCallback;
+    private _logDiagnostics: boolean;
     private _typeFlowRecursionMap = new Map<number, true>();
 
-    constructor(fileInfo: AnalyzerFileInfo,
+    constructor(
+            diagnosticSink: TextRangeDiagnosticSink,
             readTypeCallback: ReadTypeFromNodeCacheCallback,
             writeTypeCallback?: WriteTypeToNodeCacheCallback,
-            diagnosticSink?: TextRangeDiagnosticSink,
             setSymbolAccessedCallback?: SetSymbolAccessedCallback) {
-        this._fileInfo = fileInfo;
+
+        this._diagnosticSink = diagnosticSink;
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
-        this._diagnosticSink = diagnosticSink;
         this._setSymbolAccessed = setSymbolAccessedCallback;
+        this._logDiagnostics = true;
     }
 
     getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
@@ -347,7 +347,7 @@ export class ExpressionEvaluator {
         if (type.category === TypeCategory.Union && type.subtypes.some(t => isNoneOrNever(t))) {
             if (errorNode) {
                 this._addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportOptionalIterable,
+                    this._getFileInfo(errorNode).diagnosticSettings.reportOptionalIterable,
                     DiagnosticRule.reportOptionalIterable,
                     `Object of type 'None' cannot be used as iterable value`,
                     errorNode);
@@ -605,13 +605,14 @@ export class ExpressionEvaluator {
             '__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
     }
 
-    getTypingType(symbolName: string): Type | undefined {
-        const typingImportPath = this._fileInfo.typingModulePath;
+    getTypingType(node: ParseNode, symbolName: string): Type | undefined {
+        const fileInfo = this._getFileInfo(node);
+        const typingImportPath = fileInfo.typingModulePath;
         if (!typingImportPath) {
             return undefined;
         }
 
-        const lookupResult = this._fileInfo.importLookup(typingImportPath);
+        const lookupResult = fileInfo.importLookup(typingImportPath);
         if (!lookupResult) {
             return undefined;
         }
@@ -943,7 +944,7 @@ export class ExpressionEvaluator {
                 let useCodeFlowAnalysis = !isSpecialBuiltIn &&
                     ((flags & EvaluatorFlags.AllowForwardReferences) === 0);
 
-                if (useCodeFlowAnalysis && this._fileInfo.isStubFile) {
+                if (useCodeFlowAnalysis && this._getFileInfo(node).isStubFile) {
                     // Type stubs allow forward references of classes, so
                     // don't use code flow analysis in this case.
                     const decls = symbolWithScope.symbol.getDeclarations();
@@ -1052,7 +1053,7 @@ export class ExpressionEvaluator {
             type = TypeUtils.doForSubtypes(baseType, subtype => {
                 if (isNoneOrNever(subtype)) {
                     this._addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportOptionalMemberAccess,
+                        this._getFileInfo(node).diagnosticSettings.reportOptionalMemberAccess,
                         DiagnosticRule.reportOptionalMemberAccess,
                         `'${ memberName }' is not a known member of 'None'`, node.memberName);
                     return undefined;
@@ -1442,7 +1443,7 @@ export class ExpressionEvaluator {
                 return this._getTypeFromIndexedObject(node, subtype, usage);
             } else if (isNoneOrNever(subtype)) {
                 this._addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportOptionalSubscript,
+                    this._getFileInfo(node).diagnosticSettings.reportOptionalSubscript,
                     DiagnosticRule.reportOptionalSubscript,
                     `Optional of type 'None' cannot be subscripted`,
                     node.baseExpression);
@@ -1920,7 +1921,7 @@ export class ExpressionEvaluator {
             // as a function rather than a class, so we need to check for it here.
             if (FunctionType.getBuiltInName(callType) === 'namedtuple') {
                 this._addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUntypedNamedTuple,
+                    this._getFileInfo(errorNode).diagnosticSettings.reportUntypedNamedTuple,
                     DiagnosticRule.reportUntypedNamedTuple,
                     `'namedtuple' provides no types for tuple entries. Use 'NamedTuple' instead.`,
                     errorNode);
@@ -1962,7 +1963,7 @@ export class ExpressionEvaluator {
                     if (castToType.category === TypeCategory.Class && castFromType.category === TypeCategory.Object) {
                         if (isTypeSame(castToType, castFromType.classType)) {
                             this._addDiagnostic(
-                                this._fileInfo.diagnosticSettings.reportUnnecessaryCast,
+                                this._getFileInfo(errorNode).diagnosticSettings.reportUnnecessaryCast,
                                 DiagnosticRule.reportUnnecessaryCast,
                                 `Unnecessary call to cast: type is already ${ printType(castFromType) }`,
                                 errorNode);
@@ -2010,7 +2011,7 @@ export class ExpressionEvaluator {
             callType.subtypes.forEach(typeEntry => {
                 if (isNoneOrNever(typeEntry)) {
                     this._addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportOptionalCall,
+                        this._getFileInfo(errorNode).diagnosticSettings.reportOptionalCall,
                         DiagnosticRule.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
                         errorNode);
@@ -2202,7 +2203,7 @@ export class ExpressionEvaluator {
             for (const type of callType.subtypes) {
                 if (isNoneOrNever(type)) {
                     this._addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportOptionalCall,
+                        this._getFileInfo(errorNode).diagnosticSettings.reportOptionalCall,
                         DiagnosticRule.reportOptionalCall,
                         `Object of type 'None' cannot be called`,
                         errorNode);
@@ -2682,10 +2683,10 @@ export class ExpressionEvaluator {
                         const declaration: VariableDeclaration = {
                             type: DeclarationType.Variable,
                             node: stringNode as StringListNode,
-                            path: this._fileInfo.filePath,
+                            path: this._getFileInfo(errorNode).filePath,
                             range: convertOffsetsToRange(
                                 stringNode.start, TextRange.getEnd(stringNode),
-                                this._fileInfo.lines)
+                                this._getFileInfo(errorNode).lines)
                         };
                         newSymbol.addDeclaration(declaration);
                         setSymbolPreservingAccess(classFields, entryName, newSymbol);
@@ -2855,11 +2856,11 @@ export class ExpressionEvaluator {
                     const declaration: VariableDeclaration = {
                         type: DeclarationType.Variable,
                         node: entry.keyExpression,
-                        path: this._fileInfo.filePath,
+                        path: this._getFileInfo(errorNode).filePath,
                         typeAnnotationNode: entry.valueExpression,
                         range: convertOffsetsToRange(
                             entry.keyExpression.start, TextRange.getEnd(entry.keyExpression),
-                            this._fileInfo.lines)
+                            this._getFileInfo(errorNode).lines)
                     };
                     newSymbol.addDeclaration(declaration);
 
@@ -2906,7 +2907,8 @@ export class ExpressionEvaluator {
             classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
 
             AnalyzerNodeInfo.setExpressionType(errorNode, classType);
-            const builtInNamedTuple = this.getTypingType('NamedTuple') || UnknownType.create();
+            const builtInNamedTuple = this.getTypingType(errorNode, 'NamedTuple') ||
+                UnknownType.create();
             ClassType.addBaseClass(classType, builtInNamedTuple, false);
         }
 
@@ -2967,9 +2969,10 @@ export class ExpressionEvaluator {
                                 const declaration: VariableDeclaration = {
                                     type: DeclarationType.Variable,
                                     node: stringNode as StringListNode,
-                                    path: this._fileInfo.filePath,
+                                    path: this._getFileInfo(errorNode).filePath,
                                     range: convertOffsetsToRange(
-                                        stringNode.start, TextRange.getEnd(stringNode), this._fileInfo.lines)
+                                        stringNode.start, TextRange.getEnd(stringNode),
+                                            this._getFileInfo(errorNode).lines)
                                 };
                                 newSymbol.addDeclaration(declaration);
                                 setSymbolPreservingAccess(classFields, entryName, newSymbol);
@@ -3043,11 +3046,11 @@ export class ExpressionEvaluator {
                                 const declaration: VariableDeclaration = {
                                     type: DeclarationType.Variable,
                                     node: entryNameNode,
-                                    path: this._fileInfo.filePath,
+                                    path: this._getFileInfo(errorNode).filePath,
                                     typeAnnotationNode: entryTypeNode,
                                     range: convertOffsetsToRange(
                                         entryNameNode.start, TextRange.getEnd(entryNameNode),
-                                        this._fileInfo.lines)
+                                        this._getFileInfo(errorNode).lines)
                                 };
                                 newSymbol.addDeclaration(declaration);
                             }
@@ -3166,7 +3169,7 @@ export class ExpressionEvaluator {
         if (node.operator !== OperatorType.Not) {
             if (TypeUtils.isOptionalType(exprType)) {
                 this._addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportOptionalOperand,
+                    this._getFileInfo(node).diagnosticSettings.reportOptionalOperand,
                     DiagnosticRule.reportOptionalOperand,
                     `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                     `supported for 'None' type`,
@@ -3225,7 +3228,7 @@ export class ExpressionEvaluator {
                 // None is a valid operand for these operators.
                 if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
                     this._addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportOptionalOperand,
+                        this._getFileInfo(node).diagnosticSettings.reportOptionalOperand,
                         DiagnosticRule.reportOptionalOperand,
                         `Operator '${ ParseTreeUtils.printOperator(node.operator) }' not ` +
                         `supported for 'None' type`,
@@ -3653,7 +3656,7 @@ export class ExpressionEvaluator {
         // are the same type, we'll assume that all values in this dictionary should
         // be the same.
         if (valueTypes.length > 0) {
-            if (this._fileInfo.diagnosticSettings.strictDictionaryInference) {
+            if (this._getFileInfo(node).diagnosticSettings.strictDictionaryInference) {
                 valueType = combineTypes(valueTypes);
             } else {
                 valueType = TypeUtils.areTypesSame(valueTypes) ? valueTypes[0] : UnknownType.create();
@@ -3694,7 +3697,7 @@ export class ExpressionEvaluator {
             entryTypes = entryTypes.map(t => TypeUtils.stripLiteralValue(t));
 
             if (entryTypes.length > 0) {
-                if (this._fileInfo.diagnosticSettings.strictListInference) {
+                if (this._getFileInfo(node).diagnosticSettings.strictListInference) {
                     listEntryType = combineTypes(entryTypes);
                 } else {
                     // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
@@ -3800,7 +3803,7 @@ export class ExpressionEvaluator {
         const elementType = this._getElementTypeFromListComprehensionExpression(node);
 
         let type: Type = UnknownType.create();
-        const builtInIteratorType = this.getTypingType('Generator');
+        const builtInIteratorType = this.getTypingType(node, 'Generator');
 
         if (builtInIteratorType && builtInIteratorType.category === TypeCategory.Class) {
             type = ObjectType.create(ClassType.cloneForSpecialization(builtInIteratorType, [elementType]));
@@ -4860,8 +4863,8 @@ export class ExpressionEvaluator {
     // any caching of types, under the assumption that we're
     // performing speculative evaluations.
     private _silenceDiagnostics(callback: () => void) {
-        const oldDiagSink = this._diagnosticSink;
-        this._diagnosticSink = undefined;
+        const oldLogDiagnostics = this._logDiagnostics;
+        this._logDiagnostics = false;
 
         const oldWriteCacheCallback = this._writeTypeToCache;
         this._writeTypeToCache = undefined;
@@ -4871,13 +4874,13 @@ export class ExpressionEvaluator {
 
         callback();
 
-        this._diagnosticSink = oldDiagSink;
+        this._logDiagnostics = oldLogDiagnostics;
         this._writeTypeToCache = oldWriteCacheCallback;
         this._setSymbolAccessed = oldSetSymbolAccessedCallback;
     }
 
     private _addWarning(message: string, range: TextRange) {
-        if (this._diagnosticSink) {
+        if (this._logDiagnostics) {
             return this._diagnosticSink.addWarningWithTextRange(message, range);
         }
 
@@ -4885,7 +4888,7 @@ export class ExpressionEvaluator {
     }
 
     private _addError(message: string, range: TextRange) {
-        if (this._diagnosticSink) {
+        if (this._logDiagnostics) {
             return this._diagnosticSink.addErrorWithTextRange(message, range);
         }
 
@@ -4904,5 +4907,10 @@ export class ExpressionEvaluator {
         if (diagnostic) {
             diagnostic.setRule(rule);
         }
+    }
+
+    private _getFileInfo(node: ParseNode) {
+        const moduleNode = ParseTreeUtils.getEnclosingModule(node);
+        return AnalyzerNodeInfo.getFileInfo(moduleNode)!;
     }
 }

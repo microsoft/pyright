@@ -631,7 +631,7 @@ export class Program {
                 // mark all of its dependencies as needing to be reanalyzed.
                 let didAnalysisChange = false;
                 while (true) {
-                    fileToAnalyze.sourceFile.doTypeAnalysis(options, this._lookUpImport);
+                    fileToAnalyze.sourceFile.doTypeAnalysis();
 
                     if (!fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
                         break;

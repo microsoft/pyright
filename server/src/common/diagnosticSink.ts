@@ -20,14 +20,16 @@ export interface FileDiagnostics {
 
 // Creates and tracks a list of diagnostics.
 export class DiagnosticSink {
-    diagnostics: Diagnostic[] = [];
+    private _diagnostics: Diagnostic[] = [];
 
     constructor(diagnostics?: Diagnostic[]) {
-        this.diagnostics = diagnostics || [];
+        this._diagnostics = diagnostics || [];
     }
 
-    discard() {
-        this.diagnostics = [];
+    fetchAndClear() {
+        const prevDiagnostics = this._diagnostics;
+        this._diagnostics = [];
+        return prevDiagnostics;
     }
 
     addError(message: string, range: DiagnosticTextRange) {
@@ -43,20 +45,20 @@ export class DiagnosticSink {
     }
 
     addDiagnostic(diag: Diagnostic) {
-        this.diagnostics.push(diag);
+        this._diagnostics.push(diag);
         return diag;
     }
 
     addDiagnostics(diagsToAdd: Diagnostic[]) {
-        this.diagnostics.push(...diagsToAdd);
+        this._diagnostics.push(...diagsToAdd);
     }
 
     getErrors() {
-        return this.diagnostics.filter(diag => diag.category === DiagnosticCategory.Error);
+        return this._diagnostics.filter(diag => diag.category === DiagnosticCategory.Error);
     }
 
     getWarnings() {
-        return this.diagnostics.filter(diag => diag.category === DiagnosticCategory.Warning);
+        return this._diagnostics.filter(diag => diag.category === DiagnosticCategory.Warning);
     }
 }
 

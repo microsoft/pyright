@@ -159,7 +159,7 @@ export class Parser {
         return {
             parseTree,
             lines: this._tokenizerOutput!.lines,
-            diagnostics: diagSink.diagnostics
+            diagnostics: diagSink.fetchAndClear()
         };
     }
 

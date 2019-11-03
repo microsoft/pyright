@@ -7,6 +7,8 @@
 * Utility routines for traversing a parse tree.
 */
 
+import * as assert from 'assert';
+
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -345,6 +347,20 @@ export function getEnclosingClass(node: ParseNode, stopAtFunction = false): Clas
     return undefined;
 }
 
+export function getEnclosingModule(node: ParseNode): ModuleNode {
+    let curNode = node.parent;
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Module) {
+            return curNode;
+        }
+
+        curNode = curNode.parent;
+    }
+
+    assert.fail('Module node not found');
+    return undefined!;
+}
+
 export function getEnclosingClassOrModule(node: ParseNode,
         stopAtFunction = false): ClassNode | ModuleNode | undefined {
 
@@ -426,6 +442,29 @@ export function isMatchingExpression(expression1: ExpressionNode, expression2: E
     } else if (expression1.nodeType === ParseNodeType.MemberAccess && expression2.nodeType === ParseNodeType.MemberAccess) {
         return isMatchingExpression(expression1.leftExpression, expression2.leftExpression) &&
             expression1.memberName.nameToken.value === expression2.memberName.nameToken.value;
+    }
+
+    return false;
+}
+
+export function isWithinDefaultParamInitializer(node: ParseNode) {
+    let curNode: ParseNode | undefined = node;
+    let prevNode: ParseNode | undefined;
+
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Parameter && prevNode === curNode.defaultValue) {
+            return true;
+        }
+
+        if (curNode.nodeType === ParseNodeType.Lambda ||
+                curNode.nodeType === ParseNodeType.Function ||
+                curNode.nodeType === ParseNodeType.Class ||
+                curNode.nodeType === ParseNodeType.Module) {
+            return false;
+        }
+
+        prevNode = curNode;
+        curNode = curNode.parent;
     }
 
     return false;

@@ -10,7 +10,8 @@
 * language services (e.g. hover information).
 */
 
-import { ParseNode } from '../parser/parseNodes';
+import { ModuleNode, ParseNode } from '../parser/parseNodes';
+import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { FlowNode } from './codeFlow';
 import { ImportResult } from './importResult';
 import { Scope, ScopeType } from './scope';
@@ -37,6 +38,9 @@ interface AnalyzerNodeInfo {
     // Control flow information at the end of this node.
     afterFlowNode?: FlowNode;
 
+    // Info about the source file, used only on module nodes.
+    fileInfo?: AnalyzerFileInfo;
+
     //---------------------------------------------------------------
     // Set by TypeAnalyzer
 
@@ -61,6 +65,7 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
     delete analyzerNode.scope;
     delete analyzerNode.flowNode;
     delete analyzerNode.afterFlowNode;
+    delete analyzerNode.fileInfo;
     delete analyzerNode.typeCache;
 }
 
@@ -102,6 +107,16 @@ export function getAfterFlowNode(node: ParseNode): FlowNode | undefined {
 export function setAfterFlowNode(node: ParseNode, flowNode: FlowNode) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.afterFlowNode = flowNode;
+}
+
+export function getFileInfo(node: ModuleNode): AnalyzerFileInfo | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode.fileInfo;
+}
+
+export function setFileInfo(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode.fileInfo = fileInfo;
 }
 
 export function getExpressionType(node: ParseNode): Type | undefined {

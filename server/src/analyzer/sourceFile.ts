@@ -477,7 +477,7 @@ export class SourceFile {
             timingStats.resolveImportsTime.timeOperation(() => {
                 [this._imports, this._builtinsImport, this._typingModulePath, this._collectionsModulePath] =
                     this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
-                this._parseDiagnostics = diagSink.diagnostics;
+                this._parseDiagnostics = diagSink.fetchAndClear();
             });
 
             // Is this file in a "strict" path?
@@ -514,7 +514,7 @@ export class SourceFile {
 
             const diagSink = new DiagnosticSink();
             diagSink.addError(`An internal error occurred while parsing file`, getEmptyRange());
-            this._parseDiagnostics = diagSink.diagnostics;
+            this._parseDiagnostics = diagSink.fetchAndClear();
         }
 
         this._analyzedFileContentsVersion = this._fileContentsVersion;
@@ -665,8 +665,10 @@ export class SourceFile {
         try {
             // Perform name binding.
             timingStats.bindTime.timeOperation(() => {
-                const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope);
                 this._cleanParseTreeIfRequired();
+
+                const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope);
+                AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
 
                 const binder = new Binder(fileInfo);
                 this._moduleDocString = binder.bindModule(this._parseResults!.parseTree);
@@ -678,7 +680,7 @@ export class SourceFile {
                     testWalker.walk(this._parseResults!.parseTree);
                 }
 
-                this._bindDiagnostics = fileInfo.diagnosticSink.diagnostics;
+                this._bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
                 const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
                 assert(moduleScope !== undefined);
                 this._moduleSymbolTable = moduleScope!.getSymbolTable();
@@ -693,7 +695,7 @@ export class SourceFile {
             const diagSink = new DiagnosticSink();
             diagSink.addError(`An internal error occurred while performing name binding`,
                 getEmptyRange());
-            this._bindDiagnostics = diagSink.diagnostics;
+            this._bindDiagnostics = diagSink.fetchAndClear();
         }
 
         // Prepare for the next stage of the analysis.
@@ -705,7 +707,7 @@ export class SourceFile {
         this._isBindingNeeded = false;
     }
 
-    doTypeAnalysis(configOptions: ConfigOptions, importLookup: ImportLookup) {
+    doTypeAnalysis() {
         assert(!this.isParseRequired());
         assert(!this.isBindingRequired());
         assert(this.isTypeAnalysisRequired());
@@ -713,11 +715,11 @@ export class SourceFile {
 
         try {
             timingStats.typeAnalyzerTime.timeOperation(() => {
-                const fileInfo = this._buildFileInfo(configOptions, importLookup, undefined);
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
 
                 // Perform static type analysis.
                 const typeAnalyzer = new TypeAnalyzer(this._parseResults!.parseTree,
-                    fileInfo, this._typeAnalysisPassNumber);
+                    this._typeAnalysisPassNumber);
                 this._typeAnalysisPassNumber++;
 
                 // Repeatedly call the analyzer until everything converges.
@@ -729,7 +731,7 @@ export class SourceFile {
                     assert(!this._isTypeAnalysisPassNeeded);
                 }
 
-                this._typeAnalysisLastPassDiagnostics = fileInfo.diagnosticSink.diagnostics;
+                this._typeAnalysisLastPassDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
                 if (this._isTypeAnalysisPassNeeded) {
                     this._lastReanalysisReason = typeAnalyzer.getLastReanalysisReason();
                 }
@@ -746,7 +748,7 @@ export class SourceFile {
 
             // Mark the file as complete so we don't get into an infinite loop.
             this._isTypeAnalysisPassNeeded = false;
-            this._typeAnalysisLastPassDiagnostics = diagSink.diagnostics;
+            this._typeAnalysisLastPassDiagnostics = diagSink.fetchAndClear();
         }
 
         // Clear any circular dependencies associated with this file.

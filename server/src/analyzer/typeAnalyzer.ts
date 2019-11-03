@@ -88,11 +88,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // from a previous pass.
     private _analysisVersion = 0;
 
-    constructor(node: ModuleNode, fileInfo: AnalyzerFileInfo, analysisVersion: number) {
+    constructor(node: ModuleNode, analysisVersion: number) {
         super();
 
         this._moduleNode = node;
-        this._fileInfo = fileInfo;
+        this._fileInfo = AnalyzerNodeInfo.getFileInfo(node)!;
         this._currentScope = AnalyzerNodeInfo.getScope(node)!;
         this._didAnalysisChange = false;
         this._analysisVersion = analysisVersion;
@@ -1942,7 +1942,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (ClassType.isBuiltIn(classType)) {
                 if (ClassType.getClassName(classType) === 'Generator') {
                     // If the return type is a Generator, change it to an AsyncGenerator.
-                    const asyncGeneratorType = this._evaluator.getTypingType('AsyncGenerator');
+                    const asyncGeneratorType = this._evaluator.getTypingType(node, 'AsyncGenerator');
                     if (asyncGeneratorType && asyncGeneratorType.category === TypeCategory.Class) {
                         const typeArgs: Type[] = [];
                         const generatorTypeArgs = ClassType.getTypeArguments(classType);
@@ -1964,7 +1964,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (!awaitableReturnType) {
-            const awaitableType = this._evaluator.getTypingType('Awaitable');
+            const awaitableType = this._evaluator.getTypingType(node, 'Awaitable');
             if (awaitableType && awaitableType.category === TypeCategory.Class) {
                 awaitableReturnType = ObjectType.create(
                     ClassType.cloneForSpecialization(awaitableType, [returnType]));
@@ -2006,7 +2006,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Inferred yield types need to be wrapped in a Generator to
         // produce the final result.
-        const generatorType = this._evaluator.getTypingType('Generator');
+        const generatorType = this._evaluator.getTypingType(node, 'Generator');
         if (generatorType && generatorType.category === TypeCategory.Class) {
             inferredYieldType.setGenericClassWrapper(generatorType);
         }
@@ -2022,7 +2022,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // the "NoReturn" type. Skip this for abstract methods which
         // often are implemented with "raise NotImplementedError()".
         if (functionNeverReturns && !FunctionType.isAbstractMethod(functionType)) {
-            const noReturnType = this._evaluator.getTypingType('NoReturn') as ClassType;
+            const noReturnType = this._evaluator.getTypingType(node, 'NoReturn') as ClassType;
             if (noReturnType && inferredReturnType.addSource(ObjectType.create(noReturnType), node.id)) {
                 this._setAnalysisChanged('Function inferred NoReturn changed');
             }
@@ -3018,12 +3018,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     private _createEvaluator() {
         return new ExpressionEvaluator(
-            this._fileInfo,
+            this._fileInfo.diagnosticSink,
             node => this._readExpressionTypeFromNodeCache(node),
             (node, type) => {
                 this._updateExpressionTypeForNode(node, type);
             },
-            this._fileInfo.diagnosticSink,
             symbol => {
                 this._setSymbolAccessed(symbol);
             });
