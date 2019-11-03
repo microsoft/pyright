@@ -134,7 +134,6 @@ interface ParamAssignmentInfo {
 
 export type ReadTypeFromNodeCacheCallback = (node: ExpressionNode) => Type | undefined;
 export type WriteTypeToNodeCacheCallback = (node: ExpressionNode, type: Type) => void;
-export type SetSymbolAccessedCallback = (symbol: Symbol) => void;
 export type SetAnalysisChangedCallback = (reason: string) => void;
 
 interface FlowNodeType {
@@ -183,7 +182,6 @@ export class ExpressionEvaluator {
     private _diagnosticSink: TextRangeDiagnosticSink;
     private _readTypeFromCache: ReadTypeFromNodeCacheCallback;
     private _writeTypeToCache: WriteTypeToNodeCacheCallback;
-    private _setSymbolAccessed: SetSymbolAccessedCallback;
     private _setAnalysisChanged: SetAnalysisChangedCallback;
     private _typeFlowRecursionMap = new Map<number, true>();
 
@@ -196,7 +194,6 @@ export class ExpressionEvaluator {
             diagnosticSink: TextRangeDiagnosticSink,
             readTypeCallback: ReadTypeFromNodeCacheCallback,
             writeTypeCallback: WriteTypeToNodeCacheCallback,
-            setSymbolAccessedCallback: SetSymbolAccessedCallback,
             setAnalysisChangedCallback: SetAnalysisChangedCallback) {
 
         this._diagnosticSink = diagnosticSink;
@@ -204,7 +201,6 @@ export class ExpressionEvaluator {
 
         this._readTypeFromCache = readTypeCallback;
         this._writeTypeToCache = writeTypeCallback;
-        this._setSymbolAccessed = setSymbolAccessedCallback;
         this._setAnalysisChanged = setAnalysisChangedCallback;
     }
 
@@ -971,9 +967,7 @@ export class ExpressionEvaluator {
                         // type of the class variable with that of the new instance variable.
                         if (!memberInfo.isInstanceMember && isInstanceMember) {
                             // The class variable is accessed in this case.
-                            if (!this._isSpeculativeMode) {
-                                this._setSymbolAccessed(memberInfo.symbol);
-                            }
+                            this._setSymbolAccessed(memberInfo.symbol);
                             srcType = combineTypes([srcType, memberInfo.symbolType]);
                         }
                     }
@@ -1124,7 +1118,7 @@ export class ExpressionEvaluator {
                                     entryExpr.value :
                                     entryExpr.strings.map(s => s.value).join('');
                                 const symbolInScope = scope.lookUpSymbolRecursive(symbolName);
-                                if (symbolInScope && !this._isSpeculativeMode) {
+                                if (symbolInScope) {
                                     this._setSymbolAccessed(symbolInScope.symbol);
                                 }
                             }
@@ -1176,6 +1170,28 @@ export class ExpressionEvaluator {
 
         // Make sure we can write the type back to the target.
         this.getType(target, { method: 'set', setType: type, setErrorNode: srcExpr });
+    }
+
+    markExpressionAccessed(target: ExpressionNode) {
+        if (!this._isSpeculativeMode) {
+            if (target.nodeType === ParseNodeType.Name) {
+                const nameValue = target.nameToken.value;
+                const symbolWithScope = this._lookUpSymbolRecursive(target, nameValue);
+
+                if (symbolWithScope) {
+                    this._setSymbolAccessed(symbolWithScope.symbol);
+                }
+            }
+        }
+    }
+
+    private _setSymbolAccessed(symbol: Symbol) {
+        if (!this._isSpeculativeMode) {
+            if (!symbol.isAccessed()) {
+                this._setAnalysisChanged('Symbol accessed flag set');
+                symbol.setIsAccessed();
+            }
+        }
     }
 
     // Builds a sorted list of dataclass parameters that are inherited by
@@ -1483,9 +1499,7 @@ export class ExpressionEvaluator {
                     this.addError(`'${ name }' is possibly unbound`, node);
                 }
 
-                if (!this._isSpeculativeMode) {
-                    this._setSymbolAccessed(symbol);
-                }
+                this._setSymbolAccessed(symbol);
             }
         } else {
             // Handle the special case of "reveal_type".
@@ -1555,9 +1569,7 @@ export class ExpressionEvaluator {
             const symbol = ModuleType.getField(baseType, memberName);
             if (symbol) {
                 if (usage.method === 'get') {
-                    if (!this._isSpeculativeMode) {
-                        this._setSymbolAccessed(symbol);
-                    }
+                    this._setSymbolAccessed(symbol);
                 }
                 type = TypeUtils.getEffectiveTypeOfSymbol(symbol);
             } else {
@@ -1722,7 +1734,7 @@ export class ExpressionEvaluator {
 
             if (usage.method === 'get') {
                 // Mark the member accessed if it's not coming from a parent class.
-                if (memberInfo.classType === classType && !this._isSpeculativeMode) {
+                if (memberInfo.classType === classType) {
                     this._setSymbolAccessed(memberInfo.symbol);
                 }
             }

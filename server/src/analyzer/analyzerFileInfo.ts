@@ -4,7 +4,8 @@
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* Input type common to multiple analyzer passes.
+* Information associated with a source file that is used
+* by the binder and type checker.
 */
 
 import { DiagnosticSettings, ExecutionEnvironment } from '../common/configOptions';

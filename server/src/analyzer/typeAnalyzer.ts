@@ -102,9 +102,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             (node, type) => {
                 this._updateExpressionTypeForNode(node, type);
             },
-            symbol => {
-                this._setSymbolAccessed(symbol);
-            },
             reason => {
                 this._setAnalysisChanged(reason);
             });
@@ -826,7 +823,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._currentScope, 'BaseException') as ClassType;
 
         if (node.typeExpression) {
-            this._markExpressionAccessed(node.typeExpression);
+            this._evaluator.markExpressionAccessed(node.typeExpression);
 
             const exceptionType = this._getTypeOfExpression(node.typeExpression);
 
@@ -1008,7 +1005,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Class and global variables should always be marked as accessed.
         if (ParseTreeUtils.getEnclosingClassOrModule(node, true)) {
-            this._markExpressionAccessed(node.leftExpression);
+            this._evaluator.markExpressionAccessed(node.leftExpression);
         }
 
         this._evaluator.assignTypeToExpression(node.leftExpression, effectiveType, node.rightExpression);
@@ -1118,7 +1115,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitDel(node: DelNode) {
         node.expressions.forEach(expr => {
-            this._markExpressionAccessed(expr);
+            this._evaluator.markExpressionAccessed(expr);
             this._evaluateExpressionForDeletion(expr);
 
             if (expr.nodeType === ParseNodeType.Name) {
@@ -1311,7 +1308,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Class and global variables should always be marked as accessed.
         if (ParseTreeUtils.getEnclosingClassOrModule(node, true)) {
-            this._markExpressionAccessed(node.valueExpression);
+            this._evaluator.markExpressionAccessed(node.valueExpression);
         }
 
         return true;
@@ -2389,17 +2386,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _markExpressionAccessed(target: ExpressionNode) {
-        if (target.nodeType === ParseNodeType.Name) {
-            const nameValue = target.nameToken.value;
-            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
-
-            if (symbolWithScope) {
-                this._setSymbolAccessed(symbolWithScope.symbol);
-            }
-        }
-    }
-
     // Validates that a new type declaration doesn't conflict with an
     // existing type declaration.
     private _validateDeclaredTypeMatches(node: ExpressionNode, type: Type,
@@ -2509,13 +2495,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
     private _addUnusedName(nameNode: NameNode) {
         return this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
             `'${ nameNode.nameToken.value }' is not accessed`, nameNode);
-    }
-
-    private _setSymbolAccessed(symbol: Symbol) {
-        if (!symbol.isAccessed()) {
-            this._setAnalysisChanged('Symbol accessed flag set');
-            symbol.setIsAccessed();
-        }
     }
 
     private _setAnalysisChanged(reason: string) {
