@@ -661,7 +661,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const iteratedType = this._evaluator.getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
 
-        this._assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
+        this._evaluator.assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
         this.walk(node.targetExpression);
         this.walk(node.forSuite);
 
@@ -740,7 +740,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             });
 
             if (item.target) {
-                this._assignTypeToExpression(item.target, scopedType, item.target);
+                this._evaluator.assignTypeToExpression(item.target, scopedType, item.target);
                 this.walk(item.target);
             }
         });
@@ -1011,7 +1011,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._markExpressionAccessed(node.leftExpression);
         }
 
-        this._assignTypeToExpression(node.leftExpression, effectiveType, node.rightExpression);
+        this._evaluator.assignTypeToExpression(node.leftExpression, effectiveType, node.rightExpression);
         return true;
     }
 
@@ -1019,7 +1019,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const type = this._getTypeOfExpression(node);
 
         // Validate that the type can be written back to the LHS.
-        this._assignTypeToExpression(node.name, type, node.rightExpression);
+        this._evaluator.assignTypeToExpression(node.name, type, node.rightExpression);
         return true;
     }
 
@@ -1030,7 +1030,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const type = this._getTypeOfExpression(node);
 
         // Validate that the type can be written back to the dest.
-        this._assignTypeToExpression(node.destExpression, type, node.rightExpression);
+        this._evaluator.assignTypeToExpression(node.destExpression, type, node.rightExpression);
         return true;
     }
 
@@ -1661,29 +1661,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return type;
-    }
-
-    private _reportPossibleUnknownAssignment(diagLevel: DiagnosticLevel, rule: string,
-            target: NameNode, type: Type, srcExpr: ExpressionNode) {
-
-        // Don't bother if the feature is disabled.
-        if (diagLevel === 'none') {
-            return;
-        }
-
-        const nameValue = target.nameToken.value;
-        const simplifiedType = removeUnboundFromUnion(type);
-        if (simplifiedType.category === TypeCategory.Unknown) {
-            this._evaluator.addDiagnostic(diagLevel, rule,
-                `Inferred type of '${ nameValue }' is unknown`, srcExpr);
-        } else if (TypeUtils.containsUnknown(simplifiedType)) {
-            // Sometimes variables contain an "unbound" type if they're
-            // assigned only within conditional statements. Remove this
-            // to avoid confusion.
-            this._evaluator.addDiagnostic(diagLevel, rule,
-                `Inferred type of '${ nameValue }', '${ printType(simplifiedType) }', ` +
-                `is partially unknown`, srcExpr);
-        }
     }
 
     private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
@@ -2362,130 +2339,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return resultingExceptionType || UnknownType.create();
     }
 
-    // Associates a member variable with a specified type.
-    // If typeAnnotationNode is provided, it assumes that the
-    // specified type is declared (rather than inferred).
-    private _assignTypeToMemberVariable(node: MemberAccessExpressionNode, srcType: Type,
-            isInstanceMember: boolean, typeAnnotationNode?: ExpressionNode,
-            srcExprNode?: ExpressionNode) {
-
-        const memberName = node.memberName.nameToken.value;
-        const isConstant = SymbolNameUtils.isConstantName(memberName);
-        const isPrivate = SymbolNameUtils.isPrivateOrProtectedName(memberName);
-        const honorPrivateNaming = this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
-
-        // If the member name appears to be a constant, use the strict
-        // source type. If it's a member variable that can be overridden
-        // by a child class, use the more general version by stripping
-        // off the literal.
-        if (!isConstant && (!isPrivate || !honorPrivateNaming)) {
-            srcType = TypeUtils.stripLiteralValue(srcType);
-        }
-
-        const classDef = ParseTreeUtils.getEnclosingClass(node);
-        if (!classDef) {
-            return;
-        }
-
-        let destType = srcType;
-
-        const classType = AnalyzerNodeInfo.getExpressionType(classDef);
-        if (classType && classType.category === TypeCategory.Class) {
-            let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-                isInstanceMember ? TypeUtils.ClassMemberLookupFlags.Default :
-                    TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
-
-            const memberFields = ClassType.getFields(classType);
-            if (memberInfo) {
-                // Are we accessing an existing member on this class, or is
-                // it a member on a parent class?
-                const isThisClass = memberInfo.classType.category === TypeCategory.Class &&
-                        ClassType.isSameGenericClass(classType, memberInfo.classType);
-
-                if (isThisClass && memberInfo.isInstanceMember === isInstanceMember) {
-                    const symbol = memberFields.get(memberName)!;
-                    assert(symbol !== undefined);
-
-                    // If the type annotation node is provided, use it to generate a source ID.
-                    // If an expression contains both a type annotation and an assignment, we want
-                    // to generate two sources because the types may different, and the analysis
-                    // won't converge if we use the same source ID for both.
-                    const sourceId = (typeAnnotationNode || node.memberName).id;
-                    if (symbol.setInferredTypeForSource(srcType, sourceId)) {
-                        this._setAnalysisChanged('Class member inferred type changed');
-                    }
-
-                    const typedDecls = symbol.getDeclarations();
-
-                    // Check for an attempt to overwrite a constant member variable.
-                    if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable &&
-                            typedDecls[0].isConstant && srcExprNode) {
-
-                        if (node.memberName !== typedDecls[0].node) {
-                            this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticSettings.reportConstantRedefinition,
-                                DiagnosticRule.reportConstantRedefinition,
-                                `'${ node.memberName.nameToken.value }' is constant and cannot be redefined`,
-                                node.memberName);
-                        }
-                    }
-                } else {
-                    // Is the target a property?
-                    const declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
-                    if (declaredType && declaredType.category !== TypeCategory.Property) {
-                        // Handle the case where there is a class variable defined with the same
-                        // name, but there's also now an instance variable introduced. Combine the
-                        // type of the class variable with that of the new instance variable.
-                        if (!memberInfo.isInstanceMember && isInstanceMember) {
-                            // The class variable is accessed in this case.
-                            this._setSymbolAccessed(memberInfo.symbol);
-                            srcType = combineTypes([srcType, memberInfo.symbolType]);
-                        }
-                    }
-                }
-            }
-
-            // Look up the member info again, now that we've potentially updated it.
-            memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-                TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
-            if (memberInfo) {
-                const declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
-                if (declaredType && !isAnyOrUnknown(declaredType)) {
-                    if (declaredType.category === TypeCategory.Function) {
-                        // Overwriting an existing method.
-                        // TODO - not sure what assumption to make here.
-                    } else if (declaredType.category === TypeCategory.Property) {
-                        // TODO - need to validate property setter type.
-                    } else {
-                        const diagAddendum = new DiagnosticAddendum();
-                        if (TypeUtils.canAssignType(declaredType, srcType, diagAddendum)) {
-                            // Constrain the resulting type to match the declared type.
-                            destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(destType, srcType);
-                        }
-                    }
-                }
-            } else {
-                // There was no declared type, so we need to infer the type.
-                if (srcExprNode) {
-                    this._reportPossibleUnknownAssignment(
-                        this._fileInfo.diagnosticSettings.reportUnknownMemberType,
-                        DiagnosticRule.reportUnknownMemberType,
-                        node.memberName, srcType, srcExprNode);
-                }
-            }
-        }
-    }
-
     private _isNodeReachable(node: ParseNode): boolean {
         return this._evaluator.isNodeReachable(node);
     }
 
     private _getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): Type {
         return this._evaluator.getType(node, { method: 'get', expectedType }, flags);
-    }
-
-    private _evaluateExpressionForAssignment(node: ExpressionNode, type: Type, errorNode: ExpressionNode) {
-        this._evaluator.getType(node, { method: 'set', setType: type, setErrorNode: errorNode }, EvaluatorFlags.None);
     }
 
     private _evaluateExpressionForDeletion(node: ExpressionNode): Type {
@@ -2554,174 +2413,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     errorNode);
             }
         }
-    }
-
-    private _assignTypeToExpression(target: ExpressionNode, srcType: Type, srcExpr: ExpressionNode): void {
-        if (target.nodeType === ParseNodeType.Name) {
-            const name = target.nameToken;
-            // Handle '__all__' as a special case in the module scope.
-            if (name.value === '__all__' && this._currentScope.getType() === ScopeType.Module) {
-                // It's common for modules to include the expression
-                // __all__ = ['a', 'b', 'c']
-                // We will mark the symbols referenced by these strings as accessed.
-                if (srcExpr.nodeType === ParseNodeType.List) {
-                    srcExpr.entries.forEach(entryExpr => {
-                        if (entryExpr.nodeType === ParseNodeType.StringList || entryExpr.nodeType === ParseNodeType.String) {
-                            const symbolName = entryExpr.nodeType === ParseNodeType.String ?
-                                entryExpr.value :
-                                entryExpr.strings.map(s => s.value).join('');
-                            const symbolInScope = this._currentScope.lookUpSymbolRecursive(symbolName);
-                            if (symbolInScope) {
-                                this._setSymbolAccessed(symbolInScope.symbol);
-                            }
-                        }
-                    });
-                }
-            }
-
-            this._reportPossibleUnknownAssignment(
-                this._fileInfo.diagnosticSettings.reportUnknownVariableType,
-                DiagnosticRule.reportUnknownVariableType,
-                target, srcType, srcExpr);
-
-            this._evaluator.assignTypeToNameNode(target, srcType, srcExpr);
-        } else if (target.nodeType === ParseNodeType.MemberAccess) {
-            const targetNode = target.leftExpression;
-
-            // Handle member accesses (e.g. self.x or cls.y).
-            if (targetNode.nodeType === ParseNodeType.Name) {
-                // Determine whether we're writing to a class or instance member.
-                const enclosingClassNode = ParseTreeUtils.getEnclosingClass(target);
-
-                if (enclosingClassNode) {
-                    const classType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
-
-                    if (classType && classType.category === TypeCategory.Class) {
-                        const typeOfLeftExpr = this._getTypeOfExpression(target.leftExpression);
-                        if (typeOfLeftExpr.category === TypeCategory.Object) {
-                            if (ClassType.isSameGenericClass(typeOfLeftExpr.classType, classType)) {
-                                this._assignTypeToMemberVariable(target, srcType, true,
-                                    undefined, srcExpr);
-                            }
-                        } else if (typeOfLeftExpr.category === TypeCategory.Class) {
-                            if (ClassType.isSameGenericClass(typeOfLeftExpr, classType)) {
-                                this._assignTypeToMemberVariable(target, srcType, false,
-                                    undefined, srcExpr);
-                            }
-                        }
-                    }
-                }
-            }
-        } else if (target.nodeType === ParseNodeType.Tuple) {
-            // Initialize the array of target types, one for each target.
-            const targetTypes: Type[][] = new Array(target.expressions.length);
-            for (let i = 0; i < target.expressions.length; i++) {
-                targetTypes[i] = [];
-            }
-
-            TypeUtils.doForSubtypes(srcType, subtype => {
-                // Is this subtype a tuple?
-                const tupleType = TypeUtils.getSpecializedTupleType(subtype);
-                if (tupleType && ClassType.getTypeArguments(tupleType)) {
-                    const entryTypes = ClassType.getTypeArguments(tupleType)!;
-                    let entryCount = entryTypes.length;
-
-                    const sourceEndsInEllipsis = entryCount > 0 &&
-                        TypeUtils.isEllipsisType(entryTypes[entryCount - 1]);
-                    if (sourceEndsInEllipsis) {
-                        entryCount--;
-                    }
-
-                    const targetEndsWithUnpackOperator = target.expressions.length > 0 &&
-                        target.expressions[target.expressions.length - 1].nodeType === ParseNodeType.Unpack;
-
-                    if (targetEndsWithUnpackOperator) {
-                        if (entryCount >= target.expressions.length) {
-                            for (let index = 0; index < target.expressions.length - 1; index++) {
-                                const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
-                                targetTypes[index].push(entryType);
-                            }
-
-                            const remainingTypes: Type[] = [];
-                            for (let index = target.expressions.length - 1; index < entryCount; index++) {
-                                const entryType = entryTypes[index];
-                                remainingTypes.push(entryType);
-                            }
-
-                            targetTypes[target.expressions.length - 1].push(combineTypes(remainingTypes));
-                        } else {
-                            this._evaluator.addError(
-                                `Tuple size mismatch: expected at least ${ target.expressions.length } entries` +
-                                    ` but got ${ entryCount }`,
-                                target);
-                        }
-                    } else {
-                        if (target.expressions.length === entryCount ||
-                                (sourceEndsInEllipsis && target.expressions.length >= entryCount)) {
-
-                            for (let index = 0; index < target.expressions.length; index++) {
-                                const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
-                                targetTypes[index].push(entryType);
-                            }
-                        } else {
-                            this._evaluator.addError(
-                                `Tuple size mismatch: expected ${ target.expressions.length }` +
-                                    ` but got ${ entryCount }`,
-                                target);
-                        }
-                    }
-                } else {
-                    // The assigned expression isn't a tuple, so it had better
-                    // be some iterable type.
-                    const iterableType = this._evaluator.getTypeFromIterable(
-                        subtype, false, srcExpr, false);
-                    for (let index = 0; index < target.expressions.length; index++) {
-                        targetTypes[index].push(iterableType);
-                    }
-                }
-
-                // We need to return something to satisfy doForSubtypes.
-                return undefined;
-            });
-
-            target.expressions.forEach((expr, index) => {
-                const typeList = targetTypes[index];
-                const targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
-                this._assignTypeToExpression(expr, targetType, srcExpr);
-            });
-        } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
-            const typeHintType = this._evaluator.getTypeOfAnnotation(target.typeAnnotation);
-            const diagAddendum = new DiagnosticAddendum();
-            if (TypeUtils.canAssignType(typeHintType, srcType, diagAddendum)) {
-                srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(typeHintType, srcType);
-            }
-
-            this._assignTypeToExpression(target.valueExpression, srcType, srcExpr);
-        } else if (target.nodeType === ParseNodeType.Unpack) {
-            if (target.expression.nodeType === ParseNodeType.Name) {
-                if (!isAnyOrUnknown(srcType)) {
-                    // Make a list type from the source.
-                    const listType = ScopeUtils.getBuiltInType(this._currentScope, 'List');
-                    if (listType.category === TypeCategory.Class) {
-                        srcType = ObjectType.create(ClassType.cloneForSpecialization(listType, [srcType]));
-                    } else {
-                        srcType = UnknownType.create();
-                    }
-                }
-                this._evaluator.assignTypeToNameNode(target.expression, srcType, srcExpr);
-            }
-        } else if (target.nodeType === ParseNodeType.List) {
-            // The assigned expression had better be some iterable type.
-            const iteratedType = this._evaluator.getTypeFromIterable(
-                srcType, false, srcExpr, false);
-
-            target.entries.forEach(entry => {
-                this._assignTypeToExpression(entry, iteratedType, srcExpr);
-            });
-        }
-
-        // Report any errors with assigning to this type.
-        this._evaluateExpressionForAssignment(target, srcType, srcExpr);
     }
 
     // Given a function node and the function type associated with it, this
