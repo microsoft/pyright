@@ -13,7 +13,6 @@
 
 import * as assert from 'assert';
 
-import { InferredType } from './inferredType';
 import { setSymbolPreservingAccess, Symbol, SymbolFlags, SymbolTable } from './symbol';
 
 export const enum ScopeType {
@@ -70,10 +69,6 @@ export class Scope {
     // Names not in _exportFilterMap will be hidden from child scopes.
     private _exportFilterMap: { [name: string]: string } | undefined;
 
-    // Inferred return and yield types for the scope.
-    private _returnType = new InferredType();
-    private _yieldType = new InferredType();
-
     constructor(type: ScopeType, parent?: Scope) {
         this._scopeType = type;
         this._parent = parent;
@@ -124,17 +119,9 @@ export class Scope {
         return this;
     }
 
-    getReturnType(): InferredType {
-        return this._returnType;
-    }
-
-    getYieldType(): InferredType {
-        return this._yieldType;
-    }
-
     // Independently-executable scopes are those that are executed independently
-    // of their parent scopes. Classes and temporary scopes are executed in the
-    // context of their parent scope, so they don't fit this category.
+    // of their parent scopes. Classes are executed in the context of their parent
+    // scope, so they don't fit this category.
     isIndependentlyExecutable(): boolean {
         return this._scopeType === ScopeType.Module ||
             this._scopeType === ScopeType.Function;

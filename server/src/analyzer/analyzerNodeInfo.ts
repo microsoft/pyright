@@ -10,11 +10,12 @@
 * language services (e.g. hover information).
 */
 
-import { ModuleNode, ParseNode } from '../parser/parseNodes';
+import { FunctionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { FlowNode } from './codeFlow';
+import { FunctionDeclaration } from './declaration';
 import { ImportResult } from './importResult';
-import { Scope, ScopeType } from './scope';
+import { Scope } from './scope';
 import { Type } from './types';
 
 interface AnalyzerNodeInfo {
@@ -31,6 +32,9 @@ interface AnalyzerNodeInfo {
     // classes, lambdas, and list comprehensions. A scope is used
     // to store symbol names and their associated types and declarations.
     scope?: Scope;
+
+    // Declaration (for functions only).
+    declaration?: FunctionDeclaration;
 
     // Control flow information for this node.
     flowNode?: FlowNode;
@@ -63,6 +67,7 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
     const analyzerNode = node as AnalyzerNodeInfo;
 
     delete analyzerNode.scope;
+    delete analyzerNode.declaration;
     delete analyzerNode.flowNode;
     delete analyzerNode.afterFlowNode;
     delete analyzerNode.fileInfo;
@@ -87,6 +92,16 @@ export function getScope(node: ParseNode): Scope | undefined {
 export function setScope(node: ParseNode, scope: Scope) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.scope = scope;
+}
+
+export function getFunctionDeclaration(node: FunctionNode): FunctionDeclaration | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode.declaration;
+}
+
+export function setFunctionDeclaration(node: ParseNode, decl: FunctionDeclaration) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode.declaration = decl;
 }
 
 export function getFlowNode(node: ParseNode): FlowNode | undefined {

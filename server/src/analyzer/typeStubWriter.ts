@@ -178,21 +178,23 @@ export class TypeStubWriter extends ParseTreeWalker {
             } else {
                 const functionType = AnalyzerNodeInfo.getExpressionType(node);
                 if (functionType && functionType.category === TypeCategory.Function) {
-                    let inferredReturnType = FunctionType.getInferredReturnType(functionType).getType();
-                    inferredReturnType = TypeUtils.stripLiteralValue(inferredReturnType);
+                    let inferredReturnType = FunctionType.getInferredReturnType(functionType);
+                    if (inferredReturnType) {
+                        inferredReturnType = TypeUtils.stripLiteralValue(inferredReturnType);
 
-                    // If the inferred return type is NoReturn, don't include it because
-                    // the inference is probably incorrect. This occurs often when a base
-                    // class is implemented with a NoReturn, but subclasses provide an
-                    // actual return value.
-                    if (TypeUtils.isNoReturnType(inferredReturnType)) {
-                        inferredReturnType = UnknownType.create();
-                    }
+                        // If the inferred return type is NoReturn, don't include it because
+                        // the inference is probably incorrect. This occurs often when a base
+                        // class is implemented with a NoReturn, but subclasses provide an
+                        // actual return value.
+                        if (TypeUtils.isNoReturnType(inferredReturnType)) {
+                            inferredReturnType = UnknownType.create();
+                        }
 
-                    // If the type is partially unknown, skip it.
-                    if (!TypeUtils.containsUnknown(inferredReturnType)) {
-                        // TODO - need to implement
-                        // line += ' -> ' + inferredReturnType.asString();
+                        // If the type is partially unknown, skip it.
+                        if (!TypeUtils.containsUnknown(inferredReturnType)) {
+                            // TODO - need to implement
+                            // line += ' -> ' + inferredReturnType.asString();
+                        }
                     }
                 }
             }

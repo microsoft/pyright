@@ -716,11 +716,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         if (this._isNodeReachable(node) && enclosingFunctionNode) {
-            const functionScope = AnalyzerNodeInfo.getScope(enclosingFunctionNode)!;
-            if (functionScope.getReturnType().addSource(returnType, node.id)) {
-                this._setAnalysisChanged('Return type changed');
-            }
-
             if (declaredReturnType) {
                 if (TypeUtils.isNoReturnType(declaredReturnType)) {
                     this._evaluator.addError(
@@ -1835,78 +1830,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
             return;
         }
 
+        const functionDecl = AnalyzerNodeInfo.getFunctionDeclaration(node)!;
         const declaredReturnType = FunctionType.isGenerator(functionType) ?
             TypeUtils.getDeclaredGeneratorReturnType(functionType) :
             FunctionType.getDeclaredReturnType(functionType);
 
-        const inferredReturnType = FunctionType.getInferredReturnType(functionType);
-        const inferredYieldType = FunctionType.getInferredYieldType(functionType);
-
-        // If there was no return type declared, infer the return type.
-        if (!declaredReturnType) {
-            if (inferredReturnType.addSources(this._currentScope.getReturnType())) {
-                this._setAnalysisChanged('Function return inferred type changed');
-            }
-        }
-
-        // Inferred yield types need to be wrapped in a Generator to
-        // produce the final result.
-        const generatorType = this._evaluator.getTypingType(node, 'Generator');
-        if (generatorType && generatorType.category === TypeCategory.Class) {
-            inferredYieldType.setGenericClassWrapper(generatorType);
-        }
-
-        if (inferredYieldType.addSources(this._currentScope.getYieldType())) {
-            this._setAnalysisChanged('Function yield type changed');
-        }
-
         const functionNeverReturns = !this._evaluator.isAfterNodeReachable(node);
         const implicitlyReturnsNone = this._evaluator.isAfterNodeReachable(node.suite);
 
-        // If the function always raises and never returns, add
-        // the "NoReturn" type. Skip this for abstract methods which
-        // often are implemented with "raise NotImplementedError()".
-        if (functionNeverReturns && !FunctionType.isAbstractMethod(functionType)) {
-            const noReturnType = this._evaluator.getTypingType(node, 'NoReturn') as ClassType;
-            if (noReturnType && inferredReturnType.addSource(ObjectType.create(noReturnType), node.id)) {
-                this._setAnalysisChanged('Function inferred NoReturn changed');
-            }
-        } else {
-            // Add the "None" type if the function doesn't always return.
-            if (implicitlyReturnsNone) {
-                if (inferredReturnType.addSource(NoneType.create(), node.id)) {
-                    this._setAnalysisChanged('Function inferred None changed');
-                }
-
-                if (declaredReturnType && node.returnTypeAnnotation) {
-                    // Skip this check for abstract methods and functions that are declared NoReturn.
-                    if (!FunctionType.isAbstractMethod(functionType) && !TypeUtils.isNoReturnType(declaredReturnType)) {
-                        const diagAddendum = new DiagnosticAddendum();
-
-                        // If the declared type isn't compatible with 'None', flag an error.
-                        if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
-                            // If the function consists entirely of "...", assume that it's
-                            // an abstract method or a protocol method and don't require that
-                            // the return type matches.
-                            if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
-                                this._evaluator.addError(`Function with declared type of '${ printType(declaredReturnType) }'` +
-                                        ` must return value` + diagAddendum.getString(),
-                                    node.returnTypeAnnotation);
-                            }
-                        }
-                    }
-                }
-            } else {
-                if (inferredReturnType.removeSource(node.id)) {
-                    this._setAnalysisChanged('Function inferred return type changed');
-                }
-            }
-        }
-
         if (node.returnTypeAnnotation) {
-            const declaredReturnType = FunctionType.getDeclaredReturnType(functionType);
-            if (declaredReturnType && TypeUtils.isNoReturnType(declaredReturnType)) {
-                if (!functionNeverReturns && implicitlyReturnsNone) {
+            // The types of all return statement expressions were already checked
+            // against the declared type, but we need to verify the implicit None
+            // at the end of the function.
+            if (declaredReturnType && !functionNeverReturns && implicitlyReturnsNone) {
+                if (TypeUtils.isNoReturnType(declaredReturnType)) {
                     // If the function consists entirely of "...", assume that it's
                     // an abstract method or a protocol method and don't require that
                     // the return type matches.
@@ -1914,33 +1851,122 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         this._evaluator.addError(`Function with declared type of 'NoReturn' cannot return 'None'`,
                             node.returnTypeAnnotation);
                     }
+                } else if (!FunctionType.isAbstractMethod(functionType)) {
+                    // Make sure that the function doesn't implicitly return None if the declared
+                    // type doesn't allow it. Skip this check for abstract methods.
+                    const diagAddendum = new DiagnosticAddendum();
+
+                    // If the declared type isn't compatible with 'None', flag an error.
+                    if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
+                        // If the function consists entirely of "...", assume that it's
+                        // an abstract method or a protocol method and don't require that
+                        // the return type matches.
+                        if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
+                            this._evaluator.addError(`Function with declared type of '${ printType(declaredReturnType) }'` +
+                                    ` must return value` + diagAddendum.getString(),
+                                node.returnTypeAnnotation);
+                        }
+                    }
                 }
             }
         } else {
-            let returnType: Type;
+            // Infer the return type based on all of the return statements in the function's body.
+            let inferredReturnType: Type;
             if (this._fileInfo.isStubFile) {
                 // If a return type annotation is missing in a stub file, assume
                 // it's an "unknown" type. In normal source files, we can infer the
                 // type from the implementation.
-                returnType = UnknownType.create();
-                FunctionType.setDeclaredReturnType(functionType, returnType);
+                inferredReturnType = UnknownType.create();
+            } else if (functionNeverReturns) {
+                // If the function always raises and never returns, assume a "NoReturn" type.
+                // Skip this for abstract methods which often are implemented with "raise
+                // NotImplementedError()".
+                if (FunctionType.isAbstractMethod(functionType)) {
+                    inferredReturnType = UnknownType.create();
+                } else {
+                    const noReturnClass = this._evaluator.getTypingType(node, 'NoReturn');
+                    if (noReturnClass && noReturnClass.category === TypeCategory.Class) {
+                        inferredReturnType = ObjectType.create(noReturnClass);
+                    } else {
+                        inferredReturnType = UnknownType.create();
+                    }
+                }
             } else {
-                returnType = inferredReturnType.getType();
+                const inferredReturnTypes: Type[] = [];
+                if (functionDecl.returnExpressions) {
+                    functionDecl.returnExpressions.forEach(returnNode => {
+                        if (this._evaluator.isNodeReachable(returnNode)) {
+                            if (returnNode.returnExpression) {
+                                const cachedType = AnalyzerNodeInfo.getExpressionType(returnNode.returnExpression);
+                                inferredReturnTypes.push(cachedType || UnknownType.create());
+                            } else {
+                                inferredReturnTypes.push(NoneType.create());
+                            }
+                        }
+                    });
+                }
+
+                if (!functionNeverReturns && implicitlyReturnsNone) {
+                    inferredReturnTypes.push(NoneType.create());
+                }
+
+                inferredReturnType = combineTypes(inferredReturnTypes);
             }
 
-            // Include Any in this check. If "Any" really is desired, it should
-            // be made explicit through a type annotation.
-            if (returnType.category === TypeCategory.Unknown) {
+            if (!functionType.details.inferredReturnType ||
+                    !isTypeSame(functionType.details.inferredReturnType, inferredReturnType)) {
+
+                functionType.details.inferredReturnType = inferredReturnType;
+                this._setAnalysisChanged('Inferred return type changed');
+            }
+
+            if (inferredReturnType.category === TypeCategory.Unknown) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
                     `Inferred return type is unknown`, node.name);
-            } else if (TypeUtils.containsUnknown(returnType)) {
+            } else if (TypeUtils.containsUnknown(inferredReturnType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
-                    `Return type '${ printType(returnType) }' is partially unknown`,
+                    `Return type '${ printType(inferredReturnType) }' is partially unknown`,
                     node.name);
+            }
+
+            // Infer the yield type.
+            if (functionDecl.yieldExpressions) {
+                const inferredYieldTypes: Type[] = [];
+                functionDecl.yieldExpressions.forEach(yieldNode => {
+                    if (this._evaluator.isNodeReachable(yieldNode)) {
+                        if (yieldNode.expression) {
+                            const cachedType = AnalyzerNodeInfo.getExpressionType(yieldNode.expression);
+                            inferredYieldTypes.push(cachedType || UnknownType.create());
+                        } else {
+                            inferredYieldTypes.push(NoneType.create());
+                        }
+                    }
+                });
+
+                if (inferredYieldTypes.length > 0) {
+                    let inferredYieldType = combineTypes(inferredYieldTypes);
+
+                    // Inferred yield types need to be wrapped in a Generator to
+                    // produce the final result.
+                    const generatorType = this._evaluator.getTypingType(node, 'Generator');
+                    if (generatorType && generatorType.category === TypeCategory.Class) {
+                        inferredYieldType = ObjectType.create(
+                            ClassType.cloneForSpecialization(generatorType, [inferredYieldType]));
+                    } else {
+                        inferredYieldType = UnknownType.create();
+                    }
+
+                    if (!functionType.details.inferredYieldType ||
+                            !isTypeSame(functionType.details.inferredYieldType, inferredYieldType)) {
+
+                        functionType.details.inferredYieldType = inferredYieldType;
+                        this._setAnalysisChanged('Inferred yield type changed');
+                    }
+                }
             }
         }
     }
@@ -2199,11 +2225,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
 
         if (enclosingFunctionNode) {
-            const functionScope = AnalyzerNodeInfo.getScope(enclosingFunctionNode)!;
-            if (functionScope.getYieldType().addSource(rawYieldType, node.id)) {
-                this._setAnalysisChanged('Yield type changed');
-            }
-
             const functionType = AnalyzerNodeInfo.getExpressionType(
                 enclosingFunctionNode) as FunctionType;
             if (functionType) {

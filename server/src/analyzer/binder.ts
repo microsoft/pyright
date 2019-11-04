@@ -81,9 +81,7 @@ export class Binder extends ParseTreeWalker {
     // A queue of deferred analysis operations.
     private _deferredBindingTasks: DeferredBindingTask[] = [];
 
-    // The current scope in effect. This is either the base scope or a
-    // "temporary scope", used for analyzing conditional code blocks. Their
-    // contents are eventually merged in to the base scope.
+    // The current scope in effect.
     private _currentScope: Scope;
 
     // Name bindings that are not local to the current scope.
@@ -380,6 +378,9 @@ export class Binder extends ParseTreeWalker {
             symbol.addDeclaration(functionDeclaration);
         }
 
+        // Stash the declaration in the parse node for later access.
+        AnalyzerNodeInfo.setFunctionDeclaration(node, functionDeclaration);
+
         this.walkMultiple(node.decorators);
         node.parameters.forEach(param => {
             if (param.defaultValue) {
@@ -482,6 +483,10 @@ export class Binder extends ParseTreeWalker {
 
                 // Walk the statements that make up the function.
                 this.walk(node.suite);
+
+                if (functionDeclaration!.yieldExpressions) {
+                    FunctionType.setIsGenerator(functionType);
+                }
 
                 // Associate the code flow node at the end of the suite with
                 // the suite.

@@ -4350,8 +4350,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         });
 
         const returnType = getTypeFromExpression(node.expression, { method: 'get' }).type;
-        FunctionType.getInferredReturnType(functionType).addSource(
-            returnType, node.expression.id);
+        functionType.details.inferredReturnType = returnType;
 
         return { type: functionType, node };
     }

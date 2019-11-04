@@ -11,7 +11,7 @@ import * as assert from 'assert';
 
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
-import { InferredType, TypeSourceId } from './inferredType';
+import { TypeSourceId } from './inferredType';
 import { Symbol, SymbolTable } from './symbol';
 
 export const enum TypeCategory {
@@ -548,23 +548,24 @@ export interface FunctionParameter {
 }
 
 export const enum FunctionTypeFlags {
-    None = 0,
-    InstanceMethod = 1,
-    ConstructorMethod = 2,
-    ClassMethod = 4,
-    StaticMethod = 8,
-    AbstractMethod = 16,
-    DisableDefaultChecks = 32,
-    SynthesizedMethod = 64,
-    Overloaded = 128
+    None                    = 0,
+    InstanceMethod          = 1 << 0,
+    ConstructorMethod       = 1 << 1,
+    ClassMethod             = 1 << 2,
+    StaticMethod            = 1 << 3,
+    AbstractMethod          = 1 << 4,
+    Generator               = 1 << 5,
+    DisableDefaultChecks    = 1 << 6,
+    SynthesizedMethod       = 1 << 7,
+    Overloaded              = 1 << 8
 }
 
 interface FunctionDetails {
     flags: FunctionTypeFlags;
     parameters: FunctionParameter[];
     declaredReturnType?: Type;
-    inferredReturnType: InferredType;
-    inferredYieldType: InferredType;
+    inferredReturnType?: Type;
+    inferredYieldType?: Type;
     builtInName?: string;
     docString?: string;
 }
@@ -591,8 +592,6 @@ export namespace FunctionType {
             details: {
                 flags,
                 parameters: [],
-                inferredReturnType: new InferredType(),
-                inferredYieldType: new InferredType(),
                 docString
             }
         };
@@ -681,6 +680,14 @@ export namespace FunctionType {
 
     export function setIsAbstractMethod(type: FunctionType) {
         type.details.flags |= FunctionTypeFlags.AbstractMethod;
+    }
+
+    export function isGenerator(type: FunctionType): boolean {
+        return (type.details.flags & FunctionTypeFlags.Generator) !== 0;
+    }
+
+    export function setIsGenerator(type: FunctionType) {
+        type.details.flags |= FunctionTypeFlags.Generator;
     }
 
     export function isSynthesizedMethod(type: FunctionType): boolean {
@@ -777,14 +784,10 @@ export namespace FunctionType {
 
         if (isGenerator(type)) {
             // Wrap this in an Iterator type.
-            return type.details.inferredYieldType.getType();
+            return type.details.inferredYieldType || UnknownType.create();
         }
 
-        return type.details.inferredReturnType.getType();
-    }
-
-    export function isGenerator(type: FunctionType) {
-        return type.details.inferredYieldType.getSourceCount() > 0;
+        return type.details.inferredReturnType || UnknownType.create();
     }
 }
 

@@ -29,27 +29,12 @@ export class InferredType {
     private _sources: InferredTypeSource[] = [];
     private _combinedType: Type;
 
-    // Some inferred types need to be wrapped in another
-    // class. For example, the inferred yield type needs to
-    // be wrapped in an Iterable[].
-    private _genericClassWrapper: ClassType | undefined;
-
     constructor() {
         this._combinedType = UnknownType.create();
     }
 
-    setGenericClassWrapper(classType: ClassType) {
-        this._genericClassWrapper = classType;
-    }
-
     getType() {
-        if (!this._genericClassWrapper) {
-            return this._combinedType;
-        }
-
-        const specializedClass = ClassType.cloneForSpecialization(
-            this._genericClassWrapper, [this._combinedType]);
-        return ObjectType.create(specializedClass);
+        return this._combinedType;
     }
 
     getSources() {
