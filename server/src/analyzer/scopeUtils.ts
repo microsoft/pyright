@@ -13,8 +13,8 @@ import * as assert from 'assert';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { getScope } from './analyzerNodeInfo';
 import { Scope, ScopeType } from './scope';
+import { getEffectiveTypeOfSymbol } from './symbolUtils';
 import { ClassType, ObjectType, Type, TypeCategory, UnknownType } from './types';
-import * as TypeUtils from './typeUtils';
 
 export function getBuiltInScope(currentScope: Scope): Scope {
     // Starting at the current scope, find the built-in scope, which should
@@ -32,7 +32,7 @@ export function getBuiltInType(currentScope: Scope, name: string): Type {
     const builtInScope = getBuiltInScope(currentScope);
     const nameType = builtInScope.lookUpSymbol(name);
     if (nameType) {
-        return TypeUtils.getEffectiveTypeOfSymbol(nameType);
+        return getEffectiveTypeOfSymbol(nameType);
     }
 
     return UnknownType.create();

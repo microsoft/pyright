@@ -35,6 +35,7 @@ import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { setSymbolPreservingAccess, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol } from './symbolUtils';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
     FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound, isTypeSame,
     isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
@@ -376,7 +377,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         if (symbol) {
-            let declaredType = TypeUtils.getDeclaredTypeOfSymbol(symbol);
+            let declaredType = getDeclaredTypeOfSymbol(symbol);
             if (declaredType) {
                 // If it's a property, we need to get the setter's type.
                 if (declaredType.category === TypeCategory.Property) {
@@ -737,7 +738,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return undefined;
         }
 
-        return TypeUtils.getEffectiveTypeOfSymbol(symbol);
+        return getEffectiveTypeOfSymbol(symbol);
     }
 
     function isNodeReachable(node: ParseNode): boolean {
@@ -820,7 +821,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         const declarations = symbolWithScope.symbol.getDeclarations();
-        const declaredType = TypeUtils.getDeclaredTypeOfSymbol(symbolWithScope.symbol);
+        const declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol);
 
         // We found an existing declared type. Make sure the type is assignable.
         let destType = type;
@@ -969,7 +970,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     }
                 } else {
                     // Is the target a property?
-                    const declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
+                    const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
                     if (declaredType && declaredType.category !== TypeCategory.Property) {
                         // Handle the case where there is a class variable defined with the same
                         // name, but there's also now an instance variable introduced. Combine the
@@ -987,7 +988,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
                 TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
             if (memberInfo) {
-                const declaredType = TypeUtils.getDeclaredTypeOfSymbol(memberInfo.symbol);
+                const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
                 if (declaredType && !isAnyOrUnknown(declaredType)) {
                     if (declaredType.category === TypeCategory.Function) {
                         // Overwriting an existing method.
@@ -1477,7 +1478,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
-            type = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+            type = getEffectiveTypeOfSymbol(symbol);
             const isSpecialBuiltIn = type && type.category === TypeCategory.Class &&
                 ClassType.isSpecialBuiltIn(type);
 
@@ -1600,7 +1601,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 if (usage.method === 'get') {
                     setSymbolAccessed(symbol);
                 }
-                type = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+                type = getEffectiveTypeOfSymbol(symbol);
             } else {
                 addError(`'${ memberName }' is not a known member of module`, node.memberName);
                 type = UnknownType.create();

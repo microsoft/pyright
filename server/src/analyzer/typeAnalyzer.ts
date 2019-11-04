@@ -39,6 +39,7 @@ import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
+import { getEffectiveTypeOfSymbol } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,
     printType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion,
@@ -488,6 +489,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         });
 
+        // If there was a defined return type, analyze that first so when we
+        // walk the contents of the function, return statements can be
+        // validated against this type.
         if (node.returnTypeAnnotation) {
             const returnType = this._evaluator.getTypeOfAnnotation(node.returnTypeAnnotation);
             if (FunctionType.setDeclaredReturnType(functionType, returnType)) {
@@ -495,32 +499,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
 
             this.walk(node.returnTypeAnnotation);
-        } else {
-            let inferredReturnType: Type = UnknownType.create();
-
-            if (this._fileInfo.isStubFile) {
-                // If a return type annotation is missing in a stub file, assume
-                // it's an "unknown" type. In normal source files, we can infer the
-                // type from the implementation.
-                FunctionType.setDeclaredReturnType(functionType, inferredReturnType);
-            } else {
-                inferredReturnType = FunctionType.getInferredReturnType(functionType).getType();
-            }
-
-            // Include Any in this check. If "Any" really is desired, it should
-            // be made explicit through a type annotation.
-            if (inferredReturnType.category === TypeCategory.Unknown) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
-                    `Inferred return type is unknown`, node.name);
-            } else if (TypeUtils.containsUnknown(inferredReturnType)) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
-                    `Return type '${ printType(inferredReturnType) }' is partially unknown`,
-                    node.name);
-            }
         }
 
         this._enterScope(node, () => {
@@ -554,6 +532,37 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Validate that the function returns the declared type.
             this._validateFunctionReturn(node, functionType);
         });
+
+        // If there was no defined return type, infer the type from the
+        // return statements.
+        if (!node.returnTypeAnnotation) {
+            let inferredReturnType: Type;
+
+            if (this._fileInfo.isStubFile) {
+                // If a return type annotation is missing in a stub file, assume
+                // it's an "unknown" type. In normal source files, we can infer the
+                // type from the implementation.
+                inferredReturnType = UnknownType.create();
+                FunctionType.setDeclaredReturnType(functionType, inferredReturnType);
+            } else {
+                inferredReturnType = FunctionType.getInferredReturnType(functionType).getType();
+            }
+
+            // Include Any in this check. If "Any" really is desired, it should
+            // be made explicit through a type annotation.
+            if (inferredReturnType.category === TypeCategory.Unknown) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                    DiagnosticRule.reportUnknownParameterType,
+                    `Inferred return type is unknown`, node.name);
+            } else if (TypeUtils.containsUnknown(inferredReturnType)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                    DiagnosticRule.reportUnknownParameterType,
+                    `Return type '${ printType(inferredReturnType) }' is partially unknown`,
+                    node.name);
+            }
+        }
 
         // If there was no decorator, see if there are any overloads provided
         // by previous function declarations.
@@ -1293,7 +1302,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 if (lookupResults) {
                     const symbol = lookupResults.symbolTable.get(aliasDecl.symbolName);
                     if (symbol) {
-                        symbolType = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+                        symbolType = getEffectiveTypeOfSymbol(symbol);
                     }
                 }
             }
@@ -1555,13 +1564,13 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         if (collectionsSymbolTable) {
                             const symbol = collectionsSymbolTable.get(baseClassName);
                             if (symbol) {
-                                aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+                                aliasClass = getEffectiveTypeOfSymbol(symbol);
                             }
                         }
                     } else if (specialTypes[assignedName].module === 'self') {
                         const symbolWithScope = this._currentScope.lookUpSymbolRecursive(baseClassName);
                         if (symbolWithScope) {
-                            aliasClass = TypeUtils.getEffectiveTypeOfSymbol(symbolWithScope.symbol);
+                            aliasClass = getEffectiveTypeOfSymbol(symbolWithScope.symbol);
                         }
                     }
 
@@ -1962,11 +1971,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
         ClassType.getFields(classType).forEach((symbol, name) => {
             // Don't check magic functions.
             if (symbol.isClassMember() && !SymbolNameUtils.isDunderName(name)) {
-                const typeOfSymbol = TypeUtils.getEffectiveTypeOfSymbol(symbol);
+                const typeOfSymbol = getEffectiveTypeOfSymbol(symbol);
                 if (typeOfSymbol.category === TypeCategory.Function) {
                     const baseClassAndSymbol = TypeUtils.getSymbolFromBaseClasses(classType, name);
                     if (baseClassAndSymbol) {
-                        const typeOfBaseClassMethod = TypeUtils.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
+                        const typeOfBaseClassMethod = getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
                         const diagAddendum = new DiagnosticAddendum();
                         if (!TypeUtils.canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol, diagAddendum)) {
                             const declarations = symbol.getDeclarations();

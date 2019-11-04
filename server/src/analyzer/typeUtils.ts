@@ -15,11 +15,13 @@ import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { getTypeForDeclaration, hasTypeForDeclaration } from './declarationUtils';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
+import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol,
+    isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType, FunctionTypeFlags,
     InheritanceChain, isAnyOrUnknown, isNoneOrNever, isSameWithoutLiteralValue, isTypeSame,
     ModuleType, NeverType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,
     printLiteralValue, printType, requiresSpecialization, SpecializedFunctionTypes, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
+    TypeVarMap, TypeVarType, UnknownType } from './types';
 
 const _maxTypeRecursion = 20;
 
@@ -991,46 +993,6 @@ export function lookUpClassMember(classType: Type, memberName: string,
     return undefined;
 }
 
-export function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
-    // If there's a declared type, it takes precedence.
-    const declaredType = getDeclaredTypeOfSymbol(symbol);
-
-    if (declaredType) {
-        return declaredType;
-    }
-
-    return symbol.getInferredType();
-}
-
-// Returns the initial type of the symbol within scope in which
-// it is declared. For most symbols, this will be "unbound".
-export function getInitialTypeOfSymbol(symbol: Symbol): Type {
-    if (symbol.isInitiallyUnbound()) {
-        return UnboundType.create();
-    }
-
-    return getEffectiveTypeOfSymbol(symbol);
-}
-
-export function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
-    const typedDecls = symbol.getTypedDeclarations();
-
-    if (typedDecls.length > 0) {
-        // If there's more than one declared type, we will
-        // use the last one, which is assumed to supersede
-        // the earlier ones.
-        const lastDeclType = getTypeForDeclaration(typedDecls[typedDecls.length - 1]);
-
-        if (!lastDeclType) {
-            return UnknownType.create();
-        }
-
-        return lastDeclType;
-    }
-
-    return undefined;
-}
-
 export function addDefaultFunctionParameters(functionType: FunctionType) {
     FunctionType.addParameter(functionType, {
         category: ParameterCategory.VarArgList,
@@ -1583,22 +1545,6 @@ export function getTypedDictMembersForClassRecursive(classType: ClassType,
     });
 }
 
-// Within TypedDict classes, member variables are not accessible as
-// normal attributes. Instead, they are accessed through index operations.
-function _isTypedDictMemberAccessedThroughIndex(symbol: Symbol): boolean {
-    const declarations = symbol.getDeclarations();
-    if (declarations.length > 0) {
-        const primaryDecl = declarations[0];
-        if (primaryDecl.type === DeclarationType.Variable &&
-                primaryDecl.node && hasTypeForDeclaration(primaryDecl)) {
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
 function _getMembersForClassRecursive(classType: ClassType,
         symbolTable: SymbolTable, includeInstanceVars: boolean,
         recursionCount = 0) {
@@ -1618,7 +1564,7 @@ function _getMembersForClassRecursive(classType: ClassType,
     const isClassTypedDict = ClassType.isTypedDictClass(classType);
     ClassType.getFields(classType).forEach((symbol, name) => {
         if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
-            if (!isClassTypedDict || !_isTypedDictMemberAccessedThroughIndex(symbol)) {
+            if (!isClassTypedDict || !isTypedDictMemberAccessedThroughIndex(symbol)) {
                 if (!symbolTable.get(name)) {
                     symbolTable.set(name, symbol);
                 }
