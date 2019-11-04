@@ -1005,8 +1005,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitFormatString(node: FormatStringNode): boolean {
         node.expressions.forEach(formatExpr => {
-            this._getTypeOfExpression(formatExpr,
-                EvaluatorFlags.AllowForwardReferences);
+            this._getTypeOfExpression(formatExpr);
         });
 
         return true;
