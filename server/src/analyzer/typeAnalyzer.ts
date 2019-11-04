@@ -31,7 +31,8 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowFlags } from './codeFlow';
 import { DeclarationType, ModuleLoaderActions } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
-import { createExpressionEvaluator, EvaluatorFlags, ExpressionEvaluator, MemberAccessFlags } from './expressionEvaluator';
+import { createExpressionEvaluator, EvaluatorFlags, ExpressionEvaluator,
+    MemberAccessFlags } from './expressionEvaluator';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
@@ -41,9 +42,10 @@ import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getEffectiveTypeOfSymbol } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
-    isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,
-    printType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion,
-    Type, TypeCategory, TypeVarType, UnboundType, UnknownType  } from './types';
+    isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionEntry,
+    OverloadedFunctionType, printType, PropertyType, removeNoneFromUnion,
+    removeUnboundFromUnion, Type, TypeCategory, TypeVarType, UnboundType,
+    UnknownType  } from './types';
 import * as TypeUtils from './typeUtils';
 
 interface AliasMapEntry {
@@ -532,37 +534,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // Validate that the function returns the declared type.
             this._validateFunctionReturn(node, functionType);
         });
-
-        // If there was no defined return type, infer the type from the
-        // return statements.
-        if (!node.returnTypeAnnotation) {
-            let inferredReturnType: Type;
-
-            if (this._fileInfo.isStubFile) {
-                // If a return type annotation is missing in a stub file, assume
-                // it's an "unknown" type. In normal source files, we can infer the
-                // type from the implementation.
-                inferredReturnType = UnknownType.create();
-                FunctionType.setDeclaredReturnType(functionType, inferredReturnType);
-            } else {
-                inferredReturnType = FunctionType.getInferredReturnType(functionType).getType();
-            }
-
-            // Include Any in this check. If "Any" really is desired, it should
-            // be made explicit through a type annotation.
-            if (inferredReturnType.category === TypeCategory.Unknown) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
-                    `Inferred return type is unknown`, node.name);
-            } else if (TypeUtils.containsUnknown(inferredReturnType)) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
-                    `Return type '${ printType(inferredReturnType) }' is partially unknown`,
-                    node.name);
-            }
-        }
 
         // If there was no decorator, see if there are any overloads provided
         // by previous function declarations.
@@ -1944,6 +1915,32 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             node.returnTypeAnnotation);
                     }
                 }
+            }
+        } else {
+            let returnType: Type;
+            if (this._fileInfo.isStubFile) {
+                // If a return type annotation is missing in a stub file, assume
+                // it's an "unknown" type. In normal source files, we can infer the
+                // type from the implementation.
+                returnType = UnknownType.create();
+                FunctionType.setDeclaredReturnType(functionType, returnType);
+            } else {
+                returnType = inferredReturnType.getType();
+            }
+
+            // Include Any in this check. If "Any" really is desired, it should
+            // be made explicit through a type annotation.
+            if (returnType.category === TypeCategory.Unknown) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                    DiagnosticRule.reportUnknownParameterType,
+                    `Inferred return type is unknown`, node.name);
+            } else if (TypeUtils.containsUnknown(returnType)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                    DiagnosticRule.reportUnknownParameterType,
+                    `Return type '${ printType(returnType) }' is partially unknown`,
+                    node.name);
             }
         }
     }
