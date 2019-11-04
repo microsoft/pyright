@@ -22,7 +22,7 @@ export const enum PrintExpressionFlags {
     None = 0,
 
     // Don't use string literals for forward declarations.
-    ForwardDeclarations = 0x01
+    ForwardDeclarations = 1 << 0
 }
 
 export function getNodeDepth(node: ParseNode): number {

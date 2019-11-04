@@ -45,24 +45,24 @@ export const enum ClassMemberLookupFlags {
     // By default, the original (derived) class is searched along
     // with its base classes. If this flag is set, the original
     // class is skipped and only the base classes are searched.
-    SkipOriginalClass = 0x01,
+    SkipOriginalClass = 1 << 0,
 
     // By default, base classes are searched as well as the
     // original (derived) class. If this flag is set, no recursion
     // is performed.
-    SkipBaseClasses = 0x02,
+    SkipBaseClasses = 1 << 1,
 
     // Skip the 'object' base class in particular.
-    SkipObjectBaseClass = 0x04,
+    SkipObjectBaseClass = 1 << 2,
 
     // By default, both class and instance variables are searched.
     // If this flag is set, the instance variables are skipped.
-    SkipInstanceVariables = 0x08,
+    SkipInstanceVariables = 1 << 3,
 
     // By default, the first symbol is returned even if it has only
     // an inferred type associated with it. If this flag is set,
     // the search looks only for symbols with declared types.
-    DeclaredTypesOnly = 0x10
+    DeclaredTypesOnly = 1 << 4
 }
 
 export const enum CanAssignFlags {
@@ -70,7 +70,7 @@ export const enum CanAssignFlags {
 
     // Require invariance with respect to class matching? Normally
     // subclasses are allowed.
-    EnforceInvariance = 0x01
+    EnforceInvariance = 1 << 0
 }
 
 export interface SymbolWithClass {

@@ -106,23 +106,23 @@ export const enum MemberAccessFlags {
 
     // By default, both class and instance members are considered.
     // Set this flag to skip the instance members.
-    SkipInstanceMembers = 1,
+    SkipInstanceMembers = 1 << 0,
 
     // By default, members of base classes are also searched.
     // Set this flag to consider only the specified class' members.
-    SkipBaseClasses = 2,
+    SkipBaseClasses = 1 << 1,
 
     // Do not include the "object" base class in the search.
-    SkipObjectBaseClass = 4,
+    SkipObjectBaseClass = 1 << 2,
 
     // By default, if the class has a __getattribute__ or __getattr__
     // magic method, it is assumed to have any member.
-    SkipGetAttributeCheck = 8,
+    SkipGetAttributeCheck = 1 << 3,
 
     // By default, if the class has a __get__ magic method, this is
     // followed to determine the final type. Properties use this
     // technique.
-    SkipGetCheck = 16,
+    SkipGetCheck = 1 << 4,
 
     // This set of flags is appropriate for looking up methods.
     SkipForMethodLookup = SkipInstanceMembers | SkipGetAttributeCheck | SkipGetCheck
@@ -556,9 +556,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
     // Validates fields for compatibility with a dataclass and synthesizes
     // an appropriate __new__ and __init__ methods.
-    function synthesizeDataClassMethods(node: ClassNode, classType: ClassType,
-            skipSynthesizeInit: boolean) {
-
+    function synthesizeDataClassMethods(node: ClassNode, classType: ClassType, skipSynthesizeInit: boolean) {
         assert(ClassType.isDataClass(classType));
 
         const newType = FunctionType.create(
@@ -904,8 +902,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     // If typeAnnotationNode is provided, it assumes that the
     // specified type is declared (rather than inferred).
     function assignTypeToMemberVariable(node: MemberAccessExpressionNode, srcType: Type,
-            isInstanceMember: boolean, typeAnnotationNode?: ExpressionNode,
-            srcExprNode?: ExpressionNode) {
+            isInstanceMember: boolean, typeAnnotationNode?: ExpressionNode, srcExprNode?: ExpressionNode) {
 
         const memberName = node.memberName.nameToken.value;
         const isConstant = isConstantName(memberName);
@@ -1563,8 +1560,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     }
 
     function getTypeFromMemberAccessExpressionWithBaseType(node: MemberAccessExpressionNode,
-                baseTypeResult: TypeResult, usage: EvaluatorUsage,
-                flags: EvaluatorFlags): TypeResult {
+            baseTypeResult: TypeResult, usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
         const baseType = baseTypeResult.type;
         const memberName = node.memberName.nameToken.value;
@@ -4690,9 +4686,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
     // Creates a type that represents "Generic[T1, T2, ...]", used in the
     // definition of a generic class.
-    function createGenericType(errorNode: ParseNode, classType: ClassType,
-            typeArgs?: TypeResult[]): Type {
-
+    function createGenericType(errorNode: ParseNode, classType: ClassType, typeArgs?: TypeResult[]): Type {
         // Make sure there's at least one type arg.
         if (!typeArgs || typeArgs.length === 0) {
             addError(

@@ -142,33 +142,33 @@ export namespace ModuleType {
 }
 
 export const enum ClassTypeFlags {
-    None = 0x00,
+    None = 0,
 
     // Class is defined in the "builtins" or "typings" file.
-    BuiltInClass = 0x01,
+    BuiltInClass            = 1 << 0,
 
     // Class requires special-case handling because it
     // exhibits non-standard behavior or is not defined
     // formally as a class. Examples include 'Optional'
     // and 'Union'.
-    SpecialBuiltIn = 0x02,
+    SpecialBuiltIn          = 1 << 1,
 
     // Introduced in Python 3.7 - class either derives directly
     // from NamedTuple or has a @dataclass class decorator.
-    DataClass = 0x04,
+    DataClass               = 1 << 2,
 
     // Flags that control whether methods should be
     // synthesized for a dataclass class.
-    SkipSynthesizedInit = 0x08,
+    SkipSynthesizedInit     = 1 << 3,
 
     // Introduced in PEP 589, TypedDict classes provide a way
     // to specify type hints for dictionaries with different
     // value types and a limited set of static keys.
-    TypedDictClass = 0x10,
+    TypedDictClass          = 1 << 4,
 
     // Used in conjunction with TypedDictClass, indicates that
     // the dictionary values can be omitted.
-    CanOmitDictValues = 0x20
+    CanOmitDictValues       = 1 << 5
 }
 
 export interface BaseClass {

@@ -96,10 +96,10 @@ export const enum OperatorType {
 }
 
 export const enum OperatorFlags {
-    Unary = 0x1,
-    Binary = 0x2,
-    Assignment = 0x4,
-    Comparison = 0x8
+    Unary       = 1 << 0,
+    Binary      = 1 << 1,
+    Assignment  = 1 << 2,
+    Comparison  = 1 << 3
 }
 
 export const enum KeywordType {
@@ -142,21 +142,21 @@ export const enum KeywordType {
 }
 
 export const enum StringTokenFlags {
-    None = 0x0,
+    None            = 0,
 
     // Quote types
-    SingleQuote = 0x1,
-    DoubleQuote = 0x2,
-    Triplicate = 0x4,
+    SingleQuote     = 1 << 0,
+    DoubleQuote     = 1 << 1,
+    Triplicate      = 1 << 2,
 
     // String content format
-    Raw = 0x8,
-    Unicode = 0x10,
-    Bytes = 0x20,
-    Format = 0x40,
+    Raw             = 1 << 3,
+    Unicode         = 1 << 4,
+    Bytes           = 1 << 5,
+    Format          = 1 << 6,
 
     // Error conditions
-    Unterminated = 0x1000
+    Unterminated    = 1 << 16
 }
 
 export interface Comment extends TextRange {
