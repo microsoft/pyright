@@ -768,14 +768,6 @@ export namespace FunctionType {
         return typeChanged;
     }
 
-    export function getInferredReturnType(type: FunctionType) {
-        return type.details.inferredReturnType;
-    }
-
-    export function getInferredYieldType(type: FunctionType) {
-        return type.details.inferredYieldType;
-    }
-
     export function getEffectiveReturnType(type: FunctionType) {
         const specializedReturnType = getSpecializedReturnType(type);
         if (specializedReturnType) {

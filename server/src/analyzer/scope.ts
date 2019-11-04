@@ -67,7 +67,7 @@ export class Scope {
     private _symbolTable: SymbolTable = new SymbolTable();
 
     // Names not in _exportFilterMap will be hidden from child scopes.
-    private _exportFilterMap: { [name: string]: string } | undefined;
+    private _exportFilterMap: Map<string, true> | undefined;
 
     constructor(type: ScopeType, parent?: Scope) {
         this._scopeType = type;
@@ -75,26 +75,14 @@ export class Scope {
     }
 
     setExportFilter(namesToExport: string[]) {
-        this._exportFilterMap = {};
+        this._exportFilterMap = new Map<string, true>();
         for (const name of namesToExport) {
-            this._exportFilterMap[name] = name;
-        }
-    }
-
-    applyExportFilter() {
-        if (this._exportFilterMap) {
-            this._symbolTable.forEach((symbol, name) => {
-                symbol.setIsExternallyHidden(this._exportFilterMap![name] === undefined);
-            });
+            this._exportFilterMap.set(name, true);
         }
     }
 
     getSymbolTable(): SymbolTable {
         return this._symbolTable;
-    }
-
-    getSymbols(): string[] {
-        return this._symbolTable.getKeys();
     }
 
     getType(): ScopeType {
@@ -135,8 +123,10 @@ export class Scope {
         return this._lookUpSymbolRecursiveInternal(name, false, false);
     }
 
-    // Adds a new untyped symbol to the scope.
     addSymbol(name: string, flags: SymbolFlags): Symbol {
+        if (this._exportFilterMap && !this._exportFilterMap.has(name)) {
+            flags |= SymbolFlags.ExternallyHidden;
+        }
         const symbol = new Symbol(flags);
         setSymbolPreservingAccess(this._symbolTable, name, symbol);
         return symbol;

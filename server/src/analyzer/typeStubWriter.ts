@@ -178,7 +178,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             } else {
                 const functionType = AnalyzerNodeInfo.getExpressionType(node);
                 if (functionType && functionType.category === TypeCategory.Function) {
-                    let inferredReturnType = FunctionType.getInferredReturnType(functionType);
+                    let inferredReturnType = functionType.details.inferredReturnType;
                     if (inferredReturnType) {
                         inferredReturnType = TypeUtils.stripLiteralValue(inferredReturnType);
 

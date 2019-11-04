@@ -10,7 +10,7 @@
 * analysis proceeds.
 */
 
-import { ClassType, combineTypes, isTypeSame, ObjectType, Type, UnknownType } from './types';
+import { combineTypes, isTypeSame, Type, UnknownType } from './types';
 
 // A type can be inferred from multiple sources. Each sources
 // has a type and a unique ID, which remains constant through
@@ -41,10 +41,6 @@ export class InferredType {
         return this._sources;
     }
 
-    getSourceCount() {
-        return this._sources.length;
-    }
-
     // Adds a new source (or replaces an existing source) for the
     // inferred type. Returns true if the combined type changed.
     addSource(type: Type, sourceId: TypeSourceId): boolean {
@@ -61,28 +57,6 @@ export class InferredType {
         }
 
         return this._recomputeCombinedType();
-    }
-
-    removeSource(sourceId: TypeSourceId): boolean {
-        const sourceIndex = this._sources.findIndex(src => src.sourceId === sourceId);
-        if (sourceIndex < 0) {
-            return false;
-        }
-
-        this._sources.splice(sourceIndex, 1);
-        return this._recomputeCombinedType();
-    }
-
-    addSources(inferredType: InferredType): boolean {
-        let madeChange = false;
-
-        for (const source of inferredType._sources) {
-            if (this.addSource(source.type, source.sourceId)) {
-                madeChange = true;
-            }
-        }
-
-        return madeChange;
     }
 
     private _recomputeCombinedType(): boolean {
