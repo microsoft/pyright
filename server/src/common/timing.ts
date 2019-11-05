@@ -33,11 +33,19 @@ export class Duration {
 
 export class TimingStat {
     totalTime = 0;
+    isTiming = false;
 
     timeOperation(callback: () => void) {
-        const duration = new Duration();
-        callback();
-        this.totalTime += duration.getDurationInMilliseconds();
+        // Handle reentrancy.
+        if (this.isTiming) {
+            callback();
+        } else {
+            this.isTiming = true;
+            const duration = new Duration();
+            callback();
+            this.totalTime += duration.getDurationInMilliseconds();
+            this.isTiming = false;
+        }
     }
 
     printTime(): string {
