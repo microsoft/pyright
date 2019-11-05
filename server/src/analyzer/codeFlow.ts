@@ -26,7 +26,9 @@ export enum FlowFlags {
     WildcardImport = 1 << 6,  // For "from X import *" statements
     TrueCondition  = 1 << 7,  // Condition known to be true
     FalseCondition = 1 << 9,  // Condition known to be false
-    Call           = 1 << 10  // Call node
+    Call           = 1 << 10, // Call node
+    PreFinallyGate = 1 << 11, // Injected edge that links pre-finally label and pre-try flow
+    PostFinally    = 1 << 12  // Injected edge that links post-finally flow with the rest of the graph
 }
 
 let _nextFlowNodeId = 1;
@@ -72,4 +74,16 @@ export interface FlowCondition extends FlowNode {
 export interface FlowCall extends FlowNode {
     node: CallExpressionNode;
     antecedent: FlowNode;
+}
+
+// See comment in the visitTry method in binder.ts for a full
+// explanation of the FlowPreFinally and FlowPostFinally nodes.
+export interface FlowPreFinallyGate extends FlowNode {
+    antecedent: FlowNode;
+    isGateClosed: boolean;
+}
+
+export interface FlowPostFinally extends FlowNode {
+    antecedent: FlowNode;
+    preFinallyGate: FlowPreFinallyGate;
 }

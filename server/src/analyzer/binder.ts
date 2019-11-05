@@ -37,8 +37,8 @@ import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { FlowAssignment, FlowCall, FlowCondition, FlowFlags, FlowLabel,
-    FlowNode, FlowWildcardImport, getUniqueFlowNodeId } from './codeFlow';
+import { FlowAssignment, FlowCall, FlowCondition, FlowFlags, FlowLabel, FlowNode,
+    FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport, getUniqueFlowNodeId } from './codeFlow';
 import { AliasDeclaration, DeclarationType, FunctionDeclaration, ModuleLoaderActions,
     VariableDeclaration } from './declaration';
 import * as DocStringUtils from './docStringUtils';
@@ -111,6 +111,9 @@ export class Binder extends ParseTreeWalker {
 
     // Flow nodes used within try blocks.
     private _currentExceptTargets?: FlowLabel[];
+
+    // Flow nodes used within try/finally flows.
+    private _currentFinallyTarget?: FlowLabel;
 
     // Flow nodes used for return statements.
     private _currentReturnTarget?: FlowLabel;
@@ -682,6 +685,9 @@ export class Binder extends ParseTreeWalker {
         if (this._currentReturnTarget) {
             this._addAntecedent(this._currentReturnTarget, this._currentFlowNode);
         }
+        if (this._currentFinallyTarget) {
+            this._addAntecedent(this._currentFinallyTarget, this._currentFlowNode);
+        }
         this._currentFlowNode = Binder._unreachableFlowNode;
         return false;
     }
@@ -839,19 +845,68 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.tracebackExpression);
         }
 
+        if (this._currentFinallyTarget) {
+            this._addAntecedent(this._currentFinallyTarget, this._currentFlowNode);
+        }
+
         this._currentFlowNode = Binder._unreachableFlowNode;
         return false;
     }
 
     visitTry(node: TryNode): boolean {
+        // The try/except/else/finally statement is tricky to model using static code
+        // flow rules because the finally clause is executed regardless of whether an
+        // exception is raised or a return statement is executed. Code within the finally
+        // clause needs to be reachable always, and we conservatively assume that any
+        // statement within the try block can generate an exception, so we assume that its
+        // antecedent is the pre-try flow. We implement this with a "gate" node in the
+        // control flow graph. If analysis starts within the finally clause, the gate is
+        // opened, and all raise/return statements within try/except/else blocks are
+        // considered antecedents. If analysis starts outside (after) the finally clause,
+        // the gate is closed, and only paths that don't hit a raise/return statement
+        // in try/except/else blocks are considered.
+        //
+        //
+        //                               1. PostElse
+        //                                    ^
+        //                                    |
+        // 3. TryExceptElseReturnOrExcept     |
+        //       ^                            |
+        //       |                            |     2. PostExcept (for each except)
+        //       |                            |            ^
+        // 4. ReturnOrRaiseLabel              |            |
+        //       ^                            |            |
+        //       |                            |   |---------
+        // 5. PreFinallyGate                  |   |
+        //       ^                            |   |
+        //       |------------------          |   |
+        //                         |          |   |
+        //                        6. PreFinallyLabel
+        //                                ^
+        //                         (finally block)
+        //                                ^
+        //                        7. PostFinally
+        //                                ^    (only if isAfterElseAndExceptsReachable)
+        //                         (after finally)
+
         // Create one flow label for every except clause.
         const curExceptTargets = node.exceptClauses.map(() => this._createBranchLabel());
         const preFinallyLabel = this._createBranchLabel();
 
-        // If there are no except clauses, we'll use the finally clause
-        // as the except target.
-        if (curExceptTargets.length === 0 && node.finallySuite) {
-            curExceptTargets.push(preFinallyLabel);
+        // Create a label for all of the return or raise labels that are
+        // encountered within the try/except/else blocks. This conditionally
+        // connects the return/raise statement to the finally clause.
+        const preFinallyReturnOrRaiseLabel = this._createBranchLabel();
+        let isAfterElseAndExceptsReachable = false;
+
+        const preFinallyGate: FlowPreFinallyGate = {
+            flags: FlowFlags.PreFinallyGate,
+            id: getUniqueFlowNodeId(),
+            antecedent: preFinallyReturnOrRaiseLabel,
+            isGateClosed: false
+        };
+        if (node.finallySuite) {
+            this._addAntecedent(preFinallyLabel, preFinallyGate);
         }
 
         // An exception may be generated before the first flow node
@@ -860,6 +915,13 @@ export class Binder extends ParseTreeWalker {
         curExceptTargets.forEach(exceptLabel => {
             this._addAntecedent(exceptLabel, this._currentFlowNode);
         });
+
+        // We don't properly handle nested finally clauses, which are not
+        // feasible to model within a static analyzer, but we do handle
+        // a single level of finally statements. Returns or raises within
+        // the try/except/raise block will execute the finally target.
+        const prevFinallyTarget = this._currentFinallyTarget;
+        this._currentFinallyTarget = node.finallySuite ? preFinallyReturnOrRaiseLabel : undefined;
 
         // Handle the try block.
         const prevExceptTargets = this._currentExceptTargets;
@@ -873,6 +935,9 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.elseSuite);
         }
         this._addAntecedent(preFinallyLabel, this._currentFlowNode);
+        if (!this._isCodeUnreachable()) {
+            isAfterElseAndExceptsReachable = true;
+        }
 
         // Handle the except blocks.
         this._nestedExceptDepth++;
@@ -880,13 +945,29 @@ export class Binder extends ParseTreeWalker {
             this._currentFlowNode = this._finishFlowLabel(curExceptTargets[index]);
             this.walk(exceptNode);
             this._addAntecedent(preFinallyLabel, this._currentFlowNode);
+            if (!this._isCodeUnreachable()) {
+                isAfterElseAndExceptsReachable = true;
+            }
         });
         this._nestedExceptDepth--;
+
+        this._currentFinallyTarget = prevFinallyTarget;
 
         // Handle the finally block.
         this._currentFlowNode = this._finishFlowLabel(preFinallyLabel);
         if (node.finallySuite) {
             this.walk(node.finallySuite);
+
+            // Add a post-finally node at the end. If we traverse this node,
+            // we'll set the "ignore" flag in the pre-finally node.
+            const postFinallyNode: FlowPostFinally = {
+                flags: FlowFlags.PostFinally,
+                id: getUniqueFlowNodeId(),
+                antecedent: this._currentFlowNode,
+                preFinallyGate
+            };
+            this._currentFlowNode = isAfterElseAndExceptsReachable ?
+                postFinallyNode : Binder._unreachableFlowNode;
         }
 
         return false;
@@ -1089,8 +1170,7 @@ export class Binder extends ParseTreeWalker {
                 }
             }
 
-            this._createFlowAssignment(node.alias ?
-                node.alias : node.module.nameParts[0]);
+            this._createFlowAssignment(node.alias ? node.alias : node.module.nameParts[0]);
         }
 
         return true;

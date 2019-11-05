@@ -27,7 +27,7 @@ import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNo
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowCall, FlowCondition, FlowFlags, FlowLabel,
-    FlowNode, FlowWildcardImport } from './codeFlow';
+    FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport } from './codeFlow';
 import { Declaration, DeclarationType, VariableDeclaration } from './declaration';
 import { TypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -4925,6 +4925,24 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     continue;
                 }
 
+                if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
+                    const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
+                    if (preFinallyFlowNode.isGateClosed) {
+                        return undefined;
+                    }
+                    curFlowNode = preFinallyFlowNode.antecedent;
+                    continue;
+                }
+
+                if (curFlowNode.flags & FlowFlags.PostFinally) {
+                    const postFinallyFlowNode = curFlowNode as FlowPostFinally;
+                    const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
+                    postFinallyFlowNode.preFinallyGate.isGateClosed = true;
+                    const flowType = getTypeFromFlowNode(postFinallyFlowNode.antecedent, reference, initialType);
+                    postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
+                    return flowType;
+                }
+
                 // We shouldn't get here.
                 assert.fail('Unexpected flow node flags');
                 return setCacheEntry(curFlowNode, undefined);
@@ -4938,7 +4956,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     function isFlowNodeReachable(flowNode: FlowNode): boolean {
         const visitedFlowNodeMap = new Map<number, true>();
 
-        function isFlowNodeReachableRecursive(flowNode: FlowNode) {
+        function isFlowNodeReachableRecursive(flowNode: FlowNode): boolean {
             let curFlowNode = flowNode;
 
             while (true) {
@@ -4990,6 +5008,20 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                     curFlowNode = callFlowNode.antecedent;
                     continue;
+                } else if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
+                    const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
+                    if (preFinallyFlowNode.isGateClosed) {
+                        return false;
+                    }
+                    curFlowNode = preFinallyFlowNode.antecedent;
+                    continue;
+                } else if (curFlowNode.flags & FlowFlags.PostFinally) {
+                    const postFinallyFlowNode = curFlowNode as FlowPostFinally;
+                    const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
+                    postFinallyFlowNode.preFinallyGate.isGateClosed = true;
+                    const isReachable = isFlowNodeReachableRecursive(postFinallyFlowNode.antecedent);
+                    postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
+                    return isReachable;
                 } else {
                     // We shouldn't get here.
                     assert.fail('Unexpected flow node flags');
