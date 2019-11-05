@@ -1523,7 +1523,9 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
 }
 
 function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
-    for (const type of types) {
+    for (let i = 0; i < types.length; i++) {
+        const type = types[i];
+
         // Does this type already exist in the types array?
         if (isTypeSame(type, typeToAdd)) {
             return;
@@ -1534,6 +1536,15 @@ function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
         if (type.category === TypeCategory.Object && typeToAdd.category === TypeCategory.Object) {
             if (isSameWithoutLiteralValue(type, typeToAdd)) {
                 if (type.literalValue === undefined) {
+                    return;
+                }
+            }
+
+            // If we're adding Literal[False] or Literal[True] to its
+            // opposite, combine them into a non-literal 'bool' type.
+            if (ClassType.isBuiltIn(type.classType, 'bool')) {
+                if (typeToAdd.literalValue !== undefined && !typeToAdd.literalValue === type.literalValue) {
+                    types[i] = ObjectType.create(type.classType);
                     return;
                 }
             }
