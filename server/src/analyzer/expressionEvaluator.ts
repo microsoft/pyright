@@ -135,10 +135,7 @@ interface ParamAssignmentInfo {
 
 export type SetAnalysisChangedCallback = (reason: string) => void;
 
-interface FlowNodeType {
-    type: Type;
-    isIncomplete: boolean;
-}
+type FlowNodeType = Type;
 
 const arithmeticOperatorMap: { [operator: number]: [string, string] } = {
     [OperatorType.Add]: ['__add__', '__radd__'],
@@ -241,7 +238,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         return TypeUtils.convertClassToObject(
-            getType(node, { method: 'get' }, evaluatorFlags));
+            getTypeFromExpression(node, { method: 'get' }, evaluatorFlags).type);
     }
 
     function getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
@@ -881,7 +878,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 const classType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
 
                 if (classType && classType.category === TypeCategory.Class) {
-                    const typeOfLeftExpr = getType(target.leftExpression);
+                    const typeOfLeftExpr = getTypeFromExpression(target.leftExpression).type;
                     if (typeOfLeftExpr.category === TypeCategory.Object) {
                         if (ClassType.isSameGenericClass(typeOfLeftExpr.classType, classType)) {
                             assignTypeToMemberVariable(target, type, true,
@@ -1176,7 +1173,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         // Make sure we can write the type back to the target.
-        getType(target, { method: 'set', setType: type, setErrorNode: srcExpr });
+        getTypeFromExpression(target, { method: 'set', setType: type, setErrorNode: srcExpr });
     }
 
     function markExpressionAccessed(target: ExpressionNode) {
@@ -4799,10 +4796,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         // Caches the type of the flow node in our local cache, keyed by the flow node ID.
-        function setCacheEntry(flowNode: FlowNode, type?: Type, isIncomplete = false): FlowNodeType | undefined {
-            const flowType = type ? { type, isIncomplete } : undefined;
-            flowNodeTypeCache.set(flowNode.id, flowType);
-            return flowType;
+        function setCacheEntry(flowNode: FlowNode, type?: Type): FlowNodeType | undefined {
+            flowNodeTypeCache.set(flowNode.id, type);
+            return type;
         }
 
         function evaluateAssignmentFlowNode(flowNode: FlowAssignment): FlowNodeType | undefined {
@@ -4871,7 +4867,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         labelNode.antecedents.map(antecedent => {
                             const flowType = getTypeFromFlowNode(antecedent, reference, initialType);
                             if (flowType) {
-                                typesToCombine.push(flowType.type);
+                                typesToCombine.push(flowType);
                             }
                         });
                     });
@@ -4903,7 +4899,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         preventFlowNodeRecursion(curFlowNode.id, () => {
                             flowType = getTypeFromFlowNode(conditionalFlowNode.antecedent, reference, initialType);
                         });
-                        return setCacheEntry(curFlowNode, flowType ? typeNarrowingCallback(flowType.type) : undefined);
+                        return setCacheEntry(curFlowNode, flowType ? typeNarrowingCallback(flowType) : undefined);
                     }
 
                     curFlowNode = conditionalFlowNode.antecedent;
@@ -4949,8 +4945,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
-        const flowType = getTypeFromFlowNode(flowNode!, reference, initialType);
-        return flowType ? flowType.type : undefined;
+        return getTypeFromFlowNode(flowNode!, reference, initialType);
     }
 
     function isFlowNodeReachable(flowNode: FlowNode): boolean {
