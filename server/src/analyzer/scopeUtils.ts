@@ -95,6 +95,5 @@ export function getScopeForNode(node: ParseNode): Scope {
         curNode = curNode.parent;
     }
 
-    assert.fail('Scope not found for parse node');
     return undefined!;
 }

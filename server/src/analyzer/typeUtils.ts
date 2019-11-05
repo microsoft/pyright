@@ -19,11 +19,9 @@ import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol,
     isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType, FunctionTypeFlags,
     InheritanceChain, isAnyOrUnknown, isNoneOrNever, isSameWithoutLiteralValue, isTypeSame,
-    ModuleType, NeverType, ObjectType, OverloadedFunctionEntry, OverloadedFunctionType,
-    printLiteralValue, printType, requiresSpecialization, SpecializedFunctionTypes, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnknownType } from './types';
-
-const _maxTypeRecursion = 20;
+    maxTypeRecursionCount, ModuleType, NeverType, ObjectType, OverloadedFunctionEntry,
+    OverloadedFunctionType, printLiteralValue, printType, requiresSpecialization, SpecializedFunctionTypes,
+    Type, TypeCategory, TypeVarMap, TypeVarType, UnknownType } from './types';
 
 export interface ClassMember {
     // Symbol
@@ -232,7 +230,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
         typeVarMap?: TypeVarMap, flags = CanAssignFlags.Default,
         recursionCount = 0): boolean {
 
-    if (recursionCount > _maxTypeRecursion) {
+    if (recursionCount > maxTypeRecursionCount) {
         return true;
     }
 
@@ -314,7 +312,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
             undefined, flags, recursionCount + 1);
     }
 
-    if (recursionCount > _maxTypeRecursion) {
+    if (recursionCount > maxTypeRecursionCount) {
         return true;
     }
 
@@ -645,7 +643,7 @@ export function canAssignToTypeVar(destType: TypeVarType, srcType: Type,
         diag: DiagnosticAddendum, flags = CanAssignFlags.Default,
         recursionCount = 0): boolean {
 
-    if (recursionCount > _maxTypeRecursion) {
+    if (recursionCount > maxTypeRecursionCount) {
         return true;
     }
 
@@ -1007,7 +1005,7 @@ export function addDefaultFunctionParameters(functionType: FunctionType) {
 }
 
 export function getMetaclass(type: ClassType, recursionCount = 0): ClassType | UnknownType | undefined {
-    if (recursionCount > _maxTypeRecursion) {
+    if (recursionCount > maxTypeRecursionCount) {
         return undefined;
     }
 
@@ -1240,7 +1238,7 @@ export function removeTruthinessFromType(type: Type): Type {
 export function getSymbolFromBaseClasses(classType: ClassType, name: string,
         recursionCount = 0): SymbolWithClass | undefined {
 
-    if (recursionCount > _maxTypeRecursion) {
+    if (recursionCount > maxTypeRecursionCount) {
         return undefined;
     }
 
@@ -1279,7 +1277,7 @@ export function getAbstractMethodsRecursive(classType: ClassType,
         symbolTable: StringMap<ClassMember>, recursiveCount = 0) {
 
     // Protect against infinite recursion.
-    if (recursiveCount > _maxTypeRecursion) {
+    if (recursiveCount > maxTypeRecursionCount) {
         return;
     }
 
@@ -1412,7 +1410,7 @@ export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolT
 }
 
 export function containsUnknown(type: Type, recursionCount = 0): boolean {
-    if (recursionCount > _maxTypeRecursion) {
+    if (recursionCount > maxTypeRecursionCount) {
         return false;
     }
 
@@ -1514,7 +1512,7 @@ export function getTypedDictMembersForClassRecursive(classType: ClassType,
         keyMap: StringMap<TypedDictEntry>, recursionCount = 0) {
 
     assert(ClassType.isTypedDictClass(classType));
-    if (recursionCount > _maxTypeRecursion) {
+    if (recursionCount > maxTypeRecursionCount) {
         return;
     }
 
@@ -1549,7 +1547,7 @@ function _getMembersForClassRecursive(classType: ClassType,
         symbolTable: SymbolTable, includeInstanceVars: boolean,
         recursionCount = 0) {
 
-    if (recursionCount > _maxTypeRecursion) {
+    if (recursionCount > maxTypeRecursionCount) {
         return;
     }
 

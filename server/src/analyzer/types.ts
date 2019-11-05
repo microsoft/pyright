@@ -67,7 +67,7 @@ export type Type = UnboundType | UnknownType | AnyType | NoneType | NeverType |
 
 export type LiteralValue = number | boolean | string;
 
-const _maxRecursionCount = 16;
+export const maxTypeRecursionCount = 16;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
@@ -975,7 +975,7 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
         case TypeCategory.Class: {
             const typeArgs = ClassType.getTypeArguments(type);
             if (typeArgs) {
-                if (recursionCount > _maxRecursionCount) {
+                if (recursionCount > maxTypeRecursionCount) {
                     return false;
                 }
 
@@ -992,7 +992,7 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
         }
 
         case TypeCategory.Object: {
-            if (recursionCount > _maxRecursionCount) {
+            if (recursionCount > maxTypeRecursionCount) {
                 return false;
             }
 
@@ -1000,7 +1000,7 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
         }
 
         case TypeCategory.Function: {
-            if (recursionCount > _maxRecursionCount) {
+            if (recursionCount > maxTypeRecursionCount) {
                 return false;
             }
 
@@ -1056,7 +1056,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
         return false;
     }
 
-    if (recursionCount > _maxRecursionCount) {
+    if (recursionCount > maxTypeRecursionCount) {
         return true;
     }
 
@@ -1303,7 +1303,7 @@ export function printFunctionParts(type: FunctionType, recursionCount = 0): [str
 
         if (param.category === ParameterCategory.Simple) {
             const paramType = FunctionType.getEffectiveParameterType(type, index);
-            const paramTypeString = recursionCount < _maxRecursionCount ?
+            const paramTypeString = recursionCount < maxTypeRecursionCount ?
                 printType(paramType, recursionCount + 1) : '';
             paramString += ': ' + paramTypeString;
         }
@@ -1311,7 +1311,7 @@ export function printFunctionParts(type: FunctionType, recursionCount = 0): [str
     });
 
     const returnType = FunctionType.getEffectiveReturnType(type);
-    const returnTypeString = recursionCount < _maxRecursionCount ?
+    const returnTypeString = recursionCount < maxTypeRecursionCount ?
         printType(returnType, recursionCount + 1) : '';
     return [paramTypeStrings, returnTypeString];
 }
@@ -1360,7 +1360,7 @@ export function printType(type: Type, recursionCount = 0): string {
         case TypeCategory.Property: {
             const propertyType = type;
             const returnType = FunctionType.getEffectiveReturnType(propertyType.getter);
-            const returnTypeString = recursionCount < _maxRecursionCount ?
+            const returnTypeString = recursionCount < maxTypeRecursionCount ?
                 printType(returnType, recursionCount + 1) : '';
             return returnTypeString;
         }
@@ -1370,12 +1370,12 @@ export function printType(type: Type, recursionCount = 0): string {
             const subtypes = unionType.subtypes;
 
             if (subtypes.find(t => t.category === TypeCategory.None) !== undefined) {
-                const optionalType = recursionCount < _maxRecursionCount ?
+                const optionalType = recursionCount < maxTypeRecursionCount ?
                     printType(removeNoneFromUnion(unionType), recursionCount + 1) : '';
                 return 'Optional[' + optionalType + ']';
             }
 
-            const unionTypeString = recursionCount < _maxRecursionCount ?
+            const unionTypeString = recursionCount < maxTypeRecursionCount ?
                 subtypes.map(t => printType(t, recursionCount + 1)).join(', ') : '';
 
             return 'Union[' + unionTypeString + ']';
@@ -1391,7 +1391,7 @@ export function printType(type: Type, recursionCount = 0): string {
                 return typeName;
             }
             const params: string[] = [`'${ typeName }'`];
-            if (recursionCount < _maxRecursionCount) {
+            if (recursionCount < maxTypeRecursionCount) {
                 for (const constraint of typeVarType.constraints) {
                     params.push(printType(constraint, recursionCount + 1));
                 }

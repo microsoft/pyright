@@ -1328,121 +1328,202 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         let typeResult: TypeResult | undefined;
 
-        if (node.nodeType === ParseNodeType.Name) {
-            typeResult = getTypeFromName(node, usage, flags);
-        } else if (node.nodeType === ParseNodeType.MemberAccess) {
-            typeResult = getTypeFromMemberAccessExpression(node, usage, flags);
-        } else if (node.nodeType === ParseNodeType.Index) {
-            typeResult = getTypeFromIndexExpression(node, usage, flags);
-        } else if (node.nodeType === ParseNodeType.Call) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromCallExpression(node, flags);
-        } else if (node.nodeType === ParseNodeType.Tuple) {
-            typeResult = getTypeFromTupleExpression(node, usage);
-        } else if (node.nodeType === ParseNodeType.Constant) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromConstantExpression(node);
-        } else if (node.nodeType === ParseNodeType.StringList) {
-            reportUsageErrorForReadOnly(node, usage);
-            if (node.typeAnnotation && !isAnnotationLiteralValue(node)) {
-                return getTypeFromExpression(
-                    node.typeAnnotation, usage, flags | EvaluatorFlags.AllowForwardReferences);
+        switch (node.nodeType) {
+            case ParseNodeType.Name: {
+                typeResult = getTypeFromName(node, usage, flags);
+                break;
             }
 
-            // Evaluate the format string expressions in this context.
-            node.strings.forEach(str => {
-                if (str.nodeType === ParseNodeType.FormatString) {
-                    str.expressions.forEach(expr => {
-                        getTypeFromExpression(expr);
-                    });
-                }
-            });
-
-            const isBytes = (node.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
-            typeResult = { node, type: cloneBuiltinTypeWithLiteral(node,
-                isBytes ? 'bytes' : 'str', node.strings.map(s => s.value).join('')) };
-        } else if (node.nodeType === ParseNodeType.Number) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = { node, type: cloneBuiltinTypeWithLiteral(node,
-                node.token.isInteger ? 'int' : 'float', node.token.value) };
-        } else if (node.nodeType === ParseNodeType.Ellipsis) {
-            reportUsageErrorForReadOnly(node, usage);
-            if ((flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0) {
-                typeResult = { type: AnyType.create(true), node };
-            } else {
-                const ellipsisType = getBuiltInType(node, 'ellipsis') ||
-                    AnyType.create();
-                typeResult = { type: ellipsisType, node };
+            case ParseNodeType.MemberAccess: {
+                typeResult = getTypeFromMemberAccessExpression(node, usage, flags);
+                break;
             }
-        } else if (node.nodeType === ParseNodeType.UnaryOperation) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromUnaryExpression(node);
-        } else if (node.nodeType === ParseNodeType.BinaryOperation) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromBinaryExpression(node);
-        } else if (node.nodeType === ParseNodeType.AugmentedAssignment) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromAugmentedExpression(node);
-        } else if (node.nodeType === ParseNodeType.List) {
-            typeResult = getTypeFromListExpression(node, usage);
-        } else if (node.nodeType === ParseNodeType.Slice) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromSliceExpression(node);
-        } else if (node.nodeType === ParseNodeType.Await) {
-            typeResult = getTypeFromExpression(
-                node.expression, { method: 'get' }, flags);
-            typeResult = {
-                type: getTypeFromAwaitable(typeResult.type, node.expression),
-                node
-            };
-        } else if (node.nodeType === ParseNodeType.Ternary) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromTernaryExpression(node, flags);
-        } else if (node.nodeType === ParseNodeType.ListComprehension) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromListComprehensionExpression(node);
-        } else if (node.nodeType === ParseNodeType.Dictionary) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromDictionaryExpression(node, usage);
-        } else if (node.nodeType === ParseNodeType.Lambda) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromLambdaExpression(node, usage);
-        } else if (node.nodeType === ParseNodeType.Set) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromSetExpression(node, usage);
-        } else if (node.nodeType === ParseNodeType.Assignment) {
-            reportUsageErrorForReadOnly(node, usage);
 
-            // Don't validate the type match for the assignment here. Simply
-            // return the type result of the RHS.
-            typeResult = getTypeFromExpression(node.rightExpression);
-        } else if (node.nodeType === ParseNodeType.AssignmentExpression) {
-            reportUsageErrorForReadOnly(node, usage);
+            case ParseNodeType.Index: {
+                typeResult = getTypeFromIndexExpression(node, usage, flags);
+                break;
+            }
 
-            // Don't validate the type match for the assignment here.
-            typeResult = getTypeFromExpression(node.rightExpression);
-            assignTypeToExpression(node.name, typeResult.type);
-        } else if (node.nodeType === ParseNodeType.Yield) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromYieldExpression(node);
-        } else if (node.nodeType === ParseNodeType.YieldFrom) {
-            reportUsageErrorForReadOnly(node, usage);
-            typeResult = getTypeFromYieldFromExpression(node);
-        } else if (node.nodeType === ParseNodeType.Unpack) {
-            const iterType = getTypeFromExpression(node.expression, usage).type;
-            const type = getTypeFromIterable(iterType, false, node, false);
-            typeResult = { type, unpackedType: iterType, node };
-        } else if (node.nodeType === ParseNodeType.TypeAnnotation) {
-            typeResult = getTypeFromExpression(node.typeAnnotation);
-        } else if (node.nodeType === ParseNodeType.Error) {
-            // Evaluate the child expression as best we can so the
-            // type information is cached for the completion handler.
-            useSpeculativeMode(() => {
-                if (node.child) {
-                    getTypeFromExpression(node.child);
+            case ParseNodeType.Call: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromCallExpression(node, flags);
+                break;
+            }
+
+            case ParseNodeType.Tuple: {
+                typeResult = getTypeFromTupleExpression(node, usage);
+                break;
+            }
+
+            case ParseNodeType.Constant: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromConstantExpression(node);
+                break;
+            }
+
+            case ParseNodeType.StringList: {
+                reportUsageErrorForReadOnly(node, usage);
+                if (node.typeAnnotation && !isAnnotationLiteralValue(node)) {
+                    return getTypeFromExpression(
+                        node.typeAnnotation, usage, flags | EvaluatorFlags.AllowForwardReferences);
                 }
-            });
-            typeResult = { type: UnknownType.create(), node };
+
+                // Evaluate the format string expressions in this context.
+                node.strings.forEach(str => {
+                    if (str.nodeType === ParseNodeType.FormatString) {
+                        str.expressions.forEach(expr => {
+                            getTypeFromExpression(expr);
+                        });
+                    }
+                });
+
+                const isBytes = (node.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
+                typeResult = { node, type: cloneBuiltinTypeWithLiteral(node,
+                    isBytes ? 'bytes' : 'str', node.strings.map(s => s.value).join('')) };
+                break;
+            }
+
+            case ParseNodeType.Number: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = { node, type: cloneBuiltinTypeWithLiteral(node,
+                    node.token.isInteger ? 'int' : 'float', node.token.value) };
+                break;
+            }
+
+            case ParseNodeType.Ellipsis: {
+                reportUsageErrorForReadOnly(node, usage);
+                if ((flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0) {
+                    typeResult = { type: AnyType.create(true), node };
+                } else {
+                    const ellipsisType = getBuiltInType(node, 'ellipsis') ||
+                        AnyType.create();
+                    typeResult = { type: ellipsisType, node };
+                }
+                break;
+            }
+
+            case ParseNodeType.UnaryOperation: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromUnaryExpression(node);
+                break;
+            }
+
+            case ParseNodeType.BinaryOperation: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromBinaryExpression(node);
+                break;
+            }
+
+            case ParseNodeType.AugmentedAssignment: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromAugmentedExpression(node);
+                break;
+            }
+
+            case ParseNodeType.List: {
+                typeResult = getTypeFromListExpression(node, usage);
+                break;
+            }
+
+            case ParseNodeType.Slice: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromSliceExpression(node);
+                break;
+            }
+
+            case ParseNodeType.Await: {
+                typeResult = getTypeFromExpression(
+                    node.expression, { method: 'get' }, flags);
+                typeResult = {
+                    type: getTypeFromAwaitable(typeResult.type, node.expression),
+                    node
+                };
+                break;
+            }
+
+            case ParseNodeType.Ternary: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromTernaryExpression(node, flags);
+                break;
+            }
+
+            case ParseNodeType.ListComprehension: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromListComprehensionExpression(node);
+                break;
+            }
+
+            case ParseNodeType.Dictionary: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromDictionaryExpression(node, usage);
+                break;
+            }
+
+            case ParseNodeType.Lambda: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromLambdaExpression(node, usage);
+                break;
+            }
+
+            case ParseNodeType.Set: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromSetExpression(node, usage);
+                break;
+            }
+
+            case ParseNodeType.Assignment: {
+                reportUsageErrorForReadOnly(node, usage);
+
+                // Don't validate the type match for the assignment here. Simply
+                // return the type result of the RHS.
+                typeResult = getTypeFromExpression(node.rightExpression);
+                break;
+            }
+
+            case ParseNodeType.AssignmentExpression: {
+                reportUsageErrorForReadOnly(node, usage);
+
+                // Don't validate the type match for the assignment here.
+                typeResult = getTypeFromExpression(node.rightExpression);
+                assignTypeToExpression(node.name, typeResult.type);
+                break;
+            }
+
+            case ParseNodeType.Yield: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromYieldExpression(node);
+                break;
+            }
+
+            case ParseNodeType.YieldFrom: {
+                reportUsageErrorForReadOnly(node, usage);
+                typeResult = getTypeFromYieldFromExpression(node);
+                break;
+            }
+
+            case ParseNodeType.Unpack: {
+                const iterType = getTypeFromExpression(node.expression, usage).type;
+                const type = getTypeFromIterable(iterType, false, node, false);
+                typeResult = { type, unpackedType: iterType, node };
+                break;
+            }
+
+            case ParseNodeType.TypeAnnotation: {
+                typeResult = getTypeFromExpression(node.typeAnnotation);
+                break;
+            }
+
+            case ParseNodeType.Error: {
+                // Evaluate the child expression as best we can so the
+                // type information is cached for the completion handler.
+                useSpeculativeMode(() => {
+                    if (node.child) {
+                        getTypeFromExpression(node.child);
+                    }
+                });
+                typeResult = { type: UnknownType.create(), node };
+                break;
+            }
         }
 
         if (!typeResult) {
