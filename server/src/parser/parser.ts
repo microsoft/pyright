@@ -1868,7 +1868,7 @@ export class Parser {
 
                 // This is an unfortunate hack that's necessary to accommodate 'Literal'
                 // type annotations properly. We need to suspend treating strings as
-                // type annotatinos within a Literal subscript.
+                // type annotations within a Literal subscript.
                 const isLiteralSubscript = atomExpression.nodeType === ParseNodeType.Name &&
                         atomExpression.nameToken.value === 'Literal';
 
