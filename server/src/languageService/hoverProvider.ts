@@ -54,7 +54,7 @@ export class HoverProvider {
         };
 
         if (node.nodeType === ParseNodeType.Name) {
-            const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
+            const declarations = DeclarationUtils.getDeclarationsForNameNode(node, importLookup);
             if (declarations && declarations.length > 0) {
                 this._addResultsForDeclaration(results.parts, declarations[0], node, importLookup);
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {

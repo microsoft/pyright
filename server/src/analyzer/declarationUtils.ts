@@ -16,11 +16,11 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { getScopeForNode } from './scopeUtils';
-import { Symbol } from './symbol';
-import { ClassType, FunctionType, ModuleType, ObjectType, Type, TypeCategory } from './types';
+import { Symbol, SymbolFlags } from './symbol';
+import { ClassType, FunctionType, ModuleType, ObjectType, Type, TypeCategory, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
-export function getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
+export function getDeclarationsForNameNode(node: NameNode, importLookup: ImportLookup): Declaration[] | undefined {
     const declarations: Declaration[] = [];
     const nameValue = node.nameToken.value;
 
@@ -46,9 +46,9 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
                     // Try to find a member that has a declared type. If so, that
                     // overrides any inferred types.
                     let member = TypeUtils.lookUpClassMember(subtype, memberName,
-                        TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+                        importLookup, TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
                     if (!member) {
-                        member = TypeUtils.lookUpClassMember(subtype, memberName);
+                        member = TypeUtils.lookUpClassMember(subtype, memberName, importLookup);
                     }
                     if (member) {
                         symbol = member.symbol;
@@ -57,9 +57,9 @@ export function getDeclarationsForNameNode(node: NameNode): Declaration[] | unde
                     // Try to find a member that has a declared type. If so, that
                     // overrides any inferred types.
                     let member = TypeUtils.lookUpObjectMember(subtype, memberName,
-                        TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+                        importLookup, TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
                     if (!member) {
-                        member = TypeUtils.lookUpObjectMember(subtype, memberName);
+                        member = TypeUtils.lookUpObjectMember(subtype, memberName, importLookup);
                     }
                     if (member) {
                         symbol = member.symbol;
@@ -154,12 +154,20 @@ export function resolveAliasDeclaration(declaration: Declaration, importLookup: 
             return undefined;
         }
 
-        const declarations = symbol.getDeclarations();
+        // Prefer declarations with specified types. If we don't have any of those,
+        // fall back on declarations with inferred types.
+        let declarations = symbol.getTypedDeclarations();
         if (declarations.length === 0) {
-            return undefined;
+            declarations = symbol.getDeclarations();
+
+            if (declarations.length === 0) {
+                return undefined;
+            }
         }
 
-        curDeclaration = declarations[0];
+        // Prefer the last declaration in the list. This ensures that
+        // we use all of the overloads if it's an overloaded function.
+        curDeclaration = declarations[declarations.length - 1];
 
         // Make sure we don't follow a circular list indefinitely.
         if (alreadyVisited.find(decl => decl === curDeclaration)) {
@@ -311,4 +319,76 @@ export function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefi
     }
 
     return undefined;
+}
+
+export function getInferredTypeOfDeclaration(decl: Declaration,
+        importLookup: ImportLookup): Type | undefined {
+
+    const resolvedDecl = resolveAliasDeclaration(decl, importLookup);
+
+    // If the resolved declaration is still an alias, the alias
+    // is pointing at a module, and we need to synthesize a
+    // module type.
+    if (resolvedDecl && resolvedDecl.type === DeclarationType.Alias) {
+        // Build a module type that corresponds to the declaration and
+        // its associated loader actions.
+        const moduleType = ModuleType.create();
+        if (resolvedDecl.symbolName) {
+            if (resolvedDecl.submoduleFallback) {
+                return _applyLoaderActionsToModuleType(
+                    moduleType, resolvedDecl.symbolName && resolvedDecl.submoduleFallback ?
+                        resolvedDecl.submoduleFallback : resolvedDecl, importLookup);
+            }
+        } else {
+            return _applyLoaderActionsToModuleType(
+                moduleType, resolvedDecl, importLookup);
+        }
+    }
+
+    if (resolvedDecl) {
+        const declaredType = getTypeForDeclaration(resolvedDecl);
+        if (declaredType) {
+            return declaredType;
+        }
+
+        // If the resolved declaration had no defined type, use the
+        // inferred type for this node.
+        if (resolvedDecl.type === DeclarationType.Parameter) {
+            if (resolvedDecl.node.name) {
+                return AnalyzerNodeInfo.getExpressionType(resolvedDecl.node.name);
+            }
+        } else if (resolvedDecl.type === DeclarationType.Variable) {
+            return AnalyzerNodeInfo.getExpressionType(resolvedDecl.node);
+        }
+    }
+
+    return undefined;
+}
+
+function _applyLoaderActionsToModuleType(moduleType: ModuleType,
+        loaderActions: ModuleLoaderActions, importLookup: ImportLookup): Type {
+    if (loaderActions.path) {
+        const lookupResults = importLookup(loaderActions.path);
+        if (lookupResults) {
+            moduleType.fields = lookupResults.symbolTable;
+            moduleType.docString = lookupResults.docString;
+        } else {
+            return UnknownType.create();
+        }
+    }
+
+    if (loaderActions.implicitImports) {
+        loaderActions.implicitImports.forEach((implicitImport, name) => {
+            // Recursively apply loader actions.
+            const importedModuleType = ModuleType.create();
+            const symbolType = _applyLoaderActionsToModuleType(importedModuleType,
+                implicitImport, importLookup);
+
+            const importedModuleSymbol = Symbol.createWithType(
+                SymbolFlags.None, symbolType);
+            moduleType.loaderFields.set(name, importedModuleSymbol);
+        });
+    }
+
+    return moduleType;
 }

@@ -50,7 +50,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     }
 
     visitName(node: NameNode): boolean {
-        const declarations = DeclarationUtils.getDeclarationsForNameNode(node );
+        const declarations = DeclarationUtils.getDeclarationsForNameNode(node, this._importLookup);
 
         if (declarations && declarations.length > 0) {
             // Does this name share a declaration with the symbol of interest?
@@ -104,16 +104,16 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        const declarations = DeclarationUtils.getDeclarationsForNameNode(node);
+        const declarations = DeclarationUtils.getDeclarationsForNameNode(node, importLookup);
         if (!declarations) {
             return undefined;
         }
 
         const resolvedDeclarations: Declaration[] = [];
         declarations.forEach(decl => {
-            const resovledDecl = DeclarationUtils.resolveAliasDeclaration(decl, importLookup);
-            if (resovledDecl) {
-                resolvedDeclarations.push(resovledDecl);
+            const resolvedDecl = DeclarationUtils.resolveAliasDeclaration(decl, importLookup);
+            if (resolvedDecl) {
+                resolvedDeclarations.push(resolvedDecl);
             }
         });
 

@@ -12,6 +12,7 @@ import * as assert from 'assert';
 import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
+import { ImportLookup } from './analyzerFileInfo';
 import { DeclarationType } from './declaration';
 import { getTypeForDeclaration, hasTypeForDeclaration } from './declarationUtils';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
@@ -93,19 +94,20 @@ export function isOptionalType(type: Type): boolean {
 // When a variable with a declared type is assigned and the declared
 // type is a union, we may be able to further constrain the type.
 export function constrainDeclaredTypeBasedOnAssignedType(declaredType: Type,
-        assignedType: Type): Type {
+        assignedType: Type, importLookup: ImportLookup): Type {
 
     const diagAddendum = new DiagnosticAddendum();
 
     if (declaredType.category === TypeCategory.Union) {
         return doForSubtypes(declaredType, subtype => {
             if (assignedType.category === TypeCategory.Union) {
-                if (!assignedType.subtypes.some(t => canAssignType(subtype, t, diagAddendum))) {
+                if (!assignedType.subtypes.some(
+                        t => canAssignType(subtype, t, diagAddendum, importLookup))) {
                     return undefined;
                 } else {
                     return subtype;
                 }
-            } else if (!canAssignType(subtype, assignedType, diagAddendum)) {
+            } else if (!canAssignType(subtype, assignedType, diagAddendum, importLookup)) {
                 return undefined;
             } else {
                 return subtype;
@@ -113,7 +115,7 @@ export function constrainDeclaredTypeBasedOnAssignedType(declaredType: Type,
         });
     }
 
-    if (!canAssignType(declaredType, assignedType, diagAddendum)) {
+    if (!canAssignType(declaredType, assignedType, diagAddendum, importLookup)) {
         return NeverType.create();
     }
 
@@ -169,7 +171,7 @@ export function stripLiteralValue(type: Type): Type {
 }
 
 export function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType,
-        diag: DiagnosticAddendum): boolean {
+        diag: DiagnosticAddendum, importLookup: ImportLookup): boolean {
 
     // If we're overriding a non-method, don't report any error.
     if (!(baseMethod.category === TypeCategory.Function)) {
@@ -199,7 +201,7 @@ export function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType
             const baseParamType = FunctionType.getEffectiveParameterType(baseMethod, i);
             const overrideParamType = FunctionType.getEffectiveParameterType(overrideMethod, i);
 
-            if (!canAssignType(baseParamType, overrideParamType, diag.createAddendum())) {
+            if (!canAssignType(baseParamType, overrideParamType, diag.createAddendum(), importLookup)) {
                 diag.addMessage(`Parameter ${ i + 1 } type mismatch: ` +
                     `base method parameter is type '${ printType(baseParamType) }, ` +
                     `override is type '${ printType(overrideParamType) }'`);
@@ -210,7 +212,7 @@ export function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType
 
     const baseReturnType = FunctionType.getEffectiveReturnType(baseMethod);
     const overrideReturnType = FunctionType.getEffectiveReturnType(overrideMethod);
-    if (!canAssignType(baseReturnType, overrideReturnType, diag.createAddendum())) {
+    if (!canAssignType(baseReturnType, overrideReturnType, diag.createAddendum(), importLookup)) {
         diag.addMessage(`Return type mismatch: ` +
             `base method returns type '${ printType(baseReturnType) }, ` +
             `override is type '${ printType(overrideReturnType) }'`);
@@ -227,7 +229,7 @@ export function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType
 // in the dest type is not in the type map already, it is assigned a type
 // and added to the map.
 export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAddendum,
-        typeVarMap?: TypeVarMap, flags = CanAssignFlags.Default,
+        importLookup: ImportLookup, typeVarMap?: TypeVarMap, flags = CanAssignFlags.Default,
         recursionCount = 0): boolean {
 
     if (recursionCount > maxTypeRecursionCount) {
@@ -256,7 +258,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
             if (existingTypeVarMapping) {
                 const diagAddendum = new DiagnosticAddendum();
                 if (!canAssignType(existingTypeVarMapping, noLiteralSrcType, diagAddendum,
-                    typeVarMap, flags, recursionCount + 1)) {
+                    importLookup, typeVarMap, flags, recursionCount + 1)) {
 
                     // Determine if one of the existing subtypes is a subclass of the new
                     // type. If so, we can avoid adding the new type. Strip it out.
@@ -266,7 +268,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                             doForSubtypes(existingTypeVarMapping, destSubtype => {
                                 if (destSubtype.category === TypeCategory.Class || destSubtype.category === TypeCategory.Object) {
                                     if (canAssignType(srcSubtype, destSubtype, new DiagnosticAddendum(),
-                                            undefined, flags, recursionCount + 1)) {
+                                            importLookup, undefined, flags, recursionCount + 1)) {
 
                                         foundSubclass = true;
                                     }
@@ -294,7 +296,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
             }
         }
 
-        return canAssignToTypeVar(destType, srcType, diag,
+        return canAssignToTypeVar(destType, srcType, diag, importLookup,
             flags, recursionCount + 1);
     }
 
@@ -309,7 +311,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
         // in a function.
         const specializedSrcType = specializeTypeVarType(srcType);
         return canAssignType(destType, specializedSrcType, diag,
-            undefined, flags, recursionCount + 1);
+            importLookup, undefined, flags, recursionCount + 1);
     }
 
     if (recursionCount > maxTypeRecursionCount) {
@@ -321,7 +323,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
 
         // For union sources, all of the types need to be assignable to the dest.
         srcType.subtypes.forEach(t => {
-            if (!canAssignType(destType, t, diag.createAddendum(), typeVarMap,
+            if (!canAssignType(destType, t, diag.createAddendum(), importLookup, typeVarMap,
                     flags, recursionCount + 1)) {
 
                 diag.addMessage(`Type '${ printType(t) }' cannot be assigned to ` +
@@ -341,7 +343,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
         // For union destinations, we just need to match one of the types.
         const diagAddendum = new DiagnosticAddendum();
         const compatibleType = destType.subtypes.find(
-            t => canAssignType(t, srcType, diagAddendum, typeVarMap,
+            t => canAssignType(t, srcType, diagAddendum, importLookup, typeVarMap,
                 flags, recursionCount + 1));
         if (!compatibleType) {
             diag.addAddendum(diagAddendum);
@@ -364,7 +366,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                 return true;
             } else if (srcTypeArgs[0].category === TypeCategory.Object) {
                 return canAssignType(destType,
-                    srcTypeArgs[0].classType, diag.createAddendum(), typeVarMap,
+                    srcTypeArgs[0].classType, diag.createAddendum(), importLookup, typeVarMap,
                         flags, recursionCount + 1);
             }
         }
@@ -372,7 +374,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
 
     if (destType.category === TypeCategory.Class) {
         if (srcType.category === TypeCategory.Class) {
-            return _canAssignClass(destType, srcType, diag,
+            return _canAssignClass(destType, srcType, diag, importLookup,
                 typeVarMap, flags, recursionCount + 1, false);
         }
     }
@@ -398,18 +400,18 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                     return true;
                 } else if (destTypeArgs[0].category === TypeCategory.Object) {
                     return canAssignType(destTypeArgs[0].classType,
-                        srcType, diag.createAddendum(), typeVarMap,
+                        srcType, diag.createAddendum(), importLookup, typeVarMap,
                             flags, recursionCount + 1);
                 } else if (destTypeArgs[0].category === TypeCategory.TypeVar) {
                     if (srcType.category === TypeCategory.Class) {
                         return canAssignType(destTypeArgs[0],
-                            ObjectType.create(srcType), diag.createAddendum(), typeVarMap,
+                            ObjectType.create(srcType), diag.createAddendum(), importLookup, typeVarMap,
                                 flags, recursionCount + 1);
                     } else if (srcType.category === TypeCategory.Function ||
                             srcType.category === TypeCategory.OverloadedFunction) {
 
                         return canAssignType(destTypeArgs[0],
-                            srcType, diag.createAddendum(), typeVarMap,
+                            srcType, diag.createAddendum(), importLookup, typeVarMap,
                                 flags, recursionCount + 1);
                     }
                 }
@@ -428,8 +430,8 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                 }
             }
 
-            if (!_canAssignClass(destClassType, srcType.classType,
-                    diag, typeVarMap, flags, recursionCount + 1, true)) {
+            if (!_canAssignClass(destClassType, srcType.classType, diag,
+                importLookup, typeVarMap, flags, recursionCount + 1, true)) {
 
                 return false;
             }
@@ -437,10 +439,11 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
             return true;
         } else if (srcType.category === TypeCategory.Function) {
             // Is the destination a callback protocol (defined in PEP 544)?
-            const callbackType = _getCallbackProtocolType(destType);
+            const callbackType = _getCallbackProtocolType(destType, importLookup);
             if (callbackType) {
-                if (!_canAssignFunction(callbackType, srcType,
-                        diag.createAddendum(), typeVarMap, recursionCount + 1, true)) {
+                if (!_canAssignFunction(callbackType, srcType, diag.createAddendum(),
+                        importLookup, typeVarMap, recursionCount + 1, true)) {
+
                     return false;
                 }
                 return true;
@@ -476,8 +479,8 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                         typeVarMap.set('_T', ObjectType.create(srcType));
                     }
 
-                    return _canAssignClass(destClassType, metaclass,
-                            diag, typeVarMap, flags, recursionCount + 1, false);
+                    return _canAssignClass(destClassType, metaclass, diag,
+                        importLookup, typeVarMap, flags, recursionCount + 1, false);
                 }
             }
         }
@@ -495,7 +498,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                 const typeVarMapClone = typeVarMap ?
                     cloneTypeVarMap(typeVarMap) : undefined;
                 return canAssignType(destType, overload.type, diag.createAddendum(),
-                    typeVarMapClone, flags, recursionCount + 1);
+                    importLookup, typeVarMapClone, flags, recursionCount + 1);
             });
             if (overloadIndex < 0) {
                 diag.addMessage(`No overloaded function matches type '${ printType(destType) }'.`);
@@ -505,7 +508,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
         } else if (srcType.category === TypeCategory.Function) {
             srcFunction = srcType;
         } else if (srcType.category === TypeCategory.Object) {
-            const callMember = lookUpObjectMember(srcType, '__call__');
+            const callMember = lookUpObjectMember(srcType, '__call__', importLookup);
             if (callMember) {
                 if (callMember.symbolType.category === TypeCategory.Function) {
                     srcFunction = stripFirstParameter(callMember.symbolType);
@@ -518,7 +521,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                 FunctionTypeFlags.SynthesizedMethod);
             FunctionType.setDeclaredReturnType(constructorFunction, ObjectType.create(srcType));
 
-            const newMemberInfo = lookUpClassMember(srcType, '__new__',
+            const newMemberInfo = lookUpClassMember(srcType, '__new__', importLookup,
                 ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
             if (newMemberInfo && newMemberInfo.symbolType.category === TypeCategory.Function) {
                 FunctionType.getParameters(newMemberInfo.symbolType).forEach((param, index) => {
@@ -528,7 +531,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                     }
                 });
             } else {
-                const initMemberInfo = lookUpClassMember(srcType, '__init__',
+                const initMemberInfo = lookUpClassMember(srcType, '__init__', importLookup,
                     ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
                 if (initMemberInfo && initMemberInfo.symbolType.category === TypeCategory.Function) {
                     FunctionType.getParameters(initMemberInfo.symbolType).forEach((param, index) => {
@@ -547,7 +550,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
 
         if (srcFunction) {
             return _canAssignFunction(destType, srcFunction, diag.createAddendum(),
-                typeVarMap, recursionCount + 1, false);
+                importLookup, typeVarMap, recursionCount + 1, false);
         }
     }
 
@@ -609,7 +612,7 @@ export function transformTypeObjectToClass(type: Type): Type {
 // None is always falsy. All other types are generally truthy
 // unless they are objects that support the __bool__ or __len__
 // methods.
-export function canBeFalsy(type: Type): boolean {
+export function canBeFalsy(type: Type, importLookup: ImportLookup): boolean {
     if (type.category === TypeCategory.None) {
         return true;
     }
@@ -623,12 +626,12 @@ export function canBeFalsy(type: Type): boolean {
     }
 
     if (type.category === TypeCategory.Object) {
-        const lenMethod = lookUpObjectMember(type, '__len__');
+        const lenMethod = lookUpObjectMember(type, '__len__', importLookup);
         if (lenMethod) {
             return true;
         }
 
-        const boolMethod = lookUpObjectMember(type, '__bool__');
+        const boolMethod = lookUpObjectMember(type, '__bool__', importLookup);
         if (boolMethod) {
             return true;
         }
@@ -640,7 +643,7 @@ export function canBeFalsy(type: Type): boolean {
 // Validates that the specified source type matches the constraints
 // of the type variable.
 export function canAssignToTypeVar(destType: TypeVarType, srcType: Type,
-        diag: DiagnosticAddendum, flags = CanAssignFlags.Default,
+        diag: DiagnosticAddendum, importLookup: ImportLookup, flags = CanAssignFlags.Default,
         recursionCount = 0): boolean {
 
     if (recursionCount > maxTypeRecursionCount) {
@@ -663,7 +666,7 @@ export function canAssignToTypeVar(destType: TypeVarType, srcType: Type,
     const boundType = destType.boundType;
     if (boundType) {
         if (!canAssignType(boundType, effectiveSrcType, diag.createAddendum(),
-                undefined, flags, recursionCount + 1)) {
+                importLookup, undefined, flags, recursionCount + 1)) {
 
             diag.addMessage(`Type '${ printType(effectiveSrcType) }' is not compatible with ` +
                 `bound type '${ printType(boundType) }' for TypeVar '${ destType.name }'`);
@@ -863,7 +866,7 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
 // special-case the __new__ magic method when it's invoked as a
 // constructor (as opposed to by name).
 export function bindFunctionToClassOrObject(baseType: ClassType | ObjectType | undefined,
-        memberType: Type, treatAsClassMember = false): Type {
+        memberType: Type, importLookup: ImportLookup, treatAsClassMember = false): Type {
 
     if (memberType.category === TypeCategory.Function) {
         // If the caller specified no base type, always strip the
@@ -873,15 +876,15 @@ export function bindFunctionToClassOrObject(baseType: ClassType | ObjectType | u
         } else if (FunctionType.isInstanceMethod(memberType) && !treatAsClassMember) {
             if (baseType.category === TypeCategory.Object) {
                 return _partiallySpecializeFunctionForBoundClassOrObject(
-                    baseType, memberType);
+                    baseType, memberType, importLookup);
             }
         } else if (FunctionType.isClassMethod(memberType) || treatAsClassMember) {
             if (baseType.category === TypeCategory.Class) {
                 return _partiallySpecializeFunctionForBoundClassOrObject(
-                    baseType, memberType);
+                    baseType, memberType, importLookup);
             } else {
                 return _partiallySpecializeFunctionForBoundClassOrObject(
-                    baseType.classType, memberType);
+                    baseType.classType, memberType, importLookup);
             }
         }
     } else if (memberType.category === TypeCategory.OverloadedFunction) {
@@ -889,7 +892,7 @@ export function bindFunctionToClassOrObject(baseType: ClassType | ObjectType | u
         memberType.overloads.forEach(overload => {
             OverloadedFunctionType.addOverload(newOverloadType, overload.typeSourceId,
                 bindFunctionToClassOrObject(baseType, overload.type,
-                    treatAsClassMember) as FunctionType);
+                    importLookup, treatAsClassMember) as FunctionType);
         });
 
         return newOverloadType;
@@ -898,11 +901,11 @@ export function bindFunctionToClassOrObject(baseType: ClassType | ObjectType | u
     return memberType;
 }
 
-export function lookUpObjectMember(objectType: Type, memberName: string,
+export function lookUpObjectMember(objectType: Type, memberName: string, importLookup: ImportLookup,
         flags = ClassMemberLookupFlags.Default): ClassMember | undefined {
 
     if (objectType.category === TypeCategory.Object) {
-        return lookUpClassMember(objectType.classType, memberName, flags);
+        return lookUpClassMember(objectType.classType, memberName, importLookup, flags);
     }
 
     return undefined;
@@ -916,7 +919,7 @@ export function lookUpObjectMember(objectType: Type, memberName: string,
 // ClassB[str] which inherits from Dict[_T1, int], a search for '__iter__'
 // would return a class type of Dict[str, int] and a symbolType of
 // (self) -> Iterator[str].
-export function lookUpClassMember(classType: Type, memberName: string,
+export function lookUpClassMember(classType: Type, memberName: string, importLookup: ImportLookup,
         flags = ClassMemberLookupFlags.Default): ClassMember | undefined {
 
     const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
@@ -942,7 +945,7 @@ export function lookUpClassMember(classType: Type, memberName: string,
                             isInstanceMember: true,
                             classType,
                             symbolType: partiallySpecializeType(
-                                getEffectiveTypeOfSymbol(symbol), classType)
+                                getEffectiveTypeOfSymbol(symbol, importLookup), classType)
                         };
                     }
                 }
@@ -957,7 +960,7 @@ export function lookUpClassMember(classType: Type, memberName: string,
                         isInstanceMember: false,
                         classType,
                         symbolType: partiallySpecializeType(
-                            getEffectiveTypeOfSymbol(symbol), classType)
+                            getEffectiveTypeOfSymbol(symbol, importLookup), classType)
                     };
                 }
             }
@@ -970,7 +973,7 @@ export function lookUpClassMember(classType: Type, memberName: string,
                     // Recursively perform search.
                     const methodType = lookUpClassMember(
                         partiallySpecializeType(baseClass.type, classType),
-                        memberName, flags & ~ClassMemberLookupFlags.SkipOriginalClass);
+                        memberName, importLookup, flags & ~ClassMemberLookupFlags.SkipOriginalClass);
                     if (methodType) {
                         return methodType;
                     }
@@ -1208,7 +1211,7 @@ export function removeFalsinessFromType(type: Type): Type {
 // and a custom class "Foo" that has no __len__ or __nonzero__
 // method, this method would strip off the "Foo"
 // and return only the "None".
-export function removeTruthinessFromType(type: Type): Type {
+export function removeTruthinessFromType(type: Type, importLookup: ImportLookup): Type {
     return doForSubtypes(type, subtype => {
         if (subtype.category === TypeCategory.Object) {
             if (subtype.literalValue !== undefined) {
@@ -1225,7 +1228,7 @@ export function removeTruthinessFromType(type: Type): Type {
         }
 
         // If it's possible for the type to be falsy, include it.
-        if (canBeFalsy(subtype)) {
+        if (canBeFalsy(subtype, importLookup)) {
             return subtype;
         }
 
@@ -1266,14 +1269,14 @@ export function getSymbolFromBaseClasses(classType: ClassType, name: string,
     return undefined;
 }
 
-export function doesClassHaveAbstractMethods(classType: ClassType) {
+export function doesClassHaveAbstractMethods(classType: ClassType, importLookup: ImportLookup) {
     const abstractMethods = new StringMap<ClassMember>();
-    getAbstractMethodsRecursive(classType, abstractMethods);
+    getAbstractMethodsRecursive(classType, importLookup, abstractMethods);
 
     return abstractMethods.getKeys().length > 0;
 }
 
-export function getAbstractMethodsRecursive(classType: ClassType,
+export function getAbstractMethodsRecursive(classType: ClassType, importLookup: ImportLookup,
         symbolTable: StringMap<ClassMember>, recursiveCount = 0) {
 
     // Protect against infinite recursion.
@@ -1286,7 +1289,7 @@ export function getAbstractMethodsRecursive(classType: ClassType,
             if (ClassType.isAbstractClass(baseClass.type)) {
                 // Recursively get abstract methods for subclasses.
                 getAbstractMethodsRecursive(baseClass.type,
-                    symbolTable, recursiveCount + 1);
+                    importLookup, symbolTable, recursiveCount + 1);
             }
         }
     }
@@ -1299,7 +1302,7 @@ export function getAbstractMethodsRecursive(classType: ClassType,
             const symbol = memberFields.get(symbolName)!;
 
             if (symbol.isClassMember()) {
-                const symbolType = getEffectiveTypeOfSymbol(symbol);
+                const symbolType = getEffectiveTypeOfSymbol(symbol, importLookup);
 
                 if (symbolType.category === TypeCategory.Function) {
                     if (FunctionType.isAbstractMethod(symbolType)) {
@@ -1307,7 +1310,7 @@ export function getAbstractMethodsRecursive(classType: ClassType,
                             symbol,
                             isInstanceMember: false,
                             classType,
-                            symbolType: getEffectiveTypeOfSymbol(symbol)
+                            symbolType: getEffectiveTypeOfSymbol(symbol, importLookup)
                         });
                     } else {
                         symbolTable.delete(symbolName);
@@ -1461,7 +1464,9 @@ export function isEnumClass(classType: ClassType): boolean {
 // Determines whether the specified keys and values can be assigned to
 // a typed dictionary class. The caller should have already validated
 // that the class is indeed a typed dict.
-export function canAssignToTypedDict(classType: ClassType, keyTypes: Type[], valueTypes: Type[]): boolean {
+export function canAssignToTypedDict(classType: ClassType, importLookup: ImportLookup,
+        keyTypes: Type[], valueTypes: Type[]): boolean {
+
     assert(ClassType.isTypedDictClass(classType));
     assert(keyTypes.length === valueTypes.length);
 
@@ -1486,7 +1491,7 @@ export function canAssignToTypedDict(classType: ClassType, keyTypes: Type[], val
                 isMatch = false;
             } else {
                 // Can we assign the value to the declared type?
-                if (!canAssignType(symbolEntry.valueType, valueTypes[index], diag)) {
+                if (!canAssignType(symbolEntry.valueType, valueTypes[index], diag, importLookup)) {
                     isMatch = false;
                 }
                 symbolEntry.isProvided = true;
@@ -1572,7 +1577,8 @@ function _getMembersForClassRecursive(classType: ClassType,
 }
 
 function _partiallySpecializeFunctionForBoundClassOrObject(
-        baseType: ClassType | ObjectType, memberType: FunctionType): Type {
+        baseType: ClassType | ObjectType, memberType: FunctionType,
+        importLookup: ImportLookup): Type {
 
     const classType = baseType.category === TypeCategory.Class ? baseType : baseType.classType;
 
@@ -1586,7 +1592,8 @@ function _partiallySpecializeFunctionForBoundClassOrObject(
         const firstParam = FunctionType.getParameters(memberType)[0];
 
         // Fill out the typeVarMap.
-        canAssignType(firstParam.type, baseType, new DiagnosticAddendum(), typeVarMap);
+        canAssignType(firstParam.type, baseType, new DiagnosticAddendum(),
+            importLookup, typeVarMap);
     }
 
     const specializedFunction = specializeType(
@@ -1595,8 +1602,9 @@ function _partiallySpecializeFunctionForBoundClassOrObject(
 }
 
 function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
-        diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined,
-        recursionCount: number, checkNamedParams: boolean): boolean {
+        diag: DiagnosticAddendum, importLookup: ImportLookup,
+        typeVarMap: TypeVarMap | undefined, recursionCount: number,
+        checkNamedParams: boolean): boolean {
 
     let canAssign = true;
 
@@ -1620,15 +1628,15 @@ function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
         const destParamType = FunctionType.getEffectiveParameterType(destType, paramIndex);
 
         // Call canAssignType once to perform any typeVarMap population.
-        canAssignType(destParamType, srcParamType, paramDiag.createAddendum(), typeVarMap,
-                CanAssignFlags.Default, recursionCount + 1);
+        canAssignType(destParamType, srcParamType, paramDiag.createAddendum(), importLookup,
+            typeVarMap, CanAssignFlags.Default, recursionCount + 1);
 
         // Make sure we can assign the specialized dest type to the
         // source type.
         const specializedDestParamType = specializeType(
             destParamType, typeVarMap, false, recursionCount + 1);
         if (!canAssignType(srcParamType, specializedDestParamType, paramDiag.createAddendum(),
-                undefined, CanAssignFlags.Default, recursionCount + 1)) {
+                importLookup, undefined, CanAssignFlags.Default, recursionCount + 1)) {
             paramDiag.addMessage(`Parameter ${ paramIndex + 1 } of type ` +
                 `'${ printType(specializedDestParamType) }' cannot be assigned to type ` +
                 `'${ printType(srcParamType) }'`);
@@ -1672,7 +1680,7 @@ function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
                         const specializedDestParamType = specializeType(
                             destParam.type, typeVarMap, false, recursionCount + 1);
                         if (!canAssignType(param.type, specializedDestParamType, paramDiag.createAddendum(),
-                                undefined, CanAssignFlags.Default, recursionCount + 1)) {
+                                importLookup, undefined, CanAssignFlags.Default, recursionCount + 1)) {
 
                             paramDiag.addMessage(`Named parameter '${ param.name }' of type ` +
                                 `'${ printType(specializedDestParamType) }' cannot be assigned to type ` +
@@ -1721,7 +1729,7 @@ function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
     const destReturnType = FunctionType.getEffectiveReturnType(destType);
 
     if (!canAssignType(destReturnType, srcReturnType, diag.createAddendum(),
-            typeVarMap, CanAssignFlags.Default, recursionCount + 1)) {
+            importLookup, typeVarMap, CanAssignFlags.Default, recursionCount + 1)) {
         diag.addMessage(`Function return type '${ printType(srcReturnType) }' ` +
             `is not compatible with type '${ printType(destReturnType) }'.`);
         canAssign = false;
@@ -1731,7 +1739,8 @@ function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
 }
 
 function _canAssignClass(destType: ClassType, srcType: ClassType,
-        diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined,
+        diag: DiagnosticAddendum, importLookup: ImportLookup,
+        typeVarMap: TypeVarMap | undefined,
         flags: CanAssignFlags, recursionCount: number,
         reportErrorsUsingObjType: boolean): boolean {
 
@@ -1751,7 +1760,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
 
         destClassFields.forEach((symbol, name) => {
             if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
-                const memberInfo = lookUpClassMember(srcType, name,
+                const memberInfo = lookUpClassMember(srcType, name, importLookup,
                     ClassMemberLookupFlags.SkipInstanceVariables);
                 if (!memberInfo) {
                     diag.addMessage(`'${ name }' is not present`);
@@ -1764,7 +1773,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
                         const srcMemberType = memberInfo.symbolType;
 
                         if (!canAssignType(destMemberType, srcMemberType,
-                                diag.createAddendum(), typeVarMap, CanAssignFlags.Default,
+                                diag.createAddendum(), importLookup, typeVarMap, CanAssignFlags.Default,
                                 recursionCount + 1)) {
                             diag.addMessage(`'${ name }' is an incompatible type`);
                             typesAreConsistent = false;
@@ -1837,7 +1846,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
         assert(inheritanceChain.length > 0);
 
         return _canAssignClassWithTypeArgs(destType, srcType, inheritanceChain,
-            diag, typeVarMap, recursionCount + 1);
+            diag, importLookup, typeVarMap, recursionCount + 1);
     }
 
     const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
@@ -1850,7 +1859,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
 // Determines whether the specified type can be assigned to the
 // specified inheritance chain, taking into account its type arguments.
 function _canAssignClassWithTypeArgs(destType: ClassType, srcType: ClassType,
-        inheritanceChain: InheritanceChain, diag: DiagnosticAddendum,
+        inheritanceChain: InheritanceChain, diag: DiagnosticAddendum, importLookup: ImportLookup,
         typeVarMap: TypeVarMap | undefined, recursionCount: number): boolean {
 
     let curSrcType = srcType;
@@ -1899,7 +1908,7 @@ function _canAssignClassWithTypeArgs(destType: ClassType, srcType: ClassType,
                         const expectedDestType = isDestHomogenousTuple ? destTypeArgs[0] : destTypeArgs[i];
                         const expectedSrcType = isSrcHomogeneousType ? srcTypeArgs[0] : srcTypeArgs[i];
                         if (!canAssignType(expectedDestType, expectedSrcType,
-                                diag.createAddendum(), typeVarMap, CanAssignFlags.Default,
+                                diag.createAddendum(), importLookup, typeVarMap, CanAssignFlags.Default,
                                 recursionCount + 1)) {
                             diag.addMessage(`Tuple entry ${ i + 1 } is incorrect type`);
                             return false;
@@ -1929,7 +1938,9 @@ function _canAssignClassWithTypeArgs(destType: ClassType, srcType: ClassType,
         }
 
         // Validate that the type arguments match.
-        if (!_verifyTypeArgumentsAssignable(ancestorType, curSrcType, diag, typeVarMap, recursionCount)) {
+        if (!_verifyTypeArgumentsAssignable(ancestorType, curSrcType, diag, importLookup,
+                typeVarMap, recursionCount)) {
+
             return false;
         }
     }
@@ -1937,7 +1948,9 @@ function _canAssignClassWithTypeArgs(destType: ClassType, srcType: ClassType,
     // If the dest type is specialized, make sure the specialized source
     // type arguments are assignable to the dest type arguments.
     if (destType.typeArguments) {
-        if (!_verifyTypeArgumentsAssignable(destType, curSrcType, diag, typeVarMap, recursionCount)) {
+        if (!_verifyTypeArgumentsAssignable(destType, curSrcType, diag, importLookup,
+                typeVarMap, recursionCount)) {
+
             return false;
         }
     }
@@ -1946,7 +1959,7 @@ function _canAssignClassWithTypeArgs(destType: ClassType, srcType: ClassType,
 }
 
 function _verifyTypeArgumentsAssignable(destType: ClassType, srcType: ClassType,
-        diag: DiagnosticAddendum, typeVarMap: TypeVarMap | undefined,
+        diag: DiagnosticAddendum, importLookup: ImportLookup, typeVarMap: TypeVarMap | undefined,
         recursionCount: number) {
 
     assert(ClassType.isSameGenericClass(destType, srcType));
@@ -1972,20 +1985,23 @@ function _verifyTypeArgumentsAssignable(destType: ClassType, srcType: ClassType,
 
                 if (!destTypeParam || destTypeParam.isCovariant) {
                     if (!canAssignType(destTypeArg, srcTypeArg,
-                            diag.createAddendum(), typeVarMap, CanAssignFlags.Default,
-                            recursionCount + 1)) {
+                            diag.createAddendum(), importLookup, typeVarMap,
+                            CanAssignFlags.Default, recursionCount + 1)) {
+
                         return false;
                     }
                 } else if (destTypeParam.isContravariant) {
                     if (!canAssignType(srcTypeArg, destTypeArg,
-                            diag.createAddendum(), typeVarMap, CanAssignFlags.Default,
-                            recursionCount + 1)) {
+                            diag.createAddendum(), importLookup, typeVarMap,
+                            CanAssignFlags.Default, recursionCount + 1)) {
+
                         return false;
                     }
                 } else {
                     if (!canAssignType(destTypeArg, srcTypeArg,
-                            diag.createAddendum(), typeVarMap, CanAssignFlags.EnforceInvariance,
-                            recursionCount + 1)) {
+                            diag.createAddendum(), importLookup, typeVarMap,
+                            CanAssignFlags.EnforceInvariance, recursionCount + 1)) {
+
                         return false;
                     }
                 }
@@ -1996,19 +2012,19 @@ function _verifyTypeArgumentsAssignable(destType: ClassType, srcType: ClassType,
     return true;
 }
 
-function _getCallbackProtocolType(objType: ObjectType): FunctionType | undefined {
+function _getCallbackProtocolType(objType: ObjectType, importLookup: ImportLookup): FunctionType | undefined {
     if (!ClassType.isProtocol(objType.classType)) {
         return undefined;
     }
 
-    const callMember = lookUpObjectMember(objType, '__call__');
+    const callMember = lookUpObjectMember(objType, '__call__', importLookup);
     if (!callMember) {
         return undefined;
     }
 
     if (callMember.symbolType.category === TypeCategory.Function) {
         return bindFunctionToClassOrObject(objType,
-            callMember.symbolType) as FunctionType;
+            callMember.symbolType, importLookup) as FunctionType;
     }
 
     return undefined;

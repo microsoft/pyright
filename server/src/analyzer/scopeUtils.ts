@@ -8,9 +8,8 @@
 * symbol tables.
 */
 
-import * as assert from 'assert';
-
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ImportLookup } from './analyzerFileInfo';
 import { getScope } from './analyzerNodeInfo';
 import { Scope, ScopeType } from './scope';
 import { getEffectiveTypeOfSymbol } from './symbolUtils';
@@ -28,20 +27,22 @@ export function getBuiltInScope(currentScope: Scope): Scope {
     return builtInScope;
 }
 
-export function getBuiltInType(currentScope: Scope, name: string): Type {
+export function getBuiltInType(currentScope: Scope, name: string,
+        importLookup: ImportLookup): Type {
+
     const builtInScope = getBuiltInScope(currentScope);
     const nameType = builtInScope.lookUpSymbol(name);
     if (nameType) {
-        return getEffectiveTypeOfSymbol(nameType);
+        return getEffectiveTypeOfSymbol(nameType, importLookup);
     }
 
     return UnknownType.create();
 }
 
 export function getBuiltInObject(currentScope: Scope, className: string,
-        typeArguments?: Type[]): Type {
+        importLookup: ImportLookup, typeArguments?: Type[]): Type {
 
-    const nameType = getBuiltInType(currentScope, className);
+    const nameType = getBuiltInType(currentScope, className, importLookup);
     if (nameType.category === TypeCategory.Class) {
         let classType = nameType;
         if (typeArguments) {

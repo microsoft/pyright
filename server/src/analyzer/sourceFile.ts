@@ -588,20 +588,16 @@ export class SourceFile {
             this._parseResults, position, importLookup);
     }
 
-    getSignatureHelpForPosition(position: DiagnosticTextPosition): SignatureHelpResults | undefined {
+    getSignatureHelpForPosition(position: DiagnosticTextPosition,
+            importLookup: ImportLookup): SignatureHelpResults | undefined {
+
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
-        // This command should be called only for open files, in which
-        // case we should have the file contents already loaded.
-        if (this._fileContents === undefined) {
-            return undefined;
-        }
-
         return SignatureHelpProvider.getSignatureHelpForPosition(
-            this._parseResults, this._fileContents, position);
+            this._parseResults, position, importLookup);
     }
 
     getCompletionsForPosition(position: DiagnosticTextPosition,

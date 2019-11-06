@@ -970,7 +970,8 @@ export class Program {
             });
         }
 
-        return sourceFileInfo.sourceFile.getSignatureHelpForPosition(position);
+        return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
+            position, this._lookUpImport);
     }
 
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,

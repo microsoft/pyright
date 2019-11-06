@@ -9,6 +9,7 @@
 * arguments for the call.
 */
 
+import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -40,8 +41,8 @@ export interface SignatureHelpResults {
 }
 
 export class SignatureHelpProvider {
-    static getSignatureHelpForPosition(parseResults: ParseResults, fileContents: string,
-            position: DiagnosticTextPosition): SignatureHelpResults | undefined {
+    static getSignatureHelpForPosition(parseResults: ParseResults,
+            position: DiagnosticTextPosition, importLookup: ImportLookup): SignatureHelpResults | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -112,16 +113,18 @@ export class SignatureHelpProvider {
                 // Try to get the __new__ method first. We skip the base "object",
                 // which typically provides the __new__ method. We'll fall back on
                 // the __init__ if there is no custom __new__.
-                let methodType = this._getBoundMethod(subtype, '__new__', true);
+                let methodType = this._getBoundMethod(subtype, '__new__',
+                    importLookup, true);
                 if (!methodType) {
-                    methodType = this._getBoundMethod(subtype, '__init__', false);
+                    methodType = this._getBoundMethod(subtype, '__init__',
+                        importLookup, false);
                 }
                 if (methodType) {
                     this._addSignatureToResults(results, methodType);
                 }
             } else if (subtype.category === TypeCategory.Object) {
                 const methodType = this._getBoundMethod(
-                    subtype.classType, '__call__', false);
+                    subtype.classType, '__call__', importLookup, false);
                 if (methodType) {
                     this._addSignatureToResults(results, methodType);
                 }
@@ -146,7 +149,7 @@ export class SignatureHelpProvider {
     }
 
     private static _getBoundMethod(classType: ClassType, memberName: string,
-        treatAsClassMember: boolean):
+        importLookup: ImportLookup, treatAsClassMember: boolean):
             FunctionType | OverloadedFunctionType | undefined {
 
         const aliasClass = ClassType.getAliasClass(classType);
@@ -155,7 +158,7 @@ export class SignatureHelpProvider {
         }
 
         const memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-            TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables |
+            importLookup, TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables |
                 TypeUtils.ClassMemberLookupFlags.SkipObjectBaseClass);
 
         if (memberInfo) {
@@ -165,7 +168,7 @@ export class SignatureHelpProvider {
 
                 const boundMethod = TypeUtils.bindFunctionToClassOrObject(
                     ObjectType.create(classType), unboundMethodType,
-                    treatAsClassMember);
+                    importLookup, treatAsClassMember);
 
                 if (boundMethod.category === TypeCategory.Function ||
                         boundMethod.category === TypeCategory.OverloadedFunction) {

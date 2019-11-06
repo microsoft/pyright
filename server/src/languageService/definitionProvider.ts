@@ -36,7 +36,7 @@ export class DefinitionProvider {
         const definitions: DocumentTextRange[] = [];
 
         if (node.nodeType === ParseNodeType.Name) {
-            const declarations = getDeclarationsForNameNode(node);
+            const declarations = getDeclarationsForNameNode(node, importLookup);
             if (declarations) {
                 declarations.forEach(decl => {
                     const resolvedDecl = resolveAliasDeclaration(decl, importLookup);

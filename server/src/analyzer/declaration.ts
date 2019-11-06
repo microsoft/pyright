@@ -11,8 +11,8 @@
 
 import { DiagnosticTextRange } from '../common/diagnostic';
 import { ClassNode, ExpressionNode, FunctionNode, ImportAsNode,
-    ImportFromAsNode, ImportFromNode, NameNode, ParameterNode, ParseNode, ReturnNode,
-    StringListNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    ImportFromAsNode, ImportFromNode, NameNode, ParameterNode, ParseNode,
+    ReturnNode, StringListNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { Type } from './types';
 
 export const enum DeclarationType {

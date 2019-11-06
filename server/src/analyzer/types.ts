@@ -11,7 +11,6 @@ import * as assert from 'assert';
 
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
-import { TypeSourceId } from './inferredType';
 import { Symbol, SymbolTable } from './symbol';
 
 export const enum TypeCategory {
@@ -66,6 +65,9 @@ export type Type = UnboundType | UnknownType | AnyType | NoneType | NeverType |
     ObjectType | ModuleType | UnionType | TypeVarType;
 
 export type LiteralValue = number | boolean | string;
+
+export type TypeSourceId = number;
+export const defaultTypeSourceId = 0;
 
 export const maxTypeRecursionCount = 16;
 

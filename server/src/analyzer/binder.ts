@@ -43,15 +43,14 @@ import { AliasDeclaration, DeclarationType, FunctionDeclaration, ModuleLoaderAct
     VariableDeclaration } from './declaration';
 import * as DocStringUtils from './docStringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
-import { defaultTypeSourceId, TypeSourceId } from './inferredType';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
 import { SymbolFlags } from './symbol';
-import { isConstantName } from './symbolNameUtils';
-import { AnyType, ClassType, ClassTypeFlags, FunctionParameter, FunctionType,
+import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { AnyType, ClassType, ClassTypeFlags, defaultTypeSourceId, FunctionParameter, FunctionType,
     FunctionTypeFlags, ObjectType, Type, TypeCategory, UnknownType } from './types';
 
 export const enum NameBindingType {
@@ -180,8 +179,10 @@ export class Binder extends ParseTreeWalker {
 
             // Bind implicit names.
             // List taken from https://docs.python.org/3/reference/import.html#__name__
-            const builtinIterableClass = ScopeUtils.getBuiltInType(this._currentScope, 'Iterable');
-            const builtinStrObj = ScopeUtils.getBuiltInObject(this._currentScope, 'str');
+            const builtinIterableClass = ScopeUtils.getBuiltInType(
+                this._currentScope, 'Iterable', this._fileInfo.importLookup);
+            const builtinStrObj = ScopeUtils.getBuiltInObject(
+                this._currentScope, 'str', this._fileInfo.importLookup);
             const strList = builtinIterableClass.category === TypeCategory.Class ?
                 ObjectType.create(ClassType.cloneForSpecialization(builtinIterableClass, [builtinStrObj])) :
                 AnyType.create();
@@ -307,7 +308,8 @@ export class Binder extends ParseTreeWalker {
             // Make sure we don't have 'object' derive from itself. Infinite
             // recursion will result.
             if (!ClassType.isBuiltIn(classType, 'object')) {
-                const objectType = ScopeUtils.getBuiltInType(this._currentScope, 'object');
+                const objectType = ScopeUtils.getBuiltInType(
+                    this._currentScope, 'object', this._fileInfo.importLookup);
                 ClassType.addBaseClass(classType, objectType, false);
             }
         }
@@ -331,10 +333,12 @@ export class Binder extends ParseTreeWalker {
             // because the builtins.pyi type stub declares these in the
             // 'object' class.
             this._addBuiltInSymbolToCurrentScope('__name__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str',
+                this._fileInfo.importLookup));
             if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
                 this._addBuiltInSymbolToCurrentScope('__qualname__',
-                    ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+                    ScopeUtils.getBuiltInObject(this._currentScope, 'str',
+                    this._fileInfo.importLookup));
             }
 
             // Analyze the suite.
@@ -344,7 +348,7 @@ export class Binder extends ParseTreeWalker {
         // Add the class symbol. We do this in the binder to speed
         // up overall analysis times. Without this, the type analyzer needs
         // to do more passes to resolve classes.
-        this._addSymbolToCurrentScope(node.name.nameToken.value, classType, node.name.id);
+        this._addSymbolToCurrentScope(node.name.nameToken.value, true);
 
         this._createAssignmentTargetFlowNodes(node.name);
 
@@ -435,15 +439,16 @@ export class Binder extends ParseTreeWalker {
             // Bind implicit names.
             // List taken from https://docs.python.org/3/reference/datamodel.html
             this._addBuiltInSymbolToCurrentScope('__doc__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str', this._fileInfo.importLookup));
             this._addBuiltInSymbolToCurrentScope('__name__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str', this._fileInfo.importLookup));
             if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
                 this._addBuiltInSymbolToCurrentScope('__qualname__',
-                    ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+                    ScopeUtils.getBuiltInObject(this._currentScope, 'str',
+                    this._fileInfo.importLookup));
             }
             this._addBuiltInSymbolToCurrentScope('__module__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str'));
+                ScopeUtils.getBuiltInObject(this._currentScope, 'str', this._fileInfo.importLookup));
             this._addBuiltInSymbolToCurrentScope('__defaults__', AnyType.create());
             this._addBuiltInSymbolToCurrentScope('__code__', AnyType.create());
             this._addBuiltInSymbolToCurrentScope('__globals__', AnyType.create());
@@ -596,7 +601,9 @@ export class Binder extends ParseTreeWalker {
         this.walk(node.leftExpression);
         this.walk(node.rightExpression);
 
-        this._bindPossibleTupleNamedTarget(node.leftExpression);
+        this._addInferredTypeAssignmentForVariable(node.destExpression, node.rightExpression);
+
+        this._bindPossibleTupleNamedTarget(node.destExpression);
         this._createAssignmentTargetFlowNodes(node.destExpression);
 
         return false;
@@ -1610,20 +1617,36 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _createAssignmentTargetFlowNodes(target: ExpressionNode, unbound = false) {
-        if (target.nodeType === ParseNodeType.Name || target.nodeType === ParseNodeType.MemberAccess) {
-            this._createFlowAssignment(target, unbound);
-        } else if (target.nodeType === ParseNodeType.Tuple) {
-            target.expressions.forEach(expr => {
-                this._createAssignmentTargetFlowNodes(expr, unbound);
-            });
-        } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
-            this._createAssignmentTargetFlowNodes(target.valueExpression, unbound);
-        } else if (target.nodeType === ParseNodeType.Unpack) {
-            this._createAssignmentTargetFlowNodes(target.expression, unbound);
-        } else if (target.nodeType === ParseNodeType.List) {
-            target.entries.forEach(entry => {
-                this._createAssignmentTargetFlowNodes(entry, unbound);
-            });
+        switch (target.nodeType) {
+            case ParseNodeType.Name:
+            case ParseNodeType.MemberAccess: {
+                this._createFlowAssignment(target, unbound);
+                break;
+            }
+
+            case ParseNodeType.Tuple: {
+                target.expressions.forEach(expr => {
+                    this._createAssignmentTargetFlowNodes(expr, unbound);
+                });
+                break;
+            }
+
+            case ParseNodeType.TypeAnnotation: {
+                this._createAssignmentTargetFlowNodes(target.valueExpression, unbound);
+                break;
+            }
+
+            case ParseNodeType.Unpack: {
+                this._createAssignmentTargetFlowNodes(target.expression, unbound);
+                break;
+            }
+
+            case ParseNodeType.List: {
+                target.entries.forEach(entry => {
+                    this._createAssignmentTargetFlowNodes(entry, unbound);
+                });
+                break;
+            }
         }
     }
 
@@ -1728,20 +1751,35 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindPossibleTupleNamedTarget(target: ExpressionNode) {
-        if (target.nodeType === ParseNodeType.Name) {
-            this._bindNameToScope(this._currentScope, target.nameToken.value);
-        } else if (target.nodeType === ParseNodeType.Tuple) {
-            target.expressions.forEach(expr => {
-                this._bindPossibleTupleNamedTarget(expr);
-            });
-        } else if (target.nodeType === ParseNodeType.List) {
-            target.entries.forEach(expr => {
-                this._bindPossibleTupleNamedTarget(expr);
-            });
-        } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
-            this._bindPossibleTupleNamedTarget(target.valueExpression);
-        } else if (target.nodeType === ParseNodeType.Unpack) {
-            this._bindPossibleTupleNamedTarget(target.expression);
+        switch (target.nodeType) {
+            case ParseNodeType.Name: {
+                this._bindNameToScope(this._currentScope, target.nameToken.value);
+                break;
+            }
+
+            case ParseNodeType.Tuple: {
+                target.expressions.forEach(expr => {
+                    this._bindPossibleTupleNamedTarget(expr);
+                });
+                break;
+            }
+
+            case ParseNodeType.List: {
+                target.entries.forEach(expr => {
+                    this._bindPossibleTupleNamedTarget(expr);
+                });
+                break;
+            }
+
+            case ParseNodeType.TypeAnnotation: {
+                this._bindPossibleTupleNamedTarget(target.valueExpression);
+                break;
+            }
+
+            case ParseNodeType.Unpack: {
+                this._bindPossibleTupleNamedTarget(target.expression);
+                break;
+            }
         }
     }
 
@@ -1752,9 +1790,9 @@ export class Binder extends ParseTreeWalker {
         // into Any and not add a real declaration so other classes
         // can override the type without getting an error.
         if (type.category === TypeCategory.Unknown) {
-            this._addSymbolToCurrentScope(nameValue, AnyType.create(), defaultTypeSourceId);
+            this._addSymbolToCurrentScope(nameValue, false);
         } else {
-            const symbol = this._addSymbolToCurrentScope(nameValue, type, defaultTypeSourceId);
+            const symbol = this._addSymbolToCurrentScope(nameValue, false);
             if (symbol) {
                 symbol.addDeclaration({
                     type: DeclarationType.BuiltIn,
@@ -1768,7 +1806,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     // Adds a new symbol with the specified name if it doesn't already exist.
-    private _addSymbolToCurrentScope(nameValue: string, type: Type, typeSourceId: TypeSourceId) {
+    private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean) {
         let symbol = this._currentScope.lookUpSymbol(nameValue);
 
         if (!symbol) {
@@ -1777,7 +1815,7 @@ export class Binder extends ParseTreeWalker {
             // If the caller specified a default type source ID, it's a
             // symbol that's populated by the module loader, so it's
             // bound at the time the module starts executing.
-            if (typeSourceId !== defaultTypeSourceId) {
+            if (isInitiallyUnbound) {
                 symbolFlags |= SymbolFlags.InitiallyUnbound;
             }
 
@@ -1790,7 +1828,6 @@ export class Binder extends ParseTreeWalker {
             symbol = this._currentScope.addSymbol(nameValue, symbolFlags);
         }
 
-        symbol.setInferredTypeForSource(type, typeSourceId);
         return symbol;
     }
 
@@ -1839,121 +1876,155 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _addInferredTypeAssignmentForVariable(target: ExpressionNode, source: ParseNode) {
-        if (target.nodeType === ParseNodeType.Name) {
-            const name = target.nameToken;
-            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
-            if (symbolWithScope && symbolWithScope.symbol) {
-                const declaration: VariableDeclaration = {
-                    type: DeclarationType.Variable,
-                    node: target,
-                    isConstant: isConstantName(target.nameToken.value),
-                    inferredTypeSource: source,
-                    path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
-                };
-                symbolWithScope.symbol.addDeclaration(declaration);
-            }
-        } else if (target.nodeType === ParseNodeType.MemberAccess) {
-            const memberAccessInfo = this._getMemberAccessInfo(target);
-            if (memberAccessInfo) {
-                const name = target.memberName.nameToken;
-
-                let symbol = memberAccessInfo.classScope.lookUpSymbol(name.value);
-                if (!symbol) {
-                    symbol = memberAccessInfo.classScope.addSymbol(name.value,
-                        SymbolFlags.InitiallyUnbound);
+        switch (target.nodeType) {
+            case ParseNodeType.Name: {
+                const name = target.nameToken;
+                const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
+                if (symbolWithScope && symbolWithScope.symbol) {
+                    const declaration: VariableDeclaration = {
+                        type: DeclarationType.Variable,
+                        node: target,
+                        isConstant: isConstantName(target.nameToken.value),
+                        inferredTypeSource: source,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
+                    };
+                    symbolWithScope.symbol.addDeclaration(declaration);
                 }
-
-                if (memberAccessInfo.isInstanceMember) {
-                    symbol.setIsInstanceMember();
-                } else {
-                    symbol.setIsClassMember();
-                }
-
-                const declaration: VariableDeclaration = {
-                    type: DeclarationType.Variable,
-                    node: target.memberName,
-                    isConstant: isConstantName(name.value),
-                    inferredTypeSource: source,
-                    path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(target.memberName.start,
-                        target.memberName.start + target.memberName.length,
-                        this._fileInfo.lines)
-                };
-                symbol.addDeclaration(declaration);
+                break;
             }
-        } else if (target.nodeType === ParseNodeType.Tuple) {
-            target.expressions.forEach(expr => {
-                this._addInferredTypeAssignmentForVariable(expr, source);
-            });
-        } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
-            this._addInferredTypeAssignmentForVariable(target.valueExpression, source);
-        } else if (target.nodeType === ParseNodeType.Unpack) {
-            this._addInferredTypeAssignmentForVariable(target.expression, source);
-        } else if (target.nodeType === ParseNodeType.List) {
-            target.entries.forEach(entry => {
-                this._addInferredTypeAssignmentForVariable(entry, source);
-            });
+
+            case ParseNodeType.MemberAccess: {
+                const memberAccessInfo = this._getMemberAccessInfo(target);
+                if (memberAccessInfo) {
+                    const name = target.memberName.nameToken;
+
+                    let symbol = memberAccessInfo.classScope.lookUpSymbol(name.value);
+                    if (!symbol) {
+                        symbol = memberAccessInfo.classScope.addSymbol(name.value,
+                            SymbolFlags.InitiallyUnbound);
+                        const honorPrivateNaming =
+                            this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
+                        if (isPrivateOrProtectedName(name.value) && honorPrivateNaming) {
+                            symbol.setIsPrivateMember();
+                        }
+                    }
+
+                    if (memberAccessInfo.isInstanceMember) {
+                        symbol.setIsInstanceMember();
+                    } else {
+                        symbol.setIsClassMember();
+                    }
+
+                    const declaration: VariableDeclaration = {
+                        type: DeclarationType.Variable,
+                        node: target.memberName,
+                        isConstant: isConstantName(name.value),
+                        inferredTypeSource: source,
+                        path: this._fileInfo.filePath,
+                        range: convertOffsetsToRange(target.memberName.start,
+                            target.memberName.start + target.memberName.length,
+                            this._fileInfo.lines)
+                    };
+                    symbol.addDeclaration(declaration);
+                }
+                break;
+            }
+
+            case ParseNodeType.Tuple: {
+                target.expressions.forEach(expr => {
+                    this._addInferredTypeAssignmentForVariable(expr, source);
+                });
+                break;
+            }
+
+            case ParseNodeType.TypeAnnotation: {
+                this._addInferredTypeAssignmentForVariable(target.valueExpression, source);
+                break;
+            }
+
+            case ParseNodeType.Unpack: {
+                this._addInferredTypeAssignmentForVariable(target.expression, source);
+                break;
+            }
+
+            case ParseNodeType.List: {
+                target.entries.forEach(entry => {
+                    this._addInferredTypeAssignmentForVariable(entry, source);
+                });
+                break;
+            }
         }
     }
 
     private _addTypeDeclarationForVariable(target: ExpressionNode, typeAnnotation: ExpressionNode) {
         let declarationHandled = false;
 
-        if (target.nodeType === ParseNodeType.Name) {
-            const name = target.nameToken;
-            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
-            if (symbolWithScope && symbolWithScope.symbol) {
-                const declaration: VariableDeclaration = {
-                    type: DeclarationType.Variable,
-                    node: target,
-                    isConstant: isConstantName(name.value),
-                    path: this._fileInfo.filePath,
-                    typeAnnotationNode: typeAnnotation,
-                    range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
-                };
-                symbolWithScope.symbol.addDeclaration(declaration);
-            }
-
-            declarationHandled = true;
-        } else if (target.nodeType === ParseNodeType.MemberAccess) {
-            // We need to determine whether this expression is declaring a class or
-            // instance variable. This is difficult because python doesn't provide
-            // a keyword for accessing "this". Instead, it uses naming conventions
-            // of "cls" and "self", but we don't want to rely on these naming
-            // conventions here. Instead, we'll apply some heuristics to determine
-            // whether the symbol on the LHS is a reference to the current class
-            // or an instance of the current class.
-
-            const memberAccessInfo = this._getMemberAccessInfo(target);
-            if (memberAccessInfo) {
-                const name = target.memberName.nameToken;
-
-                let symbol = memberAccessInfo.classScope.lookUpSymbol(name.value);
-                if (!symbol) {
-                    symbol = memberAccessInfo.classScope.addSymbol(name.value,
-                        SymbolFlags.InitiallyUnbound);
+        switch (target.nodeType) {
+            case ParseNodeType.Name: {
+                const name = target.nameToken;
+                const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
+                if (symbolWithScope && symbolWithScope.symbol) {
+                    const declaration: VariableDeclaration = {
+                        type: DeclarationType.Variable,
+                        node: target,
+                        isConstant: isConstantName(name.value),
+                        path: this._fileInfo.filePath,
+                        typeAnnotationNode: typeAnnotation,
+                        range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
+                    };
+                    symbolWithScope.symbol.addDeclaration(declaration);
                 }
-
-                if (memberAccessInfo.isInstanceMember) {
-                    symbol.setIsInstanceMember();
-                } else {
-                    symbol.setIsClassMember();
-                }
-
-                const declaration: VariableDeclaration = {
-                    type: DeclarationType.Variable,
-                    node: target.memberName,
-                    isConstant: isConstantName(name.value),
-                    path: this._fileInfo.filePath,
-                    typeAnnotationNode: typeAnnotation,
-                    range: convertOffsetsToRange(target.memberName.start,
-                        target.memberName.start + target.memberName.length,
-                        this._fileInfo.lines)
-                };
-                symbol.addDeclaration(declaration);
 
                 declarationHandled = true;
+                break;
+            }
+
+            case ParseNodeType.MemberAccess: {
+                // We need to determine whether this expression is declaring a class or
+                // instance variable. This is difficult because python doesn't provide
+                // a keyword for accessing "this". Instead, it uses naming conventions
+                // of "cls" and "self", but we don't want to rely on these naming
+                // conventions here. Instead, we'll apply some heuristics to determine
+                // whether the symbol on the LHS is a reference to the current class
+                // or an instance of the current class.
+
+                const memberAccessInfo = this._getMemberAccessInfo(target);
+                if (memberAccessInfo) {
+                    const name = target.memberName.nameToken;
+
+                    let symbol = memberAccessInfo.classScope.lookUpSymbol(name.value);
+                    if (!symbol) {
+                        symbol = memberAccessInfo.classScope.addSymbol(name.value,
+                            SymbolFlags.InitiallyUnbound);
+                        const honorPrivateNaming =
+                            this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
+                        if (isPrivateOrProtectedName(name.value) && honorPrivateNaming) {
+                            symbol.setIsPrivateMember();
+                        }
+                    }
+
+                    if (memberAccessInfo.isInstanceMember) {
+                        symbol.setIsInstanceMember();
+                    } else {
+                        symbol.setIsClassMember();
+                    }
+
+                    const declaration: VariableDeclaration = {
+                        type: DeclarationType.Variable,
+                        node: target.memberName,
+                        isConstant: isConstantName(name.value),
+                        path: this._fileInfo.filePath,
+                        typeAnnotationNode: typeAnnotation,
+                        range: convertOffsetsToRange(target.memberName.start,
+                            target.memberName.start + target.memberName.length,
+                            this._fileInfo.lines)
+                    };
+                    symbol.addDeclaration(declaration);
+
+                    declarationHandled = true;
+                }
+                break;
             }
         }
 

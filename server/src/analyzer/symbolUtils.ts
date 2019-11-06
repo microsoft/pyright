@@ -7,12 +7,14 @@
 * Collection of functions that operate on Symbol objects.
 */
 
+import { ImportLookup } from './analyzerFileInfo';
 import { DeclarationType } from './declaration';
-import { getTypeForDeclaration } from './declarationUtils';
+import { getInferredTypeOfDeclaration, getTypeForDeclaration } from './declarationUtils';
 import { Symbol } from './symbol';
-import { Type, UnknownType } from './types';
+import { combineTypes, Type, UnknownType } from './types';
+import { stripLiteralValue } from './typeUtils';
 
-export function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
+export function getEffectiveTypeOfSymbol(symbol: Symbol, importLookup: ImportLookup): Type {
     // If there's a declared type, it takes precedence.
     const declaredType = getDeclaredTypeOfSymbol(symbol);
 
@@ -20,7 +22,29 @@ export function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
         return declaredType;
     }
 
-    return symbol.getInferredType();
+    // Determine the inferred type.
+    const typesToCombine: Type[] = [];
+    const isPrivate = symbol.isPrivateMember();
+    symbol.getDeclarations().forEach(decl => {
+        let type = getInferredTypeOfDeclaration(decl, importLookup);
+        if (type) {
+            const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
+
+            // If the symbol is private or constant, we can retain the literal
+            // value. Otherwise, strip them off to make the type less specific,
+            // allowing other values to be assigned to it in subclasses.
+            if (!isPrivate && !isConstant) {
+                type = stripLiteralValue(type);
+            }
+            typesToCombine.push(type);
+        }
+    });
+
+    if (typesToCombine.length > 0) {
+        return combineTypes(typesToCombine);
+    }
+
+    return UnknownType.create();
 }
 
 export function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {

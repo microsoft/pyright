@@ -25,11 +25,12 @@ import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNo
     StringListNode, TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode,
     YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
+import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowCall, FlowCondition, FlowFlags, FlowLabel,
     FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport } from './codeFlow';
 import { Declaration, DeclarationType, VariableDeclaration } from './declaration';
-import { TypeSourceId } from './inferredType';
+import { getInferredTypeOfDeclaration } from './declarationUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
@@ -39,8 +40,9 @@ import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol } from './symbolUtils
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
     FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound, isTypeSame,
     isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
-    printType, removeNoneFromUnion, removeUnboundFromUnion, requiresSpecialization, Type,
-    TypeCategory, TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
+    printObjectTypeForClass, printType, removeNoneFromUnion, removeUnboundFromUnion,
+    requiresSpecialization, Type, TypeCategory, TypeVarMap, TypeVarType, UnboundType,
+    UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
 interface TypeResult {
@@ -197,7 +199,6 @@ export interface ExpressionEvaluator {
 
     assignTypeToNameNode: (nameNode: NameNode, type: Type, srcExpression?: ParseNode) => void;
     assignTypeToExpression: (target: ExpressionNode, type: Type, srcExpr?: ExpressionNode) => void;
-    addTypeSourceToName: (node: ParseNode, name: string, type: Type, typeSourceId: TypeSourceId) => void;
 
     updateExpressionTypeForNode: (node: ExpressionNode, exprType: Type) => void;
     markExpressionAccessed: (target: ExpressionNode) => void;
@@ -208,7 +209,8 @@ export interface ExpressionEvaluator {
 }
 
 export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSink,
-        analysisVersion: number, setAnalysisChangedCallback: SetAnalysisChangedCallback): ExpressionEvaluator {
+        analysisVersion: number, setAnalysisChangedCallback: SetAnalysisChangedCallback,
+        importLookup: ImportLookup): ExpressionEvaluator {
 
     let isSpeculativeMode = false;
     const typeFlowRecursionMap = new Map<number, true>();
@@ -292,7 +294,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             if (resultType.category === TypeCategory.Function || resultType.category === TypeCategory.OverloadedFunction) {
                 if (memberInfo!.isClassMember) {
                     resultType = TypeUtils.bindFunctionToClassOrObject(
-                        bindToClass || objectType, resultType, !!bindToClass);
+                        bindToClass || objectType, resultType,
+                        importLookup, !!bindToClass);
                 }
             }
         }
@@ -312,7 +315,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (resultType) {
             if (resultType.category === TypeCategory.Function || resultType.category === TypeCategory.OverloadedFunction) {
                 if (memberInfo!.isClassMember) {
-                    resultType = TypeUtils.bindFunctionToClassOrObject(classType, resultType);
+                    resultType = TypeUtils.bindFunctionToClassOrObject(classType,
+                        resultType, importLookup);
                 }
             }
         }
@@ -342,12 +346,12 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             if (baseType.category === TypeCategory.Object) {
                 classMemberInfo = TypeUtils.lookUpObjectMember(baseType,
-                    expression.memberName.nameToken.value,
+                    expression.memberName.nameToken.value, importLookup,
                     TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
                 classOrObjectBase = baseType;
             } else if (baseType.category === TypeCategory.Class) {
                 classMemberInfo = TypeUtils.lookUpClassMember(baseType,
-                    expression.memberName.nameToken.value,
+                    expression.memberName.nameToken.value, importLookup,
                     TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables |
                     TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
                 classOrObjectBase = baseType;
@@ -359,10 +363,12 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         } else if (expression.nodeType === ParseNodeType.Index) {
             const baseType = getDeclaredTypeForExpression(expression.baseExpression);
             if (baseType && baseType.category === TypeCategory.Object) {
-                const setItemMember = TypeUtils.lookUpClassMember(baseType.classType, '__setitem__');
+                const setItemMember = TypeUtils.lookUpClassMember(baseType.classType,
+                    '__setitem__', importLookup);
                 if (setItemMember) {
                     if (setItemMember.symbolType.category === TypeCategory.Function) {
-                        const boundFunction = TypeUtils.bindFunctionToClassOrObject(baseType, setItemMember.symbolType);
+                        const boundFunction = TypeUtils.bindFunctionToClassOrObject(baseType,
+                            setItemMember.symbolType, importLookup);
                         if (boundFunction.category === TypeCategory.Function) {
                             if (boundFunction.details.parameters.length === 2) {
                                 return FunctionType.getEffectiveParameterType(boundFunction, 1);
@@ -390,7 +396,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                 if (classOrObjectBase) {
                     declaredType = TypeUtils.bindFunctionToClassOrObject(classOrObjectBase,
-                        declaredType);
+                        declaredType, importLookup);
                 }
 
                 return declaredType;
@@ -723,7 +729,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return undefined;
         }
 
-        const lookupResult = fileInfo.importLookup(typingImportPath);
+        const lookupResult = importLookup(typingImportPath);
         if (!lookupResult) {
             return undefined;
         }
@@ -733,7 +739,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return undefined;
         }
 
-        return getEffectiveTypeOfSymbol(symbol);
+        return getEffectiveTypeOfSymbol(symbol, importLookup);
     }
 
     function isNodeReachable(node: ParseNode): boolean {
@@ -822,14 +828,15 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         let destType = type;
         if (declaredType && srcExpression) {
             const diagAddendum = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(declaredType, type, diagAddendum)) {
+            if (!TypeUtils.canAssignType(declaredType, type, diagAddendum, importLookup)) {
                 addError(`Expression of type '${ printType(type) }' cannot be ` +
                     `assigned to declared type '${ printType(declaredType) }'` + diagAddendum.getString(),
                     srcExpression || nameNode);
                 destType = declaredType;
             } else {
                 // Constrain the resulting type to match the declared type.
-                destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(declaredType, type);
+                destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                    declaredType, type, importLookup);
             }
         } else {
             // If this is a member name (within a class scope) and the member name
@@ -853,6 +860,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (varDecl && varDecl.type === DeclarationType.Variable &&
                 varDecl.isConstant && srcExpression) {
 
+            // A constant variable can be assigned only once. If this isn't the
+            // first assignment, generate an error.
             if (nameNode !== declarations[0].node) {
                 addDiagnostic(
                     getFileInfo(nameNode).diagnosticSettings.reportConstantRedefinition,
@@ -862,11 +871,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
-        addTypeSourceToName(nameNode, nameNode.nameToken.value, destType, nameNode.id);
         updateExpressionTypeForNode(nameNode, destType);
     }
 
-    function assignTypeToMemberAccessNode(target: MemberAccessExpressionNode, type: Type, srcExpr?: ExpressionNode) {
+    function assignTypeToMemberAccessNode(target: MemberAccessExpressionNode, type: Type,
+            srcExpr?: ExpressionNode) {
         const targetNode = target.leftExpression;
 
         // Handle member accesses (e.g. self.x or cls.y).
@@ -881,13 +890,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     const typeOfLeftExpr = getTypeFromExpression(target.leftExpression).type;
                     if (typeOfLeftExpr.category === TypeCategory.Object) {
                         if (ClassType.isSameGenericClass(typeOfLeftExpr.classType, classType)) {
-                            assignTypeToMemberVariable(target, type, true,
-                                undefined, srcExpr);
+                            assignTypeToMemberVariable(target, type, true, srcExpr);
                         }
                     } else if (typeOfLeftExpr.category === TypeCategory.Class) {
                         if (ClassType.isSameGenericClass(typeOfLeftExpr, classType)) {
-                            assignTypeToMemberVariable(target, type, false,
-                                undefined, srcExpr);
+                            assignTypeToMemberVariable(target, type, false, srcExpr);
                         }
                     }
                 }
@@ -895,25 +902,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
     }
 
-    // Associates a member variable with a specified type.
-    // If typeAnnotationNode is provided, it assumes that the
-    // specified type is declared (rather than inferred).
     function assignTypeToMemberVariable(node: MemberAccessExpressionNode, srcType: Type,
-            isInstanceMember: boolean, typeAnnotationNode?: ExpressionNode, srcExprNode?: ExpressionNode) {
+            isInstanceMember: boolean, srcExprNode?: ExpressionNode) {
 
         const memberName = node.memberName.nameToken.value;
-        const isConstant = isConstantName(memberName);
-        const isPrivate = isPrivateOrProtectedName(memberName);
         const fileInfo = getFileInfo(node);
-        const honorPrivateNaming = fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
-
-        // If the member name appears to be a constant, use the strict
-        // source type. If it's a member variable that can be overridden
-        // by a child class, use the more general version by stripping
-        // off the literal.
-        if (!isConstant && (!isPrivate || !honorPrivateNaming)) {
-            srcType = TypeUtils.stripLiteralValue(srcType);
-        }
 
         const classDef = ParseTreeUtils.getEnclosingClass(node);
         if (!classDef) {
@@ -925,7 +918,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         const classType = AnalyzerNodeInfo.getExpressionType(classDef);
         if (classType && classType.category === TypeCategory.Class) {
             let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-                isInstanceMember ? TypeUtils.ClassMemberLookupFlags.Default :
+                importLookup, isInstanceMember ? TypeUtils.ClassMemberLookupFlags.Default :
                     TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
 
             const memberFields = ClassType.getFields(classType);
@@ -938,15 +931,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 if (isThisClass && memberInfo.isInstanceMember === isInstanceMember) {
                     const symbol = memberFields.get(memberName)!;
                     assert(symbol !== undefined);
-
-                    // If the type annotation node is provided, use it to generate a source ID.
-                    // If an expression contains both a type annotation and an assignment, we want
-                    // to generate two sources because the types may different, and the analysis
-                    // won't converge if we use the same source ID for both.
-                    const sourceId = (typeAnnotationNode || node.memberName).id;
-                    if (symbol.setInferredTypeForSource(srcType, sourceId)) {
-                        setAnalysisChangedCallback('Class member inferred type changed');
-                    }
 
                     const typedDecls = symbol.getDeclarations();
 
@@ -980,7 +964,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             // Look up the member info again, now that we've potentially updated it.
             memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-                TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+                importLookup, TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
             if (memberInfo) {
                 const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
                 if (declaredType && !isAnyOrUnknown(declaredType)) {
@@ -991,9 +975,12 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         // TODO - need to validate property setter type.
                     } else {
                         const diagAddendum = new DiagnosticAddendum();
-                        if (TypeUtils.canAssignType(declaredType, srcType, diagAddendum)) {
+                        if (TypeUtils.canAssignType(declaredType, srcType,
+                                diagAddendum, importLookup)) {
+
                             // Constrain the resulting type to match the declared type.
-                            destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(destType, srcType);
+                            destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                                destType, srcType, importLookup);
                         }
                     }
                 }
@@ -1089,87 +1076,90 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         });
     }
 
-    function addTypeSourceToName(node: ParseNode, name: string, type: Type, typeSourceId: TypeSourceId) {
-        if (!isSpeculativeMode) {
-            const symbolWithScope = lookUpSymbolRecursive(node, name);
-            if (symbolWithScope) {
-                if (!symbolWithScope.isOutsideCallerModule) {
-                    if (symbolWithScope.symbol.setInferredTypeForSource(type, typeSourceId)) {
-                        setAnalysisChangedCallback(`Inferred type of name changed for '${ name }'`);
-                    }
-                }
-            } else {
-                // We should never get here!
-                assert.fail(`Missing symbol '${ name }'`);
-            }
-        }
-    }
-
     function assignTypeToExpression(target: ExpressionNode, type: Type, srcExpr?: ExpressionNode) {
-        if (target.nodeType === ParseNodeType.Name) {
-            const name = target.nameToken;
-            // Handle '__all__' as a special case in the module scope.
-            if (name.value === '__all__' && srcExpr) {
-                const scope = ScopeUtils.getScopeForNode(target);
-                if (scope.getType() === ScopeType.Module) {
-                    // It's common for modules to include the expression
-                    // __all__ = ['a', 'b', 'c']
-                    // We will mark the symbols referenced by these strings as accessed.
-                    if (srcExpr.nodeType === ParseNodeType.List) {
-                        srcExpr.entries.forEach(entryExpr => {
-                            if (entryExpr.nodeType === ParseNodeType.StringList || entryExpr.nodeType === ParseNodeType.String) {
-                                const symbolName = entryExpr.nodeType === ParseNodeType.String ?
-                                    entryExpr.value :
-                                    entryExpr.strings.map(s => s.value).join('');
-                                const symbolInScope = scope.lookUpSymbolRecursive(symbolName);
-                                if (symbolInScope) {
-                                    setSymbolAccessed(symbolInScope.symbol);
+        switch (target.nodeType) {
+            case ParseNodeType.Name: {
+                const name = target.nameToken;
+                // Handle '__all__' as a special case in the module scope.
+                if (name.value === '__all__' && srcExpr) {
+                    const scope = ScopeUtils.getScopeForNode(target);
+                    if (scope.getType() === ScopeType.Module) {
+                        // It's common for modules to include the expression
+                        // __all__ = ['a', 'b', 'c']
+                        // We will mark the symbols referenced by these strings as accessed.
+                        if (srcExpr.nodeType === ParseNodeType.List) {
+                            srcExpr.entries.forEach(entryExpr => {
+                                if (entryExpr.nodeType === ParseNodeType.StringList || entryExpr.nodeType === ParseNodeType.String) {
+                                    const symbolName = entryExpr.nodeType === ParseNodeType.String ?
+                                        entryExpr.value :
+                                        entryExpr.strings.map(s => s.value).join('');
+                                    const symbolInScope = scope.lookUpSymbolRecursive(symbolName);
+                                    if (symbolInScope) {
+                                        setSymbolAccessed(symbolInScope.symbol);
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
                     }
                 }
+
+                reportPossibleUnknownAssignment(
+                    getFileInfo(target).diagnosticSettings.reportUnknownVariableType,
+                    DiagnosticRule.reportUnknownVariableType,
+                    target, type, srcExpr || target);
+
+                assignTypeToNameNode(target, type, srcExpr);
+                break;
             }
 
-            reportPossibleUnknownAssignment(
-                getFileInfo(target).diagnosticSettings.reportUnknownVariableType,
-                DiagnosticRule.reportUnknownVariableType,
-                target, type, srcExpr || target);
-
-            assignTypeToNameNode(target, type, srcExpr);
-        } else if (target.nodeType === ParseNodeType.MemberAccess) {
-            assignTypeToMemberAccessNode(target, type, srcExpr);
-        } else if (target.nodeType === ParseNodeType.Tuple) {
-            assignTypeToTupleNode(target, type, srcExpr);
-        } else if (target.nodeType === ParseNodeType.TypeAnnotation) {
-            const typeHintType = getTypeOfAnnotation(target.typeAnnotation);
-            const diagAddendum = new DiagnosticAddendum();
-            if (TypeUtils.canAssignType(typeHintType, type, diagAddendum)) {
-                type = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(typeHintType, type);
+            case ParseNodeType.MemberAccess: {
+                assignTypeToMemberAccessNode(target, type, srcExpr);
+                break;
             }
 
-            assignTypeToExpression(target.valueExpression, type, srcExpr);
-        } else if (target.nodeType === ParseNodeType.Unpack) {
-            if (target.expression.nodeType === ParseNodeType.Name) {
-                if (!isAnyOrUnknown(type)) {
-                    // Make a list type from the source.
-                    const listType = getBuiltInType(target, 'List');
-                    if (listType.category === TypeCategory.Class) {
-                        type = ObjectType.create(ClassType.cloneForSpecialization(listType, [type]));
-                    } else {
-                        type = UnknownType.create();
-                    }
+            case ParseNodeType.Tuple: {
+                assignTypeToTupleNode(target, type, srcExpr);
+                break;
+            }
+
+            case ParseNodeType.TypeAnnotation: {
+                const typeHintType = getTypeOfAnnotation(target.typeAnnotation);
+                const diagAddendum = new DiagnosticAddendum();
+                if (TypeUtils.canAssignType(typeHintType, type, diagAddendum, importLookup)) {
+                    type = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                        typeHintType, type, importLookup);
                 }
-                assignTypeToNameNode(target.expression, type);
-            }
-        } else if (target.nodeType === ParseNodeType.List) {
-            // The assigned expression had better be some iterable type.
-            const iteratedType = getTypeFromIterable(
-                type, false, srcExpr, false);
 
-            target.entries.forEach(entry => {
-                assignTypeToExpression(entry, iteratedType, srcExpr);
-            });
+                assignTypeToExpression(target.valueExpression, type, srcExpr);
+                break;
+            }
+
+            case ParseNodeType.Unpack: {
+                if (target.expression.nodeType === ParseNodeType.Name) {
+                    if (!isAnyOrUnknown(type)) {
+                        // Make a list type from the source.
+                        const listType = getBuiltInType(target, 'List');
+                        if (listType.category === TypeCategory.Class) {
+                            type = ObjectType.create(ClassType.cloneForSpecialization(listType, [type]));
+                        } else {
+                            type = UnknownType.create();
+                        }
+                    }
+                    assignTypeToNameNode(target.expression, type);
+                }
+                break;
+            }
+
+            case ParseNodeType.List: {
+                // The assigned expression had better be some iterable type.
+                const iteratedType = getTypeFromIterable(
+                    type, false, srcExpr, false);
+
+                target.entries.forEach(entry => {
+                    assignTypeToExpression(entry, iteratedType, srcExpr);
+                });
+                break;
+            }
         }
 
         // Make sure we can write the type back to the target.
@@ -1203,12 +1193,19 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
     function updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
         if (!isSpeculativeMode) {
-            const oldType = AnalyzerNodeInfo.getExpressionType(node);
-            AnalyzerNodeInfo.setExpressionTypeWriteVersion(node, analysisVersion);
+            const oldWriteVersion = AnalyzerNodeInfo.getExpressionTypeWriteVersion(node);
 
-            if (!oldType || !isTypeSame(oldType, exprType)) {
-                setAnalysisChangedCallback('Expression type changed');
-                AnalyzerNodeInfo.setExpressionType(node, exprType);
+            // If the type was already cached this pass, don't overwrite the value.
+            // This can happen in the case of augmented assignments, which share
+            // a source and destination expression.
+            if (oldWriteVersion !== analysisVersion) {
+                const oldType = AnalyzerNodeInfo.getExpressionType(node);
+                AnalyzerNodeInfo.setExpressionTypeWriteVersion(node, analysisVersion);
+
+                if (!oldType || !isTypeSame(oldType, exprType)) {
+                    setAnalysisChangedCallback('Expression type changed');
+                    AnalyzerNodeInfo.setExpressionType(node, exprType);
+                }
             }
         }
     }
@@ -1216,7 +1213,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     function setSymbolAccessed(symbol: Symbol) {
         if (!isSpeculativeMode) {
             if (!symbol.isAccessed()) {
-                setAnalysisChangedCallback('Symbol accessed flag set');
+                // TODO - need to handle properly
+                // setAnalysisChangedCallback('Symbol accessed flag set');
                 symbol.setIsAccessed();
             }
         }
@@ -1273,7 +1271,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
     function getSpecializedReturnType(objType: ObjectType, memberName: string) {
         const classMember = TypeUtils.lookUpObjectMember(objType, memberName,
-            TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
+            importLookup, TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
         if (!classMember) {
             return undefined;
         }
@@ -1284,7 +1282,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         if (classMember.symbolType.category === TypeCategory.Function) {
             const methodType = TypeUtils.bindFunctionToClassOrObject(objType,
-                classMember.symbolType) as FunctionType;
+                classMember.symbolType, importLookup) as FunctionType;
             return FunctionType.getEffectiveReturnType(methodType);
         }
 
@@ -1298,7 +1296,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             metaclass: ClassType, classType: ClassType, memberName: string) {
 
         const classMember = TypeUtils.lookUpObjectMember(
-            ObjectType.create(metaclass), memberName,
+            ObjectType.create(metaclass), memberName, importLookup,
             TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
         if (!classMember) {
             return undefined;
@@ -1310,7 +1308,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         if (classMember.symbolType.category === TypeCategory.Function) {
             const methodType = TypeUtils.bindFunctionToClassOrObject(
-                classType, classMember.symbolType, true) as FunctionType;
+                classType, classMember.symbolType, importLookup, true) as FunctionType;
             return FunctionType.getEffectiveReturnType(methodType);
         }
 
@@ -1417,6 +1415,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             case ParseNodeType.AugmentedAssignment: {
                 reportUsageErrorForReadOnly(node, usage);
                 typeResult = getTypeFromAugmentedExpression(node);
+                assignTypeToExpression(node.destExpression, typeResult.type, node.rightExpression);
                 break;
             }
 
@@ -1483,9 +1482,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             case ParseNodeType.AssignmentExpression: {
                 reportUsageErrorForReadOnly(node, usage);
 
-                // Don't validate the type match for the assignment here.
                 typeResult = getTypeFromExpression(node.rightExpression);
-                assignTypeToExpression(node.name, typeResult.type);
+                assignTypeToExpression(node.name, typeResult.type, node.rightExpression);
                 break;
             }
 
@@ -1553,7 +1551,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
-            type = getEffectiveTypeOfSymbol(symbol);
+            type = getEffectiveTypeOfSymbol(symbol, importLookup);
             const isSpecialBuiltIn = type && type.category === TypeCategory.Class &&
                 ClassType.isSpecialBuiltIn(type);
 
@@ -1576,11 +1574,17 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             if (usage.method === 'get') {
                 // Don't try to use code-flow analysis if it was a special built-in
                 // type like Type or Callable because these have already been transformed
-                // by _createSpecializedClassType. And don't use code-flow analysis if
-                // forward references are allowed because the code flow order doesn't
-                // apply in that case.
-                let useCodeFlowAnalysis = !isSpecialBuiltIn &&
-                    ((flags & EvaluatorFlags.AllowForwardReferences) === 0);
+                // by _createSpecializedClassType.
+                let useCodeFlowAnalysis = !isSpecialBuiltIn;
+
+                // Don't use code-flow analysis if forward references are allowed
+                // and there is a declared type for the symbol because the code flow
+                // order doesn't apply in that case.
+                if (flags & EvaluatorFlags.AllowForwardReferences) {
+                    if (symbol.hasTypedDeclarations()) {
+                        useCodeFlowAnalysis = false;
+                    }
+                }
 
                 if (useCodeFlowAnalysis && getFileInfo(node).isStubFile) {
                     // Type stubs allow forward references of classes, so
@@ -1632,7 +1636,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         // Cache the type information in the member name node as well.
-        updateExpressionTypeForNode(node.memberName, memberType.type);
+        if (usage.method === 'get' || usage.method === 'del') {
+            updateExpressionTypeForNode(node.memberName, memberType.type);
+        } else if (usage.method === 'set' && usage.setType) {
+            updateExpressionTypeForNode(node.memberName, usage.setType);
+        }
 
         return memberType;
     }
@@ -1675,7 +1683,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 if (usage.method === 'get') {
                     setSymbolAccessed(symbol);
                 }
-                type = getEffectiveTypeOfSymbol(symbol);
+                type = getEffectiveTypeOfSymbol(symbol, importLookup);
             } else {
                 addError(`'${ memberName }' is not a known member of module`, node.memberName);
                 type = UnknownType.create();
@@ -1810,12 +1818,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         // Always look for a member with a declared type first.
         let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
+            importLookup,
             classLookupFlags | TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
 
         // If we couldn't find a symbol with a declared type, use
         // an symbol with an inferred type.
         if (!memberInfo) {
-            memberInfo = TypeUtils.lookUpClassMember(classType, memberName, classLookupFlags);
+            memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
+                importLookup, classLookupFlags);
         }
 
         if (memberInfo) {
@@ -1900,7 +1910,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                     const memberClassType = type.classType;
                     const getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName,
-                        TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
+                        importLookup, TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
                     if (getMember) {
                         if (getMember.symbolType.category === TypeCategory.Function) {
                             if (usage.method === 'get') {
@@ -1918,29 +1928,48 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
 
             if (usage.method === 'set') {
-                let effectiveType = type;
+                let enforceTargetType = false;
 
-                // If the code is patching a method (defined on the class)
-                // with an object-level function, strip the "self" parameter
-                // off the original type. This is sometimes done for test
-                // purposes to override standard behaviors of specific methods.
-                if ((flags & MemberAccessFlags.SkipInstanceMembers) === 0) {
-                    if (!memberInfo.isInstanceMember && type.category === TypeCategory.Function) {
-                        if (FunctionType.isClassMethod(type) || FunctionType.isInstanceMethod(type)) {
-                            effectiveType = TypeUtils.stripFirstParameter(type);
-                        }
+                if (memberInfo.symbol.hasTypedDeclarations()) {
+                    // If the member has a declared type, we will enforce it.
+                    enforceTargetType = true;
+                } else {
+                    // If the member has no declared type, we will enforce it
+                    // if this assignment isn't within the enclosing class. If
+                    // it is within the enclosing class, the assignment is used
+                    // to infer the type of the member.
+                    if (!memberInfo.symbol.getDeclarations().some(decl => decl.node === errorNode)) {
+                        enforceTargetType = true;
                     }
                 }
 
-                // Verify that the assigned type is compatible.
-                const diag = new DiagnosticAddendum();
-                if (!TypeUtils.canAssignType(effectiveType, usage.setType!, diag.createAddendum())) {
-                    addError(
-                        `Expression of type '${ printType(usage.setType!) }'` +
-                            ` cannot be assigned to member '${ memberName }'` +
-                            ` of class '${ printType(classType) }'` +
-                            diag.getString(),
-                        errorNode);
+                if (enforceTargetType) {
+                    let effectiveType = type;
+
+                    // If the code is patching a method (defined on the class)
+                    // with an object-level function, strip the "self" parameter
+                    // off the original type. This is sometimes done for test
+                    // purposes to override standard behaviors of specific methods.
+                    if ((flags & MemberAccessFlags.SkipInstanceMembers) === 0) {
+                        if (!memberInfo.isInstanceMember && type.category === TypeCategory.Function) {
+                            if (FunctionType.isClassMethod(type) || FunctionType.isInstanceMethod(type)) {
+                                effectiveType = TypeUtils.stripFirstParameter(type);
+                            }
+                        }
+                    }
+
+                    // Verify that the assigned type is compatible.
+                    const diag = new DiagnosticAddendum();
+                    if (!TypeUtils.canAssignType(effectiveType, usage.setType!,
+                            diag.createAddendum(), importLookup)) {
+
+                        addError(
+                            `Expression of type '${ printType(usage.setType!) }'` +
+                                ` cannot be assigned to member '${ memberName }'` +
+                                ` of class '${ printObjectTypeForClass(classType) }'` +
+                                diag.getString(),
+                            errorNode);
+                    }
                 }
             }
 
@@ -2134,7 +2163,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     }
 
                     if (usage.method === 'set') {
-                        TypeUtils.canAssignType(entry.valueType, usage.setType!, diag);
+                        TypeUtils.canAssignType(entry.valueType, usage.setType!, diag, importLookup);
                     } else if (usage.method === 'del' && entry.isRequired) {
                         addError(
                             `'${ entryName }' is a required key and cannot be deleted`, node);
@@ -2446,7 +2475,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (parentNode.nodeType === ParseNodeType.MemberAccess) {
             const memberName = parentNode.memberName.nameToken.value;
             const lookupResults = TypeUtils.lookUpClassMember(
-                targetClassType, memberName, TypeUtils.ClassMemberLookupFlags.SkipOriginalClass);
+                targetClassType, memberName, importLookup,
+                TypeUtils.ClassMemberLookupFlags.SkipOriginalClass);
             if (lookupResults && lookupResults.classType.category === TypeCategory.Class) {
                 return ObjectType.create(lookupResults.classType);
             }
@@ -2518,7 +2548,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             } else if (ClassType.isAbstractClass(callType)) {
                 // If the class is abstract, it can't be instantiated.
                 const symbolTable = new StringMap<TypeUtils.ClassMember>();
-                TypeUtils.getAbstractMethodsRecursive(callType, symbolTable);
+                TypeUtils.getAbstractMethodsRecursive(callType, importLookup, symbolTable);
 
                 const diagAddendum = new DiagnosticAddendum();
                 const symbolTableKeys = symbolTable.getKeys();
@@ -2749,7 +2779,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     MemberAccessFlags.SkipObjectBaseClass);
             if (constructorMethodInfo) {
                 const constructorMethodType = TypeUtils.bindFunctionToClassOrObject(
-                    type, constructorMethodInfo.type, true);
+                    type, constructorMethodInfo.type, importLookup, true);
                 const typeVarMap = new TypeVarMap();
                 validateCallArguments(errorNode, argList, constructorMethodType, typeVarMap);
                 let specializedClassType = type;
@@ -3130,7 +3160,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         const diag = new DiagnosticAddendum();
-        if (!TypeUtils.canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
+        if (!TypeUtils.canAssignType(argParam.paramType, argType, diag.createAddendum(), importLookup, typeVarMap)) {
             const optionalParamName = argParam.paramName ? `'${ argParam.paramName }' ` : '';
             addError(
                 `Argument of type '${ printType(argType) }'` +
@@ -3901,10 +3931,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         // Don't write to the cache when we evaluate the left-hand side.
         // We'll write the result as part of the "set" method.
-        const leftType = getTypeFromExpression(node.leftExpression).type;
+        let leftType: Type | undefined;
+        useSpeculativeMode(() => {
+            leftType = getTypeFromExpression(node.leftExpression).type;
+        });
         const rightType = getTypeFromExpression(node.rightExpression).type;
 
-        type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
+        type = TypeUtils.doForSubtypes(leftType!, leftSubtype => {
             return TypeUtils.doForSubtypes(rightType, rightSubtype => {
                 if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                     // If either type is "Unknown" (versus Any), propagate the Unknown.
@@ -3927,7 +3960,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // assignment, fall back on the normal binary expression evaluator.
         if (!type || type.category === TypeCategory.Never) {
             const binaryOperator = operatorMap[node.operator][1];
-            type = validateBinaryExpression(binaryOperator, leftType, rightType, node);
+            type = validateBinaryExpression(binaryOperator, leftType!, rightType, node);
         }
 
         return { type, node };
@@ -4014,7 +4047,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // If it's an AND or OR, we need to handle short-circuiting by
             // eliminating any known-truthy or known-falsy types.
             if (operator === OperatorType.And) {
-                leftType = TypeUtils.removeTruthinessFromType(leftType);
+                leftType = TypeUtils.removeTruthinessFromType(leftType, importLookup);
             } else if (operator === OperatorType.Or) {
                 leftType = TypeUtils.removeFalsinessFromType(leftType);
             }
@@ -4116,7 +4149,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // The expected type might be generic, so we need to specialize it.
         const typeVarMap = new TypeVarMap();
         const diag = new DiagnosticAddendum();
-        TypeUtils.canAssignType(expectedType, srcType, diag, typeVarMap);
+        TypeUtils.canAssignType(expectedType, srcType, diag, importLookup, typeVarMap);
         return TypeUtils.specializeType(expectedType, typeVarMap);
     }
 
@@ -4137,7 +4170,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (usage.expectedType && entryTypes.length > 0) {
             const specificSetType = getBuiltInObject(node, 'set', [combineTypes(entryTypes)]);
             const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
-                usage.expectedType, specificSetType);
+                usage.expectedType, specificSetType, importLookup);
 
             // Have we eliminated all of the expected subtypes? If not, return
             // the remaining one(s) that match the specific type.
@@ -4246,7 +4279,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     return undefined;
                 }
 
-                if (TypeUtils.canAssignToTypedDict(subtype.classType, keyTypes, valueTypes)) {
+                if (TypeUtils.canAssignToTypedDict(subtype.classType, importLookup, keyTypes, valueTypes)) {
                     return subtype;
                 }
 
@@ -4261,7 +4294,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 const specificDictType = getBuiltInObject(node, 'dict',
                     [combineTypes(keyTypes), combineTypes(valueTypes)]);
                 const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
-                    usage.expectedType, specificDictType);
+                    usage.expectedType, specificDictType, importLookup);
 
                 // Have we eliminated all of the expected subtypes? If not, return
                 // the remaining one(s) that match the specific type.
@@ -4313,7 +4346,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             if (usage.expectedType && entryTypes.length > 0) {
                 const specificListType = getBuiltInObject(node, 'list', [combineTypes(entryTypes)]);
                 const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
-                    usage.expectedType, specificListType);
+                    usage.expectedType, specificListType, importLookup);
 
                 // Have we eliminated all of the expected subtypes? If not, return
                 // the remaining one(s) that match the specific type.
@@ -4514,7 +4547,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             const exprType = TypeUtils.stripLiteralValue(getTypeFromExpression(indexExpr).type);
 
             const diag = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(optionalIntObject, exprType, diag)) {
+            if (!TypeUtils.canAssignType(optionalIntObject, exprType, diag, importLookup)) {
                 addError(
                     `Index for slice operation must be an int value or None` + diag.getString(),
                     indexExpr);
@@ -4963,8 +4996,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     if (reference.nodeType === ParseNodeType.Name) {
                         const nameValue = reference.nameToken.value;
                         if (wildcardImportFlowNode.names.some(name => name === nameValue)) {
-                            // TODO - need to implement
-                            return setCacheEntry(curFlowNode, initialType);
+                            const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
+                            return setCacheEntry(curFlowNode, type);
                         }
                     }
 
@@ -5027,6 +5060,19 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         return getTypeFromFlowNode(flowNode!, reference, initialType);
+    }
+
+    function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
+        const importInfo = AnalyzerNodeInfo.getImportInfo(flowNode.node.module);
+        assert(importInfo && importInfo.isImportFound);
+        assert(flowNode.node.isWildcardImport);
+
+        const symbolWithScope = lookUpSymbolRecursive(flowNode.node, name);
+        assert(symbolWithScope);
+        const decls = symbolWithScope!.symbol.getDeclarations();
+        const wildcardDecl = decls.find(decl => decl.node === flowNode.node);
+        assert(wildcardDecl);
+        return getInferredTypeOfDeclaration(wildcardDecl!, importLookup) || UnknownType.create();
     }
 
     function isFlowNodeReachable(flowNode: FlowNode): boolean {
@@ -5228,7 +5274,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                             return subtype;
                         }
                     } else {
-                        if (TypeUtils.canBeFalsy(subtype)) {
+                        if (TypeUtils.canBeFalsy(subtype, importLookup)) {
                             return subtype;
                         }
                     }
@@ -5470,7 +5516,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         typeArgTypes.forEach((typeArgType, index) => {
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
-                if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
+                if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType, diag, importLookup)) {
                     addError(`Type '${ printType(typeArgType) }' ` +
                             `cannot be assigned to type variable '${ typeParameters[index].name }'` +
                             diag.getString(),
@@ -5496,12 +5542,12 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
     function getBuiltInType(node: ParseNode, name: string): Type {
         const scope = ScopeUtils.getScopeForNode(node);
-        return ScopeUtils.getBuiltInType(scope, name);
+        return ScopeUtils.getBuiltInType(scope, name, importLookup);
     }
 
     function getBuiltInObject(node: ParseNode, name: string, typeArguments?: Type[]) {
         const scope = ScopeUtils.getScopeForNode(node);
-        return ScopeUtils.getBuiltInObject(scope, name, typeArguments);
+        return ScopeUtils.getBuiltInObject(scope, name, importLookup, typeArguments);
     }
 
     function lookUpSymbolRecursive(node: ParseNode, name: string) {
@@ -5542,7 +5588,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         synthesizeTypedDictClassMethods,
         assignTypeToNameNode,
         assignTypeToExpression,
-        addTypeSourceToName,
         updateExpressionTypeForNode,
         markExpressionAccessed,
         addError,

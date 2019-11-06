@@ -13,7 +13,6 @@ import { getEmptyRange } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { Declaration, DeclarationType } from './declaration';
 import { areDeclarationsSame, hasTypeForDeclaration } from './declarationUtils';
-import { InferredType, TypeSourceId } from './inferredType';
 import { Type } from './types';
 
 export enum SymbolFlags {
@@ -41,15 +40,16 @@ export enum SymbolFlags {
     // classes).
     InstanceMember = 1 << 4,
 
+    // Indicates that the symbol is considered "private" to the
+    // class and should not be accessed outside or overridden.
+    PrivateMember = 1 << 5,
+
     // Indicates that the symbol is not considered for protocol
     // matching. This applies to some built-in symbols like __class__.
-    IgnoredForProtocolMatch = 1 << 8
+    IgnoredForProtocolMatch = 1 << 6
 }
 
 export class Symbol {
-    // Inferred type of the symbol.
-    private _inferredType: InferredType = new InferredType();
-
     // Information about the node that declared the value -
     // i.e. where the editor will take the user if "show definition"
     // is selected. Multiple declarations can exist for variables,
@@ -122,13 +122,12 @@ export class Symbol {
         return !!(this._flags & SymbolFlags.InstanceMember);
     }
 
-    // Returns true if inferred type changed.
-    setInferredTypeForSource(type: Type, typeSourceId: TypeSourceId): boolean {
-        return this._inferredType.addSource(type, typeSourceId);
+    setIsPrivateMember() {
+        this._flags |= SymbolFlags.PrivateMember;
     }
 
-    getInferredType() {
-        return this._inferredType.getType();
+    isPrivateMember() {
+        return !!(this._flags & SymbolFlags.PrivateMember);
     }
 
     addDeclaration(declaration: Declaration) {
