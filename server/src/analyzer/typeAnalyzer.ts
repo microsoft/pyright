@@ -755,14 +755,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
             adjYieldType = UnknownType.create();
         }
 
-        this._validateYieldType(node, yieldType, adjYieldType);
+        this._validateYieldType(node, adjYieldType);
 
         return true;
     }
 
     visitYieldFrom(node: YieldFromExpressionNode) {
         const yieldType = this._getTypeOfExpression(node.expression);
-        this._validateYieldType(node, yieldType, yieldType);
+        this._validateYieldType(node, yieldType);
 
         return true;
     }
@@ -1131,14 +1131,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (importInfo && importInfo.isImportFound) {
             if (!node.isWildcardImport) {
+                const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+                const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                 node.imports.forEach(importAs => {
                     const aliasNode = importAs.alias || importAs.name;
                     let symbolType = this._getAliasedSymbolTypeForName(aliasNode.nameToken.value);
                     if (!symbolType) {
-                        this._evaluator.addError(
-                            `'${ importAs.name.nameToken.value }' is unknown import symbol`,
-                            importAs.name
-                        );
+                        // If we were able to resolve the import, report the error as
+                        // an unresolvable symbol.
+                        if (lookupInfo) {
+                            this._evaluator.addError(
+                                `'${ importAs.name.nameToken.value }' is unknown import symbol`,
+                                importAs.name
+                            );
+                        }
                         symbolType = UnknownType.create();
                     }
 
@@ -2133,7 +2139,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _validateYieldType(node: YieldExpressionNode | YieldFromExpressionNode,
-            rawYieldType: Type, adjustedYieldType: Type) {
+            adjustedYieldType: Type) {
 
         let declaredYieldType: Type | undefined;
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
