@@ -77,6 +77,10 @@ export class HoverProvider {
 
         const resolvedDecl = DeclarationUtils.resolveAliasDeclaration(declaration, importLookup);
         if (!resolvedDecl) {
+            if (node.nodeType === ParseNodeType.Name) {
+                this._addResultsPart(parts, `(import) ` + node.nameToken.value +
+                    this._getTypeText(node), true);
+            }
             return;
         }
 
