@@ -13,7 +13,7 @@
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import { getDeclarationsForNameNode, resolveAliasDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
+import { DiagnosticTextPosition, DocumentTextRange, rangesAreEqual } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -41,7 +41,7 @@ export class DefinitionProvider {
                 declarations.forEach(decl => {
                     const resolvedDecl = resolveAliasDeclaration(decl, importLookup);
                     if (resolvedDecl && resolvedDecl.path) {
-                        definitions.push({
+                        this._addIfUnique(definitions, {
                             path: resolvedDecl.path,
                             range: resolvedDecl.range
                         });
@@ -51,5 +51,15 @@ export class DefinitionProvider {
         }
 
         return definitions.length > 0 ? definitions : undefined;
+    }
+
+    private static _addIfUnique(definitions: DocumentTextRange[], itemToAdd: DocumentTextRange) {
+        for (const def of definitions) {
+            if (def.path === itemToAdd.path && rangesAreEqual(def.range, itemToAdd.range)) {
+                return;
+            }
+        }
+
+        definitions.push(itemToAdd);
     }
 }

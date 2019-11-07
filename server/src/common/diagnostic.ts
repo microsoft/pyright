@@ -53,6 +53,10 @@ export function doRangesOverlap(a: DiagnosticTextRange, b: DiagnosticTextRange) 
     return true;
 }
 
+export function rangesAreEqual(a: DiagnosticTextRange, b: DiagnosticTextRange) {
+    return comparePositions(a.start, b.start) === 0 && comparePositions(a.end, b.end) === 0;
+}
+
 export function getEmptyRange(): DiagnosticTextRange {
     return {
         start: getEmptyPosition(),
