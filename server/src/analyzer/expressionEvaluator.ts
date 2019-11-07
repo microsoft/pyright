@@ -3140,6 +3140,19 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         });
 
+        // Run through all the args that were not validated and evaluate their types
+        // to ensure that we haven't missed any (due to arg/param mismatches). This will
+        // ensure that referenced symbols are not reported as unaccessed.
+        if (!isSpeculativeMode) {
+            argList.forEach(arg => {
+                if (arg.valueExpression) {
+                    if (!validateArgTypeParams.some(validatedArg => validatedArg.argument === arg)) {
+                        getTypeFromExpression(arg.valueExpression);
+                    }
+                }
+            });
+        }
+
         if (reportedArgError) {
             return undefined;
         }
