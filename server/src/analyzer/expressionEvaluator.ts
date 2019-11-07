@@ -27,14 +27,14 @@ import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNo
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { FlowAssignment, FlowCall, FlowCondition, FlowFlags, FlowLabel,
-    FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport } from './codeFlow';
+import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
+    FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport } from './codeFlow';
 import { Declaration, DeclarationType, VariableDeclaration } from './declaration';
 import { getInferredTypeOfDeclaration } from './declarationUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
-import { setSymbolPreservingAccess, Symbol, SymbolFlags } from './symbol';
+import { indeterminateSymbolId, setSymbolPreservingAccess, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol } from './symbolUtils';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
@@ -1572,6 +1572,18 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
 
             if (usage.method === 'get') {
+                const isTypeStub = getFileInfo(node).isStubFile;
+
+                let typeAtStart: Type | undefined;
+
+                // For type stubs, we'll never default to Unbound. This is necessary
+                // to support certain type aliases, which appear as variable declarations.
+                if (symbolWithScope.isBeyondExecutionScope || isTypeStub) {
+                    typeAtStart = type;
+                } else if (symbol.isInitiallyUnbound()) {
+                    typeAtStart = UnboundType.create();
+                }
+
                 // Don't try to use code-flow analysis if it was a special built-in
                 // type like Type or Callable because these have already been transformed
                 // by _createSpecializedClassType.
@@ -1586,7 +1598,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     }
                 }
 
-                if (useCodeFlowAnalysis && getFileInfo(node).isStubFile) {
+                if (isTypeStub) {
                     // Type stubs allow forward references of classes, so
                     // don't use code flow analysis in this case.
                     const decls = symbolWithScope.symbol.getDeclarations();
@@ -1599,9 +1611,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     // If the type is defined outside of the current scope, use the
                     // original type at the start. Otherwise use an unbound type at
                     // the start.
-                    const typeAtStart = symbolWithScope.isBeyondExecutionScope ? type :
-                        symbol.isInitiallyUnbound() ? UnboundType.create() : undefined;
-                    type = getFlowTypeOfReference(node, typeAtStart) || type;
+                    type = getFlowTypeOfReference(node, symbol.getId(), typeAtStart) || type;
                 }
 
                 if (isUnbound(type)) {
@@ -1631,7 +1641,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             node, baseTypeResult, usage, flags);
 
         if (usage.method === 'get') {
-            memberType.type = getFlowTypeOfReference(node, memberType.type) ||
+            memberType.type = getFlowTypeOfReference(node, indeterminateSymbolId, memberType.type) ||
                 memberType.type;
         }
 
@@ -4913,7 +4923,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     }
 
     function getFlowTypeOfReference(reference: NameNode | MemberAccessExpressionNode,
-            initialType: Type | undefined): Type | undefined {
+            targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
         const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
         const flowNodeTypeCache = new Map<number, FlowNodeType | undefined>();
@@ -4944,7 +4954,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // If the start flow node for this scope is reachable, the typeAtStart value is
         // returned.
         function getTypeFromFlowNode(flowNode: FlowNode, reference: NameNode | MemberAccessExpressionNode,
-                initialType: Type | undefined): FlowNodeType | undefined {
+                targetSymbolId: number, initialType: Type | undefined): FlowNodeType | undefined {
 
             let curFlowNode = flowNode;
 
@@ -4974,18 +4984,35 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 if (curFlowNode.flags & FlowFlags.Assignment) {
                     const assignmentFlowNode = curFlowNode as FlowAssignment;
                     if (reference.nodeType === ParseNodeType.Name || reference.nodeType === ParseNodeType.MemberAccess) {
-                        if (ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)) {
-                            // Is this a special "unbind" assignment? If so,
-                            // we can handle it immediately without any further evaluation.
-                            if (curFlowNode.flags & FlowFlags.Unbind) {
-                                return setCacheEntry(curFlowNode, UnboundType.create());
-                            }
+                        // Are we targeting the same symbol? We need to do this extra check because the same
+                        // symbol name might refer to different symbols in different scopes (e.g. a list
+                        // comprehension introduces a new scope).
+                        if (targetSymbolId === assignmentFlowNode.targetSymbolId) {
+                            if (ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)) {
+                                // Is this a special "unbind" assignment? If so,
+                                // we can handle it immediately without any further evaluation.
+                                if (curFlowNode.flags & FlowFlags.Unbind) {
+                                    return setCacheEntry(curFlowNode, UnboundType.create());
+                                }
 
-                            return evaluateAssignmentFlowNode(assignmentFlowNode);
+                                return evaluateAssignmentFlowNode(assignmentFlowNode);
+                            }
                         }
                     }
 
                     curFlowNode = assignmentFlowNode.antecedent;
+                    continue;
+                }
+
+                if (curFlowNode.flags & FlowFlags.AssignmentAlias) {
+                    const aliasFlowNode = curFlowNode as FlowAssignmentAlias;
+
+                    // If the target symbol ID matches, replace with its alias
+                    // and continue to traverse the code flow graph.
+                    if (targetSymbolId === aliasFlowNode.targetSymbolId) {
+                        targetSymbolId = aliasFlowNode.aliasSymbolId;
+                    }
+                    curFlowNode = aliasFlowNode.antecedent;
                     continue;
                 }
 
@@ -4994,7 +5021,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     const typesToCombine: Type[] = [];
                     preventFlowNodeRecursion(curFlowNode.id, () => {
                         labelNode.antecedents.map(antecedent => {
-                            const flowType = getTypeFromFlowNode(antecedent, reference, initialType);
+                            const flowType = getTypeFromFlowNode(antecedent, reference,
+                                targetSymbolId, initialType);
                             if (flowType) {
                                 typesToCombine.push(flowType);
                             }
@@ -5026,7 +5054,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     if (typeNarrowingCallback) {
                         let flowType: FlowNodeType | undefined;
                         preventFlowNodeRecursion(curFlowNode.id, () => {
-                            flowType = getTypeFromFlowNode(conditionalFlowNode.antecedent, reference, initialType);
+                            flowType = getTypeFromFlowNode(conditionalFlowNode.antecedent,
+                                reference, targetSymbolId, initialType);
                         });
                         return setCacheEntry(curFlowNode, flowType ? typeNarrowingCallback(flowType) : undefined);
                     }
@@ -5063,7 +5092,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     const postFinallyFlowNode = curFlowNode as FlowPostFinally;
                     const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
                     postFinallyFlowNode.preFinallyGate.isGateClosed = true;
-                    const flowType = getTypeFromFlowNode(postFinallyFlowNode.antecedent, reference, initialType);
+                    const flowType = getTypeFromFlowNode(postFinallyFlowNode.antecedent,
+                        reference, targetSymbolId, initialType);
                     postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
                     return flowType;
                 }
@@ -5074,7 +5104,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
-        return getTypeFromFlowNode(flowNode!, reference, initialType);
+        return getTypeFromFlowNode(flowNode!, reference, targetSymbolId, initialType);
     }
 
     function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
@@ -5112,11 +5142,21 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                 if (curFlowNode.flags & FlowFlags.Start) {
                     return true;
-                } else if (curFlowNode.flags & FlowFlags.Assignment) {
+                }
+
+                if (curFlowNode.flags & FlowFlags.Assignment) {
                     const assignmentFlowNode = curFlowNode as FlowAssignment;
                     curFlowNode = assignmentFlowNode.antecedent;
                     continue;
-                } else if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
+                }
+
+                if (curFlowNode.flags & FlowFlags.AssignmentAlias) {
+                    const aliasFlowNode = curFlowNode as FlowAssignmentAlias;
+                    curFlowNode = aliasFlowNode.antecedent;
+                    continue;
+                }
+
+                if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
                     const labelNode = curFlowNode as FlowLabel;
                     for (const antecedent of labelNode.antecedents) {
                         if (isFlowNodeReachableRecursive(antecedent)) {
@@ -5124,15 +5164,21 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         }
                     }
                     return false;
-                } else if (curFlowNode.flags & FlowFlags.WildcardImport) {
+                }
+
+                if (curFlowNode.flags & FlowFlags.WildcardImport) {
                     const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
                     curFlowNode = wildcardImportFlowNode.antecedent;
                     continue;
-                } else if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
+                }
+
+                if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                     const conditionalFlowNode = curFlowNode as FlowCondition;
                     curFlowNode = conditionalFlowNode.antecedent;
                     continue;
-                } else if (curFlowNode.flags & FlowFlags.Call) {
+                }
+
+                if (curFlowNode.flags & FlowFlags.Call) {
                     const callFlowNode = curFlowNode as FlowCall;
 
                     // If this function returns a "NoReturn" type, that means
@@ -5145,25 +5191,29 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                     curFlowNode = callFlowNode.antecedent;
                     continue;
-                } else if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
+                }
+
+                if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
                     const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
                     if (preFinallyFlowNode.isGateClosed) {
                         return false;
                     }
                     curFlowNode = preFinallyFlowNode.antecedent;
                     continue;
-                } else if (curFlowNode.flags & FlowFlags.PostFinally) {
+                }
+
+                if (curFlowNode.flags & FlowFlags.PostFinally) {
                     const postFinallyFlowNode = curFlowNode as FlowPostFinally;
                     const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
                     postFinallyFlowNode.preFinallyGate.isGateClosed = true;
                     const isReachable = isFlowNodeReachableRecursive(postFinallyFlowNode.antecedent);
                     postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
                     return isReachable;
-                } else {
-                    // We shouldn't get here.
-                    assert.fail('Unexpected flow node flags');
-                    return false;
                 }
+
+                // We shouldn't get here.
+                assert.fail('Unexpected flow node flags');
+                return false;
             }
         }
 

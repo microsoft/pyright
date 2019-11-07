@@ -49,6 +49,14 @@ export enum SymbolFlags {
     IgnoredForProtocolMatch = 1 << 6
 }
 
+let nextSymbolId = 1;
+function getUniqueSymbolId() {
+    return nextSymbolId++;
+}
+
+// Symbol ID that indicates that there is no specific symbol.
+export const indeterminateSymbolId = 0;
+
 export class Symbol {
     // Information about the node that declared the value -
     // i.e. where the editor will take the user if "show definition"
@@ -59,7 +67,11 @@ export class Symbol {
     // Flags that provide information about the symbol.
     private _flags: SymbolFlags;
 
+    // Unique numeric ID for each symbol allocated.
+    private _id: number;
+
     constructor(flags = SymbolFlags.ClassMember) {
+        this._id = getUniqueSymbolId();
         this._flags = flags;
     }
 
@@ -72,6 +84,10 @@ export class Symbol {
             declaredType: type
         });
         return newSymbol;
+    }
+
+    getId() {
+        return this._id;
     }
 
     isInitiallyUnbound() {

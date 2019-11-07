@@ -37,8 +37,8 @@ import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { FlowAssignment, FlowCall, FlowCondition, FlowFlags, FlowLabel, FlowNode,
-    FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport, getUniqueFlowNodeId } from './codeFlow';
+import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags, FlowLabel,
+    FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport, getUniqueFlowNodeId } from './codeFlow';
 import { AliasDeclaration, DeclarationType, FunctionDeclaration, ModuleLoaderActions,
     VariableDeclaration } from './declaration';
 import * as DocStringUtils from './docStringUtils';
@@ -48,7 +48,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
-import { SymbolFlags } from './symbol';
+import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { AnyType, ClassType, ClassTypeFlags, defaultTypeSourceId, FunctionParameter, FunctionType,
     FunctionTypeFlags, ObjectType, Type, TypeCategory, UnknownType } from './types';
@@ -1409,9 +1409,22 @@ export class Binder extends ParseTreeWalker {
             for (let i = 0; i < node.comprehensions.length; i++) {
                 const compr = node.comprehensions[i];
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
+                    const addedSymbols = new Map<string, Symbol>();
+                    this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
+
+                    // Determine if we added a new symbol to this scope. If so, see
+                    // if it's the same name as a symbol in an outer scope. If so, we'll
+                    // create an alias node in the control flow graph.
+                    for (const addedSymbol of addedSymbols) {
+                        const aliasSymbol = this._currentScope.getParent()!.
+                            lookUpSymbol(addedSymbol[0]);
+                        if (aliasSymbol) {
+                            this._createAssignmentAliasFlowNode(addedSymbol[1].getId(), aliasSymbol.getId());
+                        }
+                    }
+
                     this.walk(compr.iterableExpression);
 
-                    this._bindPossibleTupleNamedTarget(compr.targetExpression);
                     this._createAssignmentTargetFlowNodes(compr.targetExpression);
                     this.walk(compr.targetExpression);
                 } else {
@@ -1663,13 +1676,35 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
+    private _createAssignmentAliasFlowNode(targetSymbolId: number, aliasSymbolId: number) {
+        if (!this._isCodeUnreachable()) {
+            const flowNode: FlowAssignmentAlias = {
+                flags: FlowFlags.AssignmentAlias,
+                id: getUniqueFlowNodeId(),
+                antecedent: this._currentFlowNode,
+                targetSymbolId,
+                aliasSymbolId
+            };
+
+            this._currentFlowNode = flowNode;
+        }
+    }
+
     private _createFlowAssignment(node: NameNode | MemberAccessExpressionNode, unbound = false) {
+        let targetSymbolId = indeterminateSymbolId;
+        if (node.nodeType === ParseNodeType.Name) {
+            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.nameToken.value);
+            assert(symbolWithScope !== undefined);
+            targetSymbolId = symbolWithScope!.symbol.getId();
+        }
+
         if (!this._isCodeUnreachable()) {
             const flowNode: FlowAssignment = {
                 flags: FlowFlags.Assignment,
                 id: getUniqueFlowNodeId(),
                 node,
-                antecedent: this._currentFlowNode
+                antecedent: this._currentFlowNode,
+                targetSymbolId
             };
 
             if (unbound) {
@@ -1735,13 +1770,16 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _bindNameToScope(scope: Scope, name: string) {
+    private _bindNameToScope(scope: Scope, name: string, addedSymbols?: Map<string, Symbol>) {
         if (this._notLocalBindings.get(name) === undefined) {
             // Don't overwrite an existing symbol.
             let symbol = scope.lookUpSymbol(name);
             if (!symbol) {
                 symbol = scope.addSymbol(name,
                     SymbolFlags.InitiallyUnbound | SymbolFlags.ClassMember);
+                if (addedSymbols) {
+                    addedSymbols.set(name, symbol);
+                }
             }
 
             return symbol;
@@ -1750,34 +1788,34 @@ export class Binder extends ParseTreeWalker {
         return undefined;
     }
 
-    private _bindPossibleTupleNamedTarget(target: ExpressionNode) {
+    private _bindPossibleTupleNamedTarget(target: ExpressionNode, addedSymbols?: Map<string, Symbol>) {
         switch (target.nodeType) {
             case ParseNodeType.Name: {
-                this._bindNameToScope(this._currentScope, target.nameToken.value);
+                this._bindNameToScope(this._currentScope, target.nameToken.value, addedSymbols);
                 break;
             }
 
             case ParseNodeType.Tuple: {
                 target.expressions.forEach(expr => {
-                    this._bindPossibleTupleNamedTarget(expr);
+                    this._bindPossibleTupleNamedTarget(expr, addedSymbols);
                 });
                 break;
             }
 
             case ParseNodeType.List: {
                 target.entries.forEach(expr => {
-                    this._bindPossibleTupleNamedTarget(expr);
+                    this._bindPossibleTupleNamedTarget(expr, addedSymbols);
                 });
                 break;
             }
 
             case ParseNodeType.TypeAnnotation: {
-                this._bindPossibleTupleNamedTarget(target.valueExpression);
+                this._bindPossibleTupleNamedTarget(target.valueExpression, addedSymbols);
                 break;
             }
 
             case ParseNodeType.Unpack: {
-                this._bindPossibleTupleNamedTarget(target.expression);
+                this._bindPossibleTupleNamedTarget(target.expression, addedSymbols);
                 break;
             }
         }
