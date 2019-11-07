@@ -2782,12 +2782,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     type, constructorMethodInfo.type, importLookup, true);
                 const typeVarMap = new TypeVarMap();
                 validateCallArguments(errorNode, argList, constructorMethodType, typeVarMap);
-                let specializedClassType = type;
-                if (!typeVarMap.isEmpty()) {
-                    specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
-                    assert(specializedClassType.category === TypeCategory.Class);
+                if (!returnType) {
+                    let specializedClassType = type;
+                    if (!typeVarMap.isEmpty()) {
+                        specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
+                        assert(specializedClassType.category === TypeCategory.Class);
+                    }
+                    returnType = ObjectType.create(specializedClassType);
                 }
-                returnType = ObjectType.create(specializedClassType);
                 validatedTypes = true;
             }
         }
