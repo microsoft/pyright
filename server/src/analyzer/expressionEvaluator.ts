@@ -264,7 +264,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // return result.
             decoratorCall = getTypeFromCallExpressionWithBaseType(
                 node.leftExpression, argList, decoratorCall,
-                EvaluatorFlags.None, undefined, false);
+                { method: 'get' }, EvaluatorFlags.None, undefined, false);
         }
 
         const argList = [{
@@ -273,8 +273,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }];
 
         return getTypeFromCallExpressionWithBaseType(
-            node.leftExpression, argList, decoratorCall, EvaluatorFlags.None,
-                undefined, false).type;
+            node.leftExpression, argList, decoratorCall, { method: 'get' },
+                EvaluatorFlags.None, undefined, false).type;
     }
 
     // Gets a member type from an object and if it's a function binds
@@ -1338,7 +1338,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             case ParseNodeType.Call: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromCallExpression(node, flags);
+                typeResult = getTypeFromCallExpression(node, usage, flags);
                 break;
             }
 
@@ -2396,7 +2396,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromCallExpression(node: CallExpressionNode, flags: EvaluatorFlags): TypeResult {
+    function getTypeFromCallExpression(node: CallExpressionNode, usage: EvaluatorUsage,
+            flags: EvaluatorFlags): TypeResult {
+
         const baseTypeResult = getTypeFromExpression(node.leftExpression,
             { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
 
@@ -2434,7 +2436,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         });
 
         return getTypeFromCallExpressionWithBaseType(
-            node, argList, baseTypeResult, flags, node);
+            node, argList, baseTypeResult, usage, flags, node);
     }
 
     function getTypeFromSuperCall(node: CallExpressionNode): Type {
@@ -2530,7 +2532,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     }
 
     function getTypeFromCallExpressionWithBaseType(errorNode: ExpressionNode,
-            argList: FunctionArgument[], baseTypeResult: TypeResult,
+            argList: FunctionArgument[], baseTypeResult: TypeResult, usage: EvaluatorUsage,
             flags: EvaluatorFlags, cachedExpressionNode?: ExpressionNode,
             specializeReturnType = true): TypeResult {
 
@@ -2541,195 +2543,214 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             callType = TypeUtils.specializeType(callType, undefined);
         }
 
-        if (callType.category === TypeCategory.Class) {
-            if (ClassType.isBuiltIn(callType)) {
-                const className = ClassType.getClassName(callType);
+        switch (callType.category) {
+            case TypeCategory.Class: {
+                if (ClassType.isBuiltIn(callType)) {
+                    const className = ClassType.getClassName(callType);
 
-                if (className === 'type') {
-                    // Handle the 'type' call specially.
-                    if (argList.length >= 1) {
-                        const argType = getTypeForArgument(argList[0]);
-                        if (argType.category === TypeCategory.Object) {
-                            type = argType.classType;
+                    if (className === 'type') {
+                        // Handle the 'type' call specially.
+                        if (argList.length >= 1) {
+                            const argType = getTypeForArgument(argList[0]);
+                            if (argType.category === TypeCategory.Object) {
+                                type = argType.classType;
+                            }
+                        }
+
+                        // If the parameter to type() is not statically known,
+                        // fall back to unknown.
+                        if (!type) {
+                            type = UnknownType.create();
+                        }
+                    } else if (className === 'TypeVar') {
+                        type = createTypeVarType(errorNode, argList);
+                    } else if (className === 'NamedTuple') {
+                        type = createNamedTupleType(errorNode, argList, true,
+                            cachedExpressionNode);
+                    } else if (className === 'Protocol' || className === 'Generic' ||
+                            className === 'Callable' || className === 'Type') {
+                        addError(`'${ className }' cannot be instantiated directly`, errorNode);
+                    } else if (className === 'Enum' || className === 'IntEnum' ||
+                            className === 'Flag' || className === 'IntFlag') {
+                        type = createEnumType(errorNode, callType, argList,
+                            cachedExpressionNode);
+                    } else if (className === 'TypedDict') {
+                        type = createTypedDictType(errorNode, callType, argList,
+                            cachedExpressionNode);
+                    } else if (className === 'auto' && argList.length === 0) {
+                        type = getBuiltInObject(errorNode, 'int');
+                    }
+                } else if (ClassType.isAbstractClass(callType)) {
+                    // If the class is abstract, it can't be instantiated.
+                    const symbolTable = new StringMap<TypeUtils.ClassMember>();
+                    TypeUtils.getAbstractMethodsRecursive(callType, importLookup, symbolTable);
+
+                    const diagAddendum = new DiagnosticAddendum();
+                    const symbolTableKeys = symbolTable.getKeys();
+                    const errorsToDisplay = 2;
+
+                    symbolTableKeys.forEach((symbolName, index) => {
+                        if (index === errorsToDisplay) {
+                            diagAddendum.addMessage(`and ${ symbolTableKeys.length - errorsToDisplay } more...`);
+                        } else if (index < errorsToDisplay) {
+                            const symbolWithClass = symbolTable.get(symbolName);
+
+                            if (symbolWithClass && symbolWithClass.classType.category === TypeCategory.Class) {
+                                const className = ClassType.getClassName(symbolWithClass.classType);
+                                diagAddendum.addMessage(`'${ className }.${ symbolName }' is abstract`);
+                            }
+                        }
+                    });
+
+                    addError(
+                        `Cannot instantiate abstract class '${ ClassType.getClassName(callType) }'` +
+                            diagAddendum.getString(),
+                        errorNode);
+                }
+
+                // Assume this is a call to the constructor.
+                if (!type) {
+                    type = validateConstructorArguments(errorNode, argList, callType);
+                }
+                break;
+            }
+
+            case TypeCategory.Function: {
+                // The stdlib collections/__init__.pyi stub file defines namedtuple
+                // as a function rather than a class, so we need to check for it here.
+                if (FunctionType.getBuiltInName(callType) === 'namedtuple') {
+                    addDiagnostic(
+                        getFileInfo(errorNode).diagnosticSettings.reportUntypedNamedTuple,
+                        DiagnosticRule.reportUntypedNamedTuple,
+                        `'namedtuple' provides no types for tuple entries. Use 'NamedTuple' instead.`,
+                        errorNode);
+                    type = createNamedTupleType(errorNode, argList, false,
+                        cachedExpressionNode);
+                } else if (FunctionType.getBuiltInName(callType) === 'NewType') {
+                    type = validateCallArguments(errorNode, argList, callType,
+                        new TypeVarMap(), specializeReturnType);
+
+                    // If the call's arguments were validated, replace the
+                    // type with a new synthesized subclass.
+                    if (type) {
+                        type = createNewType(errorNode, argList, cachedExpressionNode);
+                    }
+                } else {
+                    type = validateCallArguments(errorNode, argList, callType,
+                        new TypeVarMap(), specializeReturnType);
+
+                    if (FunctionType.getBuiltInName(callType) === '__import__') {
+                        // For the special __import__ type, we'll override the return type to be "Any".
+                        // This is required because we don't know what module was imported, and we don't
+                        // want to fail type checks when accessing members of the resulting module type.
+                        type = AnyType.create();
+                    }
+                }
+
+                if (!type) {
+                    type = UnknownType.create();
+                }
+                break;
+            }
+
+            case TypeCategory.OverloadedFunction: {
+                // Determine which of the overloads (if any) match.
+                const functionType = findOverloadedFunctionType(errorNode, argList, callType);
+
+                if (functionType) {
+                    if (FunctionType.getBuiltInName(functionType) === 'cast' && argList.length === 2) {
+                        // Verify that the cast is necessary.
+                        const castToType = getTypeForArgument(argList[0]);
+                        const castFromType = getTypeForArgument(argList[1]);
+                        if (castToType.category === TypeCategory.Class && castFromType.category === TypeCategory.Object) {
+                            if (isTypeSame(castToType, castFromType.classType)) {
+                                addDiagnostic(
+                                    getFileInfo(errorNode).diagnosticSettings.reportUnnecessaryCast,
+                                    DiagnosticRule.reportUnnecessaryCast,
+                                    `Unnecessary call to cast: type is already ${ printType(castFromType) }`,
+                                    errorNode);
+                            }
                         }
                     }
 
-                    // If the parameter to type() is not statically known,
-                    // fall back to unknown.
+                    type = validateCallArguments(errorNode, argList, callType,
+                        new TypeVarMap(), specializeReturnType);
                     if (!type) {
                         type = UnknownType.create();
                     }
-                } else if (className === 'TypeVar') {
-                    type = createTypeVarType(errorNode, argList);
-                } else if (className === 'NamedTuple') {
-                    type = createNamedTupleType(errorNode, argList, true,
-                        cachedExpressionNode);
-                } else if (className === 'Protocol' || className === 'Generic' ||
-                        className === 'Callable' || className === 'Type') {
-                    addError(`'${ className }' cannot be instantiated directly`, errorNode);
-                } else if (className === 'Enum' || className === 'IntEnum' ||
-                        className === 'Flag' || className === 'IntFlag') {
-                    type = createEnumType(errorNode, callType, argList,
-                        cachedExpressionNode);
-                } else if (className === 'TypedDict') {
-                    type = createTypedDictType(errorNode, callType, argList,
-                        cachedExpressionNode);
-                } else if (className === 'auto' && argList.length === 0) {
-                    type = getBuiltInObject(errorNode, 'int');
+                } else {
+                    const exprString = ParseTreeUtils.printExpression(errorNode);
+                    const diagAddendum = new DiagnosticAddendum();
+                    const argTypes = argList.map(t => printType(getTypeForArgument(t)));
+                    diagAddendum.addMessage(`Argument types: (${ argTypes.join(', ') })`);
+                    addError(
+                        `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
+                        errorNode);
+                    type = UnknownType.create();
                 }
-            } else if (ClassType.isAbstractClass(callType)) {
-                // If the class is abstract, it can't be instantiated.
-                const symbolTable = new StringMap<TypeUtils.ClassMember>();
-                TypeUtils.getAbstractMethodsRecursive(callType, importLookup, symbolTable);
+                break;
+            }
 
-                const diagAddendum = new DiagnosticAddendum();
-                const symbolTableKeys = symbolTable.getKeys();
-                const errorsToDisplay = 2;
+            case TypeCategory.Object: {
+                // Handle the "Type" object specially.
+                const classFromTypeObject = getClassFromPotentialTypeObject(callType);
+                if (classFromTypeObject) {
+                    if (isAnyOrUnknown(classFromTypeObject)) {
+                        type = classFromTypeObject;
+                    } else if (classFromTypeObject.category === TypeCategory.Class) {
+                        type = validateConstructorArguments(errorNode,
+                            argList, classFromTypeObject);
+                    }
+                } else {
+                    const memberType = getTypeFromObjectMember(errorNode,
+                        callType, '__call__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
+                    if (memberType) {
+                        type = validateCallArguments(errorNode, argList, memberType, new TypeVarMap());
+                        if (!type) {
+                            type = UnknownType.create();
+                        }
+                    }
+                }
+                break;
+            }
 
-                symbolTableKeys.forEach((symbolName, index) => {
-                    if (index === errorsToDisplay) {
-                        diagAddendum.addMessage(`and ${ symbolTableKeys.length - errorsToDisplay } more...`);
-                    } else if (index < errorsToDisplay) {
-                        const symbolWithClass = symbolTable.get(symbolName);
-
-                        if (symbolWithClass && symbolWithClass.classType.category === TypeCategory.Class) {
-                            const className = ClassType.getClassName(symbolWithClass.classType);
-                            diagAddendum.addMessage(`'${ className }.${ symbolName }' is abstract`);
+            case TypeCategory.Union: {
+                const returnTypes: Type[] = [];
+                callType.subtypes.forEach(typeEntry => {
+                    if (isNoneOrNever(typeEntry)) {
+                        addDiagnostic(
+                            getFileInfo(errorNode).diagnosticSettings.reportOptionalCall,
+                            DiagnosticRule.reportOptionalCall,
+                            `Object of type 'None' cannot be called`,
+                            errorNode);
+                    } else {
+                        const typeResult = getTypeFromCallExpressionWithBaseType(
+                            errorNode,
+                            argList,
+                            {
+                                type: typeEntry,
+                                node: baseTypeResult.node
+                            },
+                            usage, flags, cachedExpressionNode);
+                        if (typeResult) {
+                            returnTypes.push(typeResult.type);
                         }
                     }
                 });
 
-                addError(
-                    `Cannot instantiate abstract class '${ ClassType.getClassName(callType) }'` +
-                        diagAddendum.getString(),
-                    errorNode);
+                if (returnTypes.length > 0) {
+                    type = combineTypes(returnTypes);
+                }
+                break;
             }
 
-            // Assume this is a call to the constructor.
-            if (!type) {
-                type = validateConstructorArguments(errorNode, argList, callType);
+            case TypeCategory.Any:
+            case TypeCategory.Unknown: {
+                // Mark the arguments accessed.
+                argList.forEach(arg => getTypeForArgument(arg));
+                type = callType;
+                break;
             }
-        } else if (callType.category === TypeCategory.Function) {
-            // The stdlib collections/__init__.pyi stub file defines namedtuple
-            // as a function rather than a class, so we need to check for it here.
-            if (FunctionType.getBuiltInName(callType) === 'namedtuple') {
-                addDiagnostic(
-                    getFileInfo(errorNode).diagnosticSettings.reportUntypedNamedTuple,
-                    DiagnosticRule.reportUntypedNamedTuple,
-                    `'namedtuple' provides no types for tuple entries. Use 'NamedTuple' instead.`,
-                    errorNode);
-                type = createNamedTupleType(errorNode, argList, false,
-                    cachedExpressionNode);
-            } else if (FunctionType.getBuiltInName(callType) === 'NewType') {
-                type = validateCallArguments(errorNode, argList, callType,
-                    new TypeVarMap(), specializeReturnType);
-
-                // If the call's arguments were validated, replace the
-                // type with a new synthesized subclass.
-                if (type) {
-                    type = createNewType(errorNode, argList, cachedExpressionNode);
-                }
-            } else {
-                type = validateCallArguments(errorNode, argList, callType,
-                    new TypeVarMap(), specializeReturnType);
-
-                if (FunctionType.getBuiltInName(callType) === '__import__') {
-                    // For the special __import__ type, we'll override the return type to be "Any".
-                    // This is required because we don't know what module was imported, and we don't
-                    // want to fail type checks when accessing members of the resulting module type.
-                    type = AnyType.create();
-                }
-            }
-
-            if (!type) {
-                type = UnknownType.create();
-            }
-        } else if (callType.category === TypeCategory.OverloadedFunction) {
-            // Determine which of the overloads (if any) match.
-            const functionType = findOverloadedFunctionType(errorNode, argList, callType);
-
-            if (functionType) {
-                if (FunctionType.getBuiltInName(functionType) === 'cast' && argList.length === 2) {
-                    // Verify that the cast is necessary.
-                    const castToType = getTypeForArgument(argList[0]);
-                    const castFromType = getTypeForArgument(argList[1]);
-                    if (castToType.category === TypeCategory.Class && castFromType.category === TypeCategory.Object) {
-                        if (isTypeSame(castToType, castFromType.classType)) {
-                            addDiagnostic(
-                                getFileInfo(errorNode).diagnosticSettings.reportUnnecessaryCast,
-                                DiagnosticRule.reportUnnecessaryCast,
-                                `Unnecessary call to cast: type is already ${ printType(castFromType) }`,
-                                errorNode);
-                        }
-                    }
-                }
-
-                type = validateCallArguments(errorNode, argList, callType,
-                    new TypeVarMap(), specializeReturnType);
-                if (!type) {
-                    type = UnknownType.create();
-                }
-            } else {
-                const exprString = ParseTreeUtils.printExpression(errorNode);
-                const diagAddendum = new DiagnosticAddendum();
-                const argTypes = argList.map(t => printType(getTypeForArgument(t)));
-                diagAddendum.addMessage(`Argument types: (${ argTypes.join(', ') })`);
-                addError(
-                    `No overloads for '${ exprString }' match parameters` + diagAddendum.getString(),
-                    errorNode);
-                type = UnknownType.create();
-            }
-        } else if (callType.category === TypeCategory.Object) {
-            // Handle the "Type" object specially.
-            const classFromTypeObject = getClassFromPotentialTypeObject(callType);
-            if (classFromTypeObject) {
-                if (isAnyOrUnknown(classFromTypeObject)) {
-                    type = classFromTypeObject;
-                } else if (classFromTypeObject.category === TypeCategory.Class) {
-                    type = validateConstructorArguments(errorNode,
-                        argList, classFromTypeObject);
-                }
-            } else {
-                const memberType = getTypeFromObjectMember(errorNode,
-                    callType, '__call__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
-                if (memberType) {
-                    type = validateCallArguments(errorNode, argList, memberType, new TypeVarMap());
-                    if (!type) {
-                        type = UnknownType.create();
-                    }
-                }
-            }
-        } else if (callType.category === TypeCategory.Union) {
-            const returnTypes: Type[] = [];
-            callType.subtypes.forEach(typeEntry => {
-                if (isNoneOrNever(typeEntry)) {
-                    addDiagnostic(
-                        getFileInfo(errorNode).diagnosticSettings.reportOptionalCall,
-                        DiagnosticRule.reportOptionalCall,
-                        `Object of type 'None' cannot be called`,
-                        errorNode);
-                } else {
-                    const typeResult = getTypeFromCallExpressionWithBaseType(
-                        errorNode,
-                        argList,
-                        {
-                            type: typeEntry,
-                            node: baseTypeResult.node
-                        },
-                        EvaluatorFlags.None, cachedExpressionNode);
-                    if (typeResult) {
-                        returnTypes.push(typeResult.type);
-                    }
-                }
-            });
-
-            if (returnTypes.length > 0) {
-                type = combineTypes(returnTypes);
-            }
-        } else if (isAnyOrUnknown(callType)) {
-            // Mark the arguments accessed.
-            argList.forEach(arg => getTypeForArgument(arg));
-            type = callType;
         }
 
         if (!type) {
