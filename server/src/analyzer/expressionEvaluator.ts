@@ -2610,7 +2610,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                 // Assume this is a call to the constructor.
                 if (!type) {
-                    type = validateConstructorArguments(errorNode, argList, callType);
+                    type = validateConstructorArguments(errorNode, argList, callType,
+                        usage.expectedType);
                 }
                 break;
             }
@@ -2699,7 +2700,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         type = classFromTypeObject;
                     } else if (classFromTypeObject.category === TypeCategory.Class) {
                         type = validateConstructorArguments(errorNode,
-                            argList, classFromTypeObject);
+                            argList, classFromTypeObject, usage.expectedType);
                     }
                 } else {
                     const memberType = getTypeFromObjectMember(errorNode,
@@ -2794,7 +2795,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     // is allocated by the constructor. If unsuccessful, it records diagnostic
     // information and returns undefined.
     function validateConstructorArguments(errorNode: ExpressionNode,
-            argList: FunctionArgument[], type: ClassType): Type | undefined {
+            argList: FunctionArgument[], type: ClassType, expectedType?: Type): Type | undefined {
 
         let validatedTypes = false;
         let returnType: Type | undefined;
@@ -2812,9 +2813,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             const typeVarMap = new TypeVarMap();
             if (validateCallArguments(errorNode, argList, initMethodType, typeVarMap)) {
                 let specializedClassType = type;
+                if (expectedType) {
+                    TypeUtils.applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
+                }
                 if (!typeVarMap.isEmpty()) {
                     specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
-                    assert(specializedClassType.category === TypeCategory.Class);
                 }
                 returnType = ObjectType.create(specializedClassType);
             } else {
@@ -2837,9 +2840,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 validateCallArguments(errorNode, argList, constructorMethodType, typeVarMap);
                 if (!returnType) {
                     let specializedClassType = type;
+                    if (expectedType) {
+                        TypeUtils.applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
+                    }
                     if (!typeVarMap.isEmpty()) {
                         specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
-                        assert(specializedClassType.category === TypeCategory.Class);
                     }
                     returnType = ObjectType.create(specializedClassType);
                 }
@@ -2853,7 +2858,15 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         } else if (!returnType) {
             // There was no __new__ or __init__, so fall back on the
             // object.__new__ which takes no parameters.
-            returnType = ObjectType.create(type);
+            let specializedClassType = type;
+            const typeVarMap = new TypeVarMap();
+            if (expectedType) {
+                TypeUtils.applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
+            }
+            if (!typeVarMap.isEmpty()) {
+                specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
+            }
+            returnType = ObjectType.create(specializedClassType);
         }
 
         // Make the type concrete if it wasn't already specialized.
