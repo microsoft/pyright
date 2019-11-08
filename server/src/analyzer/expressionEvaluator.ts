@@ -1661,95 +1661,121 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         const baseType = baseTypeResult.type;
         const memberName = node.memberName.nameToken.value;
         const diag = new DiagnosticAddendum();
-
         let type: Type | undefined;
 
-        if (isAnyOrUnknown(baseType)) {
-            type = baseType;
-        } else if (baseType.category === TypeCategory.Class) {
-            type = getTypeFromClassMember(node.memberName, baseType,
-                node.memberName.nameToken.value, usage);
-
-            if (!type) {
-                diag.addMessage(`Member '${ memberName }' is unknown`);
-            }
-        } else if (baseType.category === TypeCategory.Object) {
-            const classFromTypeObject = getClassFromPotentialTypeObject(baseType);
-            if (classFromTypeObject) {
-                // Handle the case where the object is a 'Type' object, which
-                // represents a class.
-                return getTypeFromMemberAccessExpressionWithBaseType(node,
-                   { type: classFromTypeObject, node: baseTypeResult.node }, usage, flags);
+        switch (baseType.category) {
+            case TypeCategory.Any:
+            case TypeCategory.Unknown: {
+                type = baseType;
+                break;
             }
 
-            type = getTypeFromObjectMember(node.memberName, baseType,
-                node.memberName.nameToken.value, usage, MemberAccessFlags.None);
-            if (!type) {
-                diag.addMessage(`Member '${ memberName }' is unknown`);
-            }
-        } else if (baseType.category === TypeCategory.Module) {
-            const symbol = ModuleType.getField(baseType, memberName);
-            if (symbol) {
-                if (usage.method === 'get') {
-                    setSymbolAccessed(symbol);
+            case TypeCategory.Class: {
+                type = getTypeFromClassMember(node.memberName, baseType,
+                    node.memberName.nameToken.value, usage);
+
+                if (!type) {
+                    diag.addMessage(`Member '${ memberName }' is unknown`);
                 }
-                type = getEffectiveTypeOfSymbol(symbol, importLookup);
-            } else {
-                addError(`'${ memberName }' is not a known member of module`, node.memberName);
-                type = UnknownType.create();
+                break;
             }
-        } else if (baseType.category === TypeCategory.Union) {
-            type = TypeUtils.doForSubtypes(baseType, subtype => {
-                if (isNoneOrNever(subtype)) {
-                    addDiagnostic(
-                        getFileInfo(node).diagnosticSettings.reportOptionalMemberAccess,
-                        DiagnosticRule.reportOptionalMemberAccess,
-                        `'${ memberName }' is not a known member of 'None'`, node.memberName);
-                    return undefined;
-                } else if (subtype.category === TypeCategory.Unbound) {
-                    // Don't do anything if it's unbound. The error will already
-                    // be reported elsewhere.
-                    return undefined;
+
+            case TypeCategory.Object: {
+                const classFromTypeObject = getClassFromPotentialTypeObject(baseType);
+                if (classFromTypeObject) {
+                    // Handle the case where the object is a 'Type' object, which
+                    // represents a class.
+                    return getTypeFromMemberAccessExpressionWithBaseType(node,
+                        { type: classFromTypeObject, node: baseTypeResult.node },
+                        usage, flags);
+                }
+
+                type = getTypeFromObjectMember(node.memberName, baseType,
+                    node.memberName.nameToken.value, usage, MemberAccessFlags.None);
+                if (!type) {
+                    diag.addMessage(`Member '${ memberName }' is unknown`);
+                }
+                break;
+            }
+
+            case TypeCategory.Module: {
+                const symbol = ModuleType.getField(baseType, memberName);
+                if (symbol) {
+                    if (usage.method === 'get') {
+                        setSymbolAccessed(symbol);
+                    }
+
+                    type = getEffectiveTypeOfSymbol(symbol, importLookup);
                 } else {
-                    const typeResult = getTypeFromMemberAccessExpressionWithBaseType(node,
-                        {
-                            type: subtype,
-                            node
-                        },
-                        usage,
-                        EvaluatorFlags.None);
-                    return typeResult.type;
+                    addError(`'${ memberName }' is not a known member of module`, node.memberName);
+                    type = UnknownType.create();
                 }
-            });
-        } else if (baseType.category === TypeCategory.Property) {
-            if (memberName === 'getter' || memberName === 'setter' || memberName === 'deleter') {
-                // Synthesize a decorator.
-                const decoratorType = FunctionType.create(
-                    FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
-                FunctionType.addParameter(decoratorType, {
-                    category: ParameterCategory.Simple,
-                    name: 'fn',
-                    type: UnknownType.create()
-                });
-                FunctionType.setDeclaredReturnType(decoratorType, baseType);
-                type = decoratorType;
-            } else {
-                diag.addMessage(`Unknown property member`);
-            }
-        } else if (baseType.category === TypeCategory.Function || baseType.category === TypeCategory.OverloadedFunction) {
-            // If we're assigning a value to the __defaults__ member of a function,
-            // note that the default value processing for that function should be disabled.
-            if (baseType.category === TypeCategory.Function && memberName === '__defaults__') {
-                if (usage.method === 'set') {
-                    FunctionType.setDefaultParameterCheckDisabled(baseType);
-                }
+                break;
             }
 
-            // TODO - not yet sure what to do about members of functions,
-            // which have associated dictionaries.
-            type = UnknownType.create();
-        } else {
-            diag.addMessage(`Unsupported type '${ printType(baseType) }'`);
+            case TypeCategory.Union: {
+                type = TypeUtils.doForSubtypes(baseType, subtype => {
+                    if (isNoneOrNever(subtype)) {
+                        addDiagnostic(
+                            getFileInfo(node).diagnosticSettings.reportOptionalMemberAccess,
+                            DiagnosticRule.reportOptionalMemberAccess,
+                            `'${ memberName }' is not a known member of 'None'`, node.memberName);
+                        return undefined;
+                    } else if (subtype.category === TypeCategory.Unbound) {
+                        // Don't do anything if it's unbound. The error will already
+                        // be reported elsewhere.
+                        return undefined;
+                    } else {
+                        const typeResult = getTypeFromMemberAccessExpressionWithBaseType(node,
+                            {
+                                type: subtype,
+                                node
+                            },
+                            usage,
+                            EvaluatorFlags.None);
+                        return typeResult.type;
+                    }
+                });
+                break;
+            }
+
+            case TypeCategory.Property: {
+                if (memberName === 'getter' || memberName === 'setter' || memberName === 'deleter') {
+                    // Synthesize a decorator.
+                    const decoratorType = FunctionType.create(
+                        FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
+                    FunctionType.addParameter(decoratorType, {
+                        category: ParameterCategory.Simple,
+                        name: 'fn',
+                        type: UnknownType.create()
+                    });
+                    FunctionType.setDeclaredReturnType(decoratorType, baseType);
+                    type = decoratorType;
+                } else {
+                    diag.addMessage(`Unknown property member`);
+                }
+                break;
+            }
+
+            case TypeCategory.Function:
+            case TypeCategory.OverloadedFunction: {
+                // If we're assigning a value to the __defaults__ member of a function,
+                // note that the default value processing for that function should be disabled.
+                if (baseType.category === TypeCategory.Function && memberName === '__defaults__') {
+                    if (usage.method === 'set') {
+                        FunctionType.setDefaultParameterCheckDisabled(baseType);
+                    }
+                }
+
+                // TODO - not yet sure what to do about members of functions,
+                // which have associated dictionaries.
+                type = UnknownType.create();
+                break;
+            }
+
+            default:
+                diag.addMessage(`Unsupported type '${ printType(baseType) }'`);
+                break;
         }
 
         if (!type) {
