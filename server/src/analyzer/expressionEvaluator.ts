@@ -1596,6 +1596,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 }
 
                 setSymbolAccessed(symbol);
+            } else if (usage.method === 'del') {
+                setSymbolAccessed(symbol);
             }
         } else {
             // Handle the special case of "reveal_type".
