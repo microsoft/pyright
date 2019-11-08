@@ -40,7 +40,7 @@ import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
 import { Symbol, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
-import { getEffectiveTypeOfSymbol } from './symbolUtils';
+import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionEntry,
     OverloadedFunctionType, printType, PropertyType, removeNoneFromUnion,
@@ -946,7 +946,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         // in Python, but we'll model them as expressions and rely on the expression
         // evaluator to validate them.
         this._getTypeOfExpression(node);
-
         return true;
     }
 
@@ -1020,11 +1019,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (expr.nodeType === ParseNodeType.Name) {
                 const symbolWithScope = this._currentScope.lookUpSymbolRecursive(expr.nameToken.value);
                 if (symbolWithScope) {
-                    if (symbolWithScope.symbol.hasDeclarations()) {
-                        const declType = symbolWithScope.symbol.getDeclarations()[0].type;
-                        if (declType === DeclarationType.Function || declType === DeclarationType.Method) {
+                    const decl = getLastTypedDeclaredForSymbol(symbolWithScope.symbol);
+                    if (decl) {
+                        if (decl.type === DeclarationType.Function || decl.type === DeclarationType.Method) {
                             this._evaluator.addError('Del should not be applied to function', expr);
-                        } else if (declType === DeclarationType.Class) {
+                        } else if (decl.type === DeclarationType.Class) {
                             this._evaluator.addError('Del should not be applied to class', expr);
                         }
                     }
@@ -1037,8 +1036,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitMemberAccess(node: MemberAccessExpressionNode) {
         this._getTypeOfExpression(node);
-
-        this._getTypeOfExpression(node.leftExpression);
         this._conditionallyReportPrivateUsage(node.memberName);
 
         // Walk the leftExpression but not the memberName.

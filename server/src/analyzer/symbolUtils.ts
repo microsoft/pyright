@@ -8,7 +8,7 @@
 */
 
 import { ImportLookup } from './analyzerFileInfo';
-import { DeclarationType } from './declaration';
+import { Declaration, DeclarationType } from './declaration';
 import { getInferredTypeOfDeclaration, getTypeForDeclaration } from './declarationUtils';
 import { Symbol } from './symbol';
 import { combineTypes, Type, UnknownType } from './types';
@@ -48,14 +48,20 @@ export function getEffectiveTypeOfSymbol(symbol: Symbol, importLookup: ImportLoo
 }
 
 export function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
+    const lastDecl = getLastTypedDeclaredForSymbol(symbol);
+
+    if (lastDecl) {
+        return getTypeForDeclaration(lastDecl) || UnknownType.create();
+    }
+
+    return undefined;
+}
+
+export function getLastTypedDeclaredForSymbol(symbol: Symbol): Declaration | undefined {
     const typedDecls = symbol.getTypedDeclarations();
 
     if (typedDecls.length > 0) {
-        // If there's more than one declared type, we will
-        // use the last one, which is assumed to supersede
-        // the earlier ones.
-        const lastDeclType = getTypeForDeclaration(typedDecls[typedDecls.length - 1]);
-        return lastDeclType || UnknownType.create();
+        return typedDecls[typedDecls.length - 1];
     }
 
     return undefined;
