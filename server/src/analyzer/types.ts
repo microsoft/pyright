@@ -567,7 +567,6 @@ interface FunctionDetails {
     parameters: FunctionParameter[];
     declaredReturnType?: Type;
     inferredReturnType?: Type;
-    inferredYieldType?: Type;
     builtInName?: string;
     docString?: string;
 }
@@ -611,7 +610,6 @@ export namespace FunctionType {
             parameters: type.details.parameters.slice(startParam),
             declaredReturnType: type.details.declaredReturnType,
             inferredReturnType: type.details.inferredReturnType,
-            inferredYieldType: type.details.inferredYieldType,
             builtInName: type.details.builtInName,
             docString: type.details.docString
         };
@@ -774,11 +772,6 @@ export namespace FunctionType {
         const specializedReturnType = getSpecializedReturnType(type);
         if (specializedReturnType) {
             return specializedReturnType;
-        }
-
-        if (isGenerator(type)) {
-            // Wrap this in an Iterator type.
-            return type.details.inferredYieldType || UnknownType.create();
         }
 
         return type.details.inferredReturnType || UnknownType.create();

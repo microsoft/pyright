@@ -1787,102 +1787,104 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
         } else {
-            // Infer the return type based on all of the return statements in the function's body.
-            let inferredReturnType: Type;
-            if (this._fileInfo.isStubFile) {
-                // If a return type annotation is missing in a stub file, assume
-                // it's an "unknown" type. In normal source files, we can infer the
-                // type from the implementation.
-                inferredReturnType = UnknownType.create();
-            } else if (functionNeverReturns) {
-                // If the function always raises and never returns, assume a "NoReturn" type.
-                // Skip this for abstract methods which often are implemented with "raise
-                // NotImplementedError()".
-                if (FunctionType.isAbstractMethod(functionType)) {
-                    inferredReturnType = UnknownType.create();
-                } else {
-                    const noReturnClass = this._evaluator.getTypingType(node, 'NoReturn');
-                    if (noReturnClass && noReturnClass.category === TypeCategory.Class) {
-                        inferredReturnType = ObjectType.create(noReturnClass);
-                    } else {
-                        inferredReturnType = UnknownType.create();
-                    }
-                }
-            } else {
-                const inferredReturnTypes: Type[] = [];
-                if (functionDecl.returnExpressions) {
-                    functionDecl.returnExpressions.forEach(returnNode => {
-                        if (this._evaluator.isNodeReachable(returnNode)) {
-                            if (returnNode.returnExpression) {
-                                const cachedType = AnalyzerNodeInfo.getExpressionType(returnNode.returnExpression);
-                                inferredReturnTypes.push(cachedType || UnknownType.create());
+            if (FunctionType.isGenerator(functionType)) {
+                // Infer the yield type.
+                if (functionDecl.yieldExpressions) {
+                    const inferredYieldTypes: Type[] = [];
+                    functionDecl.yieldExpressions.forEach(yieldNode => {
+                        if (this._evaluator.isNodeReachable(yieldNode)) {
+                            if (yieldNode.expression) {
+                                const cachedType = AnalyzerNodeInfo.getExpressionType(yieldNode.expression);
+                                inferredYieldTypes.push(cachedType || UnknownType.create());
                             } else {
-                                inferredReturnTypes.push(NoneType.create());
+                                inferredYieldTypes.push(NoneType.create());
                             }
                         }
                     });
-                }
 
-                if (!functionNeverReturns && implicitlyReturnsNone) {
-                    inferredReturnTypes.push(NoneType.create());
-                }
+                    if (inferredYieldTypes.length > 0) {
+                        let inferredYieldType = combineTypes(inferredYieldTypes);
 
-                inferredReturnType = combineTypes(inferredReturnTypes);
-            }
-
-            if (!functionType.details.inferredReturnType ||
-                    !isTypeSame(functionType.details.inferredReturnType, inferredReturnType)) {
-
-                functionType.details.inferredReturnType = inferredReturnType;
-                this._setAnalysisChanged('Inferred return type changed');
-            }
-
-            if (inferredReturnType.category === TypeCategory.Unknown) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
-                    `Inferred return type is unknown`, node.name);
-            } else if (TypeUtils.containsUnknown(inferredReturnType)) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
-                    `Return type '${ printType(inferredReturnType) }' is partially unknown`,
-                    node.name);
-            }
-
-            // Infer the yield type.
-            if (functionDecl.yieldExpressions) {
-                const inferredYieldTypes: Type[] = [];
-                functionDecl.yieldExpressions.forEach(yieldNode => {
-                    if (this._evaluator.isNodeReachable(yieldNode)) {
-                        if (yieldNode.expression) {
-                            const cachedType = AnalyzerNodeInfo.getExpressionType(yieldNode.expression);
-                            inferredYieldTypes.push(cachedType || UnknownType.create());
+                        // Inferred yield types need to be wrapped in a Generator to
+                        // produce the final result.
+                        const generatorType = this._evaluator.getTypingType(node, 'Generator');
+                        if (generatorType && generatorType.category === TypeCategory.Class) {
+                            inferredYieldType = ObjectType.create(
+                                ClassType.cloneForSpecialization(generatorType, [inferredYieldType]));
                         } else {
-                            inferredYieldTypes.push(NoneType.create());
+                            inferredYieldType = UnknownType.create();
+                        }
+
+                        if (!functionType.details.inferredReturnType ||
+                                !isTypeSame(functionType.details.inferredReturnType, inferredYieldType)) {
+
+                            functionType.details.inferredReturnType = inferredYieldType;
+                            this._setAnalysisChanged('Inferred yield type changed');
                         }
                     }
-                });
-
-                if (inferredYieldTypes.length > 0) {
-                    let inferredYieldType = combineTypes(inferredYieldTypes);
-
-                    // Inferred yield types need to be wrapped in a Generator to
-                    // produce the final result.
-                    const generatorType = this._evaluator.getTypingType(node, 'Generator');
-                    if (generatorType && generatorType.category === TypeCategory.Class) {
-                        inferredYieldType = ObjectType.create(
-                            ClassType.cloneForSpecialization(generatorType, [inferredYieldType]));
+                }
+            } else {
+                // Infer the return type based on all of the return statements in the function's body.
+                let inferredReturnType: Type;
+                if (this._fileInfo.isStubFile) {
+                    // If a return type annotation is missing in a stub file, assume
+                    // it's an "unknown" type. In normal source files, we can infer the
+                    // type from the implementation.
+                    inferredReturnType = UnknownType.create();
+                } else if (functionNeverReturns) {
+                    // If the function always raises and never returns, assume a "NoReturn" type.
+                    // Skip this for abstract methods which often are implemented with "raise
+                    // NotImplementedError()".
+                    if (FunctionType.isAbstractMethod(functionType)) {
+                        inferredReturnType = UnknownType.create();
                     } else {
-                        inferredYieldType = UnknownType.create();
+                        const noReturnClass = this._evaluator.getTypingType(node, 'NoReturn');
+                        if (noReturnClass && noReturnClass.category === TypeCategory.Class) {
+                            inferredReturnType = ObjectType.create(noReturnClass);
+                        } else {
+                            inferredReturnType = UnknownType.create();
+                        }
+                    }
+                } else {
+                    const inferredReturnTypes: Type[] = [];
+                    if (functionDecl.returnExpressions) {
+                        functionDecl.returnExpressions.forEach(returnNode => {
+                            if (this._evaluator.isNodeReachable(returnNode)) {
+                                if (returnNode.returnExpression) {
+                                    const cachedType = AnalyzerNodeInfo.getExpressionType(returnNode.returnExpression);
+                                    inferredReturnTypes.push(cachedType || UnknownType.create());
+                                } else {
+                                    inferredReturnTypes.push(NoneType.create());
+                                }
+                            }
+                        });
                     }
 
-                    if (!functionType.details.inferredYieldType ||
-                            !isTypeSame(functionType.details.inferredYieldType, inferredYieldType)) {
-
-                        functionType.details.inferredYieldType = inferredYieldType;
-                        this._setAnalysisChanged('Inferred yield type changed');
+                    if (!functionNeverReturns && implicitlyReturnsNone) {
+                        inferredReturnTypes.push(NoneType.create());
                     }
+
+                    inferredReturnType = combineTypes(inferredReturnTypes);
+                }
+
+                if (!functionType.details.inferredReturnType ||
+                        !isTypeSame(functionType.details.inferredReturnType, inferredReturnType)) {
+
+                    functionType.details.inferredReturnType = inferredReturnType;
+                    this._setAnalysisChanged('Inferred return type changed');
+                }
+
+                if (inferredReturnType.category === TypeCategory.Unknown) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                        DiagnosticRule.reportUnknownParameterType,
+                        `Inferred return type is unknown`, node.name);
+                } else if (TypeUtils.containsUnknown(inferredReturnType)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                        DiagnosticRule.reportUnknownParameterType,
+                        `Return type '${ printType(inferredReturnType) }' is partially unknown`,
+                        node.name);
                 }
             }
         }
