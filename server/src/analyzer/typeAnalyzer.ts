@@ -29,7 +29,7 @@ import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowFlags } from './codeFlow';
-import { DeclarationType } from './declaration';
+import { Declaration, DeclarationType } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
 import { createExpressionEvaluator, EvaluatorFlags, ExpressionEvaluator,
     MemberAccessFlags } from './expressionEvaluator';
@@ -38,13 +38,13 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
-import { Symbol, SymbolFlags, SymbolTable } from './symbol';
+import { Symbol, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getEffectiveTypeOfSymbol } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionEntry,
     OverloadedFunctionType, printType, PropertyType, removeNoneFromUnion,
-    removeUnboundFromUnion, Type, TypeCategory, TypeVarType, UnboundType,
+    removeUnboundFromUnion, Type, TypeCategory, TypeVarType,
     UnknownType  } from './types';
 import * as TypeUtils from './typeUtils';
 
@@ -76,6 +76,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // determining how to reduce the number of analysis passes.
     private _lastAnalysisChangeReason: string;
 
+    // A list of all nodes that are defined within the module that
+    // have their own scopes.
+    private _scopedNodes: AnalyzerNodeInfo.ScopedNode[] = [];
+
     // Analysis version is incremented each time an analyzer pass
     // is performed. It allows the code to determine when cached
     // type information needs to be regenerated because it was
@@ -101,17 +105,26 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     analyze() {
         this._didAnalysisChange = false;
+        this._scopedNodes.push(this._moduleNode);
 
         this.walkMultiple(this._moduleNode.statements);
+
+        let requiresAnotherPass = this._didAnalysisChange;
 
         // If we've already analyzed the file the max number of times,
         // just give up and admit defeat. This should happen only in
         // the case of analyzer bugs.
         if (this.isAtMaxAnalysisPassCount()) {
-            return false;
+            requiresAnotherPass = false;
         }
 
-        return this._didAnalysisChange;
+        if (!requiresAnotherPass) {
+            // Perform a one-time validation of symbols in all scopes
+            // defined in this module for things like unaccessed variables.
+            this._validateSymbolTables();
+        }
+
+        return requiresAnotherPass;
     }
 
     walk(node: ParseNode) {
@@ -306,11 +319,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
-
-        this._conditionallyReportUnusedName(node.name, true,
-            this._fileInfo.diagnosticSettings.reportUnusedClass,
-            DiagnosticRule.reportUnusedClass,
-            `Class '${ node.name.nameToken.value }' is not accessed`);
 
         if (ClassType.isTypedDictClass(classType)) {
             this._validateTypedDictClassSuite(node.suite);
@@ -547,11 +555,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         this.walkMultiple(node.decorators);
-
-        this._conditionallyReportUnusedName(node.name, true,
-            this._fileInfo.diagnosticSettings.reportUnusedFunction,
-            DiagnosticRule.reportUnusedFunction,
-            `Function '${ node.name.nameToken.value }' is not accessed`);
 
         return false;
     }
@@ -1006,26 +1009,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitName(node: NameNode) {
-        const nameValue = node.nameToken.value;
-        const symbolInScope = this._currentScope.lookUpSymbolRecursive(nameValue);
-
         // Determine if we should log information about private usage.
         this._conditionallyReportPrivateUsage(node);
-
-        let unaccessedDiagLevel: DiagnosticLevel = 'none';
-        if (symbolInScope) {
-            const declarations = symbolInScope.symbol.getDeclarations();
-
-            // Determine if we should log information about an unused name.
-            if (declarations.length > 0 && declarations[0].type === DeclarationType.Variable) {
-                unaccessedDiagLevel = this._fileInfo.diagnosticSettings.reportUnusedVariable;
-            }
-        }
-
-        this._conditionallyReportUnusedName(node, false, unaccessedDiagLevel,
-            DiagnosticRule.reportUnusedVariable,
-            `Variable '${ node.nameToken.value }' is not accessed`);
-
         return true;
     }
 
@@ -1098,29 +1083,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this._evaluator.assignTypeToNameNode(symbolNameNode, symbolType);
 
-        if (node.alias) {
-            this._conditionallyReportUnusedName(symbolNameNode, false,
-                this._fileInfo.diagnosticSettings.reportUnusedImport,
-                DiagnosticRule.reportUnusedImport,
-                `Import '${ node.alias.nameToken.value }' is not accessed`);
-        } else {
-            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(symbolNameNode.nameToken.value);
-            if (symbolWithScope && !symbolWithScope.symbol.isAccessed()) {
-                const nameParts = node.module.nameParts;
-                if (nameParts.length > 0) {
-                    const multipartName = nameParts.map(np => np.nameToken.value).join('.');
-                    const textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
-                    TextRange.extend(textRange, nameParts[nameParts.length - 1]);
-                    this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
-                        `'${ multipartName }' is not accessed`, textRange);
-
-                    this._evaluator.addDiagnostic(this._fileInfo.diagnosticSettings.reportUnusedImport,
-                        DiagnosticRule.reportUnusedImport,
-                        `Import '${ multipartName }' is not accessed`, textRange);
-                }
-            }
-        }
-
         return false;
     }
 
@@ -1149,23 +1111,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._evaluator.assignTypeToNameNode(aliasNode, symbolType);
                 });
             }
-        }
-
-        if (!node.isWildcardImport) {
-            node.imports.forEach(importAs => {
-                const aliasNode = importAs.alias || importAs.name;
-                // Python files generated by protoc ("_pb2.py" files) contain
-                // unused imports. Don't report these because they're in generated
-                // files that shouldn't be edited.
-                if ((!importInfo || importInfo.importName !== '__future__') &&
-                        !this._fileInfo.filePath.endsWith('_pb2.py')) {
-
-                    this._conditionallyReportUnusedName(aliasNode, false,
-                        this._fileInfo.diagnosticSettings.reportUnusedImport,
-                        DiagnosticRule.reportUnusedImport,
-                        `Import '${ aliasNode.nameToken.value }' is not accessed`);
-                }
-            });
         }
 
         return false;
@@ -1209,6 +1154,136 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _validateSymbolTables() {
+        // Never report symbol table issues in stub files.
+        if (this._fileInfo.isStubFile) {
+            return;
+        }
+
+        for (const scopedNode of this._scopedNodes) {
+            const scope = AnalyzerNodeInfo.getScope(scopedNode)!;
+            const symbolTable = scope.getSymbolTable();
+            const scopeType = scope.getType();
+
+            symbolTable.forEach((symbol, name) => {
+                this._conditionallyReportUnusedSymbol(name, symbol, scopeType);
+            });
+        }
+    }
+
+    private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
+        if (symbol.isAccessed() || symbol.isIgnoredForProtocolMatch()) {
+            return;
+        }
+
+        // A name of "_" means "I know this symbol isn't used", so
+        // don't report it as unused.
+        if (name === '_') {
+            return;
+        }
+
+        if (SymbolNameUtils.isDunderName(name)) {
+            return;
+        }
+
+        const decls = symbol.getDeclarations();
+        decls.forEach(decl => {
+            this._conditionallyReportUnusedDeclaration(decl,
+                this._isSymbolPrivate(name, scopeType));
+        });
+    }
+
+    private _conditionallyReportUnusedDeclaration(decl: Declaration, isPrivate: boolean) {
+        let diagnosticLevel: DiagnosticLevel;
+        let nameNode: NameNode | undefined;
+        let message: string | undefined;
+        let rule: DiagnosticRule | undefined;
+
+        switch (decl.type) {
+            case DeclarationType.Alias:
+                diagnosticLevel = this._fileInfo.diagnosticSettings.reportUnusedImport;
+                rule = DiagnosticRule.reportUnusedImport;
+                if (decl.node.nodeType === ParseNodeType.ImportAs) {
+                    if (decl.node.alias) {
+                        nameNode = decl.node.alias;
+                    } else {
+                        // Handle multi-part names specially.
+                        const nameParts = decl.node.module.nameParts;
+                        if (nameParts.length > 0) {
+                            const multipartName = nameParts.map(np => np.nameToken.value).join('.');
+                            const textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
+                            TextRange.extend(textRange, nameParts[nameParts.length - 1]);
+                            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+                                `'${ multipartName }' is not accessed`, textRange);
+
+                            this._evaluator.addDiagnostic(this._fileInfo.diagnosticSettings.reportUnusedImport,
+                                DiagnosticRule.reportUnusedImport,
+                                `Import '${ multipartName }' is not accessed`, textRange);
+                            return;
+                        }
+                    }
+                } else if (decl.node.nodeType === ParseNodeType.ImportFromAs) {
+                    // Python files generated by protoc ("_pb2.py" files) contain
+                    // unused imports. Don't report these because they're in generated
+                    // files that shouldn't be edited.
+                    const importFrom = decl.node.parent as ImportFromNode;
+                    if (importFrom.module.nameParts.length === 0 ||
+                            importFrom.module.nameParts[0].nameToken.value !== '__future__' &&
+                            !this._fileInfo.filePath.endsWith('_pb2.py')) {
+
+                        nameNode = decl.node.alias || decl.node.name;
+                    }
+                }
+
+                if (nameNode) {
+                    message = `Import '${ nameNode.nameToken.value }' is not accessed`;
+                }
+                break;
+
+            case DeclarationType.Variable:
+            case DeclarationType.Parameter:
+                if (!isPrivate) {
+                    return;
+                }
+                diagnosticLevel = this._fileInfo.diagnosticSettings.reportUnusedVariable;
+                if (decl.node.nodeType === ParseNodeType.Name) {
+                    nameNode = decl.node;
+                    rule = DiagnosticRule.reportUnusedVariable;
+                    message = `Variable '${ nameNode.nameToken.value }' is not accessed`;
+                }
+                break;
+
+            case DeclarationType.Class:
+                if (!isPrivate) {
+                    return;
+                }
+                diagnosticLevel = this._fileInfo.diagnosticSettings.reportUnusedClass;
+                nameNode = decl.node.name;
+                rule = DiagnosticRule.reportUnusedClass;
+                message = `Class '${ nameNode.nameToken.value }' is not accessed`;
+                break;
+
+            case DeclarationType.Function:
+                if (!isPrivate) {
+                    return;
+                }
+                diagnosticLevel = this._fileInfo.diagnosticSettings.reportUnusedFunction;
+                nameNode = decl.node.name;
+                rule = DiagnosticRule.reportUnusedFunction;
+                message = `Function '${ nameNode.nameToken.value }' is not accessed`;
+                break;
+
+            default:
+                return;
+        }
+
+        if (nameNode && rule !== undefined && message) {
+            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+                `'${ nameNode.nameToken.value }' is not accessed`, nameNode);
+            this._evaluator.addDiagnostic(diagnosticLevel, rule, message, nameNode);
+        }
     }
 
     private _getAliasedSymbolTypeForName(name: string): Type | undefined {
@@ -1500,6 +1575,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _isSymbolPrivate(nameValue: string, scopeType: ScopeType) {
+        // All variables within the scope of a function or a list
+        // comprehension are considered private.
+        if (scopeType === ScopeType.Function || scopeType === ScopeType.ListComprehension) {
+            return true;
+        }
+
         // See if the symbol is private.
         if (SymbolNameUtils.isPrivateName(nameValue)) {
             return true;
@@ -1512,38 +1593,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return false;
-    }
-
-    private _conditionallyReportUnusedName(node: NameNode, reportPrivateOnly: boolean,
-            diagLevel: DiagnosticLevel, rule: string, message: string) {
-
-        const nameValue = node.nameToken.value;
-
-        // A name of "_" means "I know this symbol isn't used", so
-        // don't report it as unused.
-        if (nameValue === '_') {
-            return;
-        }
-
-        if (SymbolNameUtils.isDunderName(nameValue)) {
-            return;
-        }
-
-        if (this._fileInfo.isStubFile) {
-            return;
-        }
-
-        const symbolInScope = this._currentScope.lookUpSymbolRecursive(nameValue);
-        if (symbolInScope && !symbolInScope.symbol.isAccessed()) {
-            if (reportPrivateOnly) {
-                if (!this._isSymbolPrivate(nameValue, symbolInScope.scope.getType())) {
-                    return;
-                }
-            }
-
-            this._addUnusedName(node);
-            this._evaluator.addDiagnostic(diagLevel, rule, message, node);
-        }
     }
 
     private _conditionallyReportPrivateUsage(node: NameNode) {
@@ -2340,21 +2389,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return undefined;
     }
 
-    private _enterScope(node: ParseNode, callback: () => void) {
+    private _enterScope(node: AnalyzerNodeInfo.ScopedNode, callback: () => void) {
         const prevScope = this._currentScope;
         const newScope = AnalyzerNodeInfo.getScope(node)!;
         assert(newScope !== undefined);
 
         this._currentScope = newScope;
 
+        // Note that we found a scoped node.
+        this._scopedNodes.push(node);
+
         callback();
 
         this._currentScope = prevScope;
-    }
-
-    private _addUnusedName(nameNode: NameNode) {
-        return this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
-            `'${ nameNode.nameToken.value }' is not accessed`, nameNode);
     }
 
     private _setAnalysisChanged(reason: string) {

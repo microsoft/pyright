@@ -12,7 +12,8 @@
 
 import * as assert from 'assert';
 
-import { FunctionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
+import { ClassNode, FunctionNode, LambdaNode, ListComprehensionNode, ModuleNode,
+    ParseNode } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { FlowNode } from './codeFlow';
 import { FunctionDeclaration } from './declaration';
@@ -70,6 +71,9 @@ interface ExpressionTypeCache {
     // The type won't be changed after the initial write.
     isFinal?: boolean;
 }
+
+export type ScopedNode = ModuleNode | ClassNode | FunctionNode |
+    LambdaNode | ListComprehensionNode;
 
 // Cleans out all fields that are added by the analyzer phases
 // (after the post-parse walker).

@@ -1290,7 +1290,7 @@ export class Binder extends ParseTreeWalker {
 
                     const aliasDecl: AliasDeclaration = {
                         type: DeclarationType.Alias,
-                        node,
+                        node: importSymbolNode,
                         path: resolvedPath,
                         symbolName: importedName,
                         submoduleFallback,
