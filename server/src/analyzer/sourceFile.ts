@@ -110,6 +110,11 @@ export class SourceFile {
     private _moduleSymbolTable?: SymbolTable;
     private _binderResults?: BinderResults;
 
+    // Map of symbols (tracked by numeric ID) that have
+    // be accessed within this source file. Used for unaccessed
+    // symbol reporting.
+    private _accessedSymbolMap?: Map<number, true>;
+
     // Diagnostics generated during different phases of analysis.
     private _parseDiagnostics: Diagnostic[] = [];
     private _bindDiagnostics: Diagnostic[] = [];
@@ -336,6 +341,7 @@ export class SourceFile {
         this._isTypeAnalysisPassNeeded = true;
         this._moduleSymbolTable = undefined;
         this._binderResults = undefined;
+        this._accessedSymbolMap = undefined;
     }
 
     markReanalysisRequired(): void {
@@ -351,6 +357,7 @@ export class SourceFile {
             this._isBindingNeeded = true;
             this._moduleSymbolTable = undefined;
             this._binderResults = undefined;
+            this._accessedSymbolMap = undefined;
         }
     }
 
@@ -668,6 +675,7 @@ export class SourceFile {
 
                 const binder = new Binder(fileInfo);
                 this._binderResults = binder.bindModule(this._parseResults!.parseTree);
+                this._accessedSymbolMap = new Map<number, true>();
 
                 // If we're in "test mode" (used for unit testing), run an additional
                 // "test walker" over the parse tree to validate its internal consistency.
@@ -715,7 +723,7 @@ export class SourceFile {
 
                 // Perform static type analysis.
                 const typeAnalyzer = new TypeAnalyzer(this._parseResults!.parseTree,
-                    this._typeAnalysisPassNumber);
+                    this._accessedSymbolMap!, this._typeAnalysisPassNumber);
                 this._typeAnalysisPassNumber++;
 
                 // Repeatedly call the analyzer until everything converges.

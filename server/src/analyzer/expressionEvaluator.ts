@@ -201,7 +201,6 @@ export interface ExpressionEvaluator {
     assignTypeToExpression: (target: ExpressionNode, type: Type, srcExpr?: ExpressionNode) => void;
 
     updateExpressionTypeForNode: (node: ExpressionNode, exprType: Type) => void;
-    markExpressionAccessed: (target: ExpressionNode) => void;
 
     addError: (message: string, range: TextRange) => Diagnostic | undefined;
     addWarning: (message: string, range: TextRange) => Diagnostic | undefined;
@@ -1164,19 +1163,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         // Make sure we can write the type back to the target.
         getTypeFromExpression(target, { method: 'set', setType: type, setErrorNode: srcExpr });
-    }
-
-    function markExpressionAccessed(target: ExpressionNode) {
-        if (!isSpeculativeMode) {
-            if (target.nodeType === ParseNodeType.Name) {
-                const nameValue = target.nameToken.value;
-                const symbolWithScope = lookUpSymbolRecursive(target, nameValue);
-
-                if (symbolWithScope) {
-                    setSymbolAccessed(symbolWithScope.symbol);
-                }
-            }
-        }
     }
 
     function updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
@@ -5695,7 +5681,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         assignTypeToNameNode,
         assignTypeToExpression,
         updateExpressionTypeForNode,
-        markExpressionAccessed,
         addError,
         addWarning,
         addDiagnostic

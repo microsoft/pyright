@@ -88,15 +88,16 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     // Map of symbols that have been accessed within this module.
     // Used to report unaccessed symbols.
-    private _accessedSymbolMap = new Map<number, true>();
+    private _accessedSymbolMap: Map<number, true>;
 
-    constructor(node: ModuleNode, analysisVersion: number) {
+    constructor(node: ModuleNode, accessedSymbolMap: Map<number, true>, analysisVersion: number) {
         super();
 
         this._moduleNode = node;
         this._fileInfo = AnalyzerNodeInfo.getFileInfo(node)!;
         this._currentScope = AnalyzerNodeInfo.getScope(node)!;
         this._didAnalysisChange = false;
+        this._accessedSymbolMap = accessedSymbolMap;
         this._analysisVersion = analysisVersion;
         this._evaluator = createExpressionEvaluator(
             this._fileInfo.diagnosticSink,
@@ -780,8 +781,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
             this._currentScope, 'BaseException', this._fileInfo.importLookup) as ClassType;
 
         if (node.typeExpression) {
-            this._evaluator.markExpressionAccessed(node.typeExpression);
-
             const exceptionType = this._getTypeOfExpression(node.typeExpression);
 
             // Validate that the argument of "raise" is an exception object or class.
@@ -933,11 +932,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 node.typeAnnotationComment);
         }
 
-        // Class and global variables should always be marked as accessed.
-        if (ParseTreeUtils.getEnclosingClassOrModule(node, true)) {
-            this._evaluator.markExpressionAccessed(node.leftExpression);
-        }
-
         this._evaluator.assignTypeToExpression(node.leftExpression, effectiveType, node.rightExpression);
         return true;
     }
@@ -1021,7 +1015,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitDel(node: DelNode) {
         node.expressions.forEach(expr => {
-            this._evaluator.markExpressionAccessed(expr);
             this._evaluateExpressionForDeletion(expr);
 
             if (expr.nodeType === ParseNodeType.Name) {
@@ -1141,11 +1134,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this._validateDeclaredTypeMatches(node.valueExpression, declaredType,
             node.typeAnnotation);
-
-        // Class and global variables should always be marked as accessed.
-        if (ParseTreeUtils.getEnclosingClassOrModule(node, true)) {
-            this._evaluator.markExpressionAccessed(node.valueExpression);
-        }
 
         return true;
     }
