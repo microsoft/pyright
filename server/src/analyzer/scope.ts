@@ -13,7 +13,7 @@
 
 import * as assert from 'assert';
 
-import { setSymbolPreservingAccess, Symbol, SymbolFlags, SymbolTable } from './symbol';
+import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 
 export const enum ScopeType {
     // Used for list comprehension nodes.
@@ -128,7 +128,7 @@ export class Scope {
             flags |= SymbolFlags.ExternallyHidden;
         }
         const symbol = new Symbol(flags);
-        setSymbolPreservingAccess(this._symbolTable, name, symbol);
+        this._symbolTable.set(name, symbol);
         return symbol;
     }
 

@@ -86,6 +86,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // from a previous pass.
     private _analysisVersion = 0;
 
+    // Map of symbols that have been accessed within this module.
+    // Used to report unaccessed symbols.
+    private _accessedSymbolMap = new Map<number, true>();
+
     constructor(node: ModuleNode, analysisVersion: number) {
         super();
 
@@ -100,6 +104,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             reason => {
                 this._setAnalysisChanged(reason);
             },
+            this._accessedSymbolMap,
             this._fileInfo.importLookup);
     }
 
@@ -1174,7 +1179,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
-        if (symbol.isAccessed() || symbol.isIgnoredForProtocolMatch()) {
+        if (symbol.isIgnoredForProtocolMatch() || this._accessedSymbolMap.has(symbol.getId())) {
             return;
         }
 

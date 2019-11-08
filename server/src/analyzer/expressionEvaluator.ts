@@ -34,7 +34,7 @@ import { getInferredTypeOfDeclaration } from './declarationUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
-import { indeterminateSymbolId, setSymbolPreservingAccess, Symbol, SymbolFlags } from './symbol';
+import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol } from './symbolUtils';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
@@ -210,7 +210,7 @@ export interface ExpressionEvaluator {
 
 export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         analysisVersion: number, setAnalysisChangedCallback: SetAnalysisChangedCallback,
-        importLookup: ImportLookup): ExpressionEvaluator {
+        accessedSymbolMap: Map<number, true>, importLookup: ImportLookup): ExpressionEvaluator {
 
     let isSpeculativeMode = false;
     const typeFlowRecursionMap = new Map<number, true>();
@@ -668,11 +668,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 FunctionType.addParameter(initType, paramInfo);
             });
 
-            setSymbolPreservingAccess(ClassType.getFields(classType),
-                '__init__', Symbol.createWithType(
+            const symbolTable = ClassType.getFields(classType);
+            symbolTable.set('__init__', Symbol.createWithType(
                     SymbolFlags.ClassMember, initType));
-            setSymbolPreservingAccess(ClassType.getFields(classType),
-                '__new__', Symbol.createWithType(
+            symbolTable.set('__new__', Symbol.createWithType(
                     SymbolFlags.ClassMember, newType));
         }
     }
@@ -717,10 +716,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             });
         });
 
-        setSymbolPreservingAccess(ClassType.getFields(classType),
-            '__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
-        setSymbolPreservingAccess(ClassType.getFields(classType),
-            '__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
+        const symbolTable = ClassType.getFields(classType);
+        symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
+        symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
     }
 
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
@@ -1205,10 +1203,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
     function setSymbolAccessed(symbol: Symbol) {
         if (!isSpeculativeMode) {
-            if (!symbol.isAccessed()) {
-                setAnalysisChangedCallback('Symbol accessed flag set');
-                symbol.setIsAccessed();
-            }
+            accessedSymbolMap.set(symbol.getId(), true);
         }
     }
 
@@ -1696,8 +1691,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 const symbol = ModuleType.getField(baseType, memberName);
                 if (symbol) {
                     if (usage.method === 'get') {
-                        // TODO - need to add back in
-                        // setSymbolAccessed(symbol);
+                        setSymbolAccessed(symbol);
                     }
 
                     type = getEffectiveTypeOfSymbol(symbol, importLookup);
@@ -3396,8 +3390,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         const classFields = ClassType.getFields(classType);
-        setSymbolPreservingAccess(classFields, '__class__',
-            Symbol.createWithType(SymbolFlags.ClassMember, classType));
+        classFields.set('__class__', Symbol.createWithType(SymbolFlags.ClassMember, classType));
 
         if (argList.length < 2) {
             addError('Expected enum item string as second parameter', errorNode);
@@ -3431,7 +3424,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                                 getFileInfo(errorNode).lines)
                         };
                         newSymbol.addDeclaration(declaration);
-                        setSymbolPreservingAccess(classFields, entryName, newSymbol);
+                        classFields.set(entryName, newSymbol);
                     }
                 });
             }
@@ -3544,8 +3537,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         const classFields = ClassType.getFields(classType);
-        setSymbolPreservingAccess(classFields, '__class__',
-            Symbol.createWithType(SymbolFlags.ClassMember, classType));
+        classFields.set('__class__', Symbol.createWithType(SymbolFlags.ClassMember, classType));
 
         if (argList.length < 2) {
             addError('Expected dict as second parameter', errorNode);
@@ -3606,7 +3598,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     };
                     newSymbol.addDeclaration(declaration);
 
-                    setSymbolPreservingAccess(classFields, entryName, newSymbol);
+                    classFields.set(entryName, newSymbol);
                 });
             }
         }
@@ -3655,8 +3647,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         const classFields = ClassType.getFields(classType);
-        setSymbolPreservingAccess(classFields, '__class__',
-            Symbol.createWithType(SymbolFlags.ClassMember, classType));
+        classFields.set('__class__', Symbol.createWithType(SymbolFlags.ClassMember, classType));
 
         const builtInTupleType = getBuiltInType(errorNode, 'Tuple');
         if (builtInTupleType.category === TypeCategory.Class) {
@@ -3717,7 +3708,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                                             getFileInfo(errorNode).lines)
                                 };
                                 newSymbol.addDeclaration(declaration);
-                                setSymbolPreservingAccess(classFields, entryName, newSymbol);
+                                classFields.set(entryName, newSymbol);
                             }
                         });
                     } else if (entriesArg.valueExpression && entriesArg.valueExpression.nodeType === ParseNodeType.List) {
@@ -3796,7 +3787,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                                 };
                                 newSymbol.addDeclaration(declaration);
                             }
-                            setSymbolPreservingAccess(classFields, entryName, newSymbol);
+                            classFields.set(entryName, newSymbol);
                         });
                     } else {
                         // A dynamic expression was used, so we can't evaluate
@@ -3819,25 +3810,20 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             FunctionType.addParameter(initType, selfParameter);
             TypeUtils.addDefaultFunctionParameters(initType);
 
-            setSymbolPreservingAccess(classFields, '__new__',
-                Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
-            setSymbolPreservingAccess(classFields, '__init__',
-                Symbol.createWithType(SymbolFlags.ClassMember, initType));
+            classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
+            classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
             const keysItemType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
             FunctionType.setDeclaredReturnType(keysItemType, getBuiltInObject(errorNode, 'list',
                 [getBuiltInObject(errorNode, 'str')]));
-            setSymbolPreservingAccess(classFields, 'keys',
-                Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
-            setSymbolPreservingAccess(classFields, 'items',
-                Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
+            classFields.set('keys', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
+            classFields.set('items', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
 
             const lenType = FunctionType.create(
                 FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
             FunctionType.setDeclaredReturnType(lenType, getBuiltInObject(errorNode, 'int'));
             FunctionType.addParameter(lenType, selfParameter);
-            setSymbolPreservingAccess(classFields, '__len__',
-                Symbol.createWithType(SymbolFlags.ClassMember, lenType));
+            classFields.set('__len__', Symbol.createWithType(SymbolFlags.ClassMember, lenType));
 
             if (addGenericGetAttribute) {
                 const getAttribType = FunctionType.create(
@@ -3849,8 +3835,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     name: 'name',
                     type: getBuiltInObject(errorNode, 'str')
                 });
-                setSymbolPreservingAccess(classFields, '__getattribute__',
-                    Symbol.createWithType(SymbolFlags.ClassMember, getAttribType));
+                classFields.set('__getattribute__', Symbol.createWithType(SymbolFlags.ClassMember, getAttribType));
             }
         }
 

@@ -15,7 +15,7 @@ import { Declaration, DeclarationType } from './declaration';
 import { areDeclarationsSame, hasTypeForDeclaration } from './declarationUtils';
 import { Type } from './types';
 
-export enum SymbolFlags {
+export const enum SymbolFlags {
     None = 0,
 
     // Indicates that the symbol is unbound at the start of
@@ -28,25 +28,21 @@ export enum SymbolFlags {
     // Used for module-level symbols.
     ExternallyHidden = 1 << 1,
 
-    // Indicates that someone read the value of the symbol at
-    // some point. This is used for unused symbol detection.
-    Accessed = 1 << 2,
+    // Indicates that the symbol is a class member (used for
+    // classes).
+    ClassMember = 1 << 2,
 
     // Indicates that the symbol is a class member (used for
     // classes).
-    ClassMember = 1 << 3,
-
-    // Indicates that the symbol is a class member (used for
-    // classes).
-    InstanceMember = 1 << 4,
+    InstanceMember = 1 << 3,
 
     // Indicates that the symbol is considered "private" to the
     // class and should not be accessed outside or overridden.
-    PrivateMember = 1 << 5,
+    PrivateMember = 1 << 4,
 
     // Indicates that the symbol is not considered for protocol
     // matching. This applies to some built-in symbols like __class__.
-    IgnoredForProtocolMatch = 1 << 6
+    IgnoredForProtocolMatch = 1 << 5
 }
 
 let nextSymbolId = 1;
@@ -112,14 +108,6 @@ export class Symbol {
 
     isIgnoredForProtocolMatch() {
         return !!(this._flags & SymbolFlags.IgnoredForProtocolMatch);
-    }
-
-    setIsAccessed() {
-        this._flags |= SymbolFlags.Accessed;
-    }
-
-    isAccessed() {
-        return !!(this._flags & SymbolFlags.Accessed);
     }
 
     setIsClassMember() {
@@ -192,14 +180,3 @@ export class Symbol {
 
 // Maps names to symbol information.
 export class SymbolTable extends StringMap<Symbol> {}
-
-// Use this helper method rather than symbolTable.set() if
-// it's important to preserve the "isAccessed" state of the
-// previous symbol that the new symbol is replacing.
-export function setSymbolPreservingAccess(symbolTable: SymbolTable, name: string, symbol: Symbol) {
-    const oldSymbol = symbolTable.get(name);
-    symbolTable.set(name, symbol);
-    if (oldSymbol && oldSymbol.isAccessed()) {
-        symbol.setIsAccessed();
-    }
-}
