@@ -252,43 +252,24 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
     if (destType.category === TypeCategory.TypeVar) {
         if (typeVarMap) {
             // Strip any literal value first, since type matching never uses literals.
-            let noLiteralSrcType = stripLiteralValue(srcType);
+            const noLiteralSrcType = stripLiteralValue(srcType);
 
             const existingTypeVarMapping = typeVarMap.get(destType.name);
             if (existingTypeVarMapping) {
                 const diagAddendum = new DiagnosticAddendum();
                 if (!canAssignType(existingTypeVarMapping, noLiteralSrcType, diagAddendum,
-                    importLookup, typeVarMap, flags, recursionCount + 1)) {
+                        importLookup, typeVarMap, flags, recursionCount + 1)) {
 
-                    // Determine if one of the existing subtypes is a subclass of the new
-                    // type. If so, we can avoid adding the new type. Strip it out.
-                    noLiteralSrcType = doForSubtypes(noLiteralSrcType, srcSubtype => {
-                        let foundSubclass = false;
-                        if (srcSubtype.category === TypeCategory.Class || srcSubtype.category === TypeCategory.Object) {
-                            doForSubtypes(existingTypeVarMapping, destSubtype => {
-                                if (destSubtype.category === TypeCategory.Class || destSubtype.category === TypeCategory.Object) {
-                                    if (canAssignType(srcSubtype, destSubtype, new DiagnosticAddendum(),
-                                            importLookup, undefined, flags, recursionCount + 1)) {
+                    if (canAssignType(noLiteralSrcType, existingTypeVarMapping, new DiagnosticAddendum(),
+                            importLookup, typeVarMap, flags, recursionCount + 1)) {
 
-                                        foundSubclass = true;
-                                    }
-                                }
-                                return undefined;
-                            });
-                        }
-
-                        return foundSubclass ? undefined : srcSubtype;
-                    });
-
-                    // See if we can widen the type. If it was already widened, then
-                    // it's a failure case.
-                    const combinedType = combineTypes([existingTypeVarMapping, noLiteralSrcType]);
-                    if (isTypeSame(existingTypeVarMapping, combinedType)) {
-                        diag.addAddendum(diagAddendum);
-                        return false;
+                        // Widen the type.
+                        typeVarMap.set(destType.name, noLiteralSrcType);
+                    } else {
+                        // Create a union, widening the type.
+                        const combinedType = combineTypes([existingTypeVarMapping, noLiteralSrcType]);
+                        typeVarMap.set(destType.name, combinedType);
                     }
-
-                    typeVarMap.set(destType.name, combinedType);
                 }
             } else {
                 // Assign the type to the type var.
@@ -1628,15 +1609,17 @@ function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
         const destParamType = FunctionType.getEffectiveParameterType(destType, paramIndex);
 
         // Call canAssignType once to perform any typeVarMap population.
-        canAssignType(destParamType, srcParamType, paramDiag.createAddendum(), importLookup,
+        canAssignType(srcParamType, destParamType, paramDiag.createAddendum(), importLookup,
             typeVarMap, CanAssignFlags.Default, recursionCount + 1);
 
         // Make sure we can assign the specialized dest type to the
         // source type.
         const specializedDestParamType = specializeType(
             destParamType, typeVarMap, false, recursionCount + 1);
+
         if (!canAssignType(srcParamType, specializedDestParamType, paramDiag.createAddendum(),
                 importLookup, undefined, CanAssignFlags.Default, recursionCount + 1)) {
+
             paramDiag.addMessage(`Parameter ${ paramIndex + 1 } of type ` +
                 `'${ printType(specializedDestParamType) }' cannot be assigned to type ` +
                 `'${ printType(srcParamType) }'`);
