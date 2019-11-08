@@ -283,8 +283,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 const initSymbol = TypeUtils.lookUpClassMember(classType, '__init__',
                     this._fileInfo.importLookup, TypeUtils.ClassMemberLookupFlags.SkipBaseClasses);
                 if (initSymbol) {
-                    if (initSymbol.symbolType.category === TypeCategory.Function) {
-                        if (!FunctionType.isSynthesizedMethod(initSymbol.symbolType)) {
+                    const initSymbolType = TypeUtils.getTypeOfMember(initSymbol, this._fileInfo.importLookup);
+                    if (initSymbolType.category === TypeCategory.Function) {
+                        if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
                             skipSynthesizedInit = true;
                         }
                     } else {
@@ -458,8 +459,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         // comparisons will fail during structural typing analysis.
                         if (containingClassType && !ClassType.isProtocol(containingClassType)) {
                             if (FunctionType.isInstanceMethod(functionType)) {
-                                const specializedClassType = TypeUtils.selfSpecializeClassType(
-                                    containingClassType);
+                                const specializedClassType = TypeUtils.selfSpecializeClassType(containingClassType);
                                 if (FunctionType.setParameterType(functionType, index, ObjectType.create(specializedClassType))) {
                                     this._setAnalysisChanged('Specialized self changed');
                                 }
@@ -1080,10 +1080,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         // Look up the symbol to find the alias declaration.
-        let symbolType = this._getAliasedSymbolTypeForName(symbolNameNode.nameToken.value);
-        if (!symbolType) {
-            symbolType = UnknownType.create();
-        }
+        let symbolType = this._getAliasedSymbolTypeForName(symbolNameNode.nameToken.value) ||
+            UnknownType.create();
 
         // Is there a cached module type associated with this node? If so, use
         // it instead of the type we just created. This will preserve the
@@ -2036,7 +2034,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 return oldPropertyType;
                             }
                             const newProperty = PropertyType.create(inputFunctionType);
-                            AnalyzerNodeInfo.setExpressionType(decoratorNode, newProperty);
+                            AnalyzerNodeInfo.setExpressionType(decoratorNode, newProperty, true);
                             return newProperty;
                         }
 

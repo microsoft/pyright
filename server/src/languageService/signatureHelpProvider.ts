@@ -162,7 +162,7 @@ export class SignatureHelpProvider {
                 TypeUtils.ClassMemberLookupFlags.SkipObjectBaseClass);
 
         if (memberInfo) {
-            const unboundMethodType = memberInfo.symbolType;
+            const unboundMethodType = TypeUtils.getTypeOfMember(memberInfo, importLookup);
             if (unboundMethodType.category === TypeCategory.Function ||
                     unboundMethodType.category === TypeCategory.OverloadedFunction) {
 

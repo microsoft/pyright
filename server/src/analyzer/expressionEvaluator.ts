@@ -366,9 +366,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 const setItemMember = TypeUtils.lookUpClassMember(baseType.classType,
                     '__setitem__', importLookup);
                 if (setItemMember) {
-                    if (setItemMember.symbolType.category === TypeCategory.Function) {
+                    const setItemType = TypeUtils.getTypeOfMember(setItemMember, importLookup);
+                    if (setItemType.category === TypeCategory.Function) {
                         const boundFunction = TypeUtils.bindFunctionToClassOrObject(baseType,
-                            setItemMember.symbolType, importLookup);
+                            setItemType, importLookup);
                         if (boundFunction.category === TypeCategory.Function) {
                             if (boundFunction.details.parameters.length === 2) {
                                 return FunctionType.getEffectiveParameterType(boundFunction, 1);
@@ -956,7 +957,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         if (!memberInfo.isInstanceMember && isInstanceMember) {
                             // The class variable is accessed in this case.
                             setSymbolAccessed(memberInfo.symbol);
-                            srcType = combineTypes([srcType, memberInfo.symbolType]);
+                            const memberType = TypeUtils.getTypeOfMember(memberInfo, importLookup);
+                            srcType = combineTypes([srcType, memberType]);
                         }
                     }
                 }
@@ -1179,18 +1181,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
     }
 
-    function readExpressionTypeFromNodeCache(node: ExpressionNode): Type | undefined {
-        const cachedVersion = AnalyzerNodeInfo.getExpressionTypeWriteVersion(node);
-
-        if (cachedVersion === analysisVersion) {
-            const cachedType = AnalyzerNodeInfo.getExpressionType(node);
-            assert(cachedType !== undefined);
-            return cachedType;
-        }
-
-        return undefined;
-    }
-
     function updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
         if (!isSpeculativeMode) {
             const oldWriteVersion = AnalyzerNodeInfo.getExpressionTypeWriteVersion(node);
@@ -1199,11 +1189,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // This can happen in the case of augmented assignments, which share
             // a source and destination expression.
             if (oldWriteVersion !== analysisVersion) {
-                const oldType = AnalyzerNodeInfo.getExpressionType(node);
-                AnalyzerNodeInfo.setExpressionTypeWriteVersion(node, analysisVersion);
+                const oldType = AnalyzerNodeInfo.peekExpressionType(node);
+                const requiresInvalidation = AnalyzerNodeInfo.setExpressionTypeWriteVersion(
+                    node, analysisVersion);
 
                 if (!oldType || !isTypeSame(oldType, exprType)) {
-                    setAnalysisChangedCallback('Expression type changed');
+                    if (requiresInvalidation) {
+                        setAnalysisChangedCallback('Expression type changed');
+                    }
                     AnalyzerNodeInfo.setExpressionType(node, exprType);
                 }
             }
@@ -1213,8 +1206,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     function setSymbolAccessed(symbol: Symbol) {
         if (!isSpeculativeMode) {
             if (!symbol.isAccessed()) {
-                // TODO - need to handle properly
-                // setAnalysisChangedCallback('Symbol accessed flag set');
+                setAnalysisChangedCallback('Symbol accessed flag set');
                 symbol.setIsAccessed();
             }
         }
@@ -1276,13 +1268,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return undefined;
         }
 
-        if (isAnyOrUnknown(classMember.symbolType)) {
-            return classMember.symbolType;
+        const memberType = TypeUtils.getTypeOfMember(classMember, importLookup);
+        if (isAnyOrUnknown(memberType)) {
+            return memberType;
         }
 
-        if (classMember.symbolType.category === TypeCategory.Function) {
+        if (memberType.category === TypeCategory.Function) {
             const methodType = TypeUtils.bindFunctionToClassOrObject(objType,
-                classMember.symbolType, importLookup) as FunctionType;
+                memberType, importLookup) as FunctionType;
             return FunctionType.getEffectiveReturnType(methodType);
         }
 
@@ -1302,13 +1295,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return undefined;
         }
 
-        if (isAnyOrUnknown(classMember.symbolType)) {
-            return classMember.symbolType;
+        const memberType = TypeUtils.getTypeOfMember(classMember, importLookup);
+        if (isAnyOrUnknown(memberType)) {
+            return memberType;
         }
 
-        if (classMember.symbolType.category === TypeCategory.Function) {
+        if (memberType.category === TypeCategory.Function) {
             const methodType = TypeUtils.bindFunctionToClassOrObject(
-                classType, classMember.symbolType, importLookup, true) as FunctionType;
+                classType, memberType, importLookup, true) as FunctionType;
             return FunctionType.getEffectiveReturnType(methodType);
         }
 
@@ -1319,7 +1313,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             flags = EvaluatorFlags.None): TypeResult {
 
         // Is this type already cached?
-        const cachedType = readExpressionTypeFromNodeCache(node);
+        const cachedType = AnalyzerNodeInfo.peekExpressionType(node, analysisVersion);
         if (cachedType) {
             return { type: cachedType, node };
         }
@@ -1702,7 +1696,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 const symbol = ModuleType.getField(baseType, memberName);
                 if (symbol) {
                     if (usage.method === 'get') {
-                        setSymbolAccessed(symbol);
+                        // TODO - need to add back in
+                        // setSymbolAccessed(symbol);
                     }
 
                     type = getEffectiveTypeOfSymbol(symbol, importLookup);
@@ -1872,7 +1867,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 };
             };
 
-            let type = memberInfo.symbolType;
+            let type = TypeUtils.getTypeOfMember(memberInfo, importLookup);
 
             // Don't include variables within typed dict classes.
             if (ClassType.isTypedDictClass(classType)) {
@@ -1948,9 +1943,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     const getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName,
                         importLookup, TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
                     if (getMember) {
-                        if (getMember.symbolType.category === TypeCategory.Function) {
+                        const getMemberType = TypeUtils.getTypeOfMember(getMember, importLookup);
+                        if (getMemberType.category === TypeCategory.Function) {
                             if (usage.method === 'get') {
-                                type = FunctionType.getEffectiveReturnType(getMember.symbolType);
+                                type = FunctionType.getEffectiveReturnType(getMemberType);
                             } else {
                                 // The type isn't important for set or delete usage.
                                 // We just need to return some defined type.
@@ -3361,7 +3357,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (!classType || classType.category !== TypeCategory.Class) {
             classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
 
-            AnalyzerNodeInfo.setExpressionType(errorNode, classType);
+            AnalyzerNodeInfo.setExpressionType(errorNode, classType, true);
             ClassType.addBaseClass(classType, enumClass, false);
         }
 
@@ -3443,7 +3439,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 if (!classType || classType.category !== TypeCategory.Class) {
                     classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
 
-                    AnalyzerNodeInfo.setExpressionType(errorNode, classType);
+                    AnalyzerNodeInfo.setExpressionType(errorNode, classType, true);
                     ClassType.addBaseClass(classType, baseClass, false);
                 } else {
                     ClassType.updateBaseClassType(classType, 0, baseClass);
@@ -3489,7 +3485,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (!classType || classType.category !== TypeCategory.Class) {
             classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
 
-            AnalyzerNodeInfo.setExpressionType(errorNode, classType);
+            AnalyzerNodeInfo.setExpressionType(errorNode, classType, true);
             ClassType.addBaseClass(classType, typedDictClass, false);
             ClassType.setIsTypedDict(classType);
         }
@@ -3618,7 +3614,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (!classType || classType.category !== TypeCategory.Class) {
             classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
 
-            AnalyzerNodeInfo.setExpressionType(errorNode, classType);
+            AnalyzerNodeInfo.setExpressionType(errorNode, classType, true);
             const builtInNamedTuple = getTypingType(errorNode, 'NamedTuple') ||
                 UnknownType.create();
             ClassType.addBaseClass(classType, builtInNamedTuple, false);

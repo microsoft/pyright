@@ -10,6 +10,8 @@
 * language services (e.g. hover information).
 */
 
+import * as assert from 'assert';
+
 import { FunctionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { FlowNode } from './codeFlow';
@@ -59,6 +61,14 @@ interface ExpressionTypeCache {
 
     // Analysis pass that last wrote to the cache.
     writeVersion?: number;
+
+    // Indicates that the cached value was read since
+    // it was last written, so any write must invalidate
+    // the analysis and perform another pass.
+    updateRequiresInvalidation?: boolean;
+
+    // The type won't be changed after the initial write.
+    isFinal?: boolean;
 }
 
 // Cleans out all fields that are added by the analyzer phases
@@ -136,18 +146,38 @@ export function setFileInfo(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
 
 export function getExpressionType(node: ParseNode): Type | undefined {
     const analyzerNode = node as AnalyzerNodeInfo;
-    if (analyzerNode.typeCache) {
-        return analyzerNode.typeCache.type;
+    if (!analyzerNode.typeCache) {
+        analyzerNode.typeCache = {};
     }
+
+    if (!analyzerNode.typeCache.isFinal) {
+        analyzerNode.typeCache.updateRequiresInvalidation = true;
+    }
+    return analyzerNode.typeCache.type;
+}
+
+export function peekExpressionType(node: ParseNode, readVersion?: number): Type | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    if (analyzerNode.typeCache) {
+        if (readVersion === undefined || analyzerNode.typeCache.writeVersion === readVersion) {
+            return analyzerNode.typeCache.type;
+        }
+    }
+
     return undefined;
 }
 
-export function setExpressionType(node: ParseNode, type: Type) {
+export function setExpressionType(node: ParseNode, type: Type, isFinal = false) {
     const analyzerNode = node as AnalyzerNodeInfo;
-    if (analyzerNode.typeCache) {
-        analyzerNode.typeCache.type = type;
-    } else {
-        analyzerNode.typeCache = { type };
+    if (!analyzerNode.typeCache) {
+        analyzerNode.typeCache = {};
+    }
+
+    assert(!analyzerNode.typeCache.isFinal);
+
+    analyzerNode.typeCache.type = type;
+    if (isFinal) {
+        analyzerNode.typeCache.isFinal = true;
     }
 }
 
@@ -161,9 +191,13 @@ export function getExpressionTypeWriteVersion(node: ParseNode): number | undefin
 
 export function setExpressionTypeWriteVersion(node: ParseNode, version: number) {
     const analyzerNode = node as AnalyzerNodeInfo;
-    if (analyzerNode.typeCache) {
-        analyzerNode.typeCache.writeVersion = version;
-    } else {
-        analyzerNode.typeCache = { writeVersion: version };
+    if (!analyzerNode.typeCache) {
+        analyzerNode.typeCache = {};
     }
+
+    const requiresInvalidation = !!analyzerNode.typeCache.updateRequiresInvalidation;
+    analyzerNode.typeCache.writeVersion = version;
+    analyzerNode.typeCache.updateRequiresInvalidation = false;
+
+    return requiresInvalidation;
 }

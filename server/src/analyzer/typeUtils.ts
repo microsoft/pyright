@@ -31,9 +31,6 @@ export interface ClassMember {
     // Partially-specialized class that contains the class member
     classType: Type;
 
-    // Partially-specialized type of symbol
-    symbolType: Type;
-
     // True if instance member, false if class member
     isInstanceMember: boolean;
 }
@@ -491,8 +488,9 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
         } else if (srcType.category === TypeCategory.Object) {
             const callMember = lookUpObjectMember(srcType, '__call__', importLookup);
             if (callMember) {
-                if (callMember.symbolType.category === TypeCategory.Function) {
-                    srcFunction = stripFirstParameter(callMember.symbolType);
+                const memberType = getTypeOfMember(callMember, importLookup);
+                if (memberType.category === TypeCategory.Function) {
+                    srcFunction = stripFirstParameter(memberType);
                 }
             }
         } else if (srcType.category === TypeCategory.Class) {
@@ -504,8 +502,9 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
 
             const newMemberInfo = lookUpClassMember(srcType, '__new__', importLookup,
                 ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
-            if (newMemberInfo && newMemberInfo.symbolType.category === TypeCategory.Function) {
-                FunctionType.getParameters(newMemberInfo.symbolType).forEach((param, index) => {
+            const memberType = newMemberInfo ? getTypeOfMember(newMemberInfo, importLookup) : undefined;
+            if (memberType && memberType.category === TypeCategory.Function) {
+                FunctionType.getParameters(memberType).forEach((param, index) => {
                     // Skip the 'cls' parameter.
                     if (index > 0) {
                         FunctionType.addParameter(constructorFunction, param);
@@ -514,8 +513,9 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
             } else {
                 const initMemberInfo = lookUpClassMember(srcType, '__init__', importLookup,
                     ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
-                if (initMemberInfo && initMemberInfo.symbolType.category === TypeCategory.Function) {
-                    FunctionType.getParameters(initMemberInfo.symbolType).forEach((param, index) => {
+                const initMemberType = initMemberInfo ? getTypeOfMember(initMemberInfo, importLookup) : undefined;
+                if (initMemberType && initMemberType.category === TypeCategory.Function) {
+                    FunctionType.getParameters(initMemberType).forEach((param, index) => {
                         // Skip the 'self' parameter.
                         if (index > 0) {
                             FunctionType.addParameter(constructorFunction, param);
@@ -882,6 +882,14 @@ export function bindFunctionToClassOrObject(baseType: ClassType | ObjectType | u
     return memberType;
 }
 
+export function getTypeOfMember(member: ClassMember, importLookup: ImportLookup) {
+    if (member.classType.category === TypeCategory.Class) {
+        return partiallySpecializeType(
+            getEffectiveTypeOfSymbol(member.symbol, importLookup), member.classType);
+    }
+    return UnknownType.create();
+}
+
 export function lookUpObjectMember(objectType: Type, memberName: string, importLookup: ImportLookup,
         flags = ClassMemberLookupFlags.Default): ClassMember | undefined {
 
@@ -924,9 +932,7 @@ export function lookUpClassMember(classType: Type, memberName: string, importLoo
                         return {
                             symbol,
                             isInstanceMember: true,
-                            classType,
-                            symbolType: partiallySpecializeType(
-                                getEffectiveTypeOfSymbol(symbol, importLookup), classType)
+                            classType
                         };
                     }
                 }
@@ -939,9 +945,7 @@ export function lookUpClassMember(classType: Type, memberName: string, importLoo
                     return {
                         symbol,
                         isInstanceMember: false,
-                        classType,
-                        symbolType: partiallySpecializeType(
-                            getEffectiveTypeOfSymbol(symbol, importLookup), classType)
+                        classType
                     };
                 }
             }
@@ -967,8 +971,7 @@ export function lookUpClassMember(classType: Type, memberName: string, importLoo
         return {
             symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
             isInstanceMember: false,
-            classType: UnknownType.create(),
-            symbolType: UnknownType.create()
+            classType: UnknownType.create()
         };
     }
 
@@ -1290,8 +1293,7 @@ export function getAbstractMethodsRecursive(classType: ClassType, importLookup: 
                         symbolTable.set(symbolName, {
                             symbol,
                             isInstanceMember: false,
-                            classType,
-                            symbolType: getEffectiveTypeOfSymbol(symbol, importLookup)
+                            classType
                         });
                     } else {
                         symbolTable.delete(symbolName);
@@ -1753,7 +1755,7 @@ function _canAssignClass(destType: ClassType, srcType: ClassType,
                     if (declaredType) {
                         const destMemberType = specializeType(declaredType,
                             destClassTypeVarMap, false);
-                        const srcMemberType = memberInfo.symbolType;
+                        const srcMemberType = getTypeOfMember(memberInfo, importLookup);
 
                         if (!canAssignType(destMemberType, srcMemberType,
                                 diag.createAddendum(), importLookup, typeVarMap, CanAssignFlags.Default,
@@ -2005,9 +2007,10 @@ function _getCallbackProtocolType(objType: ObjectType, importLookup: ImportLooku
         return undefined;
     }
 
-    if (callMember.symbolType.category === TypeCategory.Function) {
+    const memberType = getTypeOfMember(callMember, importLookup);
+    if (memberType.category === TypeCategory.Function) {
         return bindFunctionToClassOrObject(objType,
-            callMember.symbolType, importLookup) as FunctionType;
+            memberType, importLookup) as FunctionType;
     }
 
     return undefined;

@@ -314,7 +314,7 @@ export class Binder extends ParseTreeWalker {
             }
         }
 
-        AnalyzerNodeInfo.setExpressionType(node, classType);
+        AnalyzerNodeInfo.setExpressionType(node, classType, true);
 
         // Also set the type of the name node. This will be replaced by the analyzer
         // once any class decorators are analyzed, but we need to add it here to
@@ -412,7 +412,12 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.returnTypeAnnotation);
         }
 
-        AnalyzerNodeInfo.setExpressionType(node, functionType);
+        AnalyzerNodeInfo.setExpressionType(node, functionType, true);
+
+        // Also set the type of the name node. This will be replaced by the analyzer
+        // once any function decorators are analyzed, but if there are no decorators,
+        // we can avoid invalidating the cache when it's written.
+        AnalyzerNodeInfo.setExpressionType(node.name, functionType);
 
         // Find the function or module that contains this function and use its scope.
         // We can't simply use this._currentScope because functions within a class use
@@ -2231,7 +2236,7 @@ export class Binder extends ParseTreeWalker {
             }
 
             if (specialType) {
-                AnalyzerNodeInfo.setExpressionType(assignedNameNode, specialType);
+                AnalyzerNodeInfo.setExpressionType(assignedNameNode, specialType, true);
                 const symbol = this._bindNameToScope(this._currentScope, assignedName);
 
                 if (symbol) {
