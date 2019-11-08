@@ -74,6 +74,10 @@ interface DeferredBindingTask {
     callback: () => void;
 }
 
+export interface BinderResults {
+    moduleDocString?: string;
+}
+
 export class Binder extends ParseTreeWalker {
     private readonly _fileInfo: AnalyzerFileInfo;
 
@@ -129,7 +133,7 @@ export class Binder extends ParseTreeWalker {
         this._fileInfo = fileInfo;
     }
 
-    bindModule(node: ModuleNode) {
+    bindModule(node: ModuleNode): BinderResults {
         // We'll assume that if there is no builtins scope provided, we must be
         // binding the builtins module itself.
         const isBuiltInModule = this._fileInfo.builtinsScope === undefined;
@@ -204,7 +208,9 @@ export class Binder extends ParseTreeWalker {
         // Perform all analysis that was deferred during the first pass.
         this._bindDeferred();
 
-        return this._getDocString((node).statements);
+        return {
+            moduleDocString: this._getDocString(node.statements)
+        };
     }
 
     visitModule(node: ModuleNode): boolean {

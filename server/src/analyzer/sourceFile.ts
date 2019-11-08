@@ -36,7 +36,7 @@ import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/pars
 import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { Binder } from './binder';
+import { Binder, BinderResults } from './binder';
 import { CircularDependency } from './circularDependency';
 import * as CommentUtils from './commentUtils';
 import { ImportResolver } from './importResolver';
@@ -108,7 +108,7 @@ export class SourceFile {
 
     private _parseResults?: ParseResults;
     private _moduleSymbolTable?: SymbolTable;
-    private _moduleDocString?: string;
+    private _binderResults?: BinderResults;
 
     // Diagnostics generated during different phases of analysis.
     private _parseDiagnostics: Diagnostic[] = [];
@@ -297,7 +297,7 @@ export class SourceFile {
     }
 
     getModuleDocString(): string | undefined {
-        return this._moduleDocString;
+        return this._binderResults ? this._binderResults.moduleDocString : undefined;
     }
 
     // Indicates whether the contents of the file have changed since
@@ -335,7 +335,7 @@ export class SourceFile {
         this._isTypeAnalysisFinalized = false;
         this._isTypeAnalysisPassNeeded = true;
         this._moduleSymbolTable = undefined;
-        this._moduleDocString = undefined;
+        this._binderResults = undefined;
     }
 
     markReanalysisRequired(): void {
@@ -350,7 +350,7 @@ export class SourceFile {
         if (this._parseResults && this._parseResults.containsWildcardImport) {
             this._isBindingNeeded = true;
             this._moduleSymbolTable = undefined;
-            this._moduleDocString = undefined;
+            this._binderResults = undefined;
         }
     }
 
@@ -667,7 +667,7 @@ export class SourceFile {
                 AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
 
                 const binder = new Binder(fileInfo);
-                this._moduleDocString = binder.bindModule(this._parseResults!.parseTree);
+                this._binderResults = binder.bindModule(this._parseResults!.parseTree);
 
                 // If we're in "test mode" (used for unit testing), run an additional
                 // "test walker" over the parse tree to validate its internal consistency.
