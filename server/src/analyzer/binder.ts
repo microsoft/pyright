@@ -332,7 +332,6 @@ export class Binder extends ParseTreeWalker {
 
             // The scope for this class becomes the "fields" for the corresponding type.
             ClassType.setFields(classType, this._currentScope.getSymbolTable());
-            assert(classType && classType.category === TypeCategory.Class);
 
             // Bind implicit names.
             // Note that __class__, __dict__ and __doc__ are skipped here
@@ -419,11 +418,6 @@ export class Binder extends ParseTreeWalker {
         }
 
         AnalyzerNodeInfo.setExpressionType(node, functionType, true);
-
-        // Also set the type of the name node. This will be replaced by the analyzer
-        // once any function decorators are analyzed, but if there are no decorators,
-        // we can avoid invalidating the cache when it's written.
-        AnalyzerNodeInfo.setExpressionType(node.name, functionType);
 
         // Find the function or module that contains this function and use its scope.
         // We can't simply use this._currentScope because functions within a class use

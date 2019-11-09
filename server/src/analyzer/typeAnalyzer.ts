@@ -171,28 +171,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
 
                 if (!isAnyOrUnknown(argType)) {
+                    // Handle "Type[X]" object.
+                    argType = TypeUtils.transformTypeObjectToClass(argType);
                     if (argType.category !== TypeCategory.Class) {
-                        let reportBaseClassError = true;
-
-                        // See if this is a "Type[X]" object.
-                        if (argType.category === TypeCategory.Object) {
-                            const classType = argType.classType;
-                            if (ClassType.isBuiltIn(classType, 'Type')) {
-                                const typeArgs = ClassType.getTypeArguments(classType);
-                                if (typeArgs && typeArgs.length >= 0) {
-                                    argType = typeArgs[0];
-                                    if (argType.category === TypeCategory.Object) {
-                                        argType = argType.classType;
-                                        reportBaseClassError = false;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (reportBaseClassError) {
-                            this._evaluator.addError(`Argument to class must be a base class`, arg);
-                            argType = UnknownType.create();
-                        }
+                        this._evaluator.addError(`Argument to class must be a base class`, arg);
+                        argType = UnknownType.create();
                     }
                 }
 

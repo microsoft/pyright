@@ -15,6 +15,7 @@ import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
+import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperationNode, CallNode,
@@ -191,6 +192,7 @@ export interface ExpressionEvaluator {
 
     getTypeOfAssignmentStatementTarget: (node: AssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
     getTypeOfAugmentedAssignmentTarget: (node: AugmentedAssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
+    getTypeOfClass: (node: ClassNode) => Type | undefined;
 
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
 
@@ -5049,50 +5051,60 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     function getTypeOfAssignmentStatementTarget(node: AssignmentNode,
                 targetOfInterest?: ExpressionNode): Type | undefined {
 
-        const fileInfo = getFileInfo(node);
-        let rightHandType: Type | undefined;
+        // Is this type already cached?
+        let rightHandType = AnalyzerNodeInfo.peekExpressionType(node.rightExpression, analysisVersion);
 
-        // Special-case the typing.pyi file, which contains some special
-        // types that the type analyzer needs to interpret differently.
-        if (fileInfo.isTypingStubFile) {
-            rightHandType = handleTypingStubAssignment(node);
+        // If there was a cached value and no target of interest or the entire
+        // LHS is the target of interest, there's no need to do additional work.
+        if (rightHandType && (!targetOfInterest || targetOfInterest === node.leftExpression)) {
+            return rightHandType;
         }
 
         if (!rightHandType) {
-            // Determine whether there is a declared type.
-            const declaredType = getDeclaredTypeForExpression(node.leftExpression);
+            const fileInfo = getFileInfo(node);
 
-            // Evaluate the type of the right-hand side.
-            // An assignment of ellipsis means "Any" within a type stub file.
-            let srcType = getType(node.rightExpression, { method: 'get', expectedType: declaredType },
-                fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined);
-
-            // Determine if the RHS is a constant boolean expression.
-            // If so, assign it a literal type.
-            const constExprValue = evaluateStaticBoolExpression(
-                node.rightExpression, fileInfo.executionEnvironment);
-            if (constExprValue !== undefined) {
-                const boolType = getBuiltInObject(node, 'bool');
-                if (boolType.category === TypeCategory.Object) {
-                    srcType = ObjectType.cloneWithLiteral(boolType, constExprValue);
-                }
+            // Special-case the typing.pyi file, which contains some special
+            // types that the type analyzer needs to interpret differently.
+            if (fileInfo.isTypingStubFile) {
+                rightHandType = handleTypingStubAssignment(node);
             }
 
-            // If there was a declared type, make sure the RHS value is compatible.
-            if (declaredType) {
-                const diagAddendum = new DiagnosticAddendum();
-                if (TypeUtils.canAssignType(declaredType, srcType, diagAddendum, importLookup)) {
-                    // Constrain the resulting type to match the declared type.
-                    srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
-                        declaredType, srcType, importLookup);
-                }
-            }
+            if (!rightHandType) {
+                // Determine whether there is a declared type.
+                const declaredType = getDeclaredTypeForExpression(node.leftExpression);
 
-            // If this is an enum, transform the type as required.
-            rightHandType = srcType;
-            if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
-                rightHandType = transformTypeForPossibleEnumClass(
-                    node.leftExpression, rightHandType);
+                // Evaluate the type of the right-hand side.
+                // An assignment of ellipsis means "Any" within a type stub file.
+                let srcType = getType(node.rightExpression, { method: 'get', expectedType: declaredType },
+                    fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined);
+
+                // Determine if the RHS is a constant boolean expression.
+                // If so, assign it a literal type.
+                const constExprValue = evaluateStaticBoolExpression(
+                    node.rightExpression, fileInfo.executionEnvironment);
+                if (constExprValue !== undefined) {
+                    const boolType = getBuiltInObject(node, 'bool');
+                    if (boolType.category === TypeCategory.Object) {
+                        srcType = ObjectType.cloneWithLiteral(boolType, constExprValue);
+                    }
+                }
+
+                // If there was a declared type, make sure the RHS value is compatible.
+                if (declaredType) {
+                    const diagAddendum = new DiagnosticAddendum();
+                    if (TypeUtils.canAssignType(declaredType, srcType, diagAddendum, importLookup)) {
+                        // Constrain the resulting type to match the declared type.
+                        srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                            declaredType, srcType, importLookup);
+                    }
+                }
+
+                // If this is an enum, transform the type as required.
+                rightHandType = srcType;
+                if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
+                    rightHandType = transformTypeForPossibleEnumClass(
+                        node.leftExpression, rightHandType);
+                }
             }
         }
 
@@ -5107,9 +5119,243 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     function getTypeOfAugmentedAssignmentTarget(node: AugmentedAssignmentNode,
                 targetOfInterest?: ExpressionNode): Type | undefined {
 
-        const type = getTypeFromAugmentedAssignment(node);
-        return assignTypeToExpression(node.destExpression, type,
+        // Is this type already cached?
+        let destType = AnalyzerNodeInfo.peekExpressionType(node.destExpression, analysisVersion);
+
+        // If there was a cached value and no target of interest or the entire
+        // LHS is the target of interest, there's no need to do additional work.
+        if (destType && (!targetOfInterest || targetOfInterest === node.destExpression)) {
+            return destType;
+        }
+
+        destType = getTypeFromAugmentedAssignment(node);
+        return assignTypeToExpression(node.destExpression, destType,
             node.rightExpression, targetOfInterest);
+    }
+
+    function getTypeOfClass(node: ClassNode): Type | undefined {
+        // Is this type already cached?
+        let decoratedType = AnalyzerNodeInfo.peekExpressionType(node.name, analysisVersion);
+
+        if (decoratedType) {
+            return decoratedType;
+        }
+
+        const scope = ScopeUtils.getScopeForNode(node);
+        const fileInfo = getFileInfo(node);
+
+        let classFlags = ClassTypeFlags.None;
+        if (scope.getType() === ScopeType.Builtin || fileInfo.isTypingStubFile || fileInfo.isBuiltInStubFile) {
+            classFlags |= ClassTypeFlags.BuiltInClass;
+        }
+
+        const classType = ClassType.create(node.name.nameToken.value, classFlags,
+            node.id, ParseTreeUtils.getDocString(node.suite.statements));
+
+        // Keep a list of unique type parameters that are used in the
+        // base class arguments.
+        const typeParameters: TypeVarType[] = [];
+
+        let sawMetaclass = false;
+        let nonMetaclassBaseClassCount = 0;
+        node.arguments.forEach(arg => {
+            // Ignore keyword parameters other than metaclass or total.
+            if (!arg.name || arg.name.nameToken.value === 'metaclass') {
+                let argType = getType(arg.valueExpression);
+                const isMetaclass = !!arg.name;
+
+                if (isMetaclass) {
+                    if (sawMetaclass) {
+                        addError(`Only one metaclass can be provided`, arg);
+                    }
+                    sawMetaclass = true;
+                }
+
+                // In some stub files, classes are conditionally defined (e.g. based
+                // on platform type). We'll assume that the conditional logic is correct
+                // and strip off the "unbound" union.
+                if (argType.category === TypeCategory.Union) {
+                    argType = removeUnboundFromUnion(argType);
+                }
+
+                if (!isAnyOrUnknown(argType)) {
+                    // Handle "Type[X]" object.
+                    argType = TypeUtils.transformTypeObjectToClass(argType);
+                    if (argType.category !== TypeCategory.Class) {
+                        addError(`Argument to class must be a base class`, arg);
+                        argType = UnknownType.create();
+                    } else {
+                        if (ClassType.isBuiltIn(argType, 'Protocol')) {
+                            if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37) {
+                                addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
+                            }
+                        }
+
+                        // If the class directly derives from NamedTuple (in Python 3.6 or
+                        // newer), it's considered a dataclass.
+                        if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
+                            if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
+                                ClassType.setIsDataClass(classType, false);
+                            }
+                        }
+
+                        // If the class directly derives from TypedDict or from a class that is
+                        // a TypedDict, it is considered a TypedDict.
+                        if (ClassType.isBuiltIn(argType, 'TypedDict') || ClassType.isTypedDictClass(argType)) {
+                            ClassType.setIsTypedDict(classType);
+                        } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
+                            // TypedDict classes must derive only from other
+                            // TypedDict classes.
+                            addError(`All base classes for TypedDict classes must ` +
+                                'als be TypedDict classes', arg);
+                        }
+
+                        // Validate that the class isn't deriving from itself, creating a
+                        // circular dependency.
+                        if (TypeUtils.derivesFromClassRecursive(argType, classType)) {
+                            addError(`Class cannot derive from itself`, arg);
+                            argType = UnknownType.create();
+                        }
+                    }
+                }
+
+                if (argType.category === TypeCategory.Unknown ||
+                        argType.category === TypeCategory.Union && argType.subtypes.some(t => t.category === TypeCategory.Unknown)) {
+
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportUntypedBaseClass,
+                        DiagnosticRule.reportUntypedBaseClass,
+                        `Base class type is unknown, obscuring type of derived class`,
+                        arg);
+                }
+
+                ClassType.addBaseClass(classType, argType, isMetaclass);
+
+                // TODO - validate that we are not adding type parameters that
+                // are unique type vars but have conflicting names.
+                TypeUtils.addTypeVarsToListIfUnique(typeParameters,
+                    TypeUtils.getTypeVarArgumentsRecursive(argType));
+
+                if (!isMetaclass) {
+                    nonMetaclassBaseClassCount++;
+                }
+            } else if (arg.name.nameToken.value === 'total') {
+                // The "total" parameter name applies only for TypedDict classes.
+                if (ClassType.isTypedDictClass(classType)) {
+                    // PEP 589 specifies that the parameter must be either True or False.
+                    const constArgValue = evaluateStaticBoolExpression(
+                            arg.valueExpression, fileInfo.executionEnvironment);
+                    if (constArgValue === undefined) {
+                        addError('Value for total parameter must be True or False', arg.valueExpression);
+                    } else if (!constArgValue) {
+                        ClassType.setCanOmitDictValues(classType);
+                    }
+                }
+            }
+        });
+
+        if (nonMetaclassBaseClassCount === 0) {
+            // Make sure we don't have 'object' derive from itself. Infinite
+            // recursion will result.
+            if (!ClassType.isBuiltIn(classType, 'object')) {
+                ClassType.addBaseClass(classType, getBuiltInType(node, 'object'), false);
+            }
+        }
+
+        ClassType.setTypeParameters(classType, typeParameters);
+
+        // The scope for this class becomes the "fields" for the corresponding type.
+        const innerScope = ScopeUtils.getScopeForNode(node.suite);
+        ClassType.setFields(classType, innerScope.getSymbolTable());
+
+        if (ClassType.isTypedDictClass(classType)) {
+            synthesizeTypedDictClassMethods(classType);
+        }
+
+        if (ClassType.isDataClass(classType)) {
+            let skipSynthesizedInit = ClassType.isSkipSynthesizedInit(classType);
+            if (!skipSynthesizedInit) {
+                // See if there's already a non-synthesized __init__ method.
+                // We shouldn't override it.
+                const initSymbol = TypeUtils.lookUpClassMember(classType, '__init__',
+                    importLookup, TypeUtils.ClassMemberLookupFlags.SkipBaseClasses);
+                if (initSymbol) {
+                    const initSymbolType = TypeUtils.getTypeOfMember(initSymbol, importLookup);
+                    if (initSymbolType.category === TypeCategory.Function) {
+                        if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
+                            skipSynthesizedInit = true;
+                        }
+                    } else {
+                        skipSynthesizedInit = true;
+                    }
+                }
+            }
+
+            synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
+        }
+
+        AnalyzerNodeInfo.setExpressionType(node, classType, true);
+
+        // Now determine the decorated type of the class.
+        decoratedType = classType;
+        let foundUnknown = false;
+
+        for (let i = node.decorators.length - 1; i >= 0; i--) {
+            const decorator = node.decorators[i];
+
+            decoratedType = applyClassDecorator(decoratedType,
+                classType, decorator);
+            if (decoratedType.category === TypeCategory.Unknown) {
+                // Report this error only on the first unknown type.
+                if (!foundUnknown) {
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportUntypedClassDecorator,
+                        DiagnosticRule.reportUntypedClassDecorator,
+                        `Untyped class declarator obscures type of class`,
+                        node.decorators[i].leftExpression);
+
+                    foundUnknown = true;
+                }
+            }
+        }
+
+        updateExpressionTypeForNode(node.name, decoratedType);
+        return decoratedType;
+    }
+
+    function applyClassDecorator(inputClassType: Type, originalClassType: ClassType,
+            decoratorNode: DecoratorNode): Type {
+
+        const decoratorType = getType(decoratorNode.leftExpression);
+
+        // Is this a @dataclass?
+        if (decoratorType.category === TypeCategory.OverloadedFunction) {
+            const overloads = decoratorType.overloads;
+            if (overloads.length > 0 && FunctionType.getBuiltInName(overloads[0].type) === 'dataclass') {
+                // Determine whether we should skip synthesizing the init method.
+                let skipSynthesizeInit = false;
+
+                if (decoratorNode.arguments) {
+                    decoratorNode.arguments.forEach(arg => {
+                        if (arg.name && arg.name.nameToken.value === 'init') {
+                            if (arg.valueExpression) {
+                                const fileInfo = getFileInfo(decoratorNode);
+                                const value = evaluateStaticBoolExpression(
+                                    arg.valueExpression, fileInfo.executionEnvironment);
+                                if (!value) {
+                                    skipSynthesizeInit = true;
+                                }
+                            }
+                        }
+                    });
+                }
+
+                ClassType.setIsDataClass(originalClassType, skipSynthesizeInit);
+                return inputClassType;
+            }
+        }
+
+        return getTypeFromDecorator(decoratorNode, inputClassType);
     }
 
     function getTypeOfAssignmentTarget(target: ExpressionNode): Type | undefined {
@@ -5912,6 +6158,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         getTypeFromDecorator,
         getTypeOfAssignmentStatementTarget,
         getTypeOfAugmentedAssignmentTarget,
+        getTypeOfClass,
         getTypingType,
         getDeclaredTypeForExpression,
         isAnnotationLiteralValue,
