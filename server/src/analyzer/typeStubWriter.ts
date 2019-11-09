@@ -11,10 +11,10 @@
 import * as fs from 'fs';
 
 import StringMap from '../common/stringMap';
-import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentExpressionNode,
+import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentNode,
     ClassNode, DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode,
     ImportFromNode, ImportNode, ModuleNameNode, NameNode, ParameterCategory, ParameterNode,
-    ParseNodeType, StatementListNode, StringNode, TryNode, TypeAnnotationExpressionNode,
+    ParseNodeType, StatementListNode, StringNode, TryNode, TypeAnnotationNode,
     WhileNode, WithNode } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -23,7 +23,7 @@ import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
-import { ClassType, FunctionType, isNoneOrNever, TypeCategory, UnknownType } from './types';
+import { ClassType, isNoneOrNever, TypeCategory, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
 class TrackedImport {
@@ -322,7 +322,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         return false;
     }
 
-    visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode) {
+    visitAugmentedAssignment(node: AugmentedAssignmentNode) {
         if (this._classNestCount === 0 && this._functionNestCount === 0) {
             if (node.leftExpression.nodeType === ParseNodeType.Name) {
                 if (node.leftExpression.nameToken.value === '__all__') {
@@ -334,7 +334,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         return false;
     }
 
-    visitTypeAnnotation(node: TypeAnnotationExpressionNode) {
+    visitTypeAnnotation(node: TypeAnnotationNode) {
         if (this._functionNestCount === 0) {
             let line = '';
             if (node.valueExpression.nodeType === ParseNodeType.Name) {

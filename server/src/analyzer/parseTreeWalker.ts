@@ -10,18 +10,18 @@
 import * as assert from 'assert';
 
 import { ArgumentNode, AssertNode, AssignmentExpressionNode, AssignmentNode,
-    AugmentedAssignmentExpressionNode, AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode,
+    AugmentedAssignmentNode, AwaitNode, BinaryOperationNode, BreakNode, CallNode,
     ClassNode, ConstantNode, ContinueNode, DecoratorNode, DelNode,
     DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode,
-    ErrorExpressionNode, ExceptNode, FormatStringNode, ForNode, FunctionNode, GlobalNode, IfNode,
-    ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode, IndexExpressionNode,
-    IndexItemsNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
-    ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode,
+    ErrorNode, ExceptNode, FormatStringNode, ForNode, FunctionNode, GlobalNode, IfNode,
+    ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode, IndexItemsNode,
+    IndexNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
+    ListComprehensionNode, ListNode, MemberAccessNode, ModuleNameNode, ModuleNode, NameNode,
     NonlocalNode, NumberNode, ParameterNode, ParseNode, ParseNodeArray, ParseNodeType,
-    PassNode, RaiseNode, ReturnNode, SetNode, SliceExpressionNode, StatementListNode,
-    StringListNode, StringNode, SuiteNode, TernaryExpressionNode, TryNode,
-    TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
-    WhileNode, WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    PassNode, RaiseNode, ReturnNode, SetNode, SliceNode, StatementListNode,
+    StringListNode, StringNode, SuiteNode, TernaryNode, TryNode,
+    TupleNode, TypeAnnotationNode, UnaryOperationNode, UnpackNode,
+    WhileNode, WithItemNode, WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 
 // To use this class, create a subclass and override the
 // visitXXX methods that you want to handle.
@@ -452,15 +452,15 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode) {
+    visitAugmentedAssignment(node: AugmentedAssignmentNode) {
         return true;
     }
 
-    visitAwait(node: AwaitExpressionNode) {
+    visitAwait(node: AwaitNode) {
         return true;
     }
 
-    visitBinaryOperation(node: BinaryExpressionNode) {
+    visitBinaryOperation(node: BinaryOperationNode) {
         return true;
     }
 
@@ -468,7 +468,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitCall(node: CallExpressionNode) {
+    visitCall(node: CallNode) {
         return true;
     }
 
@@ -476,7 +476,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitTernary(node: TernaryExpressionNode) {
+    visitTernary(node: TernaryNode) {
         return true;
     }
 
@@ -508,7 +508,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitError(node: ErrorExpressionNode) {
+    visitError(node: ErrorNode) {
         return true;
     }
 
@@ -536,7 +536,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitIndex(node: IndexExpressionNode) {
+    visitIndex(node: IndexNode) {
         return true;
     }
 
@@ -584,7 +584,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitMemberAccess(node: MemberAccessExpressionNode) {
+    visitMemberAccess(node: MemberAccessNode) {
         return true;
     }
 
@@ -628,7 +628,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitSlice(node: SliceExpressionNode) {
+    visitSlice(node: SliceNode) {
         return true;
     }
 
@@ -648,7 +648,7 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitTuple(node: TupleExpressionNode) {
+    visitTuple(node: TupleNode) {
         return true;
     }
 
@@ -656,15 +656,15 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitTypeAnnotation(node: TypeAnnotationExpressionNode) {
+    visitTypeAnnotation(node: TypeAnnotationNode) {
         return true;
     }
 
-    visitUnaryOperation(node: UnaryExpressionNode) {
+    visitUnaryOperation(node: UnaryOperationNode) {
         return true;
     }
 
-    visitUnpack(node: UnpackExpressionNode) {
+    visitUnpack(node: UnpackNode) {
         return true;
     }
 
@@ -680,11 +680,11 @@ export class ParseTreeWalker {
         return true;
     }
 
-    visitYield(node: YieldExpressionNode) {
+    visitYield(node: YieldNode) {
         return true;
     }
 
-    visitYieldFrom(node: YieldFromExpressionNode) {
+    visitYieldFrom(node: YieldFromNode) {
         return true;
     }
 }

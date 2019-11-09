@@ -31,7 +31,7 @@ import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from 
 import { convertPositionToOffset } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
-import { ErrorExpressionCategory, ErrorExpressionNode, ExpressionNode, ImportFromNode,
+import { ErrorExpressionCategory, ErrorNode, ExpressionNode, ImportFromNode,
     isExpressionNode, ModuleNameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
@@ -327,7 +327,7 @@ export class CompletionProvider {
         return !!priorText.match(/#/);
     }
 
-    private _getExpressionErrorCompletions(node: ErrorExpressionNode, priorWord: string):
+    private _getExpressionErrorCompletions(node: ErrorNode, priorWord: string):
             CompletionList | undefined {
 
         // Is the error due to a missing member access name? If so,

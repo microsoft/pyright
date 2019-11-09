@@ -19,7 +19,7 @@ import * as TypeUtils from '../analyzer/typeUtils';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { CallExpressionNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { CallNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface ParamInfo {
@@ -212,7 +212,7 @@ export class SignatureHelpProvider {
         return sigInfo;
     }
 
-    private static _findContainingCallNode(node: ParseNode): CallExpressionNode | undefined {
+    private static _findContainingCallNode(node: ParseNode): CallNode | undefined {
         let curNode: ParseNode | undefined = node;
 
         while (curNode !== undefined) {

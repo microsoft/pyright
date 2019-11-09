@@ -12,7 +12,7 @@
 import { DiagnosticTextRange } from '../common/diagnostic';
 import { ClassNode, ExpressionNode, FunctionNode, ImportAsNode,
     ImportFromAsNode, ImportFromNode, NameNode, ParameterNode, ParseNode,
-    ReturnNode, StringListNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    ReturnNode, StringListNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { Type } from './types';
 
 export const enum DeclarationType {
@@ -53,7 +53,7 @@ export interface FunctionDeclaration extends DeclarationBase {
     type: DeclarationType.Function | DeclarationType.Method;
     node: FunctionNode;
     returnExpressions?: ReturnNode[];
-    yieldExpressions?: (YieldExpressionNode | YieldFromExpressionNode)[];
+    yieldExpressions?: (YieldNode | YieldFromNode)[];
 }
 
 export interface ParameterDeclaration extends DeclarationBase {

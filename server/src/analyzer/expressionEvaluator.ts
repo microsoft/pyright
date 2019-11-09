@@ -17,13 +17,13 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { ArgumentCategory, AugmentedAssignmentExpressionNode, BinaryExpressionNode,
-    CallExpressionNode, ClassNode, ConstantNode, DecoratorNode, DictionaryNode,
-    ExpressionNode, IndexExpressionNode, IndexItemsNode, isExpressionNode,
-    LambdaNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, NameNode,
-    ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceExpressionNode,
-    StringListNode, TernaryExpressionNode, TupleExpressionNode, UnaryExpressionNode,
-    YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { ArgumentCategory, AugmentedAssignmentNode, BinaryOperationNode,
+    CallNode, ClassNode, ConstantNode, DecoratorNode, DictionaryNode,
+    ExpressionNode, IndexItemsNode, IndexNode, isExpressionNode,
+    LambdaNode, ListComprehensionNode, ListNode, MemberAccessNode, NameNode,
+    ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceNode,
+    StringListNode, TernaryNode, TupleNode, UnaryOperationNode,
+    YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -872,7 +872,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         updateExpressionTypeForNode(nameNode, destType);
     }
 
-    function assignTypeToMemberAccessNode(target: MemberAccessExpressionNode, type: Type,
+    function assignTypeToMemberAccessNode(target: MemberAccessNode, type: Type,
             srcExpr?: ExpressionNode) {
         const targetNode = target.leftExpression;
 
@@ -900,7 +900,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
     }
 
-    function assignTypeToMemberVariable(node: MemberAccessExpressionNode, srcType: Type,
+    function assignTypeToMemberVariable(node: MemberAccessNode, srcType: Type,
             isInstanceMember: boolean, srcExprNode?: ExpressionNode) {
 
         const memberName = node.memberName.nameToken.value;
@@ -995,7 +995,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
     }
 
-    function assignTypeToTupleNode(target: TupleExpressionNode, type: Type, srcExpr?: ExpressionNode) {
+    function assignTypeToTupleNode(target: TupleNode, type: Type, srcExpr?: ExpressionNode) {
         // Initialize the array of target types, one for each target.
         const targetTypes: Type[][] = new Array(target.expressions.length);
         for (let i = 0; i < target.expressions.length; i++) {
@@ -1389,7 +1389,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             case ParseNodeType.AugmentedAssignment: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromAugmentedExpression(node);
+                typeResult = getTypeFromAugmentedAssignment(node);
                 assignTypeToExpression(node.destExpression, typeResult.type, node.rightExpression);
                 break;
             }
@@ -1610,7 +1610,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromMemberAccessExpression(node: MemberAccessExpressionNode,
+    function getTypeFromMemberAccessExpression(node: MemberAccessNode,
             usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
         const baseTypeResult = getTypeFromExpression(node.leftExpression);
@@ -1632,7 +1632,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return memberType;
     }
 
-    function getTypeFromMemberAccessExpressionWithBaseType(node: MemberAccessExpressionNode,
+    function getTypeFromMemberAccessExpressionWithBaseType(node: MemberAccessNode,
             baseTypeResult: TypeResult, usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
         const baseType = baseTypeResult.type;
@@ -2045,7 +2045,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return undefined;
     }
 
-    function getTypeFromIndexExpression(node: IndexExpressionNode, usage: EvaluatorUsage,
+    function getTypeFromIndexExpression(node: IndexNode, usage: EvaluatorUsage,
             flags: EvaluatorFlags): TypeResult {
 
         const baseTypeResult = getTypeFromExpression(node.baseExpression,
@@ -2143,7 +2143,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromIndexedObject(node: IndexExpressionNode,
+    function getTypeFromIndexedObject(node: IndexNode,
             baseType: ObjectType, usage: EvaluatorUsage): Type {
 
         // Handle index operations for TypedDict classes specially.
@@ -2310,7 +2310,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return typeResult;
     }
 
-    function getTypeFromTupleExpression(node: TupleExpressionNode, usage: EvaluatorUsage): TypeResult {
+    function getTypeFromTupleExpression(node: TupleNode, usage: EvaluatorUsage): TypeResult {
         // Build an array of expected types.
         const expectedTypes: Type[] = [];
         if (usage.expectedType && usage.expectedType.category === TypeCategory.Object) {
@@ -2378,7 +2378,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromCallExpression(node: CallExpressionNode, usage: EvaluatorUsage,
+    function getTypeFromCallExpression(node: CallNode, usage: EvaluatorUsage,
             flags: EvaluatorFlags): TypeResult {
 
         const baseTypeResult = getTypeFromExpression(node.leftExpression,
@@ -2421,7 +2421,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             node, argList, baseTypeResult, usage, flags, node);
     }
 
-    function getTypeFromSuperCall(node: CallExpressionNode): Type {
+    function getTypeFromSuperCall(node: CallNode): Type {
         if (node.arguments.length > 2) {
             addError(
                 `Expecting no more than two arguments to super'`,
@@ -3868,7 +3868,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromUnaryExpression(node: UnaryExpressionNode): TypeResult {
+    function getTypeFromUnaryExpression(node: UnaryOperationNode): TypeResult {
         let exprType = getTypeFromExpression(node.expression).type;
 
         // Map unary operators to magic functions. Note that the bitwise
@@ -3919,7 +3919,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromBinaryExpression(node: BinaryExpressionNode): TypeResult {
+    function getTypeFromBinaryExpression(node: BinaryOperationNode): TypeResult {
         let leftExpression = node.leftExpression;
 
         // If this is a comparison and the left expression is also a comparison,
@@ -3964,7 +3964,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         };
     }
 
-    function getTypeFromAugmentedExpression(node: AugmentedAssignmentExpressionNode): TypeResult {
+    function getTypeFromAugmentedAssignment(node: AugmentedAssignmentNode): TypeResult {
         const operatorMap: { [operator: number]: [string, OperatorType] } = {
             [OperatorType.AddEqual]: ['__iadd__', OperatorType.Add],
             [OperatorType.SubtractEqual]: ['__isub__', OperatorType.Subtract],
@@ -4429,7 +4429,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromTernaryExpression(node: TernaryExpressionNode, flags: EvaluatorFlags): TypeResult {
+    function getTypeFromTernaryExpression(node: TernaryNode, flags: EvaluatorFlags): TypeResult {
         getTypeFromExpression(node.testExpression);
 
         const ifType = getTypeFromExpression(node.ifExpression,
@@ -4442,7 +4442,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromYieldExpression(node: YieldExpressionNode): TypeResult {
+    function getTypeFromYieldExpression(node: YieldNode): TypeResult {
         let sentType: Type | undefined;
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
@@ -4459,7 +4459,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type: sentType, node };
     }
 
-    function getTypeFromYieldFromExpression(node: YieldFromExpressionNode): TypeResult {
+    function getTypeFromYieldFromExpression(node: YieldFromNode): TypeResult {
         let sentType: Type | undefined;
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
@@ -4593,7 +4593,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return type;
     }
 
-    function getTypeFromSliceExpression(node: SliceExpressionNode): TypeResult {
+    function getTypeFromSliceExpression(node: SliceNode): TypeResult {
         const intObject = getBuiltInObject(node, 'int');
         const optionalIntObject = combineTypes([intObject, NoneType.create()]);
 
@@ -4705,7 +4705,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     // Creates a type that represents a Literal. This is not an officially-supported
     // feature of Python but is instead a mypy extension described here:
     // https://mypy.readthedocs.io/en/latest/literal_types.html
-    function createLiteralType(node: IndexExpressionNode): Type {
+    function createLiteralType(node: IndexNode): Type {
         if (node.items.items.length === 0) {
             addError(`Expected a type parameter after Literal`, node.baseExpression);
             return UnknownType.create();
@@ -4951,7 +4951,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return undefined;
     }
 
-    function getFlowTypeOfReference(reference: NameNode | MemberAccessExpressionNode,
+    function getFlowTypeOfReference(reference: NameNode | MemberAccessNode,
             targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
         const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
@@ -4982,7 +4982,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // If this flow has no knowledge of the target expression, it returns undefined.
         // If the start flow node for this scope is reachable, the typeAtStart value is
         // returned.
-        function getTypeFromFlowNode(flowNode: FlowNode, reference: NameNode | MemberAccessExpressionNode,
+        function getTypeFromFlowNode(flowNode: FlowNode, reference: NameNode | MemberAccessNode,
                 targetSymbolId: number, initialType: Type | undefined): FlowNodeType | undefined {
 
             let curFlowNode = flowNode;

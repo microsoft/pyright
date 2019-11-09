@@ -13,8 +13,7 @@
 * TypeScript compiler.
 */
 
-import { CallExpressionNode, ExpressionNode, ImportFromNode, MemberAccessExpressionNode,
-    NameNode } from '../parser/parseNodes';
+import { CallNode, ExpressionNode, ImportFromNode, MemberAccessNode, NameNode } from '../parser/parseNodes';
 
 export enum FlowFlags {
     Unreachable     = 1 << 0,  // Unreachable code
@@ -51,7 +50,7 @@ export interface FlowLabel extends FlowNode {
 
 // FlowAssignment represents a node that assigns a value.
 export interface FlowAssignment extends FlowNode {
-    node: NameNode | MemberAccessExpressionNode;
+    node: NameNode | MemberAccessNode;
     antecedent: FlowNode;
     targetSymbolId: number;
 }
@@ -86,7 +85,7 @@ export interface FlowCondition extends FlowNode {
 // Records a call, which may raise exceptions, thus affecting
 // the code flow and making subsequent code unreachable.
 export interface FlowCall extends FlowNode {
-    node: CallExpressionNode;
+    node: CallNode;
     antecedent: FlowNode;
 }
 

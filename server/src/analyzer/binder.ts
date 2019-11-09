@@ -26,13 +26,13 @@ import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssertNode, AssignmentExpressionNode, AssignmentNode,
-    AugmentedAssignmentExpressionNode, AwaitExpressionNode, BinaryExpressionNode, BreakNode,
-    CallExpressionNode, ClassNode, ContinueNode, DelNode, ExceptNode, ExpressionNode, ForNode,
+    AugmentedAssignmentNode, AwaitNode, BinaryOperationNode, BreakNode,
+    CallNode, ClassNode, ContinueNode, DelNode, ExceptNode, ExpressionNode, ForNode,
     FunctionNode, GlobalNode, IfNode, ImportAsNode, ImportFromNode, LambdaNode,
-    ListComprehensionNode, MemberAccessExpressionNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
+    ListComprehensionNode, MemberAccessNode, ModuleNameNode, ModuleNode, NameNode, NonlocalNode,
     ParseNode, ParseNodeType, RaiseNode, ReturnNode, StatementNode, StringListNode,
-    SuiteNode, TernaryExpressionNode, TryNode, TypeAnnotationExpressionNode,
-    UnaryExpressionNode, WhileNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+    SuiteNode, TernaryNode, TryNode, TypeAnnotationNode,
+    UnaryOperationNode, WhileNode, WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -569,7 +569,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitCall(node: CallExpressionNode): boolean {
+    visitCall(node: CallNode): boolean {
         this.walk(node.leftExpression);
         this.walkMultiple(node.arguments);
         this._createCallFlowNode(node);
@@ -608,7 +608,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode) {
+    visitAugmentedAssignment(node: AugmentedAssignmentNode) {
         this.walk(node.leftExpression);
         this.walk(node.rightExpression);
 
@@ -629,7 +629,7 @@ export class Binder extends ParseTreeWalker {
         return true;
     }
 
-    visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
+    visitTypeAnnotation(node: TypeAnnotationNode): boolean {
         this._bindPossibleTupleNamedTarget(node.valueExpression);
         this._addTypeDeclarationForVariable(node.valueExpression, node.typeAnnotation);
         return true;
@@ -710,17 +710,17 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitYield(node: YieldExpressionNode): boolean {
+    visitYield(node: YieldNode): boolean {
         this._bindYield(node);
         return false;
     }
 
-    visitYieldFrom(node: YieldFromExpressionNode): boolean {
+    visitYieldFrom(node: YieldFromNode): boolean {
         this._bindYield(node);
         return false;
     }
 
-    visitMemberAccess(node: MemberAccessExpressionNode): boolean {
+    visitMemberAccess(node: MemberAccessNode): boolean {
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
         return true;
     }
@@ -991,7 +991,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitAwait(node: AwaitExpressionNode) {
+    visitAwait(node: AwaitNode) {
         // Make sure this is within an async lambda or function.
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
@@ -1322,7 +1322,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitTernary(node: TernaryExpressionNode): boolean {
+    visitTernary(node: TernaryNode): boolean {
         const trueLabel = this._createBranchLabel();
         const falseLabel = this._createBranchLabel();
         const postExpressionLabel = this._createBranchLabel();
@@ -1345,7 +1345,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitUnaryOperation(node: UnaryExpressionNode): boolean {
+    visitUnaryOperation(node: UnaryOperationNode): boolean {
         if (node.operator === OperatorType.Not && this._currentFalseTarget && this._currentTrueTarget) {
             // Swap the existing true/false targets.
             this._bindConditional(node.expression, this._currentFalseTarget, this._currentTrueTarget);
@@ -1369,7 +1369,7 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    visitBinaryOperation(node: BinaryExpressionNode): boolean {
+    visitBinaryOperation(node: BinaryOperationNode): boolean {
         if (node.operator === OperatorType.And || node.operator === OperatorType.Or) {
             let trueTarget = this._currentTrueTarget;
             let falseTarget = this._currentFalseTarget;
@@ -1674,7 +1674,7 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _createCallFlowNode(node: CallExpressionNode) {
+    private _createCallFlowNode(node: CallNode) {
         if (!this._isCodeUnreachable()) {
             const flowNode: FlowCall = {
                 flags: FlowFlags.Call,
@@ -1701,7 +1701,7 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _createFlowAssignment(node: NameNode | MemberAccessExpressionNode, unbound = false) {
+    private _createFlowAssignment(node: NameNode | MemberAccessNode, unbound = false) {
         let targetSymbolId = indeterminateSymbolId;
         if (node.nodeType === ParseNodeType.Name) {
             const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.nameToken.value);
@@ -2087,7 +2087,7 @@ export class Binder extends ParseTreeWalker {
     // Determines whether a member access expression is referring to a
     // member of a class (either a class or instance member). This will
     // typically take the form "self.x" or "cls.x".
-    private _getMemberAccessInfo(node: MemberAccessExpressionNode): MemberAccessInfo | undefined {
+    private _getMemberAccessInfo(node: MemberAccessNode): MemberAccessInfo | undefined {
         // We handle only simple names on the left-hand side of the expression,
         // not calls, nested member accesses, index expressions, etc.
         if (node.leftExpression.nodeType !== ParseNodeType.Name) {
@@ -2285,7 +2285,7 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _bindYield(node: YieldExpressionNode | YieldFromExpressionNode) {
+    private _bindYield(node: YieldNode | YieldFromNode) {
         const functionNode = ParseTreeUtils.getEnclosingFunction(node);
 
         if (!functionNode) {

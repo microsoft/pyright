@@ -550,16 +550,12 @@ export type StatementNode = IfNode | WhileNode | ForNode | TryNode |
 export type SmallStatementNode = ExpressionNode | DelNode | PassNode |
     ImportNode | GlobalNode | NonlocalNode | AssertNode;
 
-export type ExpressionNode = ErrorExpressionNode | UnaryExpressionNode |
-    BinaryExpressionNode | AssignmentNode | TypeAnnotationExpressionNode |
-    AssignmentExpressionNode | AugmentedAssignmentExpressionNode | AwaitExpressionNode |
-    TernaryExpressionNode | UnpackExpressionNode | TupleExpressionNode |
-    CallExpressionNode | ListComprehensionNode | IndexExpressionNode |
-    SliceExpressionNode | YieldExpressionNode | YieldFromExpressionNode |
-    MemberAccessExpressionNode | LambdaNode | NameNode | ConstantNode |
-    EllipsisNode | NumberNode | StringNode | FormatStringNode |
-    StringListNode | DictionaryNode | DictionaryExpandEntryNode |
-    ListNode | SetNode;
+export type ExpressionNode = ErrorNode | UnaryOperationNode | BinaryOperationNode |
+    AssignmentNode | TypeAnnotationNode | AssignmentExpressionNode | AugmentedAssignmentNode |
+    AwaitNode | TernaryNode | UnpackNode | TupleNode | CallNode | ListComprehensionNode | IndexNode |
+    SliceNode | YieldNode | YieldFromNode | MemberAccessNode | LambdaNode | NameNode | ConstantNode |
+    EllipsisNode | NumberNode | StringNode | FormatStringNode | StringListNode | DictionaryNode |
+    DictionaryExpandEntryNode | ListNode | SetNode;
 
 export function isExpressionNode(node: ParseNode) {
     switch (node.nodeType) {
@@ -599,17 +595,17 @@ export function isExpressionNode(node: ParseNode) {
     }
 }
 
-export interface ErrorExpressionNode extends ParseNodeBase {
+export interface ErrorNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Error;
     readonly category: ErrorExpressionCategory;
     readonly child?: ExpressionNode;
 }
 
-export namespace ErrorExpressionNode {
+export namespace ErrorNode {
     export function create(initialRange: TextRange, category: ErrorExpressionCategory,
             child?: ExpressionNode) {
 
-        const node: ErrorExpressionNode = {
+        const node: ErrorNode = {
             start: initialRange.start,
             length: initialRange.length,
             nodeType: ParseNodeType.Error,
@@ -627,15 +623,15 @@ export namespace ErrorExpressionNode {
     }
 }
 
-export interface UnaryExpressionNode extends ParseNodeBase {
+export interface UnaryOperationNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.UnaryOperation;
     expression: ExpressionNode;
     operator: OperatorType;
 }
 
-export namespace UnaryExpressionNode {
+export namespace UnaryOperationNode {
     export function create(operatorToken: Token, expression: ExpressionNode, operator: OperatorType) {
-        const node: UnaryExpressionNode = {
+        const node: UnaryOperationNode = {
             start: operatorToken.start,
             length: operatorToken.length,
             nodeType: ParseNodeType.UnaryOperation,
@@ -652,18 +648,18 @@ export namespace UnaryExpressionNode {
     }
 }
 
-export interface BinaryExpressionNode extends ParseNodeBase {
+export interface BinaryOperationNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.BinaryOperation;
     leftExpression: ExpressionNode;
     operator: OperatorType;
     rightExpression: ExpressionNode;
 }
 
-export namespace BinaryExpressionNode {
+export namespace BinaryOperationNode {
     export function create(leftExpression: ExpressionNode, rightExpression: ExpressionNode,
             operator: OperatorType) {
 
-        const node: BinaryExpressionNode = {
+        const node: BinaryOperationNode = {
             start: leftExpression.start,
             length: leftExpression.length,
             nodeType: ParseNodeType.BinaryOperation,
@@ -735,15 +731,15 @@ export namespace AssignmentNode {
     }
 }
 
-export interface TypeAnnotationExpressionNode extends ParseNodeBase {
+export interface TypeAnnotationNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.TypeAnnotation;
     valueExpression: ExpressionNode;
     typeAnnotation: ExpressionNode;
 }
 
-export namespace TypeAnnotationExpressionNode {
+export namespace TypeAnnotationNode {
     export function create(valueExpression: ExpressionNode, typeAnnotation: ExpressionNode) {
-        const node: TypeAnnotationExpressionNode = {
+        const node: TypeAnnotationNode = {
             start: valueExpression.start,
             length: valueExpression.length,
             nodeType: ParseNodeType.TypeAnnotation,
@@ -761,7 +757,7 @@ export namespace TypeAnnotationExpressionNode {
     }
 }
 
-export interface AugmentedAssignmentExpressionNode extends ParseNodeBase {
+export interface AugmentedAssignmentNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.AugmentedAssignment;
     leftExpression: ExpressionNode;
     operator: OperatorType;
@@ -773,11 +769,11 @@ export interface AugmentedAssignmentExpressionNode extends ParseNodeBase {
     destExpression: ExpressionNode;
 }
 
-export namespace AugmentedAssignmentExpressionNode {
+export namespace AugmentedAssignmentNode {
     export function create(leftExpression: ExpressionNode, rightExpression: ExpressionNode,
             operator: OperatorType, destExpression: ExpressionNode) {
 
-        const node: AugmentedAssignmentExpressionNode = {
+        const node: AugmentedAssignmentNode = {
             start: leftExpression.start,
             length: leftExpression.length,
             nodeType: ParseNodeType.AugmentedAssignment,
@@ -798,14 +794,14 @@ export namespace AugmentedAssignmentExpressionNode {
     }
 }
 
-export interface AwaitExpressionNode extends ParseNodeBase {
+export interface AwaitNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Await;
     expression: ExpressionNode;
 }
 
-export namespace AwaitExpressionNode {
+export namespace AwaitNode {
     export function create(awaitToken: Token, expression: ExpressionNode) {
-        const node: AwaitExpressionNode = {
+        const node: AwaitNode = {
             start: awaitToken.start,
             length: awaitToken.length,
             nodeType: ParseNodeType.Await,
@@ -821,18 +817,18 @@ export namespace AwaitExpressionNode {
     }
 }
 
-export interface TernaryExpressionNode extends ParseNodeBase {
+export interface TernaryNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Ternary;
     ifExpression: ExpressionNode;
     testExpression: ExpressionNode;
     elseExpression: ExpressionNode;
 }
 
-export namespace TernaryExpressionNode {
+export namespace TernaryNode {
     export function create(ifExpression: ExpressionNode, testExpression: ExpressionNode,
             elseExpression: ExpressionNode) {
 
-        const node: TernaryExpressionNode = {
+        const node: TernaryNode = {
             start: ifExpression.start,
             length: ifExpression.length,
             nodeType: ParseNodeType.Ternary,
@@ -852,14 +848,14 @@ export namespace TernaryExpressionNode {
     }
 }
 
-export interface UnpackExpressionNode extends ParseNodeBase {
+export interface UnpackNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Unpack;
     expression: ExpressionNode;
 }
 
-export namespace UnpackExpressionNode {
+export namespace UnpackNode {
     export function create(starToken: Token, expression: ExpressionNode) {
-        const node: UnpackExpressionNode = {
+        const node: UnpackNode = {
             start: starToken.start,
             length: starToken.length,
             nodeType: ParseNodeType.Unpack,
@@ -875,14 +871,14 @@ export namespace UnpackExpressionNode {
     }
 }
 
-export interface TupleExpressionNode extends ParseNodeBase {
+export interface TupleNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Tuple;
     expressions: ExpressionNode[];
 }
 
-export namespace TupleExpressionNode {
+export namespace TupleNode {
     export function create(range: TextRange) {
-        const node: TupleExpressionNode = {
+        const node: TupleNode = {
             start: range.start,
             length: range.length,
             nodeType: ParseNodeType.Tuple,
@@ -894,15 +890,15 @@ export namespace TupleExpressionNode {
     }
 }
 
-export interface CallExpressionNode extends ParseNodeBase {
+export interface CallNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Call;
     leftExpression: ExpressionNode;
     arguments: ArgumentNode[];
 }
 
-export namespace CallExpressionNode {
+export namespace CallNode {
     export function create(leftExpression: ExpressionNode) {
-        const node: CallExpressionNode = {
+        const node: CallNode = {
             start: leftExpression.start,
             length: leftExpression.length,
             nodeType: ParseNodeType.Call,
@@ -965,15 +961,15 @@ export namespace IndexItemsNode {
     }
 }
 
-export interface IndexExpressionNode extends ParseNodeBase {
+export interface IndexNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Index;
     baseExpression: ExpressionNode;
     items: IndexItemsNode;
 }
 
-export namespace IndexExpressionNode {
+export namespace IndexNode {
     export function create(baseExpression: ExpressionNode, items: IndexItemsNode) {
-        const node: IndexExpressionNode = {
+        const node: IndexNode = {
             start: baseExpression.start,
             length: baseExpression.length,
             nodeType: ParseNodeType.Index,
@@ -991,16 +987,16 @@ export namespace IndexExpressionNode {
     }
 }
 
-export interface SliceExpressionNode extends ParseNodeBase {
+export interface SliceNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Slice;
     startValue?: ExpressionNode;
     endValue?: ExpressionNode;
     stepValue?: ExpressionNode;
 }
 
-export namespace SliceExpressionNode {
+export namespace SliceNode {
     export function create(range: TextRange) {
-        const node: SliceExpressionNode = {
+        const node: SliceNode = {
             start: range.start,
             length: range.length,
             nodeType: ParseNodeType.Slice,
@@ -1011,14 +1007,14 @@ export namespace SliceExpressionNode {
     }
 }
 
-export interface YieldExpressionNode extends ParseNodeBase {
+export interface YieldNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Yield;
     expression?: ExpressionNode;
 }
 
-export namespace YieldExpressionNode {
+export namespace YieldNode {
     export function create(yieldToken: Token, expression?: ExpressionNode) {
-        const node: YieldExpressionNode = {
+        const node: YieldNode = {
             start: yieldToken.start,
             length: yieldToken.length,
             nodeType: ParseNodeType.Yield,
@@ -1035,14 +1031,14 @@ export namespace YieldExpressionNode {
     }
 }
 
-export interface YieldFromExpressionNode extends ParseNodeBase {
+export interface YieldFromNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.YieldFrom;
     expression: ExpressionNode;
 }
 
-export namespace YieldFromExpressionNode {
+export namespace YieldFromNode {
     export function create(yieldToken: Token, expression: ExpressionNode) {
-        const node: YieldFromExpressionNode = {
+        const node: YieldFromNode = {
             start: yieldToken.start,
             length: yieldToken.length,
             nodeType: ParseNodeType.YieldFrom,
@@ -1058,15 +1054,15 @@ export namespace YieldFromExpressionNode {
     }
 }
 
-export interface MemberAccessExpressionNode extends ParseNodeBase {
+export interface MemberAccessNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.MemberAccess;
     leftExpression: ExpressionNode;
     memberName: NameNode;
 }
 
-export namespace MemberAccessExpressionNode {
+export namespace MemberAccessNode {
     export function create(leftExpression: ExpressionNode, memberName: NameNode) {
-        const node: MemberAccessExpressionNode = {
+        const node: MemberAccessNode = {
             start: leftExpression.start,
             length: leftExpression.length,
             nodeType: ParseNodeType.MemberAccess,
@@ -1693,16 +1689,16 @@ export namespace RaiseNode {
     }
 }
 
-export type ParseNode = ErrorExpressionNode | ArgumentNode | AssertNode | AssignmentExpressionNode |
-    AssignmentNode | AugmentedAssignmentExpressionNode | AwaitExpressionNode | BinaryExpressionNode |
-    BreakNode | CallExpressionNode | ClassNode | ConstantNode | ContinueNode |
+export type ParseNode = ErrorNode | ArgumentNode | AssertNode | AssignmentExpressionNode |
+    AssignmentNode | AugmentedAssignmentNode | AwaitNode | BinaryOperationNode |
+    BreakNode | CallNode | ClassNode | ConstantNode | ContinueNode |
     DecoratorNode | DelNode | DictionaryNode | DictionaryEntryNode | DictionaryExpandEntryNode |
     DictionaryKeyEntryNode | EllipsisNode | IfNode | ImportNode | ImportAsNode | ImportFromNode |
-    ImportFromAsNode | IndexExpressionNode | IndexItemsNode | ExceptNode | ForNode | FormatStringNode |
+    ImportFromAsNode | IndexNode | IndexItemsNode | ExceptNode | ForNode | FormatStringNode |
     FunctionNode | GlobalNode | LambdaNode | ListNode | ListComprehensionNode | ListComprehensionForNode |
-    ListComprehensionIfNode | MemberAccessExpressionNode | ModuleNameNode | ModuleNode | NameNode |
+    ListComprehensionIfNode | MemberAccessNode | ModuleNameNode | ModuleNode | NameNode |
     NonlocalNode | NumberNode | ParameterNode | PassNode | RaiseNode | ReturnNode | SetNode |
-    SliceExpressionNode | StatementListNode | StringListNode | StringNode | SuiteNode |
-    TernaryExpressionNode | TupleExpressionNode | TryNode | TypeAnnotationExpressionNode |
-    UnaryExpressionNode | UnpackExpressionNode | WhileNode | WithNode | WithItemNode |
-    YieldExpressionNode | YieldFromExpressionNode;
+    SliceNode | StatementListNode | StringListNode | StringNode | SuiteNode |
+    TernaryNode | TupleNode | TryNode | TypeAnnotationNode |
+    UnaryOperationNode | UnpackNode | WhileNode | WithNode | WithItemNode |
+    YieldNode | YieldFromNode;

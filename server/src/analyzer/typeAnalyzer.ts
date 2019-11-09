@@ -16,15 +16,15 @@ import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/d
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
-import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentExpressionNode,
-    BinaryExpressionNode, CallExpressionNode, ClassNode, DecoratorNode,
-    DelNode, ErrorExpressionNode, ExceptNode, ExpressionNode, FormatStringNode, ForNode,
-    FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexExpressionNode, LambdaNode,
-    ListComprehensionNode, MemberAccessExpressionNode, ModuleNode, NameNode, ParameterCategory,
-    ParameterNode, ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceExpressionNode,
-    StringListNode, SuiteNode, TernaryExpressionNode, TupleExpressionNode,
-    TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode, WhileNode,
-    WithNode, YieldExpressionNode, YieldFromExpressionNode } from '../parser/parseNodes';
+import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentNode,
+    BinaryOperationNode, CallNode, ClassNode, DecoratorNode,
+    DelNode, ErrorNode, ExceptNode, ExpressionNode, FormatStringNode, ForNode,
+    FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexNode, LambdaNode,
+    ListComprehensionNode, MemberAccessNode, ModuleNode, NameNode, ParameterCategory,
+    ParameterNode, ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceNode,
+    StringListNode, SuiteNode, TernaryNode, TupleNode,
+    TypeAnnotationNode, UnaryOperationNode, UnpackNode, WhileNode,
+    WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { KeywordType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -610,7 +610,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    visitCall(node: CallExpressionNode): boolean {
+    visitCall(node: CallNode): boolean {
         this._getTypeOfExpression(node);
 
         this._validateIsInstanceCallNecessary(node);
@@ -750,7 +750,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitYield(node: YieldExpressionNode) {
+    visitYield(node: YieldNode) {
         const yieldType = node.expression ?
             this._getTypeOfExpression(node.expression) : NoneType.create();
 
@@ -769,7 +769,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitYieldFrom(node: YieldFromExpressionNode) {
+    visitYieldFrom(node: YieldFromNode) {
         const yieldType = this._getTypeOfExpression(node.expression);
         this._validateYieldType(node, yieldType);
 
@@ -941,7 +941,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitAugmentedAssignment(node: AugmentedAssignmentExpressionNode): boolean {
+    visitAugmentedAssignment(node: AugmentedAssignmentNode): boolean {
         // Augmented assignments are technically not expressions but statements
         // in Python, but we'll model them as expressions and rely on the expression
         // evaluator to validate them.
@@ -949,37 +949,37 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitIndex(node: IndexExpressionNode): boolean {
+    visitIndex(node: IndexNode): boolean {
         this._getTypeOfExpression(node);
         return true;
     }
 
-    visitBinaryOperation(node: BinaryExpressionNode): boolean {
+    visitBinaryOperation(node: BinaryOperationNode): boolean {
         this._getTypeOfExpression(node);
         return true;
     }
 
-    visitSlice(node: SliceExpressionNode): boolean {
+    visitSlice(node: SliceNode): boolean {
         this._getTypeOfExpression(node);
         return true;
     }
 
-    visitUnpack(node: UnpackExpressionNode): boolean {
+    visitUnpack(node: UnpackNode): boolean {
         this._getTypeOfExpression(node);
         return true;
     }
 
-    visitTuple(node: TupleExpressionNode): boolean {
+    visitTuple(node: TupleNode): boolean {
         this._getTypeOfExpression(node);
         return true;
     }
 
-    visitUnaryOperation(node: UnaryExpressionNode): boolean {
+    visitUnaryOperation(node: UnaryOperationNode): boolean {
         this._getTypeOfExpression(node);
         return true;
     }
 
-    visitTernary(node: TernaryExpressionNode): boolean {
+    visitTernary(node: TernaryNode): boolean {
         this._getTypeOfExpression(node);
         return true;
     }
@@ -1034,7 +1034,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitMemberAccess(node: MemberAccessExpressionNode) {
+    visitMemberAccess(node: MemberAccessNode) {
         this._getTypeOfExpression(node);
         this._conditionallyReportPrivateUsage(node.memberName);
 
@@ -1111,7 +1111,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return false;
     }
 
-    visitTypeAnnotation(node: TypeAnnotationExpressionNode): boolean {
+    visitTypeAnnotation(node: TypeAnnotationNode): boolean {
         // Evaluate the annotated type.
         let declaredType = this._evaluator.getTypeOfAnnotation(node.typeAnnotation);
 
@@ -1135,7 +1135,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return true;
     }
 
-    visitError(node: ErrorExpressionNode) {
+    visitError(node: ErrorNode) {
         // Get the type of the child so it's available to
         // the completion provider.
         if (node.child) {
@@ -1293,7 +1293,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     // Validates that a call to isinstance or issubclass are necessary. This is a
     // common source of programming errors.
-    private _validateIsInstanceCallNecessary(node: CallExpressionNode) {
+    private _validateIsInstanceCallNecessary(node: CallNode) {
         if (this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance === 'none') {
             return;
         }
@@ -2177,9 +2177,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         return undefined;
     }
 
-    private _validateYieldType(node: YieldExpressionNode | YieldFromExpressionNode,
-            adjustedYieldType: Type) {
-
+    private _validateYieldType(node: YieldNode | YieldFromNode, adjustedYieldType: Type) {
         let declaredYieldType: Type | undefined;
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
 

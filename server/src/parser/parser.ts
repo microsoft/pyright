@@ -23,27 +23,28 @@ import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { ArgumentCategory, ArgumentNode, AssertNode, AssignmentExpressionNode, AssignmentNode,
-    AugmentedAssignmentExpressionNode, AwaitExpressionNode, BinaryExpressionNode, BreakNode, CallExpressionNode,
+    AugmentedAssignmentNode, AwaitNode, BinaryOperationNode, BreakNode, CallNode,
     ClassNode, ConstantNode, ContinueNode, DecoratorNode, DelNode, DictionaryEntryNode,
-    DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode, ErrorExpressionCategory,
-    ErrorExpressionNode, ExceptNode, ExpressionNode, extendRange, FormatStringNode, ForNode, FunctionNode, getNextNodeId,
-    GlobalNode, IfNode, ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode,
-    IndexExpressionNode, IndexItemsNode, LambdaNode, ListComprehensionForNode,
-    ListComprehensionIfNode, ListComprehensionIterNode, ListComprehensionNode, ListNode, MemberAccessExpressionNode, ModuleNameNode,
+    DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode,
+    ErrorExpressionCategory, ErrorNode, ExceptNode, ExpressionNode, extendRange,
+    FormatStringNode, ForNode, FunctionNode, getNextNodeId, GlobalNode, IfNode, ImportAsNode,
+    ImportFromAsNode, ImportFromNode, ImportNode, IndexItemsNode, IndexNode, LambdaNode,
+    ListComprehensionForNode, ListComprehensionIfNode, ListComprehensionIterNode,
+    ListComprehensionNode, ListNode, MemberAccessNode, ModuleNameNode,
     ModuleNode, NameNode, NonlocalNode, NumberNode, ParameterCategory, ParameterNode,
-    ParseNode, ParseNodeType, PassNode, RaiseNode, ReturnNode, SetNode, SliceExpressionNode,
-    StatementListNode, StatementNode, StringListNode, StringNode, SuiteNode, TernaryExpressionNode,
-    TryNode, TupleExpressionNode, TypeAnnotationExpressionNode, UnaryExpressionNode, UnpackExpressionNode,
-    WhileNode, WithItemNode, WithNode, YieldExpressionNode, YieldFromExpressionNode } from './parseNodes';
+    ParseNode, ParseNodeType, PassNode, RaiseNode, ReturnNode, SetNode, SliceNode,
+    StatementListNode, StatementNode, StringListNode, StringNode, SuiteNode, TernaryNode,
+    TryNode, TupleNode, TypeAnnotationNode, UnaryOperationNode, UnpackNode,
+    WhileNode, WithItemNode, WithNode, YieldFromNode, YieldNode } from './parseNodes';
 import * as StringTokenUtils from './stringTokenUtils';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
-import { DedentToken, IdentifierToken, KeywordToken, KeywordType, NumberToken, OperatorToken, OperatorType,
-    StringToken, StringTokenFlags, Token, TokenType } from './tokenizerTypes';
+import { DedentToken, IdentifierToken, KeywordToken, KeywordType, NumberToken, OperatorToken,
+    OperatorType, StringToken, StringTokenFlags, Token, TokenType } from './tokenizerTypes';
 
 interface ExpressionListResult {
     list: ExpressionNode[];
     trailingComma: boolean;
-    parseError?: ErrorExpressionNode;
+    parseError?: ErrorNode;
 }
 
 export class ParseOptions {
@@ -872,7 +873,7 @@ export class Parser {
             const namePart = this._getTokenIfIdentifier();
             if (!namePart) {
                 this._addError('Expected decorator name', this._peekToken());
-                callNameExpr = ErrorExpressionNode.create(
+                callNameExpr = ErrorNode.create(
                     this._peekToken(),
                     ErrorExpressionCategory.MissingDecoratorCallName);
                 break;
@@ -883,7 +884,7 @@ export class Parser {
             if (!callNameExpr) {
                 callNameExpr = namePartNode;
             } else {
-                callNameExpr = MemberAccessExpressionNode.create(callNameExpr, namePartNode);
+                callNameExpr = MemberAccessNode.create(callNameExpr, namePartNode);
             }
 
             if (!this._consumeTokenIfType(TokenType.Dot)) {
@@ -1304,7 +1305,7 @@ export class Parser {
 
     // yield_expr: 'yield' [yield_arg]
     // yield_arg: 'from' test | testlist
-    private _parseYieldExpression(): YieldExpressionNode | YieldFromExpressionNode {
+    private _parseYieldExpression(): YieldNode | YieldFromNode {
         const yieldToken = this._getKeywordToken(KeywordType.Yield);
 
         const nextToken = this._peekToken();
@@ -1314,7 +1315,7 @@ export class Parser {
                     `Use of 'yield from' requires Python 3.3 or newer`,
                     nextToken);
             }
-            return YieldFromExpressionNode.create(yieldToken, this._parseTestExpression(true));
+            return YieldFromNode.create(yieldToken, this._parseTestExpression(true));
         }
 
         let exprList: ExpressionNode | undefined;
@@ -1325,10 +1326,10 @@ export class Parser {
             this._reportConditionalErrorForStarTupleElement(exprList);
         }
 
-        return YieldExpressionNode.create(yieldToken, exprList);
+        return YieldNode.create(yieldToken, exprList);
     }
 
-    private _tryParseYieldExpression(): YieldExpressionNode | YieldFromExpressionNode | undefined {
+    private _tryParseYieldExpression(): YieldNode | YieldFromNode | undefined {
         if (this._peekKeywordType() !== KeywordType.Yield) {
             return undefined;
         }
@@ -1437,7 +1438,7 @@ export class Parser {
         const tupleStartRange: TextRange = exprListResult.list.length > 0 ?
             exprListResult.list[0] : this._peekToken(-1);
 
-        const tupleNode = TupleExpressionNode.create(tupleStartRange);
+        const tupleNode = TupleNode.create(tupleStartRange);
         tupleNode.expressions = exprListResult.list;
         if (exprListResult.list.length > 0) {
             exprListResult.list.forEach(expr => {
@@ -1514,7 +1515,7 @@ export class Parser {
         const startToken = this._peekToken();
 
         if (allowUnpack && this._consumeTokenIfOperator(OperatorType.Multiply)) {
-            return UnpackExpressionNode.create(startToken, this._parseExpression(false));
+            return UnpackNode.create(startToken, this._parseExpression(false));
         }
 
         return this._parseBitwiseOrExpression();
@@ -1560,7 +1561,7 @@ export class Parser {
             return elseExpr;
         }
 
-        return TernaryExpressionNode.create(ifExpr, testExpr, elseExpr);
+        return TernaryNode.create(ifExpr, testExpr, elseExpr);
     }
 
     // assign_expr: (NAME := (or_test | lambdef)) | or_test
@@ -1604,7 +1605,7 @@ export class Parser {
 
         while (this._consumeTokenIfKeyword(KeywordType.Or)) {
             const rightExpr = this._parseAndTest();
-            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.Or);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.Or);
         }
 
         return leftExpr;
@@ -1619,7 +1620,7 @@ export class Parser {
 
         while (this._consumeTokenIfKeyword(KeywordType.And)) {
             const rightExpr = this._parseNotTest();
-            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.And);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.And);
         }
 
         return leftExpr;
@@ -1630,7 +1631,7 @@ export class Parser {
         const notToken = this._peekToken();
         if (this._consumeTokenIfKeyword(KeywordType.Not)) {
             const notExpr = this._parseNotTest();
-            return UnaryExpressionNode.create(notToken, notExpr, OperatorType.Not);
+            return UnaryOperationNode.create(notToken, notExpr, OperatorType.Not);
         }
 
         return this._parseComparison();
@@ -1673,7 +1674,7 @@ export class Parser {
             }
 
             const rightExpr = this._parseBitwiseOrExpression();
-            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, comparisonOperator);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, comparisonOperator);
         }
 
         return leftExpr;
@@ -1688,7 +1689,7 @@ export class Parser {
 
         while (this._consumeTokenIfOperator(OperatorType.BitwiseOr)) {
             const rightExpr = this._parseBitwiseXorExpression();
-            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.BitwiseOr);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.BitwiseOr);
         }
 
         return leftExpr;
@@ -1703,7 +1704,7 @@ export class Parser {
 
         while (this._consumeTokenIfOperator(OperatorType.BitwiseXor)) {
             const rightExpr = this._parseBitwiseAndExpression();
-            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.BitwiseXor);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.BitwiseXor);
         }
 
         return leftExpr;
@@ -1718,7 +1719,7 @@ export class Parser {
 
         while (this._consumeTokenIfOperator(OperatorType.BitwiseAnd)) {
             const rightExpr = this._parseShiftExpression();
-            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.BitwiseAnd);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.BitwiseAnd);
         }
 
         return leftExpr;
@@ -1735,7 +1736,7 @@ export class Parser {
         while (nextOperator === OperatorType.LeftShift || nextOperator === OperatorType.RightShift) {
             this._getNextToken();
             const rightExpr = this._parseArithmeticExpression();
-            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, nextOperator);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, nextOperator);
             nextOperator = this._peekOperatorType();
         }
 
@@ -1757,7 +1758,7 @@ export class Parser {
                 return rightExpr;
             }
 
-            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, nextOperator);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, nextOperator);
             nextOperator = this._peekOperatorType();
         }
 
@@ -1779,7 +1780,7 @@ export class Parser {
                 nextOperator === OperatorType.FloorDivide) {
             this._getNextToken();
             const rightExpr = this._parseArithmeticFactor();
-            leftExpr = BinaryExpressionNode.create(leftExpr, rightExpr, nextOperator);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, nextOperator);
             nextOperator = this._peekOperatorType();
         }
 
@@ -1796,7 +1797,7 @@ export class Parser {
                 nextOperator === OperatorType.BitwiseInvert) {
             this._getNextToken();
             const expression = this._parseArithmeticFactor();
-            return UnaryExpressionNode.create(nextToken, expression, nextOperator);
+            return UnaryOperationNode.create(nextToken, expression, nextOperator);
         }
 
         const leftExpr = this._parseAtomExpression();
@@ -1806,7 +1807,7 @@ export class Parser {
 
         if (this._consumeTokenIfOperator(OperatorType.Power)) {
             const rightExpr = this._parseArithmeticFactor();
-            return BinaryExpressionNode.create(leftExpr, rightExpr, OperatorType.Power);
+            return BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.Power);
         }
 
         return leftExpr;
@@ -1837,7 +1838,7 @@ export class Parser {
             // Is it a function call?
             if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
                 const argList = this._parseArgList();
-                const callNode = CallExpressionNode.create(atomExpression);
+                const callNode = CallNode.create(atomExpression);
                 callNode.arguments = argList;
                 if (argList.length > 0) {
                     argList.forEach(arg => {
@@ -1886,7 +1887,7 @@ export class Parser {
 
                 const closingToken = this._peekToken();
                 const indexItemsNode = IndexItemsNode.create(nextToken, closingToken, expressions);
-                const indexNode = IndexExpressionNode.create(atomExpression, indexItemsNode);
+                const indexNode = IndexNode.create(atomExpression, indexItemsNode);
                 extendRange(indexNode, indexNode);
 
                 if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
@@ -1904,7 +1905,7 @@ export class Parser {
                         ErrorExpressionCategory.MissingMemberAccessName,
                         'Expected member name after "."', atomExpression);
                 }
-                atomExpression = MemberAccessExpressionNode.create(
+                atomExpression = MemberAccessNode.create(
                         atomExpression, NameNode.create(memberName));
             } else {
                 break;
@@ -1912,7 +1913,7 @@ export class Parser {
         }
 
         if (awaitToken) {
-            return AwaitExpressionNode.create(awaitToken, atomExpression);
+            return AwaitNode.create(awaitToken, atomExpression);
         }
 
         return atomExpression;
@@ -1973,7 +1974,7 @@ export class Parser {
             return sliceExpressions[0]!;
         }
 
-        const sliceNode = SliceExpressionNode.create(firstToken);
+        const sliceNode = SliceNode.create(firstToken);
         sliceNode.startValue = sliceExpressions[0];
         if (sliceNode.startValue) {
             sliceNode.startValue.parent = sliceNode;
@@ -2126,10 +2127,10 @@ export class Parser {
     // child node can be passed to help the completion provider determine
     // what to do.
     private _handleExpressionParseError(category: ErrorExpressionCategory,
-            errorMsg: string, childNode?: ExpressionNode): ErrorExpressionNode {
+            errorMsg: string, childNode?: ExpressionNode): ErrorNode {
 
         this._addError(errorMsg, this._peekToken());
-        const expr = ErrorExpressionNode.create(this._peekToken(), category, childNode);
+        const expr = ErrorNode.create(this._peekToken(), category, childNode);
         this._consumeTokensUntilType(TokenType.NewLine);
         return expr;
     }
@@ -2202,7 +2203,7 @@ export class Parser {
 
     // '[' [testlist_comp] ']'
     // testlist_comp: (test | star_expr) (comp_for | (',' (test | star_expr))* [','])
-    private _parseListAtom(): ListNode | ErrorExpressionNode {
+    private _parseListAtom(): ListNode | ErrorNode {
         const startBracket = this._getNextToken();
         assert.equal(startBracket.type, TokenType.OpenBracket);
 
@@ -2379,7 +2380,7 @@ export class Parser {
 
         let trailingComma = false;
         const list: ExpressionNode[] = [];
-        let parseError: ErrorExpressionNode | undefined;
+        let parseError: ErrorNode | undefined;
 
         while (true) {
             if (terminalCheck()) {
@@ -2428,7 +2429,7 @@ export class Parser {
         if (this._consumeTokenIfType(TokenType.Colon)) {
             this._parseTypeAnnotation(() => {
                 annotationExpr = this._parseTestExpression(false);
-                leftExpr = TypeAnnotationExpressionNode.create(leftExpr, annotationExpr);
+                leftExpr = TypeAnnotationNode.create(leftExpr, annotationExpr);
 
                 if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
                     this._addError('Type annotations for variables requires Python 3.6 or newer',
@@ -2461,7 +2462,7 @@ export class Parser {
             const destExpr = Object.assign({}, leftExpr);
             destExpr.id = getNextNodeId();
 
-            return AugmentedAssignmentExpressionNode.create(leftExpr, rightExpr,
+            return AugmentedAssignmentNode.create(leftExpr, rightExpr,
                 operatorToken.operatorType, destExpr);
         }
 

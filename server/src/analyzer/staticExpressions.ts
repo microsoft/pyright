@@ -9,7 +9,7 @@
 */
 
 import { ExecutionEnvironment } from '../common/configOptions';
-import { ExpressionNode, NumberNode, ParseNodeType, TupleExpressionNode } from '../parser/parseNodes';
+import { ExpressionNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
 // Returns undefined if the expression cannot be evaluated
@@ -105,7 +105,7 @@ export function evaluateStaticBoolLikeExpression(node: ExpressionNode,
     return evaluateStaticBoolExpression(node, execEnv);
 }
 
-function _convertTupleToVersion(node: TupleExpressionNode): number | undefined {
+function _convertTupleToVersion(node: TupleNode): number | undefined {
     let comparisonVersion: number | undefined;
     if (node.expressions.length === 2) {
         if (node.expressions[0].nodeType === ParseNodeType.Number &&
