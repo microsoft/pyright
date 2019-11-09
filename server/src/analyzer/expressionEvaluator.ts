@@ -11,7 +11,7 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
+import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
@@ -19,10 +19,10 @@ import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperationNode, CallNode,
-    ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExpressionNode, IndexItemsNode,
-    IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode, MemberAccessNode,
-    NameNode, ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceNode, StringListNode,
-    TernaryNode, TupleNode, UnaryOperationNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
+    ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExpressionNode, FunctionNode,
+    IndexItemsNode, IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode,
+    MemberAccessNode, NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
+    SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -40,9 +40,9 @@ import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol, getLastTypedDeclared
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     FunctionType, FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound,
     isTypeSame, isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType,
-    OverloadedFunctionType, printObjectTypeForClass, printType, removeNoneFromUnion,
-    removeUnboundFromUnion, requiresSpecialization, Type, TypeCategory, TypeVarMap, TypeVarType,
-    UnboundType, UnknownType } from './types';
+    OverloadedFunctionEntry, OverloadedFunctionType, printObjectTypeForClass, printType,
+    PropertyType, removeNoneFromUnion, removeUnboundFromUnion, requiresSpecialization, Type, TypeCategory,
+    TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
 interface TypeResult {
@@ -186,6 +186,11 @@ export interface ClassTypeResult {
     decoratedType: Type;
 }
 
+export interface FunctionTypeResult {
+    functionType: FunctionType;
+    decoratedType: Type;
+}
+
 export interface ExpressionEvaluator {
     getType: (node: ExpressionNode, usage: EvaluatorUsage, flags: EvaluatorFlags) => Type;
     getTypeOfAnnotation: (node: ExpressionNode) => Type;
@@ -198,6 +203,7 @@ export interface ExpressionEvaluator {
     getTypeOfAssignmentStatementTarget: (node: AssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
     getTypeOfAugmentedAssignmentTarget: (node: AugmentedAssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult;
+    getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult;
 
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
 
@@ -1797,7 +1803,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 // note that the default value processing for that function should be disabled.
                 if (baseType.category === TypeCategory.Function && memberName === '__defaults__') {
                     if (usage.method === 'set') {
-                        FunctionType.setDefaultParameterCheckDisabled(baseType);
+                        baseType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
                     }
                 }
 
@@ -2653,14 +2659,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             case TypeCategory.Function: {
                 // The stdlib collections/__init__.pyi stub file defines namedtuple
                 // as a function rather than a class, so we need to check for it here.
-                if (FunctionType.getBuiltInName(callType) === 'namedtuple') {
+                if (callType.details.builtInName === 'namedtuple') {
                     addDiagnostic(
                         getFileInfo(errorNode).diagnosticSettings.reportUntypedNamedTuple,
                         DiagnosticRule.reportUntypedNamedTuple,
                         `'namedtuple' provides no types for tuple entries. Use 'NamedTuple' instead.`,
                         errorNode);
                     type = createNamedTupleType(errorNode, argList, false);
-                } else if (FunctionType.getBuiltInName(callType) === 'NewType') {
+                } else if (callType.details.builtInName === 'NewType') {
                     type = validateCallArguments(errorNode, argList, callType,
                         new TypeVarMap(), specializeReturnType);
 
@@ -2673,7 +2679,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     type = validateCallArguments(errorNode, argList, callType,
                         new TypeVarMap(), specializeReturnType);
 
-                    if (FunctionType.getBuiltInName(callType) === '__import__') {
+                    if (callType.details.builtInName === '__import__') {
                         // For the special __import__ type, we'll override the return type to be "Any".
                         // This is required because we don't know what module was imported, and we don't
                         // want to fail type checks when accessing members of the resulting module type.
@@ -2692,7 +2698,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 const functionType = findOverloadedFunctionType(errorNode, argList, callType);
 
                 if (functionType) {
-                    if (FunctionType.getBuiltInName(functionType) === 'cast' && argList.length === 2) {
+                    if (functionType.details.builtInName === 'cast' && argList.length === 2) {
                         // Verify that the cast is necessary.
                         const castToType = getTypeForArgument(argList[0]);
                         const castFromType = getTypeForArgument(argList[1]);
@@ -2999,7 +3005,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             argList: FunctionArgument[], type: FunctionType, typeVarMap: TypeVarMap): Type | undefined {
 
         let argIndex = 0;
-        const typeParams = FunctionType.getParameters(type);
+        const typeParams = type.details.parameters;
 
         // The last parameter might be a var arg dictionary. If so, strip it off.
         const varArgDictParam = typeParams.find(
@@ -5112,6 +5118,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return { classType, decoratedType };
         }
 
+        // The type wasn't cached, so we need to create a new one.
         const scope = ScopeUtils.getScopeForNode(node);
         const fileInfo = getFileInfo(node);
 
@@ -5123,10 +5130,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         classType = ClassType.create(node.name.nameToken.value, classFlags,
             node.id, ParseTreeUtils.getDocString(node.suite.statements));
 
-        // If there is no class type cached, pre-cache the class type that we
-        // just created. This is needed to handle a few circularities within
-        // the stdlib type stubs like the datetime class, which uses itself
-        // as a type parameter for one of its base classes.
+        // Pre-cache the class type that we just created. This is needed to handle
+        // a few circularities within the stdlib type stubs like the datetime class,
+        // which uses itself as a type parameter for one of its base classes.
         const oldCachedClassType = AnalyzerNodeInfo.peekExpressionType(node);
         const oldCachedDecoratedClassType = AnalyzerNodeInfo.peekExpressionType(node.name);
         AnalyzerNodeInfo.setExpressionType(node, classType);
@@ -5319,7 +5325,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // Is this a @dataclass?
         if (decoratorType.category === TypeCategory.OverloadedFunction) {
             const overloads = decoratorType.overloads;
-            if (overloads.length > 0 && FunctionType.getBuiltInName(overloads[0].type) === 'dataclass') {
+            if (overloads.length > 0 && overloads[0].type.details.builtInName === 'dataclass') {
                 // Determine whether we should skip synthesizing the init method.
                 let skipSynthesizeInit = false;
 
@@ -5347,6 +5353,421 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         return getTypeFromDecorator(decoratorNode, inputClassType);
+    }
+
+    function getTypeOfFunction(node: FunctionNode): FunctionTypeResult {
+        // Is this type already cached?
+        let functionType = AnalyzerNodeInfo.peekExpressionType(node, analysisVersion) as FunctionType;
+        let decoratedType = AnalyzerNodeInfo.peekExpressionType(node.name, analysisVersion);
+
+        if (functionType && decoratedType) {
+            return { functionType, decoratedType };
+        }
+
+        // There was no cached type, so create a new one.
+        const fileInfo = getFileInfo(node);
+
+        // Retrieve the containing class node if the function is a method.
+        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+        const containingClassType = containingClassNode ?
+            AnalyzerNodeInfo.getExpressionType(containingClassNode) as ClassType : undefined;
+        const functionDecl = AnalyzerNodeInfo.getFunctionDeclaration(node)!;
+
+        // The "__new__" magic method is not an instance method.
+        // It acts as a static method instead.
+        let functionFlags = FunctionTypeFlags.None;
+        if (node.name.nameToken.value === '__new__') {
+            functionFlags |= FunctionTypeFlags.StaticMethod;
+            functionFlags |= FunctionTypeFlags.ConstructorMethod;
+            functionFlags &= ~FunctionTypeFlags.InstanceMethod;
+        }
+
+        if (functionDecl.yieldExpressions) {
+            functionFlags |= FunctionTypeFlags.Generator;
+        }
+
+        functionType = FunctionType.create(functionFlags,
+            ParseTreeUtils.getDocString(node.suite.statements));
+
+        if (fileInfo.isBuiltInStubFile || fileInfo.isTypingStubFile) {
+            // Stash away the name of the function since we need to handle
+            // 'namedtuple', 'abstractmethod', 'dataclass' and 'NewType'
+            // specially.
+            functionType.details.builtInName = node.name.nameToken.value;
+        }
+
+        let asyncType = functionType;
+        if (node.isAsync) {
+            asyncType = createAwaitableFunction(node, functionType);
+        }
+
+        // Apply all of the decorators in reverse order.
+        decoratedType = asyncType;
+        let foundUnknown = false;
+        for (let i = node.decorators.length - 1; i >= 0; i--) {
+            const decorator = node.decorators[i];
+
+            decoratedType = applyFunctionDecorator(decoratedType, functionType, decorator);
+            if (decoratedType.category === TypeCategory.Unknown) {
+                // Report this error only on the first unknown type.
+                if (!foundUnknown) {
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
+                        DiagnosticRule.reportUntypedFunctionDecorator,
+                        `Untyped function declarator obscures type of function`,
+                        node.decorators[i].leftExpression);
+
+                    foundUnknown = true;
+                }
+            }
+        }
+
+        // Mark the class as abstract if it contains at least one abstract method.
+        if (FunctionType.isAbstractMethod(functionType) && containingClassType) {
+            ClassType.setIsAbstractClass(containingClassType);
+        }
+
+        if (containingClassNode) {
+            if (!FunctionType.isClassMethod(functionType) && !FunctionType.isStaticMethod(functionType)) {
+                // Mark the function as an instance method.
+                functionType.details.flags |= FunctionTypeFlags.InstanceMethod;
+
+                // If there's a separate async version, mark it as an instance
+                // method as well.
+                if (functionType !== asyncType) {
+                    asyncType.details.flags |= FunctionTypeFlags.InstanceMethod;
+                }
+            }
+        }
+
+        node.parameters.forEach((param: ParameterNode, index) => {
+            let paramType: Type | undefined;
+            let annotatedType: Type | undefined;
+            let concreteAnnotatedType: Type | undefined;
+            let isNoneWithoutOptional = false;
+
+            if (param.typeAnnotation) {
+                annotatedType = getTypeOfAnnotation(param.typeAnnotation);
+
+                // PEP 484 indicates that if a parameter has a default value of 'None'
+                // the type checker should assume that the type is optional (i.e. a union
+                // of the specified type and 'None').
+                if (param.defaultValue && param.defaultValue.nodeType === ParseNodeType.Constant) {
+                    if (param.defaultValue.token.keywordType === KeywordType.None) {
+                        isNoneWithoutOptional = true;
+
+                        if (!fileInfo.diagnosticSettings.strictParameterNoneValue) {
+                            annotatedType = combineTypes([annotatedType, NoneType.create()]);
+                        }
+                    }
+                }
+
+                concreteAnnotatedType = TypeUtils.specializeType(annotatedType, undefined);
+            }
+
+            let defaultValueType: Type | undefined;
+            if (param.defaultValue) {
+                defaultValueType = getType(param.defaultValue, { method: 'get', expectedType: annotatedType },
+                    EvaluatorFlags.ConvertEllipsisToAny);
+            }
+
+            if (param.typeAnnotation && annotatedType) {
+                // If there was both a type annotation and a default value, verify
+                // that the default value matches the annotation.
+                if (param.defaultValue && defaultValueType && concreteAnnotatedType) {
+                    const diagAddendum = new DiagnosticAddendum();
+
+                    if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType,
+                            diagAddendum, importLookup)) {
+
+                        const diag = addError(
+                            `Value of type '${ printType(defaultValueType) }' cannot` +
+                                ` be assigned to parameter of type '${ printType(annotatedType) }'` +
+                                diagAddendum.getString(),
+                            param.defaultValue);
+
+                        if (isNoneWithoutOptional) {
+                            const addOptionalAction: AddMissingOptionalToParamAction = {
+                                action: 'pyright.addoptionalforparam',
+                                offsetOfTypeNode: param.typeAnnotation.start + 1
+                            };
+                            if (diag) {
+                                diag.addAction(addOptionalAction);
+                            }
+                        }
+                    }
+                }
+
+                paramType = annotatedType;
+            } else if (index === 0 && (
+                    FunctionType.isInstanceMethod(functionType) ||
+                    FunctionType.isClassMethod(functionType) ||
+                    FunctionType.isConstructorMethod(functionType))) {
+
+                // Specify type of "self" or "cls" parameter for instance or class methods
+                // if the type is not explicitly provided.
+                if (containingClassType) {
+                    // Don't specialize the "self" for protocol classes because type
+                    // comparisons will fail during structural typing analysis.
+                    if (containingClassType && !ClassType.isProtocol(containingClassType)) {
+                        if (FunctionType.isInstanceMethod(functionType)) {
+                            const specializedClassType = TypeUtils.selfSpecializeClassType(containingClassType);
+                            paramType = ObjectType.create(specializedClassType);
+                        } else if (FunctionType.isClassMethod(functionType) ||
+                                FunctionType.isConstructorMethod(functionType)) {
+
+                            // For class methods, the cls parameter is allowed to skip the
+                            // abstract class test because the caller is possibly passing
+                            // in a non-abstract subclass.
+                            paramType = TypeUtils.selfSpecializeClassType(containingClassType, true);
+                        }
+                    }
+                }
+            } else {
+                // There is no annotation, and we can't infer the type.
+                if (param.name) {
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportUnknownParameterType,
+                        DiagnosticRule.reportUnknownParameterType,
+                        `Type of '${ param.name.nameToken.value }' is unknown`,
+                        param.name);
+                }
+            }
+
+            const functionParam: FunctionParameter = {
+                category: param.category,
+                name: param.name ? param.name.nameToken.value : undefined,
+                hasDefault: !!param.defaultValue,
+                type: paramType || UnknownType.create()
+            };
+
+            FunctionType.addParameter(functionType, functionParam);
+
+            if (param.name) {
+                const specializedParamType = TypeUtils.specializeType(functionParam.type, undefined);
+
+                // If the type contains type variables, specialize them now
+                // so we convert them to a concrete type (or unknown if there
+                // is no bound or constraint).
+                const variadicParamType = transformVariadicParamType(node,
+                    param.category, specializedParamType);
+                updateExpressionTypeForNode(param.name, variadicParamType);
+            }
+        });
+
+        // If there was a defined return type, analyze that first so when we
+        // walk the contents of the function, return statements can be
+        // validated against this type.
+        if (node.returnTypeAnnotation) {
+            const returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
+            FunctionType.setDeclaredReturnType(functionType, returnType);
+        }
+
+        // If there was no decorator, see if there are any overloads provided
+        // by previous function declarations.
+        if (decoratedType === functionType) {
+            const overloadedType = addOverloadsToFunctionType(node, decoratedType);
+            updateExpressionTypeForNode(node.name, overloadedType);
+        } else {
+            updateExpressionTypeForNode(node.name, decoratedType);
+        }
+
+        return { functionType, decoratedType };
+    }
+
+    // Transforms the parameter type based on its category. If it's a simple parameter,
+    // no transform is applied. If it's a var-arg or keyword-arg parameter, the type
+    // is wrapped in a List or Dict.
+    function transformVariadicParamType(node: ParseNode, paramCategory: ParameterCategory, type: Type): Type {
+        switch (paramCategory) {
+            case ParameterCategory.Simple: {
+                return type;
+            }
+
+            case ParameterCategory.VarArgList: {
+                const listType = getBuiltInType(node, 'List');
+
+                if (listType.category === TypeCategory.Class) {
+                    return ObjectType.create(ClassType.cloneForSpecialization(listType, [type]));
+                }
+
+                return UnknownType.create();
+            }
+
+            case ParameterCategory.VarArgDictionary: {
+                const dictType = getBuiltInType(node, 'Dict');
+                const strType = getBuiltInObject(node, 'str');
+
+                if (dictType.category === TypeCategory.Class && strType.category === TypeCategory.Object) {
+                    return ObjectType.create(ClassType.cloneForSpecialization(dictType, [strType, type]));
+                }
+
+                return UnknownType.create();
+            }
+        }
+    }
+
+    // Transforms the input function type into an output type based on the
+    // decorator function described by the decoratorNode.
+    function applyFunctionDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
+            decoratorNode: DecoratorNode): Type {
+
+        const decoratorType = getType(decoratorNode.leftExpression);
+
+        // Special-case the "overload" because it has no definition.
+        if (decoratorType.category === TypeCategory.Class && decoratorType.details.name === 'overload') {
+            if (inputFunctionType.category === TypeCategory.Function) {
+                inputFunctionType.details.flags |= FunctionTypeFlags.Overloaded;
+                return inputFunctionType;
+            }
+        }
+
+        const returnType = getTypeFromDecorator(decoratorNode, inputFunctionType);
+
+        // Check for some built-in decorator types with known semantics.
+        if (decoratorType.category === TypeCategory.Function) {
+            if (decoratorType.details.builtInName === 'abstractmethod') {
+                originalFunctionType.details.flags |= FunctionTypeFlags.AbstractMethod;
+                return inputFunctionType;
+            }
+
+            // Handle property setters and deleters.
+            if (decoratorNode.leftExpression.nodeType === ParseNodeType.MemberAccess) {
+                const baseType = getType(decoratorNode.leftExpression.leftExpression);
+                if (baseType.category === TypeCategory.Property) {
+                    const memberName = decoratorNode.leftExpression.memberName.nameToken.value;
+                    if (memberName === 'setter') {
+                        baseType.setter = originalFunctionType;
+                        return baseType;
+                    } else if (memberName === 'deleter') {
+                        baseType.deleter = originalFunctionType;
+                        return baseType;
+                    }
+                }
+            }
+
+        } else if (decoratorType.category === TypeCategory.Class) {
+            if (ClassType.isBuiltIn(decoratorType)) {
+                switch (decoratorType.details.name) {
+                    case 'staticmethod': {
+                        originalFunctionType.details.flags |= FunctionTypeFlags.StaticMethod;
+                        return inputFunctionType;
+                    }
+
+                    case 'classmethod': {
+                        originalFunctionType.details.flags |= FunctionTypeFlags.ClassMethod;
+                        return inputFunctionType;
+                    }
+
+                    case 'property':
+                    case 'abstractproperty': {
+                        if (inputFunctionType.category === TypeCategory.Function) {
+                            // Allocate a property only during the first analysis pass.
+                            // Otherwise the analysis won't converge if there are setters
+                            // and deleters applied to the property.
+                            const oldPropertyType = AnalyzerNodeInfo.getExpressionType(decoratorNode);
+                            if (oldPropertyType) {
+                                return oldPropertyType;
+                            }
+                            const newProperty = PropertyType.create(inputFunctionType);
+                            AnalyzerNodeInfo.setExpressionType(decoratorNode, newProperty);
+                            return newProperty;
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        return returnType;
+    }
+
+    // Given a function node and the function type associated with it, this
+    // method search for prior function nodes that are marked as @overload
+    // and creates an OverloadedFunctionType that includes this function and
+    // all previous ones.
+    function addOverloadsToFunctionType(node: FunctionNode, type: FunctionType): Type {
+        const symbolWithScope = lookUpSymbolRecursive(node, node.name.nameToken.value);
+        if (symbolWithScope) {
+            const decls = symbolWithScope.symbol.getDeclarations();
+
+            // Find this function's declaration.
+            let declIndex = decls.findIndex(decl => {
+                return (decl.type === DeclarationType.Function || decl.type === DeclarationType.Method) && decl.node === node;
+            });
+            if (declIndex > 0) {
+                const overloadedTypes: OverloadedFunctionEntry[] = [{ type, typeSourceId: decls[declIndex].node.id }];
+                while (declIndex > 0) {
+                    const declType = AnalyzerNodeInfo.getExpressionType(decls[declIndex - 1].node);
+                    if (!declType || declType.category !== TypeCategory.Function || !FunctionType.isOverloaded(declType)) {
+                        break;
+                    }
+
+                    overloadedTypes.unshift({ type: declType, typeSourceId: decls[declIndex - 1].node.id });
+                    declIndex--;
+                }
+
+                if (overloadedTypes.length > 1) {
+                    // Create a new overloaded type that copies the contents of the previous
+                    // one and adds a new function.
+                    const newOverload = OverloadedFunctionType.create();
+                    newOverload.overloads = overloadedTypes;
+                    return newOverload;
+                }
+            }
+        }
+
+        return type;
+    }
+
+    function createAwaitableFunction(node: FunctionNode, functionType: FunctionType): FunctionType {
+        const returnType = FunctionType.getEffectiveReturnType(functionType);
+
+        let awaitableReturnType: Type | undefined;
+
+        if (returnType.category === TypeCategory.Object) {
+            const classType = returnType.classType;
+            if (ClassType.isBuiltIn(classType)) {
+                if (classType.details.name === 'Generator') {
+                    // If the return type is a Generator, change it to an AsyncGenerator.
+                    const asyncGeneratorType = getTypingType(node, 'AsyncGenerator');
+                    if (asyncGeneratorType && asyncGeneratorType.category === TypeCategory.Class) {
+                        const typeArgs: Type[] = [];
+                        const generatorTypeArgs = ClassType.getTypeArguments(classType);
+                        if (generatorTypeArgs && generatorTypeArgs.length > 0) {
+                            typeArgs.push(generatorTypeArgs[0]);
+                        }
+                        if (generatorTypeArgs && generatorTypeArgs.length > 1) {
+                            typeArgs.push(generatorTypeArgs[1]);
+                        }
+                        awaitableReturnType = ObjectType.create(
+                            ClassType.cloneForSpecialization(asyncGeneratorType, typeArgs));
+                    }
+
+                } else if (classType.details.name === 'AsyncGenerator') {
+                    // If it's already an AsyncGenerator, leave it as is.
+                    awaitableReturnType = returnType;
+                }
+            }
+        }
+
+        if (!awaitableReturnType) {
+            const awaitableType = getTypingType(node, 'Awaitable');
+            if (awaitableType && awaitableType.category === TypeCategory.Class) {
+                awaitableReturnType = ObjectType.create(
+                    ClassType.cloneForSpecialization(awaitableType, [returnType]));
+            } else {
+                awaitableReturnType = UnknownType.create();
+            }
+        }
+
+        // Clone the original function and replace its return type with an
+        // Awaitable[<returnType>].
+        const awaitableFunctionType = FunctionType.clone(functionType);
+        FunctionType.setDeclaredReturnType(awaitableFunctionType, awaitableReturnType);
+
+        return awaitableFunctionType;
     }
 
     function getTypeOfAssignmentTarget(target: ExpressionNode): Type | undefined {
@@ -6148,6 +6569,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         getTypeOfAssignmentStatementTarget,
         getTypeOfAugmentedAssignmentTarget,
         getTypeOfClass,
+        getTypeOfFunction,
         getTypingType,
         getDeclaredTypeForExpression,
         isAnnotationLiteralValue,

@@ -176,8 +176,8 @@ export function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType
     }
 
     let canOverride = true;
-    const baseParams = FunctionType.getParameters(baseMethod);
-    const overrideParams = FunctionType.getParameters(overrideMethod);
+    const baseParams = baseMethod.details.parameters;
+    const overrideParams = overrideMethod.details.parameters;
 
     if (baseParams.length !== overrideParams.length) {
         diag.addMessage(`Parameter count mismatch: base method has ` +
@@ -504,7 +504,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                 ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
             const memberType = newMemberInfo ? getTypeOfMember(newMemberInfo, importLookup) : undefined;
             if (memberType && memberType.category === TypeCategory.Function) {
-                FunctionType.getParameters(memberType).forEach((param, index) => {
+                memberType.details.parameters.forEach((param, index) => {
                     // Skip the 'cls' parameter.
                     if (index > 0) {
                         FunctionType.addParameter(constructorFunction, param);
@@ -515,7 +515,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
                     ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
                 const initMemberType = initMemberInfo ? getTypeOfMember(initMemberInfo, importLookup) : undefined;
                 if (initMemberType && initMemberType.category === TypeCategory.Function) {
-                    FunctionType.getParameters(initMemberType).forEach((param, index) => {
+                    initMemberType.details.parameters.forEach((param, index) => {
                         // Skip the 'self' parameter.
                         if (index > 0) {
                             FunctionType.addParameter(constructorFunction, param);
@@ -1609,8 +1609,8 @@ function _partiallySpecializeFunctionForBoundClassOrObject(
         buildTypeVarMapFromSpecializedClass(classType) :
         new TypeVarMap();
 
-    if (FunctionType.getParameterCount(memberType) > 0) {
-        const firstParam = FunctionType.getParameters(memberType)[0];
+    if (memberType.details.parameters.length > 0) {
+        const firstParam = memberType.details.parameters[0];
 
         // Fill out the typeVarMap.
         canAssignType(firstParam.type, baseType, new DiagnosticAddendum(),
@@ -1629,14 +1629,14 @@ function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
 
     let canAssign = true;
 
-    const srcParamCount = FunctionType.getParameterCount(srcType);
-    const destParamCount = FunctionType.getParameterCount(destType);
+    const srcParamCount = srcType.details.parameters.length;
+    const destParamCount = destType.details.parameters.length;
     const minParamCount = Math.min(srcParamCount, destParamCount);
 
     // Match as many input parameters as we can.
     for (let paramIndex = 0; paramIndex < minParamCount; paramIndex++) {
-        const srcParam = FunctionType.getParameters(srcType)[paramIndex];
-        const destParam = FunctionType.getParameters(destType)[paramIndex];
+        const srcParam = srcType.details.parameters[paramIndex];
+        const destParam = destType.details.parameters[paramIndex];
         const paramDiag = diag.createAddendum();
 
         // If the dest or source involve var-args, no need to continue matching.
@@ -1667,8 +1667,8 @@ function _canAssignFunction(destType: FunctionType, srcType: FunctionType,
         }
     }
 
-    const srcParams = FunctionType.getParameters(srcType);
-    const destParams = FunctionType.getParameters(destType);
+    const srcParams = srcType.details.parameters;
+    const destParams = destType.details.parameters;
 
     const srcHasVarArgs = srcParams.find(
         param => param.category !== ParameterCategory.Simple) !== undefined;
@@ -2179,7 +2179,7 @@ function _specializeFunctionType(functionType: FunctionType,
         returnType: specializedReturnType
     };
 
-    for (let i = 0; i < FunctionType.getParameterCount(functionType); i++) {
+    for (let i = 0; i < functionType.details.parameters.length; i++) {
         const paramType = FunctionType.getEffectiveParameterType(functionType, i);
         const specializedType = specializeType(paramType,
             typeVarMap, makeConcrete, recursionLevel + 1);

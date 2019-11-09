@@ -178,13 +178,13 @@ export class HoverProvider {
                 this._addResultsPart(parts, docString);
             }
         } else if (type.category === TypeCategory.Function) {
-            const docString = FunctionType.getDocString(type);
+            const docString = type.details.docString;
             if (docString) {
                 this._addResultsPart(parts, docString);
             }
         } else if (type.category === TypeCategory.OverloadedFunction) {
             type.overloads.forEach(overload => {
-                const docString = FunctionType.getDocString(overload.type);
+                const docString = overload.type.details.docString;
                 if (docString) {
                     this._addResultsPart(parts, docString);
                 }

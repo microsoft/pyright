@@ -289,24 +289,12 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
-        // The "__new__" magic method is not an instance method.
-        // It acts as a static method instead.
-        let functionFlags = FunctionTypeFlags.None;
-        if (node.name.nameToken.value === '__new__') {
-            functionFlags |= FunctionTypeFlags.StaticMethod;
-            functionFlags |= FunctionTypeFlags.ConstructorMethod;
-            functionFlags &= ~FunctionTypeFlags.InstanceMethod;
-        }
-
-        const functionType = FunctionType.create(functionFlags,
-            ParseTreeUtils.getDocString(node.suite.statements));
 
         const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
-        let functionDeclaration: FunctionDeclaration | undefined;
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         const declarationType = containingClassNode ?
             DeclarationType.Method : DeclarationType.Function;
-        functionDeclaration = {
+        const functionDeclaration: FunctionDeclaration = {
             type: declarationType,
             node,
             path: this._fileInfo.filePath,
@@ -327,15 +315,6 @@ export class Binder extends ParseTreeWalker {
                 this.walk(param.defaultValue);
             }
 
-            const typeParam: FunctionParameter = {
-                category: param.category,
-                name: param.name ? param.name.nameToken.value : undefined,
-                hasDefault: !!param.defaultValue,
-                type: UnknownType.create()
-            };
-
-            FunctionType.addParameter(functionType, typeParam);
-
             if (param.typeAnnotation) {
                 this.walk(param.typeAnnotation);
             }
@@ -344,8 +323,6 @@ export class Binder extends ParseTreeWalker {
         if (node.returnTypeAnnotation) {
             this.walk(node.returnTypeAnnotation);
         }
-
-        AnalyzerNodeInfo.setExpressionType(node, functionType, true);
 
         // Find the function or module that contains this function and use its scope.
         // We can't simply use this._currentScope because functions within a class use
@@ -419,10 +396,6 @@ export class Binder extends ParseTreeWalker {
 
                 // Walk the statements that make up the function.
                 this.walk(node.suite);
-
-                if (functionDeclaration!.yieldExpressions) {
-                    FunctionType.setIsGenerator(functionType);
-                }
 
                 // Associate the code flow node at the end of the suite with
                 // the suite.

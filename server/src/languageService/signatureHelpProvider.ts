@@ -184,7 +184,7 @@ export class SignatureHelpProvider {
     private static _makeSignature(functionType: FunctionType): SignatureInfo {
         const stringParts = printFunctionParts(functionType);
         const parameters: ParamInfo[] = [];
-        const functionDocString = FunctionType.getDocString(functionType);
+        const functionDocString = functionType.details.docString;
         let label = '(';
 
         stringParts[0].forEach((paramString, paramIndex) => {

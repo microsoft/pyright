@@ -694,7 +694,7 @@ export class CompletionProvider {
                     } else if (type.category === TypeCategory.Class) {
                         documentation = type.details.docString;
                     } else if (type.category === TypeCategory.Function) {
-                        documentation = FunctionType.getDocString(type);
+                        documentation = type.details.docString;
                     }
                 }
             }

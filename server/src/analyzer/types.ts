@@ -632,10 +632,6 @@ export namespace FunctionType {
         return (type.details.flags & FunctionTypeFlags.InstanceMethod) !== 0;
     }
 
-    export function setIsInstanceMethod(type: FunctionType) {
-        type.details.flags |= FunctionTypeFlags.InstanceMethod;
-    }
-
     export function isConstructorMethod(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.ConstructorMethod) !== 0;
     }
@@ -644,80 +640,28 @@ export namespace FunctionType {
         return (type.details.flags & FunctionTypeFlags.StaticMethod) !== 0;
     }
 
-    export function setIsStaticMethod(type: FunctionType) {
-        type.details.flags |= FunctionTypeFlags.StaticMethod;
-    }
-
     export function isClassMethod(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.ClassMethod) !== 0;
-    }
-
-    export function setIsClassMethod(type: FunctionType) {
-        type.details.flags |= FunctionTypeFlags.ClassMethod;
     }
 
     export function isAbstractMethod(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.AbstractMethod) !== 0;
     }
 
-    export function setIsAbstractMethod(type: FunctionType) {
-        type.details.flags |= FunctionTypeFlags.AbstractMethod;
-    }
-
     export function isGenerator(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.Generator) !== 0;
-    }
-
-    export function setIsGenerator(type: FunctionType) {
-        type.details.flags |= FunctionTypeFlags.Generator;
     }
 
     export function isSynthesizedMethod(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.SynthesizedMethod) !== 0;
     }
 
-    export function setIsOverloaded(type: FunctionType) {
-        type.details.flags |= FunctionTypeFlags.Overloaded;
-    }
-
     export function isOverloaded(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.Overloaded) !== 0;
     }
 
-    export function getBuiltInName(type: FunctionType) {
-        return type.details.builtInName;
-    }
-
-    export function setBuiltInName(type: FunctionType, name: string) {
-        type.details.builtInName = name;
-    }
-
-    export function getDocString(type: FunctionType) {
-        return type.details.docString;
-    }
-
-    export function getParameters(type: FunctionType) {
-        return type.details.parameters;
-    }
-
-    export function getParameterCount(type: FunctionType) {
-        return type.details.parameters.length;
-    }
-
     export function isDefaultParameterCheckDisabled(type: FunctionType) {
         return (type.details.flags & FunctionTypeFlags.DisableDefaultChecks) !== 0;
-    }
-
-    export function setDefaultParameterCheckDisabled(type: FunctionType) {
-        type.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
-    }
-
-    export function setParameterType(type: FunctionType, index: number, paramType: Type): boolean {
-        assert(index < type.details.parameters.length);
-        const typeChanged = !isTypeSame(paramType, type.details.parameters[index].type);
-        type.details.parameters[index].type = paramType;
-
-        return typeChanged;
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {
@@ -742,12 +686,8 @@ export namespace FunctionType {
             type.details.declaredReturnType;
     }
 
-    export function setDeclaredReturnType(type: FunctionType, returnType?: Type): boolean {
-        const typeChanged = !type.details.declaredReturnType || !returnType ||
-            !isTypeSame(type.details.declaredReturnType, returnType);
+    export function setDeclaredReturnType(type: FunctionType, returnType?: Type) {
         type.details.declaredReturnType = returnType;
-
-        return typeChanged;
     }
 
     export function getEffectiveReturnType(type: FunctionType) {
@@ -981,7 +921,7 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
                 return false;
             }
 
-            for (let i = 0; i < FunctionType.getParameters(type).length; i ++) {
+            for (let i = 0; i < type.details.parameters.length; i ++) {
                 if (requiresSpecialization(FunctionType.getEffectiveParameterType(type, i), recursionCount + 1)) {
                     return true;
                 }
@@ -1046,26 +986,15 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 return false;
             }
 
-            // If neither of the classes have type arguments, they're the same.
-            const type1TypeArgs = ClassType.getTypeArguments(type1);
-            const type2TypeArgs = ClassType.getTypeArguments(classType2);
-            if (!type1TypeArgs && !type2TypeArgs) {
-                return true;
-            }
-
-            // If one of them is missing type arguments, they're not the same.
-            if (!type1TypeArgs || !type2TypeArgs) {
-                return false;
-            }
-
+            // Make sure the type args match.
+            const type1TypeArgs = ClassType.getTypeArguments(type1) || [];
+            const type2TypeArgs = ClassType.getTypeArguments(classType2) || [];
             const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
 
-            // Make sure the type args match.
             for (let i = 0; i < typeArgCount; i++) {
-                const typeArg1 = i < type1TypeArgs.length ?
-                    type1TypeArgs[i] : AnyType.create();
-                const typeArg2 = i < type2TypeArgs.length ?
-                    type2TypeArgs[i] : AnyType.create();
+                // Assume that missing type args are "Any".
+                const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
+                const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
 
                 if (!isTypeSame(typeArg1, typeArg2, recursionCount + 1)) {
                     return false;
@@ -1088,8 +1017,8 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
         case TypeCategory.Function: {
             // Make sure the parameter counts match.
             const functionType2 = type2 as FunctionType;
-            const params1 = FunctionType.getParameters(type1);
-            const params2 = FunctionType.getParameters(functionType2);
+            const params1 = type1.details.parameters;
+            const params2 = functionType2.details.parameters;
 
             if (params1.length !== params2.length) {
                 return false;
@@ -1266,7 +1195,7 @@ export function printLiteralValue(type: ObjectType): string {
 }
 
 export function printFunctionParts(type: FunctionType, recursionCount = 0): [string[], string] {
-    const paramTypeStrings = FunctionType.getParameters(type).map((param, index) => {
+    const paramTypeStrings = type.details.parameters.map((param, index) => {
         let paramString = '';
         if (param.category === ParameterCategory.VarArgList) {
             paramString += '*';
