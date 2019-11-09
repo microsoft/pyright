@@ -40,7 +40,7 @@ import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
 import { Symbol, SymbolTable } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
-import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
+import { getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionEntry,
     OverloadedFunctionType, printType, PropertyType, removeNoneFromUnion,
@@ -858,8 +858,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         return combineTypes(entryTypes);
                     }
 
-                    return this._validateExceptionType(
-                        subType, node.typeExpression!);
+                    return this._validateExceptionType(subType, node.typeExpression!);
                 });
 
                 this._evaluator.updateExpressionTypeForNode(node.name, exceptionType);
@@ -879,52 +878,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitAssignment(node: AssignmentNode): boolean {
-        // Special-case the typing.pyi file, which contains some special
-        // types that the type analyzer needs to interpret differently.
-        if (this._handleTypingStubAssignment(node)) {
-            return false;
-        }
-
-        // Determine whether there is a declared type.
-        const declaredType = this._evaluator.getDeclaredTypeForExpression(node.leftExpression);
-
-        // Evaluate the type of the right-hand side.
-        // An assignment of ellipsis means "Any" within a type stub file.
-        let srcType = this._getTypeOfExpression(node.rightExpression,
-            this._fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined,
-            declaredType);
-
-        // Determine if the RHS is a constant boolean expression.
-        // If so, assign it a literal type.
-        const constExprValue = StaticExpressions.evaluateStaticBoolExpression(
-            node.rightExpression, this._fileInfo.executionEnvironment);
-        if (constExprValue !== undefined) {
-            const boolType = ScopeUtils.getBuiltInObject(this._currentScope, 'bool',
-                this._fileInfo.importLookup);
-            if (boolType.category === TypeCategory.Object) {
-                srcType = ObjectType.cloneWithLiteral(boolType, constExprValue);
-            }
-        }
-
-        // If there was a declared type, make sure the RHS value is compatible.
-        if (declaredType) {
-            const diagAddendum = new DiagnosticAddendum();
-            if (TypeUtils.canAssignType(declaredType, srcType, diagAddendum,
-                    this._fileInfo.importLookup)) {
-
-                // Constrain the resulting type to match the declared type.
-                srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
-                    declaredType, srcType, this._fileInfo.importLookup);
-            }
-        }
-
-        // If this is an enum, transform the type as required.
-        let effectiveType = srcType;
-        if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
-            effectiveType = this._transformTypeForPossibleEnumClass(
-                node.leftExpression, effectiveType);
-        }
-
+        this._evaluator.getTypeOfAssignmentStatementTarget(node);
         if (node.typeAnnotationComment) {
             // Evaluate the annotated type.
             const declaredType = this._evaluator.getTypeOfAnnotation(node.typeAnnotationComment);
@@ -932,7 +886,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 node.typeAnnotationComment);
         }
 
-        this._evaluator.assignTypeToExpression(node.leftExpression, effectiveType, node.rightExpression);
         return true;
     }
 
@@ -942,10 +895,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitAugmentedAssignment(node: AugmentedAssignmentNode): boolean {
-        // Augmented assignments are technically not expressions but statements
-        // in Python, but we'll model them as expressions and rely on the expression
-        // evaluator to validate them.
-        this._getTypeOfExpression(node);
+        this._evaluator.getTypeOfAugmentedAssignmentTarget(node);
         return true;
     }
 
@@ -1117,7 +1067,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         // If this is within an enum, transform the type.
         if (node.valueExpression && node.valueExpression.nodeType === ParseNodeType.Name) {
-            declaredType = this._transformTypeForPossibleEnumClass(
+            declaredType = this._evaluator.transformTypeForPossibleEnumClass(
                 node.valueExpression, declaredType);
         }
 
@@ -1433,107 +1383,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     `is always ${ callType } of '${ printType(getTestType()) }'`,
                 node);
         }
-    }
-
-    // Handles some special-case assignment statements that are found
-    // within the typings.pyi file.
-    private _handleTypingStubAssignment(node: AssignmentNode): boolean {
-        if (!this._fileInfo.isTypingStubFile) {
-            return false;
-        }
-
-        let nameNode: NameNode | undefined;
-        if (node.leftExpression.nodeType === ParseNodeType.Name) {
-            nameNode = node.leftExpression;
-        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
-            node.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
-            nameNode = node.leftExpression.valueExpression;
-        }
-
-        if (nameNode) {
-            const assignedName = nameNode.nameToken.value;
-            let specialType: Type | undefined;
-
-            if (assignedName === 'Any') {
-                specialType = AnyType.create();
-            } else {
-                const specialTypes: { [name: string]: AliasMapEntry } = {
-                    'overload': { alias: '', module: 'builtins' },
-                    'TypeVar': { alias: '', module: 'builtins' },
-                    '_promote': { alias: '', module: 'builtins' },
-                    'no_type_check': { alias: '', module: 'builtins' },
-                    'NoReturn': { alias: '', module: 'builtins' },
-                    'Union': { alias: '', module: 'builtins' },
-                    'Optional': { alias: '', module: 'builtins' },
-                    'List': { alias: 'list', module: 'builtins' },
-                    'Dict': { alias: 'dict', module: 'builtins' },
-                    'DefaultDict': { alias: 'defaultdict', module: 'collections' },
-                    'Set': { alias: 'set', module: 'builtins' },
-                    'FrozenSet': { alias: 'frozenset', module: 'builtins' },
-                    'Deque': { alias: 'deque', module: 'collections' },
-                    'ChainMap': { alias: 'ChainMap', module: 'collections' },
-                    'Tuple': { alias: 'tuple', module: 'builtins' },
-                    'Generic': { alias: '', module: 'builtins' },
-                    'Protocol': { alias: '', module: 'builtins' },
-                    'Callable': { alias: '', module: 'builtins' },
-                    'Type': { alias: 'type', module: 'builtins' },
-                    'ClassVar': { alias: '', module: 'builtins' },
-                    'Final': { alias: '', module: 'builtins' },
-                    'Literal': { alias: '', module: 'builtins' },
-                    'TypedDict': { alias: '_TypedDict', module: 'self' }
-                };
-
-                const aliasMapEntry = specialTypes[assignedName];
-                if (aliasMapEntry) {
-                    // The binder should have already synthesized the class.
-                    const specialClassType = AnalyzerNodeInfo.getExpressionType(nameNode)!;
-                    assert(specialClassType !== undefined && specialClassType.category === TypeCategory.Class);
-                    specialType = specialClassType;
-
-                    const baseClassName = aliasMapEntry.alias ? aliasMapEntry.alias : 'object';
-
-                    let aliasClass: Type | undefined;
-                    if (aliasMapEntry.module === 'builtins') {
-                        aliasClass = ScopeUtils.getBuiltInType(this._currentScope, baseClassName,
-                            this._fileInfo.importLookup);
-                    } else if (aliasMapEntry.module === 'collections') {
-                        // The typing.pyi file imports collections.
-                        const collectionsSymbolTable = this._findCollectionsImportSymbolTable();
-                        if (collectionsSymbolTable) {
-                            const symbol = collectionsSymbolTable.get(baseClassName);
-                            if (symbol) {
-                                aliasClass = getEffectiveTypeOfSymbol(symbol, this._fileInfo.importLookup);
-                            }
-                        }
-                    } else if (specialTypes[assignedName].module === 'self') {
-                        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(baseClassName);
-                        if (symbolWithScope) {
-                            aliasClass = getEffectiveTypeOfSymbol(
-                                symbolWithScope.symbol, this._fileInfo.importLookup);
-                        }
-                    }
-
-                    if (aliasClass && aliasClass.category === TypeCategory.Class &&
-                            specialClassType.category === TypeCategory.Class) {
-
-                        if (ClassType.updateBaseClassType(specialClassType, 0, aliasClass)) {
-                            this._setAnalysisChanged('Base class update for special type');
-                        }
-
-                        if (aliasMapEntry.alias) {
-                            ClassType.setAliasClass(specialClassType, aliasClass);
-                        }
-                    }
-                }
-            }
-
-            if (specialType) {
-                this._evaluator.assignTypeToNameNode(nameNode, specialType);
-                return true;
-            }
-        }
-
-        return false;
     }
 
     // Transforms the parameter type based on its category. If it's a simple parameter,
@@ -2166,17 +2015,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
     }
 
-    private _findCollectionsImportSymbolTable(): SymbolTable | undefined {
-        if (this._fileInfo.collectionsModulePath) {
-            const lookupResult = this._fileInfo.importLookup(this._fileInfo.collectionsModulePath);
-            if (lookupResult) {
-                return lookupResult.symbolTable;
-            }
-        }
-
-        return undefined;
-    }
-
     private _validateYieldType(node: YieldNode | YieldFromNode, adjustedYieldType: Type) {
         let declaredYieldType: Type | undefined;
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
@@ -2338,43 +2176,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
         }
 
         return type;
-    }
-
-    private _transformTypeForPossibleEnumClass(node: NameNode, typeOfExpr: Type): Type {
-        const enumClass = this._getEnclosingEnumClassInfo(node);
-
-        if (enumClass) {
-            // The type of each enumerated item is an instance of the enum class.
-            return ObjectType.create(enumClass);
-        }
-
-        return typeOfExpr;
-    }
-
-    // If the node is within a class that derives from the metaclass
-    // "EnumMeta", we need to treat assignments differently.
-    private _getEnclosingEnumClassInfo(node: ParseNode): ClassType | undefined {
-        const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
-        if (enclosingClassNode) {
-            const enumClass = AnalyzerNodeInfo.getExpressionType(enclosingClassNode) as ClassType;
-            assert(enumClass.category === TypeCategory.Class);
-
-            // Handle several built-in classes specially. We don't
-            // want to interpret their class variables as enumerations.
-            if (this._fileInfo.isStubFile) {
-                const className = ClassType.getClassName(enumClass);
-                const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
-                if (builtInEnumClasses.find(c => c === className)) {
-                    return undefined;
-                }
-            }
-
-            if (TypeUtils.isEnumClass(enumClass)) {
-                return enumClass;
-            }
-        }
-
-        return undefined;
     }
 
     private _enterScope(node: AnalyzerNodeInfo.ScopedNode, callback: () => void) {

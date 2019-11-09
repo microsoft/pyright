@@ -17,13 +17,11 @@ import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import { ArgumentCategory, AugmentedAssignmentNode, BinaryOperationNode,
-    CallNode, ClassNode, ConstantNode, DecoratorNode, DictionaryNode,
-    ExpressionNode, IndexItemsNode, IndexNode, isExpressionNode,
-    LambdaNode, ListComprehensionNode, ListNode, MemberAccessNode, NameNode,
-    ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceNode,
-    StringListNode, TernaryNode, TupleNode, UnaryOperationNode,
-    YieldFromNode, YieldNode } from '../parser/parseNodes';
+import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperationNode, CallNode,
+    ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExpressionNode, IndexItemsNode,
+    IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode, MemberAccessNode,
+    NameNode, ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceNode, StringListNode,
+    TernaryNode, TupleNode, UnaryOperationNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -34,6 +32,7 @@ import { getInferredTypeOfDeclaration } from './declarationUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
+import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol } from './symbolUtils';
@@ -101,6 +100,11 @@ interface EvaluatorUsage {
 
     // Used only for get methods
     expectedType?: Type;
+}
+
+interface AliasMapEntry {
+    alias: string;
+    module: 'builtins' | 'collections' | 'self';
 }
 
 export const enum MemberAccessFlags {
@@ -185,6 +189,9 @@ export interface ExpressionEvaluator {
     getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined, supportGetItem: boolean) => Type;
     getTypeFromDecorator: (node: DecoratorNode, functionOrClassType: Type) => Type;
 
+    getTypeOfAssignmentStatementTarget: (node: AssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
+    getTypeOfAugmentedAssignmentTarget: (node: AugmentedAssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
+
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
 
     getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
@@ -194,11 +201,14 @@ export interface ExpressionEvaluator {
     isAfterNodeReachable: (node: ParseNode) => boolean;
     isNodeReachable: (node: ParseNode) => boolean;
 
+    transformTypeForPossibleEnumClass: (node: NameNode, typeOfExpr: Type) => Type;
+
     synthesizeDataClassMethods: (node: ClassNode, classType: ClassType, skipSynthesizeInit: boolean) => void;
     synthesizeTypedDictClassMethods: (classType: ClassType) => void;
 
     assignTypeToNameNode: (nameNode: NameNode, type: Type, srcExpression?: ParseNode) => void;
-    assignTypeToExpression: (target: ExpressionNode, type: Type, srcExpr?: ExpressionNode) => void;
+    assignTypeToExpression: (target: ExpressionNode, type: Type, srcExpr?: ExpressionNode,
+        targetOfInterest?: ExpressionNode) => Type | undefined;
 
     updateExpressionTypeForNode: (node: ExpressionNode, exprType: Type) => void;
 
@@ -995,7 +1005,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
     }
 
-    function assignTypeToTupleNode(target: TupleNode, type: Type, srcExpr?: ExpressionNode) {
+    function assignTypeToTupleNode(target: TupleNode, type: Type, srcExpr?: ExpressionNode,
+            targetOfInterest?: ExpressionNode): Type | undefined {
+
+        let targetOfInterestType: Type | undefined;
+
         // Initialize the array of target types, one for each target.
         const targetTypes: Type[][] = new Array(target.expressions.length);
         for (let i = 0; i < target.expressions.length; i++) {
@@ -1071,11 +1085,21 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         target.expressions.forEach((expr, index) => {
             const typeList = targetTypes[index];
             const targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
-            assignTypeToExpression(expr, targetType, srcExpr);
+            const targetOfInterestTypeForEntry = assignTypeToExpression(expr,
+                targetType, srcExpr, targetOfInterest);
+            if (targetOfInterestTypeForEntry) {
+                targetOfInterestType = targetOfInterestTypeForEntry;
+            }
         });
+
+        return targetOfInterestType;
     }
 
-    function assignTypeToExpression(target: ExpressionNode, type: Type, srcExpr?: ExpressionNode) {
+    function assignTypeToExpression(target: ExpressionNode, type: Type, srcExpr?: ExpressionNode,
+            targetOfInterest?: ExpressionNode): Type | undefined {
+
+        let typeOfTargetOfInterest: Type | undefined;
+
         switch (target.nodeType) {
             case ParseNodeType.Name: {
                 const name = target.nameToken;
@@ -1108,16 +1132,23 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     target, type, srcExpr || target);
 
                 assignTypeToNameNode(target, type, srcExpr);
+                if (target === targetOfInterest) {
+                    typeOfTargetOfInterest = type;
+                }
                 break;
             }
 
             case ParseNodeType.MemberAccess: {
                 assignTypeToMemberAccessNode(target, type, srcExpr);
+                if (target === targetOfInterest) {
+                    typeOfTargetOfInterest = type;
+                }
                 break;
             }
 
             case ParseNodeType.Tuple: {
-                assignTypeToTupleNode(target, type, srcExpr);
+                typeOfTargetOfInterest = assignTypeToTupleNode(target, type, srcExpr,
+                    targetOfInterest);
                 break;
             }
 
@@ -1129,7 +1160,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         typeHintType, type, importLookup);
                 }
 
-                assignTypeToExpression(target.valueExpression, type, srcExpr);
+                typeOfTargetOfInterest = assignTypeToExpression(target.valueExpression,
+                    type, srcExpr, targetOfInterest);
                 break;
             }
 
@@ -1145,6 +1177,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         }
                     }
                     assignTypeToNameNode(target.expression, type);
+                    if (target.expression === targetOfInterest) {
+                        typeOfTargetOfInterest = type;
+                    }
                 }
                 break;
             }
@@ -1155,7 +1190,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     type, false, srcExpr, false);
 
                 target.entries.forEach(entry => {
-                    assignTypeToExpression(entry, iteratedType, srcExpr);
+                    const targetOfInterestForListItem = assignTypeToExpression(entry, iteratedType,
+                        srcExpr, targetOfInterest);
+                    if (targetOfInterestForListItem) {
+                        typeOfTargetOfInterest = targetOfInterestForListItem;
+                    }
                 });
                 break;
             }
@@ -1163,6 +1202,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         // Make sure we can write the type back to the target.
         getTypeFromExpression(target, { method: 'set', setType: type, setErrorNode: srcExpr });
+
+        return typeOfTargetOfInterest;
     }
 
     function updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
@@ -1377,7 +1418,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             case ParseNodeType.UnaryOperation: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromUnaryExpression(node);
+                typeResult = getTypeFromUnaryOperation(node);
                 break;
             }
 
@@ -1389,8 +1430,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             case ParseNodeType.AugmentedAssignment: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromAugmentedAssignment(node);
-                assignTypeToExpression(node.destExpression, typeResult.type, node.rightExpression);
+                const type = getTypeFromAugmentedAssignment(node);
+                assignTypeToExpression(node.destExpression, type, node.rightExpression);
+                typeResult = { type, node };
                 break;
             }
 
@@ -3868,7 +3910,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromUnaryExpression(node: UnaryOperationNode): TypeResult {
+    function getTypeFromUnaryOperation(node: UnaryOperationNode): TypeResult {
         let exprType = getTypeFromExpression(node.expression).type;
 
         // Map unary operators to magic functions. Note that the bitwise
@@ -3959,12 +4001,12 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         return {
-            type: validateBinaryExpression(node.operator, leftType, rightType, node),
+            type: validateBinaryOperation(node.operator, leftType, rightType, node),
             node
         };
     }
 
-    function getTypeFromAugmentedAssignment(node: AugmentedAssignmentNode): TypeResult {
+    function getTypeFromAugmentedAssignment(node: AugmentedAssignmentNode): Type {
         const operatorMap: { [operator: number]: [string, OperatorType] } = {
             [OperatorType.AddEqual]: ['__iadd__', OperatorType.Add],
             [OperatorType.SubtractEqual]: ['__isub__', OperatorType.Subtract],
@@ -4014,13 +4056,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // assignment, fall back on the normal binary expression evaluator.
         if (!type || type.category === TypeCategory.Never) {
             const binaryOperator = operatorMap[node.operator][1];
-            type = validateBinaryExpression(binaryOperator, leftType!, rightType, node);
+            type = validateBinaryOperation(binaryOperator, leftType!, rightType, node);
         }
 
-        return { type, node };
+        return type;
     }
 
-    function validateBinaryExpression(operator: OperatorType, leftType: Type, rightType: Type,
+    function validateBinaryOperation(operator: OperatorType, leftType: Type, rightType: Type,
             errorNode: ExpressionNode): Type {
 
         let type: Type | undefined;
@@ -4882,20 +4924,215 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return createSpecialType(classType, typeArgs);
     }
 
-    function getTypeOfAssignmentTarget(target: ParseNode): Type | undefined {
+    function transformTypeForPossibleEnumClass(node: NameNode, typeOfExpr: Type): Type {
+        // If the node is within a class that derives from the metaclass
+        // "EnumMeta", we need to treat assignments differently.
+        const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+        if (enclosingClassNode) {
+            const enumClass = AnalyzerNodeInfo.getExpressionType(enclosingClassNode) as ClassType;
+            assert(enumClass.category === TypeCategory.Class);
+
+            // Handle several built-in classes specially. We don't
+            // want to interpret their class variables as enumerations.
+            if (getFileInfo(node).isStubFile) {
+                const className = ClassType.getClassName(enumClass);
+                const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
+                if (builtInEnumClasses.find(c => c === className)) {
+                    return typeOfExpr;
+                }
+            }
+
+            if (TypeUtils.isEnumClass(enumClass)) {
+                return ObjectType.create(enumClass);
+            }
+        }
+
+        return typeOfExpr;
+    }
+
+    // Handles some special-case assignment statements that are found
+    // within the typings.pyi file.
+    function handleTypingStubAssignment(node: AssignmentNode): Type | undefined {
+        let nameNode: NameNode | undefined;
+        if (node.leftExpression.nodeType === ParseNodeType.Name) {
+            nameNode = node.leftExpression;
+        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+            node.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
+            nameNode = node.leftExpression.valueExpression;
+        }
+
+        if (nameNode) {
+            const assignedName = nameNode.nameToken.value;
+            let specialType: Type | undefined;
+
+            if (assignedName === 'Any') {
+                specialType = AnyType.create();
+            } else {
+                const specialTypes: { [name: string]: AliasMapEntry } = {
+                    'overload': { alias: '', module: 'builtins' },
+                    'TypeVar': { alias: '', module: 'builtins' },
+                    '_promote': { alias: '', module: 'builtins' },
+                    'no_type_check': { alias: '', module: 'builtins' },
+                    'NoReturn': { alias: '', module: 'builtins' },
+                    'Union': { alias: '', module: 'builtins' },
+                    'Optional': { alias: '', module: 'builtins' },
+                    'List': { alias: 'list', module: 'builtins' },
+                    'Dict': { alias: 'dict', module: 'builtins' },
+                    'DefaultDict': { alias: 'defaultdict', module: 'collections' },
+                    'Set': { alias: 'set', module: 'builtins' },
+                    'FrozenSet': { alias: 'frozenset', module: 'builtins' },
+                    'Deque': { alias: 'deque', module: 'collections' },
+                    'ChainMap': { alias: 'ChainMap', module: 'collections' },
+                    'Tuple': { alias: 'tuple', module: 'builtins' },
+                    'Generic': { alias: '', module: 'builtins' },
+                    'Protocol': { alias: '', module: 'builtins' },
+                    'Callable': { alias: '', module: 'builtins' },
+                    'Type': { alias: 'type', module: 'builtins' },
+                    'ClassVar': { alias: '', module: 'builtins' },
+                    'Final': { alias: '', module: 'builtins' },
+                    'Literal': { alias: '', module: 'builtins' },
+                    'TypedDict': { alias: '_TypedDict', module: 'self' }
+                };
+
+                const aliasMapEntry = specialTypes[assignedName];
+                if (aliasMapEntry) {
+                    // The binder should have already synthesized the class.
+                    const specialClassType = AnalyzerNodeInfo.getExpressionType(nameNode)!;
+                    assert(specialClassType !== undefined && specialClassType.category === TypeCategory.Class);
+                    specialType = specialClassType;
+
+                    const baseClassName = aliasMapEntry.alias ? aliasMapEntry.alias : 'object';
+
+                    let aliasClass: Type | undefined;
+                    if (aliasMapEntry.module === 'builtins') {
+                        aliasClass = getBuiltInType(node, baseClassName);
+                    } else if (aliasMapEntry.module === 'collections') {
+                        // The typing.pyi file imports collections.
+                        const fileInfo = getFileInfo(node);
+                        if (fileInfo.collectionsModulePath) {
+                            const lookupResult = importLookup(fileInfo.collectionsModulePath);
+                            if (lookupResult) {
+                                const symbol = lookupResult.symbolTable.get(baseClassName);
+                                if (symbol) {
+                                    aliasClass = getEffectiveTypeOfSymbol(symbol, importLookup);
+                                }
+                            }
+                        }
+                    } else if (specialTypes[assignedName].module === 'self') {
+                        const symbolWithScope = lookUpSymbolRecursive(node, baseClassName);
+                        if (symbolWithScope) {
+                            aliasClass = getEffectiveTypeOfSymbol(
+                                symbolWithScope.symbol, importLookup);
+                        }
+                    }
+
+                    if (aliasClass && aliasClass.category === TypeCategory.Class &&
+                            specialClassType.category === TypeCategory.Class) {
+
+                        if (ClassType.updateBaseClassType(specialClassType, 0, aliasClass)) {
+                            setAnalysisChangedCallback('Base class update for special type');
+                        }
+
+                        if (aliasMapEntry.alias) {
+                            ClassType.setAliasClass(specialClassType, aliasClass);
+                        }
+                    }
+                }
+            }
+
+            return specialType;
+        }
+
+        return undefined;
+    }
+
+    function getTypeOfAssignmentStatementTarget(node: AssignmentNode,
+                targetOfInterest?: ExpressionNode): Type | undefined {
+
+        const fileInfo = getFileInfo(node);
+        let rightHandType: Type | undefined;
+
+        // Special-case the typing.pyi file, which contains some special
+        // types that the type analyzer needs to interpret differently.
+        if (fileInfo.isTypingStubFile) {
+            rightHandType = handleTypingStubAssignment(node);
+        }
+
+        if (!rightHandType) {
+            // Determine whether there is a declared type.
+            const declaredType = getDeclaredTypeForExpression(node.leftExpression);
+
+            // Evaluate the type of the right-hand side.
+            // An assignment of ellipsis means "Any" within a type stub file.
+            let srcType = getType(node.rightExpression, { method: 'get', expectedType: declaredType },
+                fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined);
+
+            // Determine if the RHS is a constant boolean expression.
+            // If so, assign it a literal type.
+            const constExprValue = evaluateStaticBoolExpression(
+                node.rightExpression, fileInfo.executionEnvironment);
+            if (constExprValue !== undefined) {
+                const boolType = getBuiltInObject(node, 'bool');
+                if (boolType.category === TypeCategory.Object) {
+                    srcType = ObjectType.cloneWithLiteral(boolType, constExprValue);
+                }
+            }
+
+            // If there was a declared type, make sure the RHS value is compatible.
+            if (declaredType) {
+                const diagAddendum = new DiagnosticAddendum();
+                if (TypeUtils.canAssignType(declaredType, srcType, diagAddendum, importLookup)) {
+                    // Constrain the resulting type to match the declared type.
+                    srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                        declaredType, srcType, importLookup);
+                }
+            }
+
+            // If this is an enum, transform the type as required.
+            rightHandType = srcType;
+            if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
+                rightHandType = transformTypeForPossibleEnumClass(
+                    node.leftExpression, rightHandType);
+            }
+        }
+
+        if (!rightHandType) {
+            return undefined;
+        }
+
+        return assignTypeToExpression(node.leftExpression, rightHandType,
+            node.rightExpression, targetOfInterest);
+    }
+
+    function getTypeOfAugmentedAssignmentTarget(node: AugmentedAssignmentNode,
+                targetOfInterest?: ExpressionNode): Type | undefined {
+
+        const type = getTypeFromAugmentedAssignment(node);
+        return assignTypeToExpression(node.destExpression, type,
+            node.rightExpression, targetOfInterest);
+    }
+
+    function getTypeOfAssignmentTarget(target: ExpressionNode): Type | undefined {
         let assignmentNode: ParseNode | undefined = target;
         while (assignmentNode) {
             switch (assignmentNode.nodeType) {
-                case ParseNodeType.Assignment:
-                case ParseNodeType.AssignmentExpression: {
-
+                case ParseNodeType.Assignment: {
                     // TODO - need to implement
                     return undefined;
+                    // return getTypeOfAssignmentStatementTarget(assignmentNode, target);
+                }
+
+                case ParseNodeType.AssignmentExpression: {
+                    // TODO - need to implement
+                    return undefined;
+                    // assert(target === assignmentNode.name);
+                    // return getType(assignmentNode);
                 }
 
                 case ParseNodeType.AugmentedAssignment: {
                     // TODO - need to implement
                     return undefined;
+                    // return getTypeOfAugmentedAssignmentTarget(assignmentNode, target);
                 }
 
                 case ParseNodeType.Class: {
@@ -5673,11 +5910,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         getTypeFromAwaitable,
         getTypeFromIterable,
         getTypeFromDecorator,
+        getTypeOfAssignmentStatementTarget,
+        getTypeOfAugmentedAssignmentTarget,
         getTypingType,
         getDeclaredTypeForExpression,
         isAnnotationLiteralValue,
         isAfterNodeReachable,
         isNodeReachable,
+        transformTypeForPossibleEnumClass,
         synthesizeDataClassMethods,
         synthesizeTypedDictClassMethods,
         assignTypeToNameNode,
