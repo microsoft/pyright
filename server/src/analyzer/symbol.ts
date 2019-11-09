@@ -66,6 +66,11 @@ export class Symbol {
     // Unique numeric ID for each symbol allocated.
     private _id: number;
 
+    // Symbols that are completely synthesized (i.e. have no
+    // corresponding declarations in the program) can have
+    // a specified type.
+    private _undeclaredType?: Type;
+
     constructor(flags = SymbolFlags.ClassMember) {
         this._id = getUniqueSymbolId();
         this._flags = flags;
@@ -73,12 +78,7 @@ export class Symbol {
 
     static createWithType(flags: SymbolFlags, type: Type) {
         const newSymbol = new Symbol(flags);
-        newSymbol.addDeclaration({
-            type: DeclarationType.BuiltIn,
-            path: '',
-            range: getEmptyRange(),
-            declaredType: type
-        });
+        newSymbol._undeclaredType = type;
         return newSymbol;
     }
 
@@ -175,6 +175,10 @@ export class Symbol {
     getTypedDeclarations() {
         return this.getDeclarations().filter(
             decl => hasTypeForDeclaration(decl));
+    }
+
+    getUndeclaredType() {
+        return this._undeclaredType;
     }
 }
 

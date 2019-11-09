@@ -39,8 +39,8 @@ import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags, FlowLabel,
     FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport, getUniqueFlowNodeId } from './codeFlow';
-import { AliasDeclaration, DeclarationType, FunctionDeclaration, ModuleLoaderActions,
-    VariableDeclaration } from './declaration';
+import { AliasDeclaration, DeclarationType, FunctionDeclaration, IntrinsicType,
+    ModuleLoaderActions, VariableDeclaration } from './declaration';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -49,8 +49,7 @@ import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { AnyType, ClassType, ClassTypeFlags, defaultTypeSourceId, FunctionParameter, FunctionType,
-    FunctionTypeFlags, ObjectType, Type, TypeCategory, UnknownType } from './types';
+import { AnyType, FunctionParameter, FunctionType, FunctionTypeFlags, UnknownType } from './types';
 
 export const enum NameBindingType {
     // With "nonlocal" keyword
@@ -182,21 +181,14 @@ export class Binder extends ParseTreeWalker {
 
             // Bind implicit names.
             // List taken from https://docs.python.org/3/reference/import.html#__name__
-            const builtinIterableClass = ScopeUtils.getBuiltInType(
-                this._currentScope, 'Iterable', this._fileInfo.importLookup);
-            const builtinStrObj = ScopeUtils.getBuiltInObject(
-                this._currentScope, 'str', this._fileInfo.importLookup);
-            const strList = builtinIterableClass.category === TypeCategory.Class ?
-                ObjectType.create(ClassType.cloneForSpecialization(builtinIterableClass, [builtinStrObj])) :
-                AnyType.create();
-            this._addBuiltInSymbolToCurrentScope('__doc__', builtinStrObj);
-            this._addBuiltInSymbolToCurrentScope('__name__', builtinStrObj);
-            this._addBuiltInSymbolToCurrentScope('__loader__', AnyType.create());
-            this._addBuiltInSymbolToCurrentScope('__package__', builtinStrObj);
-            this._addBuiltInSymbolToCurrentScope('__spec__', AnyType.create());
-            this._addBuiltInSymbolToCurrentScope('__path__', strList);
-            this._addBuiltInSymbolToCurrentScope('__file__', builtinStrObj);
-            this._addBuiltInSymbolToCurrentScope('__cached__', builtinStrObj);
+            this._addBuiltInSymbolToCurrentScope('__doc__', node, 'str');
+            this._addBuiltInSymbolToCurrentScope('__name__', node, 'str');
+            this._addBuiltInSymbolToCurrentScope('__loader__', node, 'Any');
+            this._addBuiltInSymbolToCurrentScope('__package__', node, 'str');
+            this._addBuiltInSymbolToCurrentScope('__spec__', node, 'Any');
+            this._addBuiltInSymbolToCurrentScope('__path__', node, 'Iterable[str]');
+            this._addBuiltInSymbolToCurrentScope('__file__', node, 'str');
+            this._addBuiltInSymbolToCurrentScope('__cached__', node, 'str');
 
             // Create a start node for the module.
             this._currentFlowNode = this._createStartFlowNode();
@@ -277,13 +269,9 @@ export class Binder extends ParseTreeWalker {
             // Note that __class__, __dict__ and __doc__ are skipped here
             // because the builtins.pyi type stub declares these in the
             // 'object' class.
-            this._addBuiltInSymbolToCurrentScope('__name__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str',
-                this._fileInfo.importLookup));
+            this._addBuiltInSymbolToCurrentScope('__name__', node, 'str');
             if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
-                this._addBuiltInSymbolToCurrentScope('__qualname__',
-                    ScopeUtils.getBuiltInObject(this._currentScope, 'str',
-                    this._fileInfo.importLookup));
+                this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str');
             }
 
             // Analyze the suite.
@@ -383,30 +371,25 @@ export class Binder extends ParseTreeWalker {
 
             // Bind implicit names.
             // List taken from https://docs.python.org/3/reference/datamodel.html
-            this._addBuiltInSymbolToCurrentScope('__doc__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str', this._fileInfo.importLookup));
-            this._addBuiltInSymbolToCurrentScope('__name__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str', this._fileInfo.importLookup));
+            this._addBuiltInSymbolToCurrentScope('__doc__', node, 'str');
+            this._addBuiltInSymbolToCurrentScope('__name__', node, 'str');
             if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
-                this._addBuiltInSymbolToCurrentScope('__qualname__',
-                    ScopeUtils.getBuiltInObject(this._currentScope, 'str',
-                    this._fileInfo.importLookup));
+                this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str');
             }
-            this._addBuiltInSymbolToCurrentScope('__module__',
-                ScopeUtils.getBuiltInObject(this._currentScope, 'str', this._fileInfo.importLookup));
-            this._addBuiltInSymbolToCurrentScope('__defaults__', AnyType.create());
-            this._addBuiltInSymbolToCurrentScope('__code__', AnyType.create());
-            this._addBuiltInSymbolToCurrentScope('__globals__', AnyType.create());
-            this._addBuiltInSymbolToCurrentScope('__dict__', AnyType.create());
-            this._addBuiltInSymbolToCurrentScope('__closure__', AnyType.create());
-            this._addBuiltInSymbolToCurrentScope('__annotations__', AnyType.create());
-            this._addBuiltInSymbolToCurrentScope('__kwdefaults__', AnyType.create());
+            this._addBuiltInSymbolToCurrentScope('__module__', node, 'str');
+            this._addBuiltInSymbolToCurrentScope('__defaults__', node, 'Any');
+            this._addBuiltInSymbolToCurrentScope('__code__', node, 'Any');
+            this._addBuiltInSymbolToCurrentScope('__globals__', node, 'Any');
+            this._addBuiltInSymbolToCurrentScope('__dict__', node, 'Any');
+            this._addBuiltInSymbolToCurrentScope('__closure__', node, 'Any');
+            this._addBuiltInSymbolToCurrentScope('__annotations__', node, 'Any');
+            this._addBuiltInSymbolToCurrentScope('__kwdefaults__', node, 'Any');
 
             const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
             if (enclosingClass) {
                 const enclosingClassType = AnalyzerNodeInfo.getExpressionType(enclosingClass);
                 if (enclosingClassType) {
-                    this._addBuiltInSymbolToCurrentScope('__class__', enclosingClassType);
+                    this._addBuiltInSymbolToCurrentScope('__class__', node, 'class');
                 }
             }
 
@@ -1766,23 +1749,19 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _addBuiltInSymbolToCurrentScope(nameValue: string, type: Type) {
-        // Handle a special case where a built-in type is not known
-        // at binding time. This happens specifically when binding
-        // the builtins.pyi module.
-        if (type.category === TypeCategory.Unknown) {
-            this._addSymbolToCurrentScope(nameValue, false);
-        } else {
-            const symbol = this._addSymbolToCurrentScope(nameValue, false);
-            if (symbol) {
-                symbol.addDeclaration({
-                    type: DeclarationType.BuiltIn,
-                    declaredType: type,
-                    path: this._fileInfo.filePath,
-                    range: getEmptyRange()
-                });
-                symbol.setIsIgnoredForProtocolMatch();
-            }
+    private _addBuiltInSymbolToCurrentScope(nameValue: string,
+            node: ModuleNode | ClassNode | FunctionNode, type: IntrinsicType) {
+
+        const symbol = this._addSymbolToCurrentScope(nameValue, false);
+        if (symbol) {
+            symbol.addDeclaration({
+                type: DeclarationType.Intrinsic,
+                node,
+                intrinsicType: type,
+                path: this._fileInfo.filePath,
+                range: getEmptyRange()
+            });
+            symbol.setIsIgnoredForProtocolMatch();
         }
     }
 

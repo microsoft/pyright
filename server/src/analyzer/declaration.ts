@@ -11,12 +11,12 @@
 
 import { DiagnosticTextRange } from '../common/diagnostic';
 import { ClassNode, ExpressionNode, FunctionNode, ImportAsNode,
-    ImportFromAsNode, ImportFromNode, NameNode, ParameterNode, ParseNode,
-    ReturnNode, StringListNode, TypeAnnotationNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
-import { Type } from './types';
+    ImportFromAsNode, ImportFromNode, ModuleNode, NameNode, ParameterNode,
+    ParseNode, ReturnNode, StringListNode, TypeAnnotationNode, YieldFromNode,
+    YieldNode } from '../parser/parseNodes';
 
 export const enum DeclarationType {
-    BuiltIn,
+    Intrinsic,
     Variable,
     Parameter,
     Function,
@@ -26,13 +26,15 @@ export const enum DeclarationType {
     Alias
 }
 
+export type IntrinsicType = 'Any' | 'str' | 'Iterable[str]' | 'class';
+
 export interface DeclarationBase {
     // Category of this symbol (function, variable, etc.).
     // Used by hover provider to display helpful text.
     type: DeclarationType;
 
-    // Many declarations have a parse node associated with them.
-    node?: ParseNode;
+    // Parse node associated with the declaration.
+    node: ParseNode;
 
     // The file and range within that file that
     // contains the declaration.
@@ -40,9 +42,10 @@ export interface DeclarationBase {
     range: DiagnosticTextRange;
 }
 
-export interface BuiltInDeclaration extends DeclarationBase {
-    type: DeclarationType.BuiltIn;
-    declaredType: Type;
+export interface IntrinsicDeclaration extends DeclarationBase {
+    type: DeclarationType.Intrinsic;
+    node: ModuleNode | FunctionNode | ClassNode;
+    intrinsicType: IntrinsicType;
 }
 
 export interface ClassDeclaration extends DeclarationBase {
@@ -124,6 +127,6 @@ export interface ModuleLoaderActions {
     implicitImports?: Map<string, ModuleLoaderActions>;
 }
 
-export type Declaration = BuiltInDeclaration | ClassDeclaration |
+export type Declaration = IntrinsicDeclaration | ClassDeclaration |
     SpecialBuiltInClassDeclaration | FunctionDeclaration | ParameterDeclaration |
     VariableDeclaration | AliasDeclaration;

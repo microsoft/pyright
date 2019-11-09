@@ -36,7 +36,6 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
-import * as StaticExpressions from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
@@ -1945,14 +1944,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 return (decl.type === DeclarationType.Function || decl.type === DeclarationType.Method) && decl.node === node;
             });
             if (declIndex > 0) {
-                const overloadedTypes: OverloadedFunctionEntry[] = [{ type, typeSourceId: decls[declIndex].node!.id }];
+                const overloadedTypes: OverloadedFunctionEntry[] = [{ type, typeSourceId: decls[declIndex].node.id }];
                 while (declIndex > 0) {
-                    const declType = AnalyzerNodeInfo.getExpressionType(decls[declIndex - 1].node!);
+                    const declType = AnalyzerNodeInfo.getExpressionType(decls[declIndex - 1].node);
                     if (!declType || declType.category !== TypeCategory.Function || !FunctionType.isOverloaded(declType)) {
                         break;
                     }
 
-                    overloadedTypes.unshift({ type: declType, typeSourceId: decls[declIndex - 1].node!.id });
+                    overloadedTypes.unshift({ type: declType, typeSourceId: decls[declIndex - 1].node.id });
                     declIndex--;
                 }
 

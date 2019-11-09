@@ -10,14 +10,15 @@
 import * as assert from 'assert';
 
 import { getEmptyRange } from '../common/diagnostic';
-import { FunctionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ClassNode, FunctionNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
-import { getScopeForNode } from './scopeUtils';
+import { getBuiltInObject, getBuiltInType, getScopeForNode } from './scopeUtils';
 import { Symbol, SymbolFlags } from './symbol';
-import { ClassType, FunctionType, ModuleType, ObjectType, Type, TypeCategory, UnknownType } from './types';
+import { AnyType, ClassType, FunctionType, ModuleType, ObjectType, Type,
+    TypeCategory, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
 export function getDeclarationsForNameNode(node: NameNode, importLookup: ImportLookup): Declaration[] | undefined {
@@ -179,8 +180,31 @@ export function resolveAliasDeclaration(declaration: Declaration, importLookup: 
 
 export function getTypeForDeclaration(declaration: Declaration): Type | undefined {
     switch (declaration.type) {
-        case DeclarationType.BuiltIn:
-            return declaration.declaredType;
+        case DeclarationType.Intrinsic: {
+            if (declaration.intrinsicType === 'Any') {
+                return AnyType.create();
+            }
+
+            if (declaration.intrinsicType === 'class') {
+                const classNode = ParseTreeUtils.getEnclosingClass(declaration.node) as ClassNode;
+                return AnalyzerNodeInfo.getExpressionType(classNode);
+            }
+
+            const scopeForNode = getScopeForNode(declaration.node);
+            const strType = getBuiltInObject(scopeForNode, 'str', _ => undefined);
+            if (strType.category === TypeCategory.Object) {
+                if (declaration.intrinsicType === 'str') {
+                    return strType;
+                }
+
+                const iterableType = getBuiltInType(scopeForNode, 'Iterable', _ => undefined);
+                if (iterableType.category === TypeCategory.Class) {
+                    return ObjectType.create(ClassType.cloneForSpecialization(iterableType, [strType]));
+                }
+            }
+
+            return UnknownType.create();
+        }
 
         case DeclarationType.Class:
             return AnalyzerNodeInfo.getExpressionType(declaration.node.name);
@@ -231,7 +255,7 @@ export function getTypeForDeclaration(declaration: Declaration): Type | undefine
 
 export function hasTypeForDeclaration(declaration: Declaration): boolean {
     switch (declaration.type) {
-        case DeclarationType.BuiltIn:
+        case DeclarationType.Intrinsic:
         case DeclarationType.Class:
         case DeclarationType.SpecialBuiltInClass:
         case DeclarationType.Function:

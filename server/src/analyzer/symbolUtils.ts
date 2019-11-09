@@ -17,9 +17,15 @@ import { stripLiteralValue } from './typeUtils';
 export function getEffectiveTypeOfSymbol(symbol: Symbol, importLookup: ImportLookup): Type {
     // If there's a declared type, it takes precedence.
     const declaredType = getDeclaredTypeOfSymbol(symbol);
-
     if (declaredType) {
         return declaredType;
+    }
+
+    // Is there an undeclared type associated with the
+    // symbol (used for synthesized classes)?
+    const undeclaredType = symbol.getUndeclaredType();
+    if (undeclaredType) {
+        return undeclaredType;
     }
 
     // Determine the inferred type.

@@ -42,8 +42,7 @@ import { AnyType, ClassType, ClassTypeFlags, combineTypes, defaultTypeSourceId, 
     isTypeSame, isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType,
     OverloadedFunctionType, printObjectTypeForClass, printType, removeNoneFromUnion,
     removeUnboundFromUnion, requiresSpecialization, Type, TypeCategory, TypeVarMap, TypeVarType,
-    UnboundType,
-    UnknownType } from './types';
+    UnboundType, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
 interface TypeResult {
