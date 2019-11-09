@@ -668,7 +668,7 @@ export class SourceFile {
         try {
             // Perform name binding.
             timingStats.bindTime.timeOperation(() => {
-                this._cleanParseTreeIfRequired();
+                this._cleanParseTreeIfRequired(true);
 
                 const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope);
                 AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
@@ -719,6 +719,8 @@ export class SourceFile {
 
         try {
             timingStats.typeAnalyzerTime.timeOperation(() => {
+                this._cleanParseTreeIfRequired(false);
+
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
 
                 // Perform static type analysis.
@@ -801,11 +803,11 @@ export class SourceFile {
         return fileInfo;
     }
 
-    private _cleanParseTreeIfRequired() {
+    private _cleanParseTreeIfRequired(cleanBinderData: boolean) {
         if (this._parseResults) {
             if (this._parseTreeNeedsCleaning) {
                 const cleanerWalker = new ParseTreeCleanerWalker(this._parseResults.parseTree);
-                cleanerWalker.clean();
+                cleanerWalker.clean(cleanBinderData);
                 this._parseTreeNeedsCleaning = false;
             }
         }
