@@ -168,6 +168,11 @@ export class Symbol {
     }
 
     hasTypedDeclarations() {
+        // We'll treat an undeclared type as an implicit declaration.
+        if (this._undeclaredType) {
+            return true;
+        }
+
         return this.getDeclarations().some(
             decl => hasTypeForDeclaration(decl));
     }

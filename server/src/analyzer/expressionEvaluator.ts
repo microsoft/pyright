@@ -37,7 +37,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
-import { AnyType, ClassType, ClassTypeFlags, combineTypes, defaultTypeSourceId, FunctionParameter,
+import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     FunctionType, FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound,
     isTypeSame, isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType,
     OverloadedFunctionType, printObjectTypeForClass, printType, removeNoneFromUnion,
