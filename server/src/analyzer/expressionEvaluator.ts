@@ -288,7 +288,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // return result.
             decoratorCall = getTypeFromCallExpressionWithBaseType(
                 node.leftExpression, argList, decoratorCall,
-                { method: 'get' }, EvaluatorFlags.None, undefined, false);
+                { method: 'get' }, EvaluatorFlags.None, false);
         }
 
         const argList = [{
@@ -298,7 +298,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         return getTypeFromCallExpressionWithBaseType(
             node.leftExpression, argList, decoratorCall, { method: 'get' },
-                EvaluatorFlags.None, undefined, false).type;
+                EvaluatorFlags.None, false).type;
     }
 
     // Gets a member type from an object and if it's a function binds
@@ -2474,7 +2474,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         });
 
         return getTypeFromCallExpressionWithBaseType(
-            node, argList, baseTypeResult, usage, flags, node);
+            node, argList, baseTypeResult, usage, flags);
     }
 
     function getTypeFromSuperCall(node: CallNode): Type {
@@ -2571,8 +2571,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
     function getTypeFromCallExpressionWithBaseType(errorNode: ExpressionNode,
             argList: FunctionArgument[], baseTypeResult: TypeResult, usage: EvaluatorUsage,
-            flags: EvaluatorFlags, cachedExpressionNode?: ExpressionNode,
-            specializeReturnType = true): TypeResult {
+            flags: EvaluatorFlags, specializeReturnType = true): TypeResult {
 
         let type: Type | undefined;
         let callType = baseTypeResult.type;
@@ -2603,18 +2602,15 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     } else if (className === 'TypeVar') {
                         type = createTypeVarType(errorNode, argList);
                     } else if (className === 'NamedTuple') {
-                        type = createNamedTupleType(errorNode, argList, true,
-                            cachedExpressionNode);
+                        type = createNamedTupleType(errorNode, argList, true);
                     } else if (className === 'Protocol' || className === 'Generic' ||
                             className === 'Callable' || className === 'Type') {
                         addError(`'${ className }' cannot be instantiated directly`, errorNode);
                     } else if (className === 'Enum' || className === 'IntEnum' ||
                             className === 'Flag' || className === 'IntFlag') {
-                        type = createEnumType(errorNode, callType, argList,
-                            cachedExpressionNode);
+                        type = createEnumType(errorNode, callType, argList);
                     } else if (className === 'TypedDict') {
-                        type = createTypedDictType(errorNode, callType, argList,
-                            cachedExpressionNode);
+                        type = createTypedDictType(errorNode, callType, argList);
                     } else if (className === 'auto' && argList.length === 0) {
                         type = getBuiltInObject(errorNode, 'int');
                     }
@@ -2663,8 +2659,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         DiagnosticRule.reportUntypedNamedTuple,
                         `'namedtuple' provides no types for tuple entries. Use 'NamedTuple' instead.`,
                         errorNode);
-                    type = createNamedTupleType(errorNode, argList, false,
-                        cachedExpressionNode);
+                    type = createNamedTupleType(errorNode, argList, false);
                 } else if (FunctionType.getBuiltInName(callType) === 'NewType') {
                     type = validateCallArguments(errorNode, argList, callType,
                         new TypeVarMap(), specializeReturnType);
@@ -2672,7 +2667,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     // If the call's arguments were validated, replace the
                     // type with a new synthesized subclass.
                     if (type) {
-                        type = createNewType(errorNode, argList, cachedExpressionNode);
+                        type = createNewType(errorNode, argList);
                     }
                 } else {
                     type = validateCallArguments(errorNode, argList, callType,
@@ -2770,7 +2765,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                                 type: typeEntry,
                                 node: baseTypeResult.node
                             },
-                            usage, flags, cachedExpressionNode);
+                            usage, flags);
                         if (typeResult) {
                             returnTypes.push(typeResult.type);
                         }
@@ -3401,7 +3396,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
     // Creates a new custom enum class with named values.
     function createEnumType(errorNode: ExpressionNode, enumClass: ClassType,
-            argList: FunctionArgument[], cachedExpressionNode?: ExpressionNode): ClassType {
+            argList: FunctionArgument[]): ClassType {
 
         let className = 'enum';
         if (argList.length === 0) {
@@ -3416,22 +3411,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
-        // This is a hack to make enum classes work correctly. We don't want
-        // to create a new ClassType for every analysis pass. Instead, we'll
-        // use the cached version and update it after the first pass.
-        const cachedCallType = cachedExpressionNode ?
-            AnalyzerNodeInfo.getExpressionType(cachedExpressionNode) :
-            undefined;
-
-        // Use the cached class type and update it if this isn't the first
-        // analysis path. If this is the first pass, allocate a new ClassType.
-        let classType = cachedCallType as ClassType;
-        if (!classType || classType.category !== TypeCategory.Class) {
-            classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
-
-            AnalyzerNodeInfo.setExpressionType(errorNode, classType, true);
-            ClassType.addBaseClass(classType, enumClass, false);
-        }
+        const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
+        ClassType.addBaseClass(classType, enumClass, false);
 
         const classFields = ClassType.getFields(classType);
         classFields.set('__class__', Symbol.createWithType(SymbolFlags.ClassMember, classType));
@@ -3480,9 +3461,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     // Implemented the semantics of the NewType call as documented
     // in the Python specification: The static type checker will treat
     // the new type as if it were a subclass of the original type.
-    function createNewType(errorNode: ExpressionNode, argList: FunctionArgument[],
-            cachedExpressionNode?: ExpressionNode): ClassType | undefined {
-
+    function createNewType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
         let className = '_';
         if (argList.length >= 1) {
             const nameArg = argList[0];
@@ -3497,25 +3476,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             const baseClass = getTypeForArgument(argList[1]);
 
             if (baseClass.category === TypeCategory.Class) {
-                // This is a hack to make named tuples work correctly. We don't want
-                // to create a new ClassType for every analysis pass. Instead, we'll
-                // use the cached version and update it after the first pass.
-                const cachedCallType = cachedExpressionNode ?
-                    AnalyzerNodeInfo.getExpressionType(cachedExpressionNode) :
-                    undefined;
-
-                // Use the cached class type and update it if this isn't the first
-                // analysis path. If this is the first pass, allocate a new ClassType.
-                let classType = cachedCallType as ClassType;
-                if (!classType || classType.category !== TypeCategory.Class) {
-                    classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
-
-                    AnalyzerNodeInfo.setExpressionType(errorNode, classType, true);
-                    ClassType.addBaseClass(classType, baseClass, false);
-                } else {
-                    ClassType.updateBaseClassType(classType, 0, baseClass);
-                }
-
+                const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
+                ClassType.addBaseClass(classType, baseClass, false);
                 return classType;
             }
         }
@@ -3526,7 +3488,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     // Creates a new custom TypedDict factory class.
     // Supports both typed and untyped variants.
     function createTypedDictType(errorNode: ExpressionNode, typedDictClass: ClassType,
-            argList: FunctionArgument[], cachedExpressionNode?: ExpressionNode): ClassType {
+            argList: FunctionArgument[]): ClassType {
 
         let className = 'TypedDict';
         if (argList.length === 0) {
@@ -3543,22 +3505,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
-        // This is a hack to make TypedDict classes work correctly. We don't want
-        // to create a new ClassType for every analysis pass. Instead, we'll
-        // use the cached version and update it after the first pass.
-        const cachedCallType = cachedExpressionNode ?
-            AnalyzerNodeInfo.getExpressionType(cachedExpressionNode) :
-            undefined;
-
-        // Use the cached class type and update it if this isn't the first
-        // analysis path. If this is the first pass, allocate a new ClassType.
-        let classType = cachedCallType as ClassType;
-        if (!classType || classType.category !== TypeCategory.Class) {
-            classType = ClassType.create(className, ClassTypeFlags.TypedDictClass, errorNode.id);
-
-            AnalyzerNodeInfo.setExpressionType(errorNode, classType, true);
-            ClassType.addBaseClass(classType, typedDictClass, false);
-        }
+        const classType = ClassType.create(className, ClassTypeFlags.TypedDictClass, errorNode.id);
+        ClassType.addBaseClass(classType, typedDictClass, false);
 
         if (argList.length >= 3) {
             if (!argList[2].name ||
@@ -3654,7 +3602,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     // Creates a new custom tuple factory class with named values.
     // Supports both typed and untyped variants.
     function createNamedTupleType(errorNode: ExpressionNode, argList: FunctionArgument[],
-            includesTypes: boolean, cachedExpressionNode?: ExpressionNode): ClassType {
+            includesTypes: boolean): ClassType {
 
         let className = 'namedtuple';
         if (argList.length === 0) {
@@ -3670,24 +3618,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
-        // This is a hack to make named tuples work correctly. We don't want
-        // to create a new ClassType for every analysis pass. Instead, we'll
-        // use the cached version and update it after the first pass.
-        const cachedCallType = cachedExpressionNode ?
-            AnalyzerNodeInfo.getExpressionType(cachedExpressionNode) :
-            undefined;
-
-        // Use the cached class type and update it if this isn't the first
-        // analysis path. If this is the first pass, allocate a new ClassType.
-        let classType = cachedCallType as ClassType;
-        if (!classType || classType.category !== TypeCategory.Class) {
-            classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
-
-            AnalyzerNodeInfo.setExpressionType(errorNode, classType, true);
-            const builtInNamedTuple = getTypingType(errorNode, 'NamedTuple') ||
-                UnknownType.create();
-            ClassType.addBaseClass(classType, builtInNamedTuple, false);
-        }
+        const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
+        const builtInNamedTuple = getTypingType(errorNode, 'NamedTuple') || UnknownType.create();
+        ClassType.addBaseClass(classType, builtInNamedTuple, false);
 
         const classFields = ClassType.getFields(classType);
         classFields.set('__class__', Symbol.createWithType(SymbolFlags.ClassMember, classType));

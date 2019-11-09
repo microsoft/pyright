@@ -422,6 +422,33 @@ export namespace ClassType {
             }
         }
 
+        // If the two types don't have the same symbol table, they are probably
+        // using synthesized (undeclared) symbols. Make sure that they contain the
+        // same number of symbols and types.
+        if (class1Details.fields !== class2Details.fields) {
+            if (class1Details.fields.getKeys().length !== class2Details.fields.getKeys().length) {
+                return false;
+            }
+
+            let symbolsMatch = true;
+            class1Details.fields.forEach((symbol1, name) => {
+                const symbol2 = class2Details.fields.get(name);
+                if (!symbol2) {
+                    symbolsMatch = false;
+                } else {
+                    const symbol1Type = symbol1.getUndeclaredType() || UnknownType.create();
+                    const symbol2Type = symbol2.getUndeclaredType() || UnknownType.create();
+                    if (!isTypeSame(symbol1Type, symbol2Type, recursionCount + 1)) {
+                        symbolsMatch = false;
+                    }
+                }
+            });
+
+            if (!symbolsMatch) {
+                return false;
+            }
+        }
+
         return true;
     }
 
