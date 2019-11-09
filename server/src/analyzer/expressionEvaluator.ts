@@ -36,12 +36,13 @@ import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol } from './symbolUtils';
-import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter, FunctionType,
-    FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound, isTypeSame,
-    isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionType,
-    printObjectTypeForClass, printType, removeNoneFromUnion, removeUnboundFromUnion,
-    requiresSpecialization, Type, TypeCategory, TypeVarMap, TypeVarType, UnboundType,
+import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
+import { AnyType, ClassType, ClassTypeFlags, combineTypes, defaultTypeSourceId, FunctionParameter,
+    FunctionType, FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound,
+    isTypeSame, isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType,
+    OverloadedFunctionType, printObjectTypeForClass, printType, removeNoneFromUnion,
+    removeUnboundFromUnion, requiresSpecialization, Type, TypeCategory, TypeVarMap, TypeVarType,
+    UnboundType,
     UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
@@ -241,9 +242,20 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     }
 
     function getTypeOfAnnotation(node: ExpressionNode): Type {
+        const fileInfo = getFileInfo(node);
+
+        // Special-case the typing.pyi file, which contains some special
+        // types that the type analyzer needs to interpret differently.
+        if (fileInfo.isTypingStubFile) {
+            const specialType = handleTypingStubTypeAnnotation(node);
+            if (specialType) {
+                updateExpressionTypeForNode(node, specialType);
+                return specialType;
+            }
+        }
+
         let evaluatorFlags = EvaluatorFlags.ConvertEllipsisToAny;
 
-        const fileInfo = getFileInfo(node);
         const isAnnotationEvaluationPostponed =
             fileInfo.futureImports.get('annotations') !== undefined ||
             fileInfo.isStubFile;
@@ -1622,8 +1634,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 if (isTypeStub) {
                     // Type stubs allow forward references of classes, so
                     // don't use code flow analysis in this case.
-                    const decls = symbolWithScope.symbol.getDeclarations();
-                    if (decls.length > 0 && decls[0].type === DeclarationType.Class) {
+                    const decl = getLastTypedDeclaredForSymbol(symbolWithScope.symbol);
+                    if (decl && decl.type === DeclarationType.Class) {
                         useCodeFlowAnalysis = false;
                     }
                 }
@@ -4951,97 +4963,121 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return typeOfExpr;
     }
 
-    // Handles some special-case assignment statements that are found
-    // within the typings.pyi file.
-    function handleTypingStubAssignment(node: AssignmentNode): Type | undefined {
-        let nameNode: NameNode | undefined;
-        if (node.leftExpression.nodeType === ParseNodeType.Name) {
-            nameNode = node.leftExpression;
-        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
-            node.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
-            nameNode = node.leftExpression.valueExpression;
-        }
+    function createSpecialBuiltInClass(node: ParseNode, assignedName: string,
+            aliasMapEntry: AliasMapEntry): ClassType {
 
-        if (nameNode) {
-            const assignedName = nameNode.nameToken.value;
-            let specialType: Type | undefined;
+        const specialClassType = ClassType.create(assignedName,
+            ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
+            node.id);
 
-            if (assignedName === 'Any') {
-                specialType = AnyType.create();
-            } else {
-                const specialTypes: { [name: string]: AliasMapEntry } = {
-                    'overload': { alias: '', module: 'builtins' },
-                    'TypeVar': { alias: '', module: 'builtins' },
-                    '_promote': { alias: '', module: 'builtins' },
-                    'no_type_check': { alias: '', module: 'builtins' },
-                    'NoReturn': { alias: '', module: 'builtins' },
-                    'Union': { alias: '', module: 'builtins' },
-                    'Optional': { alias: '', module: 'builtins' },
-                    'List': { alias: 'list', module: 'builtins' },
-                    'Dict': { alias: 'dict', module: 'builtins' },
-                    'DefaultDict': { alias: 'defaultdict', module: 'collections' },
-                    'Set': { alias: 'set', module: 'builtins' },
-                    'FrozenSet': { alias: 'frozenset', module: 'builtins' },
-                    'Deque': { alias: 'deque', module: 'collections' },
-                    'ChainMap': { alias: 'ChainMap', module: 'collections' },
-                    'Tuple': { alias: 'tuple', module: 'builtins' },
-                    'Generic': { alias: '', module: 'builtins' },
-                    'Protocol': { alias: '', module: 'builtins' },
-                    'Callable': { alias: '', module: 'builtins' },
-                    'Type': { alias: 'type', module: 'builtins' },
-                    'ClassVar': { alias: '', module: 'builtins' },
-                    'Final': { alias: '', module: 'builtins' },
-                    'Literal': { alias: '', module: 'builtins' },
-                    'TypedDict': { alias: '_TypedDict', module: 'self' }
-                };
+        const baseClassName = aliasMapEntry.alias ? aliasMapEntry.alias : 'object';
 
-                const aliasMapEntry = specialTypes[assignedName];
-                if (aliasMapEntry) {
-                    // The binder should have already synthesized the class.
-                    const specialClassType = AnalyzerNodeInfo.getExpressionType(nameNode)!;
-                    assert(specialClassType !== undefined && specialClassType.category === TypeCategory.Class);
-                    specialType = specialClassType;
-
-                    const baseClassName = aliasMapEntry.alias ? aliasMapEntry.alias : 'object';
-
-                    let aliasClass: Type | undefined;
-                    if (aliasMapEntry.module === 'builtins') {
-                        aliasClass = getBuiltInType(node, baseClassName);
-                    } else if (aliasMapEntry.module === 'collections') {
-                        // The typing.pyi file imports collections.
-                        const fileInfo = getFileInfo(node);
-                        if (fileInfo.collectionsModulePath) {
-                            const lookupResult = importLookup(fileInfo.collectionsModulePath);
-                            if (lookupResult) {
-                                const symbol = lookupResult.symbolTable.get(baseClassName);
-                                if (symbol) {
-                                    aliasClass = getEffectiveTypeOfSymbol(symbol, importLookup);
-                                }
-                            }
-                        }
-                    } else if (specialTypes[assignedName].module === 'self') {
-                        const symbolWithScope = lookUpSymbolRecursive(node, baseClassName);
-                        if (symbolWithScope) {
-                            aliasClass = getEffectiveTypeOfSymbol(
-                                symbolWithScope.symbol, importLookup);
-                        }
-                    }
-
-                    if (aliasClass && aliasClass.category === TypeCategory.Class &&
-                            specialClassType.category === TypeCategory.Class) {
-
-                        if (ClassType.updateBaseClassType(specialClassType, 0, aliasClass)) {
-                            setAnalysisChangedCallback('Base class update for special type');
-                        }
-
-                        if (aliasMapEntry.alias) {
-                            specialClassType.details.aliasClass = aliasClass;
-                        }
+        let aliasClass: Type | undefined;
+        if (aliasMapEntry.module === 'builtins') {
+            aliasClass = getBuiltInType(node, baseClassName);
+        } else if (aliasMapEntry.module === 'collections') {
+            // The typing.pyi file imports collections.
+            const fileInfo = getFileInfo(node);
+            if (fileInfo.collectionsModulePath) {
+                const lookupResult = importLookup(fileInfo.collectionsModulePath);
+                if (lookupResult) {
+                    const symbol = lookupResult.symbolTable.get(baseClassName);
+                    if (symbol) {
+                        aliasClass = getEffectiveTypeOfSymbol(symbol, importLookup);
                     }
                 }
             }
+        } else if (aliasMapEntry.module === 'self') {
+            const symbolWithScope = lookUpSymbolRecursive(node, baseClassName);
+            if (symbolWithScope) {
+                aliasClass = getEffectiveTypeOfSymbol(
+                    symbolWithScope.symbol, importLookup);
+            }
+        }
 
-            return specialType;
+        if (aliasClass && aliasClass.category === TypeCategory.Class &&
+                specialClassType.category === TypeCategory.Class) {
+
+            ClassType.addBaseClass(specialClassType, aliasClass, false);
+
+            if (aliasMapEntry.alias) {
+                specialClassType.details.aliasClass = aliasClass;
+            }
+        } else {
+            ClassType.addBaseClass(specialClassType, UnknownType.create(), false);
+        }
+
+        return specialClassType;
+    }
+
+    // Handles some special-case type annotations that are found
+    // within the typings.pyi file.
+    function handleTypingStubTypeAnnotation(node: ExpressionNode): ClassType | undefined {
+        if (!node.parent || node.parent.nodeType !== ParseNodeType.TypeAnnotation) {
+            return undefined;
+        }
+
+        if (node.parent.valueExpression.nodeType !== ParseNodeType.Name) {
+            return undefined;
+        }
+
+        const nameNode = node.parent.valueExpression;
+        const assignedName = nameNode.nameToken.value;
+
+        const specialTypes: { [name: string]: AliasMapEntry } = {
+            'Tuple': { alias: 'tuple', module: 'builtins' },
+            'Generic': { alias: '', module: 'builtins' },
+            'Protocol': { alias: '', module: 'builtins' },
+            'Callable': { alias: '', module: 'builtins' },
+            'Type': { alias: 'type', module: 'builtins' },
+            'ClassVar': { alias: '', module: 'builtins' },
+            'Final': { alias: '', module: 'builtins' },
+            'Literal': { alias: '', module: 'builtins' },
+            'TypedDict': { alias: '_TypedDict', module: 'self' }
+        };
+
+        const aliasMapEntry = specialTypes[assignedName];
+        if (aliasMapEntry) {
+            return createSpecialBuiltInClass(node, assignedName, aliasMapEntry);
+        }
+
+        return undefined;
+    }
+
+    // Handles some special-case assignment statements that are found
+    // within the typings.pyi file.
+    function handleTypingStubAssignment(node: AssignmentNode): Type | undefined {
+        if (node.leftExpression.nodeType !== ParseNodeType.Name) {
+            return undefined;
+        }
+
+        const nameNode = node.leftExpression;
+        const assignedName = nameNode.nameToken.value;
+
+        if (assignedName === 'Any') {
+            return AnyType.create();
+        }
+
+        const specialTypes: { [name: string]: AliasMapEntry } = {
+            'overload': { alias: '', module: 'builtins' },
+            'TypeVar': { alias: '', module: 'builtins' },
+            '_promote': { alias: '', module: 'builtins' },
+            'no_type_check': { alias: '', module: 'builtins' },
+            'NoReturn': { alias: '', module: 'builtins' },
+            'Union': { alias: '', module: 'builtins' },
+            'Optional': { alias: '', module: 'builtins' },
+            'List': { alias: 'list', module: 'builtins' },
+            'Dict': { alias: 'dict', module: 'builtins' },
+            'DefaultDict': { alias: 'defaultdict', module: 'collections' },
+            'Set': { alias: 'set', module: 'builtins' },
+            'FrozenSet': { alias: 'frozenset', module: 'builtins' },
+            'Deque': { alias: 'deque', module: 'collections' },
+            'ChainMap': { alias: 'ChainMap', module: 'collections' }
+        };
+
+        const aliasMapEntry = specialTypes[assignedName];
+        if (aliasMapEntry) {
+            return createSpecialBuiltInClass(node, assignedName, aliasMapEntry);
         }
 
         return undefined;
@@ -5066,6 +5102,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // types that the type analyzer needs to interpret differently.
             if (fileInfo.isTypingStubFile) {
                 rightHandType = handleTypingStubAssignment(node);
+                if (rightHandType) {
+                    updateExpressionTypeForNode(node.rightExpression, rightHandType);
+                }
             }
 
             if (!rightHandType) {

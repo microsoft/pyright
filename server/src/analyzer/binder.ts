@@ -2094,29 +2094,13 @@ export class Binder extends ParseTreeWalker {
             return false;
         }
 
-        let assignedNameNode: NameNode | undefined;
-        if (node.leftExpression.nodeType === ParseNodeType.Name) {
-            assignedNameNode = node.leftExpression;
-        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
-            node.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
-            assignedNameNode = node.leftExpression.valueExpression;
+        if (node.leftExpression.nodeType !== ParseNodeType.TypeAnnotation ||
+                node.leftExpression.valueExpression.nodeType !== ParseNodeType.Name) {
+            return false;
         }
 
+        const assignedNameNode = node.leftExpression.valueExpression;
         const specialTypes: { [name: string]: boolean } = {
-            'overload': true,
-            'TypeVar': true,
-            '_promote': true,
-            'no_type_check': true,
-            'NoReturn': true,
-            'Union': true,
-            'Optional': true,
-            'List': true,
-            'Dict': true,
-            'DefaultDict': true,
-            'Set': true,
-            'FrozenSet': true,
-            'Deque': true,
-            'ChainMap': true,
             'Tuple': true,
             'Generic': true,
             'Protocol': true,
@@ -2128,43 +2112,23 @@ export class Binder extends ParseTreeWalker {
             'TypedDict': true
         };
 
-        if (assignedNameNode) {
-            const assignedName = assignedNameNode.nameToken.value;
-            let specialType: Type | undefined;
+        const assignedName = assignedNameNode.nameToken.value;
 
-            if (assignedName === 'Any') {
-                specialType = AnyType.create();
-            } else if (specialTypes[assignedName]) {
-                const specialClassType = ClassType.create(assignedName,
-                    ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-                    defaultTypeSourceId);
-
-                // We'll fill in the actual base class in the analysis phase.
-                ClassType.addBaseClass(specialClassType, UnknownType.create(), false);
-                specialType = specialClassType;
-            }
-
-            if (specialType) {
-                AnalyzerNodeInfo.setExpressionType(assignedNameNode, specialType, true);
-                const symbol = this._bindNameToScope(this._currentScope, assignedName);
-
-                if (symbol) {
-                    symbol.addDeclaration({
-                        type: DeclarationType.BuiltIn,
-                        node: assignedNameNode,
-                        declaredType: specialType,
-                        path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(node.leftExpression.start,
-                            TextRange.getEnd(node.leftExpression), this._fileInfo.lines)
-                    });
-                }
-
-                this._createAssignmentTargetFlowNodes(assignedNameNode);
-                return true;
-            }
+        if (!specialTypes[assignedName]) {
+            return false;
         }
+        const symbol = this._bindNameToScope(this._currentScope, assignedName);
 
-        return false;
+        if (symbol) {
+            symbol.addDeclaration({
+                type: DeclarationType.SpecialBuiltInClass,
+                node: node.leftExpression,
+                path: this._fileInfo.filePath,
+                range: convertOffsetsToRange(node.leftExpression.start,
+                    TextRange.getEnd(node.leftExpression), this._fileInfo.lines)
+            });
+        }
+        return true;
     }
 
     private _deferBinding(callback: () => void) {

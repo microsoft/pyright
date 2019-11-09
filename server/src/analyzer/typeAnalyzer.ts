@@ -1713,7 +1713,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 return oldPropertyType;
                             }
                             const newProperty = PropertyType.create(inputFunctionType);
-                            AnalyzerNodeInfo.setExpressionType(decoratorNode, newProperty, true);
+                            AnalyzerNodeInfo.setExpressionType(decoratorNode, newProperty);
                             return newProperty;
                         }
 

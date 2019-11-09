@@ -111,6 +111,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
         let symbolKind: SymbolKind;
         switch (declaration.type) {
             case DeclarationType.Class:
+            case DeclarationType.SpecialBuiltInClass:
                 symbolKind = SymbolKind.Class;
                 break;
 

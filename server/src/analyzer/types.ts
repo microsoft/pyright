@@ -380,28 +380,12 @@ export namespace ClassType {
             return true;
         }
 
-        // Special built-in classes generate new class details for
-        // each instance, so we need to rely on a name comparison.
-        if (isSpecialBuiltIn(classType) && isSpecialBuiltIn(type2) &&
-                classType.details.name === type2.details.name) {
-
-            // In a few cases (e.g. with NamedTuple classes) we allocate a
-            // new class type for every type analysis pass. To detect this
-            // case, we will use the typeSourceId field.
-            if (classType.details.typeSourceId !== type2.details.typeSourceId) {
-                return false;
-            }
-
-            return true;
-        }
-
         // Compare most of the details fields. We intentionally skip the isAbstractClass
         // flag because it gets set dynamically.
         if (class1Details.name !== class2Details.name ||
                 class1Details.flags !== class2Details.flags ||
                 class1Details.typeSourceId !== class2Details.typeSourceId ||
                 class1Details.baseClasses.length !== class2Details.baseClasses.length ||
-                class1Details.fields !== class2Details.fields ||
                 class1Details.typeParameters.length !== class2Details.typeParameters.length) {
             return false;
         }

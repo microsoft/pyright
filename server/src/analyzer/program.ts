@@ -606,6 +606,20 @@ export class Program {
             return false;
         }
 
+        // If this isn't the builtins module itself and the builtins module
+        // hasn't yet been finalized, analyze it now. The builtins module
+        // is part of an import cycle, and we want to analyze that closure
+        // without including in some larger closure.
+        const builtinsImport = fileToAnalyze.sourceFile.getBuiltinsImport();
+        if (builtinsImport && fileToAnalyze.imports.length > 0) {
+            const builtinFile = fileToAnalyze.imports[0];
+            if (builtinFile.sourceFile.isTypeAnalysisRequired()) {
+                if (this._doFullAnalysis(builtinFile, options, importResolver, timeElapsedCallback)) {
+                    return true;
+                }
+            }
+        }
+
         // Discover all imports (recursively) that have not yet been finalized.
         const closureMap = new Map<string, boolean>();
         const analysisQueue: SourceFileInfo[] = [];

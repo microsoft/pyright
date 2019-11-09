@@ -185,6 +185,9 @@ export function getTypeForDeclaration(declaration: Declaration): Type | undefine
         case DeclarationType.Class:
             return AnalyzerNodeInfo.getExpressionType(declaration.node.name);
 
+        case DeclarationType.SpecialBuiltInClass:
+            return AnalyzerNodeInfo.getExpressionType(declaration.node.typeAnnotation);
+
         case DeclarationType.Function:
         case DeclarationType.Method:
             return AnalyzerNodeInfo.getExpressionType(declaration.node.name);
@@ -230,6 +233,7 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
     switch (declaration.type) {
         case DeclarationType.BuiltIn:
         case DeclarationType.Class:
+        case DeclarationType.SpecialBuiltInClass:
         case DeclarationType.Function:
         case DeclarationType.Method:
             return true;

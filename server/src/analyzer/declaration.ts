@@ -12,7 +12,7 @@
 import { DiagnosticTextRange } from '../common/diagnostic';
 import { ClassNode, ExpressionNode, FunctionNode, ImportAsNode,
     ImportFromAsNode, ImportFromNode, NameNode, ParameterNode, ParseNode,
-    ReturnNode, StringListNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
+    ReturnNode, StringListNode, TypeAnnotationNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { Type } from './types';
 
 export const enum DeclarationType {
@@ -22,6 +22,7 @@ export const enum DeclarationType {
     Function,
     Method,
     Class,
+    SpecialBuiltInClass,
     Alias
 }
 
@@ -47,6 +48,13 @@ export interface BuiltInDeclaration extends DeclarationBase {
 export interface ClassDeclaration extends DeclarationBase {
     type: DeclarationType.Class;
     node: ClassNode;
+}
+
+// This declaration form is used only for a few special
+// built-in class types defined in typing.pyi.
+export interface SpecialBuiltInClassDeclaration extends DeclarationBase {
+    type: DeclarationType.SpecialBuiltInClass;
+    node: TypeAnnotationNode;
 }
 
 export interface FunctionDeclaration extends DeclarationBase {
@@ -117,5 +125,5 @@ export interface ModuleLoaderActions {
 }
 
 export type Declaration = BuiltInDeclaration | ClassDeclaration |
-    FunctionDeclaration | ParameterDeclaration | VariableDeclaration |
-    AliasDeclaration;
+    SpecialBuiltInClassDeclaration | FunctionDeclaration | ParameterDeclaration |
+    VariableDeclaration | AliasDeclaration;

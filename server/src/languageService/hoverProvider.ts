@@ -14,7 +14,7 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { ClassType, FunctionType, printType, Type, TypeCategory, UnknownType } from '../analyzer/types';
+import { FunctionType, printType, Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -106,7 +106,8 @@ export class HoverProvider {
                 break;
             }
 
-            case DeclarationType.Class: {
+            case DeclarationType.Class:
+            case DeclarationType.SpecialBuiltInClass: {
                 if (node.nodeType === ParseNodeType.Name) {
                     this._addResultsPart(parts, '(class) ' + node.nameToken.value, true);
                     this._addDocumentationPart(parts, node);

@@ -14,15 +14,14 @@ import { CompletionItem, CompletionItemKind, CompletionList,
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import { getTypeForDeclaration, resolveAliasDeclaration } from '../analyzer/declarationUtils';
+import { getInferredTypeOfDeclaration, resolveAliasDeclaration } from '../analyzer/declarationUtils';
 import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { ScopeType } from '../analyzer/scope';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
-import { ClassType, FunctionType, printType, Type, TypeCategory } from '../analyzer/types';
+import { FunctionType, printType, Type, TypeCategory } from '../analyzer/types';
 import * as TypeUtils from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
@@ -644,7 +643,7 @@ export class CompletionProvider {
 
             const declaration = resolveAliasDeclaration(declarations[0], this._importLookup);
             if (declaration) {
-                const type = getTypeForDeclaration(declaration);
+                const type = getInferredTypeOfDeclaration(declaration, this._importLookup);
                 itemKind = this._convertDeclarationTypeToItemKind(declaration, type);
 
                 if (type) {
@@ -665,7 +664,8 @@ export class CompletionProvider {
                             }
                             break;
 
-                        case DeclarationType.Class: {
+                        case DeclarationType.Class:
+                        case DeclarationType.SpecialBuiltInClass: {
                             typeDetail = 'class ' + name + '()';
                             break;
                         }
@@ -878,6 +878,7 @@ export class CompletionProvider {
                 return CompletionItemKind.Method;
 
             case DeclarationType.Class:
+            case DeclarationType.SpecialBuiltInClass:
                 return CompletionItemKind.Class;
 
             case DeclarationType.Alias:
