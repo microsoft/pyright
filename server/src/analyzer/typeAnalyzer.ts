@@ -20,7 +20,7 @@ import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignme
     DelNode, ErrorNode, ExceptNode, ExpressionNode, FormatStringNode, ForNode,
     FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexNode, LambdaNode,
     ListComprehensionNode, MemberAccessNode, ModuleNode, NameNode, ParameterCategory,
-    ParameterNode, ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceNode,
+    ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceNode,
     StringListNode, SuiteNode, TernaryNode, TupleNode,
     TypeAnnotationNode, UnaryOperationNode, UnpackNode, WhileNode,
     WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
@@ -40,8 +40,7 @@ import * as SymbolNameUtils from './symbolNameUtils';
 import { getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { ClassType, combineTypes, FunctionType,
     isAnyOrUnknown, isNoneOrNever, isTypeSame, ModuleType, NoneType,
-    ObjectType, OverloadedFunctionEntry, OverloadedFunctionType, printType,
-    removeNoneFromUnion, Type, TypeCategory, UnknownType  } from './types';
+    ObjectType, printType, removeNoneFromUnion, Type, TypeCategory, UnknownType } from './types';
 import * as TypeUtils from './typeUtils';
 
 // At some point, we'll cut off the analysis passes and assume
@@ -1255,12 +1254,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             inferredYieldType = UnknownType.create();
                         }
 
-                        if (!functionType.details.inferredReturnType ||
-                                !isTypeSame(functionType.details.inferredReturnType, inferredYieldType)) {
-
-                            functionType.details.inferredReturnType = inferredYieldType;
-                            this._setAnalysisChanged('Inferred yield type changed');
-                        }
+                        functionType.details.inferredReturnType = inferredYieldType;
                     }
                 }
             } else {
@@ -1307,12 +1301,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     inferredReturnType = combineTypes(inferredReturnTypes);
                 }
 
-                if (!functionType.details.inferredReturnType ||
-                        !isTypeSame(functionType.details.inferredReturnType, inferredReturnType)) {
-
-                    functionType.details.inferredReturnType = inferredReturnType;
-                    this._setAnalysisChanged('Inferred return type changed');
-                }
+                functionType.details.inferredReturnType = inferredReturnType;
 
                 if (inferredReturnType.category === TypeCategory.Unknown) {
                     this._evaluator.addDiagnostic(

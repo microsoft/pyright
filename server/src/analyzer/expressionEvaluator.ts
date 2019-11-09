@@ -5563,6 +5563,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             FunctionType.setDeclaredReturnType(functionType, returnType);
         }
 
+        updateExpressionTypeForNode(node, functionType);
+
         // If there was no decorator, see if there are any overloads provided
         // by previous function declarations.
         if (decoratedType === functionType) {
@@ -5615,7 +5617,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         const decoratorType = getType(decoratorNode.leftExpression);
 
         // Special-case the "overload" because it has no definition.
-        if (decoratorType.category === TypeCategory.Class && decoratorType.details.name === 'overload') {
+        if (decoratorType.category === TypeCategory.Class &&
+                ClassType.isSpecialBuiltIn(decoratorType, 'overload')) {
+
             if (inputFunctionType.category === TypeCategory.Function) {
                 inputFunctionType.details.flags |= FunctionTypeFlags.Overloaded;
                 return inputFunctionType;
@@ -5688,14 +5692,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     // and creates an OverloadedFunctionType that includes this function and
     // all previous ones.
     function addOverloadsToFunctionType(node: FunctionNode, type: FunctionType): Type {
+        const functionDecl = AnalyzerNodeInfo.getFunctionDeclaration(node)!;
         const symbolWithScope = lookUpSymbolRecursive(node, node.name.nameToken.value);
         if (symbolWithScope) {
             const decls = symbolWithScope.symbol.getDeclarations();
 
             // Find this function's declaration.
-            let declIndex = decls.findIndex(decl => {
-                return (decl.type === DeclarationType.Function || decl.type === DeclarationType.Method) && decl.node === node;
-            });
+            let declIndex = decls.findIndex(decl => decl === functionDecl);
             if (declIndex > 0) {
                 const overloadedTypes: OverloadedFunctionEntry[] = [{ type, typeSourceId: decls[declIndex].node.id }];
                 while (declIndex > 0) {
