@@ -14,8 +14,9 @@ import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { ArgumentCategory, ClassNode, ExpressionNode, FunctionNode, isExpressionNode,
-    ModuleNode, ParameterCategory, ParseNode, ParseNodeType, SuiteNode } from '../parser/parseNodes';
+    ModuleNode, ParameterCategory, ParseNode, ParseNodeType, StatementNode, SuiteNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
+import { decodeDocString } from './docStringUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 
 export const enum PrintExpressionFlags {
@@ -468,4 +469,33 @@ export function isWithinDefaultParamInitializer(node: ParseNode) {
     }
 
     return false;
+}
+
+export function getDocString(statements: StatementNode[]): string | undefined {
+    // See if the first statement in the suite is a triple-quote string.
+    if (statements.length === 0) {
+        return undefined;
+    }
+
+    if (statements[0].nodeType !== ParseNodeType.StatementList) {
+        return undefined;
+    }
+
+    // If the first statement in the suite isn't a StringNode,
+    // assume there is no docString.
+    const statementList = statements[0];
+    if (statementList.statements.length === 0 ||
+            statementList.statements[0].nodeType !== ParseNodeType.StringList) {
+        return undefined;
+    }
+
+    const docStringNode = statementList.statements[0];
+    const docStringToken = docStringNode.strings[0].token;
+
+    // Ignore f-strings.
+    if ((docStringToken.flags & StringTokenFlags.Format) !== 0) {
+        return undefined;
+    }
+
+    return decodeDocString(docStringNode.strings[0].value);
 }
