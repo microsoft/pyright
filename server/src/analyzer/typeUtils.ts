@@ -429,7 +429,7 @@ export function canAssignType(destType: Type, srcType: Type, diag: DiagnosticAdd
 
             // All functions are assignable to "object".
             if (ClassType.isBuiltIn(destType.classType) &&
-                    ClassType.getClassName(destType.classType) === 'object') {
+                    destType.classType.details.name === 'object') {
 
                 return true;
             }
@@ -952,7 +952,7 @@ export function lookUpClassMember(classType: Type, memberName: string, importLoo
         }
 
         if ((flags & ClassMemberLookupFlags.SkipBaseClasses) === 0) {
-            for (const baseClass of ClassType.getBaseClasses(classType)) {
+            for (const baseClass of classType.details.baseClasses) {
                 // Skip metaclass.
                 if (!baseClass.isMetaclass) {
                     // Recursively perform search.
@@ -996,7 +996,7 @@ export function getMetaclass(type: ClassType, recursionCount = 0): ClassType | U
         return undefined;
     }
 
-    for (const base of ClassType.getBaseClasses(type)) {
+    for (const base of type.details.baseClasses) {
         if (base.isMetaclass) {
             if (base.type.category === TypeCategory.Class) {
                 return base.type;
@@ -1188,7 +1188,7 @@ export function derivesFromClassRecursive(classType: ClassType, baseClassToFind:
         return true;
     }
 
-    for (const baseClass of ClassType.getBaseClasses(classType)) {
+    for (const baseClass of classType.details.baseClasses) {
         if (baseClass.type.category === TypeCategory.Class) {
             if (derivesFromClassRecursive(baseClass.type, baseClassToFind)) {
                 return true;
@@ -1267,7 +1267,7 @@ export function getSymbolFromBaseClasses(classType: ClassType, name: string,
         return undefined;
     }
 
-    for (const baseClass of ClassType.getBaseClasses(classType)) {
+    for (const baseClass of classType.details.baseClasses) {
         if (baseClass.type.category === TypeCategory.Class) {
             const memberFields = ClassType.getFields(baseClass.type);
             const symbol = memberFields.get(name);
@@ -1306,7 +1306,7 @@ export function getAbstractMethodsRecursive(classType: ClassType, importLookup: 
         return;
     }
 
-    for (const baseClass of ClassType.getBaseClasses(classType)) {
+    for (const baseClass of classType.details.baseClasses) {
         if (baseClass.type.category === TypeCategory.Class) {
             if (ClassType.isAbstractClass(baseClass.type)) {
                 // Recursively get abstract methods for subclasses.
@@ -1479,7 +1479,7 @@ export function isEnumClass(classType: ClassType): boolean {
     const metaclass = getMetaclass(classType);
 
     return !!metaclass && metaclass.category === TypeCategory.Class &&
-        ClassType.getClassName(metaclass) === 'EnumMeta';
+        metaclass.details.name === 'EnumMeta';
 }
 
 // Determines whether the specified keys and values can be assigned to
@@ -1542,7 +1542,7 @@ export function getTypedDictMembersForClassRecursive(classType: ClassType,
         return;
     }
 
-    ClassType.getBaseClasses(classType).forEach(baseClassType => {
+    classType.details.baseClasses.forEach(baseClassType => {
         if (!baseClassType.isMetaclass && baseClassType.type.category === TypeCategory.Class &&
                 ClassType.isTypedDictClass(baseClassType.type)) {
 
@@ -1577,7 +1577,7 @@ function _getMembersForClassRecursive(classType: ClassType,
         return;
     }
 
-    ClassType.getBaseClasses(classType).forEach(baseClassType => {
+    classType.details.baseClasses.forEach(baseClassType => {
         if (!baseClassType.isMetaclass && baseClassType.type.category === TypeCategory.Class) {
             _getMembersForClassRecursive(baseClassType.type,
                 symbolTable, includeInstanceVars, recursionCount + 1);
@@ -1911,7 +1911,7 @@ function _canAssignClassWithTypeArgs(destType: ClassType, srcType: ClassType,
         if (ancestorIndex === 0 && ClassType.isSpecialBuiltIn(destType)) {
             // Handle built-in types that support arbitrary numbers
             // of type parameters like Tuple.
-            if (ClassType.getClassName(destType) === 'Tuple') {
+            if (destType.details.name === 'Tuple') {
                 const destTypeArgs = ClassType.getTypeArguments(destType) || [];
                 let destArgCount = destTypeArgs.length;
                 const isDestHomogenousTuple = destArgCount === 2 && isEllipsisType(destTypeArgs[1]);
@@ -2203,7 +2203,7 @@ function _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
     if (returnType.category === TypeCategory.Object) {
         const classType = returnType.classType;
         if (ClassType.isBuiltIn(classType)) {
-            const className = ClassType.getClassName(classType);
+            const className = classType.details.name;
             if (className === 'Generator' || className === 'AsyncGenerator') {
                 return ClassType.getTypeArguments(classType);
             }

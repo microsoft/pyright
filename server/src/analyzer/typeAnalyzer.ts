@@ -1408,7 +1408,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (returnType.category === TypeCategory.Object) {
             const classType = returnType.classType;
             if (ClassType.isBuiltIn(classType)) {
-                if (ClassType.getClassName(classType) === 'Generator') {
+                if (classType.details.name === 'Generator') {
                     // If the return type is a Generator, change it to an AsyncGenerator.
                     const asyncGeneratorType = this._evaluator.getTypingType(node, 'AsyncGenerator');
                     if (asyncGeneratorType && asyncGeneratorType.category === TypeCategory.Class) {
@@ -1424,7 +1424,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             ClassType.cloneForSpecialization(asyncGeneratorType, typeArgs));
                     }
 
-                } else if (ClassType.getClassName(classType) === 'AsyncGenerator') {
+                } else if (classType.details.name === 'AsyncGenerator') {
                     // If it's already an AsyncGenerator, leave it as is.
                     awaitableReturnType = returnType;
                 }
@@ -1640,7 +1640,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                                 this._evaluator.addDiagnostic(
                                     this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
                                     DiagnosticRule.reportIncompatibleMethodOverride,
-                                    `Method '${ name }' overrides class '${ ClassType.getClassName(baseClassAndSymbol.class) }' ` +
+                                    `Method '${ name }' overrides class '${ baseClassAndSymbol.class.details.name }' ` +
                                         `in an incompatible manner` + diagAddendum.getString(), errorNode);
                             }
                         }
@@ -1648,40 +1648,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 }
             }
         });
-    }
-
-    private _applyClassDecorator(inputClassType: Type, originalClassType: ClassType,
-            decoratorNode: DecoratorNode): Type {
-
-        const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression);
-
-        // Is this a @dataclass?
-        if (decoratorType.category === TypeCategory.OverloadedFunction) {
-            const overloads = decoratorType.overloads;
-            if (overloads.length > 0 && FunctionType.getBuiltInName(overloads[0].type) === 'dataclass') {
-                // Determine whether we should skip synthesizing the init method.
-                let skipSynthesizeInit = false;
-
-                if (decoratorNode.arguments) {
-                    decoratorNode.arguments.forEach(arg => {
-                        if (arg.name && arg.name.nameToken.value === 'init') {
-                            if (arg.valueExpression) {
-                                const value = StaticExpressions.evaluateStaticBoolExpression(
-                                    arg.valueExpression, this._fileInfo.executionEnvironment);
-                                if (!value) {
-                                    skipSynthesizeInit = true;
-                                }
-                            }
-                        }
-                    });
-                }
-
-                ClassType.setIsDataClass(originalClassType, skipSynthesizeInit);
-                return inputClassType;
-            }
-        }
-
-        return this._evaluator.getTypeFromDecorator(decoratorNode, inputClassType);
     }
 
     // Transforms the input function type into an output type based on the
@@ -1692,7 +1658,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const decoratorType = this._getTypeOfExpression(decoratorNode.leftExpression);
 
         // Special-case the "overload" because it has no definition.
-        if (decoratorType.category === TypeCategory.Class && ClassType.getClassName(decoratorType) === 'overload') {
+        if (decoratorType.category === TypeCategory.Class && decoratorType.details.name === 'overload') {
             if (inputFunctionType.category === TypeCategory.Function) {
                 FunctionType.setIsOverloaded(inputFunctionType);
                 return inputFunctionType;
@@ -1725,7 +1691,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         } else if (decoratorType.category === TypeCategory.Class) {
             if (ClassType.isBuiltIn(decoratorType)) {
-                switch (ClassType.getClassName(decoratorType)) {
+                switch (decoratorType.details.name) {
                     case 'staticmethod': {
                         FunctionType.setIsStaticMethod(originalFunctionType);
                         return inputFunctionType;

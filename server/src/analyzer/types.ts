@@ -186,7 +186,7 @@ interface ClassDetails {
     aliasClass?: ClassType;
     fields: SymbolTable;
     typeParameters: TypeVarType[];
-    isAbstractClass: boolean;
+    isAbstractClass?: boolean;
     docString?: string;
     dataClassParameters?: FunctionParameter[];
 }
@@ -218,7 +218,6 @@ export namespace ClassType {
                 baseClasses: [],
                 fields: new SymbolTable(),
                 typeParameters: [],
-                isAbstractClass: false,
                 docString
             },
             skipAbstractClassTest: false
@@ -253,7 +252,7 @@ export namespace ClassType {
         }
 
         if (className !== undefined) {
-            return getClassName(classType) === className;
+            return classType.details.name === className;
         }
 
         return true;
@@ -265,7 +264,7 @@ export namespace ClassType {
         }
 
         if (className !== undefined) {
-            return getClassName(classType) === className;
+            return classType.details.name === className;
         }
 
         return true;
@@ -292,17 +291,6 @@ export namespace ClassType {
             !classType.skipAbstractClassTest;
     }
 
-    export function getClassName(classType: ClassType) {
-        return classType.details.name;
-    }
-
-    export function setIsDataClass(classType: ClassType, skipInit: boolean) {
-        classType.details.flags |= ClassTypeFlags.DataClass;
-        if (skipInit) {
-            classType.details.flags |= ClassTypeFlags.SkipSynthesizedInit;
-        }
-    }
-
     export function isDataClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.DataClass);
     }
@@ -311,52 +299,26 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedInit);
     }
 
-    export function setIsTypedDict(classType: ClassType) {
-        classType.details.flags |= ClassTypeFlags.TypedDictClass;
-    }
-
     export function isTypedDictClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.TypedDictClass);
-    }
-
-    export function setCanOmitDictValues(classType: ClassType) {
-        classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
     }
 
     export function isCanOmitDictValues(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.CanOmitDictValues);
     }
 
-    export function getBaseClasses(classType: ClassType): BaseClass[] {
-        return classType.details.baseClasses;
-    }
-
-    export function setAliasClass(classType: ClassType, aliasType: ClassType) {
-        classType.details.aliasClass = aliasType;
-    }
-
-    export function getAliasClass(classType: ClassType) {
-        return classType.details.aliasClass;
-    }
-
-    export function getDocString(classType: ClassType) {
-        return classType.details.docString;
-    }
-
-    export function getTypeSourceId(classType: ClassType) {
-        return classType.details.typeSourceId;
-    }
-
     export function addBaseClass(classType: ClassType, baseClassType: Type, isMetaclass: boolean) {
         classType.details.baseClasses.push({ isMetaclass, type: baseClassType });
     }
 
+    // TODO - This should be removed
     export function updateBaseClassType(classType: ClassType, index: number, type: Type) {
         const didChange = !isTypeSame(type, classType.details.baseClasses[index].type);
         classType.details.baseClasses[index].type = type;
         return didChange;
     }
 
+    // TODO - This should be removed
     export function updateDataClassParameters(classType: ClassType, params: FunctionParameter[]) {
         let didChange = false;
         const oldParams = classType.details.dataClassParameters;
@@ -365,9 +327,9 @@ export namespace ClassType {
         } else if (oldParams.length !== params.length) {
             didChange = true;
         } else {
-            didChange = params.some((param, index) => {
-                return param.name !== params[index].name ||
-                    !isTypeSame(param.type, params[index].type);
+            didChange = oldParams.some((oldParam, index) => {
+                return oldParam.name !== params[index].name ||
+                    !isTypeSame(oldParam.type, params[index].type);
             });
         }
 
@@ -383,28 +345,6 @@ export namespace ClassType {
         return classType.details.fields;
     }
 
-    export function setFields(classType: ClassType, fields: SymbolTable) {
-        classType.details.fields = fields;
-    }
-
-    export function setTypeArguments(classType: ClassType, typeArgs: Type[]) {
-        // Special built-in types can have a variable number of type parameters, so
-        // ignore those. For all others, verify that we have enough type arguments
-        // to match all of the type parameters. It's possible in early phases of
-        // analysis for there to be more type args than parameters because the parameters
-        // have not yet been filled in for forward-declared classes.
-        if (!isSpecialBuiltIn(classType)) {
-            if (typeArgs.length < getTypeParameters(classType).length) {
-                while (typeArgs.length < getTypeParameters(classType).length) {
-                    // Fill in any remaining type parameters with Any.
-                    typeArgs.push(AnyType.create());
-                }
-            }
-        }
-
-        classType.typeArguments = typeArgs;
-    }
-
     export function getTypeArguments(classType: ClassType) {
         return classType.typeArguments;
     }
@@ -416,24 +356,6 @@ export namespace ClassType {
             return classType.details.aliasClass.details.typeParameters;
         }
         return classType.details.typeParameters;
-    }
-
-    export function setTypeParameters(classType: ClassType, params: TypeVarType[]): boolean {
-        let didParametersChange = false;
-
-        if (classType.details.typeParameters.length !== params.length) {
-            didParametersChange = true;
-        } else {
-            for (let i = 0; i < params.length; i++) {
-                if (!isTypeSame(params[i], classType.details.typeParameters[i])) {
-                    didParametersChange = true;
-                }
-            }
-        }
-
-        classType.details.typeParameters = params;
-
-        return didParametersChange;
     }
 
     // Same as isSame except that it doesn't compare type arguments.
@@ -461,7 +383,7 @@ export namespace ClassType {
         // Special built-in classes generate new class details for
         // each instance, so we need to rely on a name comparison.
         if (isSpecialBuiltIn(classType) && isSpecialBuiltIn(type2) &&
-                getClassName(classType) === getClassName(type2)) {
+                classType.details.name === type2.details.name) {
 
             // In a few cases (e.g. with NamedTuple classes) we allocate a
             // new class type for every type analysis pass. To detect this
@@ -545,7 +467,7 @@ export namespace ClassType {
             return true;
         }
 
-        for (const baseClass of getBaseClasses(subclassType)) {
+        for (const baseClass of subclassType.details.baseClasses) {
             if (baseClass.type.category === TypeCategory.Class) {
                 if (isDerivedFrom(baseClass.type, parentClassType, inheritanceChain)) {
                     if (inheritanceChain) {
@@ -1289,7 +1211,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
 }
 
 export function printObjectTypeForClass(type: ClassType, recursionCount = 0): string {
-    let objName = ClassType.getClassName(type);
+    let objName = type.details.name;
 
     // If there is a type arguments array, it's a specialized class.
     const typeArgs = ClassType.getTypeArguments(type);

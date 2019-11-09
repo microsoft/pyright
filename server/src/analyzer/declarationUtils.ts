@@ -284,7 +284,7 @@ function _getEnclosingEnumClass(node: ParseNode): ClassType | undefined {
         // Handle several built-in classes specially. We don't
         // want to interpret their class variables as enumerations.
         if (ClassType.isBuiltIn(enumClass)) {
-            const className = ClassType.getClassName(enumClass);
+            const className = enumClass.details.name;
             const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
             if (builtInEnumClasses.find(c => c === className)) {
                 return undefined;

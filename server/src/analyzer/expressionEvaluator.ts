@@ -210,9 +210,6 @@ export interface ExpressionEvaluator {
 
     transformTypeForPossibleEnumClass: (node: NameNode, typeOfExpr: Type) => Type;
 
-    synthesizeDataClassMethods: (node: ClassNode, classType: ClassType, skipSynthesizeInit: boolean) => void;
-    synthesizeTypedDictClassMethods: (classType: ClassType) => void;
-
     assignTypeToNameNode: (nameNode: NameNode, type: Type, srcExpression?: ParseNode) => void;
     assignTypeToExpression: (target: ExpressionNode, type: Type, srcExpr?: ExpressionNode,
         targetOfInterest?: ExpressionNode) => Type | undefined;
@@ -1246,13 +1243,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     // order.
     function addInheritedDataClassParametersRecursive(classType: ClassType, params: FunctionParameter[]) {
         // Recursively call for reverse-MRO ordering.
-        ClassType.getBaseClasses(classType).forEach(baseClass => {
+        classType.details.baseClasses.forEach(baseClass => {
             if (baseClass.type.category === TypeCategory.Class) {
                 addInheritedDataClassParametersRecursive(baseClass.type, params);
             }
         });
 
-        ClassType.getBaseClasses(classType).forEach(baseClass => {
+        classType.details.baseClasses.forEach(baseClass => {
             if (baseClass.type.category === TypeCategory.Class) {
                 const dataClassParams = ClassType.getDataClassParameters(baseClass.type);
 
@@ -1862,9 +1859,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // If this is a special type (like "List") that has an alias
         // class (like "list"), switch to the alias, which defines
         // the members.
-        const aliasClass = ClassType.getAliasClass(classType);
-        if (aliasClass) {
-            classType = aliasClass;
+        if (classType.details.aliasClass) {
+            classType = classType.details.aliasClass;
         }
 
         let classLookupFlags = TypeUtils.ClassMemberLookupFlags.Default;
@@ -2549,7 +2545,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // If the lookup failed, try to return the first base class. An error
             // will be reported by the member lookup logic at a later time.
             if (targetClassType.category === TypeCategory.Class) {
-                const baseClasses = ClassType.getBaseClasses(targetClassType);
+                const baseClasses = targetClassType.details.baseClasses;
                 if (baseClasses.length > 0 && !baseClasses[0].isMetaclass) {
                     const baseClassType = baseClasses[0].type;
                     if (baseClassType.category === TypeCategory.Class) {
@@ -2577,7 +2573,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         switch (callType.category) {
             case TypeCategory.Class: {
                 if (ClassType.isBuiltIn(callType)) {
-                    const className = ClassType.getClassName(callType);
+                    const className = callType.details.name;
 
                     if (className === 'type') {
                         // Handle the 'type' call specially.
@@ -2627,14 +2623,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                             const symbolWithClass = symbolTable.get(symbolName);
 
                             if (symbolWithClass && symbolWithClass.classType.category === TypeCategory.Class) {
-                                const className = ClassType.getClassName(symbolWithClass.classType);
+                                const className = symbolWithClass.classType.details.name;
                                 diagAddendum.addMessage(`'${ className }.${ symbolName }' is abstract`);
                             }
                         }
                     });
 
                     addError(
-                        `Cannot instantiate abstract class '${ ClassType.getClassName(callType) }'` +
+                        `Cannot instantiate abstract class '${ callType.details.name }'` +
                             diagAddendum.getString(),
                         errorNode);
                 }
@@ -2885,7 +2881,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         if (!validatedTypes && argList.length > 0) {
             addError(
-                `Expected no arguments to '${ ClassType.getClassName(type) }' constructor`, errorNode);
+                `Expected no arguments to '${ type.details.name }' constructor`, errorNode);
         } else if (!returnType) {
             // There was no __new__ or __init__, so fall back on the
             // object.__new__ which takes no parameters.
@@ -2944,7 +2940,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 returnType = validateConstructorArguments(errorNode, argList, callType);
             } else {
                 addError(
-                    `'${ ClassType.getClassName(callType) }' cannot be instantiated`,
+                    `'${ callType.details.name }' cannot be instantiated`,
                     errorNode);
             }
         } else if (callType.category === TypeCategory.Object) {
@@ -3547,11 +3543,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // analysis path. If this is the first pass, allocate a new ClassType.
         let classType = cachedCallType as ClassType;
         if (!classType || classType.category !== TypeCategory.Class) {
-            classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
+            classType = ClassType.create(className, ClassTypeFlags.TypedDictClass, errorNode.id);
 
             AnalyzerNodeInfo.setExpressionType(errorNode, classType, true);
             ClassType.addBaseClass(classType, typedDictClass, false);
-            ClassType.setIsTypedDict(classType);
         }
 
         if (argList.length >= 3) {
@@ -3565,7 +3560,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 addError(`Expected 'total' parameter to have a value of 'True' or 'False'`,
                     argList[2].valueExpression || errorNode);
             } else if (argList[2].valueExpression.token.keywordType === KeywordType.False) {
-                ClassType.setCanOmitDictValues(classType);
+                classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
             }
         }
 
@@ -4332,9 +4327,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 } else {
                     if (unexpandedType.category === TypeCategory.Object) {
                         let classType = unexpandedType.classType;
-                        const aliasClass = ClassType.getAliasClass(classType);
-                        if (aliasClass) {
-                            classType = aliasClass;
+                        if (classType.details.aliasClass) {
+                            classType = classType.details.aliasClass;
                         }
 
                         if (ClassType.isBuiltIn(classType, 'dict')) {
@@ -4942,7 +4936,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // Handle several built-in classes specially. We don't
             // want to interpret their class variables as enumerations.
             if (getFileInfo(node).isStubFile) {
-                const className = ClassType.getClassName(enumClass);
+                const className = enumClass.details.name;
                 const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
                 if (builtInEnumClasses.find(c => c === className)) {
                     return typeOfExpr;
@@ -5041,7 +5035,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         }
 
                         if (aliasMapEntry.alias) {
-                            ClassType.setAliasClass(specialClassType, aliasClass);
+                            specialClassType.details.aliasClass = aliasClass;
                         }
                     }
                 }
@@ -5210,14 +5204,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         // newer), it's considered a dataclass.
                         if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
                             if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
-                                ClassType.setIsDataClass(classType, false);
+                                classType.details.flags |= ClassTypeFlags.DataClass;
                             }
                         }
 
                         // If the class directly derives from TypedDict or from a class that is
                         // a TypedDict, it is considered a TypedDict.
                         if (ClassType.isBuiltIn(argType, 'TypedDict') || ClassType.isTypedDictClass(argType)) {
-                            ClassType.setIsTypedDict(classType);
+                            classType.details.flags |= ClassTypeFlags.TypedDictClass;
                         } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
                             // TypedDict classes must derive only from other
                             // TypedDict classes.
@@ -5263,7 +5257,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     if (constArgValue === undefined) {
                         addError('Value for total parameter must be True or False', arg.valueExpression);
                     } else if (!constArgValue) {
-                        ClassType.setCanOmitDictValues(classType);
+                        classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
                     }
                 }
             }
@@ -5277,11 +5271,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
-        ClassType.setTypeParameters(classType, typeParameters);
+        classType.details.typeParameters = typeParameters;
 
         // The scope for this class becomes the "fields" for the corresponding type.
         const innerScope = ScopeUtils.getScopeForNode(node.suite);
-        ClassType.setFields(classType, innerScope.getSymbolTable());
+        classType.details.fields = innerScope.getSymbolTable();
 
         if (ClassType.isTypedDictClass(classType)) {
             synthesizeTypedDictClassMethods(classType);
@@ -5373,7 +5367,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     });
                 }
 
-                ClassType.setIsDataClass(originalClassType, skipSynthesizeInit);
+                originalClassType.details.flags |= ClassTypeFlags.DataClass;
+                if (skipSynthesizeInit) {
+                    originalClassType.details.flags |= ClassTypeFlags.SkipSynthesizedInit;
+                }
                 return inputClassType;
             }
         }
@@ -6021,9 +6018,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // Handle the special-case classes that are not defined
         // in the type stubs.
         if (ClassType.isSpecialBuiltIn(classType)) {
-            const className = ClassType.getClassName(classType);
-
-            switch (className) {
+            switch (classType.details.name) {
                 case 'Callable': {
                     return createCallableType(typeArgs);
                 }
@@ -6188,8 +6183,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         isAfterNodeReachable,
         isNodeReachable,
         transformTypeForPossibleEnumClass,
-        synthesizeDataClassMethods,
-        synthesizeTypedDictClassMethods,
         assignTypeToNameNode,
         assignTypeToExpression,
         updateExpressionTypeForNode,

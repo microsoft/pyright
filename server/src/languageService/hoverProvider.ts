@@ -172,7 +172,7 @@ export class HoverProvider {
                 this._addResultsPart(parts, docString);
             }
         } else if (type.category === TypeCategory.Class) {
-            const docString = ClassType.getDocString(type);
+            const docString = type.details.docString;
             if (docString) {
                 this._addResultsPart(parts, docString);
             }

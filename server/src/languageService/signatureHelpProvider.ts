@@ -152,7 +152,7 @@ export class SignatureHelpProvider {
         importLookup: ImportLookup, treatAsClassMember: boolean):
             FunctionType | OverloadedFunctionType | undefined {
 
-        const aliasClass = ClassType.getAliasClass(classType);
+        const aliasClass = classType.details.aliasClass;
         if (aliasClass) {
             classType = aliasClass;
         }

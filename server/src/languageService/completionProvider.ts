@@ -692,7 +692,7 @@ export class CompletionProvider {
                     if (type.category === TypeCategory.Module) {
                         documentation = type.docString;
                     } else if (type.category === TypeCategory.Class) {
-                        documentation = ClassType.getDocString(type);
+                        documentation = type.details.docString;
                     } else if (type.category === TypeCategory.Function) {
                         documentation = FunctionType.getDocString(type);
                     }
