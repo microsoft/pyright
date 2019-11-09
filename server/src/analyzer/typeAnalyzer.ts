@@ -14,7 +14,6 @@ import * as assert from 'assert';
 import { DiagnosticLevel } from '../common/configOptions';
 import { AddMissingOptionalToParamAction, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { PythonVersion } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentNode,
     BinaryOperationNode, CallNode, ClassNode, DecoratorNode,
@@ -38,20 +37,14 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
-import { Symbol, SymbolTable } from './symbol';
+import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
-import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
+import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, ModuleType, NoneType, ObjectType, OverloadedFunctionEntry,
     OverloadedFunctionType, printType, PropertyType, removeNoneFromUnion,
-    removeUnboundFromUnion, Type, TypeCategory, TypeVarType,
-    UnknownType  } from './types';
+    Type, TypeCategory, UnknownType  } from './types';
 import * as TypeUtils from './typeUtils';
-
-interface AliasMapEntry {
-    alias: string;
-    module: 'builtins' | 'collections' | 'self';
-}
 
 // At some point, we'll cut off the analysis passes and assume
 // we're making no forward progress. This should happen only
@@ -59,7 +52,7 @@ interface AliasMapEntry {
 // The number is somewhat arbitrary. It needs to be at least
 // 21 or so to handle all of the import cycles in the stdlib
 // files.
-const _maxAnalysisPassCount = 25;
+const _maxAnalysisPassCount = 50;
 
 export class TypeAnalyzer extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
@@ -148,168 +141,17 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitClass(node: ClassNode): boolean {
-        // We should have already resolved most of the base class
-        // parameters in the binder, but if these parameters
-        // are variables, they may not have been resolved at that time.
-        const classType = AnalyzerNodeInfo.getExpressionType(node) as ClassType;
-        assert(classType.category === TypeCategory.Class);
-
-        // Keep a list of unique type parameters that are used in the
-        // base class arguments.
-        const typeParameters: TypeVarType[] = [];
-
-        node.arguments.forEach((arg, index) => {
-            // Ignore keyword parameters other than metaclass or total.
-            if (!arg.name || arg.name.nameToken.value === 'metaclass') {
-                let argType = this._getTypeOfExpression(arg.valueExpression);
-
-                // In some stub files, classes are conditionally defined (e.g. based
-                // on platform type). We'll assume that the conditional logic is correct
-                // and strip off the "unbound" union.
-                if (argType.category === TypeCategory.Union) {
-                    argType = removeUnboundFromUnion(argType);
-                }
-
-                if (!isAnyOrUnknown(argType)) {
-                    // Handle "Type[X]" object.
-                    argType = TypeUtils.transformTypeObjectToClass(argType);
-                    if (argType.category !== TypeCategory.Class) {
-                        this._evaluator.addError(`Argument to class must be a base class`, arg);
-                        argType = UnknownType.create();
-                    }
-                }
-
-                if (argType.category === TypeCategory.Class) {
-                    if (ClassType.isBuiltIn(argType, 'Protocol')) {
-                        if (!this._fileInfo.isStubFile && this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37) {
-                            this._evaluator.addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
-                        }
-                    }
-
-                    // If the class directly derives from NamedTuple (in Python 3.6 or
-                    // newer), it's considered a dataclass.
-                    if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
-                        if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
-                            ClassType.setIsDataClass(classType, false);
-                        }
-                    }
-
-                    // If the class directly derives from TypedDict or from a class that is
-                    // a TypedDict, it is considered a TypedDict.
-                    if (ClassType.isBuiltIn(argType, 'TypedDict') || ClassType.isTypedDictClass(argType)) {
-                        ClassType.setIsTypedDict(classType);
-                    } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
-                        // TypedDict classes must derive only from other
-                        // TypedDict classes.
-                        this._evaluator.addError(`All base classes for TypedDict classes must ` +
-                            'als be TypedDict classes', arg);
-                    }
-
-                    // Validate that the class isn't deriving from itself, creating a
-                    // circular dependency.
-                    if (TypeUtils.derivesFromClassRecursive(argType, classType)) {
-                        this._evaluator.addError(`Class cannot derive from itself`, arg);
-                        argType = UnknownType.create();
-                    }
-                }
-
-                if (argType.category === TypeCategory.Unknown ||
-                        argType.category === TypeCategory.Union && argType.subtypes.some(t => t.category === TypeCategory.Unknown)) {
-
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportUntypedBaseClass,
-                        DiagnosticRule.reportUntypedBaseClass,
-                        `Base class type is unknown, obscuring type of derived class`,
-                        arg);
-                }
-
-                if (ClassType.updateBaseClassType(classType, index, argType)) {
-                    this._setAnalysisChanged('Base class changed');
-                }
-
-                // TODO - validate that we are not adding type parameters that
-                // are unique type vars but have conflicting names.
-                TypeUtils.addTypeVarsToListIfUnique(typeParameters,
-                    TypeUtils.getTypeVarArgumentsRecursive(argType));
-            } else if (arg.name.nameToken.value === 'total') {
-                // The "total" parameter name applies only for TypedDict classes.
-                if (ClassType.isTypedDictClass(classType)) {
-                    // PEP 589 specifies that the parameter must be either True or False.
-                    const constArgValue = StaticExpressions.evaluateStaticBoolExpression(
-                            arg.valueExpression, this._fileInfo.executionEnvironment);
-                    if (constArgValue === undefined) {
-                        this._evaluator.addError('Value for total parameter must be True or False', arg.valueExpression);
-                    } else if (!constArgValue) {
-                        ClassType.setCanOmitDictValues(classType);
-                    }
-                }
-            }
-        });
-
-        // Update the type parameters for the class.
-        if (ClassType.setTypeParameters(classType, typeParameters)) {
-            this._setAnalysisChanged('Class type parameters changed');
-        }
+        const classTypeResult = this._evaluator.getTypeOfClass(node);
 
         this._enterScope(node, () => {
             this.walk(node.suite);
         });
 
-        let decoratedType: Type = classType;
-        let foundUnknown = false;
-
-        for (let i = node.decorators.length - 1; i >= 0; i--) {
-            const decorator = node.decorators[i];
-
-            decoratedType = this._applyClassDecorator(decoratedType,
-                classType, decorator);
-            if (decoratedType.category === TypeCategory.Unknown) {
-                // Report this error only on the first unknown type.
-                if (!foundUnknown) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportUntypedClassDecorator,
-                        DiagnosticRule.reportUntypedClassDecorator,
-                        `Untyped class declarator obscures type of class`,
-                        node.decorators[i].leftExpression);
-
-                    foundUnknown = true;
-                }
-            }
-        }
-
-        if (ClassType.isDataClass(classType)) {
-            let skipSynthesizedInit = ClassType.isSkipSynthesizedInit(classType);
-            if (!skipSynthesizedInit) {
-                // See if there's already a non-synthesized __init__ method.
-                // We shouldn't override it.
-                const initSymbol = TypeUtils.lookUpClassMember(classType, '__init__',
-                    this._fileInfo.importLookup, TypeUtils.ClassMemberLookupFlags.SkipBaseClasses);
-                if (initSymbol) {
-                    const initSymbolType = TypeUtils.getTypeOfMember(initSymbol, this._fileInfo.importLookup);
-                    if (initSymbolType.category === TypeCategory.Function) {
-                        if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
-                            skipSynthesizedInit = true;
-                        }
-                    } else {
-                        skipSynthesizedInit = true;
-                    }
-                }
-            }
-
-            this._evaluator.synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
-        }
-
-        if (ClassType.isTypedDictClass(classType)) {
-            this._evaluator.synthesizeTypedDictClassMethods(classType);
-        }
-
-        this._evaluator.assignTypeToNameNode(node.name, decoratedType);
-        this._validateClassMethods(classType);
-
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
 
-        if (ClassType.isTypedDictClass(classType)) {
+        this._validateClassMethods(classTypeResult.classType);
+        if (ClassType.isTypedDictClass(classTypeResult.classType)) {
             this._validateTypedDictClassSuite(node.suite);
         }
 

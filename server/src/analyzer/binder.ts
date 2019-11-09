@@ -34,14 +34,13 @@ import { ArgumentCategory, AssertNode, AssignmentExpressionNode, AssignmentNode,
     SuiteNode, TernaryNode, TryNode, TypeAnnotationNode,
     UnaryOperationNode, WhileNode, WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
-import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags, FlowLabel,
     FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport, getUniqueFlowNodeId } from './codeFlow';
 import { AliasDeclaration, DeclarationType, FunctionDeclaration, ModuleLoaderActions,
     VariableDeclaration } from './declaration';
-import * as DocStringUtils from './docStringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -258,17 +257,6 @@ export class Binder extends ParseTreeWalker {
     visitClass(node: ClassNode): boolean {
         this.walkMultiple(node.decorators);
 
-        let classFlags = ClassTypeFlags.None;
-        if (this._currentScope.getType() === ScopeType.Builtin ||
-                this._fileInfo.isTypingStubFile ||
-                this._fileInfo.isBuiltInStubFile) {
-
-            classFlags |= ClassTypeFlags.BuiltInClass;
-        }
-
-        const classType = ClassType.create(node.name.nameToken.value, classFlags,
-            node.id, ParseTreeUtils.getDocString(node.suite.statements));
-
         const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
         if (symbol) {
             symbol.addDeclaration({
@@ -282,56 +270,8 @@ export class Binder extends ParseTreeWalker {
 
         this.walkMultiple(node.arguments);
 
-        let sawMetaclass = false;
-        let nonMetaclassBaseClassCount = 0;
-        node.arguments.forEach(arg => {
-            let isKeywordArg = false;
-            let isMetaclass = false;
-            if (arg.name) {
-                if (arg.name.nameToken.value === 'metaclass') {
-                    if (sawMetaclass) {
-                        this._addError(`Only one metaclass can be provided`, arg);
-                    }
-                    isMetaclass = true;
-                    sawMetaclass = true;
-                } else {
-                    // Other named parameters are ignored here; they are passed
-                    // directly to the metaclass.
-                    isKeywordArg = true;
-                }
-            }
-
-            if (!isKeywordArg) {
-                ClassType.addBaseClass(classType, UnknownType.create(), isMetaclass);
-
-                if (!isMetaclass) {
-                    nonMetaclassBaseClassCount++;
-                }
-            }
-        });
-
-        if (nonMetaclassBaseClassCount === 0) {
-            // Make sure we don't have 'object' derive from itself. Infinite
-            // recursion will result.
-            if (!ClassType.isBuiltIn(classType, 'object')) {
-                const objectType = ScopeUtils.getBuiltInType(
-                    this._currentScope, 'object', this._fileInfo.importLookup);
-                ClassType.addBaseClass(classType, objectType, false);
-            }
-        }
-
-        AnalyzerNodeInfo.setExpressionType(node, classType, true);
-
-        // Also set the type of the name node. This will be replaced by the analyzer
-        // once any class decorators are analyzed, but we need to add it here to
-        // accommodate some circular references between builtins and typing type stubs.
-        AnalyzerNodeInfo.setExpressionType(node.name, classType);
-
         this._createNewScope(ScopeType.Class, this._currentScope, () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
-
-            // The scope for this class becomes the "fields" for the corresponding type.
-            ClassType.setFields(classType, this._currentScope.getSymbolTable());
 
             // Bind implicit names.
             // Note that __class__, __dict__ and __doc__ are skipped here
@@ -1829,9 +1769,7 @@ export class Binder extends ParseTreeWalker {
     private _addBuiltInSymbolToCurrentScope(nameValue: string, type: Type) {
         // Handle a special case where a built-in type is not known
         // at binding time. This happens specifically when binding
-        // the builtins.pyi module. We'll convert the Unknown types
-        // into Any and not add a real declaration so other classes
-        // can override the type without getting an error.
+        // the builtins.pyi module.
         if (type.category === TypeCategory.Unknown) {
             this._addSymbolToCurrentScope(nameValue, false);
         } else {

@@ -181,6 +181,11 @@ const booleanOperatorMap: { [operator: number]: boolean } = {
     [OperatorType.NotIn]: true
 };
 
+export interface ClassTypeResult {
+    classType: ClassType;
+    decoratedType: Type;
+}
+
 export interface ExpressionEvaluator {
     getType: (node: ExpressionNode, usage: EvaluatorUsage, flags: EvaluatorFlags) => Type;
     getTypeOfAnnotation: (node: ExpressionNode) => Type;
@@ -192,7 +197,7 @@ export interface ExpressionEvaluator {
 
     getTypeOfAssignmentStatementTarget: (node: AssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
     getTypeOfAugmentedAssignmentTarget: (node: AugmentedAssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
-    getTypeOfClass: (node: ClassNode) => Type | undefined;
+    getTypeOfClass: (node: ClassNode) => ClassTypeResult;
 
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
 
@@ -1208,7 +1213,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return typeOfTargetOfInterest;
     }
 
-    function updateExpressionTypeForNode(node: ExpressionNode, exprType: Type) {
+    function updateExpressionTypeForNode(node: ParseNode, exprType: Type) {
         if (!isSpeculativeMode) {
             const oldWriteVersion = AnalyzerNodeInfo.getExpressionTypeWriteVersion(node);
 
@@ -5133,12 +5138,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             node.rightExpression, targetOfInterest);
     }
 
-    function getTypeOfClass(node: ClassNode): Type | undefined {
+    function getTypeOfClass(node: ClassNode): ClassTypeResult {
         // Is this type already cached?
+        let classType = AnalyzerNodeInfo.peekExpressionType(node, analysisVersion) as ClassType;
         let decoratedType = AnalyzerNodeInfo.peekExpressionType(node.name, analysisVersion);
 
-        if (decoratedType) {
-            return decoratedType;
+        if (classType && decoratedType) {
+            return { classType, decoratedType };
         }
 
         const scope = ScopeUtils.getScopeForNode(node);
@@ -5149,8 +5155,17 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             classFlags |= ClassTypeFlags.BuiltInClass;
         }
 
-        const classType = ClassType.create(node.name.nameToken.value, classFlags,
+        classType = ClassType.create(node.name.nameToken.value, classFlags,
             node.id, ParseTreeUtils.getDocString(node.suite.statements));
+
+        // If there is no class type cached, pre-cache the class type that we
+        // just created. This is needed to handle a few circularities within
+        // the stdlib type stubs like the datetime class, which uses itself
+        // as a type parameter for one of its base classes.
+        const oldCachedClassType = AnalyzerNodeInfo.peekExpressionType(node);
+        const oldCachedDecoratedClassType = AnalyzerNodeInfo.peekExpressionType(node.name);
+        AnalyzerNodeInfo.setExpressionType(node, classType);
+        AnalyzerNodeInfo.setExpressionType(node.name, classType);
 
         // Keep a list of unique type parameters that are used in the
         // base class arguments.
@@ -5294,7 +5309,15 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
         }
 
-        AnalyzerNodeInfo.setExpressionType(node, classType, true);
+        // Restore the old cached values.
+        if (oldCachedClassType) {
+            AnalyzerNodeInfo.setExpressionType(node, oldCachedClassType);
+        }
+        if (oldCachedDecoratedClassType) {
+            AnalyzerNodeInfo.setExpressionType(node.name, oldCachedDecoratedClassType);
+        }
+
+        updateExpressionTypeForNode(node, classType);
 
         // Now determine the decorated type of the class.
         decoratedType = classType;
@@ -5320,7 +5343,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         updateExpressionTypeForNode(node.name, decoratedType);
-        return decoratedType;
+        return { classType, decoratedType };
     }
 
     function applyClassDecorator(inputClassType: Type, originalClassType: ClassType,

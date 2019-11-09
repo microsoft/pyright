@@ -437,9 +437,24 @@ export namespace ClassType {
     }
 
     // Same as isSame except that it doesn't compare type arguments.
-    export function isSameGenericClass(classType: ClassType, type2: ClassType) {
+    export function isSameGenericClass(classType: ClassType, type2: ClassType, recursionCount = 0) {
+        if (recursionCount > maxTypeRecursionCount) {
+            return true;
+        }
+
         // If the class details match, it's definitely the same class.
         if (classType.details === type2.details) {
+            return true;
+        }
+
+        // If either or both have aliases (e.g. List -> list), use the
+        // aliases for comparison purposes.
+        const class1Details = classType.details.aliasClass ?
+            classType.details.aliasClass.details : classType.details;
+        const class2Details = type2.details.aliasClass ?
+            type2.details.aliasClass.details : type2.details;
+
+        if (class1Details === class2Details) {
             return true;
         }
 
@@ -458,16 +473,50 @@ export namespace ClassType {
             return true;
         }
 
-        if (isAliasOf(classType, type2) || isAliasOf(type2, classType)) {
-            return true;
+        // Compare most of the details fields. We intentionally skip the isAbstractClass
+        // flag because it gets set dynamically.
+        if (class1Details.name !== class2Details.name ||
+                class1Details.flags !== class2Details.flags ||
+                class1Details.typeSourceId !== class2Details.typeSourceId ||
+                class1Details.baseClasses.length !== class2Details.baseClasses.length ||
+                class1Details.fields !== class2Details.fields ||
+                class1Details.typeParameters.length !== class2Details.typeParameters.length) {
+            return false;
         }
 
-        return false;
-    }
+        for (let i = 0; i < class1Details.baseClasses.length; i++) {
+            if (!isTypeSame(class1Details.baseClasses[i].type, class2Details.baseClasses[i].type,
+                    recursionCount + 1)) {
 
-    export function isAliasOf(classType: ClassType, type2: ClassType): boolean {
-        return type2.details.aliasClass !== undefined &&
-            type2.details.aliasClass.details === classType.details;
+                return false;
+            }
+        }
+
+        for (let i = 0; i < class1Details.typeParameters.length; i++) {
+            if (!isTypeSame(class1Details.typeParameters[i], class2Details.typeParameters[i],
+                    recursionCount + 1)) {
+
+                return false;
+            }
+        }
+
+        const dataClassParams1 = class1Details.dataClassParameters || [];
+        const dataClassParams2 = class2Details.dataClassParameters || [];
+        if (dataClassParams1.length !== dataClassParams2.length) {
+            return false;
+        }
+
+        for (let i = 0; i < dataClassParams1.length; i++) {
+            if (dataClassParams1[i].category !== dataClassParams2[i].category ||
+                    dataClassParams1[i].name !== dataClassParams2[i].name ||
+                    dataClassParams1[i].hasDefault !== dataClassParams2[i].hasDefault ||
+                    !isTypeSame(dataClassParams1[i].type, dataClassParams2[i].type, recursionCount + 1)) {
+
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // Determines whether this is a subclass (derived class)
@@ -1060,7 +1109,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             const classType2 = type2 as ClassType;
 
             // If the details are not the same it's not the same class.
-            if (!ClassType.isSameGenericClass(type1, classType2)) {
+            if (!ClassType.isSameGenericClass(type1, classType2, recursionCount + 1)) {
                 return false;
             }
 
