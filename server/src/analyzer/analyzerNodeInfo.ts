@@ -77,16 +77,13 @@ export type ScopedNode = ModuleNode | ClassNode | FunctionNode |
 
 // Cleans out all fields that are added by the analyzer phases
 // (after the post-parse walker).
-export function cleanNodeAnalysisInfo(node: ParseNode, cleanBinderData: boolean) {
+export function cleanNodeAnalysisInfo(node: ParseNode) {
     const analyzerNode = node as AnalyzerNodeInfo;
-
-    if (cleanBinderData) {
-        delete analyzerNode.scope;
-        delete analyzerNode.declaration;
-        delete analyzerNode.flowNode;
-        delete analyzerNode.afterFlowNode;
-        delete analyzerNode.fileInfo;
-    }
+    delete analyzerNode.scope;
+    delete analyzerNode.declaration;
+    delete analyzerNode.flowNode;
+    delete analyzerNode.afterFlowNode;
+    delete analyzerNode.fileInfo;
     delete analyzerNode.typeCache;
 }
 

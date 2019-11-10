@@ -49,6 +49,14 @@ import { TypeAnalyzer } from './typeAnalyzer';
 
 const _maxImportCyclesPerFile = 4;
 
+// At some point, we'll cut off the analysis passes and assume
+// we're making no forward progress. This should happen only
+// on the case of bugs in the analyzer.
+// The number is somewhat arbitrary. It needs to be at least
+// 21 or so to handle all of the import cycles in the stdlib
+// files.
+const _maxAnalysisPassCount = 50;
+
 export class SourceFile {
     // Console interface to use for debugging.
     private _console: ConsoleInterface;
@@ -139,6 +147,10 @@ export class SourceFile {
     // Is the type analysis "finalized" (i.e. complete along
     // with all of its dependencies)?
     private _isTypeAnalysisFinalized = false;
+
+    // Number of the analysis pass at the time a reanalysis was
+    // last requested.
+    private _typeAnalysisReanalysisPassStart = 1;
 
     // Number of the current type analysis pass, starting with 1.
     private _typeAnalysisPassNumber = 1;
@@ -346,14 +358,14 @@ export class SourceFile {
 
     markReanalysisRequired(): void {
         // Keep the parse info, but reset the analysis to the beginning.
-        this._parseTreeNeedsCleaning = true;
-        this._typeAnalysisPassNumber = 1;
+        this._typeAnalysisReanalysisPassStart = this._typeAnalysisPassNumber;
         this._isTypeAnalysisFinalized = false;
         this._isTypeAnalysisPassNeeded = true;
 
         // If the file contains a wildcard import, we need to rebind
         // also because the dependent import may have changed.
         if (this._parseResults && this._parseResults.containsWildcardImport) {
+            this._parseTreeNeedsCleaning = true;
             this._isBindingNeeded = true;
             this._moduleSymbolTable = undefined;
             this._binderResults = undefined;
@@ -668,7 +680,7 @@ export class SourceFile {
         try {
             // Perform name binding.
             timingStats.bindTime.timeOperation(() => {
-                this._cleanParseTreeIfRequired(true);
+                this._cleanParseTreeIfRequired();
 
                 const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope);
                 AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
@@ -705,6 +717,7 @@ export class SourceFile {
         // Prepare for the next stage of the analysis.
         this._diagnosticVersion++;
         this._typeAnalysisPassNumber = 1;
+        this._typeAnalysisReanalysisPassStart = 1;
         this._lastReanalysisReason = '';
         this._isTypeAnalysisPassNeeded = true;
         this._isTypeAnalysisFinalized = false;
@@ -719,8 +732,6 @@ export class SourceFile {
 
         try {
             timingStats.typeAnalyzerTime.timeOperation(() => {
-                this._cleanParseTreeIfRequired(false);
-
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
 
                 // Perform static type analysis.
@@ -730,17 +741,21 @@ export class SourceFile {
 
                 // Repeatedly call the analyzer until everything converges.
                 this._isTypeAnalysisPassNeeded = typeAnalyzer.analyze();
-                if (typeAnalyzer.isAtMaxAnalysisPassCount()) {
-                    this._console.log(
-                        `Hit max analysis pass count for ${ this._filePath } (${ typeAnalyzer.getLastReanalysisReason() })`);
-                    // We assume that the type analyzer will have given up in this case.
-                    assert(!this._isTypeAnalysisPassNeeded);
+
+                if (this._isTypeAnalysisPassNeeded) {
+                    this._lastReanalysisReason = typeAnalyzer.getLastReanalysisReason();
+
+                    const passesSinceLastReanalysis = this._typeAnalysisPassNumber - this._typeAnalysisReanalysisPassStart;
+                    if (passesSinceLastReanalysis > _maxAnalysisPassCount) {
+                        this._console.log(
+                            `Hit max analysis pass count for ${ this._filePath } (${ this._lastReanalysisReason })`);
+
+                        // We'll give up in this case.
+                        this._isTypeAnalysisPassNeeded = false;
+                    }
                 }
 
                 this._typeAnalysisLastPassDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
-                if (this._isTypeAnalysisPassNeeded) {
-                    this._lastReanalysisReason = typeAnalyzer.getLastReanalysisReason();
-                }
             });
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||
@@ -803,11 +818,11 @@ export class SourceFile {
         return fileInfo;
     }
 
-    private _cleanParseTreeIfRequired(cleanBinderData: boolean) {
+    private _cleanParseTreeIfRequired() {
         if (this._parseResults) {
             if (this._parseTreeNeedsCleaning) {
                 const cleanerWalker = new ParseTreeCleanerWalker(this._parseResults.parseTree);
-                cleanerWalker.clean(cleanBinderData);
+                cleanerWalker.clean();
                 this._parseTreeNeedsCleaning = false;
             }
         }

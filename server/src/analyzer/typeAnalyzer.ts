@@ -47,14 +47,6 @@ import { canAssignType, canOverrideMethod, containsUnknown, derivesFromClassRecu
     getSymbolFromBaseClasses, isNoReturnType, isOptionalType, printType, specializeType,
     transformTypeObjectToClass } from './typeUtils';
 
-// At some point, we'll cut off the analysis passes and assume
-// we're making no forward progress. This should happen only
-// on the case of bugs in the analyzer.
-// The number is somewhat arbitrary. It needs to be at least
-// 21 or so to handle all of the import cycles in the stdlib
-// files.
-const _maxAnalysisPassCount = 50;
-
 export class TypeAnalyzer extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
@@ -84,7 +76,9 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // Used to report unaccessed symbols.
     private _accessedSymbolMap: Map<number, true>;
 
-    constructor(node: ModuleNode, accessedSymbolMap: Map<number, true>, analysisVersion: number) {
+    constructor(node: ModuleNode, accessedSymbolMap: Map<number, true>,
+            analysisVersion: number) {
+
         super();
 
         this._moduleNode = node;
@@ -109,32 +103,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         this.walkMultiple(this._moduleNode.statements);
 
-        let requiresAnotherPass = this._didAnalysisChange;
-
-        // If we've already analyzed the file the max number of times,
-        // just give up and admit defeat. This should happen only in
-        // the case of analyzer bugs.
-        if (this.isAtMaxAnalysisPassCount()) {
-            requiresAnotherPass = false;
-        }
-
-        if (!requiresAnotherPass) {
+        if (!this._didAnalysisChange) {
             // Perform a one-time validation of symbols in all scopes
             // defined in this module for things like unaccessed variables.
             this._validateSymbolTables();
         }
 
-        return requiresAnotherPass;
+        return this._didAnalysisChange;
     }
 
     walk(node: ParseNode) {
         if (!this._isCodeUnreachable(node)) {
             super.walk(node);
         }
-    }
-
-    isAtMaxAnalysisPassCount() {
-        return this._analysisVersion >= _maxAnalysisPassCount;
     }
 
     getLastReanalysisReason() {

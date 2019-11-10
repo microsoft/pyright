@@ -17,7 +17,6 @@ import { ParseTreeWalker } from './parseTreeWalker';
 
 export class ParseTreeCleanerWalker extends ParseTreeWalker {
     private _parseTree: ModuleNode;
-    private _cleanBinderData: boolean;
 
     constructor(parseTree: ModuleNode) {
         super();
@@ -25,13 +24,12 @@ export class ParseTreeCleanerWalker extends ParseTreeWalker {
         this._parseTree = parseTree;
     }
 
-    clean(cleanBinderData: boolean) {
-        this._cleanBinderData = cleanBinderData;
+    clean() {
         this.walk(this._parseTree);
     }
 
     visitNode(node: ParseNode) {
-        AnalyzerNodeInfo.cleanNodeAnalysisInfo(node, this._cleanBinderData);
+        AnalyzerNodeInfo.cleanNodeAnalysisInfo(node);
         return  super.visitNode(node);
     }
 }
