@@ -1275,7 +1275,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 if (!oldType || !isTypeSame(oldType, exprType)) {
                     if (requiresInvalidation) {
                         const expr = ParseTreeUtils.printExpression(node as any);
-                        setAnalysisChangedCallback(`Expression type changed for '${ expr }`);
+                        setAnalysisChangedCallback(`Expression type changed for '${ expr }'`);
                     }
                     AnalyzerNodeInfo.setExpressionType(node, exprType);
                 }
@@ -4485,8 +4485,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction) {
             const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction) as FunctionType;
-            assert(functionType.category === TypeCategory.Function);
-            sentType = getDeclaredGeneratorSendType(functionType);
+            if (functionType) {
+                assert(functionType.category === TypeCategory.Function);
+                sentType = getDeclaredGeneratorSendType(functionType);
+            }
         }
 
         if (!sentType) {
@@ -4502,8 +4504,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction) {
             const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction) as FunctionType;
-            assert(functionType.category === TypeCategory.Function);
-            sentType = getDeclaredGeneratorSendType(functionType);
+            if (functionType) {
+                assert(functionType.category === TypeCategory.Function);
+                sentType = getDeclaredGeneratorSendType(functionType);
+            }
         }
 
         if (!sentType) {
@@ -5475,6 +5479,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return { functionType, decoratedType: functionType };
         }
 
+        // Pre-cache the function type that we just created. This is needed to
+        // handle recursion cases.
+        const oldCachedFunctionType = AnalyzerNodeInfo.peekExpressionType(node);
+        const oldCachedDecoratedFunctionType = AnalyzerNodeInfo.peekExpressionType(node.name);
+        AnalyzerNodeInfo.setExpressionType(node, functionType);
+        AnalyzerNodeInfo.setExpressionType(node.name, functionType);
+
         // If there was a defined return type, analyze that first so when we
         // walk the contents of the function, return statements can be
         // validated against this type.
@@ -5654,6 +5665,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
+        // Restore the old cached values.
+        AnalyzerNodeInfo.setExpressionType(node, oldCachedFunctionType);
+        AnalyzerNodeInfo.setExpressionType(node.name, oldCachedDecoratedFunctionType);
+
         // Update the type of the undecorated function.
         updateExpressionTypeForNode(node, functionType);
 
@@ -5717,7 +5732,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             } else if (decoratorType.category === TypeCategory.Class) {
                 if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
                     flags |= FunctionTypeFlags.StaticMethod;
-                } else if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
+                } else if (ClassType.isBuiltIn(decoratorType, 'classmethod')) {
                     flags |= FunctionTypeFlags.ClassMethod;
                 }
             }
