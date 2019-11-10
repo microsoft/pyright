@@ -20,7 +20,7 @@ print(bar3.aaa)
 bar = Bar(bbb=5, ddd=5, ccc='hello')
 
 # This should generate an error because the
-# pramater types don't match.
+# parameter types don't match.
 bar = Bar('hello', 'goodbye')
 
 # This should generate an error because a parameter

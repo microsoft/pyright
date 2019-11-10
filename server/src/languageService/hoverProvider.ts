@@ -19,7 +19,7 @@ import { printType } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface HoverTextPart {
@@ -74,56 +74,48 @@ export class HoverProvider {
     }
 
     private static _addResultsForDeclaration(parts: HoverTextPart[],
-            declaration: Declaration, node: ParseNode, importLookup: ImportLookup): void {
+            declaration: Declaration, node: NameNode, importLookup: ImportLookup): void {
 
         const resolvedDecl = DeclarationUtils.resolveAliasDeclaration(declaration, importLookup);
         if (!resolvedDecl) {
-            if (node.nodeType === ParseNodeType.Name) {
-                this._addResultsPart(parts, `(import) ` + node.nameToken.value +
-                    this._getTypeText(node), true);
-            }
+            this._addResultsPart(parts, `(import) ` + node.nameToken.value +
+                this._getTypeText(node), true);
             return;
         }
 
         switch (resolvedDecl.type) {
+            case DeclarationType.Intrinsic: {
+                this._addResultsPart(parts, node.nameToken.value + this._getTypeText(node), true);
+                this._addDocumentationPart(parts, node);
+                break;
+            }
+
             case DeclarationType.Variable: {
                 const label = resolvedDecl.isConstant ? 'constant' : 'variable';
-                if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
-                        this._getTypeText(node), true);
-                    this._addDocumentationPart(parts, node);
-                    return;
-                }
+                this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
+                    this._getTypeText(node), true);
+                this._addDocumentationPart(parts, node);
                 break;
             }
 
             case DeclarationType.Parameter: {
-                if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(parameter) ' + node.nameToken.value +
-                        this._getTypeText(node), true);
-                    this._addDocumentationPart(parts, node);
-                    return;
-                }
+                this._addResultsPart(parts, '(parameter) ' + node.nameToken.value +
+                    this._getTypeText(node), true);
+                this._addDocumentationPart(parts, node);
                 break;
             }
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass: {
-                if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(class) ' + node.nameToken.value, true);
-                    this._addDocumentationPart(parts, node);
-                    return;
-                }
+                this._addResultsPart(parts, '(class) ' + node.nameToken.value, true);
+                this._addDocumentationPart(parts, node);
                 break;
             }
 
             case DeclarationType.Function: {
-                if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(function) ' + node.nameToken.value +
-                        this._getTypeText(node), true);
-                    this._addDocumentationPart(parts, node);
-                    return;
-                }
+                this._addResultsPart(parts, '(function) ' + node.nameToken.value +
+                    this._getTypeText(node), true);
+                this._addDocumentationPart(parts, node);
                 break;
             }
 
@@ -131,21 +123,15 @@ export class HoverProvider {
                 const declaredType = DeclarationUtils.getTypeForDeclaration(resolvedDecl);
                 const label = declaredType && declaredType.category === TypeCategory.Property ?
                     'property' : 'method';
-                if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
-                        this._getTypeText(node), true);
-                    this._addDocumentationPart(parts, node);
-                    return;
-                }
+                this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
+                    this._getTypeText(node), true);
+                this._addDocumentationPart(parts, node);
                 break;
             }
 
             case DeclarationType.Alias: {
-                if (node.nodeType === ParseNodeType.Name) {
-                    this._addResultsPart(parts, '(module) ' + node.nameToken.value, true);
-                    this._addDocumentationPart(parts, node);
-                    return;
-                }
+                this._addResultsPart(parts, '(module) ' + node.nameToken.value, true);
+                this._addDocumentationPart(parts, node);
                 break;
             }
         }

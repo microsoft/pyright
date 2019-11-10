@@ -3572,14 +3572,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         return;
                     }
 
-                    let entryType: Type | undefined;
-                    const entryTypeInfo = getTypeFromExpression(entry.valueExpression);
-                    if (entryTypeInfo) {
-                        entryType = convertClassToObject(entryTypeInfo.type);
-                    } else {
-                        entryType = UnknownType.create();
-                    }
-
                     if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
                         addError('Expected string literal for entry name', entry.keyExpression);
                         return;
@@ -5277,33 +5269,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             synthesizeTypedDictClassMethods(classType);
         }
 
-        if (ClassType.isDataClass(classType)) {
-            let skipSynthesizedInit = ClassType.isSkipSynthesizedInit(classType);
-            if (!skipSynthesizedInit) {
-                // See if there's already a non-synthesized __init__ method.
-                // We shouldn't override it.
-                const initSymbol = lookUpClassMember(classType, '__init__',
-                    importLookup, ClassMemberLookupFlags.SkipBaseClasses);
-                if (initSymbol) {
-                    const initSymbolType = getTypeOfMember(initSymbol, importLookup);
-                    if (initSymbolType.category === TypeCategory.Function) {
-                        if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
-                            skipSynthesizedInit = true;
-                        }
-                    } else {
-                        skipSynthesizedInit = true;
-                    }
-                }
-            }
-
-            synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
-        }
-
         // Restore the old cached values.
         AnalyzerNodeInfo.setExpressionType(node, oldCachedClassType);
         AnalyzerNodeInfo.setExpressionType(node.name, oldCachedDecoratedClassType);
-
-        updateExpressionTypeForNode(node, classType);
 
         // Now determine the decorated type of the class.
         decoratedType = classType;
@@ -5328,6 +5296,32 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
+        if (ClassType.isDataClass(classType)) {
+            let skipSynthesizedInit = ClassType.isSkipSynthesizedInit(classType);
+            if (!skipSynthesizedInit) {
+                // See if there's already a non-synthesized __init__ method.
+                // We shouldn't override it.
+                const initSymbol = lookUpClassMember(classType, '__init__',
+                    importLookup, ClassMemberLookupFlags.SkipBaseClasses);
+                if (initSymbol) {
+                    const initSymbolType = getTypeOfMember(initSymbol, importLookup);
+                    if (initSymbolType.category === TypeCategory.Function) {
+                        if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
+                            skipSynthesizedInit = true;
+                        }
+                    } else {
+                        skipSynthesizedInit = true;
+                    }
+                }
+            }
+
+            synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
+        }
+
+        // Update the undecorated class type.
+        updateExpressionTypeForNode(node, classType);
+
+        // Update the decorated class type.
         updateExpressionTypeForNode(node.name, decoratedType);
         return { classType, decoratedType };
     }

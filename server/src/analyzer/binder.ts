@@ -364,10 +364,7 @@ export class Binder extends ParseTreeWalker {
 
             const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
             if (enclosingClass) {
-                const enclosingClassType = AnalyzerNodeInfo.getExpressionType(enclosingClass);
-                if (enclosingClassType) {
-                    this._addBuiltInSymbolToCurrentScope('__class__', node, 'class');
-                }
+                this._addBuiltInSymbolToCurrentScope('__class__', node, 'class');
             }
 
             this._deferBinding(() => {
