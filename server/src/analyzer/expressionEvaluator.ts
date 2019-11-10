@@ -22,7 +22,8 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
     ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExpressionNode, FunctionNode,
     IndexItemsNode, IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode,
     MemberAccessNode, NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
-    SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
+    SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, YieldFromNode,
+    YieldNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -36,14 +37,27 @@ import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
+import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol,
+    getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     FunctionType, FunctionTypeFlags, isAnyOrUnknown, isNoneOrNever, isPossiblyUnbound,
     isTypeSame, isUnbound, LiteralValue, ModuleType, NeverType, NoneType, ObjectType,
-    OverloadedFunctionEntry, OverloadedFunctionType, printObjectTypeForClass, printType,
-    PropertyType, removeNoneFromUnion, removeUnboundFromUnion, requiresSpecialization, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
-import * as TypeUtils from './typeUtils';
+    OverloadedFunctionEntry, OverloadedFunctionType, PropertyType, removeNoneFromUnion,
+    removeUnboundFromUnion, Type, TypeCategory, TypeVarMap, TypeVarType, UnboundType,
+    UnknownType } from './types';
+import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedTypeForConstructor,
+    areTypesSame, bindFunctionToClassOrObject, buildTypeVarMap, canAssignToTypedDict,
+    canAssignToTypeVar, canAssignType, canBeFalsy, canBeTruthy, ClassMember,
+    ClassMemberLookupFlags, constrainDeclaredTypeBasedOnAssignedType, containsUnknown,
+    convertClassToObject, derivesFromClassRecursive, doForSubtypes,
+    getAbstractMethodsRecursive, getDeclaredGeneratorSendType, getEffectiveReturnType,
+    getMetaclass, getSpecializedTupleType, getTypedDictMembersForClassRecursive,
+    getTypeOfMember, getTypeVarArgumentsRecursive, isEllipsisType, isEnumClass,
+    isNoReturnType, isOptionalType, lookUpClassMember, lookUpObjectMember,
+    printObjectTypeForClass, printType, removeFalsinessFromType, removeTruthinessFromType,
+    requiresSpecialization, selfSpecializeClassType, specializeType, specializeTypeVarType,
+    stripFirstParameter, stripLiteralValue, transformTypeObjectToClass,
+    TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -220,7 +234,7 @@ export interface ExpressionEvaluator {
     assignTypeToExpression: (target: ExpressionNode, type: Type, srcExpr?: ExpressionNode,
         targetOfInterest?: ExpressionNode) => Type | undefined;
 
-    updateExpressionTypeForNode: (node: ExpressionNode, exprType: Type) => void;
+    updateExpressionTypeForNode: (node: ParseNode, exprType: Type) => void;
 
     addError: (message: string, range: TextRange) => Diagnostic | undefined;
     addWarning: (message: string, range: TextRange) => Diagnostic | undefined;
@@ -269,7 +283,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
         }
 
-        return TypeUtils.convertClassToObject(
+        return convertClassToObject(
             getTypeFromExpression(node, { method: 'get' }, evaluatorFlags).type);
     }
 
@@ -323,7 +337,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (resultType) {
             if (resultType.category === TypeCategory.Function || resultType.category === TypeCategory.OverloadedFunction) {
                 if (memberInfo!.isClassMember) {
-                    resultType = TypeUtils.bindFunctionToClassOrObject(
+                    resultType = bindFunctionToClassOrObject(
                         bindToClass || objectType, resultType,
                         importLookup, !!bindToClass);
                 }
@@ -345,7 +359,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (resultType) {
             if (resultType.category === TypeCategory.Function || resultType.category === TypeCategory.OverloadedFunction) {
                 if (memberInfo!.isClassMember) {
-                    resultType = TypeUtils.bindFunctionToClassOrObject(classType,
+                    resultType = bindFunctionToClassOrObject(classType,
                         resultType, importLookup);
                 }
             }
@@ -372,18 +386,18 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // Get the base type but do so speculative because we're going to call again
             // with a 'set' usage type below, and we don't want to skip that logic.
             const baseType = getTypeNoCache(expression.leftExpression);
-            let classMemberInfo: TypeUtils.ClassMember | undefined;
+            let classMemberInfo: ClassMember | undefined;
 
             if (baseType.category === TypeCategory.Object) {
-                classMemberInfo = TypeUtils.lookUpObjectMember(baseType,
+                classMemberInfo = lookUpObjectMember(baseType,
                     expression.memberName.nameToken.value, importLookup,
-                    TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+                    ClassMemberLookupFlags.DeclaredTypesOnly);
                 classOrObjectBase = baseType;
             } else if (baseType.category === TypeCategory.Class) {
-                classMemberInfo = TypeUtils.lookUpClassMember(baseType,
+                classMemberInfo = lookUpClassMember(baseType,
                     expression.memberName.nameToken.value, importLookup,
-                    TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables |
-                    TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+                    ClassMemberLookupFlags.SkipInstanceVariables |
+                    ClassMemberLookupFlags.DeclaredTypesOnly);
                 classOrObjectBase = baseType;
             }
 
@@ -393,12 +407,12 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         } else if (expression.nodeType === ParseNodeType.Index) {
             const baseType = getDeclaredTypeForExpression(expression.baseExpression);
             if (baseType && baseType.category === TypeCategory.Object) {
-                const setItemMember = TypeUtils.lookUpClassMember(baseType.classType,
+                const setItemMember = lookUpClassMember(baseType.classType,
                     '__setitem__', importLookup);
                 if (setItemMember) {
-                    const setItemType = TypeUtils.getTypeOfMember(setItemMember, importLookup);
+                    const setItemType = getTypeOfMember(setItemMember, importLookup);
                     if (setItemType.category === TypeCategory.Function) {
-                        const boundFunction = TypeUtils.bindFunctionToClassOrObject(baseType,
+                        const boundFunction = bindFunctionToClassOrObject(baseType,
                             setItemType, importLookup);
                         if (boundFunction.category === TypeCategory.Function) {
                             if (boundFunction.details.parameters.length === 2) {
@@ -426,7 +440,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 }
 
                 if (classOrObjectBase) {
-                    declaredType = TypeUtils.bindFunctionToClassOrObject(classOrObjectBase,
+                    declaredType = bindFunctionToClassOrObject(classOrObjectBase,
                         declaredType, importLookup);
                 }
 
@@ -444,7 +458,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     //    returns a generator object)
     // If errorNode is undefined, no errors are reported.
     function getTypeFromAwaitable(type: Type, errorNode?: ParseNode): Type {
-        return TypeUtils.doForSubtypes(type, subtype => {
+        return doForSubtypes(type, subtype => {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
@@ -553,7 +567,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return undefined;
         };
 
-        return TypeUtils.doForSubtypes(type, subtype => {
+        return doForSubtypes(type, subtype => {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
@@ -567,7 +581,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             } else if (subtype.category === TypeCategory.Class) {
                 // Handle the case where the class itself is iterable.
                 // This is true for classes that derive from Enum, for example.
-                const metaclassType = TypeUtils.getMetaclass(subtype);
+                const metaclassType = getMetaclass(subtype);
                 if (metaclassType) {
                     if (metaclassType.category === TypeCategory.Class) {
                         const returnType = getIteratorReturnType(
@@ -603,8 +617,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             name: 'cls',
             type: classType
         });
-        TypeUtils.addDefaultFunctionParameters(newType);
-
+        addDefaultFunctionParameters(newType);
         FunctionType.setDeclaredReturnType(newType, ObjectType.create(classType));
 
         FunctionType.addParameter(initType, {
@@ -612,6 +625,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             name: 'self',
             type: ObjectType.create(classType)
         });
+        FunctionType.setDeclaredReturnType(initType, NoneType.create());
 
         // Maintain a list of all dataclass parameters (including
         // those from inherited classes) plus a list of only those
@@ -630,13 +644,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     if (statement.nodeType === ParseNodeType.Assignment) {
                         if (statement.leftExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.leftExpression;
-                            variableType = TypeUtils.stripLiteralValue(
+                            variableType = stripLiteralValue(
                                 getTypeFromExpression(statement.rightExpression, { method: 'get' }).type);
                         } else if (statement.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
                                 statement.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
 
                             variableNameNode = statement.leftExpression.valueExpression;
-                            variableType = TypeUtils.convertClassToObject(
+                            variableType = convertClassToObject(
                                 getTypeFromExpression(statement.leftExpression.typeAnnotation, { method: 'get' },
                                     EvaluatorFlags.ConvertEllipsisToAny).type);
                         }
@@ -645,7 +659,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
                         if (statement.valueExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.valueExpression;
-                            variableType = TypeUtils.convertClassToObject(
+                            variableType = convertClassToObject(
                                 getTypeFromExpression(statement.typeAnnotation, { method: 'get' },
                                     EvaluatorFlags.ConvertEllipsisToAny).type);
                         }
@@ -717,7 +731,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             name: 'cls',
             type: classType
         });
-        TypeUtils.addDefaultFunctionParameters(newType);
+        addDefaultFunctionParameters(newType);
         FunctionType.setDeclaredReturnType(newType, ObjectType.create(classType));
 
         // Synthesize an __init__ method.
@@ -728,6 +742,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             name: 'self',
             type: ObjectType.create(classType)
         });
+        FunctionType.setDeclaredReturnType(initType, NoneType.create());
 
         // All parameters must be named, so insert an empty "*".
         FunctionType.addParameter(initType, {
@@ -735,8 +750,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             type: AnyType.create()
         });
 
-        const entries = new StringMap<TypeUtils.TypedDictEntry>();
-        TypeUtils.getTypedDictMembersForClassRecursive(classType, entries);
+        const entries = new StringMap<TypedDictEntry>();
+        getTypedDictMembersForClassRecursive(classType, entries);
         entries.forEach((entry, name) => {
             FunctionType.addParameter(initType, {
                 category: ParameterCategory.Simple,
@@ -857,14 +872,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         let destType = type;
         if (declaredType && srcExpression) {
             const diagAddendum = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(declaredType, type, diagAddendum, importLookup)) {
+            if (!canAssignType(declaredType, type, diagAddendum, importLookup)) {
                 addError(`Expression of type '${ printType(type) }' cannot be ` +
                     `assigned to declared type '${ printType(declaredType) }'` + diagAddendum.getString(),
                     srcExpression || nameNode);
                 destType = declaredType;
             } else {
                 // Constrain the resulting type to match the declared type.
-                destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                destType = constrainDeclaredTypeBasedOnAssignedType(
                     declaredType, type, importLookup);
             }
         } else {
@@ -879,7 +894,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                 if (!isConstant && (!isPrivate ||
                         getFileInfo(nameNode).diagnosticSettings.reportPrivateUsage === 'none')) {
-                    destType = TypeUtils.stripLiteralValue(destType);
+                    destType = stripLiteralValue(destType);
                 }
             }
         }
@@ -946,9 +961,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         const classType = AnalyzerNodeInfo.getExpressionType(classDef);
         if (classType && classType.category === TypeCategory.Class) {
-            let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-                importLookup, isInstanceMember ? TypeUtils.ClassMemberLookupFlags.Default :
-                    TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
+            let memberInfo = lookUpClassMember(classType, memberName,
+                importLookup, isInstanceMember ? ClassMemberLookupFlags.Default :
+                    ClassMemberLookupFlags.SkipInstanceVariables);
 
             const memberFields = ClassType.getFields(classType);
             if (memberInfo) {
@@ -985,7 +1000,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         if (!memberInfo.isInstanceMember && isInstanceMember) {
                             // The class variable is accessed in this case.
                             setSymbolAccessed(memberInfo.symbol);
-                            const memberType = TypeUtils.getTypeOfMember(memberInfo, importLookup);
+                            const memberType = getTypeOfMember(memberInfo, importLookup);
                             srcType = combineTypes([srcType, memberType]);
                         }
                     }
@@ -993,8 +1008,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
 
             // Look up the member info again, now that we've potentially updated it.
-            memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-                importLookup, TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+            memberInfo = lookUpClassMember(classType, memberName,
+                importLookup, ClassMemberLookupFlags.DeclaredTypesOnly);
             if (memberInfo) {
                 const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
                 if (declaredType && !isAnyOrUnknown(declaredType)) {
@@ -1005,11 +1020,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         // TODO - need to validate property setter type.
                     } else {
                         const diagAddendum = new DiagnosticAddendum();
-                        if (TypeUtils.canAssignType(declaredType, srcType,
+                        if (canAssignType(declaredType, srcType,
                                 diagAddendum, importLookup)) {
 
                             // Constrain the resulting type to match the declared type.
-                            destType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                            destType = constrainDeclaredTypeBasedOnAssignedType(
                                 destType, srcType, importLookup);
                         }
                     }
@@ -1037,15 +1052,15 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             targetTypes[i] = [];
         }
 
-        TypeUtils.doForSubtypes(type, subtype => {
+        doForSubtypes(type, subtype => {
             // Is this subtype a tuple?
-            const tupleType = TypeUtils.getSpecializedTupleType(subtype);
+            const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && ClassType.getTypeArguments(tupleType)) {
                 const entryTypes = ClassType.getTypeArguments(tupleType)!;
                 let entryCount = entryTypes.length;
 
                 const sourceEndsInEllipsis = entryCount > 0 &&
-                    TypeUtils.isEllipsisType(entryTypes[entryCount - 1]);
+                    isEllipsisType(entryTypes[entryCount - 1]);
                 if (sourceEndsInEllipsis) {
                     entryCount--;
                 }
@@ -1176,8 +1191,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             case ParseNodeType.TypeAnnotation: {
                 const typeHintType = getTypeOfAnnotation(target.typeAnnotation);
                 const diagAddendum = new DiagnosticAddendum();
-                if (TypeUtils.canAssignType(typeHintType, type, diagAddendum, importLookup)) {
-                    type = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                if (canAssignType(typeHintType, type, diagAddendum, importLookup)) {
+                    type = constrainDeclaredTypeBasedOnAssignedType(
                         typeHintType, type, importLookup);
                 }
 
@@ -1241,7 +1256,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                 if (!oldType || !isTypeSame(oldType, exprType)) {
                     if (requiresInvalidation) {
+
+                        // TODO - REMOVE THIS DEBUGGING CODE
                         setAnalysisChangedCallback('Expression type changed');
+                        const aaa = oldType && isTypeSame(oldType, exprType);
                     }
                     AnalyzerNodeInfo.setExpressionType(node, exprType);
                 }
@@ -1305,21 +1323,21 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     }
 
     function getSpecializedReturnType(objType: ObjectType, memberName: string) {
-        const classMember = TypeUtils.lookUpObjectMember(objType, memberName,
-            importLookup, TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
+        const classMember = lookUpObjectMember(objType, memberName,
+            importLookup, ClassMemberLookupFlags.SkipInstanceVariables);
         if (!classMember) {
             return undefined;
         }
 
-        const memberType = TypeUtils.getTypeOfMember(classMember, importLookup);
+        const memberType = getTypeOfMember(classMember, importLookup);
         if (isAnyOrUnknown(memberType)) {
             return memberType;
         }
 
         if (memberType.category === TypeCategory.Function) {
-            const methodType = TypeUtils.bindFunctionToClassOrObject(objType,
+            const methodType = bindFunctionToClassOrObject(objType,
                 memberType, importLookup) as FunctionType;
-            return FunctionType.getEffectiveReturnType(methodType);
+            return getEffectiveReturnType(methodType);
         }
 
         return undefined;
@@ -1331,22 +1349,22 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     function getSpecializedReturnTypeForMetaclassMethod(
             metaclass: ClassType, classType: ClassType, memberName: string) {
 
-        const classMember = TypeUtils.lookUpObjectMember(
+        const classMember = lookUpObjectMember(
             ObjectType.create(metaclass), memberName, importLookup,
-            TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
+            ClassMemberLookupFlags.SkipInstanceVariables);
         if (!classMember) {
             return undefined;
         }
 
-        const memberType = TypeUtils.getTypeOfMember(classMember, importLookup);
+        const memberType = getTypeOfMember(classMember, importLookup);
         if (isAnyOrUnknown(memberType)) {
             return memberType;
         }
 
         if (memberType.category === TypeCategory.Function) {
-            const methodType = TypeUtils.bindFunctionToClassOrObject(
+            const methodType = bindFunctionToClassOrObject(
                 classType, memberType, importLookup, true) as FunctionType;
-            return FunctionType.getEffectiveReturnType(methodType);
+            return getEffectiveReturnType(methodType);
         }
 
         return undefined;
@@ -1754,7 +1772,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
 
             case TypeCategory.Union: {
-                type = TypeUtils.doForSubtypes(baseType, subtype => {
+                type = doForSubtypes(baseType, subtype => {
                     if (isNoneOrNever(subtype)) {
                         addDiagnostic(
                             getFileInfo(node).diagnosticSettings.reportOptionalMemberAccess,
@@ -1856,7 +1874,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 // If the type arg is a type var itself, specialize it in
                 // case it's bound or constrained.
                 if (firstTypeArg.category === TypeCategory.TypeVar) {
-                    firstTypeArg = TypeUtils.specializeTypeVarType(firstTypeArg);
+                    firstTypeArg = specializeTypeVarType(firstTypeArg);
                 }
 
                 if (firstTypeArg.category === TypeCategory.Object) {
@@ -1880,26 +1898,26 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             classType = classType.details.aliasClass;
         }
 
-        let classLookupFlags = TypeUtils.ClassMemberLookupFlags.Default;
+        let classLookupFlags = ClassMemberLookupFlags.Default;
         if (flags & MemberAccessFlags.SkipInstanceMembers) {
-            classLookupFlags |= TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables;
+            classLookupFlags |= ClassMemberLookupFlags.SkipInstanceVariables;
         }
         if (flags & MemberAccessFlags.SkipBaseClasses) {
-            classLookupFlags |= TypeUtils.ClassMemberLookupFlags.SkipBaseClasses;
+            classLookupFlags |= ClassMemberLookupFlags.SkipBaseClasses;
         }
         if (flags & MemberAccessFlags.SkipObjectBaseClass) {
-            classLookupFlags |= TypeUtils.ClassMemberLookupFlags.SkipObjectBaseClass;
+            classLookupFlags |= ClassMemberLookupFlags.SkipObjectBaseClass;
         }
 
         // Always look for a member with a declared type first.
-        let memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
+        let memberInfo = lookUpClassMember(classType, memberName,
             importLookup,
-            classLookupFlags | TypeUtils.ClassMemberLookupFlags.DeclaredTypesOnly);
+            classLookupFlags | ClassMemberLookupFlags.DeclaredTypesOnly);
 
         // If we couldn't find a symbol with a declared type, use
         // an symbol with an inferred type.
         if (!memberInfo) {
-            memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
+            memberInfo = lookUpClassMember(classType, memberName,
                 importLookup, classLookupFlags);
         }
 
@@ -1911,7 +1929,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 };
             };
 
-            let type = TypeUtils.getTypeOfMember(memberInfo, importLookup);
+            let type = getTypeOfMember(memberInfo, importLookup);
 
             // Don't include variables within typed dict classes.
             if (ClassType.isTypedDictClass(classType)) {
@@ -1948,7 +1966,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         let setterFunctionType = type.setter;
                         if (setterFunctionType) {
                             // Strip off the "self" parameter.
-                            setterFunctionType = TypeUtils.stripFirstParameter(setterFunctionType);
+                            setterFunctionType = stripFirstParameter(setterFunctionType);
 
                             // Validate that we can call the setter with the specified type.
                             assert(usage.setType !== undefined && usage.setErrorNode !== undefined);
@@ -1984,13 +2002,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     }
 
                     const memberClassType = type.classType;
-                    const getMember = TypeUtils.lookUpClassMember(memberClassType, accessMethodName,
-                        importLookup, TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables);
+                    const getMember = lookUpClassMember(memberClassType, accessMethodName,
+                        importLookup, ClassMemberLookupFlags.SkipInstanceVariables);
                     if (getMember) {
-                        const getMemberType = TypeUtils.getTypeOfMember(getMember, importLookup);
+                        const getMemberType = getTypeOfMember(getMember, importLookup);
                         if (getMemberType.category === TypeCategory.Function) {
                             if (usage.method === 'get') {
-                                type = FunctionType.getEffectiveReturnType(getMemberType);
+                                type = getEffectiveReturnType(getMemberType);
                             } else {
                                 // The type isn't important for set or delete usage.
                                 // We just need to return some defined type.
@@ -2029,14 +2047,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     if ((flags & MemberAccessFlags.SkipInstanceMembers) === 0) {
                         if (!memberInfo.isInstanceMember && type.category === TypeCategory.Function) {
                             if (FunctionType.isClassMethod(type) || FunctionType.isInstanceMethod(type)) {
-                                effectiveType = TypeUtils.stripFirstParameter(type);
+                                effectiveType = stripFirstParameter(type);
                             }
                         }
                     }
 
                     // Verify that the assigned type is compatible.
                     const diag = new DiagnosticAddendum();
-                    if (!TypeUtils.canAssignType(effectiveType, usage.setType!,
+                    if (!canAssignType(effectiveType, usage.setType!,
                             diag.createAddendum(), importLookup)) {
 
                         addError(
@@ -2063,7 +2081,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                 if (getAttribType && getAttribType.category === TypeCategory.Function) {
                     return {
-                        type: FunctionType.getEffectiveReturnType(getAttribType),
+                        type: getEffectiveReturnType(getAttribType),
                         isClassMember: false
                     };
                 }
@@ -2072,7 +2090,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     '__getattr__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
                 if (getAttrType && getAttrType.category === TypeCategory.Function) {
                     return {
-                        type: FunctionType.getEffectiveReturnType(getAttrType),
+                        type: getEffectiveReturnType(getAttrType),
                         isClassMember: false
                     };
                 }
@@ -2123,8 +2141,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             baseType.subtypes.forEach(subtype => {
                 if (subtype.category === TypeCategory.Class || subtype.category === TypeCategory.TypeVar) {
-                    TypeUtils.addTypeVarsToListIfUnique(typeParameters,
-                        TypeUtils.getTypeVarArgumentsRecursive(subtype));
+                    addTypeVarsToListIfUnique(typeParameters,
+                        getTypeVarArgumentsRecursive(subtype));
                 } else {
                     isUnionOfClasses = false;
                 }
@@ -2132,13 +2150,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             if (isUnionOfClasses) {
                 const typeArgs = getTypeArgs(node.items, flags).map(t => t.type);
-                const typeVarMap = TypeUtils.buildTypeVarMap(typeParameters, typeArgs);
-                const type = TypeUtils.specializeType(baseType, typeVarMap);
+                const typeVarMap = buildTypeVarMap(typeParameters, typeArgs);
+                const type = specializeType(baseType, typeVarMap);
                 return { type, node };
             }
         }
 
-        const type = TypeUtils.doForSubtypes(baseType, subtype => {
+        const type = doForSubtypes(baseType, subtype => {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             } else if (subtype.category === TypeCategory.Class) {
@@ -2164,7 +2182,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                             node.baseExpression);
                         return UnknownType.create();
                     }
-                } else if (TypeUtils.isEnumClass(subtype)) {
+                } else if (isEnumClass(subtype)) {
                     // Special-case Enum types.
                     // TODO - validate that there's only one index entry
                     // that is a str type.
@@ -2215,12 +2233,12 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 return UnknownType.create();
             }
 
-            const entries = new StringMap<TypeUtils.TypedDictEntry>();
-            TypeUtils.getTypedDictMembersForClassRecursive(baseType.classType, entries);
+            const entries = new StringMap<TypedDictEntry>();
+            getTypedDictMembersForClassRecursive(baseType.classType, entries);
 
             const indexType = getTypeFromExpression(node.items.items[0]).type;
             const diag = new DiagnosticAddendum();
-            const resultingType = TypeUtils.doForSubtypes(indexType, subtype => {
+            const resultingType = doForSubtypes(indexType, subtype => {
                 if (isAnyOrUnknown(subtype)) {
                     return subtype;
                 }
@@ -2239,7 +2257,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     }
 
                     if (usage.method === 'set') {
-                        TypeUtils.canAssignType(entry.valueType, usage.setType!, diag, importLookup);
+                        canAssignType(entry.valueType, usage.setType!, diag, importLookup);
                     } else if (usage.method === 'del' && entry.isRequired) {
                         addError(
                             `'${ entryName }' is a required key and cannot be deleted`, node);
@@ -2319,7 +2337,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // isn't used in most cases, but it is supported by the language.
             const builtInTupleType = getBuiltInType(node, 'Tuple');
             if (builtInTupleType.category === TypeCategory.Class) {
-                indexType = TypeUtils.convertClassToObject(
+                indexType = convertClassToObject(
                     ClassType.cloneForSpecialization(builtInTupleType, indexTypeList));
             } else {
                 indexType = UnknownType.create();
@@ -2382,7 +2400,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 // Is this a homogeneous tuple of indeterminate length? If so,
                 // match the number of expected types to the number of entries
                 // in the tuple expression.
-                if (tupleClass.typeArguments.length === 2 && TypeUtils.isEllipsisType(tupleClass.typeArguments[1])) {
+                if (tupleClass.typeArguments.length === 2 && isEllipsisType(tupleClass.typeArguments[1])) {
                     for (let i = 0; i < node.expressions.length; i++) {
                         expectedTypes.push(tupleClass.typeArguments[0]);
                     }
@@ -2433,7 +2451,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 }
             }
 
-            type = TypeUtils.convertClassToObject(
+            type = convertClassToObject(
                 ClassType.cloneForSpecialization(builtInTupleType, tupleTypes));
         }
 
@@ -2526,13 +2544,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             } else if (constrainedClassType.category === TypeCategory.Object) {
                 const childClassType = constrainedClassType.classType;
                 if (targetClassType.category === TypeCategory.Class) {
-                    if (!TypeUtils.derivesFromClassRecursive(childClassType, targetClassType)) {
+                    if (!derivesFromClassRecursive(childClassType, targetClassType)) {
                         reportError = true;
                     }
                 }
             } else if (constrainedClassType.category === TypeCategory.Class) {
                 if (targetClassType.category === TypeCategory.Class) {
-                    if (!TypeUtils.derivesFromClassRecursive(constrainedClassType, targetClassType)) {
+                    if (!derivesFromClassRecursive(constrainedClassType, targetClassType)) {
                         reportError = true;
                     }
                 }
@@ -2552,9 +2570,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         const parentNode = node.parent!;
         if (parentNode.nodeType === ParseNodeType.MemberAccess) {
             const memberName = parentNode.memberName.nameToken.value;
-            const lookupResults = TypeUtils.lookUpClassMember(
+            const lookupResults = lookUpClassMember(
                 targetClassType, memberName, importLookup,
-                TypeUtils.ClassMemberLookupFlags.SkipOriginalClass);
+                ClassMemberLookupFlags.SkipOriginalClass);
             if (lookupResults && lookupResults.classType.category === TypeCategory.Class) {
                 return ObjectType.create(lookupResults.classType);
             }
@@ -2583,7 +2601,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         let callType = baseTypeResult.type;
 
         if (callType.category === TypeCategory.TypeVar) {
-            callType = TypeUtils.specializeType(callType, undefined);
+            callType = specializeType(callType, undefined);
         }
 
         switch (callType.category) {
@@ -2622,8 +2640,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     }
                 } else if (ClassType.isAbstractClass(callType)) {
                     // If the class is abstract, it can't be instantiated.
-                    const symbolTable = new StringMap<TypeUtils.ClassMember>();
-                    TypeUtils.getAbstractMethodsRecursive(callType, importLookup, symbolTable);
+                    const symbolTable = new StringMap<ClassMember>();
+                    getAbstractMethodsRecursive(callType, importLookup, symbolTable);
 
                     const diagAddendum = new DiagnosticAddendum();
                     const symbolTableKeys = symbolTable.getKeys();
@@ -2853,10 +2871,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             if (validateCallArguments(errorNode, argList, initMethodType, typeVarMap)) {
                 let specializedClassType = type;
                 if (expectedType) {
-                    TypeUtils.applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
+                    applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
                 }
                 if (!typeVarMap.isEmpty()) {
-                    specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
+                    specializedClassType = specializeType(type, typeVarMap) as ClassType;
                 }
                 returnType = ObjectType.create(specializedClassType);
             } else {
@@ -2873,17 +2891,17 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 type, '__new__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup |
                     MemberAccessFlags.SkipObjectBaseClass);
             if (constructorMethodInfo) {
-                const constructorMethodType = TypeUtils.bindFunctionToClassOrObject(
+                const constructorMethodType = bindFunctionToClassOrObject(
                     type, constructorMethodInfo.type, importLookup, true);
                 const typeVarMap = new TypeVarMap();
                 validateCallArguments(errorNode, argList, constructorMethodType, typeVarMap);
                 if (!returnType) {
                     let specializedClassType = type;
                     if (expectedType) {
-                        TypeUtils.applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
+                        applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
                     }
                     if (!typeVarMap.isEmpty()) {
-                        specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
+                        specializedClassType = specializeType(type, typeVarMap) as ClassType;
                     }
                     returnType = ObjectType.create(specializedClassType);
                 }
@@ -2900,17 +2918,17 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             let specializedClassType = type;
             const typeVarMap = new TypeVarMap();
             if (expectedType) {
-                TypeUtils.applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
+                applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
             }
             if (!typeVarMap.isEmpty()) {
-                specializedClassType = TypeUtils.specializeType(type, typeVarMap) as ClassType;
+                specializedClassType = specializeType(type, typeVarMap) as ClassType;
             }
             returnType = ObjectType.create(specializedClassType);
         }
 
         // Make the type concrete if it wasn't already specialized.
         if (returnType) {
-            returnType = TypeUtils.specializeType(returnType, undefined);
+            returnType = specializeType(returnType, undefined);
         }
 
         return returnType;
@@ -2961,7 +2979,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     MemberAccessFlags.SkipForMethodLookup);
 
             if (memberType && memberType.category === TypeCategory.Function) {
-                const callMethodType = TypeUtils.stripFirstParameter(memberType);
+                const callMethodType = stripFirstParameter(memberType);
                 returnType = validateCallArguments(
                     errorNode, argList, callMethodType, typeVarMap);
             }
@@ -2991,7 +3009,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         // Make the type concrete if it wasn't already specialized.
         if (returnType && specializeReturnType) {
-            returnType = TypeUtils.specializeType(returnType, undefined);
+            returnType = specializeType(returnType, undefined);
         }
 
         return returnType;
@@ -3262,7 +3280,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return undefined;
         }
 
-        return TypeUtils.specializeType(FunctionType.getEffectiveReturnType(type), typeVarMap);
+        return specializeType(getEffectiveReturnType(type), typeVarMap);
     }
 
     function validateArgType(argParam: ValidateArgTypeParams, typeVarMap: TypeVarMap,
@@ -3271,7 +3289,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         let argType: Type | undefined;
 
         if (argParam.argument.valueExpression) {
-            const expectedType = TypeUtils.specializeType(argParam.paramType, typeVarMap, makeConcrete);
+            const expectedType = specializeType(argParam.paramType, typeVarMap, makeConcrete);
             const exprType = getTypeFromExpression(argParam.argument.valueExpression,
                 { method: 'get', expectedType });
             argType = exprType.type;
@@ -3280,7 +3298,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         const diag = new DiagnosticAddendum();
-        if (!TypeUtils.canAssignType(argParam.paramType, argType, diag.createAddendum(), importLookup, typeVarMap)) {
+        if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), importLookup, typeVarMap)) {
             const optionalParamName = argParam.paramName ? `'${ argParam.paramName }' ` : '';
             addError(
                 `Argument of type '${ printType(argType) }'` +
@@ -3335,7 +3353,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                                 `A TypeVar bound type cannot be generic`,
                                 argList[i].valueExpression || errorNode);
                         }
-                        typeVar.boundType = TypeUtils.convertClassToObject(
+                        typeVar.boundType = convertClassToObject(
                             getTypeForArgument(argList[i]));
                     }
                 } else if (paramName === 'covariant') {
@@ -3376,7 +3394,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                             `A TypeVar constraint type cannot be generic`,
                             argList[i].valueExpression || errorNode);
                     }
-                    TypeVarType.addConstraint(typeVar, TypeUtils.convertClassToObject(
+                    TypeVarType.addConstraint(typeVar, convertClassToObject(
                         getTypeForArgument(argList[i])));
                 }
             }
@@ -3557,7 +3575,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     let entryType: Type | undefined;
                     const entryTypeInfo = getTypeFromExpression(entry.valueExpression);
                     if (entryTypeInfo) {
-                        entryType = TypeUtils.convertClassToObject(entryTypeInfo.type);
+                        entryType = convertClassToObject(entryTypeInfo.type);
                     } else {
                         entryType = UnknownType.create();
                     }
@@ -3710,7 +3728,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                                     entryTypeNode = entry.expressions[1];
                                     const entryTypeInfo = getTypeFromExpression(entryTypeNode);
                                     if (entryTypeInfo) {
-                                        entryType = TypeUtils.convertClassToObject(entryTypeInfo.type);
+                                        entryType = convertClassToObject(entryTypeInfo.type);
                                     }
                                 } else {
                                     addError(
@@ -3780,7 +3798,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
 
             if (addGenericGetAttribute) {
-                TypeUtils.addDefaultFunctionParameters(constructorType);
+                addDefaultFunctionParameters(constructorType);
             }
 
             // Always use generic parameters for __init__. The __new__ method
@@ -3790,7 +3808,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             const initType = FunctionType.create(
                 FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
             FunctionType.addParameter(initType, selfParameter);
-            TypeUtils.addDefaultFunctionParameters(initType);
+            addDefaultFunctionParameters(initType);
+            FunctionType.setDeclaredReturnType(initType, NoneType.create());
 
             classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
             classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
@@ -3876,7 +3895,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         let type: Type | undefined;
 
         if (node.operator !== OperatorType.Not) {
-            if (TypeUtils.isOptionalType(exprType)) {
+            if (isOptionalType(exprType)) {
                 addDiagnostic(
                     getFileInfo(node).diagnosticSettings.reportOptionalOperand,
                     DiagnosticRule.reportOptionalOperand,
@@ -3932,7 +3951,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         // Optional checks apply to all operations except for boolean operations.
         if (booleanOperatorMap[node.operator] === undefined) {
-            if (TypeUtils.isOptionalType(leftType)) {
+            if (isOptionalType(leftType)) {
                 // Skip the optional error reporting for == and !=, since
                 // None is a valid operand for these operators.
                 if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
@@ -3985,8 +4004,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         });
         const rightType = getTypeFromExpression(node.rightExpression).type;
 
-        type = TypeUtils.doForSubtypes(leftType!, leftSubtype => {
-            return TypeUtils.doForSubtypes(rightType, rightSubtype => {
+        type = doForSubtypes(leftType!, leftSubtype => {
+            return doForSubtypes(rightType, rightSubtype => {
                 if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                     // If either type is "Unknown" (versus Any), propagate the Unknown.
                     if (leftSubtype.category === TypeCategory.Unknown ||
@@ -4020,8 +4039,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         let type: Type | undefined;
 
         if (arithmeticOperatorMap[operator]) {
-            type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
-                return TypeUtils.doForSubtypes(rightType, rightSubtype => {
+            type = doForSubtypes(leftType, leftSubtype => {
+                return doForSubtypes(rightType, rightSubtype => {
                     if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                         // If either type is "Unknown" (versus Any), propagate the Unknown.
                         if (leftSubtype.category === TypeCategory.Unknown ||
@@ -4046,8 +4065,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 });
             });
         } else if (bitwiseOperatorMap[operator]) {
-            type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
-                return TypeUtils.doForSubtypes(rightType, rightSubtype => {
+            type = doForSubtypes(leftType, leftSubtype => {
+                return doForSubtypes(rightType, rightSubtype => {
                     if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                         // If either type is "Unknown" (versus Any), propagate the Unknown.
                         if (leftSubtype.category === TypeCategory.Unknown ||
@@ -4066,8 +4085,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 });
             });
         } else if (comparisonOperatorMap[operator]) {
-            type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
-                return TypeUtils.doForSubtypes(rightType, rightSubtype => {
+            type = doForSubtypes(leftType, leftSubtype => {
+                return doForSubtypes(rightType, rightSubtype => {
                     if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                         // If either type is "Unknown" (versus Any), propagate the Unknown.
                         if (leftSubtype.category === TypeCategory.Unknown ||
@@ -4095,13 +4114,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // If it's an AND or OR, we need to handle short-circuiting by
             // eliminating any known-truthy or known-falsy types.
             if (operator === OperatorType.And) {
-                leftType = TypeUtils.removeTruthinessFromType(leftType, importLookup);
+                leftType = removeTruthinessFromType(leftType, importLookup);
             } else if (operator === OperatorType.Or) {
-                leftType = TypeUtils.removeFalsinessFromType(leftType);
+                leftType = removeFalsinessFromType(leftType);
             }
 
-            type = TypeUtils.doForSubtypes(leftType, leftSubtype => {
-                return TypeUtils.doForSubtypes(rightType, rightSubtype => {
+            type = doForSubtypes(leftType, leftSubtype => {
+                return doForSubtypes(rightType, rightSubtype => {
                     // If the operator is an AND or OR, we need to combine the two types.
                     if (operator === OperatorType.And || operator === OperatorType.Or) {
                         return combineTypes([leftSubtype, rightSubtype]);
@@ -4160,7 +4179,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return undefined;
         };
 
-        const returnType = TypeUtils.doForSubtypes(objType, subtype => {
+        const returnType = doForSubtypes(objType, subtype => {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
@@ -4169,7 +4188,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 return handleObjectSubtype(subtype);
             } else if (subtype.category === TypeCategory.Class) {
                 // See if the class has a metaclass that handles the operation.
-                const metaclass = TypeUtils.getMetaclass(subtype);
+                const metaclass = getMetaclass(subtype);
                 if (metaclass && metaclass.category === TypeCategory.Class) {
                     return handleObjectSubtype(ObjectType.create(metaclass), subtype);
                 }
@@ -4197,8 +4216,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // The expected type might be generic, so we need to specialize it.
         const typeVarMap = new TypeVarMap();
         const diag = new DiagnosticAddendum();
-        TypeUtils.canAssignType(expectedType, srcType, diag, importLookup, typeVarMap);
-        return TypeUtils.specializeType(expectedType, typeVarMap);
+        canAssignType(expectedType, srcType, diag, importLookup, typeVarMap);
+        return specializeType(expectedType, typeVarMap);
     }
 
     function getTypeFromSetExpression(node: SetNode, usage: EvaluatorUsage): TypeResult {
@@ -4217,7 +4236,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // If there is an expected type, see if we can match any parts of it.
         if (usage.expectedType && entryTypes.length > 0) {
             const specificSetType = getBuiltInObject(node, 'set', [combineTypes(entryTypes)]);
-            const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+            const remainingExpectedType = constrainDeclaredTypeBasedOnAssignedType(
                 usage.expectedType, specificSetType, importLookup);
 
             // Have we eliminated all of the expected subtypes? If not, return
@@ -4231,7 +4250,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         const inferredEntryType = entryTypes.length > 0 ?
-            combineTypes(entryTypes.map(t => TypeUtils.stripLiteralValue(t))) :
+            combineTypes(entryTypes.map(t => stripLiteralValue(t))) :
             AnyType.create();
 
         const type = getBuiltInObject(node, 'set', [inferredEntryType]);
@@ -4317,7 +4336,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         // If there is an expected type, see if we can match any parts of it.
         if (usage.expectedType) {
-            const filteredTypedDict = TypeUtils.doForSubtypes(usage.expectedType, subtype => {
+            const filteredTypedDict = doForSubtypes(usage.expectedType, subtype => {
                 if (subtype.category !== TypeCategory.Object) {
                     return undefined;
                 }
@@ -4326,7 +4345,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     return undefined;
                 }
 
-                if (TypeUtils.canAssignToTypedDict(subtype.classType, importLookup, keyTypes, valueTypes)) {
+                if (canAssignToTypedDict(subtype.classType, importLookup, keyTypes, valueTypes)) {
                     return subtype;
                 }
 
@@ -4340,7 +4359,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             if (keyTypes.length > 0) {
                 const specificDictType = getBuiltInObject(node, 'dict',
                     [combineTypes(keyTypes), combineTypes(valueTypes)]);
-                const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                const remainingExpectedType = constrainDeclaredTypeBasedOnAssignedType(
                     usage.expectedType, specificDictType, importLookup);
 
                 // Have we eliminated all of the expected subtypes? If not, return
@@ -4356,8 +4375,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         // Strip any literal values.
-        keyTypes = keyTypes.map(t => TypeUtils.stripLiteralValue(t));
-        valueTypes = valueTypes.map(t => TypeUtils.stripLiteralValue(t));
+        keyTypes = keyTypes.map(t => stripLiteralValue(t));
+        valueTypes = valueTypes.map(t => stripLiteralValue(t));
 
         keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : AnyType.create();
 
@@ -4370,7 +4389,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             if (getFileInfo(node).diagnosticSettings.strictDictionaryInference) {
                 valueType = combineTypes(valueTypes);
             } else {
-                valueType = TypeUtils.areTypesSame(valueTypes) ? valueTypes[0] : UnknownType.create();
+                valueType = areTypesSame(valueTypes) ? valueTypes[0] : UnknownType.create();
             }
         } else {
             valueType = AnyType.create();
@@ -4392,7 +4411,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // If there is an expected type, see if we can match any parts of it.
             if (usage.expectedType && entryTypes.length > 0) {
                 const specificListType = getBuiltInObject(node, 'list', [combineTypes(entryTypes)]);
-                const remainingExpectedType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                const remainingExpectedType = constrainDeclaredTypeBasedOnAssignedType(
                     usage.expectedType, specificListType, importLookup);
 
                 // Have we eliminated all of the expected subtypes? If not, return
@@ -4405,14 +4424,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 return { type: specificListType, node };
             }
 
-            entryTypes = entryTypes.map(t => TypeUtils.stripLiteralValue(t));
+            entryTypes = entryTypes.map(t => stripLiteralValue(t));
 
             if (entryTypes.length > 0) {
                 if (getFileInfo(node).diagnosticSettings.strictListInference) {
                     listEntryType = combineTypes(entryTypes);
                 } else {
                     // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
-                    listEntryType = TypeUtils.areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
+                    listEntryType = areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
                 }
             }
         }
@@ -4442,7 +4461,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (enclosingFunction) {
             const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction) as FunctionType;
             assert(functionType.category === TypeCategory.Function);
-            sentType = TypeUtils.getDeclaredGeneratorSendType(functionType);
+            sentType = getDeclaredGeneratorSendType(functionType);
         }
 
         if (!sentType) {
@@ -4459,7 +4478,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (enclosingFunction) {
             const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction) as FunctionType;
             assert(functionType.category === TypeCategory.Function);
-            sentType = TypeUtils.getDeclaredGeneratorSendType(functionType);
+            sentType = getDeclaredGeneratorSendType(functionType);
         }
 
         if (!sentType) {
@@ -4503,8 +4522,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             FunctionType.addParameter(functionType, functionParam);
         });
 
-        const returnType = getTypeFromExpression(node.expression, { method: 'get' }).type;
-        functionType.details.inferredReturnType = returnType;
+        getType(node.expression);
+        functionType.details.inferredReturnTypeNode = node.expression;
 
         return { type: functionType, node };
     }
@@ -4535,7 +4554,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (simplifiedType.category === TypeCategory.Unknown) {
             addDiagnostic(diagLevel, rule,
                 `Inferred type of '${ nameValue }' is unknown`, srcExpr);
-        } else if (TypeUtils.containsUnknown(simplifiedType)) {
+        } else if (containsUnknown(simplifiedType)) {
             // Sometimes variables contain an "unbound" type if they're
             // assigned only within conditional statements. Remove this
             // to avoid confusion.
@@ -4551,7 +4570,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // "Execute" the list comprehensions from start to finish.
         for (const comprehension of node.comprehensions) {
             if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
-                const iterableType = TypeUtils.stripLiteralValue(
+                const iterableType = stripLiteralValue(
                     getTypeFromExpression(comprehension.iterableExpression).type);
                 const itemType = getTypeFromIterable(iterableType, !!comprehension.isAsync,
                     comprehension.iterableExpression, false);
@@ -4568,9 +4587,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         let type: Type = UnknownType.create();
         if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
             // Create a tuple with the key/value types.
-            const keyType = TypeUtils.stripLiteralValue(
+            const keyType = stripLiteralValue(
                 getTypeFromExpression(node.expression.keyExpression).type);
-            const valueType = TypeUtils.stripLiteralValue(
+            const valueType = stripLiteralValue(
                 getTypeFromExpression(node.expression.valueExpression).type);
 
             type = getBuiltInObject(node, 'Tuple', [keyType, valueType]);
@@ -4579,7 +4598,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             // TODO - need to implement
         } else if (isExpressionNode(node)) {
-            type = TypeUtils.stripLiteralValue(
+            type = stripLiteralValue(
                 getTypeFromExpression(node.expression as ExpressionNode).type);
         }
 
@@ -4591,10 +4610,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         const optionalIntObject = combineTypes([intObject, NoneType.create()]);
 
         const validateIndexType = (indexExpr: ExpressionNode) => {
-            const exprType = TypeUtils.stripLiteralValue(getTypeFromExpression(indexExpr).type);
+            const exprType = stripLiteralValue(getTypeFromExpression(indexExpr).type);
 
             const diag = new DiagnosticAddendum();
-            if (!TypeUtils.canAssignType(optionalIntObject, exprType, diag, importLookup)) {
+            if (!canAssignType(optionalIntObject, exprType, diag, importLookup)) {
                 addError(
                     `Index for slice operation must be an int value or None` + diag.getString(),
                     indexExpr);
@@ -4629,7 +4648,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (typeArgs && typeArgs.length > 0) {
             if (typeArgs[0].typeList) {
                 typeArgs[0].typeList.forEach((entry, index) => {
-                    if (TypeUtils.isEllipsisType(entry.type)) {
+                    if (isEllipsisType(entry.type)) {
                         addError(`'...' not allowed in this context`, entry.node);
                     } else if (entry.type.category === TypeCategory.Module) {
                         addError(`Module not allowed in this context`, entry.node);
@@ -4638,25 +4657,25 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     FunctionType.addParameter(functionType, {
                         category: ParameterCategory.Simple,
                         name: `p${ index.toString() }`,
-                        type: TypeUtils.convertClassToObject(entry.type)
+                        type: convertClassToObject(entry.type)
                     });
                 });
-            } else if (TypeUtils.isEllipsisType(typeArgs[0].type)) {
-                TypeUtils.addDefaultFunctionParameters(functionType);
+            } else if (isEllipsisType(typeArgs[0].type)) {
+                addDefaultFunctionParameters(functionType);
             } else {
                 addError(`Expected parameter type list or '...'`, typeArgs[0].node);
             }
         } else {
-            TypeUtils.addDefaultFunctionParameters(functionType);
+            addDefaultFunctionParameters(functionType);
         }
 
         if (typeArgs && typeArgs.length > 1) {
-            if (TypeUtils.isEllipsisType(typeArgs[1].type)) {
+            if (isEllipsisType(typeArgs[1].type)) {
                 addError(`'...' not allowed in this context`, typeArgs[1].node);
             } else if (typeArgs[1].type.category === TypeCategory.Module) {
                 addError(`Module not allowed in this context`, typeArgs[1].node);
             }
-            FunctionType.setDeclaredReturnType(functionType, TypeUtils.convertClassToObject(typeArgs[1].type));
+            FunctionType.setDeclaredReturnType(functionType, convertClassToObject(typeArgs[1].type));
         } else {
             FunctionType.setDeclaredReturnType(functionType, AnyType.create());
         }
@@ -4675,14 +4694,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return UnknownType.create();
         }
 
-        if (TypeUtils.isEllipsisType(typeArgs[0].type)) {
+        if (isEllipsisType(typeArgs[0].type)) {
             addError(`'...' not allowed in this context`, typeArgs[0].node);
         } else if (typeArgs[0].type.category === TypeCategory.Module) {
             addError(`Module not allowed in this context`, typeArgs[0].node);
         }
 
         return combineTypes([
-            TypeUtils.convertClassToObject(typeArgs[0].type),
+            convertClassToObject(typeArgs[0].type),
             NoneType.create()]);
     }
 
@@ -4739,7 +4758,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             literalTypes.push(type);
         }
 
-        return TypeUtils.convertClassToObject(combineTypes(literalTypes));
+        return convertClassToObject(combineTypes(literalTypes));
     }
 
     // Creates a ClassVar type.
@@ -4758,10 +4777,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // A ClassVar should not allow generic types, but the typeshed
             // stubs use this in a few cases. For now, just specialize
             // it in a general way.
-            type = TypeUtils.specializeType(type, undefined);
+            type = specializeType(type, undefined);
         }
 
-        return TypeUtils.convertClassToObject(type);
+        return convertClassToObject(type);
     }
 
     // Creates one of several "special" types that are defined in typing.pyi
@@ -4773,7 +4792,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (typeArgs) {
             // Verify that we didn't receive any inappropriate ellipses or modules.
             typeArgs.forEach((typeArg, index) => {
-                if (TypeUtils.isEllipsisType(typeArg.type)) {
+                if (isEllipsisType(typeArg.type)) {
                     if (!allowEllipsis) {
                         addError(`'...' not allowed in this context`, typeArgs[index].node);
                     } else if (typeArgs.length !== 2 || index !== 1) {
@@ -4787,7 +4806,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         let typeArgTypes = typeArgs ? typeArgs.map(
-            t => TypeUtils.convertClassToObject(t.type)) : [];
+            t => convertClassToObject(t.type)) : [];
 
         // Make sure the argument list count is correct.
         if (paramLimit !== undefined) {
@@ -4827,7 +4846,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 types.push(typeArg.type);
 
                 // Verify that we didn't receive any inappropriate ellipses.
-                if (TypeUtils.isEllipsisType(typeArg.type)) {
+                if (isEllipsisType(typeArg.type)) {
                     addError(`'...' not allowed in this context`, typeArg.node);
                 } else if (typeArg.type.category === TypeCategory.Module) {
                     addError(`Module not allowed in this context`, typeArg.node);
@@ -4893,7 +4912,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 }
             }
 
-            if (TypeUtils.isEnumClass(enumClass)) {
+            if (isEnumClass(enumClass)) {
                 return ObjectType.create(enumClass);
             }
         }
@@ -5068,9 +5087,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 // If there was a declared type, make sure the RHS value is compatible.
                 if (declaredType) {
                     const diagAddendum = new DiagnosticAddendum();
-                    if (TypeUtils.canAssignType(declaredType, srcType, diagAddendum, importLookup)) {
+                    if (canAssignType(declaredType, srcType, diagAddendum, importLookup)) {
                         // Constrain the resulting type to match the declared type.
-                        srcType = TypeUtils.constrainDeclaredTypeBasedOnAssignedType(
+                        srcType = constrainDeclaredTypeBasedOnAssignedType(
                             declaredType, srcType, importLookup);
                     }
                 }
@@ -5166,7 +5185,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                 if (!isAnyOrUnknown(argType)) {
                     // Handle "Type[X]" object.
-                    argType = TypeUtils.transformTypeObjectToClass(argType);
+                    argType = transformTypeObjectToClass(argType);
                     if (argType.category !== TypeCategory.Class) {
                         addError(`Argument to class must be a base class`, arg);
                         argType = UnknownType.create();
@@ -5198,7 +5217,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                         // Validate that the class isn't deriving from itself, creating a
                         // circular dependency.
-                        if (TypeUtils.derivesFromClassRecursive(argType, classType)) {
+                        if (derivesFromClassRecursive(argType, classType)) {
                             addError(`Class cannot derive from itself`, arg);
                             argType = UnknownType.create();
                         }
@@ -5219,8 +5238,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                 // TODO - validate that we are not adding type parameters that
                 // are unique type vars but have conflicting names.
-                TypeUtils.addTypeVarsToListIfUnique(typeParameters,
-                    TypeUtils.getTypeVarArgumentsRecursive(argType));
+                addTypeVarsToListIfUnique(typeParameters,
+                    getTypeVarArgumentsRecursive(argType));
 
                 if (!isMetaclass) {
                     nonMetaclassBaseClassCount++;
@@ -5263,10 +5282,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             if (!skipSynthesizedInit) {
                 // See if there's already a non-synthesized __init__ method.
                 // We shouldn't override it.
-                const initSymbol = TypeUtils.lookUpClassMember(classType, '__init__',
-                    importLookup, TypeUtils.ClassMemberLookupFlags.SkipBaseClasses);
+                const initSymbol = lookUpClassMember(classType, '__init__',
+                    importLookup, ClassMemberLookupFlags.SkipBaseClasses);
                 if (initSymbol) {
-                    const initSymbolType = TypeUtils.getTypeOfMember(initSymbol, importLookup);
+                    const initSymbolType = getTypeOfMember(initSymbol, importLookup);
                     if (initSymbolType.category === TypeCategory.Function) {
                         if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
                             skipSynthesizedInit = true;
@@ -5388,6 +5407,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         functionType = FunctionType.create(functionFlags,
             ParseTreeUtils.getDocString(node.suite.statements));
+        functionType.details.inferredReturnTypeNode = node.suite;
 
         if (fileInfo.isBuiltInStubFile || fileInfo.isTypingStubFile) {
             // Stash away the name of the function since we need to handle
@@ -5462,7 +5482,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     }
                 }
 
-                concreteAnnotatedType = TypeUtils.specializeType(annotatedType, undefined);
+                concreteAnnotatedType = specializeType(annotatedType, undefined);
             }
 
             let defaultValueType: Type | undefined;
@@ -5477,7 +5497,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 if (param.defaultValue && defaultValueType && concreteAnnotatedType) {
                     const diagAddendum = new DiagnosticAddendum();
 
-                    if (!TypeUtils.canAssignType(concreteAnnotatedType, defaultValueType,
+                    if (!canAssignType(concreteAnnotatedType, defaultValueType,
                             diagAddendum, importLookup)) {
 
                         const diag = addError(
@@ -5511,7 +5531,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     // comparisons will fail during structural typing analysis.
                     if (containingClassType && !ClassType.isProtocol(containingClassType)) {
                         if (FunctionType.isInstanceMethod(functionType)) {
-                            const specializedClassType = TypeUtils.selfSpecializeClassType(containingClassType);
+                            const specializedClassType = selfSpecializeClassType(containingClassType);
                             paramType = ObjectType.create(specializedClassType);
                         } else if (FunctionType.isClassMethod(functionType) ||
                                 FunctionType.isConstructorMethod(functionType)) {
@@ -5519,7 +5539,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                             // For class methods, the cls parameter is allowed to skip the
                             // abstract class test because the caller is possibly passing
                             // in a non-abstract subclass.
-                            paramType = TypeUtils.selfSpecializeClassType(containingClassType, true);
+                            paramType = selfSpecializeClassType(containingClassType, true);
                         }
                     }
                 }
@@ -5544,7 +5564,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             FunctionType.addParameter(functionType, functionParam);
 
             if (param.name) {
-                const specializedParamType = TypeUtils.specializeType(functionParam.type, undefined);
+                const specializedParamType = specializeType(functionParam.type, undefined);
 
                 // If the type contains type variables, specialize them now
                 // so we convert them to a concrete type (or unknown if there
@@ -5611,8 +5631,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
     // Transforms the input function type into an output type based on the
     // decorator function described by the decoratorNode.
-    function applyFunctionDecorator(inputFunctionType: Type, originalFunctionType: FunctionType,
-            decoratorNode: DecoratorNode): Type {
+    function applyFunctionDecorator(inputFunctionType: Type,
+            originalFunctionType: FunctionType, decoratorNode: DecoratorNode): Type {
 
         const decoratorType = getType(decoratorNode.leftExpression);
 
@@ -5641,11 +5661,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 if (baseType.category === TypeCategory.Property) {
                     const memberName = decoratorNode.leftExpression.memberName.nameToken.value;
                     if (memberName === 'setter') {
-                        baseType.setter = originalFunctionType;
-                        return baseType;
+                        return PropertyType.cloneWithSetter(baseType, originalFunctionType);
                     } else if (memberName === 'deleter') {
-                        baseType.deleter = originalFunctionType;
-                        return baseType;
+                        return PropertyType.cloneWithDeleter(baseType, originalFunctionType);
                     }
                 }
             }
@@ -5666,19 +5684,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     case 'property':
                     case 'abstractproperty': {
                         if (inputFunctionType.category === TypeCategory.Function) {
-                            // Allocate a property only during the first analysis pass.
-                            // Otherwise the analysis won't converge if there are setters
-                            // and deleters applied to the property.
-                            const oldPropertyType = AnalyzerNodeInfo.getExpressionType(decoratorNode);
-                            if (oldPropertyType) {
-                                return oldPropertyType;
-                            }
-                            const newProperty = PropertyType.create(inputFunctionType);
-                            AnalyzerNodeInfo.setExpressionType(decoratorNode, newProperty);
-                            return newProperty;
+                            return PropertyType.create(inputFunctionType);
                         }
-
-                        break;
                     }
                 }
             }
@@ -5725,7 +5732,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     }
 
     function createAwaitableFunction(node: FunctionNode, functionType: FunctionType): FunctionType {
-        const returnType = FunctionType.getEffectiveReturnType(functionType);
+        const returnType = getEffectiveReturnType(functionType);
 
         let awaitableReturnType: Type | undefined;
 
@@ -5998,7 +6005,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
                     const returnType = AnalyzerNodeInfo.getExpressionType(callFlowNode.node);
-                    if (returnType && TypeUtils.isNoReturnType(returnType)) {
+                    if (returnType && isNoReturnType(returnType)) {
                         return setCacheEntry(curFlowNode, undefined);
                     }
 
@@ -6112,7 +6119,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
                     const returnType = AnalyzerNodeInfo.getExpressionType(callFlowNode.node);
-                    if (returnType && TypeUtils.isNoReturnType(returnType)) {
+                    if (returnType && isNoReturnType(returnType)) {
                         return false;
                     }
 
@@ -6210,7 +6217,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                             if (classType.category === TypeCategory.Class) {
                                 return (type: Type) => {
                                     // Narrow the type based on whether the type matches the specified type.
-                                    return TypeUtils.doForSubtypes(type, subtype => {
+                                    return doForSubtypes(type, subtype => {
                                         if (subtype.category === TypeCategory.Object) {
                                             const matches = ClassType.isSameGenericClass(subtype.classType, classType);
                                             if (adjIsPositiveTest) {
@@ -6260,13 +6267,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (ParseTreeUtils.isMatchingExpression(reference, testExpression)) {
             return (type: Type) => {
                 // Narrow the type based on whether the subtype can be true or false.
-                return TypeUtils.doForSubtypes(type, subtype => {
+                return doForSubtypes(type, subtype => {
                     if (isPositiveTest) {
-                        if (TypeUtils.canBeTruthy(subtype)) {
+                        if (canBeTruthy(subtype)) {
                             return subtype;
                         }
                     } else {
-                        if (TypeUtils.canBeFalsy(subtype, importLookup)) {
+                        if (canBeFalsy(subtype, importLookup)) {
                             return subtype;
                         }
                     }
@@ -6317,8 +6324,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     function narrowTypeForIsInstance(type: Type, classTypeList: ClassType[],
             isInstanceCheck: boolean, isPositiveTest: boolean): Type {
 
-        const effectiveType = TypeUtils.doForSubtypes(type, subtype => {
-            return TypeUtils.transformTypeObjectToClass(subtype);
+        const effectiveType = doForSubtypes(type, subtype => {
+            return transformTypeObjectToClass(subtype);
         });
 
         // Filters the varType by the parameters of the isinstance
@@ -6487,7 +6494,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (typeArgs) {
             typeArgs.forEach(typeArg => {
                 // Verify that we didn't receive any inappropriate ellipses or modules.
-                if (TypeUtils.isEllipsisType(typeArg.type)) {
+                if (isEllipsisType(typeArg.type)) {
                     addError(`'...' not allowed in this context`, typeArg.node);
                 } else if (typeArg.type.category === TypeCategory.Module) {
                     addError(`Module not allowed in this context`, typeArg.node);
@@ -6497,16 +6504,16 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         // Fill in any missing type arguments with Any.
         const typeArgTypes = typeArgs ? typeArgs.map(
-            t => TypeUtils.convertClassToObject(t.type)) : [];
+            t => convertClassToObject(t.type)) : [];
         const typeParams = ClassType.getTypeParameters(classType);
         for (let i = typeArgTypes.length; i < typeParams.length; i++) {
-            typeArgTypes.push(TypeUtils.specializeTypeVarType(typeParams[i]));
+            typeArgTypes.push(specializeTypeVarType(typeParams[i]));
         }
 
         typeArgTypes.forEach((typeArgType, index) => {
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
-                if (!TypeUtils.canAssignToTypeVar(typeParameters[index], typeArgType, diag, importLookup)) {
+                if (!canAssignToTypeVar(typeParameters[index], typeArgType, diag, importLookup)) {
                     addError(`Type '${ printType(typeArgType) }' ` +
                             `cannot be assigned to type variable '${ typeParameters[index].name }'` +
                             diag.getString(),

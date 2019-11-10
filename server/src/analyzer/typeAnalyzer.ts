@@ -40,8 +40,12 @@ import * as SymbolNameUtils from './symbolNameUtils';
 import { getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { ClassType, combineTypes, FunctionType,
     isAnyOrUnknown, isNoneOrNever, isTypeSame, ModuleType, NoneType,
-    ObjectType, printType, removeNoneFromUnion, Type, TypeCategory, UnknownType } from './types';
-import * as TypeUtils from './typeUtils';
+    ObjectType, removeNoneFromUnion, Type, TypeCategory, UnknownType } from './types';
+import { canAssignType, canOverrideMethod, containsUnknown, derivesFromClassRecursive,
+    doesClassHaveAbstractMethods, doForSubtypes, getDeclaredGeneratorReturnType,
+    getDeclaredGeneratorYieldType, getEffectiveReturnType, getSpecializedTupleType,
+    getSymbolFromBaseClasses, isNoReturnType, isOptionalType, printType, specializeType,
+    transformTypeObjectToClass } from './typeUtils';
 
 // At some point, we'll cut off the analysis passes and assume
 // we're making no forward progress. This should happen only
@@ -211,7 +215,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             DiagnosticRule.reportUnknownLambdaType,
                             `Type of '${ param.name.nameToken.value }' is unknown`,
                             param.name);
-                    } else if (TypeUtils.containsUnknown(paramType)) {
+                    } else if (containsUnknown(paramType)) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                             DiagnosticRule.reportUnknownLambdaType,
@@ -228,7 +232,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                     DiagnosticRule.reportUnknownLambdaType,
                     `Type of lambda expression is unknown`, node.expression);
-            } else if (TypeUtils.containsUnknown(returnType)) {
+            } else if (containsUnknown(returnType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                     DiagnosticRule.reportUnknownLambdaType,
@@ -284,7 +288,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         node.withItems.forEach(item => {
             let exprType = this._getTypeOfExpression(item.expression);
 
-            if (TypeUtils.isOptionalType(exprType)) {
+            if (isOptionalType(exprType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportOptionalContextManager,
                     DiagnosticRule.reportOptionalContextManager,
@@ -295,7 +299,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
             const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
 
-            const scopedType = TypeUtils.doForSubtypes(exprType, subtype => {
+            const scopedType = doForSubtypes(exprType, subtype => {
                 if (isAnyOrUnknown(subtype)) {
                     return subtype;
                 }
@@ -307,7 +311,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     if (memberType) {
                         let memberReturnType: Type;
                         if (memberType.category === TypeCategory.Function) {
-                            memberReturnType = FunctionType.getEffectiveReturnType(memberType);
+                            memberReturnType = getEffectiveReturnType(memberType);
                         } else {
                             memberReturnType = UnknownType.create();
                         }
@@ -354,7 +358,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         if (this._isNodeReachable(node) && enclosingFunctionNode) {
             if (declaredReturnType) {
-                if (TypeUtils.isNoReturnType(declaredReturnType)) {
+                if (isNoReturnType(declaredReturnType)) {
                     this._evaluator.addError(
                         `Function with declared return type 'NoReturn' cannot include a return statement`,
                         node);
@@ -363,8 +367,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
                     // Specialize the return type in case it contains references to type variables.
                     // These will be replaced with the corresponding constraint or bound types.
-                    const specializedDeclaredType = TypeUtils.specializeType(declaredReturnType, undefined);
-                    if (!TypeUtils.canAssignType(specializedDeclaredType, returnType,
+                    const specializedDeclaredType = specializeType(declaredReturnType, undefined);
+                    if (!canAssignType(specializedDeclaredType, returnType,
                             diagAddendum, this._fileInfo.importLookup)) {
 
                         this._evaluator.addError(
@@ -417,14 +421,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
                 const diagAddendum = new DiagnosticAddendum();
 
-                TypeUtils.doForSubtypes(exceptionType, subtype => {
+                doForSubtypes(exceptionType, subtype => {
                     if (!isAnyOrUnknown(subtype)) {
                         if (subtype.category === TypeCategory.Class) {
-                            if (!TypeUtils.derivesFromClassRecursive(subtype, baseExceptionType)) {
+                            if (!derivesFromClassRecursive(subtype, baseExceptionType)) {
                                 diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                             }
                         } else if (subtype.category === TypeCategory.Object) {
-                            if (!TypeUtils.derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
+                            if (!derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
                                 diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                             }
                         } else {
@@ -448,10 +452,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
                 const diagAddendum = new DiagnosticAddendum();
 
-                TypeUtils.doForSubtypes(exceptionType, subtype => {
+                doForSubtypes(exceptionType, subtype => {
                     if (!isAnyOrUnknown(subtype) && !isNoneOrNever(subtype)) {
                         if (subtype.category === TypeCategory.Object) {
-                            if (!TypeUtils.derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
+                            if (!derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
                                 diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
                             }
                         } else {
@@ -477,10 +481,10 @@ export class TypeAnalyzer extends ParseTreeWalker {
             exceptionType = this._getTypeOfExpression(node.typeExpression);
 
             if (node.name) {
-                exceptionType = TypeUtils.doForSubtypes(exceptionType, subType => {
+                exceptionType = doForSubtypes(exceptionType, subType => {
                     // If more than one type was specified for the exception, we'll receive
                     // a specialized tuple object here.
-                    const tupleType = TypeUtils.getSpecializedTupleType(subType);
+                    const tupleType = getSpecializedTupleType(subType);
                     if (tupleType && ClassType.getTypeArguments(tupleType)) {
                         const entryTypes = ClassType.getTypeArguments(tupleType)!.map(t => {
                             return this._validateExceptionType(t, node.typeExpression!);
@@ -896,11 +900,11 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const callName = node.leftExpression.nameToken.value;
         const isInstanceCheck = callName === 'isinstance';
-        const arg0Type = TypeUtils.doForSubtypes(
+        const arg0Type = doForSubtypes(
             this._getTypeOfExpression(node.arguments[0].valueExpression),
                 subtype => {
 
-            return TypeUtils.transformTypeObjectToClass(subtype);
+            return transformTypeObjectToClass(subtype);
         });
 
         if (isAnyOrUnknown(arg0Type)) {
@@ -1104,7 +1108,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         // If the referencing class is a subclass of the declaring class, it's
                         // allowed to access a protected name.
                         if (enclosingClassType && enclosingClassType.category === TypeCategory.Class) {
-                            if (TypeUtils.derivesFromClassRecursive(enclosingClassType, declarationClassType)) {
+                            if (derivesFromClassRecursive(enclosingClassType, declarationClassType)) {
                                 return;
                             }
                         }
@@ -1186,7 +1190,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const functionDecl = AnalyzerNodeInfo.getFunctionDeclaration(node)!;
         const declaredReturnType = FunctionType.isGenerator(functionType) ?
-            TypeUtils.getDeclaredGeneratorReturnType(functionType) :
+            getDeclaredGeneratorReturnType(functionType) :
             FunctionType.getDeclaredReturnType(functionType);
 
         const functionNeverReturns = !this._evaluator.isAfterNodeReachable(node);
@@ -1197,7 +1201,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             // against the declared type, but we need to verify the implicit None
             // at the end of the function.
             if (declaredReturnType && !functionNeverReturns && implicitlyReturnsNone) {
-                if (TypeUtils.isNoReturnType(declaredReturnType)) {
+                if (isNoReturnType(declaredReturnType)) {
                     // If the function consists entirely of "...", assume that it's
                     // an abstract method or a protocol method and don't require that
                     // the return type matches.
@@ -1211,7 +1215,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     const diagAddendum = new DiagnosticAddendum();
 
                     // If the declared type isn't compatible with 'None', flag an error.
-                    if (!TypeUtils.canAssignType(declaredReturnType, NoneType.create(),
+                    if (!canAssignType(declaredReturnType, NoneType.create(),
                             diagAddendum, this._fileInfo.importLookup)) {
 
                         // If the function consists entirely of "...", assume that it's
@@ -1254,7 +1258,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                             inferredYieldType = UnknownType.create();
                         }
 
-                        functionType.details.inferredReturnType = inferredYieldType;
+                        this._evaluator.updateExpressionTypeForNode(node.suite, inferredYieldType);
                     }
                 }
             } else {
@@ -1301,14 +1305,14 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     inferredReturnType = combineTypes(inferredReturnTypes);
                 }
 
-                functionType.details.inferredReturnType = inferredReturnType;
+                this._evaluator.updateExpressionTypeForNode(node.suite, inferredReturnType);
 
                 if (inferredReturnType.category === TypeCategory.Unknown) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                         DiagnosticRule.reportUnknownParameterType,
                         `Inferred return type is unknown`, node.name);
-                } else if (TypeUtils.containsUnknown(inferredReturnType)) {
+                } else if (containsUnknown(inferredReturnType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                         DiagnosticRule.reportUnknownParameterType,
@@ -1323,7 +1327,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // as the original method. Also marks the class as abstract if one or
     // more abstract methods are not overridden.
     private _validateClassMethods(classType: ClassType) {
-        if (TypeUtils.doesClassHaveAbstractMethods(classType, this._fileInfo.importLookup)) {
+        if (doesClassHaveAbstractMethods(classType, this._fileInfo.importLookup)) {
             ClassType.setIsAbstractClass(classType);
         }
 
@@ -1344,12 +1348,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             if (symbol.isClassMember() && !SymbolNameUtils.isDunderName(name)) {
                 const typeOfSymbol = getEffectiveTypeOfSymbol(symbol, this._fileInfo.importLookup);
                 if (typeOfSymbol.category === TypeCategory.Function) {
-                    const baseClassAndSymbol = TypeUtils.getSymbolFromBaseClasses(classType, name);
+                    const baseClassAndSymbol = getSymbolFromBaseClasses(classType, name);
                     if (baseClassAndSymbol) {
                         const typeOfBaseClassMethod = getEffectiveTypeOfSymbol(
                             baseClassAndSymbol.symbol, this._fileInfo.importLookup);
                         const diagAddendum = new DiagnosticAddendum();
-                        if (!TypeUtils.canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol,
+                        if (!canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol,
                                 diagAddendum, this._fileInfo.importLookup)) {
 
                             const declarations = symbol.getDeclarations();
@@ -1459,19 +1463,19 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 assert(functionType.category === TypeCategory.Function);
                 const iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator',
                     this._fileInfo.importLookup);
-                declaredYieldType = TypeUtils.getDeclaredGeneratorYieldType(functionType, iteratorType);
+                declaredYieldType = getDeclaredGeneratorYieldType(functionType, iteratorType);
             }
         }
 
         if (this._isNodeReachable(node)) {
             if (declaredYieldType) {
-                if (TypeUtils.isNoReturnType(declaredYieldType)) {
+                if (isNoReturnType(declaredYieldType)) {
                     this._evaluator.addError(
                         `Function with declared return type 'NoReturn' cannot include a yield statement`,
                         node);
                 } else {
                     const diagAddendum = new DiagnosticAddendum();
-                    if (!TypeUtils.canAssignType(declaredYieldType, adjustedYieldType,
+                    if (!canAssignType(declaredYieldType, adjustedYieldType,
                             diagAddendum, this._fileInfo.importLookup)) {
 
                         this._evaluator.addError(
@@ -1493,7 +1497,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 return true;
             }
 
-            return TypeUtils.derivesFromClassRecursive(classType, baseExceptionType);
+            return derivesFromClassRecursive(classType, baseExceptionType);
         };
 
         const diagAddendum = new DiagnosticAddendum();
@@ -1513,12 +1517,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
             const iterableType = this._evaluator.getTypeFromIterable(
                 exceptionType, false, errorNode, false);
 
-            resultingExceptionType = TypeUtils.doForSubtypes(iterableType, subtype => {
+            resultingExceptionType = doForSubtypes(iterableType, subtype => {
                 if (isAnyOrUnknown(subtype)) {
                     return subtype;
                 }
 
-                const transformedSubtype = TypeUtils.transformTypeObjectToClass(subtype);
+                const transformedSubtype = transformTypeObjectToClass(subtype);
                 if (transformedSubtype.category === TypeCategory.Class) {
                     if (!derivesFromBaseException(transformedSubtype)) {
                         isValidExceptionType = false;

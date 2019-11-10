@@ -21,8 +21,8 @@ import * as ImportStatementUtils from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
-import { FunctionType, printType, Type, TypeCategory } from '../analyzer/types';
-import * as TypeUtils from '../analyzer/typeUtils';
+import { Type, TypeCategory } from '../analyzer/types';
+import { getMembersForClass, getMembersForModule, printType } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
@@ -374,11 +374,11 @@ export class CompletionProvider {
 
         if (leftType) {
             if (leftType.category === TypeCategory.Object) {
-                TypeUtils.getMembersForClass(leftType.classType, symbolTable, true);
+                getMembersForClass(leftType.classType, symbolTable, true);
             } else if (leftType.category === TypeCategory.Class) {
-                TypeUtils.getMembersForClass(leftType, symbolTable, false);
+                getMembersForClass(leftType, symbolTable, false);
             } else if (leftType.category === TypeCategory.Module) {
-                TypeUtils.getMembersForModule(leftType, symbolTable);
+                getMembersForModule(leftType, symbolTable);
             }
         }
 

@@ -14,8 +14,9 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ClassType, FunctionType, ObjectType, OverloadedFunctionType,
-    printFunctionParts, TypeCategory } from '../analyzer/types';
-import * as TypeUtils from '../analyzer/typeUtils';
+    TypeCategory } from '../analyzer/types';
+import { bindFunctionToClassOrObject, ClassMemberLookupFlags, doForSubtypes,
+    getTypeOfMember, lookUpClassMember, printFunctionParts } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -106,7 +107,7 @@ export class SignatureHelpProvider {
             activeParameter
         };
 
-        TypeUtils.doForSubtypes(callType, subtype => {
+        doForSubtypes(callType, subtype => {
             if (subtype.category === TypeCategory.Function || subtype.category === TypeCategory.OverloadedFunction) {
                 this._addSignatureToResults(results, subtype);
             } else if (subtype.category === TypeCategory.Class) {
@@ -157,16 +158,16 @@ export class SignatureHelpProvider {
             classType = aliasClass;
         }
 
-        const memberInfo = TypeUtils.lookUpClassMember(classType, memberName,
-            importLookup, TypeUtils.ClassMemberLookupFlags.SkipInstanceVariables |
-                TypeUtils.ClassMemberLookupFlags.SkipObjectBaseClass);
+        const memberInfo = lookUpClassMember(classType, memberName,
+            importLookup, ClassMemberLookupFlags.SkipInstanceVariables |
+                ClassMemberLookupFlags.SkipObjectBaseClass);
 
         if (memberInfo) {
-            const unboundMethodType = TypeUtils.getTypeOfMember(memberInfo, importLookup);
+            const unboundMethodType = getTypeOfMember(memberInfo, importLookup);
             if (unboundMethodType.category === TypeCategory.Function ||
                     unboundMethodType.category === TypeCategory.OverloadedFunction) {
 
-                const boundMethod = TypeUtils.bindFunctionToClassOrObject(
+                const boundMethod = bindFunctionToClassOrObject(
                     ObjectType.create(classType), unboundMethodType,
                     importLookup, treatAsClassMember);
 
