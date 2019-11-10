@@ -61,9 +61,11 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
 
 interface TypeResult {
     type: Type;
+    node: ExpressionNode;
+
     unpackedType?: Type;
     typeList?: TypeResult[];
-    node: ExpressionNode;
+    isResolutionCyclical?: boolean;
 }
 
 interface FunctionArgument {
@@ -251,7 +253,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         accessedSymbolMap: Map<number, true>, importLookup: ImportLookup): ExpressionEvaluator {
 
     let isSpeculativeMode = false;
-    const typeFlowRecursionMap = new Map<number, true>();
+    const typeResolutionRecursionMap = new Map<number, true>();
 
     function getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
         return getTypeFromExpression(node, usage, flags).type;
@@ -1261,9 +1263,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                 if (!oldType || !isTypeSame(oldType, exprType)) {
                     if (requiresInvalidation) {
+                        const expr = ParseTreeUtils.printExpression(node as any);
+                        setAnalysisChangedCallback(`Expression type changed for '${ expr }`);
 
                         // TODO - REMOVE THIS DEBUGGING CODE
-                        setAnalysisChangedCallback('Expression type changed');
                         const aaa = oldType && isTypeSame(oldType, exprType);
                     }
                     AnalyzerNodeInfo.setExpressionType(node, exprType);
@@ -1375,6 +1378,19 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return undefined;
     }
 
+    function pushTypeResolution(node: ParseNode) {
+        if (typeResolutionRecursionMap.has(node.id)) {
+            return false;
+        }
+
+        typeResolutionRecursionMap.set(node.id, true);
+        return true;
+    }
+
+    function popTypeResolution(node: ParseNode) {
+        typeResolutionRecursionMap.delete(node.id);
+    }
+
     function getTypeFromExpression(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' },
             flags = EvaluatorFlags.None): TypeResult {
 
@@ -1382,6 +1398,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         const cachedType = AnalyzerNodeInfo.peekExpressionType(node, analysisVersion);
         if (cachedType) {
             return { type: cachedType, node };
+        }
+
+        // Check for recursion.
+        if (!pushTypeResolution(node)) {
+            return { type: UnknownType.create(), node, isResolutionCyclical: true };
         }
 
         let typeResult: TypeResult | undefined;
@@ -1422,22 +1443,22 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             case ParseNodeType.StringList: {
                 reportUsageErrorForReadOnly(node, usage);
                 if (node.typeAnnotation && !isAnnotationLiteralValue(node)) {
-                    return getTypeFromExpression(
+                    typeResult = getTypeFromExpression(
                         node.typeAnnotation, usage, flags | EvaluatorFlags.AllowForwardReferences);
+                } else {
+                    // Evaluate the format string expressions in this context.
+                    node.strings.forEach(str => {
+                        if (str.nodeType === ParseNodeType.FormatString) {
+                            str.expressions.forEach(expr => {
+                                getTypeFromExpression(expr);
+                            });
+                        }
+                    });
+
+                    const isBytes = (node.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
+                    typeResult = { node, type: cloneBuiltinTypeWithLiteral(node,
+                        isBytes ? 'bytes' : 'str', node.strings.map(s => s.value).join('')) };
                 }
-
-                // Evaluate the format string expressions in this context.
-                node.strings.forEach(str => {
-                    if (str.nodeType === ParseNodeType.FormatString) {
-                        str.expressions.forEach(expr => {
-                            getTypeFromExpression(expr);
-                        });
-                    }
-                });
-
-                const isBytes = (node.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
-                typeResult = { node, type: cloneBuiltinTypeWithLiteral(node,
-                    isBytes ? 'bytes' : 'str', node.strings.map(s => s.value).join('')) };
                 break;
             }
 
@@ -1596,6 +1617,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         } else if (usage.method === 'set' && usage.setType) {
             updateExpressionTypeForNode(node, usage.setType);
         }
+
+        popTypeResolution(node);
 
         return typeResult;
     }
@@ -5049,6 +5072,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return rightHandType;
         }
 
+        // Check for recursion.
+        if (!pushTypeResolution(node)) {
+            return undefined;
+        }
+
         if (!rightHandType) {
             const fileInfo = getFileInfo(node);
 
@@ -5100,6 +5128,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
+        popTypeResolution(node);
+
         if (!rightHandType) {
             return undefined;
         }
@@ -5120,7 +5150,15 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return destType;
         }
 
+        // Check for recursion.
+        if (!pushTypeResolution(node)) {
+            return undefined;
+        }
+
         destType = getTypeFromAugmentedAssignment(node);
+
+        popTypeResolution(node);
+
         return assignTypeToExpression(node.destExpression, destType,
             node.rightExpression, targetOfInterest);
     }
@@ -5153,6 +5191,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         const oldCachedDecoratedClassType = AnalyzerNodeInfo.peekExpressionType(node.name);
         AnalyzerNodeInfo.setExpressionType(node, classType);
         AnalyzerNodeInfo.setExpressionType(node.name, classType);
+
+        // Check for recursion.
+        if (!pushTypeResolution(node)) {
+            return { classType, decoratedType: classType };
+        }
 
         // Keep a list of unique type parameters that are used in the
         // base class arguments.
@@ -5328,6 +5371,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         // Update the decorated class type.
         updateExpressionTypeForNode(node.name, decoratedType);
+
+        popTypeResolution(node);
+
         return { classType, decoratedType };
     }
 
@@ -5413,6 +5459,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // 'namedtuple', 'abstractmethod', 'dataclass' and 'NewType'
             // specially.
             functionType.details.builtInName = node.name.nameToken.value;
+        }
+
+        // Check for recursion.
+        if (!pushTypeResolution(node)) {
+            return { functionType, decoratedType: functionType };
         }
 
         // If there was a defined return type, analyze that first so when we
@@ -5599,6 +5650,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         } else {
             updateExpressionTypeForNode(node.name, decoratedType);
         }
+
+        popTypeResolution(node);
 
         return { functionType, decoratedType };
     }
@@ -5811,18 +5864,90 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         assert(node.typeExpression !== undefined);
 
         // Is this type already cached?
-        let exceptionType = AnalyzerNodeInfo.peekExpressionType(
+        let exceptionTypes = AnalyzerNodeInfo.peekExpressionType(
             node.typeExpression!, analysisVersion);
-        if (exceptionType) {
-            return exceptionType;
+        let typeIsCached = true;
+
+        if (!exceptionTypes) {
+            exceptionTypes = getType(node.typeExpression!);
+            typeIsCached = false;
         }
 
-        exceptionType = getType(node.typeExpression!);
-        if (node.name) {
-            assignTypeToExpression(node.name, exceptionType);
+        function getExceptionType(exceptionType: Type, errorNode: ParseNode) {
+            const baseExceptionType = getBuiltInType(node, 'BaseException');
+            const derivesFromBaseException = (classType: ClassType) => {
+                if (!baseExceptionType || !(baseExceptionType.category === TypeCategory.Class)) {
+                    return true;
+                }
+
+                return derivesFromClassRecursive(classType, baseExceptionType);
+            };
+
+            const diagAddendum = new DiagnosticAddendum();
+            let resultingExceptionType: Type | undefined;
+
+            if (isAnyOrUnknown(exceptionType)) {
+                resultingExceptionType = exceptionType;
+            } else if (exceptionType.category === TypeCategory.Class) {
+                if (!derivesFromBaseException(exceptionType)) {
+                    diagAddendum.addMessage(
+                        `'${ printType(exceptionType) }' does not derive from BaseException`);
+                }
+                resultingExceptionType = ObjectType.create(exceptionType);
+            } else if (exceptionType.category === TypeCategory.Object) {
+                const iterableType = getTypeFromIterable(
+                    exceptionType, false, errorNode, false);
+
+                resultingExceptionType = doForSubtypes(iterableType, subtype => {
+                    if (isAnyOrUnknown(subtype)) {
+                        return subtype;
+                    }
+
+                    const transformedSubtype = transformTypeObjectToClass(subtype);
+                    if (transformedSubtype.category === TypeCategory.Class) {
+                        if (!derivesFromBaseException(transformedSubtype)) {
+                            diagAddendum.addMessage(
+                                `'${ printType(exceptionType) }' does not derive from BaseException`);
+                        }
+
+                        return ObjectType.create(transformedSubtype);
+                    }
+
+                    diagAddendum.addMessage(
+                        `'${ printType(exceptionType) }' does not derive from BaseException`);
+                    return UnknownType.create();
+                });
+            }
+
+            if (!typeIsCached && diagAddendum.getMessageCount() > 0) {
+                addError(
+                    `'${ printType(exceptionType) }' is not valid exception class` +
+                        diagAddendum.getString(),
+                    errorNode);
+            }
+
+            return resultingExceptionType || UnknownType.create();
         }
 
-        return exceptionType;
+        const targetType = doForSubtypes(exceptionTypes, subType => {
+            // If more than one type was specified for the exception, we'll receive
+            // a specialized tuple object here.
+            const tupleType = getSpecializedTupleType(subType);
+            if (tupleType && ClassType.getTypeArguments(tupleType)) {
+                const entryTypes = ClassType.getTypeArguments(tupleType)!.map(t => {
+                    return getExceptionType(t, node.typeExpression!);
+                });
+                return combineTypes(entryTypes);
+            }
+
+            return getExceptionType(subType, node.typeExpression!);
+        });
+
+        if (node.name && !typeIsCached) {
+            assignTypeToExpression(node.name, targetType);
+        }
+
+        return targetType;
     }
 
     function getTypeOfWithItemTarget(node: WithItemNode): Type | undefined {
@@ -5832,6 +5957,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             if (targetType) {
                 return targetType;
             }
+        }
+
+        // Check for recursion.
+        if (!pushTypeResolution(node)) {
+            return undefined;
         }
 
         const fileInfo = getFileInfo(node);
@@ -5885,6 +6015,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             assignTypeToExpression(node.target, scopedType, node.target);
         }
 
+        popTypeResolution(node);
+
         return scopedType;
     }
 
@@ -5907,6 +6039,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         }
 
+        // Check for recursion.
+        if (!pushTypeResolution(node)) {
+            return undefined;
+        }
+
         // Look up the symbol to find the alias declaration.
         let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.nameToken.value) ||
             UnknownType.create();
@@ -5922,6 +6059,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         assignTypeToNameNode(symbolNameNode, symbolType);
+
+        popTypeResolution(node);
         return symbolType;
     }
 
@@ -5932,6 +6071,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         const targetType = AnalyzerNodeInfo.peekExpressionType(aliasNode, analysisVersion);
         if (targetType) {
             return targetType;
+        }
+
+        // Check for recursion.
+        if (!pushTypeResolution(node)) {
+            return undefined;
         }
 
         let symbolType = getAliasedSymbolTypeForName(node, aliasNode.nameToken.value);
@@ -5958,6 +6102,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         assignTypeToNameNode(aliasNode, symbolType);
+
+        popTypeResolution(node);
+
         return symbolType;
     }
 
@@ -5981,27 +6128,21 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         while (assignmentNode) {
             switch (assignmentNode.nodeType) {
                 case ParseNodeType.Assignment: {
-                    // TODO - need to implement
-                    return undefined;
-                    // return getTypeOfAssignmentStatementTarget(assignmentNode, target);
+                    return getTypeOfAssignmentStatementTarget(assignmentNode, target);
                 }
 
                 case ParseNodeType.AssignmentExpression: {
-                    // TODO - need to implement
-                    return undefined;
-                    // assert(target === assignmentNode.name);
-                    // return getType(assignmentNode);
+                    assert(target === assignmentNode.name);
+                    return getType(assignmentNode);
                 }
 
                 case ParseNodeType.AugmentedAssignment: {
-                    // TODO - need to implement
-                    return undefined;
-                    // return getTypeOfAugmentedAssignmentTarget(assignmentNode, target);
+                    return getTypeOfAugmentedAssignmentTarget(assignmentNode, target);
                 }
 
                 case ParseNodeType.Class: {
-                    // TODO - need to implement
-                    return undefined;
+                    const classResult = getTypeOfClass(assignmentNode);
+                    return classResult.decoratedType;
                 }
 
                 case ParseNodeType.Parameter: {
@@ -6010,23 +6151,20 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 }
 
                 case ParseNodeType.Function: {
-                    // TODO - need to implement
-                    return undefined;
+                    const functionResult = getTypeOfFunction(assignmentNode);
+                    return functionResult.decoratedType;
                 }
 
                 case ParseNodeType.For: {
-                    // TODO - need to implement
-                    return undefined;
+                    return getTypeOfForTarget(assignmentNode);
                 }
 
                 case ParseNodeType.Except: {
-                    // TODO - need to implement
-                    return undefined;
+                    return getTypeOfExceptTarget(assignmentNode);
                 }
 
                 case ParseNodeType.WithItem: {
-                    // TODO - need to implement
-                    return undefined;
+                    return getTypeOfWithItemTarget(assignmentNode);
                 }
 
                 case ParseNodeType.ListComprehensionFor: {
@@ -6035,13 +6173,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 }
 
                 case ParseNodeType.ImportAs: {
-                    // TODO - need to implement
-                    return undefined;
+                    return getTypeOfImportAsTarget(assignmentNode);
                 }
 
-                case ParseNodeType.ImportFrom: {
-                    // TODO - need to implement
-                    return undefined;
+                case ParseNodeType.ImportFromAs: {
+                    return getTypeOfImportFromTarget(assignmentNode);
                 }
             }
 
@@ -6055,6 +6191,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     function getFlowTypeOfReference(reference: NameNode | MemberAccessNode,
             targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
+        const typeFlowRecursionMap = new Map<number, true>();
         const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
         const flowNodeTypeCache = new Map<number, FlowNodeType | undefined>();
 

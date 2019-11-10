@@ -414,28 +414,8 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitExcept(node: ExceptNode): boolean {
-        let exceptionType: Type;
         if (node.typeExpression) {
-            exceptionType = this._getTypeOfExpression(node.typeExpression);
-
-            doForSubtypes(exceptionType, subType => {
-                // If more than one type was specified for the exception, we'll receive
-                // a specialized tuple object here.
-                const tupleType = getSpecializedTupleType(subType);
-                if (tupleType && ClassType.getTypeArguments(tupleType)) {
-                    ClassType.getTypeArguments(tupleType)!.forEach(t => {
-                        this._validateExceptionType(t, node.typeExpression!);
-                    });
-                    return undefined;
-                }
-
-                this._validateExceptionType(subType, node.typeExpression!);
-                return undefined;
-            });
-
-            if (node.name) {
-                this._evaluator.getTypeOfExceptTarget(node);
-            }
+            this._evaluator.getTypeOfExceptTarget(node);
         }
 
         return true;
@@ -1357,64 +1337,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     }
                 }
             }
-        }
-    }
-
-    private _validateExceptionType(exceptionType: Type, errorNode: ParseNode) {
-        const baseExceptionType = ScopeUtils.getBuiltInType(
-            this._currentScope, 'BaseException', this._fileInfo.importLookup);
-
-        const derivesFromBaseException = (classType: ClassType) => {
-            if (!baseExceptionType || !(baseExceptionType.category === TypeCategory.Class)) {
-                return true;
-            }
-
-            return derivesFromClassRecursive(classType, baseExceptionType);
-        };
-
-        const diagAddendum = new DiagnosticAddendum();
-        let isValidExceptionType = true;
-
-        if (!isAnyOrUnknown(exceptionType)) {
-            if (exceptionType.category === TypeCategory.Class) {
-                if (!derivesFromBaseException(exceptionType)) {
-                    isValidExceptionType = false;
-                    diagAddendum.addMessage(
-                        `'${ printType(exceptionType) }' does not derive from BaseException`);
-                }
-            } else if (exceptionType.category === TypeCategory.Object) {
-                const iterableType = this._evaluator.getTypeFromIterable(
-                    exceptionType, false, errorNode, false);
-
-                doForSubtypes(iterableType, subtype => {
-                    if (isAnyOrUnknown(subtype)) {
-                        return undefined;
-                    }
-
-                    const transformedSubtype = transformTypeObjectToClass(subtype);
-                    if (transformedSubtype.category === TypeCategory.Class) {
-                        if (!derivesFromBaseException(transformedSubtype)) {
-                            isValidExceptionType = false;
-                            diagAddendum.addMessage(
-                                `'${ printType(exceptionType) }' does not derive from BaseException`);
-                        }
-
-                        return undefined;
-                    }
-
-                    isValidExceptionType = false;
-                    diagAddendum.addMessage(
-                        `'${ printType(exceptionType) }' does not derive from BaseException`);
-                    return undefined;
-                });
-            }
-        }
-
-        if (!isValidExceptionType) {
-            this._evaluator.addError(
-                `'${ printType(exceptionType) }' is not valid exception class` +
-                    diagAddendum.getString(),
-                errorNode);
         }
     }
 
