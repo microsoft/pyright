@@ -23,7 +23,7 @@ import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
-import { ClassType, isNoneOrNever, TypeCategory, UnknownType } from './types';
+import { ClassType, isNoneOrNever, TypeCategory } from './types';
 import * as TypeUtils from './typeUtils';
 
 class TrackedImport {
@@ -175,28 +175,6 @@ export class TypeStubWriter extends ParseTreeWalker {
 
             if (node.returnTypeAnnotation) {
                 line += ' -> ' + this._printExpression(node.returnTypeAnnotation, true);
-            } else {
-                const functionType = AnalyzerNodeInfo.getExpressionType(node);
-                if (functionType && functionType.category === TypeCategory.Function) {
-                    let inferredReturnType = TypeUtils.getEffectiveReturnType(functionType);
-                    if (inferredReturnType) {
-                        inferredReturnType = TypeUtils.stripLiteralValue(inferredReturnType);
-
-                        // If the inferred return type is NoReturn, don't include it because
-                        // the inference is probably incorrect. This occurs often when a base
-                        // class is implemented with a NoReturn, but subclasses provide an
-                        // actual return value.
-                        if (TypeUtils.isNoReturnType(inferredReturnType)) {
-                            inferredReturnType = UnknownType.create();
-                        }
-
-                        // If the type is partially unknown, skip it.
-                        if (!TypeUtils.containsUnknown(inferredReturnType)) {
-                            // TODO - need to implement
-                            // line += ' -> ' + inferredReturnType.asString();
-                        }
-                    }
-                }
             }
 
             line += ':';

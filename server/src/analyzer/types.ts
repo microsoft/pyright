@@ -541,7 +541,8 @@ export const enum FunctionTypeFlags {
     Generator               = 1 << 5,
     DisableDefaultChecks    = 1 << 6,
     SynthesizedMethod       = 1 << 7,
-    Overloaded              = 1 << 8
+    Overloaded              = 1 << 8,
+    Async                   = 1 << 9
 }
 
 interface FunctionDetails {
@@ -667,6 +668,10 @@ export namespace FunctionType {
 
     export function isDefaultParameterCheckDisabled(type: FunctionType) {
         return (type.details.flags & FunctionTypeFlags.DisableDefaultChecks) !== 0;
+    }
+
+    export function isAsync(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.Async) !== 0;
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {

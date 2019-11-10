@@ -163,6 +163,20 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const functionTypeResult = this._evaluator.getTypeOfFunction(node);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
 
+        // Report any unknown parameter types.
+        node.parameters.forEach((param, index) => {
+            if (param.name) {
+                const paramType = functionTypeResult.functionType.details.parameters[index].type;
+                if (paramType.category === TypeCategory.Unknown) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                        DiagnosticRule.reportUnknownParameterType,
+                        `Type of '${ param.name.nameToken.value }' is unknown`,
+                        param.name);
+                }
+            }
+        });
+
         if (containingClassNode) {
             this._validateMethod(node, functionTypeResult.functionType);
         }

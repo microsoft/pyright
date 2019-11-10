@@ -30,7 +30,7 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
     FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport } from './codeFlow';
 import { Declaration, DeclarationType, VariableDeclaration } from './declaration';
-import { getInferredTypeOfDeclaration } from './declarationUtils';
+import { getFunctionDeclaredReturnType, getInferredTypeOfDeclaration } from './declarationUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
@@ -5300,12 +5300,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         // Restore the old cached values.
-        if (oldCachedClassType) {
-            AnalyzerNodeInfo.setExpressionType(node, oldCachedClassType);
-        }
-        if (oldCachedDecoratedClassType) {
-            AnalyzerNodeInfo.setExpressionType(node.name, oldCachedDecoratedClassType);
-        }
+        AnalyzerNodeInfo.setExpressionType(node, oldCachedClassType);
+        AnalyzerNodeInfo.setExpressionType(node.name, oldCachedDecoratedClassType);
 
         updateExpressionTypeForNode(node, classType);
 
@@ -5405,6 +5401,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             functionFlags |= FunctionTypeFlags.Generator;
         }
 
+        if (node.isAsync) {
+            functionFlags |= FunctionTypeFlags.Async;
+        }
+
         functionType = FunctionType.create(functionFlags,
             ParseTreeUtils.getDocString(node.suite.statements));
         functionType.details.inferredReturnTypeNode = node.suite;
@@ -5416,30 +5416,12 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             functionType.details.builtInName = node.name.nameToken.value;
         }
 
-        let asyncType = functionType;
-        if (node.isAsync) {
-            asyncType = createAwaitableFunction(node, functionType);
-        }
-
-        // Apply all of the decorators in reverse order.
-        decoratedType = asyncType;
-        let foundUnknown = false;
-        for (let i = node.decorators.length - 1; i >= 0; i--) {
-            const decorator = node.decorators[i];
-
-            decoratedType = applyFunctionDecorator(decoratedType, functionType, decorator);
-            if (decoratedType.category === TypeCategory.Unknown) {
-                // Report this error only on the first unknown type.
-                if (!foundUnknown) {
-                    addDiagnostic(
-                        fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
-                        DiagnosticRule.reportUntypedFunctionDecorator,
-                        `Untyped function declarator obscures type of function`,
-                        node.decorators[i].leftExpression);
-
-                    foundUnknown = true;
-                }
-            }
+        // If there was a defined return type, analyze that first so when we
+        // walk the contents of the function, return statements can be
+        // validated against this type.
+        if (node.returnTypeAnnotation) {
+            const returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
+            FunctionType.setDeclaredReturnType(functionType, returnType);
         }
 
         // Mark the class as abstract if it contains at least one abstract method.
@@ -5447,20 +5429,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             ClassType.setIsAbstractClass(containingClassType);
         }
 
-        if (containingClassNode) {
-            if (!FunctionType.isClassMethod(functionType) && !FunctionType.isStaticMethod(functionType)) {
-                // Mark the function as an instance method.
-                functionType.details.flags |= FunctionTypeFlags.InstanceMethod;
+        const paramTypes: Type[] = [];
 
-                // If there's a separate async version, mark it as an instance
-                // method as well.
-                if (functionType !== asyncType) {
-                    asyncType.details.flags |= FunctionTypeFlags.InstanceMethod;
-                }
-            }
-        }
-
-        node.parameters.forEach((param: ParameterNode, index) => {
+        node.parameters.forEach(param => {
             let paramType: Type | undefined;
             let annotatedType: Type | undefined;
             let concreteAnnotatedType: Type | undefined;
@@ -5519,39 +5490,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 }
 
                 paramType = annotatedType;
-            } else if (index === 0 && (
-                    FunctionType.isInstanceMethod(functionType) ||
-                    FunctionType.isClassMethod(functionType) ||
-                    FunctionType.isConstructorMethod(functionType))) {
-
-                // Specify type of "self" or "cls" parameter for instance or class methods
-                // if the type is not explicitly provided.
-                if (containingClassType) {
-                    // Don't specialize the "self" for protocol classes because type
-                    // comparisons will fail during structural typing analysis.
-                    if (containingClassType && !ClassType.isProtocol(containingClassType)) {
-                        if (FunctionType.isInstanceMethod(functionType)) {
-                            const specializedClassType = selfSpecializeClassType(containingClassType);
-                            paramType = ObjectType.create(specializedClassType);
-                        } else if (FunctionType.isClassMethod(functionType) ||
-                                FunctionType.isConstructorMethod(functionType)) {
-
-                            // For class methods, the cls parameter is allowed to skip the
-                            // abstract class test because the caller is possibly passing
-                            // in a non-abstract subclass.
-                            paramType = selfSpecializeClassType(containingClassType, true);
-                        }
-                    }
-                }
-            } else {
-                // There is no annotation, and we can't infer the type.
-                if (param.name) {
-                    addDiagnostic(
-                        fileInfo.diagnosticSettings.reportUnknownParameterType,
-                        DiagnosticRule.reportUnknownParameterType,
-                        `Type of '${ param.name.nameToken.value }' is unknown`,
-                        param.name);
-                }
             }
 
             const functionParam: FunctionParameter = {
@@ -5571,18 +5509,87 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 // is no bound or constraint).
                 const variadicParamType = transformVariadicParamType(node,
                     param.category, specializedParamType);
-                updateExpressionTypeForNode(param.name, variadicParamType);
+                paramTypes.push(variadicParamType);
+            } else {
+                paramTypes.push(functionParam.type);
             }
         });
 
-        // If there was a defined return type, analyze that first so when we
-        // walk the contents of the function, return statements can be
-        // validated against this type.
-        if (node.returnTypeAnnotation) {
-            const returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
-            FunctionType.setDeclaredReturnType(functionType, returnType);
+        // If it's an async function, wrap the return type in an Awaitable or Generator.
+        const preDecoratedType = node.isAsync ? createAwaitableFunction(node, functionType) : functionType;
+
+        // Apply all of the decorators in reverse order.
+        decoratedType = preDecoratedType;
+        let foundUnknown = false;
+        for (let i = node.decorators.length - 1; i >= 0; i--) {
+            const decorator = node.decorators[i];
+
+            decoratedType = applyFunctionDecorator(decoratedType, functionType, decorator);
+            if (decoratedType.category === TypeCategory.Unknown) {
+                // Report this error only on the first unknown type.
+                if (!foundUnknown) {
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
+                        DiagnosticRule.reportUntypedFunctionDecorator,
+                        `Untyped function declarator obscures type of function`,
+                        node.decorators[i].leftExpression);
+
+                    foundUnknown = true;
+                }
+            }
         }
 
+        if (containingClassNode) {
+            if (!FunctionType.isClassMethod(functionType) && !FunctionType.isStaticMethod(functionType)) {
+                // Mark the function as an instance method.
+                functionType.details.flags |= FunctionTypeFlags.InstanceMethod;
+
+                // If there's a separate async version, mark it as an instance
+                // method as well.
+                if (functionType !== preDecoratedType) {
+                    preDecoratedType.details.flags |= FunctionTypeFlags.InstanceMethod;
+                }
+            }
+
+            // If the first parameter doesn't have an explicit type annotation,
+            // provide a type if it's an instance, class or constructor method.
+            if (FunctionType.isInstanceMethod(functionType) ||
+                    FunctionType.isClassMethod(functionType) ||
+                    FunctionType.isConstructorMethod(functionType)) {
+
+                if (functionType.details.parameters.length > 0 && !node.parameters[0].typeAnnotation) {
+                    // Don't specialize the "self" for protocol classes because type
+                    // comparisons will fail during structural typing analysis.
+                    if (containingClassType && !ClassType.isProtocol(containingClassType)) {
+                        if (FunctionType.isInstanceMethod(functionType)) {
+                            const specializedClassType = selfSpecializeClassType(containingClassType);
+                            const specializedObjType = ObjectType.create(specializedClassType);
+                            functionType.details.parameters[0].type = specializedObjType;
+                            paramTypes[0] = specializedObjType;
+                        } else if (FunctionType.isClassMethod(functionType) ||
+                                FunctionType.isConstructorMethod(functionType)) {
+
+                            // For class methods, the cls parameter is allowed to skip the
+                            // abstract class test because the caller is possibly passing
+                            // in a non-abstract subclass.
+                            const specializedClassType = selfSpecializeClassType(containingClassType, true);
+                            functionType.details.parameters[0].type = specializedClassType;
+                            paramTypes[0] = specializedClassType;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update the types for the nodes associated with the parameters.
+        paramTypes.forEach((paramType, index) => {
+            const paramNameNode = node.parameters[index].name;
+            if (paramNameNode) {
+                updateExpressionTypeForNode(paramNameNode, paramType);
+            }
+        });
+
+        // Update the type of the undecorated function.
         updateExpressionTypeForNode(node, functionType);
 
         // If there was no decorator, see if there are any overloads provided
@@ -5731,8 +5738,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return type;
     }
 
-    function createAwaitableFunction(node: FunctionNode, functionType: FunctionType): FunctionType {
-        const returnType = getEffectiveReturnType(functionType);
+    function createAwaitableFunction(node: ParseNode, functionType: FunctionType): FunctionType {
+        const returnType = functionType.details.declaredReturnType;
+        if (!returnType) {
+            return functionType;
+        }
 
         let awaitableReturnType: Type | undefined;
 

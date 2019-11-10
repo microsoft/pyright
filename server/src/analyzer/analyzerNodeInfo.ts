@@ -173,7 +173,7 @@ export function peekExpressionType(node: ParseNode, readVersion?: number): Type 
     return undefined;
 }
 
-export function setExpressionType(node: ParseNode, type: Type, isFinal = false) {
+export function setExpressionType(node: ParseNode, type?: Type, isFinal = false) {
     const analyzerNode = node as AnalyzerNodeInfo;
     if (!analyzerNode.typeCache) {
         analyzerNode.typeCache = {};

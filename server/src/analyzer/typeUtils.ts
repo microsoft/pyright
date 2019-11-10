@@ -2473,7 +2473,7 @@ export function getEffectiveReturnType(type: FunctionType) {
         return specializedReturnType;
     }
 
-    if (type.details.inferredReturnTypeNode) {
+    if (type.details.inferredReturnTypeNode && !FunctionType.isAsync(type)) {
         const returnType = AnalyzerNodeInfo.getExpressionType(type.details.inferredReturnTypeNode);
         if (returnType) {
             return returnType;
