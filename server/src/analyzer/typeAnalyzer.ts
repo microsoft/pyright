@@ -16,21 +16,18 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentNode,
-    BinaryOperationNode, CallNode, ClassNode,
-    DelNode, ErrorNode, ExceptNode, ExpressionNode, FormatStringNode, ForNode,
-    FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexNode, LambdaNode,
-    ListComprehensionNode, MemberAccessNode, ModuleNode, NameNode, ParameterCategory,
-    ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceNode,
-    StringListNode, SuiteNode, TernaryNode, TupleNode,
-    TypeAnnotationNode, UnaryOperationNode, UnpackNode, WhileNode,
+    BinaryOperationNode, CallNode, ClassNode, DelNode, ErrorNode, ExceptNode, ExpressionNode,
+    FormatStringNode, ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexNode,
+    LambdaNode, ListComprehensionNode, MemberAccessNode, ModuleNode, NameNode, ParameterCategory,
+    ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceNode, StringListNode, SuiteNode,
+    TernaryNode, TupleNode, TypeAnnotationNode, UnaryOperationNode, UnpackNode, WhileNode,
     WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowFlags } from './codeFlow';
 import { Declaration, DeclarationType } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
-import { createExpressionEvaluator, EvaluatorFlags, ExpressionEvaluator,
-    MemberAccessFlags } from './expressionEvaluator';
+import { createExpressionEvaluator, EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
@@ -38,14 +35,12 @@ import * as ScopeUtils from './scopeUtils';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
-import { ClassType, combineTypes, FunctionType,
-    isAnyOrUnknown, isNoneOrNever, isTypeSame, ModuleType, NoneType,
-    ObjectType, removeNoneFromUnion, Type, TypeCategory, UnknownType } from './types';
+import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, isTypeSame, NoneType,
+    ObjectType, Type, TypeCategory, UnknownType } from './types';
 import { canAssignType, canOverrideMethod, containsUnknown, derivesFromClassRecursive,
     doesClassHaveAbstractMethods, doForSubtypes, getDeclaredGeneratorReturnType,
-    getDeclaredGeneratorYieldType, getEffectiveReturnType, getSpecializedTupleType,
-    getSymbolFromBaseClasses, isNoReturnType, isOptionalType, printType, specializeType,
-    transformTypeObjectToClass } from './typeUtils';
+    getDeclaredGeneratorYieldType, getSpecializedTupleType, getSymbolFromBaseClasses,
+    isNoReturnType, printType, specializeType, transformTypeObjectToClass } from './typeUtils';
 
 export class TypeAnalyzer extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
@@ -70,7 +65,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     // is performed. It allows the code to determine when cached
     // type information needs to be regenerated because it was
     // from a previous pass.
-    private _analysisVersion = 0;
+    private _analysisVersion: number;
 
     // Map of symbols that have been accessed within this module.
     // Used to report unaccessed symbols.
@@ -573,67 +568,15 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitImportAs(node: ImportAsNode): boolean {
-        if (node.module.nameParts.length === 0) {
-            return false;
-        }
-
-        let symbolNameNode: NameNode;
-        if (node.alias) {
-            // The symbol name is defined by the alias.
-            symbolNameNode = node.alias;
-        } else {
-            // There was no alias, so we need to use the first element of
-            // the name parts as the symbol.
-            symbolNameNode = node.module.nameParts[0];
-        }
-
-        // Look up the symbol to find the alias declaration.
-        let symbolType = this._getAliasedSymbolTypeForName(symbolNameNode.nameToken.value) ||
-            UnknownType.create();
-
-        // Is there a cached module type associated with this node? If so, use
-        // it instead of the type we just created. This will preserve the
-        // symbol accessed flags.
-        const cachedModuleType = AnalyzerNodeInfo.getExpressionType(node) as ModuleType;
-        if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && symbolType) {
-            if (isTypeSame(symbolType, cachedModuleType)) {
-                symbolType = cachedModuleType;
-            }
-        }
-
-        // Cache the module type for subsequent passes.
-        AnalyzerNodeInfo.setExpressionType(node, symbolType);
-
-        this._evaluator.assignTypeToNameNode(symbolNameNode, symbolType);
-
+        this._evaluator.getTypeOfImportAsTarget(node);
         return false;
     }
 
     visitImportFrom(node: ImportFromNode): boolean {
-        const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
-
-        if (importInfo && importInfo.isImportFound) {
-            if (!node.isWildcardImport) {
-                const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
-                const lookupInfo = this._fileInfo.importLookup(resolvedPath);
-                node.imports.forEach(importAs => {
-                    const aliasNode = importAs.alias || importAs.name;
-                    let symbolType = this._getAliasedSymbolTypeForName(aliasNode.nameToken.value);
-                    if (!symbolType) {
-                        // If we were able to resolve the import, report the error as
-                        // an unresolvable symbol.
-                        if (lookupInfo) {
-                            this._evaluator.addError(
-                                `'${ importAs.name.nameToken.value }' is unknown import symbol`,
-                                importAs.name
-                            );
-                        }
-                        symbolType = UnknownType.create();
-                    }
-
-                    this._evaluator.assignTypeToNameNode(aliasNode, symbolType);
-                });
-            }
+        if (!node.isWildcardImport) {
+            node.imports.forEach(importAs => {
+                this._evaluator.getTypeOfImportFromTarget(importAs);
+            });
         }
 
         return false;

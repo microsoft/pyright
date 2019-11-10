@@ -20,10 +20,10 @@ import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperationNode, CallNode,
     ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExceptNode, ExpressionNode,
-    ForNode, FunctionNode, IndexItemsNode, IndexNode, isExpressionNode, LambdaNode,
-    ListComprehensionNode, ListNode, MemberAccessNode, NameNode, ParameterCategory, ParseNode,
-    ParseNodeType, SetNode, SliceNode, StringListNode, TernaryNode, TupleNode,
-    UnaryOperationNode, WithItemNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
+    ForNode, FunctionNode, ImportAsNode, ImportFromAsNode, ImportFromNode, IndexItemsNode,
+    IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode, MemberAccessNode,
+    NameNode, ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceNode,
+    StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -221,6 +221,8 @@ export interface ExpressionEvaluator {
     getTypeOfForTarget: (node: ForNode) => Type | undefined;
     getTypeOfExceptTarget: (node: ExceptNode) => Type | undefined;
     getTypeOfWithItemTarget: (node: WithItemNode) => Type | undefined;
+    getTypeOfImportAsTarget: (node: ImportAsNode) => Type | undefined;
+    getTypeOfImportFromTarget: (node: ImportFromAsNode) => Type | undefined;
 
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
 
@@ -5886,6 +5888,94 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return scopedType;
     }
 
+    function getTypeOfImportAsTarget(node: ImportAsNode): Type | undefined {
+        let symbolNameNode: NameNode;
+        if (node.alias) {
+            // The symbol name is defined by the alias.
+            symbolNameNode = node.alias;
+        } else {
+            // There was no alias, so we need to use the first element of
+            // the name parts as the symbol.
+            symbolNameNode = node.module.nameParts[0];
+        }
+
+        // Is this type already cached?
+        if (symbolNameNode) {
+            const targetType = AnalyzerNodeInfo.peekExpressionType(symbolNameNode, analysisVersion);
+            if (targetType) {
+                return targetType;
+            }
+        }
+
+        // Look up the symbol to find the alias declaration.
+        let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.nameToken.value) ||
+            UnknownType.create();
+
+        // Is there a cached module type associated with this node? If so, use
+        // it instead of the type we just created. This will preserve the
+        // symbol accessed flags.
+        const cachedModuleType = AnalyzerNodeInfo.getExpressionType(node) as ModuleType;
+        if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && symbolType) {
+            if (isTypeSame(symbolType, cachedModuleType)) {
+                symbolType = cachedModuleType;
+            }
+        }
+
+        assignTypeToNameNode(symbolNameNode, symbolType);
+        return symbolType;
+    }
+
+    function getTypeOfImportFromTarget(node: ImportFromAsNode): Type | undefined {
+        const aliasNode = node.alias || node.name;
+
+        // Is this type already cached?
+        const targetType = AnalyzerNodeInfo.peekExpressionType(aliasNode, analysisVersion);
+        if (targetType) {
+            return targetType;
+        }
+
+        let symbolType = getAliasedSymbolTypeForName(node, aliasNode.nameToken.value);
+        if (!symbolType) {
+            const parentNode = node.parent as ImportFromNode;
+            assert(parentNode && parentNode.nodeType === ParseNodeType.ImportFrom);
+            assert(!parentNode.isWildcardImport);
+
+            const importInfo = AnalyzerNodeInfo.getImportInfo(parentNode.module);
+            if (importInfo && importInfo.isImportFound) {
+                const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+
+                // If we were able to resolve the import, report the error as
+                // an unresolved symbol.
+                if (importLookup(resolvedPath)) {
+                    addError(
+                        `'${ node.name.nameToken.value }' is unknown import symbol`,
+                        node.name
+                    );
+                }
+            }
+
+            symbolType = UnknownType.create();
+        }
+
+        assignTypeToNameNode(aliasNode, symbolType);
+        return symbolType;
+    }
+
+    function getAliasedSymbolTypeForName(node: ParseNode, name: string): Type | undefined {
+        const symbolWithScope = lookUpSymbolRecursive(node, name);
+        if (!symbolWithScope) {
+            return undefined;
+        }
+
+        const aliasDecl = symbolWithScope.symbol.getDeclarations().find(
+            decl => decl.type === DeclarationType.Alias);
+        if (!aliasDecl) {
+            return undefined;
+        }
+
+        return getInferredTypeOfDeclaration(aliasDecl, importLookup);
+    }
+
     function getTypeOfAssignmentTarget(target: ExpressionNode): Type | undefined {
         let assignmentNode: ParseNode | undefined = target;
         while (assignmentNode) {
@@ -6689,6 +6779,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         getTypeOfForTarget,
         getTypeOfExceptTarget,
         getTypeOfWithItemTarget,
+        getTypeOfImportAsTarget,
+        getTypeOfImportFromTarget,
         getTypingType,
         getDeclaredTypeForExpression,
         isAnnotationLiteralValue,
