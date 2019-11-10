@@ -256,11 +256,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
     }
 
     visitFor(node: ForNode): boolean {
-        const iteratorType = this._getTypeOfExpression(node.iterableExpression);
-        const iteratedType = this._evaluator.getTypeFromIterable(
-            iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
-
-        this._evaluator.assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
+        this._evaluator.getTypeOfForTarget(node);
         return true;
     }
 
@@ -281,55 +277,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
     visitWith(node: WithNode): boolean {
         node.withItems.forEach(item => {
-            let exprType = this._getTypeOfExpression(item.expression);
-
-            if (isOptionalType(exprType)) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportOptionalContextManager,
-                    DiagnosticRule.reportOptionalContextManager,
-                    `Object of type 'None' cannot be used with 'with'`,
-                    item.expression);
-                exprType = removeNoneFromUnion(exprType);
-            }
-
-            const enterMethodName = node.isAsync ? '__aenter__' : '__enter__';
-
-            const scopedType = doForSubtypes(exprType, subtype => {
-                if (isAnyOrUnknown(subtype)) {
-                    return subtype;
-                }
-
-                if (subtype.category === TypeCategory.Object) {
-                    const memberType = this._evaluator.getTypeFromObjectMember(item.expression,
-                        subtype, enterMethodName, { method: 'get' }, MemberAccessFlags.None);
-
-                    if (memberType) {
-                        let memberReturnType: Type;
-                        if (memberType.category === TypeCategory.Function) {
-                            memberReturnType = getEffectiveReturnType(memberType);
-                        } else {
-                            memberReturnType = UnknownType.create();
-                        }
-
-                        // For "async while", an implicit "await" is performed.
-                        if (node.isAsync) {
-                            memberReturnType = this._evaluator.getTypeFromAwaitable(
-                                memberReturnType, item);
-                        }
-
-                        return memberReturnType;
-                    }
-                }
-
-                this._evaluator.addError(`Type ${ printType(subtype) } cannot be used ` +
-                    `with 'with' because it does not implement '${ enterMethodName }'`,
-                    item.expression);
-                return UnknownType.create();
-            });
-
-            if (item.target) {
-                this._evaluator.assignTypeToExpression(item.target, scopedType, item.target);
-            }
+            this._evaluator.getTypeOfWithItemTarget(item);
         });
 
         return true;
@@ -475,22 +423,23 @@ export class TypeAnalyzer extends ParseTreeWalker {
         if (node.typeExpression) {
             exceptionType = this._getTypeOfExpression(node.typeExpression);
 
+            doForSubtypes(exceptionType, subType => {
+                // If more than one type was specified for the exception, we'll receive
+                // a specialized tuple object here.
+                const tupleType = getSpecializedTupleType(subType);
+                if (tupleType && ClassType.getTypeArguments(tupleType)) {
+                    ClassType.getTypeArguments(tupleType)!.forEach(t => {
+                        this._validateExceptionType(t, node.typeExpression!);
+                    });
+                    return undefined;
+                }
+
+                this._validateExceptionType(subType, node.typeExpression!);
+                return undefined;
+            });
+
             if (node.name) {
-                exceptionType = doForSubtypes(exceptionType, subType => {
-                    // If more than one type was specified for the exception, we'll receive
-                    // a specialized tuple object here.
-                    const tupleType = getSpecializedTupleType(subType);
-                    if (tupleType && ClassType.getTypeArguments(tupleType)) {
-                        const entryTypes = ClassType.getTypeArguments(tupleType)!.map(t => {
-                            return this._validateExceptionType(t, node.typeExpression!);
-                        });
-                        return combineTypes(entryTypes);
-                    }
-
-                    return this._validateExceptionType(subType, node.typeExpression!);
-                });
-
-                this._evaluator.updateExpressionTypeForNode(node.name, exceptionType);
+                this._evaluator.getTypeOfExceptTarget(node);
             }
         }
 
@@ -1497,42 +1446,40 @@ export class TypeAnalyzer extends ParseTreeWalker {
 
         const diagAddendum = new DiagnosticAddendum();
         let isValidExceptionType = true;
-        let resultingExceptionType: Type | undefined;
 
-        if (isAnyOrUnknown(exceptionType)) {
-            resultingExceptionType = exceptionType;
-        } else if (exceptionType.category === TypeCategory.Class) {
-            if (!derivesFromBaseException(exceptionType)) {
-                isValidExceptionType = false;
-                diagAddendum.addMessage(
-                    `'${ printType(exceptionType) }' does not derive from BaseException`);
-            }
-            resultingExceptionType = ObjectType.create(exceptionType);
-        } else if (exceptionType.category === TypeCategory.Object) {
-            const iterableType = this._evaluator.getTypeFromIterable(
-                exceptionType, false, errorNode, false);
-
-            resultingExceptionType = doForSubtypes(iterableType, subtype => {
-                if (isAnyOrUnknown(subtype)) {
-                    return subtype;
+        if (!isAnyOrUnknown(exceptionType)) {
+            if (exceptionType.category === TypeCategory.Class) {
+                if (!derivesFromBaseException(exceptionType)) {
+                    isValidExceptionType = false;
+                    diagAddendum.addMessage(
+                        `'${ printType(exceptionType) }' does not derive from BaseException`);
                 }
+            } else if (exceptionType.category === TypeCategory.Object) {
+                const iterableType = this._evaluator.getTypeFromIterable(
+                    exceptionType, false, errorNode, false);
 
-                const transformedSubtype = transformTypeObjectToClass(subtype);
-                if (transformedSubtype.category === TypeCategory.Class) {
-                    if (!derivesFromBaseException(transformedSubtype)) {
-                        isValidExceptionType = false;
-                        diagAddendum.addMessage(
-                            `'${ printType(exceptionType) }' does not derive from BaseException`);
+                doForSubtypes(iterableType, subtype => {
+                    if (isAnyOrUnknown(subtype)) {
+                        return undefined;
                     }
 
-                    return ObjectType.create(transformedSubtype);
-                }
+                    const transformedSubtype = transformTypeObjectToClass(subtype);
+                    if (transformedSubtype.category === TypeCategory.Class) {
+                        if (!derivesFromBaseException(transformedSubtype)) {
+                            isValidExceptionType = false;
+                            diagAddendum.addMessage(
+                                `'${ printType(exceptionType) }' does not derive from BaseException`);
+                        }
 
-                isValidExceptionType = false;
-                diagAddendum.addMessage(
-                    `'${ printType(exceptionType) }' does not derive from BaseException`);
-                return UnknownType.create();
-            });
+                        return undefined;
+                    }
+
+                    isValidExceptionType = false;
+                    diagAddendum.addMessage(
+                        `'${ printType(exceptionType) }' does not derive from BaseException`);
+                    return undefined;
+                });
+            }
         }
 
         if (!isValidExceptionType) {
@@ -1541,8 +1488,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     diagAddendum.getString(),
                 errorNode);
         }
-
-        return resultingExceptionType || UnknownType.create();
     }
 
     private _isNodeReachable(node: ParseNode): boolean {

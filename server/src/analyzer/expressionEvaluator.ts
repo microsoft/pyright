@@ -19,18 +19,18 @@ import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperationNode, CallNode,
-    ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExpressionNode, FunctionNode,
-    IndexItemsNode, IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode,
-    MemberAccessNode, NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
-    SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, YieldFromNode,
-    YieldNode } from '../parser/parseNodes';
+    ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExceptNode, ExpressionNode,
+    ForNode, FunctionNode, IndexItemsNode, IndexNode, isExpressionNode, LambdaNode,
+    ListComprehensionNode, ListNode, MemberAccessNode, NameNode, ParameterCategory, ParseNode,
+    ParseNodeType, SetNode, SliceNode, StringListNode, TernaryNode, TupleNode,
+    UnaryOperationNode, WithItemNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
     FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport } from './codeFlow';
 import { Declaration, DeclarationType, VariableDeclaration } from './declaration';
-import { getFunctionDeclaredReturnType, getInferredTypeOfDeclaration } from './declarationUtils';
+import { getInferredTypeOfDeclaration } from './declarationUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
@@ -218,6 +218,9 @@ export interface ExpressionEvaluator {
     getTypeOfAugmentedAssignmentTarget: (node: AugmentedAssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult;
+    getTypeOfForTarget: (node: ForNode) => Type | undefined;
+    getTypeOfExceptTarget: (node: ExceptNode) => Type | undefined;
+    getTypeOfWithItemTarget: (node: WithItemNode) => Type | undefined;
 
     getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
 
@@ -5784,6 +5787,105 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return awaitableFunctionType;
     }
 
+    function getTypeOfForTarget(node: ForNode): Type | undefined {
+        // Is this type already cached?
+        let iteratedType = AnalyzerNodeInfo.peekExpressionType(node.targetExpression, analysisVersion);
+        if (iteratedType) {
+            return iteratedType;
+        }
+
+        // The type wasn't cached. Compute it.
+        const iteratorType = getType(node.iterableExpression);
+        iteratedType = getTypeFromIterable(
+            iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
+
+        assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
+
+        return iteratedType;
+    }
+
+    function getTypeOfExceptTarget(node: ExceptNode): Type | undefined {
+        // This should be called only if the except node has a target exception.
+        assert(node.typeExpression !== undefined);
+
+        // Is this type already cached?
+        let exceptionType = AnalyzerNodeInfo.peekExpressionType(
+            node.typeExpression!, analysisVersion);
+        if (exceptionType) {
+            return exceptionType;
+        }
+
+        exceptionType = getType(node.typeExpression!);
+        if (node.name) {
+            assignTypeToExpression(node.name, exceptionType);
+        }
+
+        return exceptionType;
+    }
+
+    function getTypeOfWithItemTarget(node: WithItemNode): Type | undefined {
+        // Is this type already cached?
+        if (node.target) {
+            const targetType = AnalyzerNodeInfo.peekExpressionType(node.target, analysisVersion);
+            if (targetType) {
+                return targetType;
+            }
+        }
+
+        const fileInfo = getFileInfo(node);
+        let exprType = getType(node.expression);
+        const isAsync = node.parent && node.parent.nodeType === ParseNodeType.With &&
+            !!node.parent.isAsync;
+
+        if (isOptionalType(exprType)) {
+            addDiagnostic(
+                fileInfo.diagnosticSettings.reportOptionalContextManager,
+                DiagnosticRule.reportOptionalContextManager,
+                `Object of type 'None' cannot be used with 'with'`,
+                node.expression);
+            exprType = removeNoneFromUnion(exprType);
+        }
+
+        const enterMethodName = isAsync ? '__aenter__' : '__enter__';
+        const scopedType = doForSubtypes(exprType, subtype => {
+            if (isAnyOrUnknown(subtype)) {
+                return subtype;
+            }
+
+            if (subtype.category === TypeCategory.Object) {
+                const memberType = getTypeFromObjectMember(node.expression,
+                    subtype, enterMethodName, { method: 'get' }, MemberAccessFlags.None);
+
+                if (memberType) {
+                    let memberReturnType: Type;
+                    if (memberType.category === TypeCategory.Function) {
+                        memberReturnType = getEffectiveReturnType(memberType);
+                    } else {
+                        memberReturnType = UnknownType.create();
+                    }
+
+                    // For "async while", an implicit "await" is performed.
+                    if (isAsync) {
+                        memberReturnType = getTypeFromAwaitable(memberReturnType, node);
+                    }
+
+                    return memberReturnType;
+                }
+            }
+
+            addError(`Type ${ printType(subtype) } cannot be used ` +
+                `with 'with' because it does not implement '${ enterMethodName }'`,
+                node.expression);
+            return UnknownType.create();
+        });
+
+        if (node.target) {
+            assignTypeToExpression(node.target, scopedType, node.target);
+        }
+
+        return scopedType;
+    }
+
     function getTypeOfAssignmentTarget(target: ExpressionNode): Type | undefined {
         let assignmentNode: ParseNode | undefined = target;
         while (assignmentNode) {
@@ -6584,6 +6686,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         getTypeOfAugmentedAssignmentTarget,
         getTypeOfClass,
         getTypeOfFunction,
+        getTypeOfForTarget,
+        getTypeOfExceptTarget,
+        getTypeOfWithItemTarget,
         getTypingType,
         getDeclaredTypeForExpression,
         isAnnotationLiteralValue,
