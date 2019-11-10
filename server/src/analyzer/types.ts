@@ -173,16 +173,12 @@ export const enum ClassTypeFlags {
     CanOmitDictValues       = 1 << 5
 }
 
-export interface BaseClass {
-    isMetaclass: boolean;
-    type: Type;
-}
-
 interface ClassDetails {
     name: string;
     flags: ClassTypeFlags;
     typeSourceId: TypeSourceId;
-    baseClasses: BaseClass[];
+    baseClasses: Type[];
+    metaClass?: Type;
     aliasClass?: ClassType;
     fields: SymbolTable;
     typeParameters: TypeVarType[];
@@ -272,9 +268,9 @@ export namespace ClassType {
 
     export function isProtocol(classType: ClassType) {
         // Does the class directly 'derive' from "Protocol"?
-        return classType.details.baseClasses.find(bc => {
-            if (bc.type.category === TypeCategory.Class) {
-                if (isBuiltIn(bc.type, 'Protocol')) {
+        return classType.details.baseClasses.find(baseClass => {
+            if (baseClass.category === TypeCategory.Class) {
+                if (isBuiltIn(baseClass, 'Protocol')) {
                     return true;
                 }
             }
@@ -307,34 +303,12 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.CanOmitDictValues);
     }
 
-    export function addBaseClass(classType: ClassType, baseClassType: Type, isMetaclass: boolean) {
-        classType.details.baseClasses.push({ isMetaclass, type: baseClassType });
+    export function addBaseClass(classType: ClassType, baseClassType: Type) {
+        classType.details.baseClasses.push(baseClassType);
     }
 
-    // TODO - This should be removed
-    export function updateBaseClassType(classType: ClassType, index: number, type: Type) {
-        const didChange = !isTypeSame(type, classType.details.baseClasses[index].type);
-        classType.details.baseClasses[index].type = type;
-        return didChange;
-    }
-
-    // TODO - This should be removed
-    export function updateDataClassParameters(classType: ClassType, params: FunctionParameter[]) {
-        let didChange = false;
-        const oldParams = classType.details.dataClassParameters;
-        if (!oldParams) {
-            didChange = true;
-        } else if (oldParams.length !== params.length) {
-            didChange = true;
-        } else {
-            didChange = oldParams.some((oldParam, index) => {
-                return oldParam.name !== params[index].name ||
-                    !isTypeSame(oldParam.type, params[index].type);
-            });
-        }
-
-        classType.details.dataClassParameters = params;
-        return didChange;
+    export function addMetaClass(classType: ClassType, metaClassType: Type) {
+        classType.details.metaClass = metaClassType;
     }
 
     export function getDataClassParameters(classType: ClassType): FunctionParameter[] {
@@ -391,8 +365,16 @@ export namespace ClassType {
         }
 
         for (let i = 0; i < class1Details.baseClasses.length; i++) {
-            if (!isTypeSame(class1Details.baseClasses[i].type, class2Details.baseClasses[i].type,
+            if (!isTypeSame(class1Details.baseClasses[i], class2Details.baseClasses[i],
                     recursionCount + 1)) {
+
+                return false;
+            }
+        }
+
+        if (class1Details.metaClass || class2Details.metaClass) {
+            if (!class1Details.metaClass || !class2Details.metaClass ||
+                    !isTypeSame(class1Details.metaClass, class2Details.metaClass)) {
 
                 return false;
             }
@@ -479,14 +461,14 @@ export namespace ClassType {
         }
 
         for (const baseClass of subclassType.details.baseClasses) {
-            if (baseClass.type.category === TypeCategory.Class) {
-                if (isDerivedFrom(baseClass.type, parentClassType, inheritanceChain)) {
+            if (baseClass.category === TypeCategory.Class) {
+                if (isDerivedFrom(baseClass, parentClassType, inheritanceChain)) {
                     if (inheritanceChain) {
                         inheritanceChain.push(subclassType);
                     }
                     return true;
                 }
-            } else if (isAnyOrUnknown(baseClass.type)) {
+            } else if (isAnyOrUnknown(baseClass)) {
                 if (inheritanceChain) {
                     inheritanceChain.push(UnknownType.create());
                 }

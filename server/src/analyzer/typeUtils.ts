@@ -954,15 +954,12 @@ export function lookUpClassMember(classType: Type, memberName: string, importLoo
 
         if ((flags & ClassMemberLookupFlags.SkipBaseClasses) === 0) {
             for (const baseClass of classType.details.baseClasses) {
-                // Skip metaclass.
-                if (!baseClass.isMetaclass) {
-                    // Recursively perform search.
-                    const methodType = lookUpClassMember(
-                        partiallySpecializeType(baseClass.type, classType),
-                        memberName, importLookup, flags & ~ClassMemberLookupFlags.SkipOriginalClass);
-                    if (methodType) {
-                        return methodType;
-                    }
+                // Recursively perform search.
+                const methodType = lookUpClassMember(
+                    partiallySpecializeType(baseClass, classType),
+                    memberName, importLookup, flags & ~ClassMemberLookupFlags.SkipOriginalClass);
+                if (methodType) {
+                    return methodType;
                 }
             }
         }
@@ -997,17 +994,17 @@ export function getMetaclass(type: ClassType, recursionCount = 0): ClassType | U
         return undefined;
     }
 
-    for (const base of type.details.baseClasses) {
-        if (base.isMetaclass) {
-            if (base.type.category === TypeCategory.Class) {
-                return base.type;
-            } else {
-                return UnknownType.create();
-            }
+    if (type.details.metaClass) {
+        if (type.details.metaClass.category === TypeCategory.Class) {
+            return type.details.metaClass;
+        } else {
+            return UnknownType.create();
         }
+    }
 
-        if (base.type.category === TypeCategory.Class) {
-            const metaclass = getMetaclass(base.type, recursionCount + 1);
+    for (const base of type.details.baseClasses) {
+        if (base.category === TypeCategory.Class) {
+            const metaclass = getMetaclass(base, recursionCount + 1);
             if (metaclass) {
                 return metaclass;
             }
@@ -1190,8 +1187,8 @@ export function derivesFromClassRecursive(classType: ClassType, baseClassToFind:
     }
 
     for (const baseClass of classType.details.baseClasses) {
-        if (baseClass.type.category === TypeCategory.Class) {
-            if (derivesFromClassRecursive(baseClass.type, baseClassToFind)) {
+        if (baseClass.category === TypeCategory.Class) {
+            if (derivesFromClassRecursive(baseClass, baseClassToFind)) {
                 return true;
             }
         }
@@ -1269,18 +1266,17 @@ export function getSymbolFromBaseClasses(classType: ClassType, name: string,
     }
 
     for (const baseClass of classType.details.baseClasses) {
-        if (baseClass.type.category === TypeCategory.Class) {
-            const memberFields = ClassType.getFields(baseClass.type);
+        if (baseClass.category === TypeCategory.Class) {
+            const memberFields = ClassType.getFields(baseClass);
             const symbol = memberFields.get(name);
             if (symbol && symbol.isClassMember()) {
                 return {
-                    class: baseClass.type,
+                    class: baseClass,
                     symbol
                 };
             }
 
-            const symbolWithClass = getSymbolFromBaseClasses(baseClass.type,
-                name, recursionCount + 1);
+            const symbolWithClass = getSymbolFromBaseClasses(baseClass, name, recursionCount + 1);
             if (symbolWithClass) {
                 return symbolWithClass;
             }
@@ -1308,10 +1304,10 @@ export function getAbstractMethodsRecursive(classType: ClassType, importLookup: 
     }
 
     for (const baseClass of classType.details.baseClasses) {
-        if (baseClass.type.category === TypeCategory.Class) {
-            if (ClassType.isAbstractClass(baseClass.type)) {
+        if (baseClass.category === TypeCategory.Class) {
+            if (ClassType.isAbstractClass(baseClass)) {
                 // Recursively get abstract methods for subclasses.
-                getAbstractMethodsRecursive(baseClass.type,
+                getAbstractMethodsRecursive(baseClass,
                     importLookup, symbolTable, recursiveCount + 1);
             }
         }
@@ -1544,10 +1540,10 @@ export function getTypedDictMembersForClassRecursive(classType: ClassType,
     }
 
     classType.details.baseClasses.forEach(baseClassType => {
-        if (!baseClassType.isMetaclass && baseClassType.type.category === TypeCategory.Class &&
-                ClassType.isTypedDictClass(baseClassType.type)) {
+        if (baseClassType.category === TypeCategory.Class &&
+                ClassType.isTypedDictClass(baseClassType)) {
 
-            getTypedDictMembersForClassRecursive(baseClassType.type,
+            getTypedDictMembersForClassRecursive(baseClassType,
                 keyMap, recursionCount + 1);
         }
     });
@@ -1579,8 +1575,8 @@ function _getMembersForClassRecursive(classType: ClassType,
     }
 
     classType.details.baseClasses.forEach(baseClassType => {
-        if (!baseClassType.isMetaclass && baseClassType.type.category === TypeCategory.Class) {
-            _getMembersForClassRecursive(baseClassType.type,
+        if (baseClassType.category === TypeCategory.Class) {
+            _getMembersForClassRecursive(baseClassType,
                 symbolTable, includeInstanceVars, recursionCount + 1);
         }
     });

@@ -723,7 +723,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         });
 
-        ClassType.updateDataClassParameters(classType, localDataClassParameters);
+        classType.details.dataClassParameters = localDataClassParameters;
 
         if (!skipSynthesizeInit) {
             fullDataClassParameters.forEach(paramInfo => {
@@ -1276,9 +1276,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     if (requiresInvalidation) {
                         const expr = ParseTreeUtils.printExpression(node as any);
                         setAnalysisChangedCallback(`Expression type changed for '${ expr }`);
-
-                        // TODO - REMOVE THIS DEBUGGING CODE
-                        const aaa = oldType && isTypeSame(oldType, exprType);
                     }
                     AnalyzerNodeInfo.setExpressionType(node, exprType);
                 }
@@ -1298,14 +1295,14 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     function addInheritedDataClassParametersRecursive(classType: ClassType, params: FunctionParameter[]) {
         // Recursively call for reverse-MRO ordering.
         classType.details.baseClasses.forEach(baseClass => {
-            if (baseClass.type.category === TypeCategory.Class) {
-                addInheritedDataClassParametersRecursive(baseClass.type, params);
+            if (baseClass.category === TypeCategory.Class) {
+                addInheritedDataClassParametersRecursive(baseClass, params);
             }
         });
 
         classType.details.baseClasses.forEach(baseClass => {
-            if (baseClass.type.category === TypeCategory.Class) {
-                const dataClassParams = ClassType.getDataClassParameters(baseClass.type);
+            if (baseClass.category === TypeCategory.Class) {
+                const dataClassParams = ClassType.getDataClassParameters(baseClass);
 
                 // Add the parameters to the end of the list, replacing same-named
                 // parameters if found.
@@ -2620,8 +2617,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // will be reported by the member lookup logic at a later time.
             if (targetClassType.category === TypeCategory.Class) {
                 const baseClasses = targetClassType.details.baseClasses;
-                if (baseClasses.length > 0 && !baseClasses[0].isMetaclass) {
-                    const baseClassType = baseClasses[0].type;
+                if (baseClasses.length > 0) {
+                    const baseClassType = baseClasses[0];
                     if (baseClassType.category === TypeCategory.Class) {
                         return ObjectType.create(baseClassType);
                     }
@@ -3475,7 +3472,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
-        ClassType.addBaseClass(classType, enumClass, false);
+        ClassType.addBaseClass(classType, enumClass);
 
         const classFields = ClassType.getFields(classType);
         classFields.set('__class__', Symbol.createWithType(SymbolFlags.ClassMember, classType));
@@ -3540,7 +3537,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             if (baseClass.category === TypeCategory.Class) {
                 const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
-                ClassType.addBaseClass(classType, baseClass, false);
+                ClassType.addBaseClass(classType, baseClass);
                 return classType;
             }
         }
@@ -3569,7 +3566,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         const classType = ClassType.create(className, ClassTypeFlags.TypedDictClass, errorNode.id);
-        ClassType.addBaseClass(classType, typedDictClass, false);
+        ClassType.addBaseClass(classType, typedDictClass);
 
         if (argList.length >= 3) {
             if (!argList[2].name ||
@@ -3675,7 +3672,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
         const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
         const builtInNamedTuple = getTypingType(errorNode, 'NamedTuple') || UnknownType.create();
-        ClassType.addBaseClass(classType, builtInNamedTuple, false);
+        ClassType.addBaseClass(classType, builtInNamedTuple);
 
         const classFields = ClassType.getFields(classType);
         classFields.set('__class__', Symbol.createWithType(SymbolFlags.ClassMember, classType));
@@ -4983,13 +4980,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         if (aliasClass && aliasClass.category === TypeCategory.Class &&
                 specialClassType.category === TypeCategory.Class) {
 
-            ClassType.addBaseClass(specialClassType, aliasClass, false);
+            ClassType.addBaseClass(specialClassType, aliasClass);
 
             if (aliasMapEntry.alias) {
                 specialClassType.details.aliasClass = aliasClass;
             }
         } else {
-            ClassType.addBaseClass(specialClassType, UnknownType.create(), false);
+            ClassType.addBaseClass(specialClassType, UnknownType.create());
         }
 
         return specialClassType;
@@ -5282,7 +5279,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         arg);
                 }
 
-                ClassType.addBaseClass(classType, argType, isMetaclass);
+                if (isMetaclass) {
+                    ClassType.addMetaClass(classType, argType);
+                } else {
+                    ClassType.addBaseClass(classType, argType);
+                }
 
                 // TODO - validate that we are not adding type parameters that
                 // are unique type vars but have conflicting names.
@@ -5311,7 +5312,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             // Make sure we don't have 'object' derive from itself. Infinite
             // recursion will result.
             if (!ClassType.isBuiltIn(classType, 'object')) {
-                ClassType.addBaseClass(classType, getBuiltInType(node, 'object'), false);
+                ClassType.addBaseClass(classType, getBuiltInType(node, 'object'));
             }
         }
 
