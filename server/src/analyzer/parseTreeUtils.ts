@@ -74,200 +74,255 @@ export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | u
 }
 
 export function printExpression(node: ExpressionNode, flags = PrintExpressionFlags.None): string {
-    if (node.nodeType === ParseNodeType.Name) {
-        return node.nameToken.value;
-    } else if (node.nodeType === ParseNodeType.MemberAccess) {
-        return printExpression(node.leftExpression, flags) + '.' +
-            node.memberName.nameToken.value;
-    } else if (node.nodeType === ParseNodeType.Call) {
-        return printExpression(node.leftExpression, flags) + '(' +
-            node.arguments.map(arg => {
-                let argStr = '';
-                if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
-                    argStr = '*';
-                } else if (arg.argumentCategory === ArgumentCategory.UnpackedDictionary) {
-                    argStr = '**';
-                }
-                if (arg.name) {
-                    argStr += arg.name.nameToken.value + '=';
-                }
-                argStr += printExpression(arg.valueExpression, flags);
-                return argStr;
-            }).join(', ') +
-            ')';
-    } else if (node.nodeType === ParseNodeType.Index) {
-        return printExpression(node.baseExpression, flags) + '[' +
-            node.items.items.map(item => printExpression(item, flags)).join(', ') +
-            ']';
-    } else if (node.nodeType === ParseNodeType.UnaryOperation) {
-        return printOperator(node.operator) + ' ' +
-            printExpression(node.expression, flags);
-    } else if (node.nodeType === ParseNodeType.BinaryOperation) {
-        return printExpression(node.leftExpression, flags) + ' ' +
-            printOperator(node.operator) + ' ' +
-            printExpression(node.rightExpression, flags);
-    } else if (node.nodeType === ParseNodeType.Number) {
-        return node.token.value.toString();
-    } else if (node.nodeType === ParseNodeType.StringList) {
-        if ((flags & PrintExpressionFlags.ForwardDeclarations) && node.typeAnnotation) {
-            return printExpression(node.typeAnnotation, flags);
-        } else {
-            return node.strings.map(str => {
-                return printExpression(str, flags);
-            }).join(' ');
-        }
-    } else if (node.nodeType === ParseNodeType.String) {
-        let exprString = '';
-        if (node.token.flags & StringTokenFlags.Raw) {
-            exprString += 'r';
+    switch (node.nodeType) {
+        case ParseNodeType.Name: {
+            return node.nameToken.value;
         }
 
-        if (node.token.flags & StringTokenFlags.Unicode) {
-            exprString += 'u';
+        case ParseNodeType.MemberAccess: {
+            return printExpression(node.leftExpression, flags) + '.' +
+                node.memberName.nameToken.value;
         }
 
-        if (node.token.flags & StringTokenFlags.Bytes) {
-            exprString += 'b';
+        case ParseNodeType.Call: {
+            return printExpression(node.leftExpression, flags) + '(' +
+                node.arguments.map(arg => {
+                    let argStr = '';
+                    if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
+                        argStr = '*';
+                    } else if (arg.argumentCategory === ArgumentCategory.UnpackedDictionary) {
+                        argStr = '**';
+                    }
+                    if (arg.name) {
+                        argStr += arg.name.nameToken.value + '=';
+                    }
+                    argStr += printExpression(arg.valueExpression, flags);
+                    return argStr;
+                }).join(', ') +
+                ')';
         }
 
-        if (node.token.flags & StringTokenFlags.Format) {
-            exprString += 'f';
+        case ParseNodeType.Index: {
+            return printExpression(node.baseExpression, flags) + '[' +
+                node.items.items.map(item => printExpression(item, flags)).join(', ') +
+                ']';
         }
 
-        if (node.token.flags & StringTokenFlags.Triplicate) {
-            if (node.token.flags & StringTokenFlags.SingleQuote) {
-                exprString += `'''${ node.token.escapedValue }'''`;
+        case ParseNodeType.UnaryOperation: {
+            return printOperator(node.operator) + ' ' +
+                printExpression(node.expression, flags);
+        }
+
+        case ParseNodeType.BinaryOperation: {
+            return printExpression(node.leftExpression, flags) + ' ' +
+                printOperator(node.operator) + ' ' +
+                printExpression(node.rightExpression, flags);
+        }
+
+        case ParseNodeType.Number: {
+            return node.token.value.toString();
+        }
+        case ParseNodeType.StringList: {
+            if ((flags & PrintExpressionFlags.ForwardDeclarations) && node.typeAnnotation) {
+                return printExpression(node.typeAnnotation, flags);
             } else {
-                exprString += `"""${ node.token.escapedValue }"""`;
-            }
-        } else {
-            if (node.token.flags & StringTokenFlags.SingleQuote) {
-                exprString += `'${ node.token.escapedValue }'`;
-            } else {
-                exprString += `"${ node.token.escapedValue }"`;
+                return node.strings.map(str => {
+                    return printExpression(str, flags);
+                }).join(' ');
             }
         }
+        case ParseNodeType.String: {
+            let exprString = '';
+            if (node.token.flags & StringTokenFlags.Raw) {
+                exprString += 'r';
+            }
 
-        return exprString;
-    } else if (node.nodeType === ParseNodeType.Assignment) {
-        return printExpression(node.leftExpression, flags) + ' = ' +
-            printExpression(node.rightExpression, flags);
-    } else if (node.nodeType === ParseNodeType.AssignmentExpression) {
-        return printExpression(node.name, flags) + ' := ' +
-            printExpression(node.rightExpression, flags);
-    } else if (node.nodeType === ParseNodeType.TypeAnnotation) {
-        return printExpression(node.valueExpression, flags) + ': ' +
-            printExpression(node.typeAnnotation, flags);
-    } else if (node.nodeType === ParseNodeType.AugmentedAssignment) {
-        return printExpression(node.leftExpression, flags) + ' ' +
-            printOperator(node.operator) + ' ' +
-            printExpression(node.rightExpression, flags);
-    } else if (node.nodeType === ParseNodeType.Await) {
-        return 'await ' + printExpression(node.expression, flags);
-    } else if (node.nodeType === ParseNodeType.Ternary) {
-        return printExpression(node.ifExpression, flags) + ' if ' +
-            printExpression(node.testExpression, flags) + ' else ' +
-            printExpression(node.elseExpression, flags);
-    } else if (node.nodeType === ParseNodeType.List) {
-        const expressions = node.entries.map(expr => {
-            return printExpression(expr, flags);
-        });
-        return `[${ expressions.join(', ') }]`;
-    } else if (node.nodeType === ParseNodeType.Unpack) {
-        return '*' + printExpression(node.expression, flags);
-    } else if (node.nodeType === ParseNodeType.Tuple) {
-        const expressions = node.expressions.map(expr => {
-            return printExpression(expr, flags);
-        });
-        if (expressions.length === 1) {
-            return `(${ expressions[0] }, )`;
-        }
-        return `(${ expressions.join(', ') })`;
-    } else if (node.nodeType === ParseNodeType.Yield) {
-        if (node.expression) {
-            return 'yield ' + printExpression(node.expression, flags);
-        } else {
-            return 'yield';
-        }
-    } else if (node.nodeType === ParseNodeType.YieldFrom) {
-        return 'yield from ' + printExpression(node.expression, flags);
-    } else if (node.nodeType === ParseNodeType.Ellipsis) {
-        return '...';
-    } else if (node.nodeType === ParseNodeType.ListComprehension) {
-        let listStr = '<ListExpression>';
+            if (node.token.flags & StringTokenFlags.Unicode) {
+                exprString += 'u';
+            }
 
-        if (isExpressionNode(node.expression)) {
-            listStr = printExpression(node.expression as ExpressionNode, flags);
-        } else if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
-            const keyStr = printExpression(node.expression.keyExpression, flags);
-            const valueStr = printExpression(node.expression.valueExpression, flags);
-            listStr = `${ keyStr }: ${ valueStr }`;
-        }
+            if (node.token.flags & StringTokenFlags.Bytes) {
+                exprString += 'b';
+            }
 
-        return listStr + ' ' +
-            node.comprehensions.map(expr => {
-                if (expr.nodeType === ParseNodeType.ListComprehensionFor) {
-                    return `${ expr.isAsync ? 'async ' : '' }for ` +
-                        printExpression(expr.targetExpression, flags) +
-                        ` in ${ printExpression(expr.iterableExpression, flags) }`;
+            if (node.token.flags & StringTokenFlags.Format) {
+                exprString += 'f';
+            }
+
+            if (node.token.flags & StringTokenFlags.Triplicate) {
+                if (node.token.flags & StringTokenFlags.SingleQuote) {
+                    exprString += `'''${ node.token.escapedValue }'''`;
                 } else {
-                    return `if ${ printExpression(expr.testExpression, flags) }`;
+                    exprString += `"""${ node.token.escapedValue }"""`;
                 }
-            }).join(' ');
-    } else if (node.nodeType === ParseNodeType.Slice) {
-        let result = '';
-        if (node.startValue) {
-            result += printExpression(node.startValue, flags);
-        }
-        if (node.endValue) {
-            result += ': ' + printExpression(node.endValue, flags);
-        }
-        if (node.stepValue) {
-            result += ': ' + printExpression(node.stepValue, flags);
-        }
-        return result;
-    } else if (node.nodeType === ParseNodeType.Lambda) {
-        return 'lambda ' + node.parameters.map(param => {
-            let paramStr = '';
-
-            if (param.category === ParameterCategory.VarArgList) {
-                paramStr += '*';
-            } else if (param.category === ParameterCategory.VarArgDictionary) {
-                paramStr += '**';
-            }
-
-            if (param.name) {
-                paramStr += param.name.nameToken.value;
-            }
-
-            if (param.defaultValue) {
-                paramStr += ' = ' + printExpression(param.defaultValue, flags);
-            }
-            return paramStr;
-        }).join(', ') + ': ' + printExpression(node.expression, flags);
-    } else if (node.nodeType === ParseNodeType.Constant) {
-        if (node.token.keywordType === KeywordType.True) {
-            return 'True';
-        } else if (node.token.keywordType === KeywordType.False) {
-            return 'False';
-        } else if (node.token.keywordType === KeywordType.Debug) {
-            return '__debug__';
-        } else if (node.token.keywordType === KeywordType.None) {
-            return 'None';
-        }
-    } else if (node.nodeType === ParseNodeType.Dictionary) {
-        return `{ ${ node.entries.map(entry => {
-            if (entry.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                return `${ printExpression(entry.keyExpression, flags) }: ` +
-                    `${ printExpression(entry.valueExpression, flags) }`;
             } else {
-                return printExpression(entry, flags);
+                if (node.token.flags & StringTokenFlags.SingleQuote) {
+                    exprString += `'${ node.token.escapedValue }'`;
+                } else {
+                    exprString += `"${ node.token.escapedValue }"`;
+                }
             }
-        })} }`;
-    } else if (node.nodeType === ParseNodeType.DictionaryExpandEntry) {
-        return `**${ printExpression(node.expandExpression, flags) }`;
-    } else if (node.nodeType === ParseNodeType.Set) {
-        return node.entries.map(entry => printExpression(entry, flags)).join(', ');
+
+            return exprString;
+        }
+
+        case ParseNodeType.Assignment: {
+            return printExpression(node.leftExpression, flags) + ' = ' +
+                printExpression(node.rightExpression, flags);
+        }
+
+        case ParseNodeType.AssignmentExpression: {
+            return printExpression(node.name, flags) + ' := ' +
+                printExpression(node.rightExpression, flags);
+        }
+
+        case ParseNodeType.TypeAnnotation: {
+            return printExpression(node.valueExpression, flags) + ': ' +
+                printExpression(node.typeAnnotation, flags);
+        }
+
+        case ParseNodeType.AugmentedAssignment: {
+            return printExpression(node.leftExpression, flags) + ' ' +
+                printOperator(node.operator) + ' ' +
+                printExpression(node.rightExpression, flags);
+        }
+
+        case ParseNodeType.Await: {
+            return 'await ' + printExpression(node.expression, flags);
+        }
+
+        case ParseNodeType.Ternary: {
+            return printExpression(node.ifExpression, flags) + ' if ' +
+                printExpression(node.testExpression, flags) + ' else ' +
+                printExpression(node.elseExpression, flags);
+        }
+
+        case ParseNodeType.List: {
+            const expressions = node.entries.map(expr => {
+                return printExpression(expr, flags);
+            });
+            return `[${ expressions.join(', ') }]`;
+        }
+
+        case ParseNodeType.Unpack: {
+            return '*' + printExpression(node.expression, flags);
+        }
+
+        case ParseNodeType.Tuple: {
+            const expressions = node.expressions.map(expr => {
+                return printExpression(expr, flags);
+            });
+            if (expressions.length === 1) {
+                return `(${ expressions[0] }, )`;
+            }
+            return `(${ expressions.join(', ') })`;
+        }
+
+        case ParseNodeType.Yield: {
+            if (node.expression) {
+                return 'yield ' + printExpression(node.expression, flags);
+            } else {
+                return 'yield';
+            }
+        }
+
+        case ParseNodeType.YieldFrom: {
+            return 'yield from ' + printExpression(node.expression, flags);
+        }
+
+        case ParseNodeType.Ellipsis: {
+            return '...';
+        }
+
+        case ParseNodeType.ListComprehension: {
+            let listStr = '<ListExpression>';
+
+            if (isExpressionNode(node.expression)) {
+                listStr = printExpression(node.expression as ExpressionNode, flags);
+            } else if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
+                const keyStr = printExpression(node.expression.keyExpression, flags);
+                const valueStr = printExpression(node.expression.valueExpression, flags);
+                listStr = `${ keyStr }: ${ valueStr }`;
+            }
+
+            return listStr + ' ' +
+                node.comprehensions.map(expr => {
+                    if (expr.nodeType === ParseNodeType.ListComprehensionFor) {
+                        return `${ expr.isAsync ? 'async ' : '' }for ` +
+                            printExpression(expr.targetExpression, flags) +
+                            ` in ${ printExpression(expr.iterableExpression, flags) }`;
+                    } else {
+                        return `if ${ printExpression(expr.testExpression, flags) }`;
+                    }
+                }).join(' ');
+        }
+
+        case ParseNodeType.Slice: {
+            let result = '';
+            if (node.startValue) {
+                result += printExpression(node.startValue, flags);
+            }
+            if (node.endValue) {
+                result += ': ' + printExpression(node.endValue, flags);
+            }
+            if (node.stepValue) {
+                result += ': ' + printExpression(node.stepValue, flags);
+            }
+            return result;
+        }
+
+        case ParseNodeType.Lambda: {
+            return 'lambda ' + node.parameters.map(param => {
+                let paramStr = '';
+
+                if (param.category === ParameterCategory.VarArgList) {
+                    paramStr += '*';
+                } else if (param.category === ParameterCategory.VarArgDictionary) {
+                    paramStr += '**';
+                }
+
+                if (param.name) {
+                    paramStr += param.name.nameToken.value;
+                }
+
+                if (param.defaultValue) {
+                    paramStr += ' = ' + printExpression(param.defaultValue, flags);
+                }
+                return paramStr;
+            }).join(', ') + ': ' + printExpression(node.expression, flags);
+        }
+
+        case ParseNodeType.Constant: {
+            if (node.token.keywordType === KeywordType.True) {
+                return 'True';
+            } else if (node.token.keywordType === KeywordType.False) {
+                return 'False';
+            } else if (node.token.keywordType === KeywordType.Debug) {
+                return '__debug__';
+            } else if (node.token.keywordType === KeywordType.None) {
+                return 'None';
+            }
+            break;
+        }
+
+        case ParseNodeType.Dictionary: {
+            return `{ ${ node.entries.map(entry => {
+                if (entry.nodeType === ParseNodeType.DictionaryKeyEntry) {
+                    return `${ printExpression(entry.keyExpression, flags) }: ` +
+                        `${ printExpression(entry.valueExpression, flags) }`;
+                } else {
+                    return printExpression(entry, flags);
+                }
+            })} }`;
+        }
+
+        case ParseNodeType.DictionaryExpandEntry: {
+            return `**${ printExpression(node.expandExpression, flags) }`;
+        }
+
+        case ParseNodeType.Set: {
+            return node.entries.map(entry => printExpression(entry, flags)).join(', ');
+        }
     }
 
     return '<Expression>';
