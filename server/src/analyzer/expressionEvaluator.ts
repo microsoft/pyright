@@ -3475,7 +3475,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         ClassType.addBaseClass(classType, enumClass);
 
         const classFields = ClassType.getFields(classType);
-        classFields.set('__class__', Symbol.createWithType(SymbolFlags.ClassMember, classType));
+        classFields.set('__class__', Symbol.createWithType(
+            SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType));
 
         if (argList.length < 2) {
             addError('Expected enum item string as second parameter', errorNode);
@@ -3588,7 +3589,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
 
         const classFields = ClassType.getFields(classType);
-        classFields.set('__class__', Symbol.createWithType(SymbolFlags.ClassMember, classType));
+        classFields.set('__class__', Symbol.createWithType(
+            SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType));
 
         if (argList.length < 2) {
             addError('Expected dict as second parameter', errorNode);
@@ -3628,6 +3630,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                     // Record names in a map to detect duplicates.
                     entryMap.set(entryName, true);
+
+                    // Cache the annotation type.
+                    getTypeOfAnnotation(entry.valueExpression);
 
                     const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                     const declaration: VariableDeclaration = {
@@ -3675,7 +3680,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         ClassType.addBaseClass(classType, builtInNamedTuple);
 
         const classFields = ClassType.getFields(classType);
-        classFields.set('__class__', Symbol.createWithType(SymbolFlags.ClassMember, classType));
+        classFields.set('__class__', Symbol.createWithType(
+            SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType));
 
         const builtInTupleType = getBuiltInType(errorNode, 'Tuple');
         if (builtInTupleType.category === TypeCategory.Class) {

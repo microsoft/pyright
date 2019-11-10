@@ -13,11 +13,10 @@ import { DiagnosticAddendum } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { ImportLookup } from './analyzerFileInfo';
-import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { DeclarationType } from './declaration';
-import { getTypeForDeclaration, hasTypeForDeclaration } from './declarationUtils';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { getDeclaredTypeOfSymbol, getEffectiveTypeOfSymbol,
+    getLastTypedDeclaredForSymbol,
     isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionParameter, FunctionType, FunctionTypeFlags,
     InheritanceChain, isAnyOrUnknown, isNoneOrNever, isSameWithoutLiteralValue, isTypeSame,
@@ -1550,14 +1549,13 @@ export function getTypedDictMembersForClassRecursive(classType: ClassType,
 
     // Add any new typed dict entries from this class.
     ClassType.getFields(classType).forEach((symbol, name) => {
-        const declarations = symbol.getDeclarations();
-        if (declarations.length > 0) {
-            const firstDecl = declarations[0];
-            if (firstDecl.type === DeclarationType.Variable &&
-                    firstDecl.node && hasTypeForDeclaration(firstDecl)) {
+        if (!symbol.isIgnoredForProtocolMatch()) {
 
+            // Only variables (not functions, classes, etc.) are considered.
+            const lastDecl = getLastTypedDeclaredForSymbol(symbol);
+            if (lastDecl && lastDecl.type === DeclarationType.Variable) {
                 keyMap.set(name, {
-                    valueType: getTypeForDeclaration(firstDecl) || UnknownType.create(),
+                    valueType: getDeclaredTypeOfSymbol(symbol) || UnknownType.create(),
                     isRequired: !ClassType.isCanOmitDictValues(classType),
                     isProvided: false
                 });
