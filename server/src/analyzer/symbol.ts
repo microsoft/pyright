@@ -9,9 +9,8 @@
 * in the program.
 */
 
-import { getEmptyRange } from '../common/diagnostic';
 import StringMap from '../common/stringMap';
-import { Declaration, DeclarationType } from './declaration';
+import { Declaration } from './declaration';
 import { areDeclarationsSame, hasTypeForDeclaration } from './declarationUtils';
 import { Type } from './types';
 

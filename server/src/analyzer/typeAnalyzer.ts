@@ -916,7 +916,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             node, this._fileInfo.importLookup);
 
         let primaryDeclaration = declarations && declarations.length > 0 ?
-            declarations[0] : undefined;
+            declarations[declarations.length - 1] : undefined;
         if (!primaryDeclaration || primaryDeclaration.node === node) {
             return;
         }
@@ -1089,7 +1089,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     functionDecl.yieldExpressions.forEach(yieldNode => {
                         if (this._evaluator.isNodeReachable(yieldNode)) {
                             if (yieldNode.expression) {
-                                const cachedType = AnalyzerNodeInfo.getExpressionType(yieldNode.expression);
+                                const cachedType = this._getTypeOfExpression(yieldNode.expression);
                                 inferredYieldTypes.push(cachedType || UnknownType.create());
                             } else {
                                 inferredYieldTypes.push(NoneType.create());
@@ -1141,7 +1141,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
                         functionDecl.returnExpressions.forEach(returnNode => {
                             if (this._evaluator.isNodeReachable(returnNode)) {
                                 if (returnNode.returnExpression) {
-                                    const cachedType = AnalyzerNodeInfo.getExpressionType(returnNode.returnExpression);
+                                    const cachedType = this._getTypeOfExpression(returnNode.returnExpression);
                                     inferredReturnTypes.push(cachedType || UnknownType.create());
                                 } else {
                                     inferredReturnTypes.push(NoneType.create());
@@ -1309,13 +1309,12 @@ export class TypeAnalyzer extends ParseTreeWalker {
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
 
         if (enclosingFunctionNode) {
-            const functionType = AnalyzerNodeInfo.getExpressionType(
-                enclosingFunctionNode) as FunctionType;
-            if (functionType) {
-                assert(functionType.category === TypeCategory.Function);
+            const functionTypeResult = this._evaluator.getTypeOfFunction(enclosingFunctionNode);
+            if (functionTypeResult) {
+                assert(functionTypeResult.functionType.category === TypeCategory.Function);
                 const iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator',
                     this._fileInfo.importLookup);
-                declaredYieldType = getDeclaredGeneratorYieldType(functionType, iteratorType);
+                declaredYieldType = getDeclaredGeneratorYieldType(functionTypeResult.functionType, iteratorType);
             }
         }
 

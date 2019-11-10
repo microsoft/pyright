@@ -313,7 +313,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             // Evaluate the decorator, but don't specialize the
             // return result.
-            decoratorCall = getTypeFromCallExpressionWithBaseType(
+            decoratorCall = getTypeFromCallWithBaseType(
                 node.leftExpression, argList, decoratorCall,
                 { method: 'get' }, EvaluatorFlags.None, false);
         }
@@ -323,7 +323,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             type: functionOrClassType
         }];
 
-        return getTypeFromCallExpressionWithBaseType(
+        return getTypeFromCallWithBaseType(
             node.leftExpression, argList, decoratorCall, { method: 'get' },
                 EvaluatorFlags.None, false).type;
     }
@@ -381,53 +381,64 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         let symbol: Symbol | undefined;
         let classOrObjectBase: ClassType | ObjectType | undefined;
 
-        if (expression.nodeType === ParseNodeType.Name) {
-            const symbolWithScope = lookUpSymbolRecursive(
-                expression, expression.nameToken.value);
-            if (symbolWithScope) {
-                symbol = symbolWithScope.symbol;
-            }
-        } else if (expression.nodeType === ParseNodeType.TypeAnnotation) {
-            return getDeclaredTypeForExpression(expression.valueExpression);
-        } else if (expression.nodeType === ParseNodeType.MemberAccess) {
-            // Get the base type but do so speculative because we're going to call again
-            // with a 'set' usage type below, and we don't want to skip that logic.
-            const baseType = getTypeNoCache(expression.leftExpression);
-            let classMemberInfo: ClassMember | undefined;
-
-            if (baseType.category === TypeCategory.Object) {
-                classMemberInfo = lookUpObjectMember(baseType,
-                    expression.memberName.nameToken.value, importLookup,
-                    ClassMemberLookupFlags.DeclaredTypesOnly);
-                classOrObjectBase = baseType;
-            } else if (baseType.category === TypeCategory.Class) {
-                classMemberInfo = lookUpClassMember(baseType,
-                    expression.memberName.nameToken.value, importLookup,
-                    ClassMemberLookupFlags.SkipInstanceVariables |
-                    ClassMemberLookupFlags.DeclaredTypesOnly);
-                classOrObjectBase = baseType;
+        switch (expression.nodeType) {
+            case ParseNodeType.Name: {
+                const symbolWithScope = lookUpSymbolRecursive(
+                    expression, expression.nameToken.value);
+                if (symbolWithScope) {
+                    symbol = symbolWithScope.symbol;
+                }
+                break;
             }
 
-            if (classMemberInfo) {
-                symbol = classMemberInfo.symbol;
+            case ParseNodeType.TypeAnnotation: {
+                return getDeclaredTypeForExpression(expression.valueExpression);
             }
-        } else if (expression.nodeType === ParseNodeType.Index) {
-            const baseType = getDeclaredTypeForExpression(expression.baseExpression);
-            if (baseType && baseType.category === TypeCategory.Object) {
-                const setItemMember = lookUpClassMember(baseType.classType,
-                    '__setitem__', importLookup);
-                if (setItemMember) {
-                    const setItemType = getTypeOfMember(setItemMember, importLookup);
-                    if (setItemType.category === TypeCategory.Function) {
-                        const boundFunction = bindFunctionToClassOrObject(baseType,
-                            setItemType, importLookup);
-                        if (boundFunction.category === TypeCategory.Function) {
-                            if (boundFunction.details.parameters.length === 2) {
-                                return FunctionType.getEffectiveParameterType(boundFunction, 1);
+
+            case ParseNodeType.MemberAccess: {
+                // Get the base type but do so speculative because we're going to call again
+                // with a 'set' usage type below, and we don't want to skip that logic.
+                const baseType = getTypeNoCache(expression.leftExpression);
+                let classMemberInfo: ClassMember | undefined;
+
+                if (baseType.category === TypeCategory.Object) {
+                    classMemberInfo = lookUpObjectMember(baseType,
+                        expression.memberName.nameToken.value, importLookup,
+                        ClassMemberLookupFlags.DeclaredTypesOnly);
+                    classOrObjectBase = baseType;
+                } else if (baseType.category === TypeCategory.Class) {
+                    classMemberInfo = lookUpClassMember(baseType,
+                        expression.memberName.nameToken.value, importLookup,
+                        ClassMemberLookupFlags.SkipInstanceVariables |
+                        ClassMemberLookupFlags.DeclaredTypesOnly);
+                    classOrObjectBase = baseType;
+                }
+
+                if (classMemberInfo) {
+                    symbol = classMemberInfo.symbol;
+                }
+                break;
+            }
+
+            case ParseNodeType.Index: {
+                const baseType = getDeclaredTypeForExpression(expression.baseExpression);
+                if (baseType && baseType.category === TypeCategory.Object) {
+                    const setItemMember = lookUpClassMember(baseType.classType,
+                        '__setitem__', importLookup);
+                    if (setItemMember) {
+                        const setItemType = getTypeOfMember(setItemMember, importLookup);
+                        if (setItemType.category === TypeCategory.Function) {
+                            const boundFunction = bindFunctionToClassOrObject(baseType,
+                                setItemType, importLookup);
+                            if (boundFunction.category === TypeCategory.Function) {
+                                if (boundFunction.details.parameters.length === 2) {
+                                    return FunctionType.getEffectiveParameterType(boundFunction, 1);
+                                }
                             }
                         }
                     }
                 }
+                break;
             }
         }
 
@@ -1414,29 +1425,29 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
 
             case ParseNodeType.MemberAccess: {
-                typeResult = getTypeFromMemberAccessExpression(node, usage, flags);
+                typeResult = getTypeFromMemberAccess(node, usage, flags);
                 break;
             }
 
             case ParseNodeType.Index: {
-                typeResult = getTypeFromIndexExpression(node, usage, flags);
+                typeResult = getTypeFromIndex(node, usage, flags);
                 break;
             }
 
             case ParseNodeType.Call: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromCallExpression(node, usage, flags);
+                typeResult = getTypeFromCall(node, usage, flags);
                 break;
             }
 
             case ParseNodeType.Tuple: {
-                typeResult = getTypeFromTupleExpression(node, usage);
+                typeResult = getTypeFromTuple(node, usage);
                 break;
             }
 
             case ParseNodeType.Constant: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromConstantExpression(node);
+                typeResult = getTypeFromConstant(node);
                 break;
             }
 
@@ -1489,7 +1500,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             case ParseNodeType.BinaryOperation: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromBinaryExpression(node);
+                typeResult = getTypeFromBinaryOperation(node);
                 break;
             }
 
@@ -1502,13 +1513,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
 
             case ParseNodeType.List: {
-                typeResult = getTypeFromListExpression(node, usage);
+                typeResult = getTypeFromList(node, usage);
                 break;
             }
 
             case ParseNodeType.Slice: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromSliceExpression(node);
+                typeResult = getTypeFromSlice(node);
                 break;
             }
 
@@ -1524,31 +1535,31 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             case ParseNodeType.Ternary: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromTernaryExpression(node, flags);
+                typeResult = getTypeFromTernary(node, flags);
                 break;
             }
 
             case ParseNodeType.ListComprehension: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromListComprehensionExpression(node);
+                typeResult = getTypeFromListComprehension(node);
                 break;
             }
 
             case ParseNodeType.Dictionary: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromDictionaryExpression(node, usage);
+                typeResult = getTypeFromDictionary(node, usage);
                 break;
             }
 
             case ParseNodeType.Lambda: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromLambdaExpression(node, usage);
+                typeResult = getTypeFromLambda(node, usage);
                 break;
             }
 
             case ParseNodeType.Set: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromSetExpression(node, usage);
+                typeResult = getTypeFromSet(node, usage);
                 break;
             }
 
@@ -1571,13 +1582,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
             case ParseNodeType.Yield: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromYieldExpression(node);
+                typeResult = getTypeFromYield(node);
                 break;
             }
 
             case ParseNodeType.YieldFrom: {
                 reportUsageErrorForReadOnly(node, usage);
-                typeResult = getTypeFromYieldFromExpression(node);
+                typeResult = getTypeFromYieldFrom(node);
                 break;
             }
 
@@ -1719,11 +1730,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromMemberAccessExpression(node: MemberAccessNode,
+    function getTypeFromMemberAccess(node: MemberAccessNode,
             usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
         const baseTypeResult = getTypeFromExpression(node.leftExpression);
-        const memberType = getTypeFromMemberAccessExpressionWithBaseType(
+        const memberType = getTypeFromMemberAccessWithBaseType(
             node, baseTypeResult, usage, flags);
 
         if (usage.method === 'get') {
@@ -1741,7 +1752,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return memberType;
     }
 
-    function getTypeFromMemberAccessExpressionWithBaseType(node: MemberAccessNode,
+    function getTypeFromMemberAccessWithBaseType(node: MemberAccessNode,
             baseTypeResult: TypeResult, usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
         const baseType = baseTypeResult.type;
@@ -1771,7 +1782,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 if (classFromTypeObject) {
                     // Handle the case where the object is a 'Type' object, which
                     // represents a class.
-                    return getTypeFromMemberAccessExpressionWithBaseType(node,
+                    return getTypeFromMemberAccessWithBaseType(node,
                         { type: classFromTypeObject, node: baseTypeResult.node },
                         usage, flags);
                 }
@@ -1812,7 +1823,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                         // be reported elsewhere.
                         return undefined;
                     } else {
-                        const typeResult = getTypeFromMemberAccessExpressionWithBaseType(node,
+                        const typeResult = getTypeFromMemberAccessWithBaseType(node,
                             {
                                 type: subtype,
                                 node
@@ -2153,7 +2164,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return undefined;
     }
 
-    function getTypeFromIndexExpression(node: IndexNode, usage: EvaluatorUsage,
+    function getTypeFromIndex(node: IndexNode, usage: EvaluatorUsage,
             flags: EvaluatorFlags): TypeResult {
 
         const baseTypeResult = getTypeFromExpression(node.baseExpression,
@@ -2418,7 +2429,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return typeResult;
     }
 
-    function getTypeFromTupleExpression(node: TupleNode, usage: EvaluatorUsage): TypeResult {
+    function getTypeFromTuple(node: TupleNode, usage: EvaluatorUsage): TypeResult {
         // Build an array of expected types.
         const expectedTypes: Type[] = [];
         if (usage.expectedType && usage.expectedType.category === TypeCategory.Object) {
@@ -2486,7 +2497,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromCallExpression(node: CallNode, usage: EvaluatorUsage,
+    function getTypeFromCall(node: CallNode, usage: EvaluatorUsage,
             flags: EvaluatorFlags): TypeResult {
 
         const baseTypeResult = getTypeFromExpression(node.leftExpression,
@@ -2525,7 +2536,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             return functionArg;
         });
 
-        return getTypeFromCallExpressionWithBaseType(
+        return getTypeFromCallWithBaseType(
             node, argList, baseTypeResult, usage, flags);
     }
 
@@ -2621,7 +2632,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return UnknownType.create();
     }
 
-    function getTypeFromCallExpressionWithBaseType(errorNode: ExpressionNode,
+    function getTypeFromCallWithBaseType(errorNode: ExpressionNode,
             argList: FunctionArgument[], baseTypeResult: TypeResult, usage: EvaluatorUsage,
             flags: EvaluatorFlags, specializeReturnType = true): TypeResult {
 
@@ -2810,7 +2821,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                             `Object of type 'None' cannot be called`,
                             errorNode);
                     } else {
-                        const typeResult = getTypeFromCallExpressionWithBaseType(
+                        const typeResult = getTypeFromCallWithBaseType(
                             errorNode,
                             argList,
                             {
@@ -3871,7 +3882,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
     }
 
-    function getTypeFromConstantExpression(node: ConstantNode): TypeResult | undefined {
+    function getTypeFromConstant(node: ConstantNode): TypeResult | undefined {
         let type: Type | undefined;
 
         if (node.token.type === TokenType.Keyword) {
@@ -3952,7 +3963,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromBinaryExpression(node: BinaryOperationNode): TypeResult {
+    function getTypeFromBinaryOperation(node: BinaryOperationNode): TypeResult {
         let leftExpression = node.leftExpression;
 
         // If this is a comparison and the left expression is also a comparison,
@@ -4240,13 +4251,13 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return specializeType(expectedType, typeVarMap);
     }
 
-    function getTypeFromSetExpression(node: SetNode, usage: EvaluatorUsage): TypeResult {
+    function getTypeFromSet(node: SetNode, usage: EvaluatorUsage): TypeResult {
         const entryTypes: Type[] = [];
 
         // Infer the set type based on the entries.
         node.entries.forEach(entryNode => {
             if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                const setEntryType = getElementTypeFromListComprehensionExpression(entryNode);
+                const setEntryType = getElementTypeFromListComprehension(entryNode);
                 entryTypes.push(setEntryType);
             } else {
                 entryTypes.push(getTypeFromExpression(entryNode).type);
@@ -4278,7 +4289,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromDictionaryExpression(node: DictionaryNode, usage: EvaluatorUsage): TypeResult {
+    function getTypeFromDictionary(node: DictionaryNode, usage: EvaluatorUsage): TypeResult {
         let keyType: Type = AnyType.create();
         let valueType: Type = AnyType.create();
 
@@ -4331,7 +4342,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     }
                 }
             } else if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                const dictEntryType = getElementTypeFromListComprehensionExpression(
+                const dictEntryType = getElementTypeFromListComprehension(
                     node.entries[0] as ListComprehensionNode);
 
                 // The result should be a Tuple
@@ -4420,11 +4431,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromListExpression(node: ListNode, usage: EvaluatorUsage): TypeResult {
+    function getTypeFromList(node: ListNode, usage: EvaluatorUsage): TypeResult {
         let listEntryType: Type = AnyType.create();
 
         if (node.entries.length === 1 && node.entries[0].nodeType === ParseNodeType.ListComprehension) {
-            listEntryType = getElementTypeFromListComprehensionExpression(node.entries[0]);
+            listEntryType = getElementTypeFromListComprehension(node.entries[0]);
         } else {
             let entryTypes = node.entries.map(entry => getTypeFromExpression(entry).type);
 
@@ -4461,20 +4472,17 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type, node };
     }
 
-    function getTypeFromTernaryExpression(node: TernaryNode, flags: EvaluatorFlags): TypeResult {
+    function getTypeFromTernary(node: TernaryNode, flags: EvaluatorFlags): TypeResult {
         getTypeFromExpression(node.testExpression);
 
-        const ifType = getTypeFromExpression(node.ifExpression,
-                { method: 'get' }, flags);
-
-        const elseType = getTypeFromExpression(node.elseExpression,
-                { method: 'get' }, flags);
+        const ifType = getTypeFromExpression(node.ifExpression, { method: 'get' }, flags);
+        const elseType = getTypeFromExpression(node.elseExpression, { method: 'get' }, flags);
 
         const type = combineTypes([ifType.type, elseType.type]);
         return { type, node };
     }
 
-    function getTypeFromYieldExpression(node: YieldNode): TypeResult {
+    function getTypeFromYield(node: YieldNode): TypeResult {
         let sentType: Type | undefined;
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
@@ -4491,7 +4499,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type: sentType, node };
     }
 
-    function getTypeFromYieldFromExpression(node: YieldFromNode): TypeResult {
+    function getTypeFromYieldFrom(node: YieldFromNode): TypeResult {
         let sentType: Type | undefined;
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
@@ -4508,7 +4516,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type: sentType, node };
     }
 
-    function getTypeFromLambdaExpression(node: LambdaNode, usage: EvaluatorUsage): TypeResult {
+    function getTypeFromLambda(node: LambdaNode, usage: EvaluatorUsage): TypeResult {
         const functionType = FunctionType.create(FunctionTypeFlags.None);
 
         let expectedFunctionType: FunctionType | undefined;
@@ -4548,8 +4556,8 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return { type: functionType, node };
     }
 
-    function getTypeFromListComprehensionExpression(node: ListComprehensionNode): TypeResult {
-        const elementType = getElementTypeFromListComprehensionExpression(node);
+    function getTypeFromListComprehension(node: ListComprehensionNode): TypeResult {
+        const elementType = getElementTypeFromListComprehension(node);
 
         let type: Type = UnknownType.create();
         const builtInIteratorType = getTypingType(node, 'Generator');
@@ -4586,7 +4594,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
     // Returns the type of one entry returned by the list comprehension,
     // as opposed to the entire list.
-    function getElementTypeFromListComprehensionExpression(node: ListComprehensionNode): Type {
+    function getElementTypeFromListComprehension(node: ListComprehensionNode): Type {
         // "Execute" the list comprehensions from start to finish.
         for (const comprehension of node.comprehensions) {
             if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
@@ -4625,7 +4633,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         return type;
     }
 
-    function getTypeFromSliceExpression(node: SliceNode): TypeResult {
+    function getTypeFromSlice(node: SliceNode): TypeResult {
         const intObject = getBuiltInObject(node, 'int');
         const optionalIntObject = combineTypes([intObject, NoneType.create()]);
 

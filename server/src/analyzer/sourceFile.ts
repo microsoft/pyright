@@ -55,7 +55,7 @@ const _maxImportCyclesPerFile = 4;
 // The number is somewhat arbitrary. It needs to be at least
 // 21 or so to handle all of the import cycles in the stdlib
 // files.
-const _maxAnalysisPassCount = 50;
+const _maxAnalysisPassCount = 20;
 
 export class SourceFile {
     // Console interface to use for debugging.
@@ -168,10 +168,6 @@ export class SourceFile {
             console?: ConsoleInterface) {
 
         this._console = console || new StandardConsole();
-        if (this._console) {
-            // This is here to prevent the compiler from complaining
-            // about an unused instance variable.
-        }
         this._filePath = filePath;
         this._isStubFile = filePath.endsWith('.pyi');
         this._isTypeshedStubFile = isTypeshedStubFile;
