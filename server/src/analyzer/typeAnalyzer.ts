@@ -294,7 +294,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             returnType = NoneType.create();
         }
 
-        if (this._isNodeReachable(node) && enclosingFunctionNode) {
+        if (this._evaluator.isNodeReachable(node) && enclosingFunctionNode) {
             if (declaredReturnType) {
                 if (isNoReturnType(declaredReturnType)) {
                     this._evaluator.addError(
@@ -745,21 +745,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                 `'${ nameNode.nameToken.value }' is not accessed`, nameNode);
             this._evaluator.addDiagnostic(diagnosticLevel, rule, message, nameNode);
         }
-    }
-
-    private _getAliasedSymbolTypeForName(name: string): Type | undefined {
-        const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name);
-        if (!symbolWithScope) {
-            return undefined;
-        }
-
-        const aliasDecl = symbolWithScope.symbol.getDeclarations().find(
-            decl => decl.type === DeclarationType.Alias);
-        if (!aliasDecl) {
-            return undefined;
-        }
-
-        return DeclarationUtils.getInferredTypeOfDeclaration(aliasDecl, this._fileInfo.importLookup);
     }
 
     // Validates that a call to isinstance or issubclass are necessary. This is a
@@ -1354,7 +1339,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
             }
         }
 
-        if (this._isNodeReachable(node)) {
+        if (this._evaluator.isNodeReachable(node)) {
             if (declaredYieldType) {
                 if (isNoReturnType(declaredYieldType)) {
                     this._evaluator.addError(
@@ -1431,10 +1416,6 @@ export class TypeAnalyzer extends ParseTreeWalker {
                     diagAddendum.getString(),
                 errorNode);
         }
-    }
-
-    private _isNodeReachable(node: ParseNode): boolean {
-        return this._evaluator.isNodeReachable(node);
     }
 
     private _getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): Type {
