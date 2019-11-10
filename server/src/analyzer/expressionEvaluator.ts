@@ -4547,8 +4547,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             FunctionType.addParameter(functionType, functionParam);
         });
 
-        getType(node.expression);
-        functionType.details.inferredReturnTypeNode = node.expression;
+        functionType.details.inferredReturnType = getType(node.expression);
 
         return { type: functionType, node };
     }
@@ -5459,9 +5458,10 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             functionFlags |= FunctionTypeFlags.Async;
         }
 
+        functionFlags |= getFunctionFlagsFromDescriptors(node);
+
         functionType = FunctionType.create(functionFlags,
             ParseTreeUtils.getDocString(node.suite.statements));
-        functionType.details.inferredReturnTypeNode = node.suite;
 
         if (fileInfo.isBuiltInStubFile || fileInfo.isTypingStubFile) {
             // Stash away the name of the function since we need to handle
@@ -5574,30 +5574,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
             }
         });
 
-        // If it's an async function, wrap the return type in an Awaitable or Generator.
-        const preDecoratedType = node.isAsync ? createAwaitableFunction(node, functionType) : functionType;
-
-        // Apply all of the decorators in reverse order.
-        decoratedType = preDecoratedType;
-        let foundUnknown = false;
-        for (let i = node.decorators.length - 1; i >= 0; i--) {
-            const decorator = node.decorators[i];
-
-            decoratedType = applyFunctionDecorator(decoratedType, functionType, decorator);
-            if (decoratedType.category === TypeCategory.Unknown) {
-                // Report this error only on the first unknown type.
-                if (!foundUnknown) {
-                    addDiagnostic(
-                        fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
-                        DiagnosticRule.reportUntypedFunctionDecorator,
-                        `Untyped function declarator obscures type of function`,
-                        node.decorators[i].leftExpression);
-
-                    foundUnknown = true;
-                }
-            }
-        }
-
         if (containingClassNode) {
             if (!FunctionType.isClassMethod(functionType) && !FunctionType.isStaticMethod(functionType)) {
                 // Mark the function as an instance method.
@@ -5605,9 +5581,9 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
 
                 // If there's a separate async version, mark it as an instance
                 // method as well.
-                if (functionType !== preDecoratedType) {
-                    preDecoratedType.details.flags |= FunctionTypeFlags.InstanceMethod;
-                }
+                // if (node.isAsync) {
+                //     functionType.details.flags |= FunctionTypeFlags.InstanceMethod;
+                // }
             }
 
             // If the first parameter doesn't have an explicit type annotation,
@@ -5647,6 +5623,36 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                 updateExpressionTypeForNode(paramNameNode, paramType);
             }
         });
+
+        // Infer the return type based on the body of the function.
+        if (!node.returnTypeAnnotation) {
+            functionType.details.inferredReturnType = inferFunctionReturnType(
+                node, FunctionType.isAbstractMethod(functionType));
+        }
+
+        // If it's an async function, wrap the return type in an Awaitable or Generator.
+        const preDecoratedType = node.isAsync ? createAwaitableFunction(node, functionType) : functionType;
+
+        // Apply all of the decorators in reverse order.
+        decoratedType = preDecoratedType;
+        let foundUnknown = false;
+        for (let i = node.decorators.length - 1; i >= 0; i--) {
+            const decorator = node.decorators[i];
+
+            decoratedType = applyFunctionDecorator(decoratedType, functionType, decorator);
+            if (decoratedType.category === TypeCategory.Unknown) {
+                // Report this error only on the first unknown type.
+                if (!foundUnknown) {
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
+                        DiagnosticRule.reportUntypedFunctionDecorator,
+                        `Untyped function declarator obscures type of function`,
+                        node.decorators[i].leftExpression);
+
+                    foundUnknown = true;
+                }
+            }
+        }
 
         // Update the type of the undecorated function.
         updateExpressionTypeForNode(node, functionType);
@@ -5697,6 +5703,29 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         }
     }
 
+    // Scans through the decorators to find a few built-in decorators
+    // that affect the function flags.
+    function getFunctionFlagsFromDescriptors(node: FunctionNode) {
+        let flags = FunctionTypeFlags.None;
+
+        for (const decoratorNode of node.decorators) {
+            const decoratorType = getType(decoratorNode.leftExpression);
+            if (decoratorType.category === TypeCategory.Function) {
+                if (decoratorType.details.builtInName === 'abstractmethod') {
+                    flags |= FunctionTypeFlags.AbstractMethod;
+                }
+            } else if (decoratorType.category === TypeCategory.Class) {
+                if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
+                    flags |= FunctionTypeFlags.StaticMethod;
+                } else if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
+                    flags |= FunctionTypeFlags.ClassMethod;
+                }
+            }
+        }
+
+        return flags;
+    }
+
     // Transforms the input function type into an output type based on the
     // decorator function described by the decoratorNode.
     function applyFunctionDecorator(inputFunctionType: Type,
@@ -5719,7 +5748,6 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         // Check for some built-in decorator types with known semantics.
         if (decoratorType.category === TypeCategory.Function) {
             if (decoratorType.details.builtInName === 'abstractmethod') {
-                originalFunctionType.details.flags |= FunctionTypeFlags.AbstractMethod;
                 return inputFunctionType;
             }
 
@@ -5735,17 +5763,11 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
                     }
                 }
             }
-
         } else if (decoratorType.category === TypeCategory.Class) {
             if (ClassType.isBuiltIn(decoratorType)) {
                 switch (decoratorType.details.name) {
+                    case 'classmethod':
                     case 'staticmethod': {
-                        originalFunctionType.details.flags |= FunctionTypeFlags.StaticMethod;
-                        return inputFunctionType;
-                    }
-
-                    case 'classmethod': {
-                        originalFunctionType.details.flags |= FunctionTypeFlags.ClassMethod;
                         return inputFunctionType;
                     }
 
@@ -5800,7 +5822,7 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
     }
 
     function createAwaitableFunction(node: ParseNode, functionType: FunctionType): FunctionType {
-        const returnType = functionType.details.declaredReturnType;
+        const returnType = functionType.details.declaredReturnType || functionType.details.inferredReturnType;
         if (!returnType) {
             return functionType;
         }
@@ -5849,6 +5871,106 @@ export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSin
         FunctionType.setDeclaredReturnType(awaitableFunctionType, awaitableReturnType);
 
         return awaitableFunctionType;
+    }
+
+    function inferFunctionReturnType(node: FunctionNode, isAbstract: boolean): Type | undefined {
+        // This shouldn't be called if there is a declared return type.
+        assert(!node.returnTypeAnnotation);
+
+        // Is this type already cached?
+        let inferredReturnType = AnalyzerNodeInfo.peekExpressionType(node.suite, analysisVersion);
+        if (inferredReturnType) {
+            return inferredReturnType;
+        }
+
+        // Protect against recursion.
+        if (!pushTypeResolution(node.suite)) {
+            return undefined;
+        }
+
+        const functionDecl = AnalyzerNodeInfo.getFunctionDeclaration(node)!;
+
+        // Is it a generator?
+        if (functionDecl.yieldExpressions) {
+            const inferredYieldTypes: Type[] = [];
+            functionDecl.yieldExpressions.forEach(yieldNode => {
+                if (isNodeReachable(yieldNode)) {
+                    if (yieldNode.expression) {
+                        const cachedType = getType(yieldNode.expression);
+                        inferredYieldTypes.push(cachedType || UnknownType.create());
+                    } else {
+                        inferredYieldTypes.push(NoneType.create());
+                    }
+                }
+            });
+
+            if (inferredYieldTypes.length === 0) {
+                inferredYieldTypes.push(NoneType.create());
+            }
+            inferredReturnType = combineTypes(inferredYieldTypes);
+
+            // Inferred yield types need to be wrapped in a Generator to
+            // produce the final result.
+            const generatorType = getTypingType(node, 'Generator');
+            if (generatorType && generatorType.category === TypeCategory.Class) {
+                inferredReturnType = ObjectType.create(
+                    ClassType.cloneForSpecialization(generatorType, [inferredReturnType]));
+            } else {
+                inferredReturnType = UnknownType.create();
+            }
+
+            updateExpressionTypeForNode(node.suite, inferredReturnType);
+        } else {
+            const functionNeverReturns = !isAfterNodeReachable(node);
+            const implicitlyReturnsNone = isAfterNodeReachable(node.suite);
+
+            // Infer the return type based on all of the return statements in the function's body.
+            if (getFileInfo(node).isStubFile) {
+                // If a return type annotation is missing in a stub file, assume
+                // it's an "unknown" type. In normal source files, we can infer the
+                // type from the implementation.
+                inferredReturnType = UnknownType.create();
+            } else if (functionNeverReturns) {
+                // If the function always raises and never returns, assume a "NoReturn" type.
+                // Skip this for abstract methods which often are implemented with "raise
+                // NotImplementedError()".
+                if (isAbstract) {
+                    inferredReturnType = UnknownType.create();
+                } else {
+                    const noReturnClass = getTypingType(node, 'NoReturn');
+                    if (noReturnClass && noReturnClass.category === TypeCategory.Class) {
+                        inferredReturnType = ObjectType.create(noReturnClass);
+                    } else {
+                        inferredReturnType = UnknownType.create();
+                    }
+                }
+            } else {
+                const inferredReturnTypes: Type[] = [];
+                if (functionDecl.returnExpressions) {
+                    functionDecl.returnExpressions.forEach(returnNode => {
+                        if (isNodeReachable(returnNode)) {
+                            if (returnNode.returnExpression) {
+                                const returnType = getType(returnNode.returnExpression);
+                                inferredReturnTypes.push(returnType || UnknownType.create());
+                            } else {
+                                inferredReturnTypes.push(NoneType.create());
+                            }
+                        }
+                    });
+                }
+
+                if (!functionNeverReturns && implicitlyReturnsNone) {
+                    inferredReturnTypes.push(NoneType.create());
+                }
+
+                inferredReturnType = combineTypes(inferredReturnTypes);
+            }
+
+            updateExpressionTypeForNode(node.suite, inferredReturnType);
+        }
+
+        popTypeResolution(node.suite);
+        return inferredReturnType;
     }
 
     function getTypeOfForTarget(node: ForNode): Type | undefined {

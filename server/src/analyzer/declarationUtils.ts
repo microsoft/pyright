@@ -342,7 +342,7 @@ export function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefi
         if (FunctionType.isGenerator(functionType)) {
             return TypeUtils.getDeclaredGeneratorReturnType(functionType);
         } else {
-            return FunctionType.getDeclaredReturnType(functionType);
+            return functionType.details.declaredReturnType;
         }
     }
 

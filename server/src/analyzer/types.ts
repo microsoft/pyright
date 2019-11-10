@@ -531,14 +531,9 @@ interface FunctionDetails {
     flags: FunctionTypeFlags;
     parameters: FunctionParameter[];
     declaredReturnType?: Type;
+    inferredReturnType?: Type;
     builtInName?: string;
     docString?: string;
-
-    // For functions or lambdas that have implementations
-    // available, this points to the suite (for functions)
-    // or the expression node (for lambdas) that can be
-    // used to determine the inferred return type.
-    inferredReturnTypeNode?: SuiteNode | ExpressionNode;
 }
 
 export interface SpecializedFunctionTypes {
@@ -581,7 +576,7 @@ export namespace FunctionType {
             declaredReturnType: type.details.declaredReturnType,
             builtInName: type.details.builtInName,
             docString: type.details.docString,
-            inferredReturnTypeNode: type.details.inferredReturnTypeNode
+            inferredReturnType: type.details.inferredReturnType
         };
 
         // If we strip off the first parameter, this is no longer an
@@ -667,10 +662,6 @@ export namespace FunctionType {
 
     export function addParameter(type: FunctionType, param: FunctionParameter) {
         type.details.parameters.push(param);
-    }
-
-    export function getDeclaredReturnType(type: FunctionType) {
-        return type.details.declaredReturnType;
     }
 
     export function getSpecializedReturnType(type: FunctionType) {
@@ -970,8 +961,8 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             }
 
             // Make sure the return types match.
-            const return1Type = FunctionType.getDeclaredReturnType(type1);
-            const return2Type = FunctionType.getDeclaredReturnType(functionType2);
+            let return1Type = type1.details.declaredReturnType;
+            let return2Type = functionType2.details.declaredReturnType;
             if (return1Type || return2Type) {
                 if (!return1Type || !return2Type ||
                         !isTypeSame(return1Type, return2Type, recursionCount + 1)) {
@@ -980,8 +971,14 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 }
             }
 
-            if (type1.details.inferredReturnTypeNode !== functionType2.details.inferredReturnTypeNode) {
-                return false;
+            return1Type = type1.details.inferredReturnType;
+            return2Type = functionType2.details.inferredReturnType;
+            if (return1Type || return2Type) {
+                if (!return1Type || !return2Type ||
+                        !isTypeSame(return1Type, return2Type, recursionCount + 1)) {
+
+                    return false;
+                }
             }
 
             return true;
