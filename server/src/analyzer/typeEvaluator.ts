@@ -4514,10 +4514,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction) {
-            const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction) as FunctionType;
-            if (functionType) {
-                assert(functionType.category === TypeCategory.Function);
-                sentType = getDeclaredGeneratorSendType(functionType);
+            const functionTypeInfo = getTypeOfFunction(enclosingFunction);
+            if (functionTypeInfo) {
+                sentType = getDeclaredGeneratorSendType(functionTypeInfo.functionType);
             }
         }
 
@@ -4533,10 +4532,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction) {
-            const functionType = AnalyzerNodeInfo.getExpressionType(enclosingFunction) as FunctionType;
-            if (functionType) {
-                assert(functionType.category === TypeCategory.Function);
-                sentType = getDeclaredGeneratorSendType(functionType);
+            const functionTypeInfo = getTypeOfFunction(enclosingFunction);
+            if (functionTypeInfo) {
+                sentType = getDeclaredGeneratorSendType(functionTypeInfo.functionType);
             }
         }
 
@@ -5478,7 +5476,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Retrieve the containing class node if the function is a method.
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         const containingClassType = containingClassNode ?
-            AnalyzerNodeInfo.getExpressionType(containingClassNode) as ClassType : undefined;
+            getTypeOfClass(containingClassNode).classType : undefined;
         const functionDecl = AnalyzerNodeInfo.getFunctionDeclaration(node)!;
 
         // The "__new__" magic method is not an instance method.
@@ -5850,12 +5848,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (declIndex > 0) {
                 const overloadedTypes: OverloadedFunctionEntry[] = [{ type, typeSourceId: decls[declIndex].node.id }];
                 while (declIndex > 0) {
-                    const declType = AnalyzerNodeInfo.getExpressionType(decls[declIndex - 1].node);
-                    if (!declType || declType.category !== TypeCategory.Function || !FunctionType.isOverloaded(declType)) {
+                    const decl = decls[declIndex - 1];
+                    if (decl.type !== DeclarationType.Function && decl.type !== DeclarationType.Method) {
                         break;
                     }
 
-                    overloadedTypes.unshift({ type: declType, typeSourceId: decls[declIndex - 1].node.id });
+                    const declTypeInfo = getTypeOfFunction(decl.node);
+                    if (!FunctionType.isOverloaded(declTypeInfo.functionType)) {
+                        break;
+                    }
+
+                    overloadedTypes.unshift({
+                        type: declTypeInfo.functionType,
+                        typeSourceId: decls[declIndex - 1].node.id
+                    });
                     declIndex--;
                 }
 
