@@ -15,7 +15,6 @@ import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import { Binder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
-import { SymbolTable } from '../analyzer/symbol';
 import { TestWalker } from '../analyzer/testWalker';
 import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
