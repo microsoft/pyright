@@ -1232,7 +1232,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): Type {
-        return this._evaluator.getTypeOfExpression(node, { method: 'get', expectedType }, flags).type;
+        return this._evaluator.getTypeOfExpression(node, expectedType, flags).type;
     }
 
     // Validates that a new type declaration doesn't conflict with an
