@@ -53,7 +53,7 @@ const _maxImportCyclesPerFile = 4;
 // At some point, we'll cut off the analysis passes and assume
 // we're making no forward progress. This should happen only
 // on the case of bugs in the analyzer.
-const _maxAnalysisPassCount = 25;
+const _maxAnalysisPassCount = 50;
 
 export class SourceFile {
     // Console interface to use for debugging.

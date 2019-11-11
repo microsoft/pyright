@@ -823,7 +823,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const indexItemsNode = node.parent;
             if (indexItemsNode.parent && indexItemsNode.parent.nodeType === ParseNodeType.Index) {
                 const indexNode = indexItemsNode.parent;
-                const baseType = AnalyzerNodeInfo.getExpressionType(indexNode.baseExpression);
+                const baseType = getType(indexNode.baseExpression);
                 if (baseType && baseType.category === TypeCategory.Class) {
                     if (ClassType.isSpecialBuiltIn(baseType, 'Literal')) {
                         return true;
@@ -964,16 +964,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const enclosingClassNode = ParseTreeUtils.getEnclosingClass(target);
 
             if (enclosingClassNode) {
-                const classType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
+                const classTypeResults = getTypeOfClass(enclosingClassNode);
 
-                if (classType && classType.category === TypeCategory.Class) {
+                if (classTypeResults && classTypeResults.classType.category === TypeCategory.Class) {
                     const typeOfLeftExpr = getTypeOfExpression(target.leftExpression).type;
                     if (typeOfLeftExpr.category === TypeCategory.Object) {
-                        if (ClassType.isSameGenericClass(typeOfLeftExpr.classType, classType)) {
+                        if (ClassType.isSameGenericClass(typeOfLeftExpr.classType, classTypeResults.classType)) {
                             assignTypeToMemberVariable(target, type, true, srcExpr);
                         }
                     } else if (typeOfLeftExpr.category === TypeCategory.Class) {
-                        if (ClassType.isSameGenericClass(typeOfLeftExpr, classType)) {
+                        if (ClassType.isSameGenericClass(typeOfLeftExpr, classTypeResults.classType)) {
                             assignTypeToMemberVariable(target, type, false, srcExpr);
                         }
                     }
@@ -995,18 +995,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         let destType = srcType;
 
-        const classType = AnalyzerNodeInfo.getExpressionType(classDef);
-        if (classType && classType.category === TypeCategory.Class) {
-            let memberInfo = lookUpClassMember(classType, memberName,
+        const classTypeInfo = getTypeOfClass(classDef);
+        if (classTypeInfo && classTypeInfo.classType.category === TypeCategory.Class) {
+            let memberInfo = lookUpClassMember(classTypeInfo.classType, memberName,
                 importLookup, isInstanceMember ? ClassMemberLookupFlags.Default :
                     ClassMemberLookupFlags.SkipInstanceVariables);
 
-            const memberFields = ClassType.getFields(classType);
+            const memberFields = ClassType.getFields(classTypeInfo.classType);
             if (memberInfo) {
                 // Are we accessing an existing member on this class, or is
                 // it a member on a parent class?
                 const isThisClass = memberInfo.classType.category === TypeCategory.Class &&
-                        ClassType.isSameGenericClass(classType, memberInfo.classType);
+                        ClassType.isSameGenericClass(classTypeInfo.classType, memberInfo.classType);
 
                 if (isThisClass && memberInfo.isInstanceMember === isInstanceMember) {
                     const symbol = memberFields.get(memberName)!;
@@ -1044,7 +1044,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             // Look up the member info again, now that we've potentially updated it.
-            memberInfo = lookUpClassMember(classType, memberName,
+            memberInfo = lookUpClassMember(classTypeInfo.classType, memberName,
                 importLookup, ClassMemberLookupFlags.DeclaredTypesOnly);
             if (memberInfo) {
                 const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
@@ -2583,7 +2583,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         } else {
             const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
             if (enclosingClass) {
-                targetClassType = AnalyzerNodeInfo.getExpressionType(enclosingClass) as ClassType;
+                targetClassType = getTypeOfClass(enclosingClass).classType;
             } else {
                 addError(
                     `Zero-argument form of super call is valid only within a class'`,
@@ -4957,21 +4957,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // "EnumMeta", we need to treat assignments differently.
         const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         if (enclosingClassNode) {
-            const enumClass = AnalyzerNodeInfo.getExpressionType(enclosingClassNode) as ClassType;
-            assert(enumClass.category === TypeCategory.Class);
+            const enumClassInfo = getTypeOfClass(enclosingClassNode);
 
             // Handle several built-in classes specially. We don't
             // want to interpret their class variables as enumerations.
             if (getFileInfo(node).isStubFile) {
-                const className = enumClass.details.name;
+                const className = enumClassInfo.classType.details.name;
                 const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
                 if (builtInEnumClasses.find(c => c === className)) {
                     return typeOfExpr;
                 }
             }
 
-            if (isEnumClass(enumClass)) {
-                return ObjectType.create(enumClass);
+            if (isEnumClass(enumClassInfo.classType)) {
+                return ObjectType.create(enumClassInfo.classType);
             }
         }
 
@@ -6242,8 +6241,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             UnknownType.create();
 
         // Is there a cached module type associated with this node? If so, use
-        // it instead of the type we just created. This will preserve the
-        // symbol accessed flags.
+        // it instead of the type we just created.
         const cachedModuleType = AnalyzerNodeInfo.getExpressionType(node) as ModuleType;
         if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && symbolType) {
             if (isTypeSame(symbolType, cachedModuleType)) {
@@ -7092,9 +7090,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         isSpeculativeMode = prevSpeculativeMode;
     }
 
-    function getFileInfo(node: ParseNode) {
-        const moduleNode = ParseTreeUtils.getEnclosingModule(node);
-        return AnalyzerNodeInfo.getFileInfo(moduleNode)!;
+    function getFileInfo(node: ParseNode): AnalyzerFileInfo {
+        while (node.nodeType !== ParseNodeType.Module) {
+            node = node.parent!;
+        }
+        return AnalyzerNodeInfo.getFileInfo(node)!;
     }
 
     return {
