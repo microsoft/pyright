@@ -30,6 +30,7 @@ import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
+import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
@@ -75,9 +76,11 @@ export class Program {
     private _sourceFileList: SourceFileInfo[] = [];
     private _sourceFileMap: { [path: string]: SourceFileInfo } = {};
     private _allowedThirdPartyImports: string[] | undefined;
+    private _evaluator: TypeEvaluator;
 
     constructor(console?: ConsoleInterface) {
         this._console = console || new StandardConsole();
+        this._evaluator = createTypeEvaluator(this._lookUpImport);
     }
 
     // Sets the list of tracked files that make up the program.
@@ -629,14 +632,14 @@ export class Program {
                 // Do a type analysis pass and determine if any internal changes occurred
                 // during the pass. If so, continue to analyze until it stops changing and
                 // mark all of its dependencies as needing to be reanalyzed.
-                let didAnalysisChange = false;
+                let requiresReanalysis = false;
                 while (true) {
-                    fileToAnalyze.sourceFile.checkTypes();
+                    fileToAnalyze.sourceFile.check(this._evaluator);
 
                     if (!fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
                         break;
                     } else {
-                        didAnalysisChange = true;
+                        requiresReanalysis = true;
                         if (timeElapsedCallback()) {
                             break;
                         }
@@ -646,7 +649,7 @@ export class Program {
                 // We completed one or more updates to the file in this type
                 // analysis pass, so we need to add its dependencies back
                 // onto the queue if they're not already on it.
-                if (didAnalysisChange) {
+                if (requiresReanalysis) {
                     for (const dependency of fileToAnalyze.importedBy) {
                         const dependencyFilePath = dependency.sourceFile.getFilePath();
 

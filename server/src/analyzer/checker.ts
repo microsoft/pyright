@@ -37,7 +37,7 @@ import * as ScopeUtils from './scopeUtils';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
-import { createTypeEvaluator, EvaluatorFlags, TypeEvaluator } from './typeEvaluator';
+import { EvaluatorFlags, TypeEvaluator } from './typeEvaluator';
 import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, isTypeSame, NoneType,
     ObjectType, Type, TypeCategory, UnknownType } from './types';
 import { canAssignType, canOverrideMethod, containsUnknown, derivesFromClassRecursive,
@@ -51,73 +51,36 @@ export class Checker extends ParseTreeWalker {
     private readonly _evaluator: TypeEvaluator;
     private _currentScope: Scope;
 
-    // Indicates where there was a change in the type analysis
-    // the last time analyze() was called. Callers should repeatedly
-    // call analyze() until this returns false.
-    private _didAnalysisChange: boolean;
-
-    // The last reason the analysis needed to change. Useful for
-    // determining how to reduce the number of analysis passes.
-    private _lastAnalysisChangeReason: string;
-
     // A list of all nodes that are defined within the module that
     // have their own scopes.
     private _scopedNodes: AnalyzerNodeInfo.ScopedNode[] = [];
 
-    // Analysis version is incremented each time an analyzer pass
-    // is performed. It allows the code to determine when cached
-    // type information needs to be regenerated because it was
-    // from a previous pass.
-    private _analysisVersion: number;
-
-    // Map of symbols that have been accessed within this module.
-    // Used to report unaccessed symbols.
-    private _accessedSymbolMap: Map<number, true>;
-
-    constructor(node: ModuleNode, accessedSymbolMap: Map<number, true>,
-            analysisVersion: number) {
+    constructor(node: ModuleNode, evaluator: TypeEvaluator) {
 
         super();
 
         this._moduleNode = node;
         this._fileInfo = AnalyzerNodeInfo.getFileInfo(node)!;
         this._currentScope = AnalyzerNodeInfo.getScope(node)!;
-        this._didAnalysisChange = false;
-        this._accessedSymbolMap = accessedSymbolMap;
-        this._analysisVersion = analysisVersion;
-        this._evaluator = createTypeEvaluator(
-            this._fileInfo.diagnosticSink,
-            this._analysisVersion,
-            reason => {
-                this._setAnalysisChanged(reason);
-            },
-            this._accessedSymbolMap,
-            this._fileInfo.importLookup);
+        this._evaluator = evaluator;
     }
 
-    analyze() {
-        this._didAnalysisChange = false;
+    check() {
         this._scopedNodes.push(this._moduleNode);
 
         this.walkMultiple(this._moduleNode.statements);
 
-        if (!this._didAnalysisChange) {
+        if (!this._fileInfo.reanalysisRequired) {
             // Perform a one-time validation of symbols in all scopes
             // defined in this module for things like unaccessed variables.
             this._validateSymbolTables();
         }
-
-        return this._didAnalysisChange;
     }
 
     walk(node: ParseNode) {
         if (!this._isCodeUnreachable(node)) {
             super.walk(node);
         }
-    }
-
-    getLastReanalysisReason() {
-        return this._lastAnalysisChangeReason;
     }
 
     visitClass(node: ClassNode): boolean {
@@ -381,7 +344,9 @@ export class Checker extends ParseTreeWalker {
                 });
 
                 if (diagAddendum.getMessageCount() > 0) {
-                    this._evaluator.addError(`Expected exception class or object` + diagAddendum.getString(), node.typeExpression);
+                    this._evaluator.addError(
+                        `Expected exception class or object` + diagAddendum.getString(),
+                        node.typeExpression);
                 }
             }
         }
@@ -408,7 +373,9 @@ export class Checker extends ParseTreeWalker {
                 });
 
                 if (diagAddendum.getMessageCount() > 0) {
-                    this._evaluator.addError(`Expected exception object or None` + diagAddendum.getString(), node.valueExpression);
+                    this._evaluator.addError(
+                        `Expected exception object or None` + diagAddendum.getString(),
+                        node.valueExpression);
                 }
             }
         }
@@ -528,9 +495,11 @@ export class Checker extends ParseTreeWalker {
                     const decl = getLastTypedDeclaredForSymbol(symbolWithScope.symbol);
                     if (decl) {
                         if (decl.type === DeclarationType.Function || decl.type === DeclarationType.Method) {
-                            this._evaluator.addError('Del should not be applied to function', expr);
+                            this._evaluator.addError(
+                                'Del should not be applied to function', expr);
                         } else if (decl.type === DeclarationType.Class) {
-                            this._evaluator.addError('Del should not be applied to class', expr);
+                            this._evaluator.addError(
+                                'Del should not be applied to class', expr);
                         }
                     }
                 }
@@ -618,7 +587,8 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
-        if (symbol.isIgnoredForProtocolMatch() || this._accessedSymbolMap.has(symbol.getId())) {
+        const accessedSymbolMap = this._fileInfo.accessedSymbolMap;
+        if (symbol.isIgnoredForProtocolMatch() || accessedSymbolMap.has(symbol.getId())) {
             return;
         }
 
@@ -662,7 +632,8 @@ export class Checker extends ParseTreeWalker {
                             this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
                                 `'${ multipartName }' is not accessed`, textRange);
 
-                            this._evaluator.addDiagnostic(this._fileInfo.diagnosticSettings.reportUnusedImport,
+                            this._evaluator.addDiagnosticForTextRange(this._fileInfo,
+                                this._fileInfo.diagnosticSettings.reportUnusedImport,
                                 DiagnosticRule.reportUnusedImport,
                                 `Import '${ multipartName }' is not accessed`, textRange);
                             return;
@@ -726,7 +697,8 @@ export class Checker extends ParseTreeWalker {
         if (nameNode && rule !== undefined && message) {
             this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
                 `'${ nameNode.nameToken.value }' is not accessed`, nameNode);
-            this._evaluator.addDiagnostic(diagnosticLevel, rule, message, nameNode);
+            this._evaluator.addDiagnostic(
+                diagnosticLevel, rule, message, nameNode);
         }
     }
 
@@ -997,7 +969,8 @@ export class Checker extends ParseTreeWalker {
     // strings, and "pass" statements or ellipses.
     private _validateTypedDictClassSuite(suiteNode: SuiteNode) {
         const emitBadStatementError = (node: ParseNode) => {
-            this._evaluator.addError(`TypedDict classes can contain only type annotations`,
+            this._evaluator.addError(
+                `TypedDict classes can contain only type annotations`,
                 node);
         };
 
@@ -1060,7 +1033,8 @@ export class Checker extends ParseTreeWalker {
                     // an abstract method or a protocol method and don't require that
                     // the return type matches.
                     if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
-                        this._evaluator.addError(`Function with declared type of 'NoReturn' cannot return 'None'`,
+                        this._evaluator.addError(
+                            `Function with declared type of 'NoReturn' cannot return 'None'`,
                             node.returnTypeAnnotation);
                     }
                 } else if (!FunctionType.isAbstractMethod(functionType)) {
@@ -1076,7 +1050,8 @@ export class Checker extends ParseTreeWalker {
                         // an abstract method or a protocol method and don't require that
                         // the return type matches.
                         if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
-                            this._evaluator.addError(`Function with declared type of '${ printType(declaredReturnType) }'` +
+                            this._evaluator.addError(
+                                `Function with declared type of '${ printType(declaredReturnType) }'` +
                                     ` must return value` + diagAddendum.getString(),
                                 node.returnTypeAnnotation);
                         }
@@ -1265,11 +1240,11 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): Type {
-        return this._evaluator.getType(node, { method: 'get', expectedType }, flags);
+        return this._evaluator.getTypeOfExpression(node, { method: 'get', expectedType }, flags).type;
     }
 
-    private _evaluateExpressionForDeletion(node: ExpressionNode): Type {
-        return this._evaluator.getType(node, { method: 'del' }, EvaluatorFlags.None);
+    private _evaluateExpressionForDeletion(node: ExpressionNode) {
+        this._evaluator.getTypeOfExpression(node, { method: 'del' }, EvaluatorFlags.None);
     }
 
     // Validates that a new type declaration doesn't conflict with an
@@ -1280,8 +1255,9 @@ export class Checker extends ParseTreeWalker {
         const declaredType = this._evaluator.getDeclaredTypeForExpression(node);
         if (declaredType) {
             if (!isTypeSame(declaredType, type)) {
-                this._evaluator.addError(`Declared type '${ printType(type) }' is not compatible ` +
-                    `with declared type '${ printType(declaredType) }'`,
+                this._evaluator.addError(
+                    `Declared type '${ printType(type) }' is not compatible ` +
+                        `with declared type '${ printType(declaredType) }'`,
                     errorNode);
             }
         }
@@ -1300,10 +1276,5 @@ export class Checker extends ParseTreeWalker {
         callback();
 
         this._currentScope = prevScope;
-    }
-
-    private _setAnalysisChanged(reason: string) {
-        this._didAnalysisChange = true;
-        this._lastAnalysisChangeReason = reason;
     }
 }

@@ -46,6 +46,7 @@ import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
+import { TypeEvaluator } from './typeEvaluator';
 
 const _maxImportCyclesPerFile = 4;
 
@@ -346,7 +347,6 @@ export class SourceFile {
         this._isTypeAnalysisPassNeeded = true;
         this._moduleSymbolTable = undefined;
         this._binderResults = undefined;
-        this._accessedSymbolMap = undefined;
     }
 
     markReanalysisRequired(): void {
@@ -362,7 +362,6 @@ export class SourceFile {
             this._isBindingNeeded = true;
             this._moduleSymbolTable = undefined;
             this._binderResults = undefined;
-            this._accessedSymbolMap = undefined;
         }
     }
 
@@ -680,7 +679,6 @@ export class SourceFile {
 
                 const binder = new Binder(fileInfo);
                 this._binderResults = binder.bindModule(this._parseResults!.parseTree);
-                this._accessedSymbolMap = new Map<number, true>();
 
                 // If we're in "test mode" (used for unit testing), run an additional
                 // "test walker" over the parse tree to validate its internal consistency.
@@ -717,7 +715,7 @@ export class SourceFile {
         this._isBindingNeeded = false;
     }
 
-    checkTypes() {
+    check(evaluator: TypeEvaluator) {
         assert(!this.isParseRequired());
         assert(!this.isBindingRequired());
         assert(this.isTypeAnalysisRequired());
@@ -727,16 +725,20 @@ export class SourceFile {
             timingStats.typeAnalyzerTime.timeOperation(() => {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
 
+                fileInfo.fileAnalysisVersion = this._typeAnalysisPassNumber;
+                fileInfo.reanalysisRequired = false;
+                fileInfo.lastReanalysisReason = '';
+
                 // Perform static type analysis.
-                const checker = new Checker(this._parseResults!.parseTree,
-                    this._accessedSymbolMap!, this._typeAnalysisPassNumber);
+                const checker = new Checker(this._parseResults!.parseTree, evaluator);
                 this._typeAnalysisPassNumber++;
 
-                // Repeatedly call the checker until everything converges.
-                this._isTypeAnalysisPassNeeded = checker.analyze();
+                // Call the checker.
+                checker.check();
+                this._isTypeAnalysisPassNeeded = fileInfo.reanalysisRequired;
 
                 if (this._isTypeAnalysisPassNeeded) {
-                    this._lastReanalysisReason = checker.getLastReanalysisReason();
+                    this._lastReanalysisReason = fileInfo.lastReanalysisReason;
 
                     const passesSinceLastReanalysis = this._typeAnalysisPassNumber - this._typeAnalysisReanalysisPassStart;
                     if (passesSinceLastReanalysis > _maxAnalysisPassCount) {
@@ -806,7 +808,11 @@ export class SourceFile {
             filePath: this._filePath,
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
-            isBuiltInStubFile: this._isBuiltInStubFile
+            isBuiltInStubFile: this._isBuiltInStubFile,
+            accessedSymbolMap: new Map<number, true>(),
+            fileAnalysisVersion: 1,
+            reanalysisRequired: false,
+            lastReanalysisReason: ''
         };
         return fileInfo;
     }

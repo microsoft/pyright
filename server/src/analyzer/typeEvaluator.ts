@@ -13,7 +13,6 @@ import * as assert from 'assert';
 import { DiagnosticLevel } from '../common/configOptions';
 import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
-import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
@@ -25,7 +24,7 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
     NameNode, ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceNode,
     StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
-import { ImportLookup } from './analyzerFileInfo';
+import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
     FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport } from './codeFlow';
@@ -208,14 +207,8 @@ export interface FunctionTypeResult {
 }
 
 export interface TypeEvaluator {
-    getType: (node: ExpressionNode, usage: EvaluatorUsage, flags: EvaluatorFlags) => Type;
     getTypeOfAnnotation: (node: ExpressionNode) => Type;
-    getTypeFromObjectMember: (errorNode: ExpressionNode, objectType: ObjectType, memberName: string,
-        usage: EvaluatorUsage, memberAccessFlags: MemberAccessFlags, bindToClass?: ClassType) => Type | undefined;
-    getTypeFromAwaitable: (type: Type, errorNode?: ParseNode) => Type;
-    getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined, supportGetItem: boolean) => Type;
-    getTypeFromDecorator: (node: DecoratorNode, functionOrClassType: Type) => Type;
-
+    getTypeOfExpression: (node: ExpressionNode, usage: EvaluatorUsage, flags: EvaluatorFlags) => TypeResult;
     getTypeOfAssignmentStatementTarget: (node: AssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
     getTypeOfAugmentedAssignmentTarget: (node: AugmentedAssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult;
@@ -243,26 +236,27 @@ export interface TypeEvaluator {
 
     updateExpressionTypeForNode: (node: ParseNode, exprType: Type) => void;
 
-    addError: (message: string, range: TextRange) => Diagnostic | undefined;
-    addWarning: (message: string, range: TextRange) => Diagnostic | undefined;
-    addDiagnostic: (diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) => Diagnostic | undefined;
+    addError: (message: string, node: ParseNode) => Diagnostic | undefined;
+    addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;
+    addDiagnostic: (diagLevel: DiagnosticLevel, rule: string,
+        message: string, node: ParseNode) => Diagnostic | undefined;
+    addDiagnosticForTextRange: (fileInfo: AnalyzerFileInfo, diagLevel: DiagnosticLevel,
+        rule: string, message: string, range: TextRange) => Diagnostic | undefined;
 }
 
-export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
-        analysisVersion: number, setAnalysisChangedCallback: SetAnalysisChangedCallback,
-        accessedSymbolMap: Map<number, true>, importLookup: ImportLookup): TypeEvaluator {
+export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     let isSpeculativeMode = false;
     const typeResolutionRecursionMap = new Map<number, true>();
 
     function getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
-        return getTypeFromExpression(node, usage, flags).type;
+        return getTypeOfExpression(node, usage, flags).type;
     }
 
     function getTypeNoCache(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
         let type: Type | undefined;
         useSpeculativeMode(() => {
-            type = getTypeFromExpression(node, usage, flags).type;
+            type = getTypeOfExpression(node, usage, flags).type;
         });
         return type!;
     }
@@ -291,11 +285,11 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         }
 
         return convertClassToObject(
-            getTypeFromExpression(node, { method: 'get' }, evaluatorFlags).type);
+            getTypeOfExpression(node, { method: 'get' }, evaluatorFlags).type);
     }
 
     function getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
-        const baseTypeResult = getTypeFromExpression(
+        const baseTypeResult = getTypeOfExpression(
             node.leftExpression, { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
 
         let decoratorCall = baseTypeResult;
@@ -519,8 +513,8 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
     // Validates that the type is iterable and returns the iterated type.
     // If errorNode is undefined, no errors are reported.
-    function getTypeFromIterable(type: Type, isAsync: boolean, errorNode: ParseNode | undefined,
-            supportGetItem: boolean): Type {
+    function getTypeFromIterable(type: Type, isAsync: boolean,
+            errorNode: ParseNode | undefined, supportGetItem: boolean): Type {
 
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         const nextMethodName = isAsync ? '__anext__' : '__next__';
@@ -612,8 +606,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             }
 
             if (errorNode) {
-                addError(`'${ printType(subtype) }' is not iterable` + diag.getString(),
-                    errorNode);
+                addError(`'${ printType(subtype) }' is not iterable` + diag.getString(), errorNode);
             }
 
             return UnknownType.create();
@@ -663,13 +656,13 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                         if (statement.leftExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.leftExpression;
                             variableType = stripLiteralValue(
-                                getTypeFromExpression(statement.rightExpression, { method: 'get' }).type);
+                                getTypeOfExpression(statement.rightExpression, { method: 'get' }).type);
                         } else if (statement.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
                                 statement.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
 
                             variableNameNode = statement.leftExpression.valueExpression;
                             variableType = convertClassToObject(
-                                getTypeFromExpression(statement.leftExpression.typeAnnotation, { method: 'get' },
+                                getTypeOfExpression(statement.leftExpression.typeAnnotation, { method: 'get' },
                                     EvaluatorFlags.ConvertEllipsisToAny).type);
                         }
 
@@ -678,7 +671,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                         if (statement.valueExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.valueExpression;
                             variableType = convertClassToObject(
-                                getTypeFromExpression(statement.typeAnnotation, { method: 'get' },
+                                getTypeOfExpression(statement.typeAnnotation, { method: 'get' },
                                     EvaluatorFlags.ConvertEllipsisToAny).type);
                         }
                     }
@@ -716,7 +709,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                         const firstDefaultValueIndex = fullDataClassParameters.findIndex(p => p.hasDefault);
                         if (!hasDefaultValue && firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
                             addError(`Data fields without default value cannot appear after ` +
-                                `data fields with default values`, variableNameNode);
+                                    `data fields with default values`, variableNameNode);
                         }
                     }
                 });
@@ -842,29 +835,52 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         return false;
     }
 
-    function addWarning(message: string, range: TextRange) {
+    function addWarning(message: string, node: ParseNode) {
         if (!isSpeculativeMode) {
-            return diagnosticSink.addWarningWithTextRange(message, range);
+            const fileInfo = getFileInfo(node);
+            return fileInfo.diagnosticSink.addWarningWithTextRange(message, node);
         }
 
         return undefined;
     }
 
-    function addError(message: string, range: TextRange) {
+    function addError(message: string, node: ParseNode) {
         if (!isSpeculativeMode) {
-            return diagnosticSink.addErrorWithTextRange(message, range);
+            const fileInfo = getFileInfo(node);
+            return fileInfo.diagnosticSink.addErrorWithTextRange(message, node);
         }
 
         return undefined;
     }
 
-    function addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {
+    function addDiagnostic(diagLevel: DiagnosticLevel,
+            rule: string, message: string, node: ParseNode) {
+
         let diagnostic: Diagnostic | undefined;
 
         if (diagLevel === 'error') {
-            diagnostic = addError(message, textRange);
+            diagnostic = addError(message, node);
         } else if (diagLevel === 'warning') {
-            diagnostic = addWarning(message, textRange);
+            diagnostic = addWarning(message, node);
+        }
+
+        if (diagnostic) {
+            diagnostic.setRule(rule);
+        }
+
+        return diagnostic;
+    }
+
+    function addDiagnosticForTextRange(fileInfo: AnalyzerFileInfo,
+            diagLevel: DiagnosticLevel, rule: string, message: string,
+            range: TextRange) {
+
+        let diagnostic: Diagnostic | undefined;
+
+        if (diagLevel === 'error') {
+            diagnostic = fileInfo.diagnosticSink.addErrorWithTextRange(message, range);
+        } else if (diagLevel === 'warning') {
+            diagnostic = fileInfo.diagnosticSink.addWarningWithTextRange(message, range);
         }
 
         if (diagnostic) {
@@ -885,14 +901,16 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
         const declarations = symbolWithScope.symbol.getDeclarations();
         const declaredType = getDeclaredTypeOfSymbol(symbolWithScope.symbol);
+        const fileInfo = getFileInfo(nameNode);
 
         // We found an existing declared type. Make sure the type is assignable.
         let destType = type;
         if (declaredType && srcExpression) {
             const diagAddendum = new DiagnosticAddendum();
             if (!canAssignType(declaredType, type, diagAddendum, importLookup)) {
-                addError(`Expression of type '${ printType(type) }' cannot be ` +
-                    `assigned to declared type '${ printType(declaredType) }'` + diagAddendum.getString(),
+                addError(
+                    `Expression of type '${ printType(type) }' cannot be ` +
+                        `assigned to declared type '${ printType(declaredType) }'` + diagAddendum.getString(),
                     srcExpression || nameNode);
                 destType = declaredType;
             } else {
@@ -926,7 +944,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             // first assignment, generate an error.
             if (nameNode !== declarations[0].node) {
                 addDiagnostic(
-                    getFileInfo(nameNode).diagnosticSettings.reportConstantRedefinition,
+                    fileInfo.diagnosticSettings.reportConstantRedefinition,
                     DiagnosticRule.reportConstantRedefinition,
                     `'${ nameValue }' is constant and cannot be redefined`,
                     nameNode);
@@ -949,7 +967,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                 const classType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
 
                 if (classType && classType.category === TypeCategory.Class) {
-                    const typeOfLeftExpr = getTypeFromExpression(target.leftExpression).type;
+                    const typeOfLeftExpr = getTypeOfExpression(target.leftExpression).type;
                     if (typeOfLeftExpr.category === TypeCategory.Object) {
                         if (ClassType.isSameGenericClass(typeOfLeftExpr.classType, classType)) {
                             assignTypeToMemberVariable(target, type, true, srcExpr);
@@ -1017,7 +1035,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                         // type of the class variable with that of the new instance variable.
                         if (!memberInfo.isInstanceMember && isInstanceMember) {
                             // The class variable is accessed in this case.
-                            setSymbolAccessed(memberInfo.symbol);
+                            setSymbolAccessed(fileInfo, memberInfo.symbol);
                             const memberType = getTypeOfMember(memberInfo, importLookup);
                             srcType = combineTypes([srcType, memberType]);
                         }
@@ -1165,6 +1183,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                         // __all__ = ['a', 'b', 'c']
                         // We will mark the symbols referenced by these strings as accessed.
                         if (srcExpr.nodeType === ParseNodeType.List) {
+                            const fileInfo = getFileInfo(target);
                             srcExpr.entries.forEach(entryExpr => {
                                 if (entryExpr.nodeType === ParseNodeType.StringList || entryExpr.nodeType === ParseNodeType.String) {
                                     const symbolName = entryExpr.nodeType === ParseNodeType.String ?
@@ -1172,7 +1191,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                                         entryExpr.strings.map(s => s.value).join('');
                                     const symbolInScope = scope.lookUpSymbolRecursive(symbolName);
                                     if (symbolInScope) {
-                                        setSymbolAccessed(symbolInScope.symbol);
+                                        setSymbolAccessed(fileInfo, symbolInScope.symbol);
                                     }
                                 }
                             });
@@ -1255,7 +1274,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         }
 
         // Make sure we can write the type back to the target.
-        getTypeFromExpression(target, { method: 'set', setType: type, setErrorNode: srcExpr });
+        getTypeOfExpression(target, { method: 'set', setType: type, setErrorNode: srcExpr });
 
         return typeOfTargetOfInterest;
     }
@@ -1263,19 +1282,21 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     function updateExpressionTypeForNode(node: ParseNode, exprType: Type) {
         if (!isSpeculativeMode) {
             const oldWriteVersion = AnalyzerNodeInfo.getExpressionTypeWriteVersion(node);
+            const fileInfo = getFileInfo(node);
 
             // If the type was already cached this pass, don't overwrite the value.
             // This can happen in the case of augmented assignments, which share
             // a source and destination expression.
-            if (oldWriteVersion !== analysisVersion) {
+            if (oldWriteVersion !== fileInfo.fileAnalysisVersion) {
                 const oldType = AnalyzerNodeInfo.peekExpressionType(node);
                 const requiresInvalidation = AnalyzerNodeInfo.setExpressionTypeWriteVersion(
-                    node, analysisVersion);
+                    node, fileInfo.fileAnalysisVersion);
 
                 if (!oldType || !isTypeSame(oldType, exprType)) {
                     if (requiresInvalidation) {
                         const expr = ParseTreeUtils.printExpression(node as any);
-                        setAnalysisChangedCallback(`Expression type changed for '${ expr }'`);
+                        fileInfo.reanalysisRequired = true;
+                        fileInfo.lastReanalysisReason = `Expression type changed for '${ expr }'`;
                     }
                     AnalyzerNodeInfo.setExpressionType(node, exprType);
                 }
@@ -1283,9 +1304,9 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         }
     }
 
-    function setSymbolAccessed(symbol: Symbol) {
+    function setSymbolAccessed(fileInfo: AnalyzerFileInfo, symbol: Symbol) {
         if (!isSpeculativeMode) {
-            accessedSymbolMap.set(symbol.getId(), true);
+            fileInfo.accessedSymbolMap.set(symbol.getId(), true);
         }
     }
 
@@ -1399,11 +1420,13 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         typeResolutionRecursionMap.delete(node.id);
     }
 
-    function getTypeFromExpression(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' },
+    function getTypeOfExpression(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' },
             flags = EvaluatorFlags.None): TypeResult {
 
         // Is this type already cached?
-        const cachedType = AnalyzerNodeInfo.peekExpressionType(node, analysisVersion);
+        const fileInfo = getFileInfo(node);
+        const cachedType = AnalyzerNodeInfo.peekExpressionType(
+            node, fileInfo.fileAnalysisVersion);
         if (cachedType) {
             return { type: cachedType, node };
         }
@@ -1451,14 +1474,14 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             case ParseNodeType.StringList: {
                 reportUsageErrorForReadOnly(node, usage);
                 if (node.typeAnnotation && !isAnnotationLiteralValue(node)) {
-                    typeResult = getTypeFromExpression(
+                    typeResult = getTypeOfExpression(
                         node.typeAnnotation, usage, flags | EvaluatorFlags.AllowForwardReferences);
                 } else {
                     // Evaluate the format string expressions in this context.
                     node.strings.forEach(str => {
                         if (str.nodeType === ParseNodeType.FormatString) {
                             str.expressions.forEach(expr => {
-                                getTypeFromExpression(expr);
+                                getTypeOfExpression(expr);
                             });
                         }
                     });
@@ -1521,7 +1544,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             }
 
             case ParseNodeType.Await: {
-                typeResult = getTypeFromExpression(
+                typeResult = getTypeOfExpression(
                     node.expression, { method: 'get' }, flags);
                 typeResult = {
                     type: getTypeFromAwaitable(typeResult.type, node.expression),
@@ -1565,14 +1588,14 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
                 // Don't validate the type match for the assignment here. Simply
                 // return the type result of the RHS.
-                typeResult = getTypeFromExpression(node.rightExpression);
+                typeResult = getTypeOfExpression(node.rightExpression);
                 break;
             }
 
             case ParseNodeType.AssignmentExpression: {
                 reportUsageErrorForReadOnly(node, usage);
 
-                typeResult = getTypeFromExpression(node.rightExpression);
+                typeResult = getTypeOfExpression(node.rightExpression);
                 assignTypeToExpression(node.name, typeResult.type, node.rightExpression);
                 break;
             }
@@ -1590,14 +1613,14 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             }
 
             case ParseNodeType.Unpack: {
-                const iterType = getTypeFromExpression(node.expression, usage).type;
+                const iterType = getTypeOfExpression(node.expression, usage).type;
                 const type = getTypeFromIterable(iterType, false, node, false);
                 typeResult = { type, unpackedType: iterType, node };
                 break;
             }
 
             case ParseNodeType.TypeAnnotation: {
-                typeResult = getTypeFromExpression(node.typeAnnotation);
+                typeResult = getTypeOfExpression(node.typeAnnotation);
                 break;
             }
 
@@ -1606,7 +1629,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                 // type information is cached for the completion handler.
                 useSpeculativeMode(() => {
                     if (node.child) {
-                        getTypeFromExpression(node.child);
+                        getTypeOfExpression(node.child);
                     }
                 });
                 typeResult = { type: UnknownType.create(), node };
@@ -1634,6 +1657,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     function getTypeFromName(node: NameNode, usage: EvaluatorUsage,
             flags: EvaluatorFlags): TypeResult {
 
+        const fileInfo = getFileInfo(node);
         const name = node.nameToken.value;
         let type: Type | undefined;
 
@@ -1664,7 +1688,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             }
 
             if (usage.method === 'get') {
-                const isTypeStub = getFileInfo(node).isStubFile;
+                const isTypeStub = fileInfo.isStubFile;
 
                 let typeAtStart: Type | undefined;
 
@@ -1712,9 +1736,9 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                     addError(`'${ name }' is possibly unbound`, node);
                 }
 
-                setSymbolAccessed(symbol);
+                setSymbolAccessed(fileInfo, symbol);
             } else if (usage.method === 'del') {
-                setSymbolAccessed(symbol);
+                setSymbolAccessed(fileInfo, symbol);
             }
         } else {
             // Handle the special case of "reveal_type".
@@ -1730,7 +1754,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     function getTypeFromMemberAccess(node: MemberAccessNode,
             usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
-        const baseTypeResult = getTypeFromExpression(node.leftExpression);
+        const baseTypeResult = getTypeOfExpression(node.leftExpression);
         const memberType = getTypeFromMemberAccessWithBaseType(
             node, baseTypeResult, usage, flags);
 
@@ -1796,7 +1820,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                 const symbol = ModuleType.getField(baseType, memberName);
                 if (symbol) {
                     if (usage.method === 'get') {
-                        setSymbolAccessed(symbol);
+                        setSymbolAccessed(getFileInfo(node), symbol);
                     }
 
                     type = getEffectiveTypeOfSymbol(symbol, importLookup);
@@ -1978,7 +2002,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             if (usage.method === 'get') {
                 // Mark the member accessed if it's not coming from a parent class.
                 if (memberInfo.classType === classType) {
-                    setSymbolAccessed(memberInfo.symbol);
+                    setSymbolAccessed(getFileInfo(errorNode), memberInfo.symbol);
                 }
             }
 
@@ -2164,7 +2188,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     function getTypeFromIndex(node: IndexNode, usage: EvaluatorUsage,
             flags: EvaluatorFlags): TypeResult {
 
-        const baseTypeResult = getTypeFromExpression(node.baseExpression,
+        const baseTypeResult = getTypeOfExpression(node.baseExpression,
             { method: 'get' }, flags | EvaluatorFlags.DoNotSpecialize);
 
         const baseType = baseTypeResult.type;
@@ -2253,7 +2277,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         // In case we didn't walk the list items above, do so now.
         // If we have, this information will be cached.
         node.items.items.forEach(item => {
-            getTypeFromExpression(item);
+            getTypeOfExpression(item);
         });
 
         return { type, node };
@@ -2272,7 +2296,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             const entries = new StringMap<TypedDictEntry>();
             getTypedDictMembersForClassRecursive(baseType.classType, entries);
 
-            const indexType = getTypeFromExpression(node.items.items[0]).type;
+            const indexType = getTypeOfExpression(node.items.items[0]).type;
             const diag = new DiagnosticAddendum();
             const resultingType = doForSubtypes(indexType, subtype => {
                 if (isAnyOrUnknown(subtype)) {
@@ -2342,7 +2366,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             return UnknownType.create();
         }
 
-        const indexTypeList = node.items.items.map(item => getTypeFromExpression(item).type);
+        const indexTypeList = node.items.items.map(item => getTypeOfExpression(item).type);
 
         let indexType: Type;
         if (indexTypeList.length === 1) {
@@ -2414,12 +2438,12 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         if (node.nodeType === ParseNodeType.List) {
             typeResult = {
                 type: UnknownType.create(),
-                typeList: node.entries.map(entry => getTypeFromExpression(
+                typeList: node.entries.map(entry => getTypeOfExpression(
                     entry, { method: 'get' }, flags)),
                 node
             };
         } else {
-            typeResult = getTypeFromExpression(node, { method: 'get' },
+            typeResult = getTypeOfExpression(node, { method: 'get' },
                 flags | EvaluatorFlags.ConvertEllipsisToAny);
         }
 
@@ -2449,7 +2473,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         }
 
         const entryTypeResults = node.expressions.map(
-            (expr, index) => getTypeFromExpression(expr,
+            (expr, index) => getTypeOfExpression(expr,
                 { method: usage.method, expectedType: index < expectedTypes.length ? expectedTypes[index] : undefined}));
 
         let type: Type = UnknownType.create();
@@ -2497,7 +2521,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     function getTypeFromCall(node: CallNode, usage: EvaluatorUsage,
             flags: EvaluatorFlags): TypeResult {
 
-        const baseTypeResult = getTypeFromExpression(node.leftExpression,
+        const baseTypeResult = getTypeOfExpression(node.leftExpression,
             { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
 
         // Handle the built-in "super" call specially.
@@ -2516,7 +2540,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                 node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
                 node.arguments[0].name === undefined) {
 
-            const type = getTypeFromExpression(node.arguments[0].valueExpression).type;
+            const type = getTypeOfExpression(node.arguments[0].valueExpression).type;
             const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
             addWarning(
                 `Type of '${ exprString }' is '${ printType(type) }'`,
@@ -2548,7 +2572,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         // there is no first argument, then the class is implicit.
         let targetClassType: Type;
         if (node.arguments.length > 0) {
-            targetClassType = getTypeFromExpression(node.arguments[0].valueExpression).type;
+            targetClassType = getTypeOfExpression(node.arguments[0].valueExpression).type;
 
             if (!isAnyOrUnknown(targetClassType) && !(targetClassType.category === TypeCategory.Class)) {
                 addError(
@@ -2571,7 +2595,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         // Determine whether there is a further constraint.
         let constrainedClassType: Type;
         if (node.arguments.length > 1) {
-            constrainedClassType = getTypeFromExpression(node.arguments[1].valueExpression).type;
+            constrainedClassType = getTypeOfExpression(node.arguments[1].valueExpression).type;
 
             let reportError = false;
 
@@ -3306,7 +3330,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             argList.forEach(arg => {
                 if (arg.valueExpression) {
                     if (!validateArgTypeParams.some(validatedArg => validatedArg.argument === arg)) {
-                        getTypeFromExpression(arg.valueExpression);
+                        getTypeOfExpression(arg.valueExpression);
                     }
                 }
             });
@@ -3326,7 +3350,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
         if (argParam.argument.valueExpression) {
             const expectedType = specializeType(argParam.paramType, typeVarMap, makeConcrete);
-            const exprType = getTypeFromExpression(argParam.argument.valueExpression,
+            const exprType = getTypeOfExpression(argParam.argument.valueExpression,
                 { method: 'get', expectedType });
             argType = exprType.type;
         } else {
@@ -3760,7 +3784,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                                 if (entry.nodeType === ParseNodeType.Tuple && entry.expressions.length === 2) {
                                     entryNameNode = entry.expressions[0];
                                     entryTypeNode = entry.expressions[1];
-                                    const entryTypeInfo = getTypeFromExpression(entryTypeNode);
+                                    const entryTypeInfo = getTypeOfExpression(entryTypeNode);
                                     if (entryTypeInfo) {
                                         entryType = convertClassToObject(entryTypeInfo.type);
                                     }
@@ -3916,7 +3940,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     }
 
     function getTypeFromUnaryOperation(node: UnaryOperationNode): TypeResult {
-        let exprType = getTypeFromExpression(node.expression).type;
+        let exprType = getTypeOfExpression(node.expression).type;
 
         // Map unary operators to magic functions. Note that the bitwise
         // invert has two magic functions that are aliases of each other.
@@ -3980,8 +4004,8 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             }
         }
 
-        let leftType = getTypeFromExpression(leftExpression).type;
-        let rightType = getTypeFromExpression(node.rightExpression).type;
+        let leftType = getTypeOfExpression(leftExpression).type;
+        let rightType = getTypeOfExpression(node.rightExpression).type;
 
         // Optional checks apply to all operations except for boolean operations.
         if (booleanOperatorMap[node.operator] === undefined) {
@@ -4034,9 +4058,9 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         // We'll write the result as part of the "set" method.
         let leftType: Type | undefined;
         useSpeculativeMode(() => {
-            leftType = getTypeFromExpression(node.leftExpression).type;
+            leftType = getTypeOfExpression(node.leftExpression).type;
         });
-        const rightType = getTypeFromExpression(node.rightExpression).type;
+        const rightType = getTypeOfExpression(node.rightExpression).type;
 
         type = doForSubtypes(leftType!, leftSubtype => {
             return doForSubtypes(rightType, rightSubtype => {
@@ -4263,7 +4287,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                 const setEntryType = getElementTypeFromListComprehension(entryNode);
                 entryTypes.push(setEntryType);
             } else {
-                entryTypes.push(getTypeFromExpression(entryNode).type);
+                entryTypes.push(getTypeOfExpression(entryNode).type);
             }
         });
 
@@ -4317,14 +4341,14 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                keyTypes.push(getTypeFromExpression(entryNode.keyExpression,
+                keyTypes.push(getTypeOfExpression(entryNode.keyExpression,
                     { method: 'get', expectedType: expectedKeyType }).type);
-                valueTypes.push(getTypeFromExpression(entryNode.valueExpression,
+                valueTypes.push(getTypeOfExpression(entryNode.valueExpression,
                     { method: 'get', expectedType: expectedValueType }).type);
                 addUnknown = false;
 
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
-                const unexpandedType = getTypeFromExpression(entryNode.expandExpression).type;
+                const unexpandedType = getTypeOfExpression(entryNode.expandExpression).type;
                 if (isAnyOrUnknown(unexpandedType)) {
                     addUnknown = false;
                 } else {
@@ -4440,7 +4464,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         if (node.entries.length === 1 && node.entries[0].nodeType === ParseNodeType.ListComprehension) {
             listEntryType = getElementTypeFromListComprehension(node.entries[0]);
         } else {
-            let entryTypes = node.entries.map(entry => getTypeFromExpression(entry).type);
+            let entryTypes = node.entries.map(entry => getTypeOfExpression(entry).type);
 
             // If there is an expected type, see if we can match any parts of it.
             if (usage.expectedType && entryTypes.length > 0) {
@@ -4476,10 +4500,10 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     }
 
     function getTypeFromTernary(node: TernaryNode, flags: EvaluatorFlags): TypeResult {
-        getTypeFromExpression(node.testExpression);
+        getTypeOfExpression(node.testExpression);
 
-        const ifType = getTypeFromExpression(node.ifExpression, { method: 'get' }, flags);
-        const elseType = getTypeFromExpression(node.elseExpression, { method: 'get' }, flags);
+        const ifType = getTypeOfExpression(node.ifExpression, { method: 'get' }, flags);
+        const elseType = getTypeOfExpression(node.elseExpression, { method: 'get' }, flags);
 
         const type = combineTypes([ifType.type, elseType.type]);
         return { type, node };
@@ -4605,7 +4629,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         for (const comprehension of node.comprehensions) {
             if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
                 const iterableType = stripLiteralValue(
-                    getTypeFromExpression(comprehension.iterableExpression).type);
+                    getTypeOfExpression(comprehension.iterableExpression).type);
                 const itemType = getTypeFromIterable(iterableType, !!comprehension.isAsync,
                     comprehension.iterableExpression, false);
 
@@ -4614,7 +4638,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             } else {
                 assert(comprehension.nodeType === ParseNodeType.ListComprehensionIf);
                 // Evaluate the test expression
-                getTypeFromExpression(comprehension.testExpression);
+                getTypeOfExpression(comprehension.testExpression);
             }
         }
 
@@ -4622,18 +4646,18 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
             // Create a tuple with the key/value types.
             const keyType = stripLiteralValue(
-                getTypeFromExpression(node.expression.keyExpression).type);
+                getTypeOfExpression(node.expression.keyExpression).type);
             const valueType = stripLiteralValue(
-                getTypeFromExpression(node.expression.valueExpression).type);
+                getTypeOfExpression(node.expression.valueExpression).type);
 
             type = getBuiltInObject(node, 'Tuple', [keyType, valueType]);
         } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
-            const unexpandedType = getTypeFromExpression(node.expression.expandExpression);
+            const unexpandedType = getTypeOfExpression(node.expression.expandExpression);
 
             // TODO - need to implement
         } else if (isExpressionNode(node)) {
             type = stripLiteralValue(
-                getTypeFromExpression(node.expression as ExpressionNode).type);
+                getTypeOfExpression(node.expression as ExpressionNode).type);
         }
 
         return type;
@@ -4644,7 +4668,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         const optionalIntObject = combineTypes([intObject, NoneType.create()]);
 
         const validateIndexType = (indexExpr: ExpressionNode) => {
-            const exprType = stripLiteralValue(getTypeFromExpression(indexExpr).type);
+            const exprType = stripLiteralValue(getTypeOfExpression(indexExpr).type);
 
             const diag = new DiagnosticAddendum();
             if (!canAssignType(optionalIntObject, exprType, diag, importLookup)) {
@@ -5077,8 +5101,11 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     function getTypeOfAssignmentStatementTarget(node: AssignmentNode,
                 targetOfInterest?: ExpressionNode): Type | undefined {
 
+        const fileInfo = getFileInfo(node);
+
         // Is this type already cached?
-        let rightHandType = AnalyzerNodeInfo.peekExpressionType(node.rightExpression, analysisVersion);
+        let rightHandType = AnalyzerNodeInfo.peekExpressionType(
+            node.rightExpression, fileInfo.fileAnalysisVersion);
 
         // If there was a cached value and no target of interest or the entire
         // LHS is the target of interest, there's no need to do additional work.
@@ -5092,8 +5119,6 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         }
 
         if (!rightHandType) {
-            const fileInfo = getFileInfo(node);
-
             // Special-case the typing.pyi file, which contains some special
             // types that the type analyzer needs to interpret differently.
             if (fileInfo.isTypingStubFile) {
@@ -5156,7 +5181,9 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                 targetOfInterest?: ExpressionNode): Type | undefined {
 
         // Is this type already cached?
-        let destType = AnalyzerNodeInfo.peekExpressionType(node.destExpression, analysisVersion);
+        const fileInfo = getFileInfo(node);
+        let destType = AnalyzerNodeInfo.peekExpressionType(
+            node.destExpression, fileInfo.fileAnalysisVersion);
 
         // If there was a cached value and no target of interest or the entire
         // LHS is the target of interest, there's no need to do additional work.
@@ -5179,8 +5206,11 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
     function getTypeOfClass(node: ClassNode): ClassTypeResult {
         // Is this type already cached?
-        let classType = AnalyzerNodeInfo.peekExpressionType(node, analysisVersion) as ClassType;
-        let decoratedType = AnalyzerNodeInfo.peekExpressionType(node.name, analysisVersion);
+        const fileInfo = getFileInfo(node);
+        let classType = AnalyzerNodeInfo.peekExpressionType(
+            node, fileInfo.fileAnalysisVersion) as ClassType;
+        let decoratedType = AnalyzerNodeInfo.peekExpressionType(
+            node.name, fileInfo.fileAnalysisVersion);
 
         if (classType && decoratedType) {
             return { classType, decoratedType };
@@ -5188,7 +5218,6 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
         // The type wasn't cached, so we need to create a new one.
         const scope = ScopeUtils.getScopeForNode(node);
-        const fileInfo = getFileInfo(node);
 
         let classFlags = ClassTypeFlags.None;
         if (scope.getType() === ScopeType.Builtin || fileInfo.isTypingStubFile || fileInfo.isBuiltInStubFile) {
@@ -5434,17 +5463,19 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     }
 
     function getTypeOfFunction(node: FunctionNode): FunctionTypeResult {
+        const fileInfo = getFileInfo(node);
+
         // Is this type already cached?
-        let functionType = AnalyzerNodeInfo.peekExpressionType(node, analysisVersion) as FunctionType;
-        let decoratedType = AnalyzerNodeInfo.peekExpressionType(node.name, analysisVersion);
+        let functionType = AnalyzerNodeInfo.peekExpressionType(
+            node, fileInfo.fileAnalysisVersion) as FunctionType;
+        let decoratedType = AnalyzerNodeInfo.peekExpressionType(
+            node.name, fileInfo.fileAnalysisVersion);
 
         if (functionType && decoratedType) {
             return { functionType, decoratedType };
         }
 
         // There was no cached type, so create a new one.
-        const fileInfo = getFileInfo(node);
-
         // Retrieve the containing class node if the function is a method.
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         const containingClassType = containingClassNode ?
@@ -5899,7 +5930,9 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         assert(!node.returnTypeAnnotation);
 
         // Is this type already cached?
-        let inferredReturnType = AnalyzerNodeInfo.peekExpressionType(node.suite, analysisVersion);
+        const fileInfo = getFileInfo(node);
+        let inferredReturnType = AnalyzerNodeInfo.peekExpressionType(
+            node.suite, fileInfo.fileAnalysisVersion);
         if (inferredReturnType) {
             return inferredReturnType;
         }
@@ -5996,7 +6029,9 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
     function getTypeOfForTarget(node: ForNode): Type | undefined {
         // Is this type already cached?
-        let iteratedType = AnalyzerNodeInfo.peekExpressionType(node.targetExpression, analysisVersion);
+        const fileInfo = getFileInfo(node);
+        let iteratedType = AnalyzerNodeInfo.peekExpressionType(
+            node.targetExpression, fileInfo.fileAnalysisVersion);
         if (iteratedType) {
             return iteratedType;
         }
@@ -6016,8 +6051,9 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         assert(node.typeExpression !== undefined);
 
         // Is this type already cached?
+        const fileInfo = getFileInfo(node);
         let exceptionTypes = AnalyzerNodeInfo.peekExpressionType(
-            node.typeExpression!, analysisVersion);
+            node.typeExpression!, fileInfo.fileAnalysisVersion);
         let typeIsCached = true;
 
         if (!exceptionTypes) {
@@ -6103,9 +6139,12 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     }
 
     function getTypeOfWithItemTarget(node: WithItemNode): Type | undefined {
+        const fileInfo = getFileInfo(node);
+
         // Is this type already cached?
         if (node.target) {
-            const targetType = AnalyzerNodeInfo.peekExpressionType(node.target, analysisVersion);
+            const targetType = AnalyzerNodeInfo.peekExpressionType(
+                node.target, fileInfo.fileAnalysisVersion);
             if (targetType) {
                 return targetType;
             }
@@ -6116,7 +6155,6 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
             return undefined;
         }
 
-        const fileInfo = getFileInfo(node);
         let exprType = getType(node.expression);
         const isAsync = node.parent && node.parent.nodeType === ParseNodeType.With &&
             !!node.parent.isAsync;
@@ -6173,6 +6211,8 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     }
 
     function getTypeOfImportAsTarget(node: ImportAsNode): Type | undefined {
+        const fileInfo = getFileInfo(node);
+
         let symbolNameNode: NameNode;
         if (node.alias) {
             // The symbol name is defined by the alias.
@@ -6185,7 +6225,8 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
         // Is this type already cached?
         if (symbolNameNode) {
-            const targetType = AnalyzerNodeInfo.peekExpressionType(symbolNameNode, analysisVersion);
+            const targetType = AnalyzerNodeInfo.peekExpressionType(
+                symbolNameNode, fileInfo.fileAnalysisVersion);
             if (targetType) {
                 return targetType;
             }
@@ -6217,10 +6258,12 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     }
 
     function getTypeOfImportFromTarget(node: ImportFromAsNode): Type | undefined {
+        const fileInfo = getFileInfo(node);
         const aliasNode = node.alias || node.name;
 
         // Is this type already cached?
-        const targetType = AnalyzerNodeInfo.peekExpressionType(aliasNode, analysisVersion);
+        const targetType = AnalyzerNodeInfo.peekExpressionType(
+            aliasNode, fileInfo.fileAnalysisVersion);
         if (targetType) {
             return targetType;
         }
@@ -6690,7 +6733,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
                 // Look for "type(X) is Y" or "type(X) is not Y".
                 if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
-                    const callType = getTypeFromExpression(testExpression.leftExpression.leftExpression).type;
+                    const callType = getTypeOfExpression(testExpression.leftExpression.leftExpression).type;
                     if (callType.category === TypeCategory.Class &&
                             ClassType.isBuiltIn(callType, 'type') &&
                             testExpression.leftExpression.arguments.length === 1 &&
@@ -6698,7 +6741,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
                         const arg0Expr = testExpression.leftExpression.arguments[0].valueExpression;
                         if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                            const classType = getTypeFromExpression(testExpression.rightExpression).type;
+                            const classType = getTypeOfExpression(testExpression.rightExpression).type;
                             if (classType.category === TypeCategory.Class) {
                                 return (type: Type) => {
                                     // Narrow the type based on whether the type matches the specified type.
@@ -6738,7 +6781,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
                 const arg0Expr = testExpression.arguments[0].valueExpression;
                 const arg1Expr = testExpression.arguments[1].valueExpression;
                 if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                    const arg1Type = getTypeFromExpression(arg1Expr).type;
+                    const arg1Type = getTypeOfExpression(arg1Expr).type;
                     const classTypeList = getIsInstanceClassTypes(arg1Type);
                     if (classTypeList) {
                         return (type: Type) => {
@@ -7019,7 +7062,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
 
         // If there was no defined type provided, there should always
         // be a value expression from which we can retrieve the type.
-        return getTypeFromExpression(arg.valueExpression!, { method: 'get' }).type;
+        return getTypeOfExpression(arg.valueExpression!, { method: 'get' }).type;
     }
 
     function getBuiltInType(node: ParseNode, name: string): Type {
@@ -7055,12 +7098,8 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
     }
 
     return {
-        getType,
         getTypeOfAnnotation,
-        getTypeFromObjectMember,
-        getTypeFromAwaitable,
-        getTypeFromIterable,
-        getTypeFromDecorator,
+        getTypeOfExpression,
         getTypeOfAssignmentStatementTarget,
         getTypeOfAugmentedAssignmentTarget,
         getTypeOfClass,
@@ -7081,6 +7120,7 @@ export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         updateExpressionTypeForNode,
         addError,
         addWarning,
-        addDiagnostic
+        addDiagnostic,
+        addDiagnosticForTextRange
     };
 }

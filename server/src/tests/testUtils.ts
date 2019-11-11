@@ -87,7 +87,11 @@ export function buildAnalyzerFileInfo(filePath: string, parseResults: ParseResul
         filePath,
         isStubFile: filePath.endsWith('.pyi'),
         isTypingStubFile: false,
-        isBuiltInStubFile: false
+        isBuiltInStubFile: false,
+        accessedSymbolMap: new Map<number, true>(),
+        fileAnalysisVersion: 1,
+        reanalysisRequired: false,
+        lastReanalysisReason: ''
     };
 
     return fileInfo;

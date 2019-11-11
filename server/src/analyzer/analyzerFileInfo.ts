@@ -38,4 +38,10 @@ export interface AnalyzerFileInfo {
     isStubFile: boolean;
     isTypingStubFile: boolean;
     isBuiltInStubFile: boolean;
+    accessedSymbolMap: Map<number, true>;
+
+    // The following fields are updated during analysis.
+    fileAnalysisVersion: number;
+    reanalysisRequired: boolean;
+    lastReanalysisReason: string;
 }
