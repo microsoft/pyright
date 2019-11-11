@@ -21,6 +21,7 @@ import * as ImportStatementUtils from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
+import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory } from '../analyzer/types';
 import { getMembersForClass, getMembersForModule, printType } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
@@ -142,6 +143,7 @@ export class CompletionProvider {
         private _filePath: string,
         private _configOptions: ConfigOptions,
         private _importLookup: ImportLookup,
+        private _evaluator: TypeEvaluator,
         private _moduleSymbolsCallback: () => ModuleSymbolMap) {
     }
 
@@ -369,7 +371,7 @@ export class CompletionProvider {
     private _getMemberAccessCompletions(leftExprNode: ExpressionNode,
             priorWord: string): CompletionList | undefined {
 
-        const leftType = AnalyzerNodeInfo.getExpressionType(leftExprNode);
+        const leftType = this._evaluator.getType(leftExprNode);
         const symbolTable = new SymbolTable();
 
         if (leftType) {

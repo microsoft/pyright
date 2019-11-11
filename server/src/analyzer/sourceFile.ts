@@ -587,8 +587,8 @@ export class SourceFile {
             this._filePath, this._parseResults, importLookup);
     }
 
-    getHoverForPosition(position: DiagnosticTextPosition,
-            importLookup: ImportLookup): HoverResults | undefined {
+    getHoverForPosition(position: DiagnosticTextPosition, importLookup: ImportLookup,
+            evaluator: TypeEvaluator): HoverResults | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -596,11 +596,11 @@ export class SourceFile {
         }
 
         return HoverProvider.getHoverForPosition(
-            this._parseResults, position, importLookup);
+            this._parseResults, position, importLookup, evaluator);
     }
 
     getSignatureHelpForPosition(position: DiagnosticTextPosition,
-            importLookup: ImportLookup): SignatureHelpResults | undefined {
+            importLookup: ImportLookup, evaluator: TypeEvaluator): SignatureHelpResults | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -608,12 +608,12 @@ export class SourceFile {
         }
 
         return SignatureHelpProvider.getSignatureHelpForPosition(
-            this._parseResults, position, importLookup);
+            this._parseResults, position, importLookup, evaluator);
     }
 
     getCompletionsForPosition(position: DiagnosticTextPosition,
             configOptions: ConfigOptions, importResolver: ImportResolver,
-            importLookup: ImportLookup,
+            importLookup: ImportLookup, evaluator: TypeEvaluator,
             moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
@@ -630,7 +630,7 @@ export class SourceFile {
         const completionProvider = new CompletionProvider(
             this._parseResults, this._fileContents,
             importResolver, position,
-            this._filePath, configOptions, importLookup,
+            this._filePath, configOptions, importLookup, evaluator,
             moduleSymbolsCallback);
 
         return completionProvider.getCompletionsForPosition();

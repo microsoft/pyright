@@ -464,7 +464,8 @@ export class Program {
                     throw new Error(errMsg);
                 }
 
-                const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile);
+                const writer = new TypeStubWriter(typeStubPath,
+                    sourceFileInfo.sourceFile, this._evaluator);
                 writer.write();
             }
         }
@@ -955,7 +956,7 @@ export class Program {
         }
 
         return sourceFileInfo.sourceFile.getHoverForPosition(position,
-            this._lookUpImport);
+            this._lookUpImport, this._evaluator);
     }
 
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition,
@@ -974,7 +975,7 @@ export class Program {
         }
 
         return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
-            position, this._lookUpImport);
+            position, this._lookUpImport, this._evaluator);
     }
 
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
@@ -997,7 +998,7 @@ export class Program {
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
             position, options, importResolver,
-            this._lookUpImport,
+            this._lookUpImport, this._evaluator,
             () => this._buildModuleSymbolsMap(sourceFileInfo));
     }
 

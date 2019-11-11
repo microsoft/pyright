@@ -207,10 +207,11 @@ export interface FunctionTypeResult {
 }
 
 export interface TypeEvaluator {
-    getTypeOfAnnotation: (node: ExpressionNode) => Type;
+    getType: (node: ExpressionNode) => Type;
     getTypeOfExpression: (node: ExpressionNode, expectedType: Type | undefined, flags: EvaluatorFlags) => TypeResult;
-    getTypeOfAssignmentStatementTarget: (node: AssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
-    getTypeOfAugmentedAssignmentTarget: (node: AugmentedAssignmentNode, targetOfInterest?: ExpressionNode) => Type | undefined;
+    getTypeOfAnnotation: (node: ExpressionNode) => Type;
+    getTypeOfAssignmentStatementTarget: (node: AssignmentNode) => Type | undefined;
+    getTypeOfAugmentedAssignmentTarget: (node: AugmentedAssignmentNode) => Type | undefined;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult;
     getTypeOfForTarget: (node: ForNode) => Type | undefined;
@@ -252,8 +253,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Is this type already cached?
         const fileInfo = getFileInfo(node);
-        const cachedType = AnalyzerNodeInfo.peekExpressionType(
-            node, fileInfo.fileAnalysisVersion);
+        const cachedType = AnalyzerNodeInfo.peekExpressionType(node, fileInfo.fileAnalysisVersion);
         if (cachedType) {
             return { type: cachedType, node };
         }
@@ -1402,15 +1402,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     target, type, srcExpr || target);
 
                 assignTypeToNameNode(target, type, srcExpr);
-                if (target === targetOfInterest) {
-                    typeOfTargetOfInterest = type;
-                }
                 break;
             }
 
             case ParseNodeType.MemberAccess: {
                 assignTypeToMemberAccessNode(target, type, srcExpr);
-                if (target === targetOfInterest) {
+                if (targetOfInterest === target.memberName) {
                     typeOfTargetOfInterest = type;
                 }
                 break;
@@ -1426,8 +1423,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case ParseNodeType.Tuple: {
-                typeOfTargetOfInterest = assignTypeToTupleNode(target, type, srcExpr,
-                    targetOfInterest);
+                typeOfTargetOfInterest = assignTypeToTupleNode(target, type, srcExpr, targetOfInterest);
                 break;
             }
 
@@ -1456,7 +1452,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
                     }
                     assignTypeToNameNode(target.expression, type);
-                    if (target.expression === targetOfInterest) {
+                    if (targetOfInterest === target.expression) {
                         typeOfTargetOfInterest = type;
                     }
                 }
@@ -1493,6 +1489,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 addError(`Expression cannot be assignment target`, target);
                 break;
             }
+        }
+
+        if (targetOfInterest === target) {
+            typeOfTargetOfInterest = type;
         }
 
         return typeOfTargetOfInterest;
@@ -6036,7 +6036,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return inferredReturnType;
     }
 
-    function getTypeOfForTarget(node: ForNode): Type | undefined {
+    function getTypeOfForTarget(node: ForNode, targetOfInterest?: ExpressionNode): Type | undefined {
         // Is this type already cached?
         const fileInfo = getFileInfo(node);
         let iteratedType = AnalyzerNodeInfo.peekExpressionType(
@@ -6050,9 +6050,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         iteratedType = getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
 
-        assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
-
-        return iteratedType;
+        return assignTypeToExpression(node.targetExpression,
+            iteratedType, node.targetExpression, targetOfInterest);
     }
 
     function getTypeOfExceptTarget(node: ExceptNode): Type | undefined {
@@ -6359,7 +6358,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 case ParseNodeType.For: {
-                    return getTypeOfForTarget(assignmentNode);
+                    return getTypeOfForTarget(assignmentNode, target);
                 }
 
                 case ParseNodeType.Except: {
@@ -6411,7 +6410,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         function evaluateAssignmentFlowNode(flowNode: FlowAssignment): FlowNodeType | undefined {
-            let cachedType = AnalyzerNodeInfo.getExpressionType(flowNode.node);
+            let cachedType = AnalyzerNodeInfo.peekExpressionType(flowNode.node,
+                getFileInfo(flowNode.node).fileAnalysisVersion);
             if (!cachedType) {
                 // There is no cached type for this expression, so we need to
                 // evaluate it.
@@ -7108,8 +7108,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     return {
-        getTypeOfAnnotation,
+        getType,
         getTypeOfExpression,
+        getTypeOfAnnotation,
         getTypeOfAssignmentStatementTarget,
         getTypeOfAugmentedAssignmentTarget,
         getTypeOfClass,

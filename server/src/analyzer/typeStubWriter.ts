@@ -16,13 +16,13 @@ import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentNode
     ImportFromNode, ImportNode, ModuleNameNode, NameNode, ParameterCategory, ParameterNode,
     ParseNodeType, StatementListNode, StringNode, TryNode, TypeAnnotationNode,
     WhileNode, WithNode } from '../parser/parseNodes';
-import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
+import { TypeEvaluator } from './typeEvaluator';
 import { ClassType, isNoneOrNever, TypeCategory } from './types';
 import * as TypeUtils from './typeUtils';
 
@@ -108,7 +108,8 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _trackedImportFrom: { [importName: string]: TrackedImportFrom } = {};
     private _accessedImportedSymbols: StringMap<boolean> = new StringMap<boolean>();
 
-    constructor(private _typingsPath: string, private _sourceFile: SourceFile) {
+    constructor(private _typingsPath: string, private _sourceFile: SourceFile,
+            private _evaluator: TypeEvaluator) {
         super();
 
         // As a heuristic, we'll include all of the import statements
@@ -278,14 +279,8 @@ export class TypeStubWriter extends ParseTreeWalker {
             this._emittedSuite = true;
 
             // Add the inferred type if it's known.
-            if (!emitValue) {
-                let type = AnalyzerNodeInfo.getExpressionType(node.leftExpression);
-                if (type && !TypeUtils.containsUnknown(type)) {
-                    type = TypeUtils.stripLiteralValue(type);
-                    // TODO - need to implement
-                    // line += ': ' + type.asString();
-                }
-            }
+            // TODO - need to implement
+            // line += ': ' + type.asString();
 
             line += ' = ';
 
@@ -501,7 +496,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             paramType = this._printExpression(node.typeAnnotation, true);
         } else if (node.defaultValue) {
             // Try to infer the param type based on the default value.
-            const typeOfDefault = AnalyzerNodeInfo.getExpressionType(node.defaultValue);
+            const typeOfDefault = this._evaluator.getType(node.defaultValue);
             if (typeOfDefault && !TypeUtils.containsUnknown(typeOfDefault)) {
                 if (isNoneOrNever(typeOfDefault)) {
                     paramType = 'Optional[Any]';

@@ -10,9 +10,9 @@
 */
 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
-import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { ClassType, FunctionType, ObjectType, OverloadedFunctionType,
     TypeCategory } from '../analyzer/types';
 import { bindFunctionToClassOrObject, ClassMemberLookupFlags, doForSubtypes,
@@ -43,7 +43,8 @@ export interface SignatureHelpResults {
 
 export class SignatureHelpProvider {
     static getSignatureHelpForPosition(parseResults: ParseResults,
-            position: DiagnosticTextPosition, importLookup: ImportLookup): SignatureHelpResults | undefined {
+            position: DiagnosticTextPosition, importLookup: ImportLookup,
+            evaluator: TypeEvaluator): SignatureHelpResults | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -82,7 +83,7 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        const callType = AnalyzerNodeInfo.getExpressionType(callNode.leftExpression);
+        const callType = evaluator.getType(callNode.leftExpression);
         if (callType === undefined) {
             return undefined;
         }
@@ -108,26 +109,36 @@ export class SignatureHelpProvider {
         };
 
         doForSubtypes(callType, subtype => {
-            if (subtype.category === TypeCategory.Function || subtype.category === TypeCategory.OverloadedFunction) {
-                this._addSignatureToResults(results, subtype);
-            } else if (subtype.category === TypeCategory.Class) {
-                // Try to get the __new__ method first. We skip the base "object",
-                // which typically provides the __new__ method. We'll fall back on
-                // the __init__ if there is no custom __new__.
-                let methodType = this._getBoundMethod(subtype, '__new__',
-                    importLookup, true);
-                if (!methodType) {
-                    methodType = this._getBoundMethod(subtype, '__init__',
-                        importLookup, false);
+            switch (subtype.category) {
+                case TypeCategory.Function:
+                case TypeCategory.OverloadedFunction: {
+                    this._addSignatureToResults(results, subtype);
+                    break;
                 }
-                if (methodType) {
-                    this._addSignatureToResults(results, methodType);
+
+                case TypeCategory.Class: {
+                    // Try to get the __new__ method first. We skip the base "object",
+                    // which typically provides the __new__ method. We'll fall back on
+                    // the __init__ if there is no custom __new__.
+                    let methodType = this._getBoundMethod(subtype, '__new__',
+                        importLookup, true);
+                    if (!methodType) {
+                        methodType = this._getBoundMethod(subtype, '__init__',
+                            importLookup, false);
+                    }
+                    if (methodType) {
+                        this._addSignatureToResults(results, methodType);
+                    }
+                    break;
                 }
-            } else if (subtype.category === TypeCategory.Object) {
-                const methodType = this._getBoundMethod(
-                    subtype.classType, '__call__', importLookup, false);
-                if (methodType) {
-                    this._addSignatureToResults(results, methodType);
+
+                case TypeCategory.Object: {
+                    const methodType = this._getBoundMethod(
+                        subtype.classType, '__call__', importLookup, false);
+                    if (methodType) {
+                        this._addSignatureToResults(results, methodType);
+                    }
+                    break;
                 }
             }
 
@@ -188,7 +199,7 @@ export class SignatureHelpProvider {
         const functionDocString = functionType.details.docString;
         let label = '(';
 
-        stringParts[0].forEach((paramString, paramIndex) => {
+        stringParts[0].forEach((paramString: string, paramIndex) => {
             const paramName = functionType.details.parameters[paramIndex].name || '';
             parameters.push({
                 startOffset: label.length,

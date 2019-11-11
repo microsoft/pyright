@@ -10,16 +10,16 @@
 */
 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
-import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { printType } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
-import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface HoverTextPart {
@@ -34,7 +34,7 @@ export interface HoverResults {
 
 export class HoverProvider {
     static getHoverForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
-            importLookup: ImportLookup): HoverResults | undefined {
+            importLookup: ImportLookup, evaluator: TypeEvaluator): HoverResults | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -57,15 +57,17 @@ export class HoverProvider {
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = DeclarationUtils.getDeclarationsForNameNode(node, importLookup);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(results.parts, declarations[0], node, importLookup);
+                this._addResultsForDeclaration(results.parts, declarations[0],
+                    node, importLookup, evaluator);
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
                 // is a directory (a namespace package), and we don't want to provide any hover
                 // information in that case.
                 if (results.parts.length === 0) {
-                    this._addResultsPart(results.parts, node.nameToken.value + this._getTypeText(node), true);
-                    this._addDocumentationPart(results.parts, node);
+                    this._addResultsPart(results.parts, node.nameToken.value +
+                        this._getTypeText(node, evaluator), true);
+                    this._addDocumentationPart(results.parts, node, evaluator);
                 }
             }
         }
@@ -73,49 +75,50 @@ export class HoverProvider {
         return results.parts.length > 0 ? results : undefined;
     }
 
-    private static _addResultsForDeclaration(parts: HoverTextPart[],
-            declaration: Declaration, node: NameNode, importLookup: ImportLookup): void {
+    private static _addResultsForDeclaration(parts: HoverTextPart[], declaration: Declaration,
+            node: NameNode, importLookup: ImportLookup, evaluator: TypeEvaluator): void {
 
         const resolvedDecl = DeclarationUtils.resolveAliasDeclaration(declaration, importLookup);
         if (!resolvedDecl) {
             this._addResultsPart(parts, `(import) ` + node.nameToken.value +
-                this._getTypeText(node), true);
+                this._getTypeText(node, evaluator), true);
             return;
         }
 
         switch (resolvedDecl.type) {
             case DeclarationType.Intrinsic: {
-                this._addResultsPart(parts, node.nameToken.value + this._getTypeText(node), true);
-                this._addDocumentationPart(parts, node);
+                this._addResultsPart(parts, node.nameToken.value +
+                    this._getTypeText(node, evaluator), true);
+                this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
             case DeclarationType.Variable: {
                 const label = resolvedDecl.isConstant ? 'constant' : 'variable';
                 this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
-                    this._getTypeText(node), true);
-                this._addDocumentationPart(parts, node);
+                    this._getTypeText(node, evaluator), true);
+                this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
             case DeclarationType.Parameter: {
                 this._addResultsPart(parts, '(parameter) ' + node.nameToken.value +
-                    this._getTypeText(node), true);
-                this._addDocumentationPart(parts, node);
+                    this._getTypeText(node, evaluator), true);
+                this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass: {
                 this._addResultsPart(parts, '(class) ' + node.nameToken.value, true);
-                this._addDocumentationPart(parts, node);
+                this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
             case DeclarationType.Function: {
                 this._addResultsPart(parts, '(function) ' + node.nameToken.value +
-                    this._getTypeText(node), true);
-                this._addDocumentationPart(parts, node);
+                    this._getTypeText(node, evaluator), true);
+                this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
@@ -124,30 +127,30 @@ export class HoverProvider {
                 const label = declaredType && declaredType.category === TypeCategory.Property ?
                     'property' : 'method';
                 this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
-                    this._getTypeText(node), true);
-                this._addDocumentationPart(parts, node);
+                    this._getTypeText(node, evaluator), true);
+                this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
             case DeclarationType.Alias: {
                 this._addResultsPart(parts, '(module) ' + node.nameToken.value, true);
-                this._addDocumentationPart(parts, node);
+                this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
         }
     }
 
-    private static _getTypeFromNode(node: ParseNode): Type | undefined {
-        return AnalyzerNodeInfo.getExpressionType(node);
+    private static _getTypeFromNode(node: NameNode, evaluator: TypeEvaluator): Type | undefined {
+        return evaluator.getType(node);
     }
 
-    private static _getTypeText(node: ParseNode): string {
-        const type = this._getTypeFromNode(node) || UnknownType.create();
+    private static _getTypeText(node: NameNode, evaluator: TypeEvaluator): string {
+        const type = this._getTypeFromNode(node, evaluator) || UnknownType.create();
         return ': ' + printType(type);
     }
 
-    private static _addDocumentationPart(parts: HoverTextPart[], node: ParseNode) {
-        const type = this._getTypeFromNode(node);
+    private static _addDocumentationPart(parts: HoverTextPart[], node: NameNode, evaluator: TypeEvaluator) {
+        const type = this._getTypeFromNode(node, evaluator);
         if (type) {
             this._addDocumentationPartForType(parts, type);
         }
