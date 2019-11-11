@@ -1,10 +1,10 @@
 /*
-* typeAnalyzer.test.ts
+* checker.test.ts
 * Copyright (c) Microsoft Corporation.
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* Unit tests for pyright type analyzer.
+* Unit tests for pyright type checker and type analyzer.
 */
 
 import * as assert from 'assert';
