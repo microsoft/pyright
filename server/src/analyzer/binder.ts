@@ -893,7 +893,7 @@ export class Binder extends ParseTreeWalker {
             if (stringNode.hasUnescapeErrors) {
                 const unescapedResult = StringTokenUtils.getUnescapedString(stringNode.token);
 
-                unescapedResult.unescapeErrors.forEach(error => {
+                unescapedResult.unescapeErrors.forEach((error: StringTokenUtils.UnescapeError) => {
                     const start = stringNode.token.start + stringNode.token.prefixLength +
                         stringNode.token.quoteMarkLength + error.offset;
                     const textRange = { start, length: error.length };
