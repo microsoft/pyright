@@ -289,7 +289,6 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
-
         const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         const declarationType = containingClassNode ?
@@ -384,7 +383,7 @@ export class Binder extends ParseTreeWalker {
                             });
                         }
 
-                        this._createAssignmentTargetFlowNodes(paramNode.name);
+                        this._createFlowAssignment(paramNode.name);
                     }
                 });
 
@@ -442,7 +441,7 @@ export class Binder extends ParseTreeWalker {
                             });
                         }
 
-                        this._createAssignmentTargetFlowNodes(paramNode.name);
+                        this._createFlowAssignment(paramNode.name);
                         this.walk(paramNode.name);
                     }
                 });

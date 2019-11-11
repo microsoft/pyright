@@ -219,8 +219,6 @@ export interface TypeEvaluator {
     getTypeOfImportAsTarget: (node: ImportAsNode) => Type | undefined;
     getTypeOfImportFromTarget: (node: ImportFromAsNode) => Type | undefined;
 
-    getTypingType: (node: ParseNode, symbolName: string) => Type | undefined;
-
     getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
 
     isAnnotationLiteralValue: (node: StringListNode) => boolean;
@@ -229,10 +227,6 @@ export interface TypeEvaluator {
     isNodeReachable: (node: ParseNode) => boolean;
 
     transformTypeForPossibleEnumClass: (node: NameNode, typeOfExpr: Type) => Type;
-
-    assignTypeToNameNode: (nameNode: NameNode, type: Type, srcExpression?: ParseNode) => void;
-    assignTypeToExpression: (target: ExpressionNode, type: Type, srcExpr?: ExpressionNode,
-        targetOfInterest?: ExpressionNode) => Type | undefined;
 
     updateExpressionTypeForNode: (node: ParseNode, exprType: Type) => void;
 
@@ -245,20 +239,11 @@ export interface TypeEvaluator {
 }
 
 export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
-
     let isSpeculativeMode = false;
     const typeResolutionRecursionMap = new Map<number, true>();
 
     function getType(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
         return getTypeOfExpression(node, usage, flags).type;
-    }
-
-    function getTypeNoCache(node: ExpressionNode, usage: EvaluatorUsage = { method: 'get' }, flags = EvaluatorFlags.None): Type {
-        let type: Type | undefined;
-        useSpeculativeMode(() => {
-            type = getTypeOfExpression(node, usage, flags).type;
-        });
-        return type!;
     }
 
     function getTypeOfAnnotation(node: ExpressionNode): Type {
@@ -390,9 +375,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case ParseNodeType.MemberAccess: {
-                // Get the base type but do so speculative because we're going to call again
-                // with a 'set' usage type below, and we don't want to skip that logic.
-                const baseType = getTypeNoCache(expression.leftExpression);
+                const baseType = getType(expression.leftExpression);
                 let classMemberInfo: ClassMember | undefined;
 
                 if (baseType.category === TypeCategory.Object) {
@@ -7115,14 +7098,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         getTypeOfWithItemTarget,
         getTypeOfImportAsTarget,
         getTypeOfImportFromTarget,
-        getTypingType,
         getDeclaredTypeForExpression,
         isAnnotationLiteralValue,
         isAfterNodeReachable,
         isNodeReachable,
         transformTypeForPossibleEnumClass,
-        assignTypeToNameNode,
-        assignTypeToExpression,
         updateExpressionTypeForNode,
         addError,
         addWarning,
