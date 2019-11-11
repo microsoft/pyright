@@ -1,12 +1,15 @@
 /*
-* typeAnalyzer.ts
+* checker.ts
 * Copyright (c) Microsoft Corporation.
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* A parse tree walker that performs static type checking. It assumes
-* that the binder has already run and added information to
-* the parse nodes.
+* A parse tree walker that performs static type checking for
+* a source file. Most of its work is performed by the type
+* evaluator, but this module touches every node in the file
+* to ensure that all statements and expressions are evaluated
+* and checked. It also performs some additional checks that
+* cannot (or should not be) performed lazily.
 */
 
 import * as assert from 'assert';
@@ -27,7 +30,6 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowFlags } from './codeFlow';
 import { Declaration, DeclarationType } from './declaration';
 import * as DeclarationUtils from './declarationUtils';
-import { createExpressionEvaluator, EvaluatorFlags, ExpressionEvaluator } from './expressionEvaluator';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
@@ -35,6 +37,7 @@ import * as ScopeUtils from './scopeUtils';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
+import { createTypeEvaluator, EvaluatorFlags, TypeEvaluator } from './typeEvaluator';
 import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, isTypeSame, NoneType,
     ObjectType, Type, TypeCategory, UnknownType } from './types';
 import { canAssignType, canOverrideMethod, containsUnknown, derivesFromClassRecursive,
@@ -42,10 +45,10 @@ import { canAssignType, canOverrideMethod, containsUnknown, derivesFromClassRecu
     getDeclaredGeneratorYieldType, getSymbolFromBaseClasses,
     isNoReturnType, printType, specializeType, transformTypeObjectToClass } from './typeUtils';
 
-export class TypeAnalyzer extends ParseTreeWalker {
+export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
-    private readonly _evaluator: ExpressionEvaluator;
+    private readonly _evaluator: TypeEvaluator;
     private _currentScope: Scope;
 
     // Indicates where there was a change in the type analysis
@@ -82,7 +85,7 @@ export class TypeAnalyzer extends ParseTreeWalker {
         this._didAnalysisChange = false;
         this._accessedSymbolMap = accessedSymbolMap;
         this._analysisVersion = analysisVersion;
-        this._evaluator = createExpressionEvaluator(
+        this._evaluator = createTypeEvaluator(
             this._fileInfo.diagnosticSink,
             this._analysisVersion,
             reason => {

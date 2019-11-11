@@ -1,11 +1,11 @@
 /*
-* expressionEvaluator.ts
+* typeEvaluator.ts
 * Copyright (c) Microsoft Corporation.
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* Class that evaluates the type of expressions (parse trees)
-* within particular contexts and reports type errors.
+* Module that evaluates types of parse tree nodes within
+* a program.
 */
 
 import * as assert from 'assert';
@@ -207,7 +207,7 @@ export interface FunctionTypeResult {
     decoratedType: Type;
 }
 
-export interface ExpressionEvaluator {
+export interface TypeEvaluator {
     getType: (node: ExpressionNode, usage: EvaluatorUsage, flags: EvaluatorFlags) => Type;
     getTypeOfAnnotation: (node: ExpressionNode) => Type;
     getTypeFromObjectMember: (errorNode: ExpressionNode, objectType: ObjectType, memberName: string,
@@ -248,9 +248,9 @@ export interface ExpressionEvaluator {
     addDiagnostic: (diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) => Diagnostic | undefined;
 }
 
-export function createExpressionEvaluator(diagnosticSink: TextRangeDiagnosticSink,
+export function createTypeEvaluator(diagnosticSink: TextRangeDiagnosticSink,
         analysisVersion: number, setAnalysisChangedCallback: SetAnalysisChangedCallback,
-        accessedSymbolMap: Map<number, true>, importLookup: ImportLookup): ExpressionEvaluator {
+        accessedSymbolMap: Map<number, true>, importLookup: ImportLookup): TypeEvaluator {
 
     let isSpeculativeMode = false;
     const typeResolutionRecursionMap = new Map<number, true>();

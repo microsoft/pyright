@@ -37,6 +37,7 @@ import { Token } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Binder, BinderResults } from './binder';
+import { Checker } from './checker';
 import { CircularDependency } from './circularDependency';
 import * as CommentUtils from './commentUtils';
 import { ImportResolver } from './importResolver';
@@ -45,17 +46,13 @@ import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
-import { TypeAnalyzer } from './typeAnalyzer';
 
 const _maxImportCyclesPerFile = 4;
 
 // At some point, we'll cut off the analysis passes and assume
 // we're making no forward progress. This should happen only
 // on the case of bugs in the analyzer.
-// The number is somewhat arbitrary. It needs to be at least
-// 21 or so to handle all of the import cycles in the stdlib
-// files.
-const _maxAnalysisPassCount = 20;
+const _maxAnalysisPassCount = 25;
 
 export class SourceFile {
     // Console interface to use for debugging.
@@ -720,7 +717,7 @@ export class SourceFile {
         this._isBindingNeeded = false;
     }
 
-    doTypeAnalysis() {
+    checkTypes() {
         assert(!this.isParseRequired());
         assert(!this.isBindingRequired());
         assert(this.isTypeAnalysisRequired());
@@ -731,15 +728,15 @@ export class SourceFile {
                 const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
 
                 // Perform static type analysis.
-                const typeAnalyzer = new TypeAnalyzer(this._parseResults!.parseTree,
+                const checker = new Checker(this._parseResults!.parseTree,
                     this._accessedSymbolMap!, this._typeAnalysisPassNumber);
                 this._typeAnalysisPassNumber++;
 
-                // Repeatedly call the analyzer until everything converges.
-                this._isTypeAnalysisPassNeeded = typeAnalyzer.analyze();
+                // Repeatedly call the checker until everything converges.
+                this._isTypeAnalysisPassNeeded = checker.analyze();
 
                 if (this._isTypeAnalysisPassNeeded) {
-                    this._lastReanalysisReason = typeAnalyzer.getLastReanalysisReason();
+                    this._lastReanalysisReason = checker.getLastReanalysisReason();
 
                     const passesSinceLastReanalysis = this._typeAnalysisPassNumber - this._typeAnalysisReanalysisPassStart;
                     if (passesSinceLastReanalysis > _maxAnalysisPassCount) {

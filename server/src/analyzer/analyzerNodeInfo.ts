@@ -4,10 +4,10 @@
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* Defines objects that the analyzer(s) hang off the parse nodes in
-* the parse tree. It contains information collected during the
-* analysis phases that can be used for later analysis steps or for
-* language services (e.g. hover information).
+* Defines objects that hang off the parse nodes in the parse tree.
+* It contains information collected during the binder phase that
+* can be used for later analysis steps or for language services
+* (e.g. hover information).
 */
 
 import * as assert from 'assert';
@@ -49,7 +49,7 @@ interface AnalyzerNodeInfo {
     fileInfo?: AnalyzerFileInfo;
 
     //---------------------------------------------------------------
-    // Set by TypeAnalyzer
+    // Set by Type Evaluator
 
     // Cached type information for this node.
     typeCache?: ExpressionTypeCache;

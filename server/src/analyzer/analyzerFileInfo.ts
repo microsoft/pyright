@@ -5,7 +5,7 @@
 * Author: Eric Traut
 *
 * Information associated with a source file that is used
-* by the binder and type checker.
+* by the binder and checker.
 */
 
 import { DiagnosticSettings, ExecutionEnvironment } from '../common/configOptions';
