@@ -220,8 +220,7 @@ export interface TypeEvaluator {
     getTypeOfImportFromTarget: (node: ImportFromAsNode) => Type | undefined;
 
     getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
-
-    isAnnotationLiteralValue: (node: StringListNode) => boolean;
+    verifyDeleteExpression: (node: ExpressionNode) => void;
 
     isAfterNodeReachable: (node: ParseNode) => boolean;
     isNodeReachable: (node: ParseNode) => boolean;
@@ -939,10 +938,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function assignTypeToMemberAccessNode(target: MemberAccessNode, type: Type,
             srcExpr?: ExpressionNode) {
-        const targetNode = target.leftExpression;
+
+        const baseTypeResult = getTypeOfExpression(target.leftExpression);
 
         // Handle member accesses (e.g. self.x or cls.y).
-        if (targetNode.nodeType === ParseNodeType.Name) {
+        if (target.leftExpression.nodeType === ParseNodeType.Name) {
             // Determine whether we're writing to a class or instance member.
             const enclosingClassNode = ParseTreeUtils.getEnclosingClass(target);
 
@@ -950,19 +950,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const classTypeResults = getTypeOfClass(enclosingClassNode);
 
                 if (classTypeResults && classTypeResults.classType.category === TypeCategory.Class) {
-                    const typeOfLeftExpr = getTypeOfExpression(target.leftExpression).type;
-                    if (typeOfLeftExpr.category === TypeCategory.Object) {
-                        if (ClassType.isSameGenericClass(typeOfLeftExpr.classType, classTypeResults.classType)) {
+                    if (baseTypeResult.type.category === TypeCategory.Object) {
+                        if (ClassType.isSameGenericClass(baseTypeResult.type.classType, classTypeResults.classType)) {
                             assignTypeToMemberVariable(target, type, true, srcExpr);
                         }
-                    } else if (typeOfLeftExpr.category === TypeCategory.Class) {
-                        if (ClassType.isSameGenericClass(typeOfLeftExpr, classTypeResults.classType)) {
+                    } else if (baseTypeResult.type.category === TypeCategory.Class) {
+                        if (ClassType.isSameGenericClass(baseTypeResult.type, classTypeResults.classType)) {
                             assignTypeToMemberVariable(target, type, false, srcExpr);
                         }
                     }
                 }
             }
         }
+
+        getTypeFromMemberAccessWithBaseType(target, baseTypeResult,
+            { method: 'set', setType: type, setErrorNode: srcExpr }, EvaluatorFlags.None);
+
+        updateExpressionTypeForNode(target.memberName, type);
+        updateExpressionTypeForNode(target, type);
     }
 
     function assignTypeToMemberVariable(node: MemberAccessNode, srcType: Type,
@@ -1202,6 +1207,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 break;
             }
 
+            case ParseNodeType.Index: {
+                const baseTypeResult = getTypeOfExpression(target.baseExpression,
+                    { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
+
+                getTypeFromIndexWithBaseType(target, baseTypeResult.type,
+                    { method: 'set', setType: type, setErrorNode: srcExpr }, EvaluatorFlags.None);
+                break;
+            }
+
             case ParseNodeType.Tuple: {
                 typeOfTargetOfInterest = assignTypeToTupleNode(target, type, srcExpr,
                     targetOfInterest);
@@ -1254,12 +1268,72 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 });
                 break;
             }
+
+            case ParseNodeType.Error: {
+                // Evaluate the child expression as best we can so the
+                // type information is cached for the completion handler.
+                useSpeculativeMode(() => {
+                    if (target.child) {
+                        getTypeOfExpression(target.child);
+                    }
+                });
+                break;
+            }
+
+            default: {
+                addError(`Expression cannot be assignment target`, target);
+                break;
+            }
         }
 
-        // Make sure we can write the type back to the target.
-        getTypeOfExpression(target, { method: 'set', setType: type, setErrorNode: srcExpr });
-
         return typeOfTargetOfInterest;
+    }
+
+    function verifyDeleteExpression(node: ExpressionNode) {
+        switch (node.nodeType) {
+            case ParseNodeType.Name: {
+                const name = node.nameToken.value;
+                const symbolWithScope = lookUpSymbolRecursive(node, name);
+
+                if (symbolWithScope) {
+                    setSymbolAccessed(getFileInfo(node), symbolWithScope.symbol);
+                }
+                break;
+            }
+
+            case ParseNodeType.MemberAccess: {
+                const baseTypeResult = getTypeOfExpression(node.leftExpression);
+                const memberType = getTypeFromMemberAccessWithBaseType(
+                    node, baseTypeResult, { method: 'del' }, EvaluatorFlags.None);
+                updateExpressionTypeForNode(node.memberName, memberType.type);
+                break;
+            }
+
+            case ParseNodeType.Index: {
+                const baseTypeResult = getTypeOfExpression(node.baseExpression,
+                    { method: 'get' }, EvaluatorFlags.DoNotSpecialize);
+                getTypeFromIndexWithBaseType(node, baseTypeResult.type,
+                    { method: 'del' }, EvaluatorFlags.None);
+                updateExpressionTypeForNode(node, UnboundType.create());
+                break;
+            }
+
+            case ParseNodeType.Error: {
+                // Evaluate the child expression as best we can so the
+                // type information is cached for the completion handler.
+                useSpeculativeMode(() => {
+                    if (node.child) {
+                        getTypeOfExpression(node.child);
+                    }
+                });
+                break;
+            }
+
+            default: {
+                addError(`Expression cannot be deleted`, node);
+                break;
+            }
+        }
     }
 
     function updateExpressionTypeForNode(node: ParseNode, exprType: Type) {
@@ -1527,6 +1601,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case ParseNodeType.Await: {
+                reportUsageErrorForReadOnly(node, usage);
                 typeResult = getTypeOfExpression(
                     node.expression, { method: 'get' }, flags);
                 typeResult = {
@@ -2174,8 +2249,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const baseTypeResult = getTypeOfExpression(node.baseExpression,
             { method: 'get' }, flags | EvaluatorFlags.DoNotSpecialize);
 
-        const baseType = baseTypeResult.type;
+        return getTypeFromIndexWithBaseType(node, baseTypeResult.type,
+            usage, flags);
+    }
 
+    function getTypeFromIndexWithBaseType(node: IndexNode, baseType: Type,
+            usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
         // Handle the special case where we're we're specializing a generic
         // union of class types.
         if (baseType.category === TypeCategory.Union) {
@@ -7099,7 +7178,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         getTypeOfImportAsTarget,
         getTypeOfImportFromTarget,
         getDeclaredTypeForExpression,
-        isAnnotationLiteralValue,
+        verifyDeleteExpression,
         isAfterNodeReachable,
         isNodeReachable,
         transformTypeForPossibleEnumClass,

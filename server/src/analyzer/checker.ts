@@ -459,13 +459,7 @@ export class Checker extends ParseTreeWalker {
 
     visitStringList(node: StringListNode): boolean {
         if (node.typeAnnotation) {
-            // Should we ignore this type annotation?
-            if (this._evaluator.isAnnotationLiteralValue(node)) {
-                return false;
-            }
-
-            this._getTypeOfExpression(node.typeAnnotation,
-                EvaluatorFlags.AllowForwardReferences);
+            this._getTypeOfExpression(node);
         }
 
         return true;
@@ -487,7 +481,7 @@ export class Checker extends ParseTreeWalker {
 
     visitDel(node: DelNode) {
         node.expressions.forEach(expr => {
-            this._evaluateExpressionForDeletion(expr);
+            this._evaluator.verifyDeleteExpression(expr);
 
             if (expr.nodeType === ParseNodeType.Name) {
                 const symbolWithScope = this._currentScope.lookUpSymbolRecursive(expr.nameToken.value);
@@ -552,9 +546,7 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.updateExpressionTypeForNode(node.valueExpression, declaredType);
         }
 
-        this._validateDeclaredTypeMatches(node.valueExpression, declaredType,
-            node.typeAnnotation);
-
+        this._validateDeclaredTypeMatches(node.valueExpression, declaredType, node.typeAnnotation);
         return true;
     }
 
@@ -1241,10 +1233,6 @@ export class Checker extends ParseTreeWalker {
 
     private _getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): Type {
         return this._evaluator.getTypeOfExpression(node, { method: 'get', expectedType }, flags).type;
-    }
-
-    private _evaluateExpressionForDeletion(node: ExpressionNode) {
-        this._evaluator.getTypeOfExpression(node, { method: 'del' }, EvaluatorFlags.None);
     }
 
     // Validates that a new type declaration doesn't conflict with an
