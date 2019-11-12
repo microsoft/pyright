@@ -28,9 +28,10 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
     CallNode, ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExceptNode, ExpressionNode,
     ForNode, FunctionNode, ImportAsNode, ImportFromAsNode, ImportFromNode, IndexItemsNode,
     IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode, MemberAccessNode,
-    NameNode, ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceNode,
-    StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode, YieldFromNode,
-    YieldNode } from '../parser/parseNodes';
+    NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
+    SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode,
+    YieldFromNode, 
+    YieldNode} from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -5491,15 +5492,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
         const functionDecl = AnalyzerNodeInfo.getFunctionDeclaration(node)!;
 
-        // The "__new__" magic method is not an instance method.
-        // It acts as a static method instead.
-        let functionFlags = FunctionTypeFlags.None;
-        if (node.name.nameToken.value === '__new__') {
-            functionFlags |= FunctionTypeFlags.StaticMethod;
-            functionFlags |= FunctionTypeFlags.ConstructorMethod;
-            functionFlags &= ~FunctionTypeFlags.InstanceMethod;
-        }
-
+        let functionFlags = getFunctionFlagsFromDescriptors(node, !!containingClassNode);
         if (functionDecl.yieldExpressions) {
             functionFlags |= FunctionTypeFlags.Generator;
         }
@@ -5507,8 +5500,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (node.isAsync) {
             functionFlags |= FunctionTypeFlags.Async;
         }
-
-        functionFlags |= getFunctionFlagsFromDescriptors(node);
 
         functionType = FunctionType.create(functionFlags,
             ParseTreeUtils.getDocString(node.suite.statements));
@@ -5623,36 +5614,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         });
 
         if (containingClassNode) {
-            if (!FunctionType.isClassMethod(functionType) && !FunctionType.isStaticMethod(functionType)) {
-                // Mark the function as an instance method.
-                functionType.details.flags |= FunctionTypeFlags.InstanceMethod;
-            }
-
             // If the first parameter doesn't have an explicit type annotation,
             // provide a type if it's an instance, class or constructor method.
-            if (FunctionType.isInstanceMethod(functionType) ||
-                FunctionType.isClassMethod(functionType) ||
-                FunctionType.isConstructorMethod(functionType)) {
-
-                if (functionType.details.parameters.length > 0 && !node.parameters[0].typeAnnotation) {
-                    // Don't specialize the "self" for protocol classes because type
-                    // comparisons will fail during structural typing analysis.
-                    if (containingClassType && !ClassType.isProtocol(containingClassType)) {
-                        if (FunctionType.isInstanceMethod(functionType)) {
-                            const specializedClassType = selfSpecializeClassType(containingClassType);
-                            const specializedObjType = ObjectType.create(specializedClassType);
-                            functionType.details.parameters[0].type = specializedObjType;
-                            paramTypes[0] = specializedObjType;
-                        } else if (FunctionType.isClassMethod(functionType) ||
-                            FunctionType.isConstructorMethod(functionType)) {
-
-                            // For class methods, the cls parameter is allowed to skip the
-                            // abstract class test because the caller is possibly passing
-                            // in a non-abstract subclass.
-                            const specializedClassType = selfSpecializeClassType(containingClassType, true);
-                            functionType.details.parameters[0].type = specializedClassType;
-                            paramTypes[0] = specializedClassType;
-                        }
+            if (functionType.details.parameters.length > 0 && !node.parameters[0].typeAnnotation) {
+                if (containingClassType) {
+                    const inferredParamType = inferFirstParamType(node,
+                        functionType.details.flags, containingClassType);
+                    if (inferredParamType) {
+                        functionType.details.parameters[0].type = inferredParamType;
+                        paramTypes[0] = inferredParamType;
                     }
                 }
             }
@@ -5713,6 +5683,28 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return { functionType, decoratedType };
     }
 
+    function inferFirstParamType(node: FunctionNode, flags: FunctionTypeFlags,
+            containingClassType: ClassType): Type | undefined {
+
+        if (flags & (FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) {
+            // Don't specialize the "self" for protocol classes because type
+            // comparisons will fail during structural typing analysis.
+            if (containingClassType && !ClassType.isProtocol(containingClassType)) {
+                if (flags & FunctionTypeFlags.InstanceMethod) {
+                    const specializedClassType = selfSpecializeClassType(containingClassType);
+                    return ObjectType.create(specializedClassType);
+                } else if (flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) {
+                    // For class methods, the cls parameter is allowed to skip the
+                    // abstract class test because the caller is possibly passing
+                    // in a non-abstract subclass.
+                    return selfSpecializeClassType(containingClassType, true);
+                }
+            }
+        }
+
+        return undefined;
+    }
+
     // Transforms the parameter type based on its category. If it's a simple parameter,
     // no transform is applied. If it's a var-arg or keyword-arg parameter, the type
     // is wrapped in a List or Dict.
@@ -5747,8 +5739,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     // Scans through the decorators to find a few built-in decorators
     // that affect the function flags.
-    function getFunctionFlagsFromDescriptors(node: FunctionNode) {
+    function getFunctionFlagsFromDescriptors(node: FunctionNode, isInClass: boolean) {
         let flags = FunctionTypeFlags.None;
+
+        // The "__new__" magic method is not an instance method.
+        // It acts as a static method instead.
+        if (node.name.nameToken.value === '__new__') {
+            flags |= FunctionTypeFlags.StaticMethod;
+            flags |= FunctionTypeFlags.ConstructorMethod;
+        }
 
         for (const decoratorNode of node.decorators) {
             const decoratorType = getType(decoratorNode.leftExpression);
@@ -5762,6 +5761,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 } else if (ClassType.isBuiltIn(decoratorType, 'classmethod')) {
                     flags |= FunctionTypeFlags.ClassMethod;
                 }
+            }
+        }
+
+        // If the function is contained with a class but is not a class
+        // method or a static method, it's assumed to be an instance method.
+        if (isInClass) {
+            if ((flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.StaticMethod |
+                    FunctionTypeFlags.ConstructorMethod)) === 0) {
+                flags |= FunctionTypeFlags.InstanceMethod;
             }
         }
 
@@ -6336,6 +6344,47 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         getType(isExpressionNode(parent) ? parent as ExpressionNode : lastContextualExpression);
     }
 
+    function evaluateTypeOfParameter(node: ParameterNode): void {
+        assert(node.name);
+
+        // We need to handle lambdas differently from functions because
+        // the former never have parameter type annotations but can
+        // be inferred, whereas the latter sometimes have type annotations
+        // but cannot be inferred.
+        const parent = node.parent!;
+        if (parent.nodeType === ParseNodeType.Lambda) {
+            evaluateTypesForExpressionInContext(parent);
+            return;
+        }
+
+        assert(parent.nodeType === ParseNodeType.Function);
+        const functionNode = parent as FunctionNode;
+
+        if (node.typeAnnotation) {
+            getTypeOfAnnotation(node.typeAnnotation);
+            return;
+        }
+
+        const paramIndex = functionNode.parameters.findIndex(param => param === node);
+        if (paramIndex > 0) {
+            return;
+        }
+
+        // We may be able to infer the type of the first parameter.
+        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+        if (containingClassNode) {
+            const classInfo = getTypeOfClass(containingClassNode);
+            if (classInfo) {
+                const functionFlags = getFunctionFlagsFromDescriptors(functionNode, true);
+                // If the first parameter doesn't have an explicit type annotation,
+                // provide a type if it's an instance, class or constructor method.
+                const inferredParamType = inferFirstParamType(functionNode,
+                    functionFlags, classInfo.classType);
+                writeTypeCache(node.name!, inferredParamType || UnknownType.create());
+            }
+        }
+    }
+
     // Evaluates the types that are assigned within the statement that contains
     // the specified parse node. In some cases, a broader statement may need to
     // be evaluated to provide sufficient context for the type. Evaluated types
@@ -6362,6 +6411,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 case ParseNodeType.Class: {
                     getTypeOfClass(curNode);
+                    return;
+                }
+
+                case ParseNodeType.Parameter: {
+                    evaluateTypeOfParameter(curNode);
                     return;
                 }
 
@@ -7399,7 +7453,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                     if (!inferredType) {
                         evaluateTypesForStatement(resolvedDecl.inferredTypeSource);
-                        inferredType = getType(resolvedDecl.node);
+                        const inferredTypeInfo = getTypeOfExpression(resolvedDecl.node);
+                        inferredType = inferredTypeInfo.type;
+                        if (inferredTypeInfo.isResolutionCyclical) {
+                            return undefined;
+                        }
                     }
 
                     if (resolvedDecl.node.nodeType === ParseNodeType.Name) {
@@ -7487,7 +7545,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undeclaredType;
         }
 
-        // Determine the inferred type.
+        // Infer the type.
         const typesToCombine: Type[] = [];
         const isPrivate = symbol.isPrivateMember();
         symbol.getDeclarations().forEach(decl => {
