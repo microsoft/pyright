@@ -20,9 +20,10 @@ import * as ImportStatementUtils from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
+import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { Type, TypeCategory } from '../analyzer/types';
-import { getMembersForClass, getMembersForModule, printType } from '../analyzer/typeUtils';
+import { TypeCategory } from '../analyzer/types';
+import { doForSubtypes, getMembersForClass, getMembersForModule, printType } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
@@ -115,7 +116,8 @@ enum SortCategory {
 // This data allows the resolve handling to disambiguate
 // which item was selected.
 interface CompletionItemData {
-    autoImportText: string;
+    autoImportText?: string;
+    symbolId?: number;
 }
 
 interface RecentCompletionInfo {
@@ -374,13 +376,17 @@ export class CompletionProvider {
         const symbolTable = new SymbolTable();
 
         if (leftType) {
-            if (leftType.category === TypeCategory.Object) {
-                getMembersForClass(leftType.classType, symbolTable, true);
-            } else if (leftType.category === TypeCategory.Class) {
-                getMembersForClass(leftType, symbolTable, false);
-            } else if (leftType.category === TypeCategory.Module) {
-                getMembersForModule(leftType, symbolTable);
-            }
+            doForSubtypes(leftType, subtype => {
+                if (subtype.category === TypeCategory.Object) {
+                    getMembersForClass(subtype.classType, symbolTable, true);
+                } else if (subtype.category === TypeCategory.Class) {
+                    getMembersForClass(subtype, symbolTable, false);
+                } else if (subtype.category === TypeCategory.Module) {
+                    getMembersForModule(subtype, symbolTable);
+                }
+
+                return undefined;
+            });
         }
 
         const completionList = CompletionList.create();
@@ -635,20 +641,25 @@ export class CompletionProvider {
             priorWord: string, completionList: CompletionList,
             autoImportSource?: string, additionalTextEdits?: TextEditAction[]) {
 
-        const declarations = symbol.getDeclarations();
+        let primaryDecl = getLastTypedDeclaredForSymbol(symbol);
+        if (!primaryDecl) {
+            const declarations = symbol.getDeclarations();
+            if (declarations.length > 0) {
+                primaryDecl = declarations[declarations.length - 1];
+            }
+        }
 
-        if (declarations.length > 0) {
+        if (primaryDecl) {
             let itemKind: CompletionItemKind = CompletionItemKind.Variable;
             let typeDetail: string | undefined;
             let documentation: string | undefined;
 
-            const declaration = this._evaluator.resolveAliasDeclaration(declarations[0]);
-            if (declaration) {
-                const type = this._evaluator.getInferredTypeOfDeclaration(declaration);
-                itemKind = this._convertDeclarationTypeToItemKind(declaration, type);
-
+            primaryDecl = this._evaluator.resolveAliasDeclaration(primaryDecl);
+            if (primaryDecl) {
+                itemKind = this._convertDeclarationTypeToItemKind(primaryDecl);
+                const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
                 if (type) {
-                    switch (declaration.type) {
+                    switch (primaryDecl.type) {
                         case DeclarationType.Intrinsic:
                         case DeclarationType.Variable:
                         case DeclarationType.Parameter:
@@ -673,8 +684,8 @@ export class CompletionProvider {
 
                         case DeclarationType.Alias: {
                             typeDetail = name;
-                            if (declaration.path) {
-                                const lookupResults = this._importLookup(declaration.path);
+                            if (primaryDecl.path) {
+                                const lookupResults = this._importLookup(primaryDecl.path);
                                 if (lookupResults) {
                                     documentation = lookupResults.docString;
                                 }
@@ -687,9 +698,7 @@ export class CompletionProvider {
                             break;
                         }
                     }
-                }
 
-                if (type) {
                     if (type.category === TypeCategory.Module) {
                         documentation = type.docString;
                     } else if (type.category === TypeCategory.Class) {
@@ -720,15 +729,13 @@ export class CompletionProvider {
         if (similarity > similarityLimit) {
             const completionItem = CompletionItem.create(name);
             completionItem.kind = itemKind;
-            completionItem.data = {};
+            const completionItemData: CompletionItemData = {};
+            completionItem.data = completionItemData;
 
             if (autoImportText) {
                 // Force auto-import entries to the end.
                 completionItem.sortText =
                     this._makeSortText(SortCategory.AutoImport, name, autoImportText);
-                const completionItemData: CompletionItemData = {
-                    autoImportText
-                };
                 completionItem.data = completionItemData;
             } else if (SymbolNameUtils.isDunderName(name)) {
                 // Force dunder-named symbols to appear after all other symbols.
@@ -842,9 +849,7 @@ export class CompletionProvider {
         return result;
     }
 
-    private _convertDeclarationTypeToItemKind(declaration: Declaration,
-            type?: Type): CompletionItemKind {
-
+    private _convertDeclarationTypeToItemKind(declaration: Declaration): CompletionItemKind {
         const resolvedDeclaration = this._evaluator.resolveAliasDeclaration(declaration);
         if (!resolvedDeclaration) {
             return CompletionItemKind.Variable;
@@ -852,12 +857,7 @@ export class CompletionProvider {
 
         switch (resolvedDeclaration.type) {
             case DeclarationType.Intrinsic:
-                if (type) {
-                    if (type.category === TypeCategory.Class) {
-                        return CompletionItemKind.Class;
-                    }
-                }
-                return CompletionItemKind.Variable;
+                return CompletionItemKind.Class;
 
             case DeclarationType.Parameter:
                 return CompletionItemKind.Variable;
@@ -871,9 +871,6 @@ export class CompletionProvider {
                 return CompletionItemKind.Function;
 
             case DeclarationType.Method:
-                if (type && type.category === TypeCategory.Property) {
-                    return CompletionItemKind.Property;
-                }
                 return CompletionItemKind.Method;
 
             case DeclarationType.Class:
