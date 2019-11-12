@@ -47,26 +47,6 @@ interface AnalyzerNodeInfo {
 
     // Info about the source file, used only on module nodes.
     fileInfo?: AnalyzerFileInfo;
-
-    //---------------------------------------------------------------
-    // Set by Type Evaluator
-
-    // Cached type information for this node.
-    typeCache?: ExpressionTypeCache;
-}
-
-interface ExpressionTypeCache {
-    // Cached type information for expression nodes; allows analyzer to
-    // avoid recomputing types repeatedly.
-    type?: Type;
-
-    // Analysis pass that last wrote to the cache.
-    writeVersion?: number;
-
-    // Indicates that the cached value was read since
-    // it was last written, so any write must invalidate
-    // the analysis and perform another pass.
-    updateRequiresInvalidation?: boolean;
 }
 
 export type ScopedNode = ModuleNode | ClassNode | FunctionNode |
@@ -81,7 +61,6 @@ export function cleanNodeAnalysisInfo(node: ParseNode) {
     delete analyzerNode.flowNode;
     delete analyzerNode.afterFlowNode;
     delete analyzerNode.fileInfo;
-    delete analyzerNode.typeCache;
 }
 
 export function getImportInfo(node: ParseNode): ImportResult | undefined {
@@ -142,55 +121,4 @@ export function getFileInfo(node: ModuleNode): AnalyzerFileInfo | undefined {
 export function setFileInfo(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.fileInfo = fileInfo;
-}
-
-export function getExpressionType(node: ParseNode): Type | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    if (!analyzerNode.typeCache) {
-        analyzerNode.typeCache = {};
-    }
-
-    analyzerNode.typeCache.updateRequiresInvalidation = true;
-    return analyzerNode.typeCache.type;
-}
-
-export function peekExpressionType(node: ParseNode, readVersion?: number): Type | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    if (analyzerNode.typeCache) {
-        if (readVersion === undefined || analyzerNode.typeCache.writeVersion === readVersion) {
-            return analyzerNode.typeCache.type;
-        }
-    }
-
-    return undefined;
-}
-
-export function setExpressionType(node: ParseNode, type?: Type) {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    if (!analyzerNode.typeCache) {
-        analyzerNode.typeCache = {};
-    }
-
-    analyzerNode.typeCache.type = type;
-}
-
-export function getExpressionTypeWriteVersion(node: ParseNode): number | undefined {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    if (analyzerNode.typeCache) {
-        return analyzerNode.typeCache.writeVersion;
-    }
-    return undefined;
-}
-
-export function setExpressionTypeWriteVersion(node: ParseNode, version: number) {
-    const analyzerNode = node as AnalyzerNodeInfo;
-    if (!analyzerNode.typeCache) {
-        analyzerNode.typeCache = {};
-    }
-
-    const requiresInvalidation = !!analyzerNode.typeCache.updateRequiresInvalidation;
-    analyzerNode.typeCache.writeVersion = version;
-    analyzerNode.typeCache.updateRequiresInvalidation = false;
-
-    return requiresInvalidation;
 }

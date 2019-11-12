@@ -511,14 +511,6 @@ export class Checker extends ParseTreeWalker {
                 node.valueExpression, declaredType);
         }
 
-        // If this annotation isn't part of an assignment operation,
-        // update the type on the name node for the hover provider.
-        // If it's part of an assignment operation, the assignment
-        // operation will set the type.
-        if (node.parent && node.parent.nodeType !== ParseNodeType.Assignment) {
-            this._evaluator.updateExpressionTypeForNode(node.valueExpression, declaredType);
-        }
-
         this._validateDeclaredTypeMatches(node.valueExpression, declaredType, node.typeAnnotation);
         return true;
     }

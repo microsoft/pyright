@@ -46,8 +46,8 @@ import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     FunctionType, FunctionTypeFlags, InheritanceChain, isAnyOrUnknown, isNoneOrNever,
-    isPossiblyUnbound, isSameWithoutLiteralValue, isTypeSame, isUnbound, LiteralValue, maxTypeRecursionCount, ModuleType,
-    NeverType, NoneType, ObjectType, OverloadedFunctionEntry,
+    isPossiblyUnbound, isSameWithoutLiteralValue, isTypeSame, isUnbound, LiteralValue,
+    maxTypeRecursionCount, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionEntry,
     OverloadedFunctionType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion, Type, TypeCategory,
     TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
 import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedTypeForConstructor,
@@ -228,15 +228,12 @@ export interface TypeEvaluator {
 
     transformTypeForPossibleEnumClass: (node: NameNode, typeOfExpr: Type) => Type;
 
-    updateExpressionTypeForNode: (node: ParseNode, exprType: Type) => void;
-
     getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;
     getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
     getInferredTypeOfDeclaration: (decl: Declaration) => Type | undefined;
     resolveAliasDeclaration: (declaration: Declaration) => Declaration | undefined;
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
-    getDeclaredTypeOfSymbol: (symbol: Symbol) => Type | undefined;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
@@ -257,9 +254,47 @@ export interface TypeEvaluator {
         rule: string, message: string, range: TextRange) => Diagnostic | undefined;
 }
 
+interface TypeCacheEntry {
+    type: Type;
+    isSpeculative?: boolean;
+}
+
 export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     let isSpeculativeMode = false;
     const typeResolutionRecursionMap = new Map<number, ParseNode>();
+    const maxTypeResolutionRecursionCount = 25;
+    const typeCache = new Map<number, TypeCacheEntry>();
+
+    function readTypeCache(node: ParseNode): Type | undefined {
+        const typeCacheEntry = typeCache.get(node.id);
+        if (!typeCacheEntry) {
+            return undefined;
+        }
+
+        if (typeCacheEntry.isSpeculative) {
+            return isSpeculativeMode ? typeCacheEntry.type : undefined;
+        }
+
+        return typeCacheEntry.type;
+    }
+
+    function writeTypeCache(node: ParseNode, type: Type) {
+        let typeCacheEntry = typeCache.get(node.id);
+        if (typeCacheEntry) {
+            if (!isSpeculativeMode) {
+                delete typeCacheEntry.isSpeculative;
+            } else {
+                typeCacheEntry.isSpeculative = true;
+            }
+            typeCacheEntry.type = type;
+        } else {
+            typeCacheEntry = { type };
+            if (isSpeculativeMode) {
+                typeCacheEntry.isSpeculative = true;
+            }
+            typeCache.set(node.id, typeCacheEntry);
+        }
+    }
 
     // Wrapper around getTypeOfExpression for callers who are interested in
     // only the type and not the additional information returned in TypeResult.
@@ -271,8 +306,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             flags = EvaluatorFlags.None): TypeResult {
 
         // Is this type already cached?
-        const fileInfo = getFileInfo(node);
-        const cachedType = AnalyzerNodeInfo.peekExpressionType(node, fileInfo.fileAnalysisVersion);
+        const cachedType = readTypeCache(node);
         if (cachedType) {
             return { type: cachedType, node };
         }
@@ -468,7 +502,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             typeResult = { type: UnknownType.create(), node };
         }
 
-        updateExpressionTypeForNode(node, typeResult.type);
+        writeTypeCache(node, typeResult.type);
 
         popTypeResolution(node);
 
@@ -483,7 +517,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (fileInfo.isTypingStubFile) {
             const specialType = handleTypingStubTypeAnnotation(node);
             if (specialType) {
-                updateExpressionTypeForNode(node, specialType);
+                writeTypeCache(node, specialType);
                 return specialType;
             }
         }
@@ -1155,7 +1189,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        updateExpressionTypeForNode(nameNode, destType);
+        writeTypeCache(nameNode, destType);
     }
 
     function assignTypeToMemberAccessNode(target: MemberAccessNode, type: Type,
@@ -1188,8 +1222,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         getTypeFromMemberAccessWithBaseType(target, baseTypeResult,
             { method: 'set', setType: type, setErrorNode: srcExpr }, EvaluatorFlags.None);
 
-        updateExpressionTypeForNode(target.memberName, type);
-        updateExpressionTypeForNode(target, type);
+        writeTypeCache(target.memberName, type);
+        writeTypeCache(target, type);
     }
 
     function assignTypeToMemberVariable(node: MemberAccessNode, srcType: Type,
@@ -1520,7 +1554,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const baseTypeResult = getTypeOfExpression(node.leftExpression);
                 const memberType = getTypeFromMemberAccessWithBaseType(
                     node, baseTypeResult, { method: 'del' }, EvaluatorFlags.None);
-                updateExpressionTypeForNode(node.memberName, memberType.type);
+                writeTypeCache(node.memberName, memberType.type);
                 break;
             }
 
@@ -1529,7 +1563,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     undefined, EvaluatorFlags.DoNotSpecialize);
                 getTypeFromIndexWithBaseType(node, baseTypeResult.type,
                     { method: 'del' }, EvaluatorFlags.None);
-                updateExpressionTypeForNode(node, UnboundType.create());
+                writeTypeCache(node, UnboundType.create());
                 break;
             }
 
@@ -1547,31 +1581,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             default: {
                 addError(`Expression cannot be deleted`, node);
                 break;
-            }
-        }
-    }
-
-    function updateExpressionTypeForNode(node: ParseNode, exprType: Type) {
-        if (!isSpeculativeMode) {
-            const oldWriteVersion = AnalyzerNodeInfo.getExpressionTypeWriteVersion(node);
-            const fileInfo = getFileInfo(node);
-
-            // If the type was already cached this pass, don't overwrite the value.
-            // This can happen in the case of augmented assignments, which share
-            // a source and destination expression.
-            if (oldWriteVersion !== fileInfo.fileAnalysisVersion) {
-                const oldType = AnalyzerNodeInfo.peekExpressionType(node);
-                const requiresInvalidation = AnalyzerNodeInfo.setExpressionTypeWriteVersion(
-                    node, fileInfo.fileAnalysisVersion);
-
-                if (!oldType || !isTypeSame(oldType, exprType)) {
-                    if (requiresInvalidation) {
-                        const expr = ParseTreeUtils.printExpression(node as any);
-                        fileInfo.reanalysisRequired = true;
-                        fileInfo.lastReanalysisReason = `Expression type changed for '${ expr }'`;
-                    }
-                    AnalyzerNodeInfo.setExpressionType(node, exprType);
-                }
             }
         }
     }
@@ -1683,6 +1692,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return false;
         }
 
+        if (typeResolutionRecursionMap.size > maxTypeResolutionRecursionCount) {
+            return false;
+        }
+
         typeResolutionRecursionMap.set(node.id, node);
         return true;
     }
@@ -1791,7 +1804,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             memberType.type;
 
         // Cache the type information in the member name node as well.
-        updateExpressionTypeForNode(node.memberName, memberType.type);
+        writeTypeCache(node.memberName, memberType.type);
 
         return memberType;
     }
@@ -5105,86 +5118,75 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function evaluateTypesForAssignmentStatement(node: AssignmentNode): void {
-        const fileInfo = getFileInfo(node);
-
-        // Is this type already cached?
-        let rightHandType = AnalyzerNodeInfo.peekExpressionType(
-            node.rightExpression, fileInfo.fileAnalysisVersion);
-
-        // If there was a cached value and no target of interest or the entire
-        // LHS is the target of interest, there's no need to do additional work.
-        if (rightHandType) {
-            return;
-        }
-
         // Check for recursion.
-        if (!pushTypeResolution(node)) {
-            return undefined;
-        }
+        if (pushTypeResolution(node)) {
+            const fileInfo = getFileInfo(node);
 
-        if (!rightHandType) {
-            // Special-case the typing.pyi file, which contains some special
-            // types that the type analyzer needs to interpret differently.
-            if (fileInfo.isTypingStubFile) {
-                rightHandType = handleTypingStubAssignment(node);
-                if (rightHandType) {
-                    updateExpressionTypeForNode(node.rightExpression, rightHandType);
-                }
-            }
+            // Is this type already cached?
+            let rightHandType = readTypeCache(node.rightExpression);
 
+            // If there was a cached value and no target of interest or the entire
+            // LHS is the target of interest, there's no need to do additional work.
             if (!rightHandType) {
-                // Determine whether there is a declared type.
-                const declaredType = getDeclaredTypeForExpression(node.leftExpression);
-
-                // Evaluate the type of the right-hand side.
-                // An assignment of ellipsis means "Any" within a type stub file.
-                let srcType = getType(node.rightExpression, declaredType,
-                    fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined);
-
-                // Determine if the RHS is a constant boolean expression.
-                // If so, assign it a literal type.
-                const constExprValue = evaluateStaticBoolExpression(
-                    node.rightExpression, fileInfo.executionEnvironment);
-                if (constExprValue !== undefined) {
-                    const boolType = getBuiltInObject(node, 'bool');
-                    if (boolType.category === TypeCategory.Object) {
-                        srcType = ObjectType.cloneWithLiteral(boolType, constExprValue);
+                // Special-case the typing.pyi file, which contains some special
+                // types that the type analyzer needs to interpret differently.
+                if (fileInfo.isTypingStubFile) {
+                    rightHandType = handleTypingStubAssignment(node);
+                    if (rightHandType) {
+                        writeTypeCache(node.rightExpression, rightHandType);
                     }
                 }
 
-                // If there was a declared type, make sure the RHS value is compatible.
-                if (declaredType) {
-                    const diagAddendum = new DiagnosticAddendum();
-                    if (canAssignType(declaredType, srcType, diagAddendum)) {
-                        // Constrain the resulting type to match the declared type.
-                        srcType = constrainDeclaredTypeBasedOnAssignedType(
-                            declaredType, srcType);
-                    }
-                }
+                if (!rightHandType) {
+                    // Determine whether there is a declared type.
+                    const declaredType = getDeclaredTypeForExpression(node.leftExpression);
 
-                // If this is an enum, transform the type as required.
-                rightHandType = srcType;
-                if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
-                    rightHandType = transformTypeForPossibleEnumClass(
-                        node.leftExpression, rightHandType);
+                    // Evaluate the type of the right-hand side.
+                    // An assignment of ellipsis means "Any" within a type stub file.
+                    let srcType = getType(node.rightExpression, declaredType,
+                        fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined);
+
+                    // Determine if the RHS is a constant boolean expression.
+                    // If so, assign it a literal type.
+                    const constExprValue = evaluateStaticBoolExpression(
+                        node.rightExpression, fileInfo.executionEnvironment);
+                    if (constExprValue !== undefined) {
+                        const boolType = getBuiltInObject(node, 'bool');
+                        if (boolType.category === TypeCategory.Object) {
+                            srcType = ObjectType.cloneWithLiteral(boolType, constExprValue);
+                        }
+                    }
+
+                    // If there was a declared type, make sure the RHS value is compatible.
+                    if (declaredType) {
+                        const diagAddendum = new DiagnosticAddendum();
+                        if (canAssignType(declaredType, srcType, diagAddendum)) {
+                            // Constrain the resulting type to match the declared type.
+                            srcType = constrainDeclaredTypeBasedOnAssignedType(
+                                declaredType, srcType);
+                        }
+                    }
+
+                    // If this is an enum, transform the type as required.
+                    rightHandType = srcType;
+                    if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
+                        rightHandType = transformTypeForPossibleEnumClass(
+                            node.leftExpression, rightHandType);
+                    }
                 }
             }
+
+            if (rightHandType) {
+                assignTypeToExpression(node.leftExpression, rightHandType, node.rightExpression);
+            }
+
+            popTypeResolution(node);
         }
-
-        popTypeResolution(node);
-
-        if (!rightHandType) {
-            return undefined;
-        }
-
-        assignTypeToExpression(node.leftExpression, rightHandType, node.rightExpression);
     }
 
     function evaluateTypesForAugmentedAssignment(node: AugmentedAssignmentNode): void {
         // Is this type already cached?
-        const fileInfo = getFileInfo(node);
-        let destType = AnalyzerNodeInfo.peekExpressionType(
-            node.destExpression, fileInfo.fileAnalysisVersion);
+        let destType = readTypeCache(node.destExpression);
 
         // If there was a cached value and no target of interest or the entire
         // LHS is the target of interest, there's no need to do additional work.
@@ -5206,11 +5208,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function getTypeOfClass(node: ClassNode): ClassTypeResult | undefined {
         // Is this type already cached?
-        const fileInfo = getFileInfo(node);
-        let classType = AnalyzerNodeInfo.peekExpressionType(
-            node, fileInfo.fileAnalysisVersion) as ClassType;
-        let decoratedType = AnalyzerNodeInfo.peekExpressionType(
-            node.name, fileInfo.fileAnalysisVersion);
+        let classType = readTypeCache(node) as ClassType;
+        let decoratedType = readTypeCache(node.name);
 
         if (classType && decoratedType) {
             return { classType, decoratedType };
@@ -5224,6 +5223,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // The type wasn't cached, so we need to create a new one.
         const scope = ScopeUtils.getScopeForNode(node);
 
+        const fileInfo = getFileInfo(node);
         let classFlags = ClassTypeFlags.None;
         if (scope.getType() === ScopeType.Builtin || fileInfo.isTypingStubFile || fileInfo.isBuiltInStubFile) {
             classFlags |= ClassTypeFlags.BuiltInClass;
@@ -5235,10 +5235,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Pre-cache the class type that we just created. This is needed to handle
         // a few circularities within the stdlib type stubs like the datetime class,
         // which uses itself as a type parameter for one of its base classes.
-        const oldCachedClassType = AnalyzerNodeInfo.peekExpressionType(node);
-        const oldCachedDecoratedClassType = AnalyzerNodeInfo.peekExpressionType(node.name);
-        AnalyzerNodeInfo.setExpressionType(node, classType);
-        AnalyzerNodeInfo.setExpressionType(node.name, classType);
+        writeTypeCache(node, classType);
+        writeTypeCache(node.name, classType);
 
         // Keep a list of unique type parameters that are used in the
         // base class arguments.
@@ -5364,10 +5362,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             synthesizeTypedDictClassMethods(classType);
         }
 
-        // Restore the old cached values.
-        AnalyzerNodeInfo.setExpressionType(node, oldCachedClassType);
-        AnalyzerNodeInfo.setExpressionType(node.name, oldCachedDecoratedClassType);
-
         // Now determine the decorated type of the class.
         decoratedType = classType;
         let foundUnknown = false;
@@ -5414,10 +5408,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         // Update the undecorated class type.
-        updateExpressionTypeForNode(node, classType);
+        writeTypeCache(node, classType);
 
         // Update the decorated class type.
-        updateExpressionTypeForNode(node.name, decoratedType);
+        writeTypeCache(node.name, decoratedType);
 
         popTypeResolution(node);
 
@@ -5466,10 +5460,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const fileInfo = getFileInfo(node);
 
         // Is this type already cached?
-        let functionType = AnalyzerNodeInfo.peekExpressionType(
-            node, fileInfo.fileAnalysisVersion) as FunctionType;
-        let decoratedType = AnalyzerNodeInfo.peekExpressionType(
-            node.name, fileInfo.fileAnalysisVersion);
+        let functionType = readTypeCache(node) as FunctionType;
+        let decoratedType = readTypeCache(node.name);
 
         if (functionType && decoratedType) {
             return { functionType, decoratedType };
@@ -5524,10 +5516,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Pre-cache the function type that we just created. This is needed to
         // handle recursion cases.
-        const oldCachedFunctionType = AnalyzerNodeInfo.peekExpressionType(node);
-        const oldCachedDecoratedFunctionType = AnalyzerNodeInfo.peekExpressionType(node.name);
-        AnalyzerNodeInfo.setExpressionType(node, functionType);
-        AnalyzerNodeInfo.setExpressionType(node.name, functionType);
+        writeTypeCache(node, functionType);
+        writeTypeCache(node.name, functionType);
 
         // If there was a defined return type, analyze that first so when we
         // walk the contents of the function, return statements can be
@@ -5666,7 +5656,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         paramTypes.forEach((paramType, index) => {
             const paramNameNode = node.parameters[index].name;
             if (paramNameNode) {
-                updateExpressionTypeForNode(paramNameNode, paramType);
+                writeTypeCache(paramNameNode, paramType);
             }
         });
 
@@ -5700,20 +5690,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        // Restore the old cached values.
-        AnalyzerNodeInfo.setExpressionType(node, oldCachedFunctionType);
-        AnalyzerNodeInfo.setExpressionType(node.name, oldCachedDecoratedFunctionType);
-
         // Update the type of the undecorated function.
-        updateExpressionTypeForNode(node, functionType);
+        writeTypeCache(node, functionType);
 
         // If there was no decorator, see if there are any overloads provided
         // by previous function declarations.
         if (decoratedType === functionType) {
             const overloadedType = addOverloadsToFunctionType(node, decoratedType);
-            updateExpressionTypeForNode(node.name, overloadedType);
+            writeTypeCache(node.name, overloadedType);
         } else {
-            updateExpressionTypeForNode(node.name, decoratedType);
+            writeTypeCache(node.name, decoratedType);
         }
 
         popTypeResolution(node);
@@ -5939,9 +5925,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         assert(!node.returnTypeAnnotation);
 
         // Is this type already cached?
-        const fileInfo = getFileInfo(node);
-        let inferredReturnType = AnalyzerNodeInfo.peekExpressionType(
-            node.suite, fileInfo.fileAnalysisVersion);
+        let inferredReturnType = readTypeCache(node.suite);
         if (inferredReturnType) {
             return inferredReturnType;
         }
@@ -5982,7 +5966,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 inferredReturnType = UnknownType.create();
             }
 
-            updateExpressionTypeForNode(node.suite, inferredReturnType);
+            writeTypeCache(node.suite, inferredReturnType);
         } else {
             const functionNeverReturns = !isAfterNodeReachable(node);
             const implicitlyReturnsNone = isAfterNodeReachable(node.suite);
@@ -6029,7 +6013,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 inferredReturnType = combineTypes(inferredReturnTypes);
             }
 
-            updateExpressionTypeForNode(node.suite, inferredReturnType);
+            writeTypeCache(node.suite, inferredReturnType);
         }
 
         popTypeResolution(node.suite);
@@ -6038,9 +6022,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function evaluateTypesForForStatement(node: ForNode): void {
         // Is this type already cached?
-        const fileInfo = getFileInfo(node);
-        let iteratedType = AnalyzerNodeInfo.peekExpressionType(
-            node.targetExpression, fileInfo.fileAnalysisVersion);
+        let iteratedType = readTypeCache(node.targetExpression);
         if (iteratedType) {
             return;
         }
@@ -6058,9 +6040,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         assert(node.typeExpression !== undefined);
 
         // Is this type already cached?
-        const fileInfo = getFileInfo(node);
-        let exceptionTypes = AnalyzerNodeInfo.peekExpressionType(
-            node.typeExpression!, fileInfo.fileAnalysisVersion);
+        let exceptionTypes = readTypeCache(node.typeExpression!);
         let typeIsCached = true;
 
         if (!exceptionTypes) {
@@ -6144,12 +6124,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function evaluateTypesForWithStatement(node: WithItemNode): void {
-        const fileInfo = getFileInfo(node);
-
         // Is this type already cached?
         if (node.target) {
-            const targetType = AnalyzerNodeInfo.peekExpressionType(
-                node.target, fileInfo.fileAnalysisVersion);
+            const targetType = readTypeCache(node.target);
             if (targetType) {
                 return;
             }
@@ -6165,6 +6142,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             !!node.parent.isAsync;
 
         if (isOptionalType(exprType)) {
+            const fileInfo = getFileInfo(node);
             addDiagnostic(
                 fileInfo.diagnosticSettings.reportOptionalContextManager,
                 DiagnosticRule.reportOptionalContextManager,
@@ -6214,8 +6192,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function evaluateTypesForImportAs(node: ImportAsNode): void {
-        const fileInfo = getFileInfo(node);
-
         let symbolNameNode: NameNode;
         if (node.alias) {
             // The symbol name is defined by the alias.
@@ -6228,8 +6204,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Is this type already cached?
         if (symbolNameNode) {
-            const targetType = AnalyzerNodeInfo.peekExpressionType(
-                symbolNameNode, fileInfo.fileAnalysisVersion);
+            const targetType = readTypeCache(symbolNameNode);
             if (targetType) {
                 return;
             }
@@ -6246,8 +6221,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Is there a cached module type associated with this node? If so, use
         // it instead of the type we just created.
-        const cachedModuleType = AnalyzerNodeInfo.peekExpressionType(
-            node, fileInfo.fileAnalysisVersion) as ModuleType;
+        const cachedModuleType = readTypeCache(node) as ModuleType;
         if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && symbolType) {
             if (isTypeSame(symbolType, cachedModuleType)) {
                 symbolType = cachedModuleType;
@@ -6260,12 +6234,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function evaluateTypesForImportFrom(node: ImportFromAsNode): void {
-        const fileInfo = getFileInfo(node);
         const aliasNode = node.alias || node.name;
 
         // Is this type already cached?
-        const targetType = AnalyzerNodeInfo.peekExpressionType(
-            aliasNode, fileInfo.fileAnalysisVersion);
+        const targetType = readTypeCache(aliasNode);
         if (targetType) {
             return;
         }
@@ -6462,15 +6434,22 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         function evaluateAssignmentFlowNode(flowNode: FlowAssignment): FlowNodeType | undefined {
-            const fileInfo = getFileInfo(flowNode.node);
-            let cachedType = AnalyzerNodeInfo.peekExpressionType(flowNode.node,
-                fileInfo.fileAnalysisVersion);
+            let cachedType = readTypeCache(flowNode.node);
             if (!cachedType) {
                 // There is no cached type for this expression, so we need to
                 // evaluate it.
                 evaluateTypesForStatement(flowNode.node);
-                cachedType = AnalyzerNodeInfo.getExpressionType(flowNode.node);
+                cachedType = readTypeCache(flowNode.node);
+                if (!cachedType) {
+                    // An undefined value here means that there
+                    // was a circular dependency.
+                    const entry = typeCache.get(flowNode.node.id);
+                    const fileInfo = getFileInfo(flowNode.node);
+                    evaluateTypesForStatement(flowNode.node);
+                    cachedType = UnknownType.create();
+                }
             }
+
             return setCacheEntry(flowNode, cachedType);
         }
 
@@ -6592,7 +6571,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     // If this function returns a "NoReturn" type, that means
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
-                    const returnType = AnalyzerNodeInfo.getExpressionType(callFlowNode.node);
+                    const returnType = getType(callFlowNode.node);
                     if (returnType && isNoReturnType(returnType)) {
                         return setCacheEntry(curFlowNode, undefined);
                     }
@@ -6706,7 +6685,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     // If this function returns a "NoReturn" type, that means
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
-                    const returnType = AnalyzerNodeInfo.getExpressionType(callFlowNode.node);
+                    const returnType = getType(callFlowNode.node);
                     if (returnType && isNoReturnType(returnType)) {
                         return false;
                     }
@@ -7410,7 +7389,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return getType(resolvedDecl.node.name);
                 }
             } else if (resolvedDecl.type === DeclarationType.Variable) {
-                return AnalyzerNodeInfo.getExpressionType(resolvedDecl.node);
+                if (resolvedDecl.inferredTypeSource) {
+                    const cachedType = readTypeCache(resolvedDecl.inferredTypeSource);
+                    if (cachedType) {
+                        return cachedType;
+                    }
+                    evaluateTypesForStatement(resolvedDecl.inferredTypeSource);
+                    return getType(resolvedDecl.node);
+                }
             }
         }
 
@@ -7527,7 +7513,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefined {
         const functionTypeInfo = getTypeOfFunction(node)!;
-        assert(functionTypeInfo);
+        if (!functionTypeInfo) {
+            // We hit a recursive dependency.
+            return AnyType.create();
+        }
 
         // Ignore this check for abstract methods, which often
         // don't actually return any value.
@@ -8680,13 +8669,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         isAfterNodeReachable,
         isNodeReachable,
         transformTypeForPossibleEnumClass,
-        updateExpressionTypeForNode,
         getDeclarationsForNameNode,
         getTypeForDeclaration,
         getInferredTypeOfDeclaration,
         resolveAliasDeclaration,
         getEffectiveTypeOfSymbol,
-        getDeclaredTypeOfSymbol,
         getFunctionDeclaredReturnType,
         getBuiltInType,
         getTypeOfMember,
