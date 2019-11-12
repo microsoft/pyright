@@ -57,12 +57,11 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar,
     getDeclaredGeneratorReturnType, getDeclaredGeneratorSendType, getEffectiveReturnType, getMetaclass,
-    getSpecializedTupleType, getTypeVarArgumentsRecursive,
-    isEllipsisType, isOptionalType, lookUpClassMember,
-    lookUpObjectMember, partiallySpecializeType, printLiteralValue, printObjectTypeForClass,
-    printType, removeFalsinessFromType, removeTruthinessFromType, requiresSpecialization,
-    selfSpecializeClassType, specializeType, specializeTypeVarType, stripFirstParameter,
-    stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
+    getSpecializedTupleType, getTypeVarArgumentsRecursive, isEllipsisType, isNoReturnType, isOptionalType,
+    lookUpClassMember, lookUpObjectMember, partiallySpecializeType, printLiteralValue,
+    printObjectTypeForClass, printType, removeFalsinessFromType, removeTruthinessFromType,
+    requiresSpecialization, selfSpecializeClassType, specializeType, specializeTypeVarType,
+    stripFirstParameter, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -5462,6 +5461,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return getTypeFromDecorator(decoratorNode, inputClassType);
     }
 
+    function isCallNoReturn(node: CallNode) {
+        // TODO - need to implement
+        return false;
+    }
+
     function getTypeOfFunction(node: FunctionNode): FunctionTypeResult | undefined {
         const fileInfo = getFileInfo(node);
 
@@ -6495,10 +6499,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 evaluateTypesForStatement(flowNode.node);
                 cachedType = readTypeCache(flowNode.node);
                 if (!cachedType) {
-                    // An undefined value here means that there
-                    // was a circular dependency.
-                    const entry = typeCache.get(flowNode.node.id);
-                    const fileInfo = getFileInfo(flowNode.node);
                     evaluateTypesForStatement(flowNode.node);
                     cachedType = UnknownType.create();
                 }
@@ -6625,10 +6625,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     // If this function returns a "NoReturn" type, that means
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
-                    // const returnType = getType(callFlowNode.node);
-                    // if (returnType && isNoReturnType(returnType)) {
-                    //     return setCacheEntry(curFlowNode, undefined);
-                    // }
+                    if (isCallNoReturn(callFlowNode.node)) {
+                        return setCacheEntry(curFlowNode, undefined);
+                    }
 
                     curFlowNode = callFlowNode.antecedent;
                     continue;
@@ -6739,10 +6738,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     // If this function returns a "NoReturn" type, that means
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
-                    // const returnType = getType(callFlowNode.node);
-                    // if (returnType && isNoReturnType(returnType)) {
-                    //     return false;
-                    // }
+                    if (isCallNoReturn(callFlowNode.node)) {
+                        return false;
+                    }
 
                     curFlowNode = callFlowNode.antecedent;
                     continue;
