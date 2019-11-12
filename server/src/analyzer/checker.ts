@@ -217,7 +217,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitFor(node: ForNode): boolean {
-        this._evaluator.getTypeOfForTarget(node);
+        this._evaluator.evaluateTypesForStatement(node);
         return true;
     }
 
@@ -238,7 +238,7 @@ export class Checker extends ParseTreeWalker {
 
     visitWith(node: WithNode): boolean {
         node.withItems.forEach(item => {
-            this._evaluator.getTypeOfWithItemTarget(item);
+            this._evaluator.evaluateTypesForStatement(item);
         });
 
         return true;
@@ -385,7 +385,7 @@ export class Checker extends ParseTreeWalker {
 
     visitExcept(node: ExceptNode): boolean {
         if (node.typeExpression) {
-            this._evaluator.getTypeOfExceptTarget(node);
+            this._evaluator.evaluateTypesForStatement(node);
         }
 
         return true;
@@ -401,7 +401,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitAssignment(node: AssignmentNode): boolean {
-        this._evaluator.getTypeOfAssignmentStatementTarget(node);
+        this._evaluator.evaluateTypesForStatement(node);
         if (node.typeAnnotationComment) {
             // Evaluate the annotated type.
             const declaredType = this._evaluator.getTypeOfAnnotation(node.typeAnnotationComment);
@@ -418,7 +418,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitAugmentedAssignment(node: AugmentedAssignmentNode): boolean {
-        this._evaluator.getTypeOfAugmentedAssignmentTarget(node);
+        this._evaluator.evaluateTypesForStatement(node);
         return true;
     }
 
@@ -514,14 +514,14 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitImportAs(node: ImportAsNode): boolean {
-        this._evaluator.getTypeOfImportAsTarget(node);
+        this._evaluator.evaluateTypesForStatement(node);
         return false;
     }
 
     visitImportFrom(node: ImportFromNode): boolean {
         if (!node.isWildcardImport) {
             node.imports.forEach(importAs => {
-                this._evaluator.getTypeOfImportFromTarget(importAs);
+                this._evaluator.evaluateTypesForStatement(importAs);
             });
         }
 

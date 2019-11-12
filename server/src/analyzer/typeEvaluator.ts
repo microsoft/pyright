@@ -210,15 +210,9 @@ export interface TypeEvaluator {
     getType: (node: ExpressionNode) => Type;
     getTypeOfExpression: (node: ExpressionNode, expectedType: Type | undefined, flags: EvaluatorFlags) => TypeResult;
     getTypeOfAnnotation: (node: ExpressionNode) => Type;
-    getTypeOfAssignmentStatementTarget: (node: AssignmentNode) => Type | undefined;
-    getTypeOfAugmentedAssignmentTarget: (node: AugmentedAssignmentNode) => Type | undefined;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult;
-    getTypeOfForTarget: (node: ForNode) => Type | undefined;
-    getTypeOfExceptTarget: (node: ExceptNode) => Type | undefined;
-    getTypeOfWithItemTarget: (node: WithItemNode) => Type | undefined;
-    getTypeOfImportAsTarget: (node: ImportAsNode) => Type | undefined;
-    getTypeOfImportFromTarget: (node: ImportFromAsNode) => Type | undefined;
+    evaluateTypesForStatement: (node: ParseNode) => void;
 
     getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
     verifyDeleteExpression: (node: ExpressionNode) => void;
@@ -5099,9 +5093,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return undefined;
     }
 
-    function getTypeOfAssignmentStatementTarget(node: AssignmentNode,
-                targetOfInterest?: ExpressionNode): Type | undefined {
-
+    function evaluateTypesForAssignmentStatement(node: AssignmentNode): void {
         const fileInfo = getFileInfo(node);
 
         // Is this type already cached?
@@ -5110,8 +5102,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // If there was a cached value and no target of interest or the entire
         // LHS is the target of interest, there's no need to do additional work.
-        if (rightHandType && (!targetOfInterest || targetOfInterest === node.leftExpression)) {
-            return rightHandType;
+        if (rightHandType) {
+            return;
         }
 
         // Check for recursion.
@@ -5174,13 +5166,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undefined;
         }
 
-        return assignTypeToExpression(node.leftExpression, rightHandType,
-            node.rightExpression, targetOfInterest);
+        assignTypeToExpression(node.leftExpression, rightHandType, node.rightExpression);
     }
 
-    function getTypeOfAugmentedAssignmentTarget(node: AugmentedAssignmentNode,
-                targetOfInterest?: ExpressionNode): Type | undefined {
-
+    function evaluateTypesForAugmentedAssignment(node: AugmentedAssignmentNode): void {
         // Is this type already cached?
         const fileInfo = getFileInfo(node);
         let destType = AnalyzerNodeInfo.peekExpressionType(
@@ -5188,8 +5177,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // If there was a cached value and no target of interest or the entire
         // LHS is the target of interest, there's no need to do additional work.
-        if (destType && (!targetOfInterest || targetOfInterest === node.destExpression)) {
-            return destType;
+        if (destType) {
+            return;
         }
 
         // Check for recursion.
@@ -5201,8 +5190,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         popTypeResolution(node);
 
-        return assignTypeToExpression(node.destExpression, destType,
-            node.rightExpression, targetOfInterest);
+        assignTypeToExpression(node.destExpression, destType, node.rightExpression);
     }
 
     function getTypeOfClass(node: ClassNode): ClassTypeResult {
@@ -6036,13 +6024,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return inferredReturnType;
     }
 
-    function getTypeOfForTarget(node: ForNode, targetOfInterest?: ExpressionNode): Type | undefined {
+    function evaluateTypesForForStatement(node: ForNode): void {
         // Is this type already cached?
         const fileInfo = getFileInfo(node);
         let iteratedType = AnalyzerNodeInfo.peekExpressionType(
             node.targetExpression, fileInfo.fileAnalysisVersion);
         if (iteratedType) {
-            return iteratedType;
+            return;
         }
 
         // The type wasn't cached. Compute it.
@@ -6050,11 +6038,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         iteratedType = getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
 
-        return assignTypeToExpression(node.targetExpression,
-            iteratedType, node.targetExpression, targetOfInterest);
+        assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
     }
 
-    function getTypeOfExceptTarget(node: ExceptNode): Type | undefined {
+    function evaluateTypesForExceptStatement(node: ExceptNode): void {
         // This should be called only if the except node has a target exception.
         assert(node.typeExpression !== undefined);
 
@@ -6142,11 +6129,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (node.name && !typeIsCached) {
             assignTypeToExpression(node.name, targetType);
         }
-
-        return targetType;
     }
 
-    function getTypeOfWithItemTarget(node: WithItemNode): Type | undefined {
+    function evaluateTypesForWithStatement(node: WithItemNode): void {
         const fileInfo = getFileInfo(node);
 
         // Is this type already cached?
@@ -6154,13 +6139,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const targetType = AnalyzerNodeInfo.peekExpressionType(
                 node.target, fileInfo.fileAnalysisVersion);
             if (targetType) {
-                return targetType;
+                return;
             }
         }
 
         // Check for recursion.
         if (!pushTypeResolution(node)) {
-            return undefined;
+            return;
         }
 
         let exprType = getType(node.expression);
@@ -6214,11 +6199,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         popTypeResolution(node);
-
-        return scopedType;
     }
 
-    function getTypeOfImportAsTarget(node: ImportAsNode): Type | undefined {
+    function evaluateTypesForImportAs(node: ImportAsNode): void {
         const fileInfo = getFileInfo(node);
 
         let symbolNameNode: NameNode;
@@ -6236,13 +6219,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const targetType = AnalyzerNodeInfo.peekExpressionType(
                 symbolNameNode, fileInfo.fileAnalysisVersion);
             if (targetType) {
-                return targetType;
+                return;
             }
         }
 
         // Check for recursion.
         if (!pushTypeResolution(node)) {
-            return undefined;
+            return;
         }
 
         // Look up the symbol to find the alias declaration.
@@ -6261,10 +6244,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         assignTypeToNameNode(symbolNameNode, symbolType);
 
         popTypeResolution(node);
-        return symbolType;
     }
 
-    function getTypeOfImportFromTarget(node: ImportFromAsNode): Type | undefined {
+    function evaluateTypesForImportFrom(node: ImportFromAsNode): void {
         const fileInfo = getFileInfo(node);
         const aliasNode = node.alias || node.name;
 
@@ -6272,12 +6254,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const targetType = AnalyzerNodeInfo.peekExpressionType(
             aliasNode, fileInfo.fileAnalysisVersion);
         if (targetType) {
-            return targetType;
+            return;
         }
 
         // Check for recursion.
         if (!pushTypeResolution(node)) {
-            return undefined;
+            return;
         }
 
         let symbolType = getAliasedSymbolTypeForName(node, aliasNode.nameToken.value);
@@ -6306,8 +6288,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         assignTypeToNameNode(aliasNode, symbolType);
 
         popTypeResolution(node);
-
-        return symbolType;
     }
 
     function getAliasedSymbolTypeForName(node: ParseNode, name: string): Type | undefined {
@@ -6325,65 +6305,124 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return getInferredTypeOfDeclaration(aliasDecl, importLookup);
     }
 
-    function getTypeOfAssignmentTarget(target: ExpressionNode): Type | undefined {
-        let assignmentNode: ParseNode | undefined = target;
-        while (assignmentNode) {
-            switch (assignmentNode.nodeType) {
+    // In some cases, an expression must be evaluated in the context of another
+    // expression or statement that contains it. This contextual evaluation
+    // allows for bidirectional type evaluation.
+    function evaluateTypesForExpressionInContext(node: ExpressionNode): void {
+        let lastContextualExpression = node;
+        let curExpression: ExpressionNode = node;
+
+        function isContextualExpression(node: ExpressionNode) {
+            return node.nodeType === ParseNodeType.Call ||
+                    node.nodeType === ParseNodeType.Dictionary ||
+                    node.nodeType === ParseNodeType.List ||
+                    node.nodeType === ParseNodeType.Lambda ||
+                    node.nodeType === ParseNodeType.Set ||
+                    node.nodeType === ParseNodeType.Tuple ||
+                    node.nodeType === ParseNodeType.Unpack;
+        }
+
+        // Scan up the parse tree until we find a non-expression, looking for
+        // contextual expressions in the process.
+
+        while (curExpression.parent && !isExpressionNode(curExpression.parent)) {
+            if (isContextualExpression(curExpression)) {
+                lastContextualExpression = curExpression;
+            }
+
+            curExpression = curExpression.parent as ExpressionNode;
+        }
+
+        const parent = lastContextualExpression.parent!;
+        if (parent.nodeType === ParseNodeType.Assignment) {
+            evaluateTypesForAssignmentStatement(parent);
+            return;
+        }
+
+        if (parent.nodeType === ParseNodeType.AugmentedAssignment) {
+            evaluateTypesForAugmentedAssignment(parent);
+            return;
+        }
+
+        // If the parent is an expression, we'll evaluate it to provide
+        // the context for its child. If it's not, we'll evaluate the
+        // child directly without any context.
+        getType(isExpressionNode(parent) ? parent as ExpressionNode : curExpression);
+    }
+
+    // Evaluates the types that are assigned within the statement that contains
+    // the specified parse node. In some cases, a broader statement may need to
+    // be evaluated to provide sufficient context for the type. Evaluated types
+    // are written back to the type cache for later retrieval.
+    function evaluateTypesForStatement(node: ParseNode): void {
+        let curNode: ParseNode | undefined = node;
+
+        while (curNode) {
+            switch (curNode.nodeType) {
                 case ParseNodeType.Assignment: {
-                    return getTypeOfAssignmentStatementTarget(assignmentNode, target);
+                    evaluateTypesForAssignmentStatement(curNode);
+                    return;
                 }
 
                 case ParseNodeType.AssignmentExpression: {
-                    assert(target === assignmentNode.name);
-                    return getType(assignmentNode);
+                    getType(curNode);
+                    return;
                 }
 
                 case ParseNodeType.AugmentedAssignment: {
-                    return getTypeOfAugmentedAssignmentTarget(assignmentNode, target);
+                    evaluateTypesForAugmentedAssignment(curNode);
+                    return;
                 }
 
                 case ParseNodeType.Class: {
-                    const classResult = getTypeOfClass(assignmentNode);
-                    return classResult.decoratedType;
+                    getTypeOfClass(curNode);
+                    return;
                 }
 
-                case ParseNodeType.Parameter: {
-                    // TODO - need to implement
-                    return undefined;
+                case ParseNodeType.Lambda: {
+                    evaluateTypesForExpressionInContext(curNode);
+                    return;
                 }
 
                 case ParseNodeType.Function: {
-                    const functionResult = getTypeOfFunction(assignmentNode);
-                    return functionResult.decoratedType;
+                    getTypeOfFunction(curNode);
+                    return;
                 }
 
                 case ParseNodeType.For: {
-                    return getTypeOfForTarget(assignmentNode, target);
+                    evaluateTypesForForStatement(curNode);
+                    return;
                 }
 
                 case ParseNodeType.Except: {
-                    return getTypeOfExceptTarget(assignmentNode);
+                    evaluateTypesForExceptStatement(curNode);
+                    return;
                 }
 
                 case ParseNodeType.WithItem: {
-                    return getTypeOfWithItemTarget(assignmentNode);
+                    evaluateTypesForWithStatement(curNode);
+                    return;
                 }
 
                 case ParseNodeType.ListComprehensionFor: {
-                    // TODO - need to implement
-                    return undefined;
+                    const listComprehension = curNode.parent as ListComprehensionNode;
+                    assert(listComprehension.nodeType === ParseNodeType.ListComprehension);
+                    evaluateTypesForExpressionInContext(listComprehension);
+                    return;
                 }
 
                 case ParseNodeType.ImportAs: {
-                    return getTypeOfImportAsTarget(assignmentNode);
+                    evaluateTypesForImportAs(curNode);
+                    return;
                 }
 
                 case ParseNodeType.ImportFromAs: {
-                    return getTypeOfImportFromTarget(assignmentNode);
+                    evaluateTypesForImportFrom(curNode);
+                    return;
                 }
             }
 
-            assignmentNode = assignmentNode.parent;
+            curNode = curNode.parent;
         }
 
         assert.fail('Unexpected assignment target');
@@ -6415,7 +6454,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (!cachedType) {
                 // There is no cached type for this expression, so we need to
                 // evaluate it.
-                cachedType = getTypeOfAssignmentTarget(flowNode.node);
+                evaluateTypesForStatement(flowNode.node);
+                cachedType = AnalyzerNodeInfo.getExpressionType(flowNode.node);
             }
             return setCacheEntry(flowNode, cachedType);
         }
@@ -7111,15 +7151,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         getType,
         getTypeOfExpression,
         getTypeOfAnnotation,
-        getTypeOfAssignmentStatementTarget,
-        getTypeOfAugmentedAssignmentTarget,
         getTypeOfClass,
         getTypeOfFunction,
-        getTypeOfForTarget,
-        getTypeOfExceptTarget,
-        getTypeOfWithItemTarget,
-        getTypeOfImportAsTarget,
-        getTypeOfImportFromTarget,
+        evaluateTypesForStatement,
         getDeclaredTypeForExpression,
         verifyDeleteExpression,
         isAfterNodeReachable,

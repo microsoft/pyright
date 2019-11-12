@@ -562,9 +562,8 @@ export function isExpressionNode(node: ParseNode) {
         case ParseNodeType.Error:
         case ParseNodeType.UnaryOperation:
         case ParseNodeType.BinaryOperation:
-        case ParseNodeType.Assignment:
+        case ParseNodeType.AssignmentExpression:
         case ParseNodeType.TypeAnnotation:
-        case ParseNodeType.AugmentedAssignment:
         case ParseNodeType.Await:
         case ParseNodeType.Ternary:
         case ParseNodeType.Unpack:
