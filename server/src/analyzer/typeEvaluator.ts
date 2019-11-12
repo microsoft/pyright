@@ -57,7 +57,7 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar,
     getDeclaredGeneratorReturnType, getDeclaredGeneratorSendType, getEffectiveReturnType, getMetaclass,
-    getSpecializedTupleType, getTypeVarArgumentsRecursive, isEllipsisType, isNoReturnType, isOptionalType,
+    getSpecializedTupleType, getTypeVarArgumentsRecursive, isEllipsisType, isOptionalType,
     lookUpClassMember, lookUpObjectMember, partiallySpecializeType, printLiteralValue,
     printObjectTypeForClass, printType, removeFalsinessFromType, removeTruthinessFromType,
     requiresSpecialization, selfSpecializeClassType, specializeType, specializeTypeVarType,
@@ -5675,11 +5675,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // If there was no decorator, see if there are any overloads provided
         // by previous function declarations.
         if (decoratedType === functionType) {
-            const overloadedType = addOverloadsToFunctionType(node, decoratedType);
-            writeTypeCache(node.name, overloadedType);
-        } else {
-            writeTypeCache(node.name, decoratedType);
+            decoratedType = addOverloadsToFunctionType(node, decoratedType);
         }
+
+        writeTypeCache(node.name, decoratedType);
 
         popTypeResolution(node);
 
