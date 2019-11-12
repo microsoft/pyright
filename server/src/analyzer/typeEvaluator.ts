@@ -216,8 +216,8 @@ export interface TypeEvaluator {
     getTypeOfExpression: (node: ExpressionNode, expectedType: Type | undefined,
         flags: EvaluatorFlags) => TypeResult;
     getTypeOfAnnotation: (node: ExpressionNode) => Type;
-    getTypeOfClass: (node: ClassNode) => ClassTypeResult;
-    getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult;
+    getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
+    getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     evaluateTypesForStatement: (node: ParseNode) => void;
 
     getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
@@ -259,7 +259,7 @@ export interface TypeEvaluator {
 
 export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     let isSpeculativeMode = false;
-    const typeResolutionRecursionMap = new Map<number, true>();
+    const typeResolutionRecursionMap = new Map<number, ParseNode>();
 
     // Wrapper around getTypeOfExpression for callers who are interested in
     // only the type and not the additional information returned in TypeResult.
@@ -1683,7 +1683,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return false;
         }
 
-        typeResolutionRecursionMap.set(node.id, true);
+        typeResolutionRecursionMap.set(node.id, node);
         return true;
     }
 
@@ -2605,7 +2605,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         } else {
             const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
             if (enclosingClass) {
-                targetClassType = getTypeOfClass(enclosingClass).classType;
+                const classTypeInfo = getTypeOfClass(enclosingClass);
+                targetClassType = classTypeInfo ? classTypeInfo.classType : UnknownType.create();
             } else {
                 addError(
                     `Zero-argument form of super call is valid only within a class'`,
@@ -4964,18 +4965,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (enclosingClassNode) {
             const enumClassInfo = getTypeOfClass(enclosingClassNode);
 
-            // Handle several built-in classes specially. We don't
-            // want to interpret their class variables as enumerations.
-            if (getFileInfo(node).isStubFile) {
-                const className = enumClassInfo.classType.details.name;
-                const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
-                if (builtInEnumClasses.find(c => c === className)) {
-                    return typeOfExpr;
+            if (enumClassInfo) {
+                // Handle several built-in classes specially. We don't
+                // want to interpret their class variables as enumerations.
+                if (getFileInfo(node).isStubFile) {
+                    const className = enumClassInfo.classType.details.name;
+                    const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
+                    if (builtInEnumClasses.find(c => c === className)) {
+                        return typeOfExpr;
+                    }
                 }
-            }
 
-            if (isEnumClass(enumClassInfo.classType)) {
-                return ObjectType.create(enumClassInfo.classType);
+                if (isEnumClass(enumClassInfo.classType)) {
+                    return ObjectType.create(enumClassInfo.classType);
+                }
             }
         }
 
@@ -5201,7 +5204,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         assignTypeToExpression(node.destExpression, destType, node.rightExpression);
     }
 
-    function getTypeOfClass(node: ClassNode): ClassTypeResult {
+    function getTypeOfClass(node: ClassNode): ClassTypeResult | undefined {
         // Is this type already cached?
         const fileInfo = getFileInfo(node);
         let classType = AnalyzerNodeInfo.peekExpressionType(
@@ -5211,6 +5214,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         if (classType && decoratedType) {
             return { classType, decoratedType };
+        }
+
+        // Check for recursion.
+        if (!pushTypeResolution(node)) {
+            return undefined;
         }
 
         // The type wasn't cached, so we need to create a new one.
@@ -5231,11 +5239,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const oldCachedDecoratedClassType = AnalyzerNodeInfo.peekExpressionType(node.name);
         AnalyzerNodeInfo.setExpressionType(node, classType);
         AnalyzerNodeInfo.setExpressionType(node.name, classType);
-
-        // Check for recursion.
-        if (!pushTypeResolution(node)) {
-            return { classType, decoratedType: classType };
-        }
 
         // Keep a list of unique type parameters that are used in the
         // base class arguments.
@@ -5459,7 +5462,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return getTypeFromDecorator(decoratorNode, inputClassType);
     }
 
-    function getTypeOfFunction(node: FunctionNode): FunctionTypeResult {
+    function getTypeOfFunction(node: FunctionNode): FunctionTypeResult | undefined {
         const fileInfo = getFileInfo(node);
 
         // Is this type already cached?
@@ -5472,11 +5475,22 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return { functionType, decoratedType };
         }
 
+        // Check for recursion.
+        if (!pushTypeResolution(node)) {
+            return undefined;
+        }
+
         // There was no cached type, so create a new one.
         // Retrieve the containing class node if the function is a method.
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
-        const containingClassType = containingClassNode ?
-            getTypeOfClass(containingClassNode).classType : undefined;
+        let containingClassType: ClassType | undefined;
+        if (containingClassNode) {
+            const classInfo = getTypeOfClass(containingClassNode);
+            if (!classInfo) {
+                return undefined;
+            }
+            containingClassType = classInfo.classType;
+        }
         const functionDecl = AnalyzerNodeInfo.getFunctionDeclaration(node)!;
 
         // The "__new__" magic method is not an instance method.
@@ -5506,11 +5520,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // 'namedtuple', 'abstractmethod', 'dataclass' and 'NewType'
             // specially.
             functionType.details.builtInName = node.name.nameToken.value;
-        }
-
-        // Check for recursion.
-        if (!pushTypeResolution(node)) {
-            return { functionType, decoratedType: functionType };
         }
 
         // Pre-cache the function type that we just created. This is needed to
@@ -5621,12 +5630,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (!FunctionType.isClassMethod(functionType) && !FunctionType.isStaticMethod(functionType)) {
                 // Mark the function as an instance method.
                 functionType.details.flags |= FunctionTypeFlags.InstanceMethod;
-
-                // If there's a separate async version, mark it as an instance
-                // method as well.
-                // if (node.isAsync) {
-                //     functionType.details.flags |= FunctionTypeFlags.InstanceMethod;
-                // }
             }
 
             // If the first parameter doesn't have an explicit type annotation,
@@ -5852,6 +5855,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
 
                     const declTypeInfo = getTypeOfFunction(decl.node);
+                    if (!declTypeInfo) {
+                        break;
+                    }
                     if (!FunctionType.isOverloaded(declTypeInfo.functionType)) {
                         break;
                     }
@@ -7269,7 +7275,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 if (declaration.intrinsicType === 'class') {
                     const classNode = ParseTreeUtils.getEnclosingClass(declaration.node) as ClassNode;
-                    return AnalyzerNodeInfo.getExpressionType(classNode);
+                    const classTypeInfo = getTypeOfClass(classNode);
+                    return classTypeInfo ? classTypeInfo.classType : undefined;
                 }
                 const strType = getBuiltInObject(declaration.node, 'str');
                 if (strType.category === TypeCategory.Object) {
@@ -7286,15 +7293,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 return UnknownType.create();
             }
 
-            case DeclarationType.Class:
-                return AnalyzerNodeInfo.getExpressionType(declaration.node.name);
+            case DeclarationType.Class: {
+                const classTypeInfo = getTypeOfClass(declaration.node);
+                return classTypeInfo ? classTypeInfo.decoratedType : undefined;
+            }
 
-            case DeclarationType.SpecialBuiltInClass:
+            case DeclarationType.SpecialBuiltInClass: {
                 return AnalyzerNodeInfo.getExpressionType(declaration.node.typeAnnotation);
+            }
 
             case DeclarationType.Function:
-            case DeclarationType.Method:
-                return AnalyzerNodeInfo.getExpressionType(declaration.node.name);
+            case DeclarationType.Method: {
+                const functionTypeInfo = getTypeOfFunction(declaration.node);
+                return functionTypeInfo ? functionTypeInfo.decoratedType : undefined;
+            }
 
             case DeclarationType.Parameter: {
                 let typeAnnotationNode = declaration.node.typeAnnotation;
@@ -7302,7 +7314,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     typeAnnotationNode = typeAnnotationNode.typeAnnotation;
                 }
                 if (typeAnnotationNode) {
-                    const declaredType = AnalyzerNodeInfo.getExpressionType(typeAnnotationNode);
+                    const declaredType = getTypeOfAnnotation(typeAnnotationNode);
 
                     if (declaredType) {
                         return convertClassToObject(declaredType);
@@ -7317,7 +7329,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     typeAnnotationNode = typeAnnotationNode.typeAnnotation;
                 }
                 if (typeAnnotationNode) {
-                    let declaredType = AnalyzerNodeInfo.getExpressionType(typeAnnotationNode);
+                    let declaredType = getTypeOfAnnotation(typeAnnotationNode);
                     if (declaredType) {
                         // Apply enum transform if appropriate.
                         if (typeAnnotationNode.nodeType === ParseNodeType.Name) {
@@ -7514,25 +7526,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefined {
-        const functionType = AnalyzerNodeInfo.getExpressionType(node) as FunctionType;
+        const functionTypeInfo = getTypeOfFunction(node)!;
+        assert(functionTypeInfo);
 
-        if (functionType) {
-            assert(functionType.category === TypeCategory.Function);
-
-            // Ignore this check for abstract methods, which often
-            // don't actually return any value.
-            if (FunctionType.isAbstractMethod(functionType)) {
-                return undefined;
-            }
-
-            if (FunctionType.isGenerator(functionType)) {
-                return getDeclaredGeneratorReturnType(functionType);
-            } else {
-                return functionType.details.declaredReturnType;
-            }
+        // Ignore this check for abstract methods, which often
+        // don't actually return any value.
+        if (FunctionType.isAbstractMethod(functionTypeInfo.functionType)) {
+            return AnyType.create();
         }
 
-        return undefined;
+        if (FunctionType.isGenerator(functionTypeInfo.functionType)) {
+            return getDeclaredGeneratorReturnType(functionTypeInfo.functionType);
+        }
+
+        return functionTypeInfo.functionType.details.declaredReturnType;
     }
 
     function getTypeOfMember(member: ClassMember): Type {

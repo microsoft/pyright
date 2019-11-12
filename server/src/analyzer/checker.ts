@@ -89,9 +89,11 @@ export class Checker extends ParseTreeWalker {
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
 
-        this._validateClassMethods(classTypeResult.classType);
-        if (ClassType.isTypedDictClass(classTypeResult.classType)) {
-            this._validateTypedDictClassSuite(node.suite);
+        if (classTypeResult) {
+            this._validateClassMethods(classTypeResult.classType);
+            if (ClassType.isTypedDictClass(classTypeResult.classType)) {
+                this._validateTypedDictClassSuite(node.suite);
+            }
         }
 
         return false;
@@ -101,22 +103,24 @@ export class Checker extends ParseTreeWalker {
         const functionTypeResult = this._evaluator.getTypeOfFunction(node);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
 
-        // Report any unknown parameter types.
-        node.parameters.forEach((param, index) => {
-            if (param.name) {
-                const paramType = functionTypeResult.functionType.details.parameters[index].type;
-                if (paramType.category === TypeCategory.Unknown) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportUnknownParameterType,
-                        DiagnosticRule.reportUnknownParameterType,
-                        `Type of '${ param.name.nameToken.value }' is unknown`,
-                        param.name);
+        if (functionTypeResult) {
+            // Report any unknown parameter types.
+            node.parameters.forEach((param, index) => {
+                if (param.name) {
+                    const paramType = functionTypeResult.functionType.details.parameters[index].type;
+                    if (paramType.category === TypeCategory.Unknown) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                            DiagnosticRule.reportUnknownParameterType,
+                            `Type of '${ param.name.nameToken.value }' is unknown`,
+                            param.name);
+                    }
                 }
-            }
-        });
+            });
 
-        if (containingClassNode) {
-            this._validateMethod(node, functionTypeResult.functionType);
+            if (containingClassNode) {
+                this._validateMethod(node, functionTypeResult.functionType);
+            }
         }
 
         node.parameters.forEach(param => {
@@ -144,8 +148,10 @@ export class Checker extends ParseTreeWalker {
 
             this.walk(node.suite);
 
-            // Validate that the function returns the declared type.
-            this._validateFunctionReturn(node, functionTypeResult.functionType);
+            if (functionTypeResult) {
+                // Validate that the function returns the declared type.
+                this._validateFunctionReturn(node, functionTypeResult.functionType);
+            }
         });
 
         return false;
