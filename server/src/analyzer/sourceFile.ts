@@ -50,11 +50,6 @@ import { TypeEvaluator } from './typeEvaluator';
 
 const _maxImportCyclesPerFile = 4;
 
-// At some point, we'll cut off the analysis passes and assume
-// we're making no forward progress. This should happen only
-// on the case of bugs in the analyzer.
-const _maxAnalysisPassCount = 50;
-
 export class SourceFile {
     // Console interface to use for debugging.
     private _console: ConsoleInterface;
@@ -135,10 +130,6 @@ export class SourceFile {
 
     // Do we need to perform an additional type analysis pass?
     private _isCheckingNeeded = true;
-
-    // Is the type analysis "finalized" (i.e. complete along
-    // with all of its dependencies)?
-    private _isTypeAnalysisFinalized = false;
 
     // Information about implicit and explicit imports from this file.
     private _imports?: ImportResult[];
@@ -334,7 +325,6 @@ export class SourceFile {
 
     markReanalysisRequired(): void {
         // Keep the parse info, but reset the analysis to the beginning.
-        this._isTypeAnalysisFinalized = false;
         this._isCheckingNeeded = true;
 
         // If the file contains a wildcard import, we need to rebind
@@ -383,16 +373,12 @@ export class SourceFile {
         return this._isBindingNeeded;
     }
 
-    isTypeAnalysisRequired() {
+    isCheckingRequired() {
         if (this.isBindingRequired()) {
             return true;
         }
 
         return this._isCheckingNeeded;
-    }
-
-    isAnalysisFinalized() {
-        return this._isTypeAnalysisFinalized;
     }
 
     getParseResults(): ParseResults | undefined {
@@ -513,7 +499,6 @@ export class SourceFile {
         this._analyzedFileContentsVersion = this._fileContentsVersion;
         this._isBindingNeeded = true;
         this._isCheckingNeeded = true;
-        this._isTypeAnalysisFinalized = false;
         this._parseTreeNeedsCleaning = false;
         this._hitMaxImportDepth = undefined;
         this._diagnosticVersion++;
@@ -634,9 +619,8 @@ export class SourceFile {
         return performQuickAction(command, args, this._parseResults);
     }
 
-    setTypeAnalysisPassNeeded() {
+    setCheckingRequired() {
         this._isCheckingNeeded = true;
-        this._isTypeAnalysisFinalized = false;
     }
 
     bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope?: Scope) {
@@ -683,14 +667,13 @@ export class SourceFile {
         // Prepare for the next stage of the analysis.
         this._diagnosticVersion++;
         this._isCheckingNeeded = true;
-        this._isTypeAnalysisFinalized = false;
         this._isBindingNeeded = false;
     }
 
     check(evaluator: TypeEvaluator) {
         assert(!this.isParseRequired());
         assert(!this.isBindingRequired());
-        assert(this.isTypeAnalysisRequired());
+        assert(this.isCheckingRequired());
         assert(this._parseResults);
 
         try {
@@ -721,18 +704,6 @@ export class SourceFile {
         // These will be detected by the program module and associated
         // with the source file right before it is finalized.
         this._circularDependencies = [];
-    }
-
-    // This method should be called once type analysis has completed for
-    // this file and all of its dependent files.
-    finalizeAnalysis() {
-        assert(!this.isTypeAnalysisRequired());
-
-        // Mark the type analysis as final.
-        this._isTypeAnalysisFinalized = true;
-
-        // Finalize the diagnostics from the last pass of type analysis
-        // so they become visible.
         this._diagnosticVersion++;
     }
 

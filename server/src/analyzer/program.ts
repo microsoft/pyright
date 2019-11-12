@@ -127,8 +127,11 @@ export class Program {
         this._sourceFileList.forEach(fileInfo => {
             if (fileInfo.sourceFile.isParseRequired() ||
                     fileInfo.sourceFile.isBindingRequired() ||
-                    fileInfo.sourceFile.isTypeAnalysisRequired()) {
-                sourceFileCount++;
+                    fileInfo.sourceFile.isCheckingRequired()) {
+
+                if (fileInfo.isTracked || fileInfo.isOpenByClient) {
+                    sourceFileCount++;
+                }
             }
         });
 
@@ -262,7 +265,7 @@ export class Program {
         const elapsedTime = new Duration();
 
         const openFiles = this._sourceFileList.filter(
-            sf => sf.isOpenByClient && !sf.sourceFile.isAnalysisFinalized()
+            sf => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
         );
 
         if (openFiles.length > 0) {
@@ -271,29 +274,9 @@ export class Program {
                     elapsedTime.getDurationInMilliseconds() > maxTime.openFilesTimeInMs;
             };
 
-            // Start by parsing the open files.
+            // Check the open files.
             for (const sourceFileInfo of openFiles) {
-                this._parseFile(sourceFileInfo, options, importResolver);
-
-                if (isTimeElapsedOpenFiles()) {
-                    return true;
-                }
-            }
-
-            // Now do binding of the open files.
-            for (const sourceFileInfo of openFiles) {
-                if (this._bindFile(sourceFileInfo, options, importResolver, isTimeElapsedOpenFiles)) {
-                    return true;
-                }
-
-                if (isTimeElapsedOpenFiles()) {
-                    return true;
-                }
-            }
-
-            // Now do type analysis of the open files.
-            for (const sourceFileInfo of openFiles) {
-                if (this._doFullAnalysis(sourceFileInfo, options, importResolver, isTimeElapsedOpenFiles)) {
+                if (this._checkTypes(sourceFileInfo, options, importResolver, isTimeElapsedOpenFiles)) {
                     return true;
                 }
             }
@@ -321,7 +304,7 @@ export class Program {
 
         // Now do type parsing and analysis of the remaining.
         for (const sourceFileInfo of allFiles) {
-            if (this._doFullAnalysis(sourceFileInfo, options, importResolver, isTimeElapsedNoOpenFiles)) {
+            if (this._checkTypes(sourceFileInfo, options, importResolver, isTimeElapsedNoOpenFiles)) {
                 return true;
             }
         }
@@ -421,12 +404,10 @@ export class Program {
 
         const elapsedTime = new Duration();
 
-        if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
-            this._doFullAnalysis(sourceFileInfo, options, importResolver, () => {
-                return maxTime !== undefined &&
-                    elapsedTime.getDurationInMilliseconds() > maxTime.openFilesTimeInMs;
-            });
-        }
+        this._checkTypes(sourceFileInfo, options, importResolver, () => {
+            return maxTime !== undefined &&
+                elapsedTime.getDurationInMilliseconds() > maxTime.openFilesTimeInMs;
+        });
     }
 
     private _parseFile(fileToParse: SourceFileInfo, options: ConfigOptions,
@@ -543,20 +524,28 @@ export class Program {
         return moduleSymbolMap;
     }
 
-    private _doFullAnalysis(fileToAnalyze: SourceFileInfo, options: ConfigOptions,
+    private _checkTypes(fileToCheck: SourceFileInfo, options: ConfigOptions,
             importResolver: ImportResolver, timeElapsedCallback: () => boolean): boolean {
 
         // If the file isn't needed because it was eliminated from the
         // transitive closure or deleted, skip the file rather than wasting
         // time on it.
-        if (!this._isFileNeeded(fileToAnalyze)) {
+        if (!this._isFileNeeded(fileToCheck)) {
             return false;
         }
 
-        // Discover all imports (recursively) that have not yet been finalized.
+        if (!fileToCheck.sourceFile.isCheckingRequired()) {
+            return false;
+        }
+
+        if (!fileToCheck.isTracked && !fileToCheck.isOpenByClient) {
+            return false;
+        }
+
+        // Discover all imports (recursively) that have not yet been checked.
         const closureMap = new Map<string, boolean>();
         const analysisQueue: SourceFileInfo[] = [];
-        if (this._getNonFinalizedImportsRecursive(fileToAnalyze, closureMap,
+        if (this._getNonFinalizedImportsRecursive(fileToCheck, closureMap,
                 analysisQueue, options, importResolver, timeElapsedCallback, 0)) {
             return true;
         }
@@ -565,60 +554,22 @@ export class Program {
         // is ordered in a way that should minimize the number of passes
         // we need to perform (with lower-level imports earlier in the list).
         while (true) {
-            const fileToAnalyze = analysisQueue.shift();
-            if (!fileToAnalyze) {
+            const fileToCheck = analysisQueue.shift();
+            if (!fileToCheck) {
                 break;
             }
 
-            closureMap.set(fileToAnalyze.sourceFile.getFilePath(), false);
+            closureMap.set(fileToCheck.sourceFile.getFilePath(), false);
 
-            if (fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
-                // Do a type analysis pass and determine if any internal changes occurred
-                // during the pass. If so, continue to analyze until it stops changing and
-                // mark all of its dependencies as needing to be reanalyzed.
-                let requiresReanalysis = false;
-                while (true) {
-                    fileToAnalyze.sourceFile.check(this._evaluator);
-
-                    if (!fileToAnalyze.sourceFile.isTypeAnalysisRequired()) {
-                        break;
-                    } else {
-                        requiresReanalysis = true;
-                        if (timeElapsedCallback()) {
-                            break;
-                        }
-                    }
-                }
-
-                // We completed one or more updates to the file in this type
-                // analysis pass, so we need to add its dependencies back
-                // onto the queue if they're not already on it.
-                if (requiresReanalysis) {
-                    for (const dependency of fileToAnalyze.importedBy) {
-                        const dependencyFilePath = dependency.sourceFile.getFilePath();
-
-                        // If the dependency isn't part of the closure, we can ignore it.
-                        if (closureMap.has(dependencyFilePath)) {
-                            dependency.sourceFile.setTypeAnalysisPassNeeded();
-
-                            if (!closureMap.get(dependencyFilePath)) {
-                                analysisQueue.push(dependency);
-                                closureMap.set(dependencyFilePath, true);
-                            }
-                        }
-                    }
-                }
-
+            if (fileToCheck.sourceFile.isCheckingRequired()) {
+                fileToCheck.sourceFile.check(this._evaluator);
                 if (timeElapsedCallback()) {
                     return true;
                 }
             }
         }
 
-        // Mark all files in the closure as finalized.
         closureMap.forEach((_, filePath) => {
-            assert(!this._sourceFileMap[filePath].sourceFile.isAnalysisFinalized());
-
             // Don't detect import cycles when doing type stub generation. Some
             // third-party modules are pretty convoluted.
             if (this._allowedThirdPartyImports) {
@@ -630,8 +581,6 @@ export class Program {
                     this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
                 });
             }
-
-            this._sourceFileMap[filePath].sourceFile.finalizeAnalysis();
         });
 
         return false;
@@ -650,8 +599,8 @@ export class Program {
             timeElapsedCallback: () => boolean,
             recursionCount: number): boolean {
 
-        // If the file is already finalized, no need to do any more work.
-        if (fileToAnalyze.sourceFile.isAnalysisFinalized()) {
+        // If the file is already checked, no need to do any more work.
+        if (!fileToAnalyze.sourceFile.isCheckingRequired()) {
             return false;
         }
 
@@ -711,7 +660,7 @@ export class Program {
 
         // Don't bother checking files that are already finalized
         // because they've already been searched.
-        if (sourceFileInfo.sourceFile.isAnalysisFinalized()) {
+        if (!sourceFileInfo.sourceFile.isCheckingRequired()) {
             return;
         }
 
@@ -835,7 +784,7 @@ export class Program {
             return undefined;
         }
 
-        if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+        if (sourceFileInfo.sourceFile.isCheckingRequired()) {
             this._analyzeFile(sourceFileInfo, options, importResolver, {
                 openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
@@ -853,7 +802,7 @@ export class Program {
         if (referencesResult.requiresGlobalSearch) {
             for (const curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
-                    if (curSourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+                    if (curSourceFileInfo.sourceFile.isCheckingRequired()) {
                         this._analyzeFile(curSourceFileInfo, options, importResolver, {
                             openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                             noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
@@ -909,7 +858,7 @@ export class Program {
             return undefined;
         }
 
-        if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+        if (sourceFileInfo.sourceFile.isCheckingRequired()) {
             this._analyzeFile(sourceFileInfo, options, importResolver, {
                 openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
@@ -928,7 +877,7 @@ export class Program {
             return undefined;
         }
 
-        if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+        if (sourceFileInfo.sourceFile.isCheckingRequired()) {
             this._analyzeFile(sourceFileInfo, options, importResolver, {
                 openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
@@ -953,7 +902,7 @@ export class Program {
             return undefined;
         }
 
-        if (sourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+        if (sourceFileInfo.sourceFile.isCheckingRequired()) {
             this._analyzeFile(sourceFileInfo, options, importResolver, {
                 openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
@@ -984,7 +933,7 @@ export class Program {
         if (referencesResult.requiresGlobalSearch) {
             for (const curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
-                    if (curSourceFileInfo.sourceFile.isTypeAnalysisRequired()) {
+                    if (curSourceFileInfo.sourceFile.isCheckingRequired()) {
                         this._analyzeFile(curSourceFileInfo, options, importResolver, {
                             openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                             noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
