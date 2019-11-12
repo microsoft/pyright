@@ -474,22 +474,6 @@ export class Checker extends ParseTreeWalker {
     visitDel(node: DelNode) {
         node.expressions.forEach(expr => {
             this._evaluator.verifyDeleteExpression(expr);
-
-            if (expr.nodeType === ParseNodeType.Name) {
-                const type = this._evaluator.getType(expr);
-                if (type.category === TypeCategory.Function ||
-                        type.category === TypeCategory.OverloadedFunction) {
-
-                    this._evaluator.addError(
-                        'Del should not be applied to functions', expr);
-                } else if (type.category === TypeCategory.Class) {
-                    this._evaluator.addError(
-                        'Del should not be applied to classes', expr);
-                } else if (type.category === TypeCategory.Property) {
-                    this._evaluator.addError(
-                        'Del should not be applied to properties', expr);
-                }
-            }
         });
 
         return true;

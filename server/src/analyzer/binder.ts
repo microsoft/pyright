@@ -509,10 +509,11 @@ export class Binder extends ParseTreeWalker {
     visitDel(node: DelNode) {
         node.expressions.forEach(expr => {
             this._bindPossibleTupleNamedTarget(expr);
+            this.walk(expr);
             this._createAssignmentTargetFlowNodes(expr, true);
         });
 
-        return true;
+        return false;
     }
 
     visitTypeAnnotation(node: TypeAnnotationNode): boolean {
@@ -1595,6 +1596,7 @@ export class Binder extends ParseTreeWalker {
             targetSymbolId = symbolWithScope!.symbol.getId();
         }
 
+        const prevFlowNode = this._currentFlowNode;
         if (!this._isCodeUnreachable()) {
             const flowNode: FlowAssignment = {
                 flags: FlowFlags.Assignment,
@@ -1612,7 +1614,10 @@ export class Binder extends ParseTreeWalker {
             this._currentFlowNode = flowNode;
         }
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+        // If we're marking the node as unbound, use the previous
+        // flow node. Otherwise, the node will be evaluated as
+        // unbound at this point in the flow.
+        AnalyzerNodeInfo.setFlowNode(node, unbound ? prevFlowNode : this._currentFlowNode);
     }
 
     private _createFlowWildcardImport(node: ImportFromNode, names: string[]) {

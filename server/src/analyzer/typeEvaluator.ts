@@ -1510,12 +1510,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function verifyDeleteExpression(node: ExpressionNode) {
         switch (node.nodeType) {
             case ParseNodeType.Name: {
-                const name = node.nameToken.value;
-                const symbolWithScope = lookUpSymbolRecursive(node, name);
-
-                if (symbolWithScope) {
-                    setSymbolAccessed(getFileInfo(node), symbolWithScope.symbol);
-                }
+                // Get the type to evaluate whether it's bound
+                // and to mark it accessed.
+                getType(node);
                 break;
             }
 
@@ -6504,20 +6501,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 if (curFlowNode.flags & FlowFlags.Assignment) {
                     const assignmentFlowNode = curFlowNode as FlowAssignment;
-                    if (reference.nodeType === ParseNodeType.Name || reference.nodeType === ParseNodeType.MemberAccess) {
-                        // Are we targeting the same symbol? We need to do this extra check because the same
-                        // symbol name might refer to different symbols in different scopes (e.g. a list
-                        // comprehension introduces a new scope).
-                        if (targetSymbolId === assignmentFlowNode.targetSymbolId) {
-                            if (ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)) {
-                                // Is this a special "unbind" assignment? If so,
-                                // we can handle it immediately without any further evaluation.
-                                if (curFlowNode.flags & FlowFlags.Unbind) {
-                                    return setCacheEntry(curFlowNode, UnboundType.create());
-                                }
-
-                                return evaluateAssignmentFlowNode(assignmentFlowNode);
+                    // Are we targeting the same symbol? We need to do this extra check because the same
+                    // symbol name might refer to different symbols in different scopes (e.g. a list
+                    // comprehension introduces a new scope).
+                    if (targetSymbolId === assignmentFlowNode.targetSymbolId) {
+                        if (ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)) {
+                            // Is this a special "unbind" assignment? If so,
+                            // we can handle it immediately without any further evaluation.
+                            if (curFlowNode.flags & FlowFlags.Unbind) {
+                                return setCacheEntry(curFlowNode, UnboundType.create());
                             }
+
+                            return evaluateAssignmentFlowNode(assignmentFlowNode);
                         }
                     }
 
@@ -7322,12 +7317,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     typeAnnotationNode = typeAnnotationNode.typeAnnotation;
                 }
                 if (typeAnnotationNode) {
-                    assert(typeAnnotationNode.nodeType === ParseNodeType.Name);
                     let declaredType = AnalyzerNodeInfo.getExpressionType(typeAnnotationNode);
                     if (declaredType) {
                         // Apply enum transform if appropriate.
-                        declaredType = transformTypeForPossibleEnumClass(
-                            typeAnnotationNode as NameNode, declaredType);
+                        if (typeAnnotationNode.nodeType === ParseNodeType.Name) {
+                            declaredType = transformTypeForPossibleEnumClass(typeAnnotationNode, declaredType);
+                        }
                         return convertClassToObject(declaredType);
                     }
                 }
