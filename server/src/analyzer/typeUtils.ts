@@ -308,7 +308,7 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
 
         // Handle the "Type" special class.
         if (ClassType.isBuiltIn(classType, 'Type')) {
-            const typeArgs = ClassType.getTypeArguments(classType);
+            const typeArgs = classType.typeArguments;
             if (typeArgs && typeArgs.length >= 1) {
                 const firstTypeArg = typeArgs[0];
                 if (firstTypeArg.category === TypeCategory.Object) {
@@ -383,7 +383,7 @@ export function lookUpClassMember(classType: Type, memberName: string, importLoo
         }
 
         if ((flags & ClassMemberLookupFlags.SkipOriginalClass) === 0) {
-            const memberFields = ClassType.getFields(classType);
+            const memberFields = classType.details.fields;
 
             // Look in the instance members first if requested.
             if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
@@ -496,10 +496,8 @@ export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarTy
 export function getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
     const getTypeVarsFromClass = (classType: ClassType) => {
         const combinedList: TypeVarType[] = [];
-        const typeArgs = ClassType.getTypeArguments(classType);
-
-        if (typeArgs) {
-            typeArgs.forEach(typeArg => {
+        if (classType.typeArguments) {
+            classType.typeArguments.forEach(typeArg => {
                 addTypeVarsToListIfUnique(combinedList,
                     getTypeVarArgumentsRecursive(typeArg));
             });
@@ -586,9 +584,7 @@ export function stripFirstParameter(type: FunctionType): FunctionType {
 // _T1 with str and _T2 with int.
 export function buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeVarMap {
     const typeParameters = ClassType.getTypeParameters(classType);
-    const typeArgs = ClassType.getTypeArguments(classType);
-
-    return buildTypeVarMap(typeParameters, typeArgs);
+    return buildTypeVarMap(typeParameters, classType.typeArguments);
 }
 
 export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] | undefined): TypeVarMap {
@@ -727,7 +723,7 @@ export function getSymbolFromBaseClasses(classType: ClassType, name: string,
 
     for (const baseClass of classType.details.baseClasses) {
         if (baseClass.category === TypeCategory.Class) {
-            const memberFields = ClassType.getFields(baseClass);
+            const memberFields = baseClass.details.fields;
             const symbol = memberFields.get(name);
             if (symbol && symbol.isClassMember()) {
                 return {
@@ -865,9 +861,8 @@ export function containsUnknown(type: Type, recursionCount = 0): boolean {
     }
 
     if (type.category === TypeCategory.Class) {
-        const typeArgs = ClassType.getTypeArguments(type);
-        if (typeArgs) {
-            for (const argType of typeArgs) {
+        if (type.typeArguments) {
+            for (const argType of type.typeArguments) {
                 if (containsUnknown(argType, recursionCount + 1)) {
                     return true;
                 }
@@ -905,7 +900,7 @@ function _getMembersForClassRecursive(classType: ClassType,
 
     // Add any new member variables from this class.
     const isClassTypedDict = ClassType.isTypedDictClass(classType);
-    ClassType.getFields(classType).forEach((symbol, name) => {
+    classType.details.fields.forEach((symbol, name) => {
         if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
             if (!isClassTypedDict || !isTypedDictMemberAccessedThroughIndex(symbol)) {
                 if (!symbolTable.get(name)) {
@@ -924,13 +919,12 @@ function _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap | und
         return classType;
     }
 
-    const oldTypeArgs = ClassType.getTypeArguments(classType);
     let newTypeArgs: Type[] = [];
     let specializationNeeded = false;
 
     // If type args were previously provided, specialize them.
-    if (oldTypeArgs) {
-        newTypeArgs = oldTypeArgs.map(oldTypeArgType => {
+    if (classType.typeArguments) {
+        newTypeArgs = classType.typeArguments.map(oldTypeArgType => {
             const newTypeArgType = specializeType(oldTypeArgType,
                 typeVarMap, makeConcrete, recursionLevel + 1);
             if (newTypeArgType !== oldTypeArgType) {
@@ -1049,7 +1043,7 @@ function _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
         if (ClassType.isBuiltIn(classType)) {
             const className = classType.details.name;
             if (className === 'Generator' || className === 'AsyncGenerator') {
-                return ClassType.getTypeArguments(classType);
+                return classType.typeArguments;
             }
         }
     }
@@ -1060,13 +1054,12 @@ function _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
 export function requiresSpecialization(type: Type, recursionCount = 0): boolean {
     switch (type.category) {
         case TypeCategory.Class: {
-            const typeArgs = ClassType.getTypeArguments(type);
-            if (typeArgs) {
+            if (type.typeArguments) {
                 if (recursionCount > maxTypeRecursionCount) {
                     return false;
                 }
 
-                return typeArgs.find(
+                return type.typeArguments.find(
                     typeArg => requiresSpecialization(typeArg, recursionCount + 1)
                 ) !== undefined;
             }
@@ -1142,11 +1135,9 @@ export function printObjectTypeForClass(type: ClassType, recursionCount = 0): st
     let objName = type.details.name;
 
     // If there is a type arguments array, it's a specialized class.
-    const typeArgs = ClassType.getTypeArguments(type);
-
-    if (typeArgs) {
-        if (typeArgs.length > 0) {
-            objName += '[' + typeArgs.map(typeArg => {
+    if (type.typeArguments) {
+        if (type.typeArguments.length > 0) {
+            objName += '[' + type.typeArguments.map(typeArg => {
                 return printType(typeArg, recursionCount + 1);
             }).join(', ') + ']';
         }

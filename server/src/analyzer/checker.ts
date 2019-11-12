@@ -704,8 +704,8 @@ export class Checker extends ParseTreeWalker {
             // The isinstance and issubclass call supports a variation where the second
             // parameter is a tuple of classes.
             const objClass = arg1Type.classType;
-            if (ClassType.isBuiltIn(objClass, 'Tuple') && ClassType.getTypeArguments(objClass)) {
-                ClassType.getTypeArguments(objClass)!.forEach(typeArg => {
+            if (ClassType.isBuiltIn(objClass, 'Tuple') && objClass.typeArguments) {
+                objClass.typeArguments.forEach(typeArg => {
                     if (typeArg.category === TypeCategory.Class) {
                         classTypeList.push(typeArg);
                     } else {
@@ -1052,7 +1052,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _validateOveriddenMethods(classType: ClassType) {
-        ClassType.getFields(classType).forEach((symbol, name) => {
+        classType.details.fields.forEach((symbol, name) => {
             // Don't check magic functions.
             if (symbol.isClassMember() && !SymbolNameUtils.isDunderName(name)) {
                 const typeOfSymbol = this._evaluator.getEffectiveTypeOfSymbol(symbol);

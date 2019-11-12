@@ -303,24 +303,8 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.CanOmitDictValues);
     }
 
-    export function addBaseClass(classType: ClassType, baseClassType: Type) {
-        classType.details.baseClasses.push(baseClassType);
-    }
-
-    export function addMetaClass(classType: ClassType, metaClassType: Type) {
-        classType.details.metaClass = metaClassType;
-    }
-
     export function getDataClassParameters(classType: ClassType): FunctionParameter[] {
         return classType.details.dataClassParameters || [];
-    }
-
-    export function getFields(classType: ClassType): SymbolTable {
-        return classType.details.fields;
-    }
-
-    export function getTypeArguments(classType: ClassType) {
-        return classType.typeArguments;
     }
 
     export function getTypeParameters(classType: ClassType) {
@@ -903,8 +887,8 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             }
 
             // Make sure the type args match.
-            const type1TypeArgs = ClassType.getTypeArguments(type1) || [];
-            const type2TypeArgs = ClassType.getTypeArguments(classType2) || [];
+            const type1TypeArgs = type1.typeArguments || [];
+            const type2TypeArgs = classType2.typeArguments || [];
             const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
 
             for (let i = 0; i < typeArgCount; i++) {
