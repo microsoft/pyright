@@ -590,8 +590,8 @@ export class SourceFile {
     getHoverForPosition(position: DiagnosticTextPosition, importLookup: ImportLookup,
             evaluator: TypeEvaluator): HoverResults | undefined {
 
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
+        // If this file hasn't been bound, no hover info is available.
+        if (this._isBindingNeeded || !this._parseResults) {
             return undefined;
         }
 
