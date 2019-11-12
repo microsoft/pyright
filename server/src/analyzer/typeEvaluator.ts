@@ -17,32 +17,27 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import {
-    AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum,
-    getEmptyRange
-} from '../common/diagnostic';
+import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum,
+    getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
-import {
-    ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperationNode,
+import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperationNode,
     CallNode, ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExceptNode, ExpressionNode,
     ForNode, FunctionNode, ImportAsNode, ImportFromAsNode, ImportFromNode, IndexItemsNode,
     IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode, MemberAccessNode,
     NameNode, ParameterCategory, ParseNode, ParseNodeType, SetNode, SliceNode,
     StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode, YieldFromNode,
-    YieldNode
-} from '../parser/parseNodes';
+    YieldNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import {
-    FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
-    FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport
-} from './codeFlow';
-import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions, VariableDeclaration } from './declaration';
+import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags, FlowLabel,
+    FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport } from './codeFlow';
+import { AliasDeclaration, Declaration, DeclarationType, ModuleLoaderActions,
+    VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
@@ -50,16 +45,13 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from './symbolUtils';
-import {
-    AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
+import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     FunctionType, FunctionTypeFlags, InheritanceChain, isAnyOrUnknown, isNoneOrNever,
     isPossiblyUnbound, isSameWithoutLiteralValue, isTypeSame, isUnbound, LiteralValue,
     maxTypeRecursionCount, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionEntry,
     OverloadedFunctionType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnboundType, UnknownType
-} from './types';
-import {
-    addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedTypeForConstructor,
+    TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
+import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedTypeForConstructor,
     areTypesSame, buildTypeVarMap, buildTypeVarMapFromSpecializedClass,
     CanAssignFlags, canBeFalsy, canBeTruthy, ClassMember,
     ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
@@ -70,8 +62,7 @@ import {
     lookUpObjectMember, partiallySpecializeType, printLiteralValue, printObjectTypeForClass,
     printType, removeFalsinessFromType, removeTruthinessFromType, requiresSpecialization,
     selfSpecializeClassType, specializeType, specializeTypeVarType, stripFirstParameter,
-    stripLiteralValue, transformTypeObjectToClass, TypedDictEntry
-} from './typeUtils';
+    stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -304,6 +295,23 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
             typeCache.set(node.id, typeCacheEntry);
         }
+    }
+
+    function pushTypeResolution(node: ParseNode) {
+        if (typeResolutionRecursionMap.has(node.id)) {
+            return false;
+        }
+
+        if (typeResolutionRecursionMap.size > maxTypeResolutionRecursionCount) {
+            return false;
+        }
+
+        typeResolutionRecursionMap.set(node.id, node);
+        return true;
+    }
+
+    function popTypeResolution(node: ParseNode) {
+        typeResolutionRecursionMap.delete(node.id);
     }
 
     // Wrapper around getTypeOfExpression for callers who are interested in
@@ -1699,23 +1707,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return undefined;
-    }
-
-    function pushTypeResolution(node: ParseNode) {
-        if (typeResolutionRecursionMap.has(node.id)) {
-            return false;
-        }
-
-        if (typeResolutionRecursionMap.size > maxTypeResolutionRecursionCount) {
-            return false;
-        }
-
-        typeResolutionRecursionMap.set(node.id, node);
-        return true;
-    }
-
-    function popTypeResolution(node: ParseNode) {
-        typeResolutionRecursionMap.delete(node.id);
     }
 
     function getTypeFromName(node: NameNode, flags: EvaluatorFlags): TypeResult {
@@ -5208,15 +5199,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         // Check for recursion.
-        if (!pushTypeResolution(node)) {
-            return undefined;
+        if (pushTypeResolution(node)) {
+            destType = getTypeFromAugmentedAssignment(node);
+
+            assignTypeToExpression(node.destExpression, destType, node.rightExpression);
+
+            popTypeResolution(node);
         }
-
-        destType = getTypeFromAugmentedAssignment(node);
-
-        popTypeResolution(node);
-
-        assignTypeToExpression(node.destExpression, destType, node.rightExpression);
     }
 
     function getTypeOfClass(node: ClassNode): ClassTypeResult | undefined {
@@ -6030,6 +6019,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         popTypeResolution(node.suite);
+
         return inferredReturnType;
     }
 
@@ -6146,62 +6136,60 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         // Check for recursion.
-        if (!pushTypeResolution(node)) {
-            return;
-        }
+        if (pushTypeResolution(node)) {
+            let exprType = getType(node.expression);
+            const isAsync = node.parent && node.parent.nodeType === ParseNodeType.With &&
+                !!node.parent.isAsync;
 
-        let exprType = getType(node.expression);
-        const isAsync = node.parent && node.parent.nodeType === ParseNodeType.With &&
-            !!node.parent.isAsync;
-
-        if (isOptionalType(exprType)) {
-            const fileInfo = getFileInfo(node);
-            addDiagnostic(
-                fileInfo.diagnosticSettings.reportOptionalContextManager,
-                DiagnosticRule.reportOptionalContextManager,
-                `Object of type 'None' cannot be used with 'with'`,
-                node.expression);
-            exprType = removeNoneFromUnion(exprType);
-        }
-
-        const enterMethodName = isAsync ? '__aenter__' : '__enter__';
-        const scopedType = doForSubtypes(exprType, subtype => {
-            if (isAnyOrUnknown(subtype)) {
-                return subtype;
+            if (isOptionalType(exprType)) {
+                const fileInfo = getFileInfo(node);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportOptionalContextManager,
+                    DiagnosticRule.reportOptionalContextManager,
+                    `Object of type 'None' cannot be used with 'with'`,
+                    node.expression);
+                exprType = removeNoneFromUnion(exprType);
             }
 
-            if (subtype.category === TypeCategory.Object) {
-                const memberType = getTypeFromObjectMember(node.expression,
-                    subtype, enterMethodName, { method: 'get' }, MemberAccessFlags.None);
-
-                if (memberType) {
-                    let memberReturnType: Type;
-                    if (memberType.category === TypeCategory.Function) {
-                        memberReturnType = getEffectiveReturnType(memberType);
-                    } else {
-                        memberReturnType = UnknownType.create();
-                    }
-
-                    // For "async while", an implicit "await" is performed.
-                    if (isAsync) {
-                        memberReturnType = getTypeFromAwaitable(memberReturnType, node);
-                    }
-
-                    return memberReturnType;
+            const enterMethodName = isAsync ? '__aenter__' : '__enter__';
+            const scopedType = doForSubtypes(exprType, subtype => {
+                if (isAnyOrUnknown(subtype)) {
+                    return subtype;
                 }
+
+                if (subtype.category === TypeCategory.Object) {
+                    const memberType = getTypeFromObjectMember(node.expression,
+                        subtype, enterMethodName, { method: 'get' }, MemberAccessFlags.None);
+
+                    if (memberType) {
+                        let memberReturnType: Type;
+                        if (memberType.category === TypeCategory.Function) {
+                            memberReturnType = getEffectiveReturnType(memberType);
+                        } else {
+                            memberReturnType = UnknownType.create();
+                        }
+
+                        // For "async while", an implicit "await" is performed.
+                        if (isAsync) {
+                            memberReturnType = getTypeFromAwaitable(memberReturnType, node);
+                        }
+
+                        return memberReturnType;
+                    }
+                }
+
+                addError(`Type ${printType(subtype)} cannot be used ` +
+                    `with 'with' because it does not implement '${enterMethodName}'`,
+                    node.expression);
+                return UnknownType.create();
+            });
+
+            if (node.target) {
+                assignTypeToExpression(node.target, scopedType, node.target);
             }
 
-            addError(`Type ${printType(subtype)} cannot be used ` +
-                `with 'with' because it does not implement '${enterMethodName}'`,
-                node.expression);
-            return UnknownType.create();
-        });
-
-        if (node.target) {
-            assignTypeToExpression(node.target, scopedType, node.target);
+            popTypeResolution(node);
         }
-
-        popTypeResolution(node);
     }
 
     function evaluateTypesForImportAs(node: ImportAsNode): void {
@@ -6224,26 +6212,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         // Check for recursion.
-        if (!pushTypeResolution(node)) {
-            return;
-        }
+        if (pushTypeResolution(node)) {
+            // Look up the symbol to find the alias declaration.
+            let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.nameToken.value) ||
+                UnknownType.create();
 
-        // Look up the symbol to find the alias declaration.
-        let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.nameToken.value) ||
-            UnknownType.create();
-
-        // Is there a cached module type associated with this node? If so, use
-        // it instead of the type we just created.
-        const cachedModuleType = readTypeCache(node) as ModuleType;
-        if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && symbolType) {
-            if (isTypeSame(symbolType, cachedModuleType)) {
-                symbolType = cachedModuleType;
+            // Is there a cached module type associated with this node? If so, use
+            // it instead of the type we just created.
+            const cachedModuleType = readTypeCache(node) as ModuleType;
+            if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && symbolType) {
+                if (isTypeSame(symbolType, cachedModuleType)) {
+                    symbolType = cachedModuleType;
+                }
             }
+
+            assignTypeToNameNode(symbolNameNode, symbolType);
+
+            popTypeResolution(node);
         }
-
-        assignTypeToNameNode(symbolNameNode, symbolType);
-
-        popTypeResolution(node);
     }
 
     function evaluateTypesForImportFrom(node: ImportFromAsNode): void {
@@ -6256,36 +6242,34 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         // Check for recursion.
-        if (!pushTypeResolution(node)) {
-            return;
-        }
+        if (pushTypeResolution(node)) {
+            let symbolType = getAliasedSymbolTypeForName(node, aliasNode.nameToken.value);
+            if (!symbolType) {
+                const parentNode = node.parent as ImportFromNode;
+                assert(parentNode && parentNode.nodeType === ParseNodeType.ImportFrom);
+                assert(!parentNode.isWildcardImport);
 
-        let symbolType = getAliasedSymbolTypeForName(node, aliasNode.nameToken.value);
-        if (!symbolType) {
-            const parentNode = node.parent as ImportFromNode;
-            assert(parentNode && parentNode.nodeType === ParseNodeType.ImportFrom);
-            assert(!parentNode.isWildcardImport);
+                const importInfo = AnalyzerNodeInfo.getImportInfo(parentNode.module);
+                if (importInfo && importInfo.isImportFound) {
+                    const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
 
-            const importInfo = AnalyzerNodeInfo.getImportInfo(parentNode.module);
-            if (importInfo && importInfo.isImportFound) {
-                const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
-
-                // If we were able to resolve the import, report the error as
-                // an unresolved symbol.
-                if (importLookup(resolvedPath)) {
-                    addError(
-                        `'${node.name.nameToken.value}' is unknown import symbol`,
-                        node.name
-                    );
+                    // If we were able to resolve the import, report the error as
+                    // an unresolved symbol.
+                    if (importLookup(resolvedPath)) {
+                        addError(
+                            `'${node.name.nameToken.value}' is unknown import symbol`,
+                            node.name
+                        );
+                    }
                 }
+
+                symbolType = UnknownType.create();
             }
 
-            symbolType = UnknownType.create();
+            assignTypeToNameNode(aliasNode, symbolType);
+
+            popTypeResolution(node);
         }
-
-        assignTypeToNameNode(aliasNode, symbolType);
-
-        popTypeResolution(node);
     }
 
     function getAliasedSymbolTypeForName(node: ParseNode, name: string): Type | undefined {
