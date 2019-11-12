@@ -22,7 +22,7 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { TypeCategory } from '../analyzer/types';
+import { Type, TypeCategory } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule, printType } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
@@ -116,8 +116,7 @@ enum SortCategory {
 // This data allows the resolve handling to disambiguate
 // which item was selected.
 interface CompletionItemData {
-    autoImportText?: string;
-    symbolId?: number;
+    autoImportText: string;
 }
 
 interface RecentCompletionInfo {
@@ -729,13 +728,15 @@ export class CompletionProvider {
         if (similarity > similarityLimit) {
             const completionItem = CompletionItem.create(name);
             completionItem.kind = itemKind;
-            const completionItemData: CompletionItemData = {};
-            completionItem.data = completionItemData;
+            completionItem.data = {};
 
             if (autoImportText) {
                 // Force auto-import entries to the end.
                 completionItem.sortText =
                     this._makeSortText(SortCategory.AutoImport, name, autoImportText);
+                const completionItemData: CompletionItemData = {
+                    autoImportText
+                };
                 completionItem.data = completionItemData;
             } else if (SymbolNameUtils.isDunderName(name)) {
                 // Force dunder-named symbols to appear after all other symbols.
@@ -849,7 +850,9 @@ export class CompletionProvider {
         return result;
     }
 
-    private _convertDeclarationTypeToItemKind(declaration: Declaration): CompletionItemKind {
+    private _convertDeclarationTypeToItemKind(declaration: Declaration,
+            type?: Type): CompletionItemKind {
+
         const resolvedDeclaration = this._evaluator.resolveAliasDeclaration(declaration);
         if (!resolvedDeclaration) {
             return CompletionItemKind.Variable;
@@ -857,7 +860,12 @@ export class CompletionProvider {
 
         switch (resolvedDeclaration.type) {
             case DeclarationType.Intrinsic:
-                return CompletionItemKind.Class;
+                if (type) {
+                    if (type.category === TypeCategory.Class) {
+                        return CompletionItemKind.Class;
+                    }
+                }
+                return CompletionItemKind.Variable;
 
             case DeclarationType.Parameter:
                 return CompletionItemKind.Variable;
@@ -871,6 +879,9 @@ export class CompletionProvider {
                 return CompletionItemKind.Function;
 
             case DeclarationType.Method:
+                if (type && type.category === TypeCategory.Property) {
+                    return CompletionItemKind.Property;
+                }
                 return CompletionItemKind.Method;
 
             case DeclarationType.Class:
