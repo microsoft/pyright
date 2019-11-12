@@ -35,7 +35,8 @@ import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
 const _maxAnalysisTimeForCompletions = 500;
-const _analyzeOnlyOpenFiles = true;
+const _analyzeOnlyOpenFiles = false;
+const _allowAllThirdPartyImports = true;
 
 export interface SourceFileInfo {
     sourceFile: SourceFile;
@@ -405,6 +406,7 @@ export class Program {
                     throw new Error(errMsg);
                 }
 
+                this._bindFile(sourceFileInfo);
                 const writer = new TypeStubWriter(typeStubPath,
                     sourceFileInfo.sourceFile, this._evaluator);
                 writer.write();
@@ -1047,7 +1049,7 @@ export class Program {
     private _isImportAllowed(importer: SourceFileInfo, importResult: ImportResult,
             isImportStubFile: boolean): boolean {
 
-        let thirdPartyImportAllowed = false;
+        let thirdPartyImportAllowed = _allowAllThirdPartyImports;
 
         if (importResult.importType === ImportType.ThirdParty ||
                 (importer.isThirdPartyImport && importResult.importType === ImportType.Local)) {
