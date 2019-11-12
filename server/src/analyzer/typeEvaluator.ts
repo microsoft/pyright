@@ -7190,7 +7190,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (node.parent && node.parent.nodeType === ParseNodeType.MemberAccess &&
                 node === node.parent.memberName) {
 
-            const baseType = AnalyzerNodeInfo.getExpressionType(node.parent.leftExpression);
+            const baseType = getType(node.parent.leftExpression);
             if (baseType) {
                 const memberName = node.parent.memberName.nameToken.value;
                 doForSubtypes(baseType, subtype => {
