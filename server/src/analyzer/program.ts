@@ -35,6 +35,7 @@ import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
 const _maxAnalysisTimeForCompletions = 500;
+const _analyzeOnlyOpenFiles = true;
 
 export interface SourceFileInfo {
     sourceFile: SourceFile;
@@ -129,7 +130,7 @@ export class Program {
                     fileInfo.sourceFile.isBindingRequired() ||
                     fileInfo.sourceFile.isCheckingRequired()) {
 
-                if (fileInfo.isTracked || fileInfo.isOpenByClient) {
+                if ((!_analyzeOnlyOpenFiles && fileInfo.isTracked) || fileInfo.isOpenByClient) {
                     sourceFileCount++;
                 }
             }
@@ -289,23 +290,25 @@ export class Program {
             }
         }
 
-        // Do type analysis of remaining files.
-        const allFiles = this._sourceFileList;
+        if (!_analyzeOnlyOpenFiles) {
+            // Do type analysis of remaining files.
+            const allFiles = this._sourceFileList;
 
-        const isTimeElapsedNoOpenFiles = () => {
-            if (maxTime === undefined) {
-                return false;
-            }
-            const effectiveMaxTime = interactiveMode ?
-                maxTime.openFilesTimeInMs :
-                maxTime.noOpenFilesTimeInMs;
-            return elapsedTime.getDurationInMilliseconds() > effectiveMaxTime;
-        };
+            const isTimeElapsedNoOpenFiles = () => {
+                if (maxTime === undefined) {
+                    return false;
+                }
+                const effectiveMaxTime = interactiveMode ?
+                    maxTime.openFilesTimeInMs :
+                    maxTime.noOpenFilesTimeInMs;
+                return elapsedTime.getDurationInMilliseconds() > effectiveMaxTime;
+            };
 
-        // Now do type parsing and analysis of the remaining.
-        for (const sourceFileInfo of allFiles) {
-            if (this._checkTypes(sourceFileInfo, options, importResolver, isTimeElapsedNoOpenFiles)) {
-                return true;
+            // Now do type parsing and analysis of the remaining.
+            for (const sourceFileInfo of allFiles) {
+                if (this._checkTypes(sourceFileInfo, options, importResolver, isTimeElapsedNoOpenFiles)) {
+                    return true;
+                }
             }
         }
 
@@ -730,18 +733,20 @@ export class Program {
         const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
 
         this._sourceFileList.forEach(sourceFileInfo => {
-            const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
-                    options, sourceFileInfo.diagnosticsVersion);
-            if (diagnostics !== undefined) {
-                fileDiagnostics.push({
-                    filePath: sourceFileInfo.sourceFile.getFilePath(),
-                    diagnostics
-                });
+            if ((!_analyzeOnlyOpenFiles && sourceFileInfo.isTracked) || sourceFileInfo.isOpenByClient) {
+                const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
+                        options, sourceFileInfo.diagnosticsVersion);
+                if (diagnostics !== undefined) {
+                    fileDiagnostics.push({
+                        filePath: sourceFileInfo.sourceFile.getFilePath(),
+                        diagnostics
+                    });
 
-                // Update the cached diagnosticsVersion so we can determine
-                // whether there are any updates next time we call getDiagnostics.
-                sourceFileInfo.diagnosticsVersion =
-                    sourceFileInfo.sourceFile.getDiagnosticVersion();
+                    // Update the cached diagnosticsVersion so we can determine
+                    // whether there are any updates next time we call getDiagnostics.
+                    sourceFileInfo.diagnosticsVersion =
+                        sourceFileInfo.sourceFile.getDiagnosticVersion();
+                }
             }
         });
 
