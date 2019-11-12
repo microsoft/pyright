@@ -45,7 +45,6 @@ export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
     private readonly _evaluator: TypeEvaluator;
-    private _currentScope: Scope;
 
     // A list of all nodes that are defined within the module that
     // have their own scopes.
@@ -57,7 +56,6 @@ export class Checker extends ParseTreeWalker {
 
         this._moduleNode = node;
         this._fileInfo = AnalyzerNodeInfo.getFileInfo(node)!;
-        this._currentScope = AnalyzerNodeInfo.getScope(node)!;
         this._evaluator = evaluator;
     }
 
@@ -82,10 +80,7 @@ export class Checker extends ParseTreeWalker {
     visitClass(node: ClassNode): boolean {
         const classTypeResult = this._evaluator.getTypeOfClass(node);
 
-        this._enterScope(node, () => {
-            this.walk(node.suite);
-        });
-
+        this.walk(node.suite);
         this.walkMultiple(node.decorators);
         this.walkMultiple(node.arguments);
 
@@ -139,20 +134,18 @@ export class Checker extends ParseTreeWalker {
 
         this.walkMultiple(node.decorators);
 
-        this._enterScope(node, () => {
-            node.parameters.forEach(param => {
-                if (param.name) {
-                    this.walk(param.name);
-                }
-            });
-
-            this.walk(node.suite);
-
-            if (functionTypeResult) {
-                // Validate that the function returns the declared type.
-                this._validateFunctionReturn(node, functionTypeResult.functionType);
+        node.parameters.forEach(param => {
+            if (param.name) {
+                this.walk(param.name);
             }
         });
+
+        this.walk(node.suite);
+
+        if (functionTypeResult) {
+            // Validate that the function returns the declared type.
+            this._validateFunctionReturn(node, functionTypeResult.functionType);
+        }
 
         return false;
     }
@@ -160,44 +153,42 @@ export class Checker extends ParseTreeWalker {
     visitLambda(node: LambdaNode): boolean {
         this._getTypeOfExpression(node);
 
-        this._enterScope(node, () => {
-            // Walk the children.
-            this.walkMultiple([...node.parameters, node.expression]);
+        // Walk the children.
+        this.walkMultiple([...node.parameters, node.expression]);
 
-            node.parameters.forEach(param => {
-                if (param.name) {
-                    const paramType = this._getTypeOfExpression(param.name);
-                    if (paramType.category === TypeCategory.Unknown) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
-                            DiagnosticRule.reportUnknownLambdaType,
-                            `Type of '${ param.name.nameToken.value }' is unknown`,
-                            param.name);
-                    } else if (containsUnknown(paramType)) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
-                            DiagnosticRule.reportUnknownLambdaType,
-                            `Type of '${ param.name.nameToken.value }', ` +
-                            `'${ printType(paramType) }', is partially unknown`,
-                            param.name);
-                    }
+        node.parameters.forEach(param => {
+            if (param.name) {
+                const paramType = this._getTypeOfExpression(param.name);
+                if (paramType.category === TypeCategory.Unknown) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                        DiagnosticRule.reportUnknownLambdaType,
+                        `Type of '${ param.name.nameToken.value }' is unknown`,
+                        param.name);
+                } else if (containsUnknown(paramType)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                        DiagnosticRule.reportUnknownLambdaType,
+                        `Type of '${ param.name.nameToken.value }', ` +
+                        `'${ printType(paramType) }', is partially unknown`,
+                        param.name);
                 }
-            });
-
-            const returnType = this._getTypeOfExpression(node.expression);
-            if (returnType.category === TypeCategory.Unknown) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
-                    DiagnosticRule.reportUnknownLambdaType,
-                    `Type of lambda expression is unknown`, node.expression);
-            } else if (containsUnknown(returnType)) {
-                this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
-                    DiagnosticRule.reportUnknownLambdaType,
-                    `Type of lambda expression, '${ printType(returnType) }', is partially unknown`,
-                    node.expression);
             }
         });
+
+        const returnType = this._getTypeOfExpression(node.expression);
+        if (returnType.category === TypeCategory.Unknown) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                DiagnosticRule.reportUnknownLambdaType,
+                `Type of lambda expression is unknown`, node.expression);
+        } else if (containsUnknown(returnType)) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                DiagnosticRule.reportUnknownLambdaType,
+                `Type of lambda expression, '${ printType(returnType) }', is partially unknown`,
+                node.expression);
+        }
 
         return false;
     }
@@ -1224,20 +1215,5 @@ export class Checker extends ParseTreeWalker {
                     errorNode);
             }
         }
-    }
-
-    private _enterScope(node: AnalyzerNodeInfo.ScopedNode, callback: () => void) {
-        const prevScope = this._currentScope;
-        const newScope = AnalyzerNodeInfo.getScope(node)!;
-        assert(newScope !== undefined);
-
-        this._currentScope = newScope;
-
-        // Note that we found a scoped node.
-        this._scopedNodes.push(node);
-
-        callback();
-
-        this._currentScope = prevScope;
     }
 }
