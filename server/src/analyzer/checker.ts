@@ -29,20 +29,16 @@ import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowFlags } from './codeFlow';
 import { Declaration, DeclarationType } from './declaration';
-import * as DeclarationUtils from './declarationUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
-import * as ScopeUtils from './scopeUtils';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
-import { getEffectiveTypeOfSymbol, getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { EvaluatorFlags, TypeEvaluator } from './typeEvaluator';
-import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, isTypeSame, NoneType,
-    ObjectType, Type, TypeCategory, UnknownType } from './types';
-import { canAssignType, canOverrideMethod, containsUnknown, derivesFromClassRecursive,
-    doesClassHaveAbstractMethods, doForSubtypes, getDeclaredGeneratorReturnType,
-    getDeclaredGeneratorYieldType, getSymbolFromBaseClasses,
+import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, isTypeSame,
+    NoneType, ObjectType, Type, TypeCategory, UnknownType } from './types';
+import { containsUnknown, derivesFromClassRecursive, doForSubtypes,
+    getDeclaredGeneratorReturnType, getDeclaredGeneratorYieldType, getSymbolFromBaseClasses,
     isNoReturnType, printType, specializeType, transformTypeObjectToClass } from './typeUtils';
 
 export class Checker extends ParseTreeWalker {
@@ -249,7 +245,7 @@ export class Checker extends ParseTreeWalker {
 
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
         const declaredReturnType = enclosingFunctionNode ?
-            DeclarationUtils.getFunctionDeclaredReturnType(enclosingFunctionNode) :
+            this._evaluator.getFunctionDeclaredReturnType(enclosingFunctionNode) :
             undefined;
 
         if (node.returnExpression) {
@@ -272,9 +268,7 @@ export class Checker extends ParseTreeWalker {
                     // Specialize the return type in case it contains references to type variables.
                     // These will be replaced with the corresponding constraint or bound types.
                     const specializedDeclaredType = specializeType(declaredReturnType, undefined);
-                    if (!canAssignType(specializedDeclaredType, returnType,
-                            diagAddendum, this._fileInfo.importLookup)) {
-
+                    if (!this._evaluator.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
                         this._evaluator.addError(
                             `Expression of type '${ printType(returnType) }' cannot be assigned ` +
                                 `to return type '${ printType(specializedDeclaredType) }'` +
@@ -294,8 +288,7 @@ export class Checker extends ParseTreeWalker {
 
         // Wrap the yield type in an Iterator.
         let adjYieldType = yieldType;
-        const iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator',
-            this._fileInfo.importLookup);
+        const iteratorType = this._evaluator.getBuiltInType(node, 'Iterator');
         if (iteratorType.category === TypeCategory.Class) {
             adjYieldType = ObjectType.create(ClassType.cloneForSpecialization(iteratorType, [yieldType]));
         } else {
@@ -315,8 +308,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitRaise(node: RaiseNode): boolean {
-        const baseExceptionType = ScopeUtils.getBuiltInType(
-            this._currentScope, 'BaseException', this._fileInfo.importLookup) as ClassType;
+        const baseExceptionType = this._evaluator.getBuiltInType(node, 'BaseException') as ClassType;
 
         if (node.typeExpression) {
             const exceptionType = this._getTypeOfExpression(node.typeExpression);
@@ -484,18 +476,18 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.verifyDeleteExpression(expr);
 
             if (expr.nodeType === ParseNodeType.Name) {
-                const symbolWithScope = this._currentScope.lookUpSymbolRecursive(expr.nameToken.value);
-                if (symbolWithScope) {
-                    const decl = getLastTypedDeclaredForSymbol(symbolWithScope.symbol);
-                    if (decl) {
-                        if (decl.type === DeclarationType.Function || decl.type === DeclarationType.Method) {
-                            this._evaluator.addError(
-                                'Del should not be applied to function', expr);
-                        } else if (decl.type === DeclarationType.Class) {
-                            this._evaluator.addError(
-                                'Del should not be applied to class', expr);
-                        }
-                    }
+                const type = this._evaluator.getType(expr);
+                if (type.category === TypeCategory.Function ||
+                        type.category === TypeCategory.OverloadedFunction) {
+
+                    this._evaluator.addError(
+                        'Del should not be applied to functions', expr);
+                } else if (type.category === TypeCategory.Class) {
+                    this._evaluator.addError(
+                        'Del should not be applied to classes', expr);
+                } else if (type.category === TypeCategory.Property) {
+                    this._evaluator.addError(
+                        'Del should not be applied to properties', expr);
                 }
             }
         });
@@ -879,8 +871,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const declarations = DeclarationUtils.getDeclarationsForNameNode(
-            node, this._fileInfo.importLookup);
+        const declarations = this._evaluator.getDeclarationsForNameNode(node);
 
         let primaryDeclaration = declarations && declarations.length > 0 ?
             declarations[declarations.length - 1] : undefined;
@@ -888,8 +879,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        primaryDeclaration = DeclarationUtils.resolveAliasDeclaration(primaryDeclaration,
-            this._fileInfo.importLookup);
+        primaryDeclaration = this._evaluator.resolveAliasDeclaration(primaryDeclaration);
         if (!primaryDeclaration || primaryDeclaration.node === node) {
             return;
         }
@@ -1035,9 +1025,7 @@ export class Checker extends ParseTreeWalker {
                     const diagAddendum = new DiagnosticAddendum();
 
                     // If the declared type isn't compatible with 'None', flag an error.
-                    if (!canAssignType(declaredReturnType, NoneType.create(),
-                            diagAddendum, this._fileInfo.importLookup)) {
-
+                    if (!this._evaluator.canAssignType(declaredReturnType, NoneType.create(), diagAddendum)) {
                         // If the function consists entirely of "...", assume that it's
                         // an abstract method or a protocol method and don't require that
                         // the return type matches.
@@ -1071,7 +1059,7 @@ export class Checker extends ParseTreeWalker {
     // as the original method. Also marks the class as abstract if one or
     // more abstract methods are not overridden.
     private _validateClassMethods(classType: ClassType) {
-        if (doesClassHaveAbstractMethods(classType, this._fileInfo.importLookup)) {
+        if (this._evaluator.doesClassHaveAbstractMethods(classType)) {
             ClassType.setIsAbstractClass(classType);
         }
 
@@ -1090,15 +1078,15 @@ export class Checker extends ParseTreeWalker {
         ClassType.getFields(classType).forEach((symbol, name) => {
             // Don't check magic functions.
             if (symbol.isClassMember() && !SymbolNameUtils.isDunderName(name)) {
-                const typeOfSymbol = getEffectiveTypeOfSymbol(symbol, this._fileInfo.importLookup);
+                const typeOfSymbol = this._evaluator.getEffectiveTypeOfSymbol(symbol);
                 if (typeOfSymbol.category === TypeCategory.Function) {
                     const baseClassAndSymbol = getSymbolFromBaseClasses(classType, name);
                     if (baseClassAndSymbol) {
-                        const typeOfBaseClassMethod = getEffectiveTypeOfSymbol(
-                            baseClassAndSymbol.symbol, this._fileInfo.importLookup);
+                        const typeOfBaseClassMethod = this._evaluator.getEffectiveTypeOfSymbol(
+                            baseClassAndSymbol.symbol);
                         const diagAddendum = new DiagnosticAddendum();
-                        if (!canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol,
-                                diagAddendum, this._fileInfo.importLookup)) {
+                        if (!this._evaluator.canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol,
+                                diagAddendum)) {
 
                             const declarations = symbol.getDeclarations();
                             const errorNode = declarations[0].node;
@@ -1204,8 +1192,7 @@ export class Checker extends ParseTreeWalker {
             const functionTypeResult = this._evaluator.getTypeOfFunction(enclosingFunctionNode);
             if (functionTypeResult) {
                 assert(functionTypeResult.functionType.category === TypeCategory.Function);
-                const iteratorType = ScopeUtils.getBuiltInType(this._currentScope, 'Iterator',
-                    this._fileInfo.importLookup);
+                const iteratorType = this._evaluator.getBuiltInType(node, 'Iterator');
                 declaredYieldType = getDeclaredGeneratorYieldType(functionTypeResult.functionType, iteratorType);
             }
         }
@@ -1218,9 +1205,7 @@ export class Checker extends ParseTreeWalker {
                         node);
                 } else {
                     const diagAddendum = new DiagnosticAddendum();
-                    if (!canAssignType(declaredYieldType, adjustedYieldType,
-                            diagAddendum, this._fileInfo.importLookup)) {
-
+                    if (!this._evaluator.canAssignType(declaredYieldType, adjustedYieldType, diagAddendum)) {
                         this._evaluator.addError(
                             `Expression of type '${ printType(adjustedYieldType) }' cannot be assigned ` +
                                 `to yield type '${ printType(declaredYieldType) }'` + diagAddendum.getString(),

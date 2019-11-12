@@ -14,7 +14,6 @@ import { CompletionItem, CompletionItemKind, CompletionList,
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import { getInferredTypeOfDeclaration, resolveAliasDeclaration } from '../analyzer/declarationUtils';
 import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
@@ -643,9 +642,9 @@ export class CompletionProvider {
             let typeDetail: string | undefined;
             let documentation: string | undefined;
 
-            const declaration = resolveAliasDeclaration(declarations[0], this._importLookup);
+            const declaration = this._evaluator.resolveAliasDeclaration(declarations[0]);
             if (declaration) {
-                const type = getInferredTypeOfDeclaration(declaration, this._importLookup);
+                const type = this._evaluator.getInferredTypeOfDeclaration(declaration);
                 itemKind = this._convertDeclarationTypeToItemKind(declaration, type);
 
                 if (type) {
@@ -846,7 +845,7 @@ export class CompletionProvider {
     private _convertDeclarationTypeToItemKind(declaration: Declaration,
             type?: Type): CompletionItemKind {
 
-        const resolvedDeclaration = resolveAliasDeclaration(declaration, this._importLookup);
+        const resolvedDeclaration = this._evaluator.resolveAliasDeclaration(declaration);
         if (!resolvedDeclaration) {
             return CompletionItemKind.Variable;
         }

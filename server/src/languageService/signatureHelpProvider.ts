@@ -15,8 +15,8 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { ClassType, FunctionType, ObjectType, OverloadedFunctionType,
     TypeCategory } from '../analyzer/types';
-import { bindFunctionToClassOrObject, ClassMemberLookupFlags, doForSubtypes,
-    getTypeOfMember, lookUpClassMember, printFunctionParts } from '../analyzer/typeUtils';
+import { ClassMemberLookupFlags, doForSubtypes, lookUpClassMember,
+    printFunctionParts } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -42,9 +42,9 @@ export interface SignatureHelpResults {
 }
 
 export class SignatureHelpProvider {
-    static getSignatureHelpForPosition(parseResults: ParseResults,
-            position: DiagnosticTextPosition, importLookup: ImportLookup,
-            evaluator: TypeEvaluator): SignatureHelpResults | undefined {
+    static getSignatureHelpForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
+            importLookup: ImportLookup, evaluator: TypeEvaluator):
+                SignatureHelpResults | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -121,10 +121,10 @@ export class SignatureHelpProvider {
                     // which typically provides the __new__ method. We'll fall back on
                     // the __init__ if there is no custom __new__.
                     let methodType = this._getBoundMethod(subtype, '__new__',
-                        importLookup, true);
+                        importLookup, evaluator, true);
                     if (!methodType) {
                         methodType = this._getBoundMethod(subtype, '__init__',
-                            importLookup, false);
+                            importLookup, evaluator, false);
                     }
                     if (methodType) {
                         this._addSignatureToResults(results, methodType);
@@ -134,7 +134,7 @@ export class SignatureHelpProvider {
 
                 case TypeCategory.Object: {
                     const methodType = this._getBoundMethod(
-                        subtype.classType, '__call__', importLookup, false);
+                        subtype.classType, '__call__', importLookup, evaluator, false);
                     if (methodType) {
                         this._addSignatureToResults(results, methodType);
                     }
@@ -161,7 +161,7 @@ export class SignatureHelpProvider {
     }
 
     private static _getBoundMethod(classType: ClassType, memberName: string,
-        importLookup: ImportLookup, treatAsClassMember: boolean):
+        importLookup: ImportLookup, evaluator: TypeEvaluator, treatAsClassMember: boolean):
             FunctionType | OverloadedFunctionType | undefined {
 
         const aliasClass = classType.details.aliasClass;
@@ -174,13 +174,12 @@ export class SignatureHelpProvider {
                 ClassMemberLookupFlags.SkipObjectBaseClass);
 
         if (memberInfo) {
-            const unboundMethodType = getTypeOfMember(memberInfo, importLookup);
+            const unboundMethodType = evaluator.getTypeOfMember(memberInfo);
             if (unboundMethodType.category === TypeCategory.Function ||
                     unboundMethodType.category === TypeCategory.OverloadedFunction) {
 
-                const boundMethod = bindFunctionToClassOrObject(
-                    ObjectType.create(classType), unboundMethodType,
-                    importLookup, treatAsClassMember);
+                const boundMethod = evaluator.bindFunctionToClassOrObject(
+                    ObjectType.create(classType), unboundMethodType, treatAsClassMember);
 
                 if (boundMethod.category === TypeCategory.Function ||
                         boundMethod.category === TypeCategory.OverloadedFunction) {

@@ -10,18 +10,16 @@
 * definition is the top of the resolved import file.
 */
 
-import { ImportLookup } from '../analyzer/analyzerFileInfo';
-import { getDeclarationsForNameNode, resolveAliasDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { DiagnosticTextPosition, DocumentTextRange, rangesAreEqual } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export class DefinitionProvider {
-    static getDefinitionsForPosition(parseResults: ParseResults,
-            position: DiagnosticTextPosition, importLookup: ImportLookup):
-                DocumentTextRange[] | undefined {
+    static getDefinitionsForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
+            evaluator: TypeEvaluator): DocumentTextRange[] | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -36,10 +34,10 @@ export class DefinitionProvider {
         const definitions: DocumentTextRange[] = [];
 
         if (node.nodeType === ParseNodeType.Name) {
-            const declarations = getDeclarationsForNameNode(node, importLookup);
+            const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations) {
                 declarations.forEach(decl => {
-                    const resolvedDecl = resolveAliasDeclaration(decl, importLookup);
+                    const resolvedDecl = evaluator.resolveAliasDeclaration(decl);
                     if (resolvedDecl && resolvedDecl.path) {
                         this._addIfUnique(definitions, {
                             path: resolvedDecl.path,

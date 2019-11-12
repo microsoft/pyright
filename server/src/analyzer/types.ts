@@ -10,7 +10,7 @@
 import * as assert from 'assert';
 
 import StringMap from '../common/stringMap';
-import { ExpressionNode, ParameterCategory, SuiteNode } from '../parser/parseNodes';
+import { ParameterCategory } from '../parser/parseNodes';
 import { Symbol, SymbolTable } from './symbol';
 
 export const enum TypeCategory {

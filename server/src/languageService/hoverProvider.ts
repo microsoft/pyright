@@ -9,9 +9,7 @@
 * position within a smart editor.
 */
 
-import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory, UnknownType } from '../analyzer/types';
@@ -34,7 +32,7 @@ export interface HoverResults {
 
 export class HoverProvider {
     static getHoverForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
-            importLookup: ImportLookup, evaluator: TypeEvaluator): HoverResults | undefined {
+            evaluator: TypeEvaluator): HoverResults | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -55,10 +53,9 @@ export class HoverProvider {
         };
 
         if (node.nodeType === ParseNodeType.Name) {
-            const declarations = DeclarationUtils.getDeclarationsForNameNode(node, importLookup);
+            const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(results.parts, declarations[0],
-                    node, importLookup, evaluator);
+                this._addResultsForDeclaration(results.parts, declarations[0], node, evaluator);
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
@@ -76,9 +73,9 @@ export class HoverProvider {
     }
 
     private static _addResultsForDeclaration(parts: HoverTextPart[], declaration: Declaration,
-            node: NameNode, importLookup: ImportLookup, evaluator: TypeEvaluator): void {
+            node: NameNode, evaluator: TypeEvaluator): void {
 
-        const resolvedDecl = DeclarationUtils.resolveAliasDeclaration(declaration, importLookup);
+        const resolvedDecl = evaluator.resolveAliasDeclaration(declaration);
         if (!resolvedDecl) {
             this._addResultsPart(parts, `(import) ` + node.nameToken.value +
                 this._getTypeText(node, evaluator), true);
@@ -123,7 +120,7 @@ export class HoverProvider {
             }
 
             case DeclarationType.Method: {
-                const declaredType = DeclarationUtils.getTypeForDeclaration(resolvedDecl);
+                const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
                 const label = declaredType && declaredType.category === TypeCategory.Property ?
                     'property' : 'method';
                 this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +

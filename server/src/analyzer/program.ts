@@ -880,7 +880,7 @@ export class Program {
             return undefined;
         }
 
-        return sourceFile.getDefinitionsForPosition(position, this._lookUpImport);
+        return sourceFile.getDefinitionsForPosition(position, this._evaluator);
     }
 
     getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
@@ -900,7 +900,7 @@ export class Program {
         }
 
         const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
-            position, includeDeclaration, this._lookUpImport);
+            position, includeDeclaration, this._evaluator);
 
         if (!referencesResult) {
             return undefined;
@@ -918,7 +918,7 @@ export class Program {
                     }
 
                     curSourceFileInfo.sourceFile.addReferences(referencesResult,
-                        includeDeclaration, this._lookUpImport);
+                        includeDeclaration, this._evaluator);
                 }
             }
         }
@@ -930,7 +930,7 @@ export class Program {
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (sourceFileInfo) {
             sourceFileInfo.sourceFile.addSymbolsForDocument(
-                symbolList, this._lookUpImport);
+                symbolList, this._evaluator);
         }
     }
 
@@ -943,7 +943,7 @@ export class Program {
 
         for (const sourceFileInfo of this._sourceFileList) {
             sourceFileInfo.sourceFile.addSymbolsForDocument(
-                symbolList, this._lookUpImport, query);
+                symbolList, this._evaluator, query);
         }
     }
 
@@ -955,8 +955,7 @@ export class Program {
             return undefined;
         }
 
-        return sourceFileInfo.sourceFile.getHoverForPosition(position,
-            this._lookUpImport, this._evaluator);
+        return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator);
     }
 
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition,
@@ -1032,7 +1031,7 @@ export class Program {
         }
 
         const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
-            position, true, this._lookUpImport);
+            position, true, this._evaluator);
 
         if (!referencesResult) {
             return undefined;
@@ -1050,7 +1049,7 @@ export class Program {
                     }
 
                     curSourceFileInfo.sourceFile.addReferences(referencesResult,
-                        true, this._lookUpImport);
+                        true, this._evaluator);
                 }
             }
         }

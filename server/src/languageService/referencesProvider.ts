@@ -8,11 +8,11 @@
 * by a location within a file.
 */
 
-import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
+import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -31,18 +31,18 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     private _filePath: string;
     private _referencesResult: ReferencesResult;
     private _includeDeclaration: boolean;
-    private _importLookup: ImportLookup;
+    private _evaluator: TypeEvaluator;
 
     constructor(parseResults: ParseResults, filePath: string,
             referencesResult: ReferencesResult, includeDeclaration: boolean,
-            importLookup: ImportLookup) {
+            evaluator: TypeEvaluator) {
 
         super();
         this._parseResults = parseResults;
         this._filePath = filePath;
         this._referencesResult = referencesResult;
         this._includeDeclaration = includeDeclaration;
-        this._importLookup = importLookup;
+        this._evaluator = evaluator;
     }
 
     findReferences() {
@@ -50,7 +50,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     }
 
     visitName(node: NameNode): boolean {
-        const declarations = DeclarationUtils.getDeclarationsForNameNode(node, this._importLookup);
+        const declarations = this._evaluator.getDeclarationsForNameNode(node);
 
         if (declarations && declarations.length > 0) {
             // Does this name share a declaration with the symbol of interest?
@@ -72,7 +72,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     }
 
     private _resultsContainsDeclaration(declaration: Declaration) {
-        const resolvedDecl = DeclarationUtils.resolveAliasDeclaration(declaration, this._importLookup);
+        const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration);
         if (!resolvedDecl) {
             return false;
         }
@@ -87,8 +87,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
 export class ReferencesProvider {
     static getReferencesForPosition(parseResults: ParseResults, filePath: string,
             position: DiagnosticTextPosition, includeDeclaration: boolean,
-            importLookup: ImportLookup):
-                ReferencesResult | undefined {
+            evaluator: TypeEvaluator): ReferencesResult | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -104,14 +103,14 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        const declarations = DeclarationUtils.getDeclarationsForNameNode(node, importLookup);
+        const declarations = evaluator.getDeclarationsForNameNode(node);
         if (!declarations) {
             return undefined;
         }
 
         const resolvedDeclarations: Declaration[] = [];
         declarations.forEach(decl => {
-            const resolvedDecl = DeclarationUtils.resolveAliasDeclaration(decl, importLookup);
+            const resolvedDecl = evaluator.resolveAliasDeclaration(decl);
             if (resolvedDecl) {
                 resolvedDeclarations.push(resolvedDecl);
             }
@@ -135,7 +134,7 @@ export class ReferencesProvider {
         };
 
         const refTreeWalker = new FindReferencesTreeWalker(parseResults,
-            filePath, results, includeDeclaration, importLookup);
+            filePath, results, includeDeclaration, evaluator);
         refTreeWalker.findReferences();
 
         return results;
@@ -143,10 +142,10 @@ export class ReferencesProvider {
 
     static addReferences(parseResults: ParseResults, filePath: string,
             referencesResult: ReferencesResult, includeDeclaration: boolean,
-            importLookup: ImportLookup): void {
+            evaluator: TypeEvaluator): void {
 
         const refTreeWalker = new FindReferencesTreeWalker(parseResults,
-            filePath, referencesResult, includeDeclaration, importLookup);
+            filePath, referencesResult, includeDeclaration, evaluator);
         refTreeWalker.findReferences();
     }
 }

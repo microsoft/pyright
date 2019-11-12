@@ -539,8 +539,8 @@ export class SourceFile {
         return true;
     }
 
-    getDefinitionsForPosition(position: DiagnosticTextPosition, importLookup: ImportLookup):
-            DocumentTextRange[] | undefined {
+    getDefinitionsForPosition(position: DiagnosticTextPosition,
+            evaluator: TypeEvaluator): DocumentTextRange[] | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -548,23 +548,23 @@ export class SourceFile {
         }
 
         return DefinitionProvider.getDefinitionsForPosition(
-                this._parseResults, position, importLookup);
+                this._parseResults, position, evaluator);
     }
 
     getReferencesForPosition(position: DiagnosticTextPosition, includeDeclaration: boolean,
-            importLookup: ImportLookup): ReferencesResult | undefined {
+            evaluator: TypeEvaluator): ReferencesResult | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
-        return ReferencesProvider.getReferencesForPosition(
-            this._parseResults, this._filePath, position, includeDeclaration, importLookup);
+        return ReferencesProvider.getReferencesForPosition(this._parseResults,
+            this._filePath, position, includeDeclaration, evaluator);
     }
 
     addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean,
-            importLookup: ImportLookup): void {
+            evaluator: TypeEvaluator): void {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -572,10 +572,11 @@ export class SourceFile {
         }
 
         ReferencesProvider.addReferences(
-            this._parseResults, this._filePath, referencesResult, includeDeclaration, importLookup);
+            this._parseResults, this._filePath, referencesResult, includeDeclaration,
+            evaluator);
     }
 
-    addSymbolsForDocument(symbolList: SymbolInformation[], importLookup: ImportLookup,
+    addSymbolsForDocument(symbolList: SymbolInformation[], evaluator: TypeEvaluator,
             query?: string) {
 
         // If we have no completed analysis job, there's nothing to do.
@@ -584,10 +585,10 @@ export class SourceFile {
         }
 
         DocumentSymbolProvider.addSymbolsForDocument(symbolList, query,
-            this._filePath, this._parseResults, importLookup);
+            this._filePath, this._parseResults, evaluator);
     }
 
-    getHoverForPosition(position: DiagnosticTextPosition, importLookup: ImportLookup,
+    getHoverForPosition(position: DiagnosticTextPosition,
             evaluator: TypeEvaluator): HoverResults | undefined {
 
         // If this file hasn't been bound, no hover info is available.
@@ -596,7 +597,7 @@ export class SourceFile {
         }
 
         return HoverProvider.getHoverForPosition(
-            this._parseResults, position, importLookup, evaluator);
+            this._parseResults, position, evaluator);
     }
 
     getSignatureHelpForPosition(position: DiagnosticTextPosition,

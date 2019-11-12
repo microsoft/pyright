@@ -11,12 +11,11 @@
 import { Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
-import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import { getTypeForDeclaration, resolveAliasDeclaration } from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
+import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { TypeCategory } from '../analyzer/types';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import * as StringUtils from '../common/stringUtils';
@@ -32,18 +31,17 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
     private _parseResults: ParseResults;
     private _symbolResults: SymbolInformation[];
     private _query: string | undefined;
-    private _importLookup: ImportLookup;
+    private _evaluator: TypeEvaluator;
 
-    constructor(filePath: string, parseResults: ParseResults,
-            results: SymbolInformation[], query: string | undefined,
-            importLookup: ImportLookup) {
+    constructor(filePath: string, parseResults: ParseResults, results: SymbolInformation[],
+            query: string | undefined, evaluator: TypeEvaluator) {
 
         super();
         this._filePath = filePath;
         this._parseResults = parseResults;
         this._symbolResults = results;
         this._query = query;
-        this._importLookup = importLookup;
+        this._evaluator = evaluator;
     }
 
     findSymbols() {
@@ -103,7 +101,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
             }
         }
 
-        const resolvedSymbol = resolveAliasDeclaration(declaration, this._importLookup);
+        const resolvedSymbol = this._evaluator.resolveAliasDeclaration(declaration);
         if (!resolvedSymbol) {
             return;
         }
@@ -120,7 +118,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
                 break;
 
             case DeclarationType.Method:
-                const declType = getTypeForDeclaration(declaration);
+                const declType = this._evaluator.getTypeForDeclaration(declaration);
                 if (declType && declType.category === TypeCategory.Property) {
                     symbolKind = SymbolKind.Property;
                 } else {
@@ -183,10 +181,10 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
 
 export class DocumentSymbolProvider {
     static addSymbolsForDocument(symbolList: SymbolInformation[], query: string | undefined,
-            filePath: string, parseResults: ParseResults, importLookup: ImportLookup) {
+            filePath: string, parseResults: ParseResults, evaluator: TypeEvaluator) {
 
         const symbolTreeWalker = new FindSymbolTreeWalker(filePath, parseResults,
-            symbolList, query, importLookup);
+            symbolList, query, evaluator);
         symbolTreeWalker.findSymbols();
     }
 }

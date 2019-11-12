@@ -7,61 +7,8 @@
 * Collection of functions that operate on Symbol objects.
 */
 
-import { ImportLookup } from './analyzerFileInfo';
 import { Declaration, DeclarationType } from './declaration';
-import { getInferredTypeOfDeclaration, getTypeForDeclaration } from './declarationUtils';
 import { Symbol } from './symbol';
-import { combineTypes, Type, UnknownType } from './types';
-import { stripLiteralValue } from './typeUtils';
-
-export function getEffectiveTypeOfSymbol(symbol: Symbol, importLookup: ImportLookup): Type {
-    // If there's a declared type, it takes precedence.
-    const declaredType = getDeclaredTypeOfSymbol(symbol);
-    if (declaredType) {
-        return declaredType;
-    }
-
-    // Is there an undeclared type associated with the
-    // symbol (used for synthesized classes)?
-    const undeclaredType = symbol.getUndeclaredType();
-    if (undeclaredType) {
-        return undeclaredType;
-    }
-
-    // Determine the inferred type.
-    const typesToCombine: Type[] = [];
-    const isPrivate = symbol.isPrivateMember();
-    symbol.getDeclarations().forEach(decl => {
-        let type = getInferredTypeOfDeclaration(decl, importLookup);
-        if (type) {
-            const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
-
-            // If the symbol is private or constant, we can retain the literal
-            // value. Otherwise, strip them off to make the type less specific,
-            // allowing other values to be assigned to it in subclasses.
-            if (!isPrivate && !isConstant) {
-                type = stripLiteralValue(type);
-            }
-            typesToCombine.push(type);
-        }
-    });
-
-    if (typesToCombine.length > 0) {
-        return combineTypes(typesToCombine);
-    }
-
-    return UnknownType.create();
-}
-
-export function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
-    const lastDecl = getLastTypedDeclaredForSymbol(symbol);
-
-    if (lastDecl) {
-        return getTypeForDeclaration(lastDecl) || UnknownType.create();
-    }
-
-    return undefined;
-}
 
 export function getLastTypedDeclaredForSymbol(symbol: Symbol): Declaration | undefined {
     const typedDecls = symbol.getTypedDeclarations();
