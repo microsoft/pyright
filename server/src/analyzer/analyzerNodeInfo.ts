@@ -67,9 +67,6 @@ interface ExpressionTypeCache {
     // it was last written, so any write must invalidate
     // the analysis and perform another pass.
     updateRequiresInvalidation?: boolean;
-
-    // The type won't be changed after the initial write.
-    isFinal?: boolean;
 }
 
 export type ScopedNode = ModuleNode | ClassNode | FunctionNode |
@@ -153,9 +150,7 @@ export function getExpressionType(node: ParseNode): Type | undefined {
         analyzerNode.typeCache = {};
     }
 
-    if (!analyzerNode.typeCache.isFinal) {
-        analyzerNode.typeCache.updateRequiresInvalidation = true;
-    }
+    analyzerNode.typeCache.updateRequiresInvalidation = true;
     return analyzerNode.typeCache.type;
 }
 
@@ -170,18 +165,13 @@ export function peekExpressionType(node: ParseNode, readVersion?: number): Type 
     return undefined;
 }
 
-export function setExpressionType(node: ParseNode, type?: Type, isFinal = false) {
+export function setExpressionType(node: ParseNode, type?: Type) {
     const analyzerNode = node as AnalyzerNodeInfo;
     if (!analyzerNode.typeCache) {
         analyzerNode.typeCache = {};
     }
 
-    assert(!analyzerNode.typeCache.isFinal);
-
     analyzerNode.typeCache.type = type;
-    if (isFinal) {
-        analyzerNode.typeCache.isFinal = true;
-    }
 }
 
 export function getExpressionTypeWriteVersion(node: ParseNode): number | undefined {

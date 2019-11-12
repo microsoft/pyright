@@ -6234,7 +6234,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Is there a cached module type associated with this node? If so, use
         // it instead of the type we just created.
-        const cachedModuleType = AnalyzerNodeInfo.getExpressionType(node) as ModuleType;
+        const cachedModuleType = AnalyzerNodeInfo.peekExpressionType(
+            node, fileInfo.fileAnalysisVersion) as ModuleType;
         if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && symbolType) {
             if (isTypeSame(symbolType, cachedModuleType)) {
                 symbolType = cachedModuleType;
@@ -6449,8 +6450,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         function evaluateAssignmentFlowNode(flowNode: FlowAssignment): FlowNodeType | undefined {
+            const fileInfo = getFileInfo(flowNode.node);
             let cachedType = AnalyzerNodeInfo.peekExpressionType(flowNode.node,
-                getFileInfo(flowNode.node).fileAnalysisVersion);
+                fileInfo.fileAnalysisVersion);
             if (!cachedType) {
                 // There is no cached type for this expression, so we need to
                 // evaluate it.
