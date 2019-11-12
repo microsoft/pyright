@@ -109,23 +109,17 @@ export class SourceFile {
     private _analyzedFileContentsVersion = -1;
 
     // Do we need to walk the parse tree and clean
-    // the analysis information hanging from it?
+    // the binder information hanging from it?
     private _parseTreeNeedsCleaning = false;
 
     private _parseResults?: ParseResults;
     private _moduleSymbolTable?: SymbolTable;
     private _binderResults?: BinderResults;
 
-    // Map of symbols (tracked by numeric ID) that have
-    // be accessed within this source file. Used for unaccessed
-    // symbol reporting.
-    private _accessedSymbolMap?: Map<number, true>;
-
     // Diagnostics generated during different phases of analysis.
     private _parseDiagnostics: Diagnostic[] = [];
     private _bindDiagnostics: Diagnostic[] = [];
-    private _typeAnalysisLastPassDiagnostics: Diagnostic[] = [];
-    private _typeAnalysisFinalDiagnostics: Diagnostic[] = [];
+    private _checkerDiagnostics: Diagnostic[] = [];
 
     // Settings that control which diagnostics should be output.
     private _diagnosticSettings = getDefaultDiagnosticSettings();
@@ -140,21 +134,11 @@ export class SourceFile {
     private _isBindingNeeded = true;
 
     // Do we need to perform an additional type analysis pass?
-    private _isTypeAnalysisPassNeeded = true;
+    private _isCheckingNeeded = true;
 
     // Is the type analysis "finalized" (i.e. complete along
     // with all of its dependencies)?
     private _isTypeAnalysisFinalized = false;
-
-    // Number of the analysis pass at the time a reanalysis was
-    // last requested.
-    private _typeAnalysisReanalysisPassStart = 1;
-
-    // Number of the current type analysis pass, starting with 1.
-    private _typeAnalysisPassNumber = 1;
-
-    // Last reason that another analysis pass was required.
-    private _lastReanalysisReason = '';
 
     // Information about implicit and explicit imports from this file.
     private _imports?: ImportResult[];
@@ -222,7 +206,7 @@ export class SourceFile {
         diagList = diagList.concat(
             this._parseDiagnostics,
             this._bindDiagnostics,
-            this._typeAnalysisFinalDiagnostics);
+            this._checkerDiagnostics);
 
         // Filter the diagnostics based on "type: ignore" lines.
         if (options.diagnosticSettings.enableTypeIgnoreComments) {
@@ -343,17 +327,15 @@ export class SourceFile {
 
     markDirty(): void {
         this._fileContentsVersion++;
-        this._isTypeAnalysisFinalized = false;
-        this._isTypeAnalysisPassNeeded = true;
+        this._isCheckingNeeded = true;
         this._moduleSymbolTable = undefined;
         this._binderResults = undefined;
     }
 
     markReanalysisRequired(): void {
         // Keep the parse info, but reset the analysis to the beginning.
-        this._typeAnalysisReanalysisPassStart = this._typeAnalysisPassNumber;
         this._isTypeAnalysisFinalized = false;
-        this._isTypeAnalysisPassNeeded = true;
+        this._isCheckingNeeded = true;
 
         // If the file contains a wildcard import, we need to rebind
         // also because the dependent import may have changed.
@@ -406,7 +388,7 @@ export class SourceFile {
             return true;
         }
 
-        return this._isTypeAnalysisPassNeeded;
+        return this._isCheckingNeeded;
     }
 
     isAnalysisFinalized() {
@@ -530,7 +512,7 @@ export class SourceFile {
 
         this._analyzedFileContentsVersion = this._fileContentsVersion;
         this._isBindingNeeded = true;
-        this._isTypeAnalysisPassNeeded = true;
+        this._isCheckingNeeded = true;
         this._isTypeAnalysisFinalized = false;
         this._parseTreeNeedsCleaning = false;
         this._hitMaxImportDepth = undefined;
@@ -652,16 +634,8 @@ export class SourceFile {
         return performQuickAction(command, args, this._parseResults);
     }
 
-    getAnalysisPassCount() {
-        return this._typeAnalysisPassNumber - 1;
-    }
-
-    getLastReanalysisReason() {
-        return this._lastReanalysisReason;
-    }
-
     setTypeAnalysisPassNeeded() {
-        this._isTypeAnalysisPassNeeded = true;
+        this._isCheckingNeeded = true;
         this._isTypeAnalysisFinalized = false;
     }
 
@@ -708,10 +682,7 @@ export class SourceFile {
 
         // Prepare for the next stage of the analysis.
         this._diagnosticVersion++;
-        this._typeAnalysisPassNumber = 1;
-        this._typeAnalysisReanalysisPassStart = 1;
-        this._lastReanalysisReason = '';
-        this._isTypeAnalysisPassNeeded = true;
+        this._isCheckingNeeded = true;
         this._isTypeAnalysisFinalized = false;
         this._isBindingNeeded = false;
     }
@@ -724,34 +695,12 @@ export class SourceFile {
 
         try {
             timingStats.typeAnalyzerTime.timeOperation(() => {
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
-
-                fileInfo.fileAnalysisVersion = this._typeAnalysisPassNumber;
-                fileInfo.reanalysisRequired = false;
-                fileInfo.lastReanalysisReason = '';
-
-                // Perform static type analysis.
                 const checker = new Checker(this._parseResults!.parseTree, evaluator);
-                this._typeAnalysisPassNumber++;
-
-                // Call the checker.
                 checker.check();
-                this._isTypeAnalysisPassNeeded = fileInfo.reanalysisRequired;
+                this._isCheckingNeeded = false;
 
-                if (this._isTypeAnalysisPassNeeded) {
-                    this._lastReanalysisReason = fileInfo.lastReanalysisReason;
-
-                    const passesSinceLastReanalysis = this._typeAnalysisPassNumber - this._typeAnalysisReanalysisPassStart;
-                    if (passesSinceLastReanalysis > _maxAnalysisPassCount) {
-                        this._console.log(
-                            `Hit max analysis pass count for ${ this._filePath } (${ this._lastReanalysisReason })`);
-
-                        // We'll give up in this case.
-                        this._isTypeAnalysisPassNeeded = false;
-                    }
-                }
-
-                this._typeAnalysisLastPassDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
+                const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
+                this._checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
             });
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||
@@ -764,8 +713,8 @@ export class SourceFile {
                 getEmptyRange());
 
             // Mark the file as complete so we don't get into an infinite loop.
-            this._isTypeAnalysisPassNeeded = false;
-            this._typeAnalysisLastPassDiagnostics = diagSink.fetchAndClear();
+            this._isCheckingNeeded = false;
+            this._checkerDiagnostics = diagSink.fetchAndClear();
         }
 
         // Clear any circular dependencies associated with this file.
@@ -784,9 +733,6 @@ export class SourceFile {
 
         // Finalize the diagnostics from the last pass of type analysis
         // so they become visible.
-        this._typeAnalysisFinalDiagnostics =
-            this._typeAnalysisLastPassDiagnostics;
-        this._typeAnalysisLastPassDiagnostics = [];
         this._diagnosticVersion++;
     }
 
@@ -810,10 +756,7 @@ export class SourceFile {
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
             isBuiltInStubFile: this._isBuiltInStubFile,
-            accessedSymbolMap: new Map<number, true>(),
-            fileAnalysisVersion: 1,
-            reanalysisRequired: false,
-            lastReanalysisReason: ''
+            accessedSymbolMap: new Map<number, true>()
         };
         return fileInfo;
     }

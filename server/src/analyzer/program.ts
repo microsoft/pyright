@@ -121,34 +121,6 @@ export class Program {
         return this._sourceFileList.length;
     }
 
-    getAverageAnalysisPassCount() {
-        let passCount = 0;
-        this._sourceFileList.forEach(sourceFileInfo => {
-            passCount += sourceFileInfo.sourceFile.getAnalysisPassCount();
-        });
-
-        if (this._sourceFileList.length === 0) {
-            return 0;
-        }
-
-        return passCount / this._sourceFileList.length;
-    }
-
-    getMaxAnalysisPassCount(): [number, SourceFile?] {
-        let maxPassCount = 0;
-        let sourceFile: SourceFile | undefined;
-
-        this._sourceFileList.forEach(sourceFileInfo => {
-            const passCount = sourceFileInfo.sourceFile.getAnalysisPassCount();
-            if (passCount > maxPassCount) {
-                maxPassCount = passCount;
-                sourceFile = sourceFileInfo.sourceFile;
-            }
-        });
-
-        return [maxPassCount, sourceFile];
-    }
-
     getFilesToAnalyzeCount() {
         let sourceFileCount = 0;
 
@@ -405,35 +377,6 @@ export class Program {
                 this._console.log(`    ${ importFile.getFilePath() }`);
             });
         }
-    }
-
-    printAnalysisPassDetails(projectRootDir: string) {
-        const sortedFiles = this._sourceFileList.sort((a, b) => {
-            // First sort alphabetically.
-            return (a.sourceFile.getFilePath() < b.sourceFile.getFilePath()) ? 1 : -1;
-        }).sort((a, b) => {
-            // Then sort by pass count.
-            const aPassCount = a.sourceFile.getAnalysisPassCount();
-            const bPassCount = b.sourceFile.getAnalysisPassCount();
-            return (aPassCount < bPassCount ? -1 : (aPassCount > bPassCount ? 1 : 0));
-        });
-
-        sortedFiles.forEach(sfInfo => {
-            this._console.log('');
-            let filePath = sfInfo.sourceFile.getFilePath();
-            const relPath = getRelativePath(filePath, projectRootDir);
-            if (relPath) {
-                filePath = relPath;
-            }
-            this._console.log(`${ filePath }`);
-
-            const analysisPassCount = sfInfo.sourceFile.getAnalysisPassCount();
-            const lastRenalysisReason = sfInfo.sourceFile.getLastReanalysisReason();
-            this._console.log(`  Analysis passes: ${ analysisPassCount }`);
-            if (analysisPassCount > 1) {
-                this._console.log(`  Reason for last reanalysis: ${ lastRenalysisReason }`);
-            }
-        });
     }
 
     writeTypeStub(targetImportPath: string, targetIsSingleFile: boolean, typingsPath: string) {

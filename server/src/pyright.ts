@@ -155,9 +155,6 @@ function processArgs() {
             // Print the stats details.
             service.printStats();
             timingStats.printDetails(console);
-            if (args.verbose) {
-                service.printAnalysisPassDetails();
-            }
         }
 
         if (args.dependencies) {

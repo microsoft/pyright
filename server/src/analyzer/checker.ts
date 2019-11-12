@@ -31,7 +31,7 @@ import { FlowFlags } from './codeFlow';
 import { Declaration, DeclarationType } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
-import { Scope, ScopeType } from './scope';
+import { ScopeType } from './scope';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { EvaluatorFlags, TypeEvaluator } from './typeEvaluator';
@@ -64,11 +64,9 @@ export class Checker extends ParseTreeWalker {
 
         this.walkMultiple(this._moduleNode.statements);
 
-        if (!this._fileInfo.reanalysisRequired) {
-            // Perform a one-time validation of symbols in all scopes
-            // defined in this module for things like unaccessed variables.
-            this._validateSymbolTables();
-        }
+        // Perform a one-time validation of symbols in all scopes
+        // defined in this module for things like unaccessed variables.
+        this._validateSymbolTables();
     }
 
     walk(node: ParseNode) {

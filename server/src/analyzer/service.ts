@@ -184,22 +184,10 @@ export class AnalyzerService {
 
         const fileCount = this._program.getFileCount();
         this._console.log('Total files analyzed: ' + fileCount.toString());
-
-        let averagePassCount = this._program.getAverageAnalysisPassCount();
-        averagePassCount = Math.round(averagePassCount * 10) / 10;
-        this._console.log('Average pass count:   ' + averagePassCount.toString());
-
-        const [maxPassCount, sourceFile] = this._program.getMaxAnalysisPassCount();
-        const path = sourceFile ? ` (${ sourceFile.getFilePath() })` : '';
-        this._console.log('Maximum pass count:   ' + maxPassCount.toString() + path);
     }
 
     printDependencies(verbose: boolean) {
         this._program.printDependencies(this._executionRootPath, verbose);
-    }
-
-    printAnalysisPassDetails() {
-        this._program.printAnalysisPassDetails(this._executionRootPath);
     }
 
     test_getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
