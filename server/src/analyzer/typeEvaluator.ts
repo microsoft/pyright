@@ -7299,7 +7299,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case DeclarationType.SpecialBuiltInClass: {
-                return AnalyzerNodeInfo.getExpressionType(declaration.node.typeAnnotation);
+                return getTypeOfAnnotation(declaration.node.typeAnnotation);
             }
 
             case DeclarationType.Function:
@@ -7407,7 +7407,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // inferred type for this node.
             if (resolvedDecl.type === DeclarationType.Parameter) {
                 if (resolvedDecl.node.name) {
-                    return AnalyzerNodeInfo.getExpressionType(resolvedDecl.node.name);
+                    return getType(resolvedDecl.node.name);
                 }
             } else if (resolvedDecl.type === DeclarationType.Variable) {
                 return AnalyzerNodeInfo.getExpressionType(resolvedDecl.node);

@@ -885,20 +885,24 @@ export class Checker extends ParseTreeWalker {
         let isProtectedAccess = false;
         if (classOrModuleNode && classOrModuleNode.nodeType === ParseNodeType.Class) {
             if (isProtectedName) {
-                const declarationClassType = AnalyzerNodeInfo.getExpressionType(classOrModuleNode);
-                if (declarationClassType && declarationClassType.category === TypeCategory.Class) {
+                const declClassTypeInfo = this._evaluator.getTypeOfClass(classOrModuleNode);
+                if (declClassTypeInfo && declClassTypeInfo.decoratedType.category === TypeCategory.Class) {
                     // Note that the access is to a protected class member.
                     isProtectedAccess = true;
 
                     const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node);
                     if (enclosingClassNode) {
                         isProtectedAccess = true;
-                        const enclosingClassType = AnalyzerNodeInfo.getExpressionType(enclosingClassNode);
+                        const enclosingClassTypeInfo = this._evaluator.getTypeOfClass(enclosingClassNode);
 
                         // If the referencing class is a subclass of the declaring class, it's
                         // allowed to access a protected name.
-                        if (enclosingClassType && enclosingClassType.category === TypeCategory.Class) {
-                            if (derivesFromClassRecursive(enclosingClassType, declarationClassType)) {
+                        if (enclosingClassTypeInfo &&
+                                enclosingClassTypeInfo.decoratedType.category === TypeCategory.Class) {
+
+                            if (derivesFromClassRecursive(enclosingClassTypeInfo.decoratedType,
+                                    declClassTypeInfo.decoratedType)) {
+
                                 return;
                             }
                         }
