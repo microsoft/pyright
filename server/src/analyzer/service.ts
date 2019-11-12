@@ -70,9 +70,9 @@ export class AnalyzerService {
     constructor(instanceName: string, console?: ConsoleInterface) {
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
-        this._program = new Program(this._console);
         this._configOptions = new ConfigOptions(process.cwd());
         this._importResolver = new ImportResolver(this._configOptions);
+        this._program = new Program(this._importResolver, this._configOptions, this._console);
         this._executionRootPath = '';
         this._typeStubTargetImportName = undefined;
     }
@@ -96,6 +96,7 @@ export class AnalyzerService {
         this._watchForChanges = !!commandLineOptions.watch;
         this._verboseOutput = !!commandLineOptions.verboseOutput;
         this._configOptions = this._getConfigOptions(commandLineOptions);
+        this._program.setConfigOptions(this._configOptions);
         this._typeStubTargetImportName = commandLineOptions.typeStubTargetImportName;
 
         this._executionRootPath = normalizePath(combinePaths(
@@ -134,8 +135,7 @@ export class AnalyzerService {
     getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
             includeDeclaration: boolean): DocumentTextRange[] | undefined {
 
-        return this._program.getReferencesForPosition(filePath, position,
-            this._configOptions, this._importResolver, includeDeclaration);
+        return this._program.getReferencesForPosition(filePath, position, includeDeclaration);
     }
 
     addSymbolsForDocument(filePath: string, symbolList: SymbolInformation[]) {
@@ -155,15 +155,13 @@ export class AnalyzerService {
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition):
             SignatureHelpResults | undefined {
 
-        return this._program.getSignatureHelpForPosition(filePath, position,
-            this._configOptions, this._importResolver);
+        return this._program.getSignatureHelpForPosition(filePath, position);
     }
 
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition):
             CompletionList | undefined {
 
-        return this._program.getCompletionsForPosition(filePath, position,
-            this._configOptions, this._importResolver);
+        return this._program.getCompletionsForPosition(filePath, position);
     }
 
     performQuickAction(filePath: string, command: string, args: any[]): TextEditAction[] | undefined {
@@ -784,6 +782,7 @@ export class AnalyzerService {
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
         this._importResolver = new ImportResolver(this._configOptions);
+        this._program.setImportResolver(this._importResolver);
 
         this._updateSourceFileWatchers();
         this._updateTrackedFileList(true);
@@ -857,8 +856,7 @@ export class AnalyzerService {
 
         try {
             const duration = new Duration();
-            moreToAnalyze = this._program.analyze(this._configOptions,
-                this._importResolver, this._maxAnalysisTime, this._useInteractiveMode());
+            moreToAnalyze = this._program.analyze(this._maxAnalysisTime, this._useInteractiveMode());
             const filesLeftToAnalyze = this._program.getFilesToAnalyzeCount();
             assert(filesLeftToAnalyze === 0 || moreToAnalyze);
 

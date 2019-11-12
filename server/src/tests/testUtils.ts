@@ -120,15 +120,15 @@ export function bindSampleFile(fileName: string,
 export function typeAnalyzeSampleFiles(fileNames: string[],
         configOptions = new ConfigOptions('.')): FileAnalysisResult[] {
 
-    const program = new Program();
-    const filePaths = fileNames.map(name => resolveSampleFilePath(name));
-    program.setTrackedFiles(filePaths);
-
     // Always enable "test mode".
     configOptions.internalTestMode = true;
     const importResolver = new ImportResolver(configOptions);
 
-    while (program.analyze(configOptions, importResolver)) {
+    const program = new Program(importResolver, configOptions);
+    const filePaths = fileNames.map(name => resolveSampleFilePath(name));
+    program.setTrackedFiles(filePaths);
+
+    while (program.analyze()) {
         // Continue to call analyze until it completes. Since we're not
         // specifying a timeout, it should complete the first time.
     }

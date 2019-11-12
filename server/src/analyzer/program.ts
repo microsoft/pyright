@@ -19,7 +19,7 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getRelativePath, makeDirectories,
     normalizePath, stripFileExtension } from '../common/pathUtils';
-import { Duration, timingStats } from '../common/timing';
+import { Duration } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
@@ -35,7 +35,7 @@ import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
 const _maxAnalysisTimeForCompletions = 500;
-const _analyzeOnlyOpenFiles = true;
+const _analyzeOnlyOpenFiles = false;
 
 export interface SourceFileInfo {
     sourceFile: SourceFile;
@@ -78,10 +78,24 @@ export class Program {
     private _sourceFileMap: { [path: string]: SourceFileInfo } = {};
     private _allowedThirdPartyImports: string[] | undefined;
     private _evaluator: TypeEvaluator;
+    private _configOptions: ConfigOptions;
+    private _importResolver: ImportResolver;
 
-    constructor(console?: ConsoleInterface) {
+    constructor(initialImportResolver: ImportResolver, initialConfigOptions: ConfigOptions,
+            console?: ConsoleInterface) {
+
         this._console = console || new StandardConsole();
         this._evaluator = createTypeEvaluator(this._lookUpImport);
+        this._importResolver = initialImportResolver;
+        this._configOptions = initialConfigOptions;
+    }
+
+    setConfigOptions(configOptions: ConfigOptions) {
+        this._configOptions = configOptions;
+    }
+
+    setImportResolver(importResolver: ImportResolver) {
+        this._importResolver = importResolver;
     }
 
     // Sets the list of tracked files that make up the program.
@@ -260,9 +274,7 @@ export class Program {
     // whether the method needs to be called again to complete the
     // analysis. In interactive mode, the timeout is always limited
     // to the smaller value to maintain responsiveness.
-    analyze(options: ConfigOptions, importResolver: ImportResolver,
-            maxTime?: MaxAnalysisTime, interactiveMode?: boolean): boolean {
-
+    analyze(maxTime?: MaxAnalysisTime, interactiveMode?: boolean): boolean {
         const elapsedTime = new Duration();
 
         const openFiles = this._sourceFileList.filter(
@@ -277,7 +289,7 @@ export class Program {
 
             // Check the open files.
             for (const sourceFileInfo of openFiles) {
-                if (this._checkTypes(sourceFileInfo, options, importResolver, isTimeElapsedOpenFiles)) {
+                if (this._checkTypes(sourceFileInfo, isTimeElapsedOpenFiles)) {
                     return true;
                 }
             }
@@ -306,7 +318,7 @@ export class Program {
 
             // Now do type parsing and analysis of the remaining.
             for (const sourceFileInfo of allFiles) {
-                if (this._checkTypes(sourceFileInfo, options, importResolver, isTimeElapsedNoOpenFiles)) {
+                if (this._checkTypes(sourceFileInfo, isTimeElapsedNoOpenFiles)) {
                     return true;
                 }
             }
@@ -402,26 +414,22 @@ export class Program {
 
     // This method is similar to analyze() except that it analyzes
     // a single file (and its dependencies if necessary).
-    private _analyzeFile(sourceFileInfo: SourceFileInfo, options: ConfigOptions,
-            importResolver: ImportResolver, maxTime?: MaxAnalysisTime) {
-
+    private _analyzeFile(sourceFileInfo: SourceFileInfo, maxTime?: MaxAnalysisTime) {
         const elapsedTime = new Duration();
 
-        this._checkTypes(sourceFileInfo, options, importResolver, () => {
+        this._checkTypes(sourceFileInfo, () => {
             return maxTime !== undefined &&
                 elapsedTime.getDurationInMilliseconds() > maxTime.openFilesTimeInMs;
         });
     }
 
-    private _parseFile(fileToParse: SourceFileInfo, options: ConfigOptions,
-            importResolver: ImportResolver) {
-
+    private _parseFile(fileToParse: SourceFileInfo) {
         if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) {
             return;
         }
 
-        if (fileToParse.sourceFile.parse(options, importResolver)) {
-            this._updateSourceFileImports(fileToParse, options);
+        if (fileToParse.sourceFile.parse(this._configOptions, this._importResolver)) {
+            this._updateSourceFileImports(fileToParse, this._configOptions);
         }
 
         if (fileToParse.sourceFile.isFileDeleted()) {
@@ -433,31 +441,23 @@ export class Program {
             this._markFileDirtyRecursive(fileToParse, markDirtyMap);
 
             // Invalidate the import resolver's cache as well.
-            importResolver.invalidateCache();
+            this._importResolver.invalidateCache();
         }
     }
 
     // Binds the specified file and all of its dependencies, recursively. If
     // it runs out of time, it returns true. If it completes, it returns false.
-    private _bindFile(fileToAnalyze: SourceFileInfo,
-            options: ConfigOptions, importResolver: ImportResolver,
-            timeElapsedCallback: () => boolean,
-            recursionMap: Map<string, true> = new Map<string, true>()): boolean {
-
+    private _bindFile(fileToAnalyze: SourceFileInfo): void {
         if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) {
-            return false;
+            return;
         }
 
-        this._parseFile(fileToAnalyze, options, importResolver);
+        this._parseFile(fileToAnalyze);
 
         // We need to parse and bind the builtins import first.
         let builtinsScope: Scope | undefined;
         if (fileToAnalyze.builtinsImport) {
-            if (this._bindFile(fileToAnalyze.builtinsImport, options,
-                    importResolver, timeElapsedCallback)) {
-
-                return true;
-            }
+            this._bindFile(fileToAnalyze.builtinsImport);
 
             // Get the builtins scope to pass to the binding pass.
             const parseResults = fileToAnalyze.builtinsImport.sourceFile.getParseResults();
@@ -465,30 +465,9 @@ export class Program {
                 builtinsScope = AnalyzerNodeInfo.getScope(parseResults.parseTree);
                 assert(builtinsScope !== undefined);
             }
-
-            const filePath = fileToAnalyze.sourceFile.getFilePath();
-            if (recursionMap.has(filePath)) {
-                // Avoid infinite recursion for cyclical dependencies.
-                return false;
-            }
-
-            // Bind any other files that this file depends upon.
-            recursionMap.set(filePath, true);
-            for (const importedFile of fileToAnalyze.imports) {
-                if (this._bindFile(importedFile, options, importResolver,
-                        timeElapsedCallback, recursionMap)) {
-
-                    return true;
-                }
-            }
         }
 
-        if (timeElapsedCallback()) {
-            return true;
-        }
-
-        fileToAnalyze.sourceFile.bind(options, this._lookUpImport, builtinsScope);
-        return false;
+        fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope);
     }
 
     private _lookUpImport = (filePath: string): ImportLookupResult | undefined => {
@@ -496,6 +475,8 @@ export class Program {
         if (!sourceFileInfo) {
             return undefined;
         }
+
+        this._bindFile(sourceFileInfo);
 
         const symbolTable = sourceFileInfo.sourceFile.getModuleSymbolTable();
         if (!symbolTable) {
@@ -527,9 +508,7 @@ export class Program {
         return moduleSymbolMap;
     }
 
-    private _checkTypes(fileToCheck: SourceFileInfo, options: ConfigOptions,
-            importResolver: ImportResolver, timeElapsedCallback: () => boolean): boolean {
-
+    private _checkTypes(fileToCheck: SourceFileInfo, timeElapsedCallback: () => boolean): boolean {
         // If the file isn't needed because it was eliminated from the
         // transitive closure or deleted, skip the file rather than wasting
         // time on it.
@@ -545,46 +524,55 @@ export class Program {
             return false;
         }
 
-        // Discover all imports (recursively) that have not yet been checked.
-        const closureMap = new Map<string, boolean>();
-        const analysisQueue: SourceFileInfo[] = [];
-        if (this._getNonFinalizedImportsRecursive(fileToCheck, closureMap,
-                analysisQueue, options, importResolver, timeElapsedCallback, 0)) {
+        this._bindFile(fileToCheck);
+
+        fileToCheck.sourceFile.check(this._evaluator);
+        if (timeElapsedCallback()) {
             return true;
         }
 
-        // Perform type analysis on the files in the analysis queue, which
-        // is ordered in a way that should minimize the number of passes
-        // we need to perform (with lower-level imports earlier in the list).
-        while (true) {
-            const fileToCheck = analysisQueue.shift();
-            if (!fileToCheck) {
-                break;
-            }
+        // TODO - need to add back cycle detection
+        
+        // // Discover all imports (recursively) that have not yet been checked.
+        // const closureMap = new Map<string, boolean>();
+        // const analysisQueue: SourceFileInfo[] = [];
+        // if (this._getNonFinalizedImportsRecursive(fileToCheck, closureMap,
+        //         analysisQueue, timeElapsedCallback, 0)) {
+        //     return true;
+        // }
 
-            closureMap.set(fileToCheck.sourceFile.getFilePath(), false);
+        // // Perform type analysis on the files in the analysis queue, which
+        // // is ordered in a way that should minimize the number of passes
+        // // we need to perform (with lower-level imports earlier in the list).
+        // while (true) {
+        //     const fileToCheck = analysisQueue.shift();
+        //     if (!fileToCheck) {
+        //         break;
+        //     }
 
-            if (fileToCheck.sourceFile.isCheckingRequired()) {
-                fileToCheck.sourceFile.check(this._evaluator);
-                if (timeElapsedCallback()) {
-                    return true;
-                }
-            }
-        }
+        //     closureMap.set(fileToCheck.sourceFile.getFilePath(), false);
 
-        closureMap.forEach((_, filePath) => {
-            // Don't detect import cycles when doing type stub generation. Some
-            // third-party modules are pretty convoluted.
-            if (this._allowedThirdPartyImports) {
-                return;
-            }
+        //     if (fileToCheck.sourceFile.isCheckingRequired()) {
+        //         fileToCheck.sourceFile.check(this._evaluator);
+        //         if (timeElapsedCallback()) {
+        //             return true;
+        //         }
+        //     }
+        // }
 
-            if (options.diagnosticSettings.reportImportCycles !== 'none') {
-                timingStats.cycleDetectionTime.timeOperation(() => {
-                    this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
-                });
-            }
-        });
+        // closureMap.forEach((_, filePath) => {
+        //     // Don't detect import cycles when doing type stub generation. Some
+        //     // third-party modules are pretty convoluted.
+        //     if (this._allowedThirdPartyImports) {
+        //         return;
+        //     }
+
+        //     if (this._configOptions.diagnosticSettings.reportImportCycles !== 'none') {
+        //         timingStats.cycleDetectionTime.timeOperation(() => {
+        //             this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
+        //         });
+        //     }
+        // });
 
         return false;
     }
@@ -598,7 +586,6 @@ export class Program {
     // completing.
     private _getNonFinalizedImportsRecursive(fileToAnalyze: SourceFileInfo,
             closureMap: Map<string, boolean>, analysisQueue: SourceFileInfo[],
-            options: ConfigOptions, importResolver: ImportResolver,
             timeElapsedCallback: () => boolean,
             recursionCount: number): boolean {
 
@@ -622,13 +609,7 @@ export class Program {
         }
 
         // Make sure the file is parsed and bound.
-        if (this._bindFile(fileToAnalyze, options, importResolver, timeElapsedCallback)) {
-            return true;
-        }
-
-        if (timeElapsedCallback()) {
-            return true;
-        }
+        this._bindFile(fileToAnalyze);
 
         // Add the file to the closure map.
         closureMap.set(filePath, false);
@@ -636,8 +617,7 @@ export class Program {
         // Recursively add the file's imports.
         for (const importedFileInfo of fileToAnalyze.imports) {
             if (this._getNonFinalizedImportsRecursive(importedFileInfo, closureMap,
-                    analysisQueue, options, importResolver,
-                    timeElapsedCallback, recursionCount + 1)) {
+                    analysisQueue, timeElapsedCallback, recursionCount + 1)) {
                 return true;
             }
         }
@@ -781,7 +761,6 @@ export class Program {
     }
 
     getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
-            options: ConfigOptions, importResolver: ImportResolver,
             includeDeclaration: boolean): DocumentTextRange[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap[filePath];
@@ -790,7 +769,7 @@ export class Program {
         }
 
         if (sourceFileInfo.sourceFile.isCheckingRequired()) {
-            this._analyzeFile(sourceFileInfo, options, importResolver, {
+            this._analyzeFile(sourceFileInfo, {
                 openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
             });
@@ -808,7 +787,7 @@ export class Program {
             for (const curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
                     if (curSourceFileInfo.sourceFile.isCheckingRequired()) {
-                        this._analyzeFile(curSourceFileInfo, options, importResolver, {
+                        this._analyzeFile(curSourceFileInfo, {
                             openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                             noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
                         });
@@ -855,16 +834,14 @@ export class Program {
         return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator);
     }
 
-    getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition,
-            options: ConfigOptions, importResolver: ImportResolver): SignatureHelpResults | undefined {
-
+    getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition): SignatureHelpResults | undefined {
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
             return undefined;
         }
 
         if (sourceFileInfo.sourceFile.isCheckingRequired()) {
-            this._analyzeFile(sourceFileInfo, options, importResolver, {
+            this._analyzeFile(sourceFileInfo, {
                 openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
             });
@@ -874,16 +851,14 @@ export class Program {
             position, this._lookUpImport, this._evaluator);
     }
 
-    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
-        options: ConfigOptions, importResolver: ImportResolver): CompletionList | undefined {
-
+    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition): CompletionList | undefined {
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
             return undefined;
         }
 
         if (sourceFileInfo.sourceFile.isCheckingRequired()) {
-            this._analyzeFile(sourceFileInfo, options, importResolver, {
+            this._analyzeFile(sourceFileInfo, {
                 openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
             });
@@ -893,7 +868,7 @@ export class Program {
         }
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
-            position, options, importResolver,
+            position, this._configOptions, this._importResolver,
             this._lookUpImport, this._evaluator,
             () => this._buildModuleSymbolsMap(sourceFileInfo));
     }
@@ -908,7 +883,7 @@ export class Program {
         }
 
         if (sourceFileInfo.sourceFile.isCheckingRequired()) {
-            this._analyzeFile(sourceFileInfo, options, importResolver, {
+            this._analyzeFile(sourceFileInfo, {
                 openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                 noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
             });
@@ -939,7 +914,7 @@ export class Program {
             for (const curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
                     if (curSourceFileInfo.sourceFile.isCheckingRequired()) {
-                        this._analyzeFile(curSourceFileInfo, options, importResolver, {
+                        this._analyzeFile(curSourceFileInfo, {
                             openFilesTimeInMs: _maxAnalysisTimeForCompletions,
                             noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
                         });
