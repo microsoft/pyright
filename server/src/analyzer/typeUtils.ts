@@ -875,14 +875,6 @@ export function containsUnknown(type: Type, recursionCount = 0): boolean {
     return false;
 }
 
-export function isEnumClass(classType: ClassType): boolean {
-    // Does the class have an "EnumMeta" metaclass?
-    const metaclass = getMetaclass(classType);
-
-    return !!metaclass && metaclass.category === TypeCategory.Class &&
-        metaclass.details.name === 'EnumMeta';
-}
-
 function _getMembersForClassRecursive(classType: ClassType,
         symbolTable: SymbolTable, includeInstanceVars: boolean,
         recursionCount = 0) {

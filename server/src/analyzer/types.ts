@@ -170,7 +170,11 @@ export const enum ClassTypeFlags {
 
     // Used in conjunction with TypedDictClass, indicates that
     // the dictionary values can be omitted.
-    CanOmitDictValues       = 1 << 5
+    CanOmitDictValues       = 1 << 5,
+
+    // The class has a metaclass of EnumMet or derives from
+    // a class that has this metaclass.
+    EnumClass               = 1 << 6
 }
 
 interface ClassDetails {
@@ -301,6 +305,10 @@ export namespace ClassType {
 
     export function isCanOmitDictValues(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.CanOmitDictValues);
+    }
+
+    export function isEnumClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.EnumClass);
     }
 
     export function getDataClassParameters(classType: ClassType): FunctionParameter[] {

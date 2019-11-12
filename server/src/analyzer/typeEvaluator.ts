@@ -58,7 +58,7 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar,
     getDeclaredGeneratorReturnType, getDeclaredGeneratorSendType, getEffectiveReturnType, getMetaclass,
     getSpecializedTupleType, getTypeVarArgumentsRecursive,
-    isEllipsisType, isEnumClass, isNoReturnType, isOptionalType, lookUpClassMember,
+    isEllipsisType, isOptionalType, lookUpClassMember,
     lookUpObjectMember, partiallySpecializeType, printLiteralValue, printObjectTypeForClass,
     printType, removeFalsinessFromType, removeTruthinessFromType, requiresSpecialization,
     selfSpecializeClassType, specializeType, specializeTypeVarType, stripFirstParameter,
@@ -2284,7 +2284,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             node.baseExpression);
                         return UnknownType.create();
                     }
-                } else if (isEnumClass(subtype)) {
+                } else if (ClassType.isEnumClass(subtype)) {
                     // Special-case Enum types.
                     // TODO - validate that there's only one index entry
                     // that is a str type.
@@ -4982,10 +4982,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (enclosingClassNode) {
             const enumClassInfo = getTypeOfClass(enclosingClassNode);
 
-            if (enumClassInfo) {
-                // Handle several built-in classes specially. We don't
-                // want to interpret their class variables as enumerations.
-                if (getFileInfo(node).isStubFile) {
+            if (enumClassInfo && ClassType.isEnumClass(enumClassInfo.classType)) {
+                if (ClassType.isBuiltIn(enumClassInfo.classType)) {
+                    // Handle several built-in classes specially. We don't
+                    // want to interpret their class variables as enumerations.
                     const className = enumClassInfo.classType.details.name;
                     const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
                     if (builtInEnumClasses.find(c => c === className)) {
@@ -4993,9 +4993,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 }
 
-                if (isEnumClass(enumClassInfo.classType)) {
-                    return ObjectType.create(enumClassInfo.classType);
-                }
+                return ObjectType.create(enumClassInfo.classType);
             }
         }
 
@@ -5319,8 +5317,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 if (isMetaclass) {
                     classType.details.metaClass = argType;
+                    if (argType.category === TypeCategory.Class && ClassType.isBuiltIn(argType, 'EnumMeta')) {
+                        classType.details.flags |= ClassTypeFlags.EnumClass;
+                    }
                 } else {
                     classType.details.baseClasses.push(argType);
+                    if (argType.category === TypeCategory.Class && ClassType.isEnumClass(argType)) {
+                        classType.details.flags |= ClassTypeFlags.EnumClass;
+                    }
                 }
 
                 // TODO - validate that we are not adding type parameters that
@@ -6329,7 +6333,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // If the parent is an expression, we'll evaluate it to provide
         // the context for its child. If it's not, we'll evaluate the
         // child directly without any context.
-        getType(isExpressionNode(parent) ? parent as ExpressionNode : curExpression);
+        getType(isExpressionNode(parent) ? parent as ExpressionNode : lastContextualExpression);
     }
 
     // Evaluates the types that are assigned within the statement that contains
@@ -6568,10 +6572,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     // If this function returns a "NoReturn" type, that means
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
-                    const returnType = getType(callFlowNode.node);
-                    if (returnType && isNoReturnType(returnType)) {
-                        return setCacheEntry(curFlowNode, undefined);
-                    }
+                    // const returnType = getType(callFlowNode.node);
+                    // if (returnType && isNoReturnType(returnType)) {
+                    //     return setCacheEntry(curFlowNode, undefined);
+                    // }
 
                     curFlowNode = callFlowNode.antecedent;
                     continue;
@@ -6682,10 +6686,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     // If this function returns a "NoReturn" type, that means
                     // it always raises an exception or otherwise doesn't return,
                     // so we can assume that the code before this is unreachable.
-                    const returnType = getType(callFlowNode.node);
-                    if (returnType && isNoReturnType(returnType)) {
-                        return false;
-                    }
+                    // const returnType = getType(callFlowNode.node);
+                    // if (returnType && isNoReturnType(returnType)) {
+                    //     return false;
+                    // }
 
                     curFlowNode = callFlowNode.antecedent;
                     continue;
@@ -7289,6 +7293,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (typeAnnotationNode && typeAnnotationNode.nodeType === ParseNodeType.StringList) {
                     typeAnnotationNode = typeAnnotationNode.typeAnnotation;
                 }
+
                 if (typeAnnotationNode) {
                     const declaredType = getTypeOfAnnotation(typeAnnotationNode);
 
@@ -7296,6 +7301,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         return convertClassToObject(declaredType);
                     }
                 }
+
                 return undefined;
             }
 
@@ -7304,16 +7310,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (typeAnnotationNode && typeAnnotationNode.nodeType === ParseNodeType.StringList) {
                     typeAnnotationNode = typeAnnotationNode.typeAnnotation;
                 }
+
                 if (typeAnnotationNode) {
                     let declaredType = getTypeOfAnnotation(typeAnnotationNode);
                     if (declaredType) {
                         // Apply enum transform if appropriate.
-                        if (typeAnnotationNode.nodeType === ParseNodeType.Name) {
-                            declaredType = transformTypeForPossibleEnumClass(typeAnnotationNode, declaredType);
+                        if (declaration.node.nodeType === ParseNodeType.Name) {
+                            declaredType = transformTypeForPossibleEnumClass(declaration.node, declaredType);
                         }
                         return convertClassToObject(declaredType);
                     }
                 }
+
                 return undefined;
             }
 
@@ -7387,12 +7395,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             } else if (resolvedDecl.type === DeclarationType.Variable) {
                 if (resolvedDecl.inferredTypeSource) {
-                    const cachedType = readTypeCache(resolvedDecl.inferredTypeSource);
-                    if (cachedType) {
-                        return cachedType;
+                    let inferredType = readTypeCache(resolvedDecl.inferredTypeSource);
+
+                    if (!inferredType) {
+                        evaluateTypesForStatement(resolvedDecl.inferredTypeSource);
+                        inferredType = getType(resolvedDecl.node);
                     }
-                    evaluateTypesForStatement(resolvedDecl.inferredTypeSource);
-                    return getType(resolvedDecl.node);
+
+                    if (resolvedDecl.node.nodeType === ParseNodeType.Name) {
+                        inferredType = transformTypeForPossibleEnumClass(resolvedDecl.node, inferredType);
+                    }
+
+                    return inferredType;
                 }
             }
         }
