@@ -35,7 +35,7 @@ import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
 const _maxAnalysisTimeForCompletions = 500;
-const _analyzeOnlyOpenFiles = false;
+const _analyzeOnlyOpenFiles = true;
 
 export interface SourceFileInfo {
     sourceFile: SourceFile;
@@ -532,7 +532,7 @@ export class Program {
         }
 
         // TODO - need to add back cycle detection
-        
+
         // // Discover all imports (recursively) that have not yet been checked.
         // const closureMap = new Map<string, boolean>();
         // const analysisQueue: SourceFileInfo[] = [];
@@ -985,6 +985,15 @@ export class Program {
                     }
                 });
             } else {
+                // If we're showing the user errors only for open files, clear
+                // out the errors for the now-closed file.
+                if (_analyzeOnlyOpenFiles && !fileInfo.isOpenByClient) {
+                    fileDiagnostics.push({
+                        filePath: fileInfo.sourceFile.getFilePath(),
+                        diagnostics: []
+                    });
+                }
+
                 i++;
             }
         }
