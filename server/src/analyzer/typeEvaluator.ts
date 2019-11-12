@@ -30,8 +30,7 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
     IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode, MemberAccessNode,
     NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
     SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode,
-    YieldFromNode, 
-    YieldNode} from '../parser/parseNodes';
+    YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -1784,16 +1783,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (isUnbound(type)) {
-                addError(`'${name}' is unbound`, node);
+                addError(`'${ name }' is unbound`, node);
             } else if (isPossiblyUnbound(type)) {
-                addError(`'${name}' is possibly unbound`, node);
+                addError(`'${ name }' is possibly unbound`, node);
             }
 
             setSymbolAccessed(fileInfo, symbol);
         } else {
             // Handle the special case of "reveal_type".
             if (name !== 'reveal_type') {
-                addError(`'${name}' is not defined`, node);
+                addError(`'${ name }' is not defined`, node);
             }
             type = UnknownType.create();
         }
@@ -6361,7 +6360,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const functionNode = parent as FunctionNode;
 
         if (node.typeAnnotation) {
-            getTypeOfAnnotation(node.typeAnnotation);
+            writeTypeCache(node.name!, getTypeOfAnnotation(node.typeAnnotation));
             return;
         }
 
@@ -7449,13 +7448,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             } else if (resolvedDecl.type === DeclarationType.Variable) {
                 if (resolvedDecl.inferredTypeSource) {
-                    let inferredType = readTypeCache(resolvedDecl.inferredTypeSource);
+                    let inferredType = readTypeCache(resolvedDecl.node);
 
                     if (!inferredType) {
                         evaluateTypesForStatement(resolvedDecl.inferredTypeSource);
-                        const inferredTypeInfo = getTypeOfExpression(resolvedDecl.node);
-                        inferredType = inferredTypeInfo.type;
-                        if (inferredTypeInfo.isResolutionCyclical) {
+                        inferredType = readTypeCache(resolvedDecl.node);
+                        if (!inferredType) {
                             return undefined;
                         }
                     }
