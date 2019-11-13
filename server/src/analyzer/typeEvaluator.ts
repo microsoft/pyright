@@ -1333,7 +1333,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     reportPossibleUnknownAssignment(
                         fileInfo.diagnosticSettings.reportUnknownMemberType,
                         DiagnosticRule.reportUnknownMemberType,
-                        node.memberName, srcType, srcExprNode);
+                        node.memberName, srcType, node);
                 }
             }
         }
@@ -1464,7 +1464,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 reportPossibleUnknownAssignment(
                     getFileInfo(target).diagnosticSettings.reportUnknownVariableType,
                     DiagnosticRule.reportUnknownVariableType,
-                    target, type, srcExpr || target);
+                    target, type, target);
 
                 assignTypeToNameNode(target, type, srcExpr);
                 break;
@@ -4625,7 +4625,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function reportPossibleUnknownAssignment(diagLevel: DiagnosticLevel, rule: string,
-        target: NameNode, type: Type, srcExpr: ExpressionNode) {
+        target: NameNode, type: Type, errorNode: ExpressionNode) {
 
         // Don't bother if the feature is disabled.
         if (diagLevel === 'none') {
@@ -4636,14 +4636,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const simplifiedType = removeUnboundFromUnion(type);
         if (simplifiedType.category === TypeCategory.Unknown) {
             addDiagnostic(diagLevel, rule,
-                `Inferred type of '${nameValue}' is unknown`, srcExpr);
+                `Inferred type of '${nameValue}' is unknown`, errorNode);
         } else if (containsUnknown(simplifiedType)) {
             // Sometimes variables contain an "unbound" type if they're
             // assigned only within conditional statements. Remove this
             // to avoid confusion.
             addDiagnostic(diagLevel, rule,
                 `Inferred type of '${nameValue}', '${printType(simplifiedType)}', ` +
-                `is partially unknown`, srcExpr);
+                `is partially unknown`, errorNode);
         }
     }
 
