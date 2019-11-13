@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 import * as fs from 'fs';
-import { CompletionList, SymbolInformation } from 'vscode-languageserver';
+import { CompletionItem, CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { ConfigOptions, ExecutionEnvironment,
     getDefaultDiagnosticSettings } from '../common/configOptions';
@@ -24,7 +24,7 @@ import * as StringUtils from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
-import { CompletionProvider, ModuleSymbolMap } from '../languageService/completionProvider';
+import { CompletionItemData, CompletionProvider, ModuleSymbolMap } from '../languageService/completionProvider';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentSymbolProvider } from '../languageService/documentSymbolProvider';
 import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
@@ -580,7 +580,7 @@ export class SourceFile {
     }
 
     getCompletionsForPosition(position: DiagnosticTextPosition,
-            configOptions: ConfigOptions, importResolver: ImportResolver,
+            workspacePath: string, configOptions: ConfigOptions, importResolver: ImportResolver,
             importLookup: ImportLookup, evaluator: TypeEvaluator,
             moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {
 
@@ -596,12 +596,30 @@ export class SourceFile {
         }
 
         const completionProvider = new CompletionProvider(
-            this._parseResults, this._fileContents,
+            workspacePath, this._parseResults, this._fileContents,
             importResolver, position,
             this._filePath, configOptions, importLookup, evaluator,
             moduleSymbolsCallback);
 
         return completionProvider.getCompletionsForPosition();
+    }
+
+    resolveCompletionItem(configOptions: ConfigOptions, importResolver: ImportResolver,
+            importLookup: ImportLookup, evaluator: TypeEvaluator,
+            moduleSymbolsCallback: () => ModuleSymbolMap, completionItem: CompletionItem) {
+
+        if (!this._parseResults ||  this._fileContents === undefined) {
+            return;
+        }
+
+        const completionData = completionItem.data as CompletionItemData;
+        const completionProvider = new CompletionProvider(
+            completionData.workspacePath, this._parseResults, this._fileContents,
+            importResolver, completionData.position,
+            this._filePath, configOptions, importLookup, evaluator,
+            moduleSymbolsCallback);
+
+        completionProvider.resolveCompletionItem(completionItem);
     }
 
     performQuickAction(command: string, args: any[]): TextEditAction[] | undefined {

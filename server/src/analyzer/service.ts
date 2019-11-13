@@ -11,7 +11,7 @@
 import * as assert from 'assert';
 import * as chokidar from 'chokidar';
 import * as fs from 'fs';
-import { CompletionList, SymbolInformation } from 'vscode-languageserver';
+import { CompletionItem, CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
@@ -158,22 +158,24 @@ export class AnalyzerService {
         return this._program.getSignatureHelpForPosition(filePath, position);
     }
 
-    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition):
-            CompletionList | undefined {
+    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
+            workspacePath: string): CompletionList | undefined {
 
-        return this._program.getCompletionsForPosition(filePath, position);
+        return this._program.getCompletionsForPosition(filePath, position, workspacePath);
+    }
+
+    resolveCompletionItem(filePath: string, completionItem: CompletionItem) {
+        this._program.resolveCompletionItem(filePath, completionItem);
     }
 
     performQuickAction(filePath: string, command: string, args: any[]): TextEditAction[] | undefined {
-        return this._program.performQuickAction(filePath, this._configOptions,
-            this._importResolver, command, args);
+        return this._program.performQuickAction(filePath, command, args);
     }
 
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
             newName: string): FileEditAction[] | undefined {
 
-        return this._program.renameSymbolAtPosition(filePath, position,
-            newName, this._configOptions, this._importResolver);
+        return this._program.renameSymbolAtPosition(filePath, position, newName);
     }
 
     printStats() {

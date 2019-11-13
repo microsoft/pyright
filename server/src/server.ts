@@ -5,11 +5,11 @@
 */
 
 import {
-    CodeAction, CodeActionKind, Command, createConnection, Diagnostic,
-    DiagnosticSeverity, DiagnosticTag, ExecuteCommandParams, IConnection,
-    InitializeResult, IPCMessageReader, IPCMessageWriter, Location, ParameterInformation,
-    Position, Range, ResponseError, SignatureInformation, SymbolInformation, TextDocuments,
-    TextEdit, WorkspaceEdit
+    CodeAction, CodeActionKind, Command, CompletionItem, createConnection,
+    Diagnostic, DiagnosticSeverity, DiagnosticTag, ExecuteCommandParams,
+    IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter, Location,
+    ParameterInformation, Position, Range, ResponseError, SignatureInformation, SymbolInformation,
+    TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
@@ -21,7 +21,7 @@ import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtil
 import StringMap from './common/stringMap';
 import { commandAddMissingOptionalToParam, commandCreateTypeStub,
     commandOrderImports } from './languageService/commands';
-import { CompletionProvider } from './languageService/completionProvider';
+import { CompletionItemData } from './languageService/completionProvider';
 
 interface PythonSettings {
     venvPath?: string;
@@ -485,7 +485,7 @@ _connection.onCompletion(params => {
     }
 
     const completions = workspace.serviceInstance.getCompletionsForPosition(
-        filePath, position);
+        filePath, position, workspace.rootPath);
 
     // Always mark as incomplete so we get called back when the
     // user continues typing. Without this, the editor will assume
@@ -499,7 +499,14 @@ _connection.onCompletion(params => {
 });
 
 _connection.onCompletionResolve(params => {
-    CompletionProvider.recordCompletionResolve(params);
+    const completionItemData = params.data as CompletionItemData;
+    if (completionItemData) {
+        const workspace = _workspaceMap.get(completionItemData.workspacePath);
+        if (workspace && completionItemData.filePath) {
+            workspace.serviceInstance.resolveCompletionItem(
+                completionItemData.filePath, params);
+        }
+    }
     return params;
 });
 

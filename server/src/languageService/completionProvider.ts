@@ -22,7 +22,7 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { Type, TypeCategory } from '../analyzer/types';
+import { TypeCategory } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule, printType } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
@@ -115,8 +115,12 @@ enum SortCategory {
 // Completion items can have arbitrary data hanging off them.
 // This data allows the resolve handling to disambiguate
 // which item was selected.
-interface CompletionItemData {
-    autoImportText: string;
+export interface CompletionItemData {
+    filePath: string;
+    workspacePath: string;
+    position: DiagnosticTextPosition;
+    autoImportText?: string;
+    symbolId?: number;
 }
 
 interface RecentCompletionInfo {
@@ -136,7 +140,13 @@ export type ModuleSymbolMap = { [file: string]: SymbolTable };
 export class CompletionProvider {
     private static _mostRecentCompletions: RecentCompletionInfo[] = [];
 
-    constructor(private _parseResults: ParseResults,
+    // If we're being asked to resolve a completion item, we run the
+    // original completion algorithm and look for this symbol.
+    private _itemToResolve: CompletionItem | undefined;
+
+    constructor(
+        private _workspacePath: string,
+        private _parseResults: ParseResults,
         private _fileContents: string,
         private _importResolver: ImportResolver,
         private _position: DiagnosticTextPosition,
@@ -150,33 +160,43 @@ export class CompletionProvider {
     // When the user selects a completion, this callback is invoked,
     // allowing us to record what was selected. This allows us to
     // build our MRU cache so we can better predict entries.
-    static recordCompletionResolve(completionItem: CompletionItem) {
+    resolveCompletionItem(completionItem: CompletionItem) {
+        const completionItemData = completionItem.data as CompletionItemData;
+
         const label = completionItem.label;
         let autoImportText = '';
-        if (completionItem.data) {
-            const completionItemData = completionItem.data as CompletionItemData;
-            if (completionItemData && completionItemData.autoImportText) {
-                autoImportText = completionItemData.autoImportText;
-            }
+        if (completionItemData.autoImportText) {
+            autoImportText = completionItemData.autoImportText;
         }
-        const curIndex = this._mostRecentCompletions.findIndex(
+
+        const curIndex = CompletionProvider._mostRecentCompletions.findIndex(
             item => item.label === label &&
             item.autoImportText === autoImportText);
 
         if (curIndex > 0) {
             // If there's an existing entry with the same name that's not at the
             // beginning of the array, remove it.
-            this._mostRecentCompletions = this._mostRecentCompletions.splice(curIndex, 1);
+            CompletionProvider._mostRecentCompletions = CompletionProvider._mostRecentCompletions.splice(curIndex, 1);
         }
 
         if (curIndex !== 0) {
             // Add to the start of the array.
-            this._mostRecentCompletions.unshift({ label, autoImportText });
+            CompletionProvider._mostRecentCompletions.unshift({ label, autoImportText });
         }
 
-        if (this._mostRecentCompletions.length > maxRecentCompletions) {
+        if (CompletionProvider._mostRecentCompletions.length > maxRecentCompletions) {
             // Prevent the MRU list from growing indefinitely.
-            this._mostRecentCompletions.pop();
+            CompletionProvider._mostRecentCompletions.pop();
+        }
+
+        if (completionItemData.symbolId) {
+            this._itemToResolve = completionItem;
+
+            // Rerun the completion lookup. It will fill in additional information
+            // about the item to be resolved. We'll ignore the rest of the returned
+            // list. This is a bit wasteful, but all of that information should be
+            // cached, so it's not as bad as it might seem.
+            this.getCompletionsForPosition();
         }
     }
 
@@ -421,7 +441,7 @@ export class CompletionProvider {
 
         // Add auto-import suggestions from other modules.
         // Ignore this check for privates, since they are not imported.
-        if (!priorWord.startsWith('_')) {
+        if (!priorWord.startsWith('_') && !this._itemToResolve) {
             this._getAutoImportCompletions(priorWord, completionList);
         }
 
@@ -650,60 +670,88 @@ export class CompletionProvider {
 
         if (primaryDecl) {
             let itemKind: CompletionItemKind = CompletionItemKind.Variable;
-            let typeDetail: string | undefined;
-            let documentation: string | undefined;
 
             primaryDecl = this._evaluator.resolveAliasDeclaration(primaryDecl);
             if (primaryDecl) {
                 itemKind = this._convertDeclarationTypeToItemKind(primaryDecl);
-                const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
-                if (type) {
-                    switch (primaryDecl.type) {
-                        case DeclarationType.Intrinsic:
-                        case DeclarationType.Variable:
-                        case DeclarationType.Parameter:
-                            typeDetail = name + ': ' + printType(type);
-                            break;
 
-                        case DeclarationType.Function:
-                        case DeclarationType.Method:
-                            if (type.category === TypeCategory.OverloadedFunction) {
-                                typeDetail = type.overloads.map(overload =>
-                                    name + printType(overload.type)).join('\n');
-                            } else {
-                                typeDetail = name + printType(type);
-                            }
-                            break;
+                // Are we resolving a completion item? If so, see if this symbol
+                // is the one that we're trying to match.
+                if (this._itemToResolve) {
+                    const completionItemData = this._itemToResolve.data;
 
-                        case DeclarationType.Class:
-                        case DeclarationType.SpecialBuiltInClass: {
-                            typeDetail = 'class ' + name + '()';
-                            break;
-                        }
+                    if (completionItemData.symbolId === symbol.getId()) {
+                        // This call can be expensive to perform on every completion item
+                        // that we return, so we do it lazily in the "resolve" callback.
+                        const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
 
-                        case DeclarationType.Alias: {
-                            typeDetail = name;
-                            if (primaryDecl.path) {
-                                const lookupResults = this._importLookup(primaryDecl.path);
-                                if (lookupResults) {
-                                    documentation = lookupResults.docString;
+                        if (type) {
+                            let typeDetail: string | undefined;
+                            let documentation: string | undefined;
+
+                            switch (primaryDecl.type) {
+                                case DeclarationType.Intrinsic:
+                                case DeclarationType.Variable:
+                                case DeclarationType.Parameter:
+                                    typeDetail = name + ': ' + printType(type);
+                                    break;
+
+                                case DeclarationType.Function:
+                                case DeclarationType.Method:
+                                    if (type.category === TypeCategory.OverloadedFunction) {
+                                        typeDetail = type.overloads.map(overload =>
+                                            name + printType(overload.type)).join('\n');
+                                    } else {
+                                        typeDetail = name + printType(type);
+                                    }
+                                    break;
+
+                                case DeclarationType.Class:
+                                case DeclarationType.SpecialBuiltInClass: {
+                                    typeDetail = 'class ' + name + '()';
+                                    break;
+                                }
+
+                                case DeclarationType.Alias: {
+                                    typeDetail = name;
+                                    if (primaryDecl.path) {
+                                        const lookupResults = this._importLookup(primaryDecl.path);
+                                        if (lookupResults) {
+                                            documentation = lookupResults.docString;
+                                        }
+                                    }
+                                    break;
+                                }
+
+                                default: {
+                                    typeDetail = name;
+                                    break;
                                 }
                             }
-                            break;
-                        }
 
-                        default: {
-                            typeDetail = name;
-                            break;
-                        }
-                    }
+                            if (type.category === TypeCategory.Module) {
+                                documentation = type.docString;
+                            } else if (type.category === TypeCategory.Class) {
+                                documentation = type.details.docString;
+                            } else if (type.category === TypeCategory.Function) {
+                                documentation = type.details.docString;
+                            }
 
-                    if (type.category === TypeCategory.Module) {
-                        documentation = type.docString;
-                    } else if (type.category === TypeCategory.Class) {
-                        documentation = type.details.docString;
-                    } else if (type.category === TypeCategory.Function) {
-                        documentation = type.details.docString;
+                            let markdownString = '```python\n' + typeDetail + '\n```\n';
+
+                            if (documentation) {
+                                markdownString += '```text\n\n';
+                                markdownString += documentation;
+                                markdownString += '\n```\n';
+                            }
+
+                            if (markdownString) {
+                                this._itemToResolve.documentation = {
+                                    kind: MarkupKind.Markdown,
+                                    value: markdownString
+                                };
+                            }
+                        }
                     }
                 }
             }
@@ -714,30 +762,33 @@ export class CompletionProvider {
             }
 
             this._addNameToCompletionList(name, itemKind, priorWord, completionList,
-                typeDetail, documentation, autoImportText, additionalTextEdits);
+                undefined, undefined, autoImportText, additionalTextEdits, symbol.getId());
         }
     }
 
     private _addNameToCompletionList(name: string, itemKind: CompletionItemKind,
             filter: string, completionList: CompletionList, typeDetail?: string,
             documentation?: string, autoImportText?: string,
-            additionalTextEdits?: TextEditAction[]) {
+            additionalTextEdits?: TextEditAction[], symbolId?: number) {
 
         const similarity = StringUtils.computeCompletionSimilarity(filter, name);
 
         if (similarity > similarityLimit) {
             const completionItem = CompletionItem.create(name);
             completionItem.kind = itemKind;
-            completionItem.data = {};
+
+            const completionItemData: CompletionItemData = {
+                workspacePath: this._workspacePath,
+                filePath: this._filePath,
+                position: this._position
+            };
+            completionItem.data = completionItemData;
 
             if (autoImportText) {
                 // Force auto-import entries to the end.
                 completionItem.sortText =
                     this._makeSortText(SortCategory.AutoImport, name, autoImportText);
-                const completionItemData: CompletionItemData = {
-                    autoImportText
-                };
-                completionItem.data = completionItemData;
+                completionItemData.autoImportText = autoImportText;
             } else if (SymbolNameUtils.isDunderName(name)) {
                 // Force dunder-named symbols to appear after all other symbols.
                 completionItem.sortText =
@@ -751,6 +802,10 @@ export class CompletionProvider {
             } else {
                 completionItem.sortText =
                     this._makeSortText(SortCategory.NormalSymbol, name);
+            }
+
+            if (symbolId !== undefined) {
+                completionItemData.symbolId = symbolId;
             }
 
             let markdownString = '';
@@ -850,9 +905,7 @@ export class CompletionProvider {
         return result;
     }
 
-    private _convertDeclarationTypeToItemKind(declaration: Declaration,
-            type?: Type): CompletionItemKind {
-
+    private _convertDeclarationTypeToItemKind(declaration: Declaration): CompletionItemKind {
         const resolvedDeclaration = this._evaluator.resolveAliasDeclaration(declaration);
         if (!resolvedDeclaration) {
             return CompletionItemKind.Variable;
@@ -860,12 +913,7 @@ export class CompletionProvider {
 
         switch (resolvedDeclaration.type) {
             case DeclarationType.Intrinsic:
-                if (type) {
-                    if (type.category === TypeCategory.Class) {
-                        return CompletionItemKind.Class;
-                    }
-                }
-                return CompletionItemKind.Variable;
+                return CompletionItemKind.Class;
 
             case DeclarationType.Parameter:
                 return CompletionItemKind.Variable;
@@ -879,9 +927,6 @@ export class CompletionProvider {
                 return CompletionItemKind.Function;
 
             case DeclarationType.Method:
-                if (type && type.category === TypeCategory.Property) {
-                    return CompletionItemKind.Property;
-                }
                 return CompletionItemKind.Method;
 
             case DeclarationType.Class:

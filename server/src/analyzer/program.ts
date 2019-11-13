@@ -9,7 +9,7 @@
 */
 
 import * as assert from 'assert';
-import { CompletionList, SymbolInformation } from 'vscode-languageserver';
+import { CompletionItem, CompletionList, SymbolInformation } from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
@@ -836,7 +836,9 @@ export class Program {
         return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator);
     }
 
-    getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition): SignatureHelpResults | undefined {
+    getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition):
+            SignatureHelpResults | undefined {
+
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
             return undefined;
@@ -853,7 +855,9 @@ export class Program {
             position, this._lookUpImport, this._evaluator);
     }
 
-    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition): CompletionList | undefined {
+    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
+            workspacePath: string): CompletionList | undefined {
+
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
             return undefined;
@@ -870,13 +874,23 @@ export class Program {
         }
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
-            position, this._configOptions, this._importResolver,
-            this._lookUpImport, this._evaluator,
+            position, workspacePath, this._configOptions,
+            this._importResolver, this._lookUpImport, this._evaluator,
             () => this._buildModuleSymbolsMap(sourceFileInfo));
     }
 
-    performQuickAction(filePath: string, options: ConfigOptions,
-            importResolver: ImportResolver, command: string,
+    resolveCompletionItem(filePath: string, completionItem: CompletionItem) {
+        const sourceFileInfo = this._sourceFileMap[filePath];
+        if (!sourceFileInfo) {
+            return;
+        }
+
+        sourceFileInfo.sourceFile.resolveCompletionItem(
+            this._configOptions, this._importResolver, this._lookUpImport, this._evaluator,
+            () => this._buildModuleSymbolsMap(sourceFileInfo), completionItem);
+    }
+
+    performQuickAction(filePath: string, command: string,
             args: any[]): TextEditAction[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap[filePath];
@@ -896,8 +910,7 @@ export class Program {
     }
 
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
-            newName: string, options: ConfigOptions,
-            importResolver: ImportResolver): FileEditAction[] | undefined {
+            newName: string): FileEditAction[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap[filePath];
         if (!sourceFileInfo) {
