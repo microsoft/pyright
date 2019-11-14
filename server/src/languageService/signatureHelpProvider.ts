@@ -155,7 +155,7 @@ export class SignatureHelpProvider {
             results.signatures.push(this._makeSignature(type));
         } else if (type.category === TypeCategory.OverloadedFunction) {
             type.overloads.forEach(overload => {
-                results.signatures.push(this._makeSignature(overload.type));
+                results.signatures.push(this._makeSignature(overload));
             });
         }
     }

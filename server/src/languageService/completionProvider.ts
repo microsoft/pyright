@@ -700,7 +700,7 @@ export class CompletionProvider {
                                 case DeclarationType.Method:
                                     if (type.category === TypeCategory.OverloadedFunction) {
                                         typeDetail = type.overloads.map(overload =>
-                                            name + printType(overload.type)).join('\n');
+                                            name + printType(overload)).join('\n');
                                     } else {
                                         typeDetail = name + printType(type);
                                     }

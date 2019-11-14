@@ -171,7 +171,7 @@ export class HoverProvider {
             }
         } else if (type.category === TypeCategory.OverloadedFunction) {
             type.overloads.forEach(overload => {
-                const docString = overload.type.details.docString;
+                const docString = overload.details.docString;
                 if (docString) {
                     this._addResultsPart(parts, docString);
                 }

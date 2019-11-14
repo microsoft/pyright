@@ -48,7 +48,7 @@ import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     FunctionType, FunctionTypeFlags, InheritanceChain, isAnyOrUnknown, isNoneOrNever,
     isPossiblyUnbound, isSameWithoutLiteralValue, isTypeSame, isUnbound, LiteralValue,
-    maxTypeRecursionCount, ModuleType, NeverType, NoneType, ObjectType, OverloadedFunctionEntry,
+    maxTypeRecursionCount, ModuleType, NeverType, NoneType, ObjectType,
     OverloadedFunctionType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion, Type, TypeCategory,
     TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
 import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedTypeForConstructor,
@@ -57,11 +57,11 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar,
     getDeclaredGeneratorReturnType, getDeclaredGeneratorSendType, getEffectiveReturnType, getMetaclass,
-    getSpecializedTupleType, getTypeVarArgumentsRecursive, isEllipsisType, isOptionalType,
-    lookUpClassMember, lookUpObjectMember, partiallySpecializeType, printLiteralValue,
-    printObjectTypeForClass, printType, removeFalsinessFromType, removeTruthinessFromType,
-    requiresSpecialization, selfSpecializeClassType, specializeType, specializeTypeVarType,
-    stripFirstParameter, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
+    getSpecializedTupleType, getTypeVarArgumentsRecursive, isEllipsisType, isNoReturnType,
+    isOptionalType, lookUpClassMember, lookUpObjectMember, partiallySpecializeType,
+    printLiteralValue, printObjectTypeForClass, printType, removeFalsinessFromType,
+    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, specializeType,
+    specializeTypeVarType, stripFirstParameter, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -3005,8 +3005,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Temporarily disable diagnostic output.
         useSpeculativeMode(() => {
             for (const overload of callType.overloads) {
-                if (validateCallArguments(errorNode, argList, overload.type, new TypeVarMap())) {
-                    validOverload = overload.type;
+                if (validateCallArguments(errorNode, argList, overload, new TypeVarMap())) {
+                    validOverload = overload;
                     break;
                 }
             }
@@ -5485,7 +5485,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Is this a @dataclass?
         if (decoratorType.category === TypeCategory.OverloadedFunction) {
             const overloads = decoratorType.overloads;
-            if (overloads.length > 0 && overloads[0].type.details.builtInName === 'dataclass') {
+            if (overloads.length > 0 && overloads[0].details.builtInName === 'dataclass') {
                 // Determine whether we should skip synthesizing the init method.
                 let skipSynthesizeInit = false;
 
@@ -5513,11 +5513,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return getTypeFromDecorator(decoratorNode, inputClassType);
-    }
-
-    function isCallNoReturn(node: CallNode) {
-        // TODO - need to implement
-        return false;
     }
 
     function getTypeOfFunction(node: FunctionNode): FunctionTypeResult | undefined {
@@ -5894,7 +5889,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // Find this function's declaration.
             let declIndex = decls.findIndex(decl => decl === functionDecl);
             if (declIndex > 0) {
-                const overloadedTypes: OverloadedFunctionEntry[] = [{ type, typeSourceId: decls[declIndex].node.id }];
+                const overloadedTypes: FunctionType[] = [type];
                 while (declIndex > 0) {
                     const decl = decls[declIndex - 1];
                     if (decl.type !== DeclarationType.Function && decl.type !== DeclarationType.Method) {
@@ -5909,10 +5904,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         break;
                     }
 
-                    overloadedTypes.unshift({
-                        type: declTypeInfo.functionType,
-                        typeSourceId: decls[declIndex - 1].node.id
-                    });
+                    overloadedTypes.unshift(declTypeInfo.functionType);
                     declIndex--;
                 }
 
@@ -6507,6 +6499,25 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return false;
     }
 
+    function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
+        const importInfo = AnalyzerNodeInfo.getImportInfo(flowNode.node.module);
+        assert(importInfo && importInfo.isImportFound);
+        assert(flowNode.node.isWildcardImport);
+
+        const symbolWithScope = lookUpSymbolRecursive(flowNode.node, name);
+        assert(symbolWithScope);
+        const decls = symbolWithScope!.symbol.getDeclarations();
+        const wildcardDecl = decls.find(decl => decl.node === flowNode.node);
+        assert(wildcardDecl);
+        return getInferredTypeOfDeclaration(wildcardDecl!) || UnknownType.create();
+    }
+
+    // Determines whether a call never returns without fully evaluating its type.
+    function isCallNoReturn(node: CallNode) {
+        // TODO - need to implement
+        return false;
+    }
+
     function getFlowTypeOfReference(reference: NameNode | MemberAccessNode,
         targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
@@ -6701,19 +6712,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undefined;
         }
         return type;
-    }
-
-    function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
-        const importInfo = AnalyzerNodeInfo.getImportInfo(flowNode.node.module);
-        assert(importInfo && importInfo.isImportFound);
-        assert(flowNode.node.isWildcardImport);
-
-        const symbolWithScope = lookUpSymbolRecursive(flowNode.node, name);
-        assert(symbolWithScope);
-        const decls = symbolWithScope!.symbol.getDeclarations();
-        const wildcardDecl = decls.find(decl => decl.node === flowNode.node);
-        assert(wildcardDecl);
-        return getInferredTypeOfDeclaration(wildcardDecl!) || UnknownType.create();
     }
 
     function isFlowNodeReachable(flowNode: FlowNode): boolean {
@@ -8206,14 +8204,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const overloadIndex = overloads.findIndex(overload => {
                     const typeVarMapClone = typeVarMap ?
                         cloneTypeVarMap(typeVarMap) : undefined;
-                    return canAssignType(destType, overload.type, diag.createAddendum(),
+                    return canAssignType(destType, overload, diag.createAddendum(),
                         typeVarMapClone, flags, recursionCount + 1);
                 });
                 if (overloadIndex < 0) {
                     diag.addMessage(`No overloaded function matches type '${printType(destType)}'.`);
                     return false;
                 }
-                srcFunction = overloads[overloadIndex].type;
+                srcFunction = overloads[overloadIndex];
             } else if (srcType.category === TypeCategory.Function) {
                 srcFunction = srcType;
             } else if (srcType.category === TypeCategory.Object) {
@@ -8750,8 +8748,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         } else if (memberType.category === TypeCategory.OverloadedFunction) {
             const newOverloadType = OverloadedFunctionType.create();
             memberType.overloads.forEach(overload => {
-                OverloadedFunctionType.addOverload(newOverloadType, overload.typeSourceId,
-                    bindFunctionToClassOrObject(baseType, overload.type,
+                OverloadedFunctionType.addOverload(newOverloadType,
+                    bindFunctionToClassOrObject(baseType, overload,
                         treatAsClassMember) as FunctionType);
             });
 

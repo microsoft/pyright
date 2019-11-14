@@ -67,8 +67,6 @@ export type Type = UnboundType | UnknownType | AnyType | NoneType | NeverType |
 export type LiteralValue = number | boolean | string;
 
 export type TypeSourceId = number;
-export const defaultTypeSourceId = 0;
-
 export const maxTypeRecursionCount = 16;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
@@ -666,14 +664,9 @@ export namespace FunctionType {
     }
 }
 
-export interface OverloadedFunctionEntry {
-    type: FunctionType;
-    typeSourceId: TypeSourceId;
-}
-
 export interface OverloadedFunctionType extends TypeBase {
     category: TypeCategory.OverloadedFunction;
-    overloads: OverloadedFunctionEntry[];
+    overloads: FunctionType[];
 }
 
 export namespace OverloadedFunctionType {
@@ -685,16 +678,8 @@ export namespace OverloadedFunctionType {
         return newType;
     }
 
-    export function addOverload(type: OverloadedFunctionType, typeSourceId: TypeSourceId,
-            functionType: FunctionType) {
-
-        // Was this entry already added? If so, replace the type.
-        const index = type.overloads.findIndex(entry => entry.typeSourceId === typeSourceId);
-        if (index >= 0) {
-            type.overloads[index].type = functionType;
-        } else {
-            type.overloads.push({ typeSourceId, type: functionType });
-        }
+    export function addOverload(type: OverloadedFunctionType, functionType: FunctionType) {
+        type.overloads.push(functionType);
     }
 }
 
@@ -986,7 +971,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             // We assume here that overloaded functions always appear
             // in the same order from one analysis pass to another.
             for (let i = 0; i < type1.overloads.length; i++) {
-                if (!isTypeSame(type1.overloads[i].type, functionType2.overloads[i].type)) {
+                if (!isTypeSame(type1.overloads[i], functionType2.overloads[i])) {
                     return false;
                 }
             }

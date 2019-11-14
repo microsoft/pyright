@@ -12,7 +12,7 @@ import { ImportLookup } from './analyzerFileInfo';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
-    isTypeSame, maxTypeRecursionCount, ModuleType, NeverType, ObjectType, OverloadedFunctionEntry,
+    isTypeSame, maxTypeRecursionCount, ModuleType, NeverType, ObjectType,
     OverloadedFunctionType, removeNoneFromUnion, SpecializedFunctionTypes, Type, TypeCategory,
     TypeVarMap, TypeVarType, UnknownType } from './types';
 
@@ -977,19 +977,13 @@ function _specializeOverloadedFunctionType(type: OverloadedFunctionType,
         recursionLevel: number): OverloadedFunctionType {
 
     // Specialize each of the functions in the overload.
-    const overloads = type.overloads.map(entry => {
-        const newEntry: OverloadedFunctionEntry = {
-            type: _specializeFunctionType(entry.type, typeVarMap, makeConcrete, recursionLevel),
-            typeSourceId: entry.typeSourceId
-        };
-
-        return newEntry;
-    });
+    const overloads = type.overloads.map(
+        entry => _specializeFunctionType(entry, typeVarMap, makeConcrete, recursionLevel));
 
     // Construct a new overload with the specialized function types.
     const newOverloadType = OverloadedFunctionType.create();
     overloads.forEach(overload => {
-        OverloadedFunctionType.addOverload(newOverloadType, overload.typeSourceId, overload.type);
+        OverloadedFunctionType.addOverload(newOverloadType, overload);
     });
 
     return newOverloadType;
@@ -1091,7 +1085,7 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
 
         case TypeCategory.OverloadedFunction: {
             return type.overloads.find(
-                overload => requiresSpecialization(overload.type, recursionCount + 1)) !== undefined;
+                overload => requiresSpecialization(overload, recursionCount + 1)) !== undefined;
         }
 
         case TypeCategory.Property: {
@@ -1230,7 +1224,7 @@ export function printType(type: Type, recursionCount = 0): string {
         case TypeCategory.OverloadedFunction: {
             const overloadedType = type;
             const overloads = overloadedType.overloads.map(overload =>
-                printType(overload.type, recursionCount + 1));
+                printType(overload, recursionCount + 1));
             return `Overload[${ overloads.join(', ') }]`;
         }
 
