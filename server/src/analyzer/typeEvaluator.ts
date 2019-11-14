@@ -290,6 +290,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const typeResolutionStack: TypeResolutionStackEntry[] = [];
     const isReachableRecursionMap = new Map<number, true>();
+    const callIsNoReturnCache = new Map<number, boolean>();
     const typeCache = new Map<number, TypeCacheEntry>();
 
     function readTypeCache(node: ParseNode): Type | undefined {
@@ -1793,13 +1794,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const isSpecialBuiltIn = !!type && type.category === TypeCategory.Class &&
                 ClassType.isSpecialBuiltIn(type);
 
-            // Should we specialize the class?
-            if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
-                if (type && type.category === TypeCategory.Class) {
+            if (type && !(flags & EvaluatorFlags.DoNotSpecialize)) {
+                if (type.category === TypeCategory.Class) {
                     if (!type.typeArguments) {
                         type = createSpecializedClassType(type, undefined, node);
                     }
-                } else if (type && type.category === TypeCategory.Object) {
+                } else if (type.category === TypeCategory.Object) {
                     // If this is an object that contains a Type[X], transform it
                     // into class X.
                     const typeType = getClassFromPotentialTypeObject(type);
@@ -1821,9 +1821,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 typeAtStart = UnboundType.create();
             }
 
-            // Don't try to use code-flow analysis if it was a special built-in
-            // type like Type or Callable because these have already been transformed
-            // by _createSpecializedClassType.
             let useCodeFlowAnalysis = !isSpecialBuiltIn;
 
             // Don't use code-flow analysis if forward references are allowed
@@ -1845,9 +1842,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (useCodeFlowAnalysis) {
-                // If the type is defined outside of the current scope, use the
-                // original type at the start. Otherwise use an unbound type at
-                // the start.
                 type = getFlowTypeOfReference(node, symbol.getId(), typeAtStart) || type;
             }
 
@@ -6523,36 +6517,47 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     // Determines whether a call never returns without fully evaluating its type.
     function isCallNoReturn(node: CallNode) {
-        const callType = getType(node.leftExpression);
+        // See if this information is cached already.
+        if (callIsNoReturnCache.has(node.id)) {
+            return callIsNoReturnCache.get(node.id);
+        }
+
+        // Evaluate the call type speculatively, since we may need additional
+        // context to evaluate its specialized type correctly.
+        let callType: Type | undefined;
+        useSpeculativeMode(() => {
+            callType = getType(node.leftExpression);
+        });
+        let callIsNoReturn = false;
 
         // We assume here that no constructors or __call__ methods
         // will be inferred "no return" types, so we can restrict
         // our check to functions.
         let functionType: FunctionType | undefined;
-        if (callType.category === TypeCategory.Function) {
-            functionType = callType;
-        } else if (callType.category === TypeCategory.OverloadedFunction) {
+        if (callType!.category === TypeCategory.Function) {
+            functionType = callType as FunctionType;
+        } else if (callType!.category === TypeCategory.OverloadedFunction) {
             // Use the last overload, which should be the most general.
-            functionType = callType.overloads[callType.overloads.length - 1];
+            const overloadedFunction = callType as OverloadedFunctionType;
+            functionType = overloadedFunction.overloads[overloadedFunction.overloads.length - 1];
         }
 
         if (functionType) {
             if (functionType.details.declaredReturnType) {
-                return isNoReturnType(functionType.details.declaredReturnType);
-            }
-
-            // If the inferred return type has already been lazily
-            // evaluated, use it.
-            if (functionType.inferredReturnType) {
-                return isNoReturnType(functionType.inferredReturnType);
-            }
-
-            if (functionType.details.declaration) {
-                return !isAfterNodeReachable(functionType.details.declaration.node);
+                callIsNoReturn = isNoReturnType(functionType.details.declaredReturnType);
+            } else if (functionType.inferredReturnType) {
+                // If the inferred return type has already been lazily
+                // evaluated, use it.
+                callIsNoReturn = isNoReturnType(functionType.inferredReturnType);
+            } else if (functionType.details.declaration) {
+                callIsNoReturn = !isAfterNodeReachable(functionType.details.declaration.node);
             }
         }
 
-        return false;
+        // Cache the value for next time.
+        callIsNoReturnCache.set(node.id, callIsNoReturn);
+
+        return callIsNoReturn;
     }
 
     function getFlowTypeOfReference(reference: NameNode | MemberAccessNode,
