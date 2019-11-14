@@ -4677,7 +4677,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             FunctionType.addParameter(functionType, functionParam);
         });
 
-        functionType.details.inferredReturnType = getType(node.expression);
+        functionType.inferredReturnType = getType(node.expression);
 
         return { type: functionType, node };
     }
@@ -5560,6 +5560,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             functionType.details.builtInName = node.name.nameToken.value;
         }
 
+        functionType.details.declaration = functionDecl;
+
         // Allow recursion by registering the partially-constructed
         // function type.
         const scope = ScopeUtils.getScopeForNode(node);
@@ -5688,7 +5690,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Infer the return type based on the body of the function.
         if (!node.returnTypeAnnotation) {
-            functionType.details.inferredReturnType = inferFunctionReturnType(
+            functionType.inferredReturnType = inferFunctionReturnType(
                 node, FunctionType.isAbstractMethod(functionType));
         }
 
@@ -5923,7 +5925,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function createAwaitableFunction(node: ParseNode, functionType: FunctionType): FunctionType {
-        const returnType = functionType.details.declaredReturnType || functionType.details.inferredReturnType;
+        const returnType = functionType.details.declaredReturnType || functionType.inferredReturnType;
         if (!returnType) {
             return functionType;
         }
@@ -7643,7 +7645,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return specializedReturnType;
         }
 
-        return type.details.inferredReturnType || UnknownType.create();
+        return type.inferredReturnType || UnknownType.create();
     }
 
     function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefined {
