@@ -15,8 +15,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { ClassType, FunctionType, ObjectType, OverloadedFunctionType,
     TypeCategory } from '../analyzer/types';
-import { ClassMemberLookupFlags, doForSubtypes, lookUpClassMember,
-    printFunctionParts } from '../analyzer/typeUtils';
+import { ClassMemberLookupFlags, doForSubtypes, lookUpClassMember } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -112,7 +111,7 @@ export class SignatureHelpProvider {
             switch (subtype.category) {
                 case TypeCategory.Function:
                 case TypeCategory.OverloadedFunction: {
-                    this._addSignatureToResults(results, subtype);
+                    this._addSignatureToResults(results, subtype, evaluator);
                     break;
                 }
 
@@ -127,7 +126,7 @@ export class SignatureHelpProvider {
                             importLookup, evaluator, false);
                     }
                     if (methodType) {
-                        this._addSignatureToResults(results, methodType);
+                        this._addSignatureToResults(results, methodType, evaluator);
                     }
                     break;
                 }
@@ -136,7 +135,7 @@ export class SignatureHelpProvider {
                     const methodType = this._getBoundMethod(
                         subtype.classType, '__call__', importLookup, evaluator, false);
                     if (methodType) {
-                        this._addSignatureToResults(results, methodType);
+                        this._addSignatureToResults(results, methodType, evaluator);
                     }
                     break;
                 }
@@ -149,13 +148,13 @@ export class SignatureHelpProvider {
     }
 
     private static _addSignatureToResults(results: SignatureHelpResults,
-            type: FunctionType | OverloadedFunctionType) {
+            type: FunctionType | OverloadedFunctionType, evaluator: TypeEvaluator) {
 
         if (type.category === TypeCategory.Function) {
-            results.signatures.push(this._makeSignature(type));
+            results.signatures.push(this._makeSignature(type, evaluator));
         } else if (type.category === TypeCategory.OverloadedFunction) {
             type.overloads.forEach(overload => {
-                results.signatures.push(this._makeSignature(overload));
+                results.signatures.push(this._makeSignature(overload, evaluator));
             });
         }
     }
@@ -192,8 +191,8 @@ export class SignatureHelpProvider {
         return undefined;
     }
 
-    private static _makeSignature(functionType: FunctionType): SignatureInfo {
-        const stringParts = printFunctionParts(functionType);
+    private static _makeSignature(functionType: FunctionType, evaluator: TypeEvaluator): SignatureInfo {
+        const stringParts = evaluator.printFunctionParts(functionType);
         const parameters: ParamInfo[] = [];
         const functionDocString = functionType.details.docString;
         let label = '(';

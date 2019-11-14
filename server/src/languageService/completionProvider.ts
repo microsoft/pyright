@@ -23,7 +23,7 @@ import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { TypeCategory } from '../analyzer/types';
-import { doForSubtypes, getMembersForClass, getMembersForModule, printType } from '../analyzer/typeUtils';
+import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
@@ -693,16 +693,16 @@ export class CompletionProvider {
                                 case DeclarationType.Intrinsic:
                                 case DeclarationType.Variable:
                                 case DeclarationType.Parameter:
-                                    typeDetail = name + ': ' + printType(type);
+                                    typeDetail = name + ': ' + this._evaluator.printType(type);
                                     break;
 
                                 case DeclarationType.Function:
                                 case DeclarationType.Method:
                                     if (type.category === TypeCategory.OverloadedFunction) {
                                         typeDetail = type.overloads.map(overload =>
-                                            name + printType(overload)).join('\n');
+                                            name + this._evaluator.printType(overload)).join('\n');
                                     } else {
-                                        typeDetail = name + printType(type);
+                                        typeDetail = name + this._evaluator.printType(type);
                                     }
                                     break;
 

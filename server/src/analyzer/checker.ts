@@ -39,7 +39,7 @@ import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, i
     NoneType, ObjectType, Type, TypeCategory, UnknownType } from './types';
 import { containsUnknown, derivesFromClassRecursive, doForSubtypes,
     getDeclaredGeneratorReturnType, getDeclaredGeneratorYieldType, getSymbolFromBaseClasses,
-    isNoReturnType, printType, specializeType, transformTypeObjectToClass } from './typeUtils';
+    isNoReturnType, specializeType, transformTypeObjectToClass } from './typeUtils';
 
 export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
@@ -168,7 +168,7 @@ export class Checker extends ParseTreeWalker {
                         this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                         DiagnosticRule.reportUnknownLambdaType,
                         `Type of '${ param.name.nameToken.value }', ` +
-                        `'${ printType(paramType) }', is partially unknown`,
+                        `'${ this._evaluator.printType(paramType) }', is partially unknown`,
                         param.name);
                 }
             }
@@ -184,7 +184,7 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                 DiagnosticRule.reportUnknownLambdaType,
-                `Type of lambda expression, '${ printType(returnType) }', is partially unknown`,
+                `Type of lambda expression, '${ this._evaluator.printType(returnType) }', is partially unknown`,
                 node.expression);
         }
 
@@ -265,8 +265,8 @@ export class Checker extends ParseTreeWalker {
                     const specializedDeclaredType = specializeType(declaredReturnType, undefined);
                     if (!this._evaluator.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
                         this._evaluator.addError(
-                            `Expression of type '${ printType(returnType) }' cannot be assigned ` +
-                                `to return type '${ printType(specializedDeclaredType) }'` +
+                            `Expression of type '${ this._evaluator.printType(returnType) }' cannot be assigned ` +
+                                `to return type '${ this._evaluator.printType(specializedDeclaredType) }'` +
                                 diagAddendum.getString(),
                             node.returnExpression ? node.returnExpression : node);
                     }
@@ -316,14 +316,14 @@ export class Checker extends ParseTreeWalker {
                     if (!isAnyOrUnknown(subtype)) {
                         if (subtype.category === TypeCategory.Class) {
                             if (!derivesFromClassRecursive(subtype, baseExceptionType)) {
-                                diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
+                                diagAddendum.addMessage(`'${ this._evaluator.printType(subtype) }' does not derive from BaseException`);
                             }
                         } else if (subtype.category === TypeCategory.Object) {
                             if (!derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
-                                diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
+                                diagAddendum.addMessage(`'${ this._evaluator.printType(subtype) }' does not derive from BaseException`);
                             }
                         } else {
-                            diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
+                            diagAddendum.addMessage(`'${ this._evaluator.printType(subtype) }' does not derive from BaseException`);
                         }
                     }
 
@@ -349,10 +349,10 @@ export class Checker extends ParseTreeWalker {
                     if (!isAnyOrUnknown(subtype) && !isNoneOrNever(subtype)) {
                         if (subtype.category === TypeCategory.Object) {
                             if (!derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
-                                diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
+                                diagAddendum.addMessage(`'${ this._evaluator.printType(subtype) }' does not derive from BaseException`);
                             }
                         } else {
-                            diagAddendum.addMessage(`'${ printType(subtype) }' does not derive from BaseException`);
+                            diagAddendum.addMessage(`'${ this._evaluator.printType(subtype) }' does not derive from BaseException`);
                         }
                     }
 
@@ -788,15 +788,15 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
-                `Unnecessary ${ callName } call: '${ printType(arg0Type) }' ` +
-                    `is never ${ callType } of '${ printType(getTestType()) }'`,
+                `Unnecessary ${ callName } call: '${ this._evaluator.printType(arg0Type) }' ` +
+                    `is never ${ callType } of '${ this._evaluator.printType(getTestType()) }'`,
                 node);
         } else if (isTypeSame(filteredType, arg0Type)) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
-                `Unnecessary ${ callName } call: '${ printType(arg0Type) }' ` +
-                    `is always ${ callType } of '${ printType(getTestType()) }'`,
+                `Unnecessary ${ callName } call: '${ this._evaluator.printType(arg0Type) }' ` +
+                    `is always ${ callType } of '${ this._evaluator.printType(getTestType()) }'`,
                 node);
         }
     }
@@ -1006,7 +1006,7 @@ export class Checker extends ParseTreeWalker {
                         // the return type matches.
                         if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
                             this._evaluator.addError(
-                                `Function with declared type of '${ printType(declaredReturnType) }'` +
+                                `Function with declared type of '${ this._evaluator.printType(declaredReturnType) }'` +
                                     ` must return value` + diagAddendum.getString(),
                                 node.returnTypeAnnotation);
                         }
@@ -1024,7 +1024,7 @@ export class Checker extends ParseTreeWalker {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
-                    `Return type '${ printType(inferredReturnType) }' is partially unknown`,
+                    `Return type '${ this._evaluator.printType(inferredReturnType) }' is partially unknown`,
                     node.name);
             }
         }
@@ -1182,8 +1182,8 @@ export class Checker extends ParseTreeWalker {
                     const diagAddendum = new DiagnosticAddendum();
                     if (!this._evaluator.canAssignType(declaredYieldType, adjustedYieldType, diagAddendum)) {
                         this._evaluator.addError(
-                            `Expression of type '${ printType(adjustedYieldType) }' cannot be assigned ` +
-                                `to yield type '${ printType(declaredYieldType) }'` + diagAddendum.getString(),
+                            `Expression of type '${ this._evaluator.printType(adjustedYieldType) }' cannot be assigned ` +
+                                `to yield type '${ this._evaluator.printType(declaredYieldType) }'` + diagAddendum.getString(),
                             node.expression || node);
                     }
                 }
@@ -1204,8 +1204,8 @@ export class Checker extends ParseTreeWalker {
         if (declaredType) {
             if (!isTypeSame(declaredType, type)) {
                 this._evaluator.addError(
-                    `Declared type '${ printType(type) }' is not compatible ` +
-                        `with declared type '${ printType(declaredType) }'`,
+                    `Declared type '${ this._evaluator.printType(type) }' is not compatible ` +
+                        `with declared type '${ this._evaluator.printType(declaredType) }'`,
                     errorNode);
             }
         }

@@ -13,7 +13,6 @@ import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory, UnknownType } from '../analyzer/types';
-import { printType } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -143,7 +142,7 @@ export class HoverProvider {
 
     private static _getTypeText(node: NameNode, evaluator: TypeEvaluator): string {
         const type = this._getTypeFromNode(node, evaluator) || UnknownType.create();
-        return ': ' + printType(type);
+        return ': ' + evaluator.printType(type);
     }
 
     private static _addDocumentationPart(parts: HoverTextPart[], node: NameNode, evaluator: TypeEvaluator) {

@@ -993,10 +993,12 @@ function _specializeFunctionType(functionType: FunctionType,
         typeVarMap: TypeVarMap | undefined, makeConcrete: boolean,
         recursionLevel: number): FunctionType {
 
-    const returnType = getEffectiveReturnType(functionType);
-    const specializedReturnType = specializeType(returnType,
-        typeVarMap, makeConcrete, recursionLevel + 1);
-    let typesRequiredSpecialization = returnType !== specializedReturnType;
+    const declaredReturnType = functionType.specializedTypes && functionType.specializedTypes.returnType ?
+        functionType.specializedTypes.returnType : functionType.details.declaredReturnType;
+    const specializedReturnType = declaredReturnType ?
+        specializeType(declaredReturnType, typeVarMap, makeConcrete, recursionLevel + 1) :
+        undefined;
+    let typesRequiredSpecialization = declaredReturnType !== specializedReturnType;
 
     const specializedParameters: SpecializedFunctionTypes = {
         parameterTypes: [],
@@ -1076,8 +1078,12 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
                 }
             }
 
-            if (requiresSpecialization(getEffectiveReturnType(type), recursionCount + 1)) {
-                return true;
+            const declaredReturnType = type.specializedTypes && type.specializedTypes.returnType ?
+                type.specializedTypes.returnType : type.details.declaredReturnType;
+            if (declaredReturnType) {
+                if (requiresSpecialization(declaredReturnType, recursionCount + 1)) {
+                    return true;
+                }
             }
 
             return false;
@@ -1117,29 +1123,6 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
     return false;
 }
 
-export function printObjectTypeForClass(type: ClassType, recursionCount = 0): string {
-    let objName = type.details.name;
-
-    // If there is a type arguments array, it's a specialized class.
-    if (type.typeArguments) {
-        if (type.typeArguments.length > 0) {
-            objName += '[' + type.typeArguments.map(typeArg => {
-                return printType(typeArg, recursionCount + 1);
-            }).join(', ') + ']';
-        }
-    } else {
-        const typeParams = ClassType.getTypeParameters(type);
-
-        if (typeParams.length > 0) {
-            objName += '[' + typeParams.map(typeArg => {
-                return printType(typeArg, recursionCount + 1);
-            }).join(', ') + ']';
-        }
-    }
-
-    return objName;
-}
-
 export function printLiteralValue(type: ObjectType): string {
     const literalValue = type.literalValue;
     if (literalValue === undefined) {
@@ -1157,141 +1140,4 @@ export function printLiteralValue(type: ObjectType): string {
     }
 
     return `Literal[${ literalStr }]`;
-}
-
-export function printFunctionParts(type: FunctionType, recursionCount = 0): [string[], string] {
-    const paramTypeStrings = type.details.parameters.map((param, index) => {
-        let paramString = '';
-        if (param.category === ParameterCategory.VarArgList) {
-            paramString += '*';
-        } else if (param.category === ParameterCategory.VarArgDictionary) {
-            paramString += '**';
-        }
-
-        if (param.name) {
-            paramString += param.name;
-        }
-
-        if (param.category === ParameterCategory.Simple) {
-            const paramType = FunctionType.getEffectiveParameterType(type, index);
-            const paramTypeString = recursionCount < maxTypeRecursionCount ?
-                printType(paramType, recursionCount + 1) : '';
-            paramString += ': ' + paramTypeString;
-        }
-        return paramString;
-    });
-
-    const returnType = getEffectiveReturnType(type);
-    const returnTypeString = recursionCount < maxTypeRecursionCount ?
-        printType(returnType, recursionCount + 1) : '';
-    return [paramTypeStrings, returnTypeString];
-}
-
-export function printType(type: Type, recursionCount = 0): string {
-    switch (type.category) {
-        case TypeCategory.Unbound: {
-            return 'Unbound';
-        }
-
-        case TypeCategory.Unknown: {
-            return 'Unknown';
-        }
-
-        case TypeCategory.Module: {
-            return 'Module';
-        }
-
-        case TypeCategory.Class: {
-            return 'Type[' + printObjectTypeForClass(type,
-                recursionCount + 1) + ']';
-        }
-
-        case TypeCategory.Object: {
-            const objType = type;
-            if (objType.literalValue !== undefined) {
-                return printLiteralValue(objType);
-            }
-
-            return printObjectTypeForClass(objType.classType,
-                recursionCount + 1);
-        }
-
-        case TypeCategory.Function: {
-            const parts = printFunctionParts(type, recursionCount);
-            return `(${ parts[0].join(', ') }) -> ${ parts[1] }`;
-        }
-
-        case TypeCategory.OverloadedFunction: {
-            const overloadedType = type;
-            const overloads = overloadedType.overloads.map(overload =>
-                printType(overload, recursionCount + 1));
-            return `Overload[${ overloads.join(', ') }]`;
-        }
-
-        case TypeCategory.Property: {
-            const propertyType = type;
-            const returnType = getEffectiveReturnType(propertyType.getter);
-            const returnTypeString = recursionCount < maxTypeRecursionCount ?
-                printType(returnType, recursionCount + 1) : '';
-            return returnTypeString;
-        }
-
-        case TypeCategory.Union: {
-            const unionType = type;
-            const subtypes = unionType.subtypes;
-
-            if (subtypes.find(t => t.category === TypeCategory.None) !== undefined) {
-                const optionalType = recursionCount < maxTypeRecursionCount ?
-                    printType(removeNoneFromUnion(unionType), recursionCount + 1) : '';
-                return 'Optional[' + optionalType + ']';
-            }
-
-            const unionTypeString = recursionCount < maxTypeRecursionCount ?
-                subtypes.map(t => printType(t, recursionCount + 1)).join(', ') : '';
-
-            return 'Union[' + unionTypeString + ']';
-        }
-
-        case TypeCategory.TypeVar: {
-            const typeVarType = type;
-            const typeName = typeVarType.name;
-
-            // Print the name in a simplified form if it's embedded
-            // inside another type string.
-            if (recursionCount > 0) {
-                return typeName;
-            }
-            const params: string[] = [`'${ typeName }'`];
-            if (recursionCount < maxTypeRecursionCount) {
-                for (const constraint of typeVarType.constraints) {
-                    params.push(printType(constraint, recursionCount + 1));
-                }
-            }
-            return 'TypeVar[' + params.join(', ') + ']';
-        }
-
-        case TypeCategory.None: {
-            return 'None';
-        }
-
-        case TypeCategory.Never: {
-            return 'Never';
-        }
-
-        case TypeCategory.Any: {
-            const anyType = type;
-            return anyType.isEllipsis ? '...' : 'Any';
-        }
-    }
-
-    return '';
-}
-
-export function getEffectiveReturnType(type: FunctionType) {
-    const specializedReturnType = FunctionType.getSpecializedReturnType(type);
-    if (specializedReturnType) {
-        return specializedReturnType;
-    }
-
-    return type.details.inferredReturnType || UnknownType.create();
 }

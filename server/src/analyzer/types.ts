@@ -528,7 +528,7 @@ interface FunctionDetails {
 
 export interface SpecializedFunctionTypes {
     parameterTypes: Type[];
-    returnType: Type;
+    returnType?: Type;
 }
 
 export interface FunctionType extends TypeBase {
@@ -655,8 +655,8 @@ export namespace FunctionType {
     }
 
     export function getSpecializedReturnType(type: FunctionType) {
-        return type.specializedTypes ? type.specializedTypes.returnType :
-            type.details.declaredReturnType;
+        return type.specializedTypes && type.specializedTypes.returnType ?
+            type.specializedTypes.returnType : type.details.declaredReturnType;
     }
 
     export function setDeclaredReturnType(type: FunctionType, returnType?: Type) {

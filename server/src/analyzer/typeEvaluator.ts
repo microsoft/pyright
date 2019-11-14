@@ -52,16 +52,14 @@ import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     OverloadedFunctionType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion, Type, TypeCategory,
     TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
 import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedTypeForConstructor,
-    areTypesSame, buildTypeVarMap, buildTypeVarMapFromSpecializedClass,
-    CanAssignFlags, canBeFalsy, canBeTruthy, ClassMember,
-    ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
-    derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar,
-    getDeclaredGeneratorReturnType, getDeclaredGeneratorSendType, getEffectiveReturnType, getMetaclass,
-    getSpecializedTupleType, getTypeVarArgumentsRecursive, isEllipsisType, isNoReturnType,
-    isOptionalType, lookUpClassMember, lookUpObjectMember, partiallySpecializeType,
-    printLiteralValue, printObjectTypeForClass, printType, removeFalsinessFromType,
-    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, specializeType,
-    specializeTypeVarType, stripFirstParameter, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
+    areTypesSame, buildTypeVarMap, buildTypeVarMapFromSpecializedClass, CanAssignFlags, canBeFalsy,
+    canBeTruthy, ClassMember, ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
+    derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar, getDeclaredGeneratorReturnType,
+    getDeclaredGeneratorSendType, getMetaclass, getSpecializedTupleType, getTypeVarArgumentsRecursive,
+    isEllipsisType, isOptionalType, lookUpClassMember, lookUpObjectMember, partiallySpecializeType,
+    printLiteralValue, removeFalsinessFromType, removeTruthinessFromType,
+    requiresSpecialization, selfSpecializeClassType, specializeType, specializeTypeVarType,
+    stripFirstParameter, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -252,6 +250,9 @@ export interface TypeEvaluator {
         message: string, node: ParseNode) => Diagnostic | undefined;
     addDiagnosticForTextRange: (fileInfo: AnalyzerFileInfo, diagLevel: DiagnosticLevel,
         rule: string, message: string, range: TextRange) => Diagnostic | undefined;
+
+    printType: (type: Type) => string;
+    printFunctionParts: (type: FunctionType) => [string[], string];
 }
 
 interface TypeCacheEntry {
@@ -7636,6 +7637,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return type;
     }
 
+    function getEffectiveReturnType(type: FunctionType) {
+        const specializedReturnType = FunctionType.getSpecializedReturnType(type);
+        if (specializedReturnType) {
+            return specializedReturnType;
+        }
+
+        return type.details.inferredReturnType || UnknownType.create();
+    }
+
     function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefined {
         const functionTypeInfo = getTypeOfFunction(node)!;
         if (!functionTypeInfo) {
@@ -8782,6 +8792,157 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return stripFirstParameter(specializedFunction);
     }
 
+    function printObjectTypeForClass(type: ClassType, recursionCount = 0): string {
+        let objName = type.details.name;
+
+        // If there is a type arguments array, it's a specialized class.
+        if (type.typeArguments) {
+            if (type.typeArguments.length > 0) {
+                objName += '[' + type.typeArguments.map(typeArg => {
+                    return printType(typeArg, recursionCount + 1);
+                }).join(', ') + ']';
+            }
+        } else {
+            const typeParams = ClassType.getTypeParameters(type);
+
+            if (typeParams.length > 0) {
+                objName += '[' + typeParams.map(typeArg => {
+                    return printType(typeArg, recursionCount + 1);
+                }).join(', ') + ']';
+            }
+        }
+
+        return objName;
+    }
+
+    function printFunctionParts(type: FunctionType, recursionCount = 0): [string[], string] {
+        const paramTypeStrings = type.details.parameters.map((param, index) => {
+            let paramString = '';
+            if (param.category === ParameterCategory.VarArgList) {
+                paramString += '*';
+            } else if (param.category === ParameterCategory.VarArgDictionary) {
+                paramString += '**';
+            }
+
+            if (param.name) {
+                paramString += param.name;
+            }
+
+            if (param.category === ParameterCategory.Simple) {
+                const paramType = FunctionType.getEffectiveParameterType(type, index);
+                const paramTypeString = recursionCount < maxTypeRecursionCount ?
+                    printType(paramType, recursionCount + 1) : '';
+                paramString += ': ' + paramTypeString;
+            }
+            return paramString;
+        });
+
+        const returnType = getEffectiveReturnType(type);
+        const returnTypeString = recursionCount < maxTypeRecursionCount ?
+            printType(returnType, recursionCount + 1) : '';
+        return [paramTypeStrings, returnTypeString];
+    }
+
+    function printType(type: Type, recursionCount = 0): string {
+        switch (type.category) {
+            case TypeCategory.Unbound: {
+                return 'Unbound';
+            }
+
+            case TypeCategory.Unknown: {
+                return 'Unknown';
+            }
+
+            case TypeCategory.Module: {
+                return 'Module';
+            }
+
+            case TypeCategory.Class: {
+                return 'Type[' + printObjectTypeForClass(type,
+                    recursionCount + 1) + ']';
+            }
+
+            case TypeCategory.Object: {
+                const objType = type;
+                if (objType.literalValue !== undefined) {
+                    return printLiteralValue(objType);
+                }
+
+                return printObjectTypeForClass(objType.classType,
+                    recursionCount + 1);
+            }
+
+            case TypeCategory.Function: {
+                const parts = printFunctionParts(type, recursionCount);
+                return `(${ parts[0].join(', ') }) -> ${ parts[1] }`;
+            }
+
+            case TypeCategory.OverloadedFunction: {
+                const overloadedType = type;
+                const overloads = overloadedType.overloads.map(overload =>
+                    printType(overload, recursionCount + 1));
+                return `Overload[${ overloads.join(', ') }]`;
+            }
+
+            case TypeCategory.Property: {
+                const propertyType = type;
+                const returnType = getEffectiveReturnType(propertyType.getter);
+                const returnTypeString = recursionCount < maxTypeRecursionCount ?
+                    printType(returnType, recursionCount + 1) : '';
+                return returnTypeString;
+            }
+
+            case TypeCategory.Union: {
+                const unionType = type;
+                const subtypes = unionType.subtypes;
+
+                if (subtypes.find(t => t.category === TypeCategory.None) !== undefined) {
+                    const optionalType = recursionCount < maxTypeRecursionCount ?
+                        printType(removeNoneFromUnion(unionType), recursionCount + 1) : '';
+                    return 'Optional[' + optionalType + ']';
+                }
+
+                const unionTypeString = recursionCount < maxTypeRecursionCount ?
+                    subtypes.map(t => printType(t, recursionCount + 1)).join(', ') : '';
+
+                return 'Union[' + unionTypeString + ']';
+            }
+
+            case TypeCategory.TypeVar: {
+                const typeVarType = type;
+                const typeName = typeVarType.name;
+
+                // Print the name in a simplified form if it's embedded
+                // inside another type string.
+                if (recursionCount > 0) {
+                    return typeName;
+                }
+                const params: string[] = [`'${ typeName }'`];
+                if (recursionCount < maxTypeRecursionCount) {
+                    for (const constraint of typeVarType.constraints) {
+                        params.push(printType(constraint, recursionCount + 1));
+                    }
+                }
+                return 'TypeVar[' + params.join(', ') + ']';
+            }
+
+            case TypeCategory.None: {
+                return 'None';
+            }
+
+            case TypeCategory.Never: {
+                return 'Never';
+            }
+
+            case TypeCategory.Any: {
+                const anyType = type;
+                return anyType.isEllipsis ? '...' : 'Any';
+            }
+        }
+
+        return '';
+    }
+
     return {
         getType,
         getTypeOfExpression,
@@ -8809,6 +8970,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         addError,
         addWarning,
         addDiagnostic,
-        addDiagnosticForTextRange
+        addDiagnosticForTextRange,
+        printType,
+        printFunctionParts
     };
 }
