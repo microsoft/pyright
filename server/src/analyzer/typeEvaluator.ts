@@ -276,9 +276,10 @@ interface SymbolResolutionStackEntry {
 }
 
 interface TypeResolutionStackEntry {
-    // The reference expression being evaluated within the
-    // code flow engine.
-    reference: NameNode | MemberAccessNode;
+    // The name or member access expression being evaluated
+    // within the code flow engine or the function node being
+    // evaluated for its inferred return type.
+    reference: NameNode | MemberAccessNode | FunctionNode;
 
     // Initially true, it's set to false if a recursion is
     // detected.
@@ -369,7 +370,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return undefined;
     }
 
-    function pushTypeResolution(reference: NameNode | MemberAccessNode) {
+    function pushTypeResolution(reference: NameNode | MemberAccessNode | FunctionNode) {
         const index = typeResolutionStack.findIndex(entry => entry.reference === reference);
         if (index >= 0) {
             // Mark all of the entries between these two as invalid.
@@ -385,7 +386,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return true;
     }
 
-    function popTypeResolution(reference: NameNode | MemberAccessNode) {
+    function popTypeResolution(reference: NameNode | MemberAccessNode | FunctionNode) {
         const poppedNode = typeResolutionStack.pop()!;
         assert(poppedNode.reference === reference);
         return poppedNode.isResultValid;
@@ -5986,88 +5987,99 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return inferredReturnType;
         }
 
-        const functionDecl = AnalyzerNodeInfo.getDeclaration(node) as FunctionDeclaration;
+        if (pushTypeResolution(node)) {
+            const functionDecl = AnalyzerNodeInfo.getDeclaration(node) as FunctionDeclaration;
 
-        // Is it a generator?
-        if (functionDecl.yieldExpressions) {
-            const inferredYieldTypes: Type[] = [];
-            functionDecl.yieldExpressions.forEach(yieldNode => {
-                if (isNodeReachable(yieldNode)) {
-                    if (yieldNode.expression) {
-                        const cachedType = getType(yieldNode.expression);
-                        inferredYieldTypes.push(cachedType || UnknownType.create());
-                    } else {
-                        inferredYieldTypes.push(NoneType.create());
-                    }
-                }
-            });
-
-            if (inferredYieldTypes.length === 0) {
-                inferredYieldTypes.push(NoneType.create());
-            }
-            inferredReturnType = combineTypes(inferredYieldTypes);
-
-            // Inferred yield types need to be wrapped in a Generator to
-            // produce the final result.
-            const generatorType = getTypingType(node, 'Generator');
-            if (generatorType && generatorType.category === TypeCategory.Class) {
-                inferredReturnType = ObjectType.create(
-                    ClassType.cloneForSpecialization(generatorType, [inferredReturnType]));
-            } else {
-                inferredReturnType = UnknownType.create();
-            }
-        } else {
-            const functionNeverReturns = !isAfterNodeReachable(node);
-            const implicitlyReturnsNone = isAfterNodeReachable(node.suite);
-
-            // Infer the return type based on all of the return statements in the function's body.
-            if (getFileInfo(node).isStubFile) {
-                // If a return type annotation is missing in a stub file, assume
-                // it's an "unknown" type. In normal source files, we can infer the
-                // type from the implementation.
-                inferredReturnType = UnknownType.create();
-            } else if (functionNeverReturns) {
-                // If the function always raises and never returns, assume a "NoReturn" type.
-                // Skip this for abstract methods which often are implemented with "raise
-                // NotImplementedError()".
-                if (isAbstract) {
-                    inferredReturnType = UnknownType.create();
-                } else {
-                    const noReturnClass = getTypingType(node, 'NoReturn');
-                    if (noReturnClass && noReturnClass.category === TypeCategory.Class) {
-                        inferredReturnType = ObjectType.create(noReturnClass);
-                    } else {
-                        inferredReturnType = UnknownType.create();
-                    }
-                }
-            } else {
-                const inferredReturnTypes: Type[] = [];
-                if (functionDecl.returnExpressions) {
-                    functionDecl.returnExpressions.forEach(returnNode => {
-                        if (isNodeReachable(returnNode)) {
-                            if (returnNode.returnExpression) {
-                                const returnType = getType(returnNode.returnExpression);
-                                inferredReturnTypes.push(returnType || UnknownType.create());
-                            } else {
-                                inferredReturnTypes.push(NoneType.create());
-                            }
+            // Is it a generator?
+            if (functionDecl.yieldExpressions) {
+                const inferredYieldTypes: Type[] = [];
+                functionDecl.yieldExpressions.forEach(yieldNode => {
+                    if (isNodeReachable(yieldNode)) {
+                        if (yieldNode.expression) {
+                            const cachedType = getType(yieldNode.expression);
+                            inferredYieldTypes.push(cachedType || UnknownType.create());
+                        } else {
+                            inferredYieldTypes.push(NoneType.create());
                         }
-                    });
-                }
+                    }
+                });
 
-                if (!functionNeverReturns && implicitlyReturnsNone) {
-                    inferredReturnTypes.push(NoneType.create());
+                if (inferredYieldTypes.length === 0) {
+                    inferredYieldTypes.push(NoneType.create());
                 }
+                inferredReturnType = combineTypes(inferredYieldTypes);
 
-                inferredReturnType = combineTypes(inferredReturnTypes);
+                // Inferred yield types need to be wrapped in a Generator to
+                // produce the final result.
+                const generatorType = getTypingType(node, 'Generator');
+                if (generatorType && generatorType.category === TypeCategory.Class) {
+                    inferredReturnType = ObjectType.create(
+                        ClassType.cloneForSpecialization(generatorType, [inferredReturnType]));
+                } else {
+                    inferredReturnType = UnknownType.create();
+                }
+            } else {
+                const functionNeverReturns = !isAfterNodeReachable(node);
+                const implicitlyReturnsNone = isAfterNodeReachable(node.suite);
+
+                // Infer the return type based on all of the return statements in the function's body.
+                if (getFileInfo(node).isStubFile) {
+                    // If a return type annotation is missing in a stub file, assume
+                    // it's an "unknown" type. In normal source files, we can infer the
+                    // type from the implementation.
+                    inferredReturnType = UnknownType.create();
+                } else if (functionNeverReturns) {
+                    // If the function always raises and never returns, assume a "NoReturn" type.
+                    // Skip this for abstract methods which often are implemented with "raise
+                    // NotImplementedError()".
+                    if (isAbstract) {
+                        inferredReturnType = UnknownType.create();
+                    } else {
+                        const noReturnClass = getTypingType(node, 'NoReturn');
+                        if (noReturnClass && noReturnClass.category === TypeCategory.Class) {
+                            inferredReturnType = ObjectType.create(noReturnClass);
+                        } else {
+                            inferredReturnType = UnknownType.create();
+                        }
+                    }
+                } else {
+                    const inferredReturnTypes: Type[] = [];
+                    if (functionDecl.returnExpressions) {
+                        functionDecl.returnExpressions.forEach(returnNode => {
+                            if (isNodeReachable(returnNode)) {
+                                if (returnNode.returnExpression) {
+                                    const returnType = getType(returnNode.returnExpression);
+                                    inferredReturnTypes.push(returnType || UnknownType.create());
+                                } else {
+                                    inferredReturnTypes.push(NoneType.create());
+                                }
+                            }
+                        });
+                    }
+
+                    if (!functionNeverReturns && implicitlyReturnsNone) {
+                        inferredReturnTypes.push(NoneType.create());
+                    }
+
+                    inferredReturnType = combineTypes(inferredReturnTypes);
+                }
             }
+
+            // Remove any unbound values since those would generate an exception
+            // before being returned.
+            inferredReturnType = removeUnboundFromUnion(inferredReturnType);
+
+            if (!popTypeResolution(node)) {
+                addDiagnostic(
+                    getFileInfo(node).diagnosticSettings.reportUnknownParameterType,
+                    DiagnosticRule.reportUnknownParameterType,
+                    `Return type could not be inferred because of recursion`,
+                    node.name);
+                inferredReturnType = UnknownType.create();
+            }
+
+            writeTypeCache(node.suite, inferredReturnType);
         }
-
-        // Remove any unbound values since those would generate an exception
-        // before being returned.
-        inferredReturnType = removeUnboundFromUnion(inferredReturnType);
-
-        writeTypeCache(node.suite, inferredReturnType);
 
         return inferredReturnType;
     }
