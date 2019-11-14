@@ -289,6 +289,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     let isSpeculativeMode = false;
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const typeResolutionStack: TypeResolutionStackEntry[] = [];
+    const isReachableRecursionMap = new Map<number, true>();
     const typeCache = new Map<number, TypeCacheEntry>();
 
     function readTypeCache(node: ParseNode): Type | undefined {
@@ -4713,9 +4714,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // Sometimes variables contain an "unbound" type if they're
             // assigned only within conditional statements. Remove this
             // to avoid confusion.
+            const diagAddendum = new DiagnosticAddendum();
+            diagAddendum.addMessage(`Type of ${nameValue} is '${printType(simplifiedType)}'`);
             addDiagnostic(diagLevel, rule,
-                `Inferred type of '${nameValue}', '${printType(simplifiedType)}', ` +
-                `is partially unknown`, errorNode);
+                `Inferred type of '${nameValue} is partially unknown` + diagAddendum.getString(),
+                errorNode);
         }
     }
 
@@ -6520,7 +6523,35 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     // Determines whether a call never returns without fully evaluating its type.
     function isCallNoReturn(node: CallNode) {
-        // TODO - need to implement
+        const callType = getType(node.leftExpression);
+
+        // We assume here that no constructors or __call__ methods
+        // will be inferred "no return" types, so we can restrict
+        // our check to functions.
+        let functionType: FunctionType | undefined;
+        if (callType.category === TypeCategory.Function) {
+            functionType = callType;
+        } else if (callType.category === TypeCategory.OverloadedFunction) {
+            // Use the last overload, which should be the most general.
+            functionType = callType.overloads[callType.overloads.length - 1];
+        }
+
+        if (functionType) {
+            if (functionType.details.declaredReturnType) {
+                return isNoReturnType(functionType.details.declaredReturnType);
+            }
+
+            // If the inferred return type has already been lazily
+            // evaluated, use it.
+            if (functionType.inferredReturnType) {
+                return isNoReturnType(functionType.inferredReturnType);
+            }
+
+            if (functionType.details.declaration) {
+                return !isAfterNodeReachable(functionType.details.declaration.node);
+            }
+        }
+
         return false;
     }
 
@@ -6816,7 +6847,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        return isFlowNodeReachableRecursive(flowNode);
+        // Protect against infinite recursion.
+        if (isReachableRecursionMap.has(flowNode.id)) {
+            return true;
+        }
+        isReachableRecursionMap.set(flowNode.id, true);
+        const isReachable = isFlowNodeReachableRecursive(flowNode);
+        isReachableRecursionMap.delete(flowNode.id);
+
+        return isReachable;
     }
 
     // Given a reference expression and a flow node, returns a callback that
@@ -7602,7 +7641,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 let type = getInferredTypeOfDeclaration(decl);
 
                 if (!popSymbolResolution(symbol)) {
-                    console.log('Recursive symbol resolution');
+                    // We hit a recursion.
                 } else if (type) {
                     const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
 
@@ -7642,7 +7681,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const type = getTypeForDeclaration(lastDecl) || UnknownType.create();
 
         if (!popSymbolResolution(symbol)) {
-            console.log('Recursive symbol resolution');
             return UnknownType.create();
         }
 
