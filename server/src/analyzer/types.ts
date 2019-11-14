@@ -569,6 +569,7 @@ export namespace FunctionType {
             flags: type.details.flags,
             parameters: type.details.parameters.slice(startParam),
             declaredReturnType: type.details.declaredReturnType,
+            declaration: type.details.declaration,
             builtInName: type.details.builtInName,
             docString: type.details.docString
         };

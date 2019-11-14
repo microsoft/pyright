@@ -8540,14 +8540,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         // Match the return parameter.
-        const srcReturnType = getFunctionEffectiveReturnType(srcType);
         const destReturnType = getFunctionEffectiveReturnType(destType);
+        if (!isAnyOrUnknown(destReturnType)) {
+            const srcReturnType = getFunctionEffectiveReturnType(srcType);
 
-        if (!canAssignType(destReturnType, srcReturnType, diag.createAddendum(),
-            typeVarMap, CanAssignFlags.Default, recursionCount + 1)) {
-            diag.addMessage(`Function return type '${printType(srcReturnType)}' ` +
-                `is not compatible with type '${printType(destReturnType)}'.`);
-            canAssign = false;
+            if (!canAssignType(destReturnType, srcReturnType, diag.createAddendum(),
+                typeVarMap, CanAssignFlags.Default, recursionCount + 1)) {
+                diag.addMessage(`Function return type '${printType(srcReturnType)}' ` +
+                    `is not compatible with type '${printType(destReturnType)}'.`);
+                canAssign = false;
+            }
         }
 
         return canAssign;
