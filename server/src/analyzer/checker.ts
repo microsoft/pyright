@@ -1014,7 +1014,7 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         } else {
-            const inferredReturnType = functionType.inferredReturnType || UnknownType.create();
+            const inferredReturnType = this._evaluator.getFunctionInferredReturnType(functionType);
             if (inferredReturnType.category === TypeCategory.Unknown) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportUnknownParameterType,

@@ -56,10 +56,10 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     canBeTruthy, ClassMember, ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar, getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType, getMetaclass, getSpecializedTupleType, getTypeVarArgumentsRecursive,
-    isEllipsisType, isOptionalType, lookUpClassMember, lookUpObjectMember, partiallySpecializeType,
-    printLiteralValue, removeFalsinessFromType, removeTruthinessFromType,
-    requiresSpecialization, selfSpecializeClassType, specializeType, specializeTypeVarType,
-    stripFirstParameter, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
+    isEllipsisType, isNoReturnType, isOptionalType, lookUpClassMember, lookUpObjectMember,
+    partiallySpecializeType, printLiteralValue, removeFalsinessFromType,
+    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, specializeType,
+    specializeTypeVarType, stripFirstParameter, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -233,6 +233,7 @@ export interface TypeEvaluator {
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
+    getFunctionInferredReturnType: (type: FunctionType) => Type;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
     bindFunctionToClassOrObject: (baseType: ClassType | ObjectType | undefined,
@@ -958,14 +959,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             type: classType
         });
         addDefaultFunctionParameters(newType);
-        FunctionType.setDeclaredReturnType(newType, ObjectType.create(classType));
+        newType.details.declaredReturnType = ObjectType.create(classType);
 
         FunctionType.addParameter(initType, {
             category: ParameterCategory.Simple,
             name: 'self',
             type: ObjectType.create(classType)
         });
-        FunctionType.setDeclaredReturnType(initType, NoneType.create());
+        initType.details.declaredReturnType = NoneType.create();
 
         // Maintain a list of all dataclass parameters (including
         // those from inherited classes) plus a list of only those
@@ -1071,7 +1072,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             type: classType
         });
         addDefaultFunctionParameters(newType);
-        FunctionType.setDeclaredReturnType(newType, ObjectType.create(classType));
+        newType.details.declaredReturnType = ObjectType.create(classType);
 
         // Synthesize an __init__ method.
         const initType = FunctionType.create(
@@ -1081,7 +1082,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             name: 'self',
             type: ObjectType.create(classType)
         });
-        FunctionType.setDeclaredReturnType(initType, NoneType.create());
+        initType.details.declaredReturnType = NoneType.create();
 
         // All parameters must be named, so insert an empty "*".
         FunctionType.addParameter(initType, {
@@ -1743,7 +1744,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         if (memberType.category === TypeCategory.Function) {
             const methodType = bindFunctionToClassOrObject(objType, memberType) as FunctionType;
-            return getEffectiveReturnType(methodType);
+            return getFunctionEffectiveReturnType(methodType);
         }
 
         return undefined;
@@ -1770,7 +1771,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (memberType.category === TypeCategory.Function) {
             const methodType = bindFunctionToClassOrObject(
                 classType, memberType, true) as FunctionType;
-            return getEffectiveReturnType(methodType);
+            return getFunctionEffectiveReturnType(methodType);
         }
 
         return undefined;
@@ -1979,7 +1980,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         name: 'fn',
                         type: UnknownType.create()
                     });
-                    FunctionType.setDeclaredReturnType(decoratorType, baseType);
+                    decoratorType.details.declaredReturnType = baseType;
                     type = decoratorType;
                 } else {
                     diag.addMessage(`Unknown property member`);
@@ -2179,7 +2180,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         const getMemberType = getTypeOfMember(getMember);
                         if (getMemberType.category === TypeCategory.Function) {
                             if (usage.method === 'get') {
-                                type = getEffectiveReturnType(getMemberType);
+                                type = getFunctionEffectiveReturnType(getMemberType);
                             } else {
                                 // The type isn't important for set or delete usage.
                                 // We just need to return some defined type.
@@ -2250,7 +2251,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 if (getAttribType && getAttribType.category === TypeCategory.Function) {
                     return {
-                        type: getEffectiveReturnType(getAttribType),
+                        type: getFunctionEffectiveReturnType(getAttribType),
                         isClassMember: false
                     };
                 }
@@ -2259,7 +2260,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     '__getattr__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
                 if (getAttrType && getAttrType.category === TypeCategory.Function) {
                     return {
-                        type: getEffectiveReturnType(getAttrType),
+                        type: getFunctionEffectiveReturnType(getAttrType),
                         isClassMember: false
                     };
                 }
@@ -3449,7 +3450,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undefined;
         }
 
-        return specializeType(getEffectiveReturnType(type), typeVarMap);
+        return specializeType(getFunctionEffectiveReturnType(type), typeVarMap);
     }
 
     function validateArgType(argParam: ValidateArgTypeParams, typeVarMap: TypeVarMap,
@@ -3820,7 +3821,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const constructorType = FunctionType.create(
                 FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod |
                 FunctionTypeFlags.SynthesizedMethod);
-            FunctionType.setDeclaredReturnType(constructorType, ObjectType.create(classType));
+            constructorType.details.declaredReturnType = ObjectType.create(classType);
             FunctionType.addParameter(constructorType, {
                 category: ParameterCategory.Simple,
                 name: 'cls',
@@ -3975,27 +3976,27 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
             FunctionType.addParameter(initType, selfParameter);
             addDefaultFunctionParameters(initType);
-            FunctionType.setDeclaredReturnType(initType, NoneType.create());
+            initType.details.declaredReturnType = NoneType.create();
 
             classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
             classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
             const keysItemType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
-            FunctionType.setDeclaredReturnType(keysItemType, getBuiltInObject(errorNode, 'list',
-                [getBuiltInObject(errorNode, 'str')]));
+            keysItemType.details.declaredReturnType = getBuiltInObject(errorNode, 'list',
+                [getBuiltInObject(errorNode, 'str')]);
             classFields.set('keys', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
             classFields.set('items', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
 
             const lenType = FunctionType.create(
                 FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
-            FunctionType.setDeclaredReturnType(lenType, getBuiltInObject(errorNode, 'int'));
+            lenType.details.declaredReturnType = getBuiltInObject(errorNode, 'int');
             FunctionType.addParameter(lenType, selfParameter);
             classFields.set('__len__', Symbol.createWithType(SymbolFlags.ClassMember, lenType));
 
             if (addGenericGetAttribute) {
                 const getAttribType = FunctionType.create(
                     FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
-                FunctionType.setDeclaredReturnType(getAttribType, AnyType.create());
+                getAttribType.details.declaredReturnType = AnyType.create();
                 FunctionType.addParameter(getAttribType, selfParameter);
                 FunctionType.addParameter(getAttribType, {
                     category: ParameterCategory.Simple,
@@ -4794,7 +4795,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // present, should specify the return type.
     function createCallableType(typeArgs?: TypeResult[]): FunctionType {
         const functionType = FunctionType.create(FunctionTypeFlags.None);
-        FunctionType.setDeclaredReturnType(functionType, AnyType.create());
+        functionType.details.declaredReturnType = AnyType.create();
 
         if (typeArgs && typeArgs.length > 0) {
             if (typeArgs[0].typeList) {
@@ -4826,9 +4827,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             } else if (typeArgs[1].type.category === TypeCategory.Module) {
                 addError(`Module not allowed in this context`, typeArgs[1].node);
             }
-            FunctionType.setDeclaredReturnType(functionType, convertClassToObject(typeArgs[1].type));
+            functionType.details.declaredReturnType = convertClassToObject(typeArgs[1].type);
         } else {
-            FunctionType.setDeclaredReturnType(functionType, AnyType.create());
+            functionType.details.declaredReturnType = AnyType.create();
         }
 
         if (typeArgs && typeArgs.length > 2) {
@@ -5573,7 +5574,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // validated against this type.
         if (node.returnTypeAnnotation) {
             const returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
-            FunctionType.setDeclaredReturnType(functionType, returnType);
+            functionType.details.declaredReturnType = returnType;
         }
 
         // Mark the class as abstract if it contains at least one abstract method.
@@ -5688,14 +5689,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         });
 
-        // Infer the return type based on the body of the function.
-        if (!node.returnTypeAnnotation) {
-            functionType.inferredReturnType = inferFunctionReturnType(
-                node, FunctionType.isAbstractMethod(functionType));
-        }
-
         // If it's an async function, wrap the return type in an Awaitable or Generator.
-        const preDecoratedType = node.isAsync ? createAwaitableFunction(node, functionType) : functionType;
+        const preDecoratedType = node.isAsync ?
+            createAwaitableFunction(node, functionType) : functionType;
 
         // Apply all of the decorators in reverse order.
         decoratedType = preDecoratedType;
@@ -5924,12 +5920,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return type;
     }
 
-    function createAwaitableFunction(node: ParseNode, functionType: FunctionType): FunctionType {
-        const returnType = functionType.details.declaredReturnType || functionType.inferredReturnType;
-        if (!returnType) {
-            return functionType;
+    function createAwaitableFunction(node: FunctionNode, functionType: FunctionType): FunctionType {
+        // Clone the original function and replace its return type with an
+        // Awaitable[<returnType>].
+        const awaitableFunctionType = FunctionType.clone(functionType);
+
+        if (functionType.details.declaredReturnType) {
+            awaitableFunctionType.details.declaredReturnType = createAwaitableReturnType(
+                node, functionType.details.declaredReturnType);
         }
 
+        // Note that the inferred type, once lazily computed, needs to wrap the
+        // resulting type in an awaitable.
+        awaitableFunctionType.details.flags |= FunctionTypeFlags.WrapReturnTypeInAwait;
+
+        return awaitableFunctionType;
+    }
+
+    function createAwaitableReturnType(node: ParseNode, returnType: Type): Type {
         let awaitableReturnType: Type | undefined;
 
         if (returnType.category === TypeCategory.Object) {
@@ -5968,12 +5976,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        // Clone the original function and replace its return type with an
-        // Awaitable[<returnType>].
-        const awaitableFunctionType = FunctionType.clone(functionType);
-        FunctionType.setDeclaredReturnType(awaitableFunctionType, awaitableReturnType);
-
-        return awaitableFunctionType;
+        return awaitableReturnType;
     }
 
     function inferFunctionReturnType(node: FunctionNode, isAbstract: boolean): Type | undefined {
@@ -6211,7 +6214,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (memberType) {
                     let memberReturnType: Type;
                     if (memberType.category === TypeCategory.Function) {
-                        memberReturnType = getEffectiveReturnType(memberType);
+                        memberReturnType = getFunctionEffectiveReturnType(memberType);
                     } else {
                         memberReturnType = UnknownType.create();
                     }
@@ -7235,6 +7238,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function useSpeculativeMode(callback: () => void) {
         const prevSpeculativeMode = isSpeculativeMode;
         isSpeculativeMode = true;
+        callback();
+        isSpeculativeMode = prevSpeculativeMode;
+    }
+
+    function disableSpeculativeMode(callback: () => void) {
+        const prevSpeculativeMode = isSpeculativeMode;
+        isSpeculativeMode = false;
 
         callback();
 
@@ -7639,13 +7649,49 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return type;
     }
 
-    function getEffectiveReturnType(type: FunctionType) {
+    function getFunctionEffectiveReturnType(type: FunctionType) {
         const specializedReturnType = FunctionType.getSpecializedReturnType(type);
         if (specializedReturnType) {
             return specializedReturnType;
         }
 
-        return type.inferredReturnType || UnknownType.create();
+        return getFunctionInferredReturnType(type);
+    }
+
+    function getFunctionInferredReturnType(type: FunctionType) {
+        // If the return type has already been lazily evaluated,
+        // don't bother computing it again.
+        if (type.inferredReturnType) {
+            return type.inferredReturnType;
+        }
+
+        let returnType: Type | undefined;
+        if (type.details.declaration) {
+            const functionNode = type.details.declaration.node;
+
+            // We should never get here if there is a type annotation.
+            assert(!functionNode.returnTypeAnnotation);
+
+            // Temporarily disable speculative mode while we
+            // lazily evaluate the return type.
+            disableSpeculativeMode(() => {
+                returnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
+            });
+
+            // Do we need to wrap this in an awaitable?
+            if (returnType && FunctionType.isWrapReturnTypeInAwait(type) && !isNoReturnType(returnType)) {
+                returnType = createAwaitableReturnType(functionNode, returnType);
+            }
+        }
+
+        if (!returnType) {
+            returnType = UnknownType.create();
+        }
+
+        // Cache the type for next time.
+        type.inferredReturnType = returnType;
+
+        return returnType;
     }
 
     function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefined {
@@ -8239,7 +8285,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const constructorFunction = FunctionType.create(
                     FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod |
                     FunctionTypeFlags.SynthesizedMethod);
-                FunctionType.setDeclaredReturnType(constructorFunction, ObjectType.create(srcType));
+                constructorFunction.details.declaredReturnType = ObjectType.create(srcType);
 
                 const newMemberInfo = lookUpClassMember(srcType, '__new__', importLookup,
                     ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
@@ -8439,8 +8485,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         // Match the return parameter.
-        const srcReturnType = getEffectiveReturnType(srcType);
-        const destReturnType = getEffectiveReturnType(destType);
+        const srcReturnType = getFunctionEffectiveReturnType(srcType);
+        const destReturnType = getFunctionEffectiveReturnType(destType);
 
         if (!canAssignType(destReturnType, srcReturnType, diag.createAddendum(),
             typeVarMap, CanAssignFlags.Default, recursionCount + 1)) {
@@ -8519,8 +8565,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        const baseReturnType = getEffectiveReturnType(baseMethod);
-        const overrideReturnType = getEffectiveReturnType(overrideMethod);
+        const baseReturnType = getFunctionEffectiveReturnType(baseMethod);
+        const overrideReturnType = getFunctionEffectiveReturnType(overrideMethod);
         if (!canAssignType(baseReturnType, overrideReturnType, diag.createAddendum())) {
             diag.addMessage(`Return type mismatch: ` +
                 `base method returns type '${printType(baseReturnType)}, ` +
@@ -8839,7 +8885,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return paramString;
         });
 
-        const returnType = getEffectiveReturnType(type);
+        const returnType = getFunctionEffectiveReturnType(type);
         const returnTypeString = recursionCount < maxTypeRecursionCount ?
             printType(returnType, recursionCount + 1) : '';
         return [paramTypeStrings, returnTypeString];
@@ -8888,7 +8934,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             case TypeCategory.Property: {
                 const propertyType = type;
-                const returnType = getEffectiveReturnType(propertyType.getter);
+                const returnType = getFunctionEffectiveReturnType(propertyType.getter);
                 const returnTypeString = recursionCount < maxTypeRecursionCount ?
                     printType(returnType, recursionCount + 1) : '';
                 return returnTypeString;
@@ -8963,6 +9009,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         resolveAliasDeclaration,
         getEffectiveTypeOfSymbol,
         getFunctionDeclaredReturnType,
+        getFunctionInferredReturnType,
         getBuiltInType,
         getTypeOfMember,
         bindFunctionToClassOrObject,

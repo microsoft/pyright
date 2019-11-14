@@ -515,7 +515,8 @@ export const enum FunctionTypeFlags {
     DisableDefaultChecks    = 1 << 6,
     SynthesizedMethod       = 1 << 7,
     Overloaded              = 1 << 8,
-    Async                   = 1 << 9
+    Async                   = 1 << 9,
+    WrapReturnTypeInAwait   = 1 << 10
 }
 
 interface FunctionDetails {
@@ -646,6 +647,10 @@ export namespace FunctionType {
         return (type.details.flags & FunctionTypeFlags.Async) !== 0;
     }
 
+    export function isWrapReturnTypeInAwait(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.WrapReturnTypeInAwait) !== 0;
+    }
+
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {
         assert(index < type.details.parameters.length);
         if (type.specializedTypes) {
@@ -662,10 +667,6 @@ export namespace FunctionType {
     export function getSpecializedReturnType(type: FunctionType) {
         return type.specializedTypes && type.specializedTypes.returnType ?
             type.specializedTypes.returnType : type.details.declaredReturnType;
-    }
-
-    export function setDeclaredReturnType(type: FunctionType, returnType?: Type) {
-        type.details.declaredReturnType = returnType;
     }
 }
 
