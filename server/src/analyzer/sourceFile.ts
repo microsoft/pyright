@@ -708,9 +708,9 @@ export class SourceFile {
                 (typeof e.message === 'string' ? e.message : undefined) ||
                 JSON.stringify(e);
             this._console.log(
-                `An internal error occurred while while performing type analysis for ${ this.getFilePath() }: ` + message);
+                `An internal error occurred while while performing type checking for ${ this.getFilePath() }: ` + message);
             const diagSink = new DiagnosticSink();
-            diagSink.addError(`An internal error occurred while performing type analysis`,
+            diagSink.addError(`An internal error occurred while performing type checking`,
                 getEmptyRange());
 
             // Mark the file as complete so we don't get into an infinite loop.

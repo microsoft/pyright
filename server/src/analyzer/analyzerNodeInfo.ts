@@ -16,7 +16,7 @@ import { ClassNode, FunctionNode, LambdaNode, ListComprehensionNode, ModuleNode,
     ParseNode } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { FlowNode } from './codeFlow';
-import { FunctionDeclaration } from './declaration';
+import { Declaration } from './declaration';
 import { ImportResult } from './importResult';
 import { Scope } from './scope';
 import { Type } from './types';
@@ -36,8 +36,8 @@ interface AnalyzerNodeInfo {
     // to store symbol names and their associated types and declarations.
     scope?: Scope;
 
-    // Declaration (for functions only).
-    declaration?: FunctionDeclaration;
+    // Declaration (for functions and classes only).
+    declaration?: Declaration;
 
     // Control flow information for this node.
     flowNode?: FlowNode;
@@ -83,12 +83,12 @@ export function setScope(node: ParseNode, scope: Scope) {
     analyzerNode.scope = scope;
 }
 
-export function getFunctionDeclaration(node: FunctionNode): FunctionDeclaration | undefined {
+export function getDeclaration(node: ParseNode): Declaration | undefined {
     const analyzerNode = node as AnalyzerNodeInfo;
     return analyzerNode.declaration;
 }
 
-export function setFunctionDeclaration(node: ParseNode, decl: FunctionDeclaration) {
+export function setDeclaration(node: ParseNode, decl: Declaration) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.declaration = decl;
 }

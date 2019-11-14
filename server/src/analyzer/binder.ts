@@ -39,8 +39,8 @@ import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags, FlowLabel,
     FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport, getUniqueFlowNodeId } from './codeFlow';
-import { AliasDeclaration, DeclarationType, FunctionDeclaration, IntrinsicType,
-    ModuleLoaderActions, VariableDeclaration } from './declaration';
+import { AliasDeclaration, ClassDeclaration, DeclarationType, FunctionDeclaration,
+    IntrinsicType, ModuleLoaderActions, VariableDeclaration } from './declaration';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -249,16 +249,21 @@ export class Binder extends ParseTreeWalker {
     visitClass(node: ClassNode): boolean {
         this.walkMultiple(node.decorators);
 
+        const classDeclaration: ClassDeclaration = {
+            type: DeclarationType.Class,
+            node,
+            path: this._fileInfo.filePath,
+            range: convertOffsetsToRange(node.name.start,
+                TextRange.getEnd(node.name), this._fileInfo.lines)
+        };
+
         const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
         if (symbol) {
-            symbol.addDeclaration({
-                type: DeclarationType.Class,
-                node,
-                path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(node.name.start,
-                    TextRange.getEnd(node.name), this._fileInfo.lines)
-            });
+            symbol.addDeclaration(classDeclaration);
         }
+
+         // Stash the declaration in the parse node for later access.
+        AnalyzerNodeInfo.setDeclaration(node, classDeclaration);
 
         this.walkMultiple(node.arguments);
 
@@ -306,7 +311,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         // Stash the declaration in the parse node for later access.
-        AnalyzerNodeInfo.setFunctionDeclaration(node, functionDeclaration);
+        AnalyzerNodeInfo.setDeclaration(node, functionDeclaration);
 
         this.walkMultiple(node.decorators);
         node.parameters.forEach(param => {
