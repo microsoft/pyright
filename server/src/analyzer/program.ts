@@ -410,17 +410,6 @@ export class Program {
         this._evaluator = createTypeEvaluator(this._lookUpImport);
     }
 
-    // This method is similar to analyze() except that it analyzes
-    // a single file (and its dependencies if necessary).
-    private _analyzeFile(sourceFileInfo: SourceFileInfo, maxTime?: MaxAnalysisTime) {
-        const elapsedTime = new Duration();
-
-        this._checkTypes(sourceFileInfo, () => {
-            return maxTime !== undefined &&
-                elapsedTime.getDurationInMilliseconds() > maxTime.openFilesTimeInMs;
-        });
-    }
-
     private _parseFile(fileToParse: SourceFileInfo) {
         if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) {
             return;
@@ -766,12 +755,7 @@ export class Program {
             return undefined;
         }
 
-        if (sourceFileInfo.sourceFile.isCheckingRequired()) {
-            this._analyzeFile(sourceFileInfo, {
-                openFilesTimeInMs: _maxAnalysisTimeForCompletions,
-                noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
-            });
-        }
+        this._bindFile(sourceFileInfo);
 
         const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
             position, includeDeclaration, this._evaluator);
@@ -784,12 +768,7 @@ export class Program {
         if (referencesResult.requiresGlobalSearch) {
             for (const curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
-                    if (curSourceFileInfo.sourceFile.isCheckingRequired()) {
-                        this._analyzeFile(curSourceFileInfo, {
-                            openFilesTimeInMs: _maxAnalysisTimeForCompletions,
-                            noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
-                        });
-                    }
+                    this._bindFile(curSourceFileInfo);
 
                     curSourceFileInfo.sourceFile.addReferences(referencesResult,
                         includeDeclaration, this._evaluator);
@@ -840,12 +819,7 @@ export class Program {
             return undefined;
         }
 
-        if (sourceFileInfo.sourceFile.isCheckingRequired()) {
-            this._analyzeFile(sourceFileInfo, {
-                openFilesTimeInMs: _maxAnalysisTimeForCompletions,
-                noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
-            });
-        }
+        this._bindFile(sourceFileInfo);
 
         return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
             position, this._lookUpImport, this._evaluator);
@@ -859,15 +833,7 @@ export class Program {
             return undefined;
         }
 
-        if (sourceFileInfo.sourceFile.isCheckingRequired()) {
-            this._analyzeFile(sourceFileInfo, {
-                openFilesTimeInMs: _maxAnalysisTimeForCompletions,
-                noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
-            });
-
-            // If we ran out of time before completing the type
-            // analysis, do our best.
-        }
+        this._bindFile(sourceFileInfo);
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
             position, workspacePath, this._configOptions,
@@ -894,12 +860,7 @@ export class Program {
             return undefined;
         }
 
-        if (sourceFileInfo.sourceFile.isCheckingRequired()) {
-            this._analyzeFile(sourceFileInfo, {
-                openFilesTimeInMs: _maxAnalysisTimeForCompletions,
-                noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
-            });
-        }
+        this._bindFile(sourceFileInfo);
 
         return sourceFileInfo.sourceFile.performQuickAction(
             command, args);
@@ -924,12 +885,7 @@ export class Program {
         if (referencesResult.requiresGlobalSearch) {
             for (const curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
-                    if (curSourceFileInfo.sourceFile.isCheckingRequired()) {
-                        this._analyzeFile(curSourceFileInfo, {
-                            openFilesTimeInMs: _maxAnalysisTimeForCompletions,
-                            noOpenFilesTimeInMs: _maxAnalysisTimeForCompletions
-                        });
-                    }
+                    this._bindFile(curSourceFileInfo);
 
                     curSourceFileInfo.sourceFile.addReferences(referencesResult,
                         true, this._evaluator);
