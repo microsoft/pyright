@@ -122,7 +122,7 @@ export interface TokenizerOutput {
     // Line-end sequence ('/n', '/r', or '/r/n').
     predominantEndOfLineSequence: string;
 
-    // Tab sequence ('/t or consecutaive spaces).
+    // Tab sequence ('/t or consecutive spaces).
     predominantTabSequence: string;
 }
 

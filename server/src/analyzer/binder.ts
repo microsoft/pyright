@@ -45,11 +45,9 @@ import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
-import * as ScopeUtils from './scopeUtils';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { AnyType, FunctionParameter, FunctionType, FunctionTypeFlags, UnknownType } from './types';
 
 export const enum NameBindingType {
     // With "nonlocal" keyword

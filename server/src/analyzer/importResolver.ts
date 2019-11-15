@@ -31,12 +31,12 @@ export interface ModuleNameAndType {
     importType: ImportType;
 }
 
-type CachedImportResults = { [importName: string]: ImportResult };
+type CachedImportResults = Map<string, ImportResult>;
 
 export class ImportResolver {
     private _configOptions: ConfigOptions;
-    private _cachedPythonSearchPaths: { [venv: string]: string[] } = {};
-    private _cachedImportResults: { [execEnvRoot: string]: CachedImportResults } = {};
+    private _cachedPythonSearchPaths = new Map<string, string[]>();
+    private _cachedImportResults = new Map<string, CachedImportResults>();
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedThirdPartyPath: string | undefined;
 
@@ -45,8 +45,8 @@ export class ImportResolver {
     }
 
     invalidateCache() {
-        this._cachedPythonSearchPaths = {};
-        this._cachedImportResults = {};
+        this._cachedPythonSearchPaths = new Map<string, string[]>();
+        this._cachedImportResults = new Map<string, CachedImportResults>();
     }
 
     // Resolves the import and returns the path if it exists, otherwise
@@ -317,12 +317,12 @@ export class ImportResolver {
     private _lookUpResultsInCache(execEnv: ExecutionEnvironment, importName: string,
             importedSymbols: string[] | undefined) {
 
-        const cacheForExecEnv = this._cachedImportResults[execEnv.root];
+        const cacheForExecEnv = this._cachedImportResults.get(execEnv.root);
         if (!cacheForExecEnv) {
             return undefined;
         }
 
-        const cachedEntry = cacheForExecEnv[importName];
+        const cachedEntry = cacheForExecEnv.get(importName);
         if (!cachedEntry) {
             return undefined;
         }
@@ -333,13 +333,13 @@ export class ImportResolver {
     private _addResultsToCache(execEnv: ExecutionEnvironment, importName: string,
             importResult: ImportResult, importedSymbols: string[] | undefined) {
 
-        let cacheForExecEnv = this._cachedImportResults[execEnv.root];
+        let cacheForExecEnv = this._cachedImportResults.get(execEnv.root);
         if (!cacheForExecEnv) {
-            cacheForExecEnv = {};
-            this._cachedImportResults[execEnv.root] = cacheForExecEnv;
+            cacheForExecEnv = new Map<string, ImportResult>();
+            this._cachedImportResults.set(execEnv.root, cacheForExecEnv);
         }
 
-        cacheForExecEnv[importName] = importResult;
+        cacheForExecEnv.set(importName, importResult);
 
         return this._filterImplicitImports(importResult, importedSymbols);
     }
@@ -382,12 +382,12 @@ export class ImportResolver {
         const cacheKey = execEnv.venv ? execEnv.venv : '<default>';
 
         // Find the site packages for the configured virtual environment.
-        if (this._cachedPythonSearchPaths[cacheKey] === undefined) {
-            this._cachedPythonSearchPaths[cacheKey] = PythonPathUtils.findPythonSearchPaths(
-                this._configOptions, execEnv.venv, importFailureInfo) || [];
+        if (!this._cachedPythonSearchPaths.has(cacheKey)) {
+            this._cachedPythonSearchPaths.set(cacheKey, PythonPathUtils.findPythonSearchPaths(
+                this._configOptions, execEnv.venv, importFailureInfo) || []);
         }
 
-        return this._cachedPythonSearchPaths[cacheKey];
+        return this._cachedPythonSearchPaths.get(cacheKey)!;
     }
 
     private _findTypeshedPath(execEnv: ExecutionEnvironment, moduleDescriptor: ImportedModuleDescriptor,
@@ -781,7 +781,7 @@ export class ImportResolver {
     }
 
     private _findImplicitImports(dirPath: string, exclusions: string[]): ImplicitImport[] {
-        const implicitImportMap: { [name: string]: ImplicitImport } = {};
+        const implicitImportMap = new Map<string, ImplicitImport>();
 
         // Enumerate all of the files and directories in the path.
         const entries = getFileSystemEntries(dirPath);
@@ -800,9 +800,9 @@ export class ImportResolver {
                     };
 
                     // Always prefer stub files over non-stub files.
-                    if (!implicitImportMap[implicitImport.name] ||
-                            !implicitImportMap[implicitImport.name].isStubFile) {
-                        implicitImportMap[implicitImport.name] = implicitImport;
+                    const entry = implicitImportMap.get(implicitImport.name);
+                    if (!entry || !entry.isStubFile) {
+                        implicitImportMap.set(implicitImport.name, implicitImport);
                     }
                 }
             }
@@ -830,12 +830,12 @@ export class ImportResolver {
                         path
                     };
 
-                    implicitImportMap[implicitImport.name] = implicitImport;
+                    implicitImportMap.set(implicitImport.name, implicitImport);
                 }
             }
         }
 
-        return Object.keys(implicitImportMap).map(key => implicitImportMap[key]);
+        return [...implicitImportMap.values()];
     }
 
     private _formatImportName(moduleDescriptor: ImportedModuleDescriptor) {

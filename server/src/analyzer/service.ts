@@ -531,18 +531,18 @@ export class AnalyzerService {
 
     private _getFileNamesFromFileSpecs(): string[] {
         // Use a map to generate a list of unique files.
-        const fileMap: { [key: string]: string } = {};
+        const fileMap = new Map<string, string>();
 
         timingStats.findFilesTime.timeOperation(() => {
             const matchedFiles = this._matchFiles(this._configOptions.include,
                 this._configOptions.exclude);
 
             for (const file of matchedFiles) {
-                fileMap[file] = file;
+                fileMap.set(file,  file);
             }
         });
 
-        return Object.keys(fileMap);
+        return [...fileMap.values()];
     }
 
     // If markFilesDirtyUnconditionally is true, we need to reparse

@@ -3878,7 +3878,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         });
                     } else if (entriesArg.valueExpression && entriesArg.valueExpression.nodeType === ParseNodeType.List) {
                         const entryList = entriesArg.valueExpression;
-                        const entryMap: { [name: string]: string } = {};
+                        const entryMap = new Map<string, string>();
 
                         entryList.entries.forEach((entry, index) => {
                             let entryTypeNode: ExpressionNode | undefined;
@@ -3919,13 +3919,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                 entryName = `_${index.toString()}`;
                             }
 
-                            if (entryMap[entryName]) {
+                            if (entryMap.has(entryName)) {
                                 addError(
                                     'Names within a named tuple must be unique', entryNameNode || entry);
                             }
 
                             // Record names in a map to detect duplicates.
-                            entryMap[entryName] = entryName;
+                            entryMap.set(entryName, entryName);
 
                             if (!entryType) {
                                 entryType = UnknownType.create();

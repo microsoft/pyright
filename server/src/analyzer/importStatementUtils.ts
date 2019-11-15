@@ -30,7 +30,7 @@ export interface ImportStatement {
 
 export interface ImportStatements {
     orderedImports: ImportStatement[];
-    mapByFilePath: { [filePath: string ]: ImportStatement };
+    mapByFilePath: Map<string, ImportStatement>;
 }
 
 // Looks for top-level 'import' and 'import from' statements and provides
@@ -38,7 +38,7 @@ export interface ImportStatements {
 export function getTopLevelImports(parseTree: ModuleNode): ImportStatements {
     const localImports: ImportStatements = {
         orderedImports: [],
-        mapByFilePath: {}
+        mapByFilePath: new Map<string, ImportStatement>()
     };
 
     let followsNonImportStatement = false;
@@ -259,8 +259,8 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements,
             // Don't overwrite existing import or import from statements
             // because we always want to prefer 'import from' over 'import'
             // in the map.
-            if (!localImports.mapByFilePath[resolvedPath]) {
-                localImports.mapByFilePath[resolvedPath] = localImport;
+            if (!localImports.mapByFilePath.has(resolvedPath)) {
+                localImports.mapByFilePath.set(resolvedPath, localImport);
             }
         }
     });
@@ -288,14 +288,14 @@ function _processImportFromNode(node: ImportFromNode, localImports: ImportStatem
 
     // Add it to the map.
     if (resolvedPath) {
-        const prevEntry = localImports.mapByFilePath[resolvedPath];
+        const prevEntry = localImports.mapByFilePath.get(resolvedPath);
         // Overwrite existing import statements because we always want to prefer
         // 'import from' over 'import'. Also, overwrite existing 'import from' if
         // the module name is shorter.
         if (!prevEntry || prevEntry.node.nodeType === ParseNodeType.Import ||
                 prevEntry.moduleName.length > localImport.moduleName.length) {
 
-            localImports.mapByFilePath[resolvedPath] = localImport;
+            localImports.mapByFilePath.set(resolvedPath, localImport);
         }
     }
 }

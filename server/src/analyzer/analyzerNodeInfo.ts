@@ -10,8 +10,6 @@
 * (e.g. hover information).
 */
 
-import * as assert from 'assert';
-
 import { ClassNode, FunctionNode, LambdaNode, ListComprehensionNode, ModuleNode,
     ParseNode } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
@@ -19,7 +17,6 @@ import { FlowNode } from './codeFlow';
 import { Declaration } from './declaration';
 import { ImportResult } from './importResult';
 import { Scope } from './scope';
-import { Type } from './types';
 
 interface AnalyzerNodeInfo {
     //---------------------------------------------------------------

@@ -14,7 +14,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
     getFileSystemEntries, isDirectory, normalizePath } from '../common/pathUtils';
 
-const cachedSearchPaths: { [path: string]: string[] } = {};
+const cachedSearchPaths = new Map<string, string[]>();
 
 export function getTypeShedFallbackPath() {
     // The entry point to the tool should have set the __rootDirectory
@@ -105,8 +105,9 @@ export function getPythonPathFromPythonInterpreter(interpreterPath: string | und
     const searchKey = interpreterPath || '';
 
     // If we've seen this request before, return the cached results.
-    if (cachedSearchPaths[searchKey]) {
-        return cachedSearchPaths[searchKey];
+    const cachedPath = cachedSearchPaths.get(searchKey);
+    if (cachedPath) {
+        return cachedPath;
     }
 
     let pythonPaths: string[] = [];
@@ -153,7 +154,7 @@ export function getPythonPathFromPythonInterpreter(interpreterPath: string | und
         pythonPaths = [];
     }
 
-    cachedSearchPaths[searchKey] = pythonPaths;
+    cachedSearchPaths.set(searchKey, pythonPaths);
     importFailureInfo.push(`Received ${ pythonPaths.length } paths from interpreter`);
     pythonPaths.forEach(path => {
         importFailureInfo.push(`  ${ path }`);

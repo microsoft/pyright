@@ -135,7 +135,7 @@ const similarityLimit = 0.25;
 // We'll remember this many completions in the MRU list.
 const maxRecentCompletions = 128;
 
-export type ModuleSymbolMap = { [file: string]: SymbolTable };
+export type ModuleSymbolMap = Map<string, SymbolTable>;
 
 export class CompletionProvider {
     private static _mostRecentCompletions: RecentCompletionInfo[] = [];
@@ -453,14 +453,12 @@ export class CompletionProvider {
         const importStatements = ImportStatementUtils.getTopLevelImports(
             this._parseResults.parseTree);
 
-        Object.keys(moduleSymbolMap).forEach(filePath => {
+        moduleSymbolMap.forEach((symbolTable, filePath) => {
             const fileName = stripFileExtension(getFileName(filePath));
 
             // Don't offer imports from files that are named with private
             // naming semantics like "_ast.py".
             if (!SymbolNameUtils.isPrivateOrProtectedName(fileName)) {
-                const symbolTable = moduleSymbolMap[filePath];
-
                 symbolTable.forEach((symbol, name) => {
                     // For very short matching strings, we will require an exact match. Otherwise
                     // we will tend to return a list that's too long. Once we get beyond two
@@ -481,7 +479,7 @@ export class CompletionProvider {
                                 // Don't include imported symbols, only those that
                                 // are declared within this file.
                                 if (declarations[0].path === filePath) {
-                                    const localImport = importStatements.mapByFilePath[filePath];
+                                    const localImport = importStatements.mapByFilePath.get(filePath);
                                     let importSource: string;
                                     let moduleNameAndType: ModuleNameAndType | undefined;
 
@@ -511,7 +509,7 @@ export class CompletionProvider {
 
                 // If the current file is in a directory that also contains an "__init__.py[i]"
                 // file, we can use that directory name as an implicit import target.
-                if (moduleSymbolMap[initPathPy] || moduleSymbolMap[initPathPyi]) {
+                if (moduleSymbolMap.has(initPathPy) || moduleSymbolMap.has(initPathPyi)) {
                     const name = getFileName(fileDir);
                     const moduleNameAndType = this._getModuleNameAndTypeFromFilePath(
                         getDirectoryPath(fileDir));
@@ -561,7 +559,7 @@ export class CompletionProvider {
             moduleName: string, importType: ImportType): TextEditAction[] {
 
         // Does an 'import from' statement already exist? If so, we'll reuse it.
-        const importStatement = importStatements.mapByFilePath[filePath];
+        const importStatement = importStatements.mapByFilePath.get(filePath);
         if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
             return ImportStatementUtils.getTextEditsForAutoImportSymbolAddition(
                 symbolName, importStatement, this._parseResults);

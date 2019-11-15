@@ -30,6 +30,7 @@ import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { Scope } from './scope';
 import { SourceFile } from './sourceFile';
+import { SymbolTable } from './symbol';
 import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
 
@@ -76,7 +77,7 @@ interface UpdateImportInfo {
 export class Program {
     private _console: ConsoleInterface;
     private _sourceFileList: SourceFileInfo[] = [];
-    private _sourceFileMap: { [path: string]: SourceFileInfo } = {};
+    private _sourceFileMap = new Map<string, SourceFileInfo>();
     private _allowedThirdPartyImports: string[] | undefined;
     private _evaluator: TypeEvaluator;
     private _configOptions: ConfigOptions;
@@ -103,16 +104,16 @@ export class Program {
     setTrackedFiles(filePaths: string[]): FileDiagnostics[] {
         if (this._sourceFileList.length > 0) {
             // We need to determine which files to remove from the existing file list.
-            const newFileMap: { [path: string]: string } = {};
+            const newFileMap = new Map<string, string>();
             filePaths.forEach(path => {
-                newFileMap[path] = path;
+                newFileMap.set(path, path);
             });
 
             // Files that are not in the tracked file list are
             // marked as no longer tracked.
             this._sourceFileList.forEach(oldFile => {
                 const filePath = oldFile.sourceFile.getFilePath();
-                if (newFileMap[filePath] === undefined) {
+                if (!newFileMap.has(filePath)) {
                     oldFile.isTracked = false;
                 }
             });
@@ -161,7 +162,7 @@ export class Program {
     }
 
     addTrackedFile(filePath: string): SourceFile {
-        let sourceFileInfo = this._sourceFileMap[filePath];
+        let sourceFileInfo = this._sourceFileMap.get(filePath);
         if (sourceFileInfo) {
             sourceFileInfo.isTracked = true;
             return sourceFileInfo.sourceFile;
@@ -183,7 +184,7 @@ export class Program {
     }
 
     setFileOpened(filePath: string, version: number | null, contents: string) {
-        let sourceFileInfo = this._sourceFileMap[filePath];
+        let sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             const sourceFile = new SourceFile(filePath, false, false, this._console);
             sourceFileInfo = {
@@ -205,7 +206,7 @@ export class Program {
     }
 
     setFileClosed(filePath: string): FileDiagnostics[] {
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
             sourceFileInfo.sourceFile.setClientVersion(null, '');
@@ -237,7 +238,7 @@ export class Program {
     markFilesDirty(filePaths: string[]) {
         const markDirtyMap = new Map<string, boolean>();
         filePaths.forEach(filePath => {
-            const sourceFileInfo = this._sourceFileMap[filePath];
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
             if (sourceFileInfo) {
                 sourceFileInfo.sourceFile.markDirty();
 
@@ -253,7 +254,7 @@ export class Program {
     }
 
     getSourceFile(filePath: string): SourceFile | undefined {
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -468,7 +469,7 @@ export class Program {
     }
 
     private _lookUpImport = (filePath: string): ImportLookupResult | undefined => {
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -491,13 +492,13 @@ export class Program {
     // Build a map of all modules within this program and the module-
     // level scope that contains the symbol table for the module.
     private _buildModuleSymbolsMap(sourceFileToExclude?: SourceFileInfo): ModuleSymbolMap {
-        const moduleSymbolMap: ModuleSymbolMap = {};
+        const moduleSymbolMap = new Map<string, SymbolTable>();
 
         this._sourceFileList.forEach(fileInfo => {
             if (fileInfo !== sourceFileToExclude) {
                 const symbolTable = fileInfo.sourceFile.getModuleSymbolTable();
                 if (symbolTable) {
-                    moduleSymbolMap[fileInfo.sourceFile.getFilePath()] = symbolTable;
+                    moduleSymbolMap.set(fileInfo.sourceFile.getFilePath(), symbolTable);
                 }
             }
         });
@@ -631,7 +632,7 @@ export class Program {
 
     private _detectAndReportImportCycles(sourceFileInfo: SourceFileInfo,
             dependencyChain: SourceFileInfo[] = [],
-            dependencyMap: { [path: string]: boolean } = {}): void {
+            dependencyMap = new Map<string, boolean>()): void {
 
         // Don't bother checking for typestub files.
         if (sourceFileInfo.sourceFile.isStubFile()) {
@@ -645,7 +646,7 @@ export class Program {
         }
 
         const filePath = sourceFileInfo.sourceFile.getFilePath();
-        if (dependencyMap[filePath]) {
+        if (dependencyMap.has(filePath)) {
             // Look for chains at least two in length. A file that contains
             // an "import . from X" will technically create a cycle with
             // itself, but those are not interesting to report.
@@ -655,7 +656,7 @@ export class Program {
         } else {
             // If we've already checked this dependency along
             // some other path, we can skip it.
-            if (dependencyMap[filePath] !== undefined) {
+            if (dependencyMap.has(filePath)) {
                 return;
             }
 
@@ -663,7 +664,7 @@ export class Program {
             // (for ordering information). Set the dependency map
             // entry to true to indicate that we're actively exploring
             // that dependency.
-            dependencyMap[filePath] = true;
+            dependencyMap.set(filePath, true);
             dependencyChain.push(sourceFileInfo);
 
             for (const imp of sourceFileInfo.imports) {
@@ -672,7 +673,7 @@ export class Program {
 
             // Set the dependencyMap entry to false to indicate that we have
             // already explored this file and don't need to explore it again.
-            dependencyMap[filePath] = false;
+            dependencyMap.set(filePath, false);
             dependencyChain.pop();
         }
     }
@@ -685,7 +686,7 @@ export class Program {
 
         circDep.normalizeOrder();
         const firstFilePath = circDep.getPaths()[0];
-        const firstSourceFile = this._sourceFileMap[firstFilePath];
+        const firstSourceFile = this._sourceFileMap.get(firstFilePath)!;
         assert(firstSourceFile !== undefined);
         firstSourceFile.sourceFile.addCircularDependency(circDep);
     }
@@ -760,7 +761,7 @@ export class Program {
     getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
             includeDeclaration: boolean): DocumentTextRange[] | undefined {
 
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -800,7 +801,7 @@ export class Program {
     }
 
     addSymbolsForDocument(filePath: string, symbolList: SymbolInformation[]) {
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (sourceFileInfo) {
             sourceFileInfo.sourceFile.addSymbolsForDocument(
                 symbolList, this._evaluator);
@@ -823,7 +824,7 @@ export class Program {
     getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
             HoverResults | undefined {
 
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -834,7 +835,7 @@ export class Program {
     getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition):
             SignatureHelpResults | undefined {
 
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -853,7 +854,7 @@ export class Program {
     getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
             workspacePath: string): CompletionList | undefined {
 
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -875,7 +876,7 @@ export class Program {
     }
 
     resolveCompletionItem(filePath: string, completionItem: CompletionItem) {
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return;
         }
@@ -888,7 +889,7 @@ export class Program {
     performQuickAction(filePath: string, command: string,
             args: any[]): TextEditAction[] | undefined {
 
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -907,7 +908,7 @@ export class Program {
     renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
             newName: string): FileEditAction[] | undefined {
 
-        const sourceFileInfo = this._sourceFileMap[filePath];
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
@@ -966,7 +967,7 @@ export class Program {
                 });
 
                 fileInfo.sourceFile.prepareForClose();
-                delete this._sourceFileMap[fileInfo.sourceFile.getFilePath()];
+                this._sourceFileMap.delete(fileInfo.sourceFile.getFilePath());
                 this._sourceFileList.splice(i, 1);
 
                 // Unlink any imports and remove them from the list if
@@ -988,7 +989,7 @@ export class Program {
                             });
 
                             importedFile.sourceFile.prepareForClose();
-                            delete this._sourceFileMap[importedFile.sourceFile.getFilePath()];
+                            this._sourceFileMap.delete(importedFile.sourceFile.getFilePath());
                             this._sourceFileList.splice(indexToRemove, 1);
                             i--;
                         }
@@ -1028,10 +1029,10 @@ export class Program {
         // by a tracked file but then abandoned. The import cycle
         // will keep the entire group "alive" if we don't detect
         // the condition and garbage collect them.
-        return this._isImportNeededRecursive(fileInfo, {});
+        return this._isImportNeededRecursive(fileInfo, new Map<string, boolean>());
     }
 
-    private _isImportNeededRecursive(fileInfo: SourceFileInfo, recursionMap: { [path: string ]: boolean }) {
+    private _isImportNeededRecursive(fileInfo: SourceFileInfo, recursionMap: Map<string, boolean>) {
         if (fileInfo.isTracked || fileInfo.isOpenByClient) {
             return true;
         }
@@ -1039,11 +1040,11 @@ export class Program {
         const filePath = fileInfo.sourceFile.getFilePath();
 
         // Avoid infinite recursion.
-        if (recursionMap[filePath]) {
+        if (recursionMap.has(filePath)) {
             return false;
         }
 
-        recursionMap[filePath] = true;
+        recursionMap.set(filePath, true);
 
         for (const importerInfo of fileInfo.importedBy) {
             if (this._isImportNeededRecursive(importerInfo, recursionMap)) {
@@ -1165,8 +1166,8 @@ export class Program {
                 // We found a new import to add. See if it's already part
                 // of the program.
                 let importedFileInfo: SourceFileInfo;
-                if (this._sourceFileMap[importPath] !== undefined) {
-                    importedFileInfo = this._sourceFileMap[importPath];
+                if (this._sourceFileMap.has(importPath)) {
+                    importedFileInfo = this._sourceFileMap.get(importPath)!;
                 } else {
                     const sourceFile = new SourceFile(
                         importPath, importInfo.isTypeshedFile,
@@ -1195,8 +1196,8 @@ export class Program {
         // specified by the source file.
         sourceFileInfo.imports = [];
         newImportPathMap.forEach((_, path) => {
-            if (this._sourceFileMap[path]) {
-                sourceFileInfo.imports.push(this._sourceFileMap[path]);
+            if (this._sourceFileMap.has(path)) {
+                sourceFileInfo.imports.push(this._sourceFileMap.get(path)!);
             }
         });
 
@@ -1207,7 +1208,7 @@ export class Program {
         if (builtinsImport) {
             const resolvedBuiltinsPath = builtinsImport.resolvedPaths[
                 builtinsImport.resolvedPaths.length - 1];
-            sourceFileInfo.builtinsImport = this._sourceFileMap[resolvedBuiltinsPath];
+            sourceFileInfo.builtinsImport = this._sourceFileMap.get(resolvedBuiltinsPath);
         }
 
         return filesAdded;
@@ -1217,9 +1218,9 @@ export class Program {
         const filePath = fileInfo.sourceFile.getFilePath();
 
         // We should never add a file with the same path twice.
-        assert(this._sourceFileMap[filePath] === undefined);
+        assert(!this._sourceFileMap.has(filePath));
 
         this._sourceFileList.push(fileInfo);
-        this._sourceFileMap[filePath] = fileInfo;
+        this._sourceFileMap.set(filePath, fileInfo);
     }
 }
