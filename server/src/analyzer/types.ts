@@ -516,7 +516,8 @@ export const enum FunctionTypeFlags {
     SynthesizedMethod       = 1 << 7,
     Overloaded              = 1 << 8,
     Async                   = 1 << 9,
-    WrapReturnTypeInAwait   = 1 << 10
+    WrapReturnTypeInAwait   = 1 << 10,
+    StubDefinition          = 1 << 11
 }
 
 interface FunctionDetails {
@@ -650,6 +651,10 @@ export namespace FunctionType {
 
     export function isWrapReturnTypeInAwait(type: FunctionType) {
         return (type.details.flags & FunctionTypeFlags.WrapReturnTypeInAwait) !== 0;
+    }
+
+    export function isStubDefinition(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.StubDefinition) !== 0;
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {

@@ -4650,6 +4650,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function getTypeFromLambda(node: LambdaNode, expectedType?: Type): TypeResult {
         const functionType = FunctionType.create(FunctionTypeFlags.None);
 
+        // Pre-cache the newly-created function type.
+        writeTypeCache(node, functionType);
+
         let expectedFunctionType: FunctionType | undefined;
         if (expectedType) {
             if (expectedType.category === TypeCategory.Function) {
@@ -4669,7 +4672,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (param.name) {
-                assignTypeToExpression(param.name, paramType);
+                writeTypeCache(param.name, paramType);
             }
 
             const functionParam: FunctionParameter = {
@@ -5552,6 +5555,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             functionFlags |= FunctionTypeFlags.Generator;
         }
 
+        if (fileInfo.isStubFile) {
+            functionFlags |= FunctionTypeFlags.StubDefinition;
+        }
+
         if (node.isAsync) {
             functionFlags |= FunctionTypeFlags.Async;
         }
@@ -6347,20 +6354,23 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         let lastContextualExpression = node;
         let curNode: ParseNode | undefined = node;
 
-        function isContextualExpression(node: ExpressionNode) {
+        function isContextual(node: ParseNode) {
             return node.nodeType === ParseNodeType.Call ||
                 node.nodeType === ParseNodeType.Dictionary ||
                 node.nodeType === ParseNodeType.List ||
                 node.nodeType === ParseNodeType.Lambda ||
                 node.nodeType === ParseNodeType.Set ||
                 node.nodeType === ParseNodeType.Tuple ||
-                node.nodeType === ParseNodeType.Unpack;
+                node.nodeType === ParseNodeType.Unpack ||
+                node.nodeType === ParseNodeType.DictionaryKeyEntry ||
+                node.nodeType === ParseNodeType.DictionaryExpandEntry ||
+                node.nodeType === ParseNodeType.ListComprehension;
         }
 
         // Scan up the parse tree until we find a non-expression, looking for
         // contextual expressions in the process.
-        while (curNode && isExpressionNode(curNode)) {
-            if (isContextualExpression(curNode as ExpressionNode)) {
+        while (curNode && (isExpressionNode(curNode) || isContextual(curNode))) {
+            if (isContextual(curNode)) {
                 lastContextualExpression = curNode as ExpressionNode;
             }
 
@@ -6573,8 +6583,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 callIsNoReturn = isNoReturnType(functionType.inferredReturnType);
             } else if (functionType.details.declaration) {
                 // If the function has yield expressions, it's a generator, and
-                // we'll assume the yield statements are reachable.
-                if (!functionType.details.declaration.yieldExpressions) {
+                // we'll assume the yield statements are reachable. Also, don't
+                // infer a "no return" type for abstract methods.
+                if (!functionType.details.declaration.yieldExpressions &&
+                        !FunctionType.isAbstractMethod(functionType) &&
+                        !FunctionType.isStubDefinition(functionType)) {
+
                     callIsNoReturn = !isAfterNodeReachable(functionType.details.declaration.node);
                 }
             }
