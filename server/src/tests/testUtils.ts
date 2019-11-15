@@ -19,7 +19,6 @@ import { TestWalker } from '../analyzer/testWalker';
 import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import StringMap from '../common/stringMap';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
@@ -77,7 +76,7 @@ export function buildAnalyzerFileInfo(filePath: string, parseResults: ParseResul
 
     const fileInfo: AnalyzerFileInfo = {
         importLookup: _ => undefined,
-        futureImports: new StringMap<boolean>(),
+        futureImports: new Map<string, boolean>(),
         builtinsScope: undefined,
         diagnosticSink: analysisDiagnostics,
         executionEnvironment: configOptions.findExecEnvironment(filePath),

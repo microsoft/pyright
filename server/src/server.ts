@@ -18,7 +18,6 @@ import { CommandLineOptions } from './common/commandLineOptions';
 import { AddMissingOptionalToParamAction, CreateTypeStubFileAction, Diagnostic as AnalyzerDiagnostic,
     DiagnosticCategory, DiagnosticTextPosition, DiagnosticTextRange } from './common/diagnostic';
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
-import StringMap from './common/stringMap';
 import { commandAddMissingOptionalToParam, commandCreateTypeStub,
     commandOrderImports } from './languageService/commands';
 import { CompletionItemData } from './languageService/completionProvider';
@@ -61,7 +60,7 @@ let _rootPath = '';
 // Tracks whether we're currently displaying progress.
 let _isDisplayingProgress = false;
 
-const _workspaceMap = new StringMap<WorkspaceServiceInstance>();
+const _workspaceMap = new Map<string, WorkspaceServiceInstance>();
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events.
@@ -242,7 +241,7 @@ function _getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
         let defaultWorkspace = _workspaceMap.get(_defaultWorkspacePath);
         if (!defaultWorkspace) {
             // If there is only one workspace, use that one.
-            const workspaceNames = _workspaceMap.getKeys();
+            const workspaceNames = [..._workspaceMap.keys()];
             if (workspaceNames.length === 1) {
                 return _workspaceMap.get(workspaceNames[0])!;
             }

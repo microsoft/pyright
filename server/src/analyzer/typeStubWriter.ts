@@ -10,7 +10,6 @@
 
 import * as fs from 'fs';
 
-import StringMap from '../common/stringMap';
 import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentNode,
     ClassNode, DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode,
     ImportFromNode, ImportNode, ModuleNameNode, NameNode, ParameterCategory, ParameterNode,
@@ -69,7 +68,7 @@ class TrackedImportFrom extends TrackedImport {
 
 class ImportSymbolWalker extends ParseTreeWalker {
     constructor(
-            private _accessedImportedSymbols: StringMap<boolean>,
+            private _accessedImportedSymbols: Map<string, boolean>,
             private _treatStringsAsSymbols: boolean) {
 
         super();
@@ -106,7 +105,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _emitDocString = true;
     private _trackedImportAs = new Map<string, TrackedImportAs>();
     private _trackedImportFrom = new Map<string, TrackedImportFrom>();
-    private _accessedImportedSymbols: StringMap<boolean> = new StringMap<boolean>();
+    private _accessedImportedSymbols = new Map<string, boolean>();
 
     constructor(private _typingsPath: string, private _sourceFile: SourceFile,
             private _evaluator: TypeEvaluator) {

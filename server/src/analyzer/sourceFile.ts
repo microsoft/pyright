@@ -19,7 +19,6 @@ import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
-import StringMap from '../common/stringMap';
 import * as StringUtils from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -477,7 +476,7 @@ export class SourceFile {
             this._parseResults = {
                 parseTree: ModuleNode.create({ start: 0, length: 0 }),
                 importedModules: [],
-                futureImports: new StringMap<boolean>(),
+                futureImports: new Map<string, boolean>(),
                 tokenizerOutput: {
                     tokens: new TextRangeCollection<Token>([]),
                     lines: new TextRangeCollection<TextRange>([]),

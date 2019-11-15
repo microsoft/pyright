@@ -10,7 +10,6 @@
 
 import { DiagnosticSettings, ExecutionEnvironment } from '../common/configOptions';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Scope } from './scope';
@@ -26,7 +25,7 @@ export interface ImportLookupResult {
 
 export interface AnalyzerFileInfo {
     importLookup: ImportLookup;
-    futureImports: StringMap<boolean>;
+    futureImports: Map<string, boolean>;
     builtinsScope?: Scope;
     typingModulePath?: string;
     collectionsModulePath?: string;

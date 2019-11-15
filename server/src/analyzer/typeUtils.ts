@@ -265,7 +265,7 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
     }
 
     // Shortcut if there are no type variables defined.
-    if (typeVarMap && !makeConcrete && typeVarMap.getKeys().length === 0) {
+    if (typeVarMap && !makeConcrete && typeVarMap.size === 0) {
         return type;
     }
 
@@ -588,7 +588,7 @@ export function buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeV
 }
 
 export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] | undefined): TypeVarMap {
-    const typeArgMap = new TypeVarMap();
+    const typeArgMap = new Map<string, Type>();
     typeParameters.forEach((typeParam, index) => {
         const typeVarName = typeParam.name;
         let typeArgType: Type;
@@ -630,8 +630,8 @@ export function specializeTypeVarType(type: TypeVarType): Type {
 }
 
 export function cloneTypeVarMap(typeVarMap: TypeVarMap): TypeVarMap {
-    const newTypeVarMap = new TypeVarMap();
-    newTypeVarMap.getKeys().forEach(key => {
+    const newTypeVarMap = new Map<string, Type>();
+    newTypeVarMap.forEach((_, key) => {
         newTypeVarMap.set(key, typeVarMap.get(key)!);
     });
     return newTypeVarMap;

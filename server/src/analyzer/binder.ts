@@ -23,7 +23,6 @@ import { CreateTypeStubFileAction, getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
-import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssertNode, AssignmentExpressionNode, AssignmentNode,
     AugmentedAssignmentNode, AwaitNode, BinaryOperationNode, BreakNode,
@@ -66,7 +65,7 @@ interface MemberAccessInfo {
 
 interface DeferredBindingTask {
     scope: Scope;
-    nonLocalBindingsMap: StringMap<NameBindingType>;
+    nonLocalBindingsMap: Map<string, NameBindingType>;
     callback: () => void;
 }
 
@@ -84,7 +83,7 @@ export class Binder extends ParseTreeWalker {
     private _currentScope: Scope;
 
     // Name bindings that are not local to the current scope.
-    private _notLocalBindings = new StringMap<NameBindingType>();
+    private _notLocalBindings = new Map<string, NameBindingType>();
 
     // Number of nested except statements at current point of analysis.
     // Used to determine if a naked "raise" statement is allowed.
@@ -1775,7 +1774,7 @@ export class Binder extends ParseTreeWalker {
         this._currentScope = new Scope(scopeType, parentScope);
 
         const prevNonLocalBindings = this._notLocalBindings;
-        this._notLocalBindings = new StringMap<NameBindingType>();
+        this._notLocalBindings = new Map<string, NameBindingType>();
 
         callback();
 

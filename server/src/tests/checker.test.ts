@@ -13,7 +13,6 @@ import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { ScopeType } from '../analyzer/scope';
 import { ConfigOptions } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
-import StringMap from '../common/stringMap';
 import * as TestUtils from './testUtils';
 
 test('Builtins1', () => {
@@ -78,12 +77,12 @@ test('Builtins1', () => {
 
     // Make sure the builtins scope doesn't contain symbols that
     // shouldn't be present.
-    const symbolMap = new StringMap<string>();
+    const symbolMap = new Map<string, string>();
     for (const symbolName of expectedBuiltinsSymbols) {
         symbolMap.set(symbolName, symbolName);
     }
 
-    for (const builtinName of builtinsSymbolTable.getKeys()) {
+    for (const builtinName of builtinsSymbolTable.keys()) {
         const symbolInfo = moduleScope.lookUpSymbolRecursive(builtinName);
         if (symbolInfo && symbolInfo.isBeyondExecutionScope) {
             if (symbolMap.get(builtinName) === undefined) {

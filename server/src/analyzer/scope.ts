@@ -64,7 +64,7 @@ export class Scope {
     private _parent?: Scope;
 
     // Association between names and symbols.
-    private _symbolTable: SymbolTable = new SymbolTable();
+    private _symbolTable: SymbolTable = new Map<string, Symbol>();
 
     // Names not in _exportFilterMap will be hidden from child scopes.
     private _exportFilterMap: Map<string, true> | undefined;

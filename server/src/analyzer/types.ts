@@ -9,7 +9,6 @@
 
 import * as assert from 'assert';
 
-import StringMap from '../common/stringMap';
 import { ParameterCategory } from '../parser/parseNodes';
 import { FunctionDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
@@ -72,7 +71,7 @@ export const maxTypeRecursionCount = 16;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
-export class TypeVarMap extends StringMap<Type> {}
+export type TypeVarMap = Map<string, Type>;
 
 interface TypeBase {
     category: TypeCategory;
@@ -123,8 +122,8 @@ export namespace ModuleType {
     export function create(symbolTable?: SymbolTable) {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
-            fields: symbolTable || new SymbolTable(),
-            loaderFields: new SymbolTable()
+            fields: symbolTable || new Map<string, Symbol>(),
+            loaderFields: new Map<string, Symbol>()
         };
         return newModuleType;
     }
@@ -215,7 +214,7 @@ export namespace ClassType {
                 flags,
                 typeSourceId,
                 baseClasses: [],
-                fields: new SymbolTable(),
+                fields: new Map<string, Symbol>(),
                 typeParameters: [],
                 docString
             },
@@ -399,7 +398,7 @@ export namespace ClassType {
         // using synthesized (undeclared) symbols. Make sure that they contain the
         // same number of symbols and types.
         if (class1Details.fields !== class2Details.fields) {
-            if (class1Details.fields.getKeys().length !== class2Details.fields.getKeys().length) {
+            if (class1Details.fields.size !== class2Details.fields.size) {
                 return false;
             }
 
@@ -1052,7 +1051,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
 
             // If both symbol tables are empty, we can also assume
             // they're equal.
-            if (type1.fields.isEmpty() && type2Module.fields.isEmpty()) {
+            if (type1.fields.size === 0 && type2Module.fields.size === 0) {
                 return true;
             }
 

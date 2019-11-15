@@ -9,7 +9,6 @@
 * in the program.
 */
 
-import StringMap from '../common/stringMap';
 import { Declaration } from './declaration';
 import { areDeclarationsSame, hasTypeForDeclaration } from './declarationUtils';
 import { Type } from './types';
@@ -187,4 +186,4 @@ export class Symbol {
 }
 
 // Maps names to symbol information.
-export class SymbolTable extends StringMap<Symbol> {}
+export type SymbolTable = Map<string, Symbol>;

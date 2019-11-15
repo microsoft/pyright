@@ -22,7 +22,6 @@ import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum,
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
-import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperationNode,
     CallNode, ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExceptNode, ExpressionNode,
@@ -1092,7 +1091,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             type: AnyType.create()
         });
 
-        const entries = new StringMap<TypedDictEntry>();
+        const entries = new Map<string, TypedDictEntry>();
         getTypedDictMembersForClassRecursive(classType, entries);
         entries.forEach((entry, name) => {
             FunctionType.addParameter(initType, {
@@ -2123,7 +2122,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             type: ObjectType.create(classType)
                         };
                         let propertyReturnType = validateCallArguments(
-                            errorNode, [selfArg], type.getter, new TypeVarMap(), true);
+                            errorNode, [selfArg], type.getter, new Map<string, Type>(), true);
                         if (!propertyReturnType) {
                             propertyReturnType = UnknownType.create();
                         }
@@ -2140,7 +2139,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             const argList: FunctionArgument[] = [];
                             argList.push({ argumentCategory: ArgumentCategory.Simple, type: usage.setType! });
                             validateFunctionArguments(usage.setErrorNode || errorNode,
-                                argList, setterFunctionType, new TypeVarMap());
+                                argList, setterFunctionType, new Map<string, Type>());
 
                             // The return type isn't important here.
                             return makeClassMember(NoneType.create());
@@ -2399,7 +2398,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 return UnknownType.create();
             }
 
-            const entries = new StringMap<TypedDictEntry>();
+            const entries = new Map<string, TypedDictEntry>();
             getTypedDictMembersForClassRecursive(baseType.classType, entries);
 
             const indexType = getTypeOfExpression(node.items.items[0]).type;
@@ -2522,7 +2521,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         const returnType = validateCallArguments(node, argList,
-            itemMethodType, new TypeVarMap());
+            itemMethodType, new Map<string, Type>());
 
         return returnType || UnknownType.create();
     }
@@ -2806,11 +2805,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 } else if (ClassType.isAbstractClass(callType)) {
                     // If the class is abstract, it can't be instantiated.
-                    const symbolTable = new StringMap<ClassMember>();
+                    const symbolTable = new Map<string, ClassMember>();
                     getAbstractMethodsRecursive(callType, symbolTable);
 
                     const diagAddendum = new DiagnosticAddendum();
-                    const symbolTableKeys = symbolTable.getKeys();
+                    const symbolTableKeys = [...symbolTable.keys()];
                     const errorsToDisplay = 2;
 
                     symbolTableKeys.forEach((symbolName, index) => {
@@ -2851,7 +2850,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     type = createNamedTupleType(errorNode, argList, false);
                 } else if (callType.details.builtInName === 'NewType') {
                     type = validateCallArguments(errorNode, argList, callType,
-                        new TypeVarMap(), specializeReturnType);
+                        new Map<string, Type>(), specializeReturnType);
 
                     // If the call's arguments were validated, replace the
                     // type with a new synthesized subclass.
@@ -2860,7 +2859,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 } else {
                     type = validateCallArguments(errorNode, argList, callType,
-                        new TypeVarMap(), specializeReturnType);
+                        new Map<string, Type>(), specializeReturnType);
 
                     if (callType.details.builtInName === '__import__') {
                         // For the special __import__ type, we'll override the return type to be "Any".
@@ -2897,7 +2896,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
 
                     type = validateCallArguments(errorNode, argList, callType,
-                        new TypeVarMap(), specializeReturnType);
+                        new Map<string, Type>(), specializeReturnType);
                     if (!type) {
                         type = UnknownType.create();
                     }
@@ -2928,7 +2927,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const memberType = getTypeFromObjectMember(errorNode,
                         callType, '__call__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
                     if (memberType) {
-                        type = validateCallArguments(errorNode, argList, memberType, new TypeVarMap());
+                        type = validateCallArguments(errorNode, argList, memberType, new Map<string, Type>());
                         if (!type) {
                             type = UnknownType.create();
                         }
@@ -3002,7 +3001,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Temporarily disable diagnostic output.
         useSpeculativeMode(() => {
             for (const overload of callType.overloads) {
-                if (validateCallArguments(errorNode, argList, overload, new TypeVarMap())) {
+                if (validateCallArguments(errorNode, argList, overload, new Map<string, Type>())) {
                     validOverload = overload;
                     break;
                 }
@@ -3032,13 +3031,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             ObjectType.create(type), '__init__', { method: 'get' },
             MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
         if (initMethodType) {
-            const typeVarMap = new TypeVarMap();
+            const typeVarMap = new Map<string, Type>();
             if (validateCallArguments(errorNode, argList, initMethodType, typeVarMap)) {
                 let specializedClassType = type;
                 if (expectedType) {
                     applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
                 }
-                if (!typeVarMap.isEmpty()) {
+                if (typeVarMap.size > 0) {
                     specializedClassType = specializeType(type, typeVarMap) as ClassType;
                 }
                 returnType = ObjectType.create(specializedClassType);
@@ -3058,14 +3057,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (constructorMethodInfo) {
                 const constructorMethodType = bindFunctionToClassOrObject(
                     type, constructorMethodInfo.type, true);
-                const typeVarMap = new TypeVarMap();
+                const typeVarMap = new Map<string, Type>();
                 validateCallArguments(errorNode, argList, constructorMethodType, typeVarMap);
                 if (!returnType) {
                     let specializedClassType = type;
                     if (expectedType) {
                         applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
                     }
-                    if (!typeVarMap.isEmpty()) {
+                    if (typeVarMap.size > 0) {
                         specializedClassType = specializeType(type, typeVarMap) as ClassType;
                     }
                     returnType = ObjectType.create(specializedClassType);
@@ -3081,11 +3080,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // There was no __new__ or __init__, so fall back on the
             // object.__new__ which takes no parameters.
             let specializedClassType = type;
-            const typeVarMap = new TypeVarMap();
+            const typeVarMap = new Map<string, Type>();
             if (expectedType) {
                 applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
             }
-            if (!typeVarMap.isEmpty()) {
+            if (typeVarMap.size > 0) {
                 specializedClassType = specializeType(type, typeVarMap) as ClassType;
             }
             returnType = ObjectType.create(specializedClassType);
@@ -3196,7 +3195,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         let reportedArgError = false;
 
         // Build a map of parameters by name.
-        const paramMap = new StringMap<ParamAssignmentInfo>();
+        const paramMap = new Map<string, ParamAssignmentInfo>();
         typeParams.forEach(param => {
             if (param.name) {
                 paramMap.set(param.name, {
@@ -3395,7 +3394,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (!foundUnpackedDictionaryArg && !foundUnpackedListArg &&
                 !FunctionType.isDefaultParameterCheckDisabled(type)) {
 
-                const unassignedParams = paramMap.getKeys().filter(name => {
+                const unassignedParams = [...paramMap.keys()].filter(name => {
                     const entry = paramMap.get(name)!;
                     return entry.argsReceived < entry.argsNeeded;
                 });
@@ -3497,7 +3496,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         for (let i = 1; i < argList.length; i++) {
             const paramNameNode = argList[i].name;
             const paramName = paramNameNode ? paramNameNode.nameToken.value : undefined;
-            const paramNameMap = new StringMap<string>();
+            const paramNameMap = new Map<string, string>();
 
             if (paramName) {
                 if (paramNameMap.get(paramName)) {
@@ -3730,7 +3729,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 addError('Expected dict as second parameter', errorNode);
             } else {
                 const entryDict = entriesArg.valueExpression;
-                const entryMap = new StringMap<boolean>();
+                const entryMap = new Map<string, boolean>();
 
                 entryDict.entries.forEach(entry => {
                     if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
@@ -4389,7 +4388,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 useSpeculativeMode(() => {
                     returnType = validateCallArguments(errorNode,
-                        functionArgs, magicMethodType, new TypeVarMap());
+                        functionArgs, magicMethodType, new Map<string, Type>());
                 });
 
                 if (!returnType) {
@@ -4438,7 +4437,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function specializeExpectedType(expectedType: Type, srcType: Type) {
         // The expected type might be generic, so we need to specialize it.
-        const typeVarMap = new TypeVarMap();
+        const typeVarMap = new Map<string, Type>();
         const diag = new DiagnosticAddendum();
         canAssignType(expectedType, srcType, diag, typeVarMap);
         return specializeType(expectedType, typeVarMap);
@@ -7924,10 +7923,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // checking, as defined in PEP 589.
         if (ClassType.isTypedDictClass(destType) && ClassType.isTypedDictClass(srcType)) {
             let typesAreConsistent = true;
-            const destEntries = new StringMap<TypedDictEntry>();
+            const destEntries = new Map<string, TypedDictEntry>();
             getTypedDictMembersForClassRecursive(destType, destEntries);
 
-            const srcEntries = new StringMap<TypedDictEntry>();
+            const srcEntries = new Map<string, TypedDictEntry>();
             getTypedDictMembersForClassRecursive(srcType, srcEntries);
 
             destEntries.forEach((destEntry, name) => {
@@ -8567,7 +8566,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (checkNamedParams) {
             // Handle matching of named (keyword) parameters.
             // Build a dictionary of named parameters in the dest.
-            const destParamMap = new StringMap<FunctionParameter>();
+            const destParamMap = new Map<string, FunctionParameter>();
             let destHasNamedParam = false;
             destParams.forEach(param => {
                 if (destHasNamedParam) {
@@ -8608,7 +8607,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             });
 
             // See if there are any unmatched named parameters.
-            destParamMap.getKeys().forEach(paramName => {
+            destParamMap.forEach((_, paramName) => {
                 const paramDiag = diag.createAddendum();
                 paramDiag.addMessage(`Named parameter '${paramName}' is missing in source`);
                 canAssign = false;
@@ -8794,14 +8793,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function doesClassHaveAbstractMethods(classType: ClassType): boolean {
-        const abstractMethods = new StringMap<ClassMember>();
+        const abstractMethods = new Map<string, ClassMember>();
         getAbstractMethodsRecursive(classType, abstractMethods);
 
-        return abstractMethods.getKeys().length > 0;
+        return abstractMethods.size > 0;
     }
 
     function getAbstractMethodsRecursive(classType: ClassType,
-        symbolTable: StringMap<ClassMember>, recursiveCount = 0) {
+        symbolTable: Map<string, ClassMember>, recursiveCount = 0) {
 
         // Protect against infinite recursion.
         if (recursiveCount > maxTypeRecursionCount) {
@@ -8819,9 +8818,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Remove any entries that are overridden in this class with
         // non-abstract methods.
-        if (symbolTable.getKeys().length > 0 || ClassType.isAbstractClass(classType)) {
+        if (symbolTable.size > 0 || ClassType.isAbstractClass(classType)) {
             const memberFields = classType.details.fields;
-            for (const symbolName of memberFields.getKeys()) {
+            for (const symbolName of memberFields.keys()) {
                 const symbol = memberFields.get(symbolName)!;
 
                 if (symbol.isClassMember()) {
@@ -8854,7 +8853,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         let isMatch = true;
 
-        const symbolMap = new StringMap<TypedDictEntry>();
+        const symbolMap = new Map<string, TypedDictEntry>();
         getTypedDictMembersForClassRecursive(classType, symbolMap);
         const diag = new DiagnosticAddendum();
 
@@ -8896,7 +8895,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getTypedDictMembersForClassRecursive(classType: ClassType,
-        keyMap: StringMap<TypedDictEntry>, recursionCount = 0) {
+        keyMap: Map<string, TypedDictEntry>, recursionCount = 0) {
 
         assert(ClassType.isTypedDictClass(classType));
         if (recursionCount > maxTypeRecursionCount) {
@@ -8980,7 +8979,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // existing type arg mappings. If it hasn't, use a fresh type arg map.
         const typeVarMap = classType.typeArguments ?
             buildTypeVarMapFromSpecializedClass(classType) :
-            new TypeVarMap();
+            new Map<string, Type>();
 
         if (memberType.details.parameters.length > 0) {
             const firstParam = memberType.details.parameters[0];

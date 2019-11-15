@@ -18,7 +18,6 @@ import { Diagnostic } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
 import { latestStablePythonVersion, PythonVersion } from '../common/pythonVersion';
-import StringMap from '../common/stringMap';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
@@ -61,7 +60,7 @@ export class ParseOptions {
 export interface ParseResults {
     parseTree: ModuleNode;
     importedModules: ModuleImport[];
-    futureImports: StringMap<boolean>;
+    futureImports: Map<string, boolean>;
     tokenizerOutput: TokenizerOutput;
     containsWildcardImport: boolean;
 }
@@ -92,7 +91,7 @@ export class Parser {
     private _isInLoop = false;
     private _isInFinally = false;
     private _isParsingTypeAnnotation = false;
-    private _futureImportMap = new StringMap<boolean>();
+    private _futureImportMap = new Map<string, boolean>();
     private _importedModules: ModuleImport[] = [];
     private _containsWildcardImport = false;
 
@@ -636,7 +635,7 @@ export class Parser {
     // tfpdef: NAME [':' test]
     // vfpdef: NAME;
     private _parseVarArgsList(terminator: TokenType, allowAnnotations: boolean): ParameterNode[] {
-        const paramMap = new StringMap<string>();
+        const paramMap = new Map<string, string>();
         const paramList: ParameterNode[] = [];
         let sawDefaultParam = false;
         let reportedNonDefaultParamErr = false;

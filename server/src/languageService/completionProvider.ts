@@ -392,7 +392,7 @@ export class CompletionProvider {
             priorWord: string): CompletionList | undefined {
 
         const leftType = this._evaluator.getType(leftExprNode);
-        const symbolTable = new SymbolTable();
+        const symbolTable = new Map<string, Symbol>();
 
         if (leftType) {
             doForSubtypes(leftType, subtype => {
