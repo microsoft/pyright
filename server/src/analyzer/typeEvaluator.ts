@@ -3817,7 +3817,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod |
                 FunctionTypeFlags.SynthesizedMethod);
             constructorType.details.declaredReturnType = ObjectType.create(classType);
-            if (includesTypes && isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
+            if (isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
                 constructorType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
             }
             FunctionType.addParameter(constructorType, {
