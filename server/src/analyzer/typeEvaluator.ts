@@ -5267,8 +5267,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function getTypeOfClass(node: ClassNode): ClassTypeResult | undefined {
         // Is this type already cached?
-        let classType = readTypeCache(node) as ClassType;
-        let decoratedType = readTypeCache(node.name);
+        let classType = readTypeCache(node.name) as ClassType;
+        let decoratedType = readTypeCache(node);
 
         if (classType && decoratedType) {
             return { classType, decoratedType };
@@ -5469,10 +5469,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         // Update the undecorated class type.
-        writeTypeCache(node, classType);
+        writeTypeCache(node.name, classType);
 
         // Update the decorated class type.
-        writeTypeCache(node.name, decoratedType);
+        writeTypeCache(node, decoratedType);
 
         return { classType, decoratedType };
     }
@@ -5519,8 +5519,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const fileInfo = getFileInfo(node);
 
         // Is this type already cached?
-        let functionType = readTypeCache(node) as FunctionType;
-        let decoratedType = readTypeCache(node.name);
+        let functionType = readTypeCache(node.name) as FunctionType;
+        let decoratedType = readTypeCache(node);
 
         if (functionType && decoratedType) {
             return { functionType, decoratedType };
@@ -5718,8 +5718,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             decoratedType = addOverloadsToFunctionType(node, decoratedType);
         }
 
-        writeTypeCache(node, functionType);
-        writeTypeCache(node.name, decoratedType);
+        writeTypeCache(node.name, functionType);
+        writeTypeCache(node, decoratedType);
 
         return { functionType, decoratedType };
     }
@@ -6400,22 +6400,26 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         const paramIndex = functionNode.parameters.findIndex(param => param === node);
-        if (paramIndex > 0) {
-            return;
-        }
 
         // We may be able to infer the type of the first parameter.
-        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
-        if (containingClassNode) {
-            const classInfo = getTypeOfClass(containingClassNode);
-            if (classInfo) {
-                const functionFlags = getFunctionFlagsFromDescriptors(functionNode, true);
-                // If the first parameter doesn't have an explicit type annotation,
-                // provide a type if it's an instance, class or constructor method.
-                const inferredParamType = inferFirstParamType(functionFlags, classInfo.classType);
-                writeTypeCache(node.name!, inferredParamType || UnknownType.create());
+        if (paramIndex === 0) {
+            const containingClassNode = ParseTreeUtils.getEnclosingClass(functionNode, true);
+            if (containingClassNode) {
+                const classInfo = getTypeOfClass(containingClassNode);
+                if (classInfo) {
+                    const functionFlags = getFunctionFlagsFromDescriptors(functionNode, true);
+                    // If the first parameter doesn't have an explicit type annotation,
+                    // provide a type if it's an instance, class or constructor method.
+                    const inferredParamType = inferFirstParamType(functionFlags, classInfo.classType);
+                    writeTypeCache(node.name!, inferredParamType || UnknownType.create());
+                    return;
+                }
             }
         }
+
+        // We weren't able to iner the input parameter type. Set its
+        // type to unknown.
+        writeTypeCache(node.name!, UnknownType.create());
     }
 
     // Evaluates the types that are assigned within the statement that contains
@@ -6562,7 +6566,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // evaluated, use it.
                 callIsNoReturn = isNoReturnType(functionType.inferredReturnType);
             } else if (functionType.details.declaration) {
-                callIsNoReturn = !isAfterNodeReachable(functionType.details.declaration.node);
+                // If the function has yield expressions, it's a generator, and
+                // we'll assume the yield statements are reachable.
+                if (!functionType.details.declaration.yieldExpressions) {
+                    callIsNoReturn = !isAfterNodeReachable(functionType.details.declaration.node);
+                }
             }
         }
 
@@ -6592,14 +6600,28 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         function evaluateAssignmentFlowNode(flowNode: FlowAssignment): FlowNodeType | undefined {
-            let cachedType = readTypeCache(flowNode.node);
+            // For function and class nodes, the reference node is the name
+            // node, but we need to use the parent node (the FunctionNode or ClassNode)
+            // to access the decorated type in the type cache.
+            let nodeForCacheLookup: ParseNode = flowNode.node;
+            const parentNode = flowNode.node.parent;
+            if (parentNode) {
+                if (parentNode.nodeType === ParseNodeType.Function || parentNode.nodeType === ParseNodeType.Class) {
+                    nodeForCacheLookup = parentNode;
+                }
+            }
+
+            let cachedType = readTypeCache(nodeForCacheLookup);
             if (!cachedType) {
                 // There is no cached type for this expression, so we need to
                 // evaluate it.
                 evaluateTypesForStatement(flowNode.node);
-                cachedType = readTypeCache(flowNode.node);
+                cachedType = readTypeCache(nodeForCacheLookup);
                 if (!cachedType) {
+                    // TODO - Remove the following debug code.
+                    console.log('Evaluation unsuccessful');
                     evaluateTypesForStatement(flowNode.node);
+
                     cachedType = UnknownType.create();
                 }
             }
