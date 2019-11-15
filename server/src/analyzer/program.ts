@@ -13,7 +13,7 @@ import { CompletionItem, CompletionList, SymbolInformation } from 'vscode-langua
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
+import { Diagnostic, DiagnosticTextPosition,
     DiagnosticTextRange, DocumentTextRange, doRangesOverlap } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
@@ -215,7 +215,7 @@ export class Program {
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean) {
-        const markDirtyMap: { [path: string]: boolean } = {};
+        const markDirtyMap = new Map<string, boolean>();
 
         this._sourceFileList.forEach(sourceFileInfo => {
             if (evenIfContentsAreSame) {
@@ -228,27 +228,14 @@ export class Program {
                 this._markFileDirtyRecursive(sourceFileInfo, markDirtyMap);
             }
         });
-    }
 
-    markFilesWithErrorsDirty(options: ConfigOptions) {
-        const markDirtyMap: { [path: string]: boolean } = {};
-
-        this._sourceFileList.forEach(sourceFileInfo => {
-            const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(options);
-            if (diagnostics && !!diagnostics.find(
-                    diag => diag.category === DiagnosticCategory.Error)) {
-
-                sourceFileInfo.sourceFile.markDirty();
-
-                // Mark any files that depend on this file as dirty
-                // also. This will retrigger analysis of these other files.
-                this._markFileDirtyRecursive(sourceFileInfo, markDirtyMap);
-            }
-        });
+        if (markDirtyMap.size > 0) {
+            this._createNewEvaluator();
+        }
     }
 
     markFilesDirty(filePaths: string[]) {
-        const markDirtyMap: { [path: string]: boolean } = {};
+        const markDirtyMap = new Map<string, boolean>();
         filePaths.forEach(filePath => {
             const sourceFileInfo = this._sourceFileMap[filePath];
             if (sourceFileInfo) {
@@ -259,6 +246,10 @@ export class Program {
                 this._markFileDirtyRecursive(sourceFileInfo, markDirtyMap);
             }
         });
+
+        if (markDirtyMap.size > 0) {
+            this._createNewEvaluator();
+        }
     }
 
     getSourceFile(filePath: string): SourceFile | undefined {
@@ -414,6 +405,10 @@ export class Program {
         }
     }
 
+    private _createNewEvaluator() {
+        this._evaluator = createTypeEvaluator(this._lookUpImport);
+    }
+
     // This method is similar to analyze() except that it analyzes
     // a single file (and its dependencies if necessary).
     private _analyzeFile(sourceFileInfo: SourceFileInfo, maxTime?: MaxAnalysisTime) {
@@ -439,7 +434,7 @@ export class Program {
 
             // Mark any files that depend on this file as dirty
             // also. This will retrigger analysis of these other files.
-            const markDirtyMap: { [path: string]: boolean } = {};
+            const markDirtyMap = new Map<string, boolean>();
             this._markFileDirtyRecursive(fileToParse, markDirtyMap);
 
             // Invalidate the import resolver's cache as well.
@@ -696,14 +691,14 @@ export class Program {
     }
 
     private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo,
-            markMap: { [path: string]: boolean }) {
+            markMap: Map<string, boolean>) {
 
         const filePath = sourceFileInfo.sourceFile.getFilePath();
 
         // Don't mark it again if it's already been visited.
-        if (markMap[filePath] === undefined) {
+        if (!markMap.has(filePath)) {
             sourceFileInfo.sourceFile.markReanalysisRequired();
-            markMap[filePath] = true;
+            markMap.set(filePath, true);
 
             sourceFileInfo.importedBy.forEach(dep => {
                 this._markFileDirtyRecursive(dep, markMap);

@@ -549,8 +549,6 @@ _connection.onRenameRequest(params => {
 });
 
 _connection.onDidOpenTextDocument(params => {
-    _recordUserInteractionTime();
-
     const filePath = _convertUriToPath(params.textDocument.uri);
     const service = _getWorkspaceForFile(filePath).serviceInstance;
     service.setFileOpened(
@@ -571,8 +569,6 @@ _connection.onDidChangeTextDocument(params => {
 });
 
 _connection.onDidCloseTextDocument(params => {
-    _recordUserInteractionTime();
-
     const filePath = _convertUriToPath(params.textDocument.uri);
     const service = _getWorkspaceForFile(filePath).serviceInstance;
     service.setFileClosed(filePath);
