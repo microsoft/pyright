@@ -544,9 +544,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case ParseNodeType.Assignment: {
-                // Don't validate the type match for the assignment here. Simply
-                // return the type result of the RHS.
                 typeResult = getTypeOfExpression(node.rightExpression);
+                assignTypeToExpression(node.leftExpression, typeResult.type, node.rightExpression);
                 break;
             }
 
@@ -593,7 +592,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         if (!typeResult) {
             // We shouldn't get here. If we do, report an error.
-            addError(`Unhandled expression type '${ParseTreeUtils.printExpression(node)}'`, node);
+            assert.fail(`Unhandled expression type '${ParseTreeUtils.printExpression(node)}'`);
             typeResult = { type: UnknownType.create(), node };
         }
 
@@ -2097,7 +2096,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 };
             };
 
-            let type = getTypeOfMember(memberInfo);
+            let type: Type;
+            if (usage.method === 'get') {
+                type = getTypeOfMember(memberInfo);
+            } else {
+                // If the usage indicates a 'set' or 'delete', use
+                // only the declared type to avoid circular
+                // type evaluation.
+                type = getDeclaredTypeOfSymbol(memberInfo.symbol) || UnknownType.create();
+            }
 
             // Don't include variables within typed dict classes.
             if (ClassType.isTypedDictClass(classType)) {
@@ -6338,7 +6345,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // allows for bidirectional type evaluation.
     function evaluateTypesForExpressionInContext(node: ExpressionNode): void {
         let lastContextualExpression = node;
-        let curExpression: ExpressionNode = node;
+        let curNode: ParseNode | undefined = node;
 
         function isContextualExpression(node: ExpressionNode) {
             return node.nodeType === ParseNodeType.Call ||
@@ -6352,13 +6359,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Scan up the parse tree until we find a non-expression, looking for
         // contextual expressions in the process.
-
-        while (curExpression.parent && !isExpressionNode(curExpression.parent)) {
-            if (isContextualExpression(curExpression)) {
-                lastContextualExpression = curExpression;
+        while (curNode && isExpressionNode(curNode)) {
+            if (isContextualExpression(curNode as ExpressionNode)) {
+                lastContextualExpression = curNode as ExpressionNode;
             }
 
-            curExpression = curExpression.parent as ExpressionNode;
+            curNode = curNode.parent;
         }
 
         const parent = lastContextualExpression.parent!;
@@ -6618,10 +6624,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 evaluateTypesForStatement(flowNode.node);
                 cachedType = readTypeCache(nodeForCacheLookup);
                 if (!cachedType) {
-                    // TODO - Remove the following debug code.
-                    console.log('Evaluation unsuccessful');
-                    evaluateTypesForStatement(flowNode.node);
-
+                    assert.fail('evaluateAssignmentFlowNode failed to evaluate target');
                     cachedType = UnknownType.create();
                 }
             }
@@ -7572,27 +7575,23 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // If the resolved declaration had no defined type, use the
             // inferred type for this node.
             if (resolvedDecl.type === DeclarationType.Parameter) {
-                if (resolvedDecl.node.name) {
-                    return getType(resolvedDecl.node.name);
+                evaluateTypeOfParameter(resolvedDecl.node);
+                return readTypeCache(resolvedDecl.node);
+            }
+
+            if (resolvedDecl.type === DeclarationType.Variable && resolvedDecl.inferredTypeSource) {
+                let inferredType = readTypeCache(resolvedDecl.node);
+
+                if (!inferredType) {
+                    evaluateTypesForStatement(resolvedDecl.inferredTypeSource);
+                    inferredType = readTypeCache(resolvedDecl.node);
                 }
-            } else if (resolvedDecl.type === DeclarationType.Variable) {
-                if (resolvedDecl.inferredTypeSource) {
-                    let inferredType = readTypeCache(resolvedDecl.node);
 
-                    if (!inferredType) {
-                        evaluateTypesForStatement(resolvedDecl.inferredTypeSource);
-                        inferredType = readTypeCache(resolvedDecl.node);
-                        if (!inferredType) {
-                            return undefined;
-                        }
-                    }
-
-                    if (resolvedDecl.node.nodeType === ParseNodeType.Name) {
-                        inferredType = transformTypeForPossibleEnumClass(resolvedDecl.node, inferredType);
-                    }
-
-                    return inferredType;
+                if (inferredType && resolvedDecl.node.nodeType === ParseNodeType.Name) {
+                    inferredType = transformTypeForPossibleEnumClass(resolvedDecl.node, inferredType);
                 }
+
+                return inferredType;
             }
         }
 
