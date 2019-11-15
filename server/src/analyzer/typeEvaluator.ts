@@ -7773,31 +7773,47 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
-        const lastDecl = getLastTypedDeclaredForSymbol(symbol);
+        const typedDecls = symbol.getTypedDeclarations();
 
-        if (!lastDecl) {
+        if (typedDecls.length === 0) {
             // There was no declaration with a defined type.
             return undefined;
         }
 
-        // If there's a partially-constructed type that is allowed
-        // for recursive symbol resolution, return it as the resolved type.
-        const partialType = getSymbolResolutionPartialType(symbol, lastDecl);
-        if (partialType) {
-            return partialType;
+        // Start with the last decl. If that's already being resolved,
+        // use the next-to-last decl, etc. This can happen when resolving
+        // property methods. Often the setter method is defined in reference to
+        // the initial property, which defines the getter method with the same
+        // symbol name.
+        let declIndex = typedDecls.length - 1;
+        while (declIndex >= 0) {
+            const decl = typedDecls[declIndex];
+
+            if (getIndexOfSymbolResolution(symbol, decl) < 0) {
+                // If there's a partially-constructed type that is allowed
+                // for recursive symbol resolution, return it as the resolved type.
+                const partialType = getSymbolResolutionPartialType(symbol, decl);
+                if (partialType) {
+                    return partialType;
+                }
+
+                if (pushSymbolResolution(symbol, decl)) {
+                    const type = getTypeForDeclaration(decl) || UnknownType.create();
+
+                    if (!popSymbolResolution(symbol)) {
+                        return undefined;
+                    }
+
+                    return type;
+                }
+
+                break;
+            }
+
+            declIndex--;
         }
 
-        if (!pushSymbolResolution(symbol, lastDecl)) {
-            return UnknownType.create();
-        }
-
-        const type = getTypeForDeclaration(lastDecl) || UnknownType.create();
-
-        if (!popSymbolResolution(symbol)) {
-            return UnknownType.create();
-        }
-
-        return type;
+        return undefined;
     }
 
     function getFunctionEffectiveReturnType(type: FunctionType) {
