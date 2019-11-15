@@ -7652,7 +7652,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // inferred type for this node.
             if (resolvedDecl.type === DeclarationType.Parameter) {
                 evaluateTypeOfParameter(resolvedDecl.node);
-                return readTypeCache(resolvedDecl.node);
+                return readTypeCache(resolvedDecl.node.name!);
             }
 
             if (resolvedDecl.type === DeclarationType.Variable && resolvedDecl.inferredTypeSource) {
