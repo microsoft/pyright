@@ -13,7 +13,10 @@
 * TypeScript compiler.
 */
 
-import { CallNode, ExpressionNode, ImportFromNode, MemberAccessNode, NameNode } from '../parser/parseNodes';
+import * as assert from 'assert';
+
+import { CallNode, ExpressionNode, ImportFromNode, MemberAccessNode, NameNode,
+    ParseNodeType } from '../parser/parseNodes';
 
 export enum FlowFlags {
     Unreachable     = 1 << 0,  // Unreachable code
@@ -99,4 +102,36 @@ export interface FlowPreFinallyGate extends FlowNode {
 export interface FlowPostFinally extends FlowNode {
     antecedent: FlowNode;
     preFinallyGate: FlowPreFinallyGate;
+}
+
+export function isCodeFlowSupportedForReference(reference: ExpressionNode): boolean {
+    if (reference.nodeType === ParseNodeType.Name) {
+        return true;
+    }
+
+    if (reference.nodeType === ParseNodeType.MemberAccess) {
+        return isCodeFlowSupportedForReference(reference.leftExpression);
+    }
+
+    return false;
+}
+
+export function createKeyForReference(reference: NameNode | MemberAccessNode,
+        targetSymbolId: number): string {
+
+    let key;
+    if (reference.nodeType === ParseNodeType.Name) {
+        key = reference.nameToken.value;
+    } else {
+        key = reference.memberName.nameToken.value;
+        let leftNode = reference.leftExpression;
+        while (leftNode.nodeType === ParseNodeType.MemberAccess) {
+            key = leftNode.memberName.nameToken.value + '.' + key;
+            leftNode = leftNode.leftExpression;
+        }
+        assert(leftNode.nodeType === ParseNodeType.Name);
+        key = (leftNode as NameNode).nameToken.value + '.' + key;
+    }
+
+    return key + '.' + targetSymbolId.toString();
 }

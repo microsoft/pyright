@@ -33,8 +33,9 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
 import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags, FlowLabel,
-    FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport } from './codeFlow';
+import { createKeyForReference, FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
+    FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport,
+    isCodeFlowSupportedForReference } from './codeFlow';
 import { AliasDeclaration, Declaration, DeclarationType, FunctionDeclaration,
     ModuleLoaderActions, VariableDeclaration } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -6537,18 +6538,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return undefined;
     }
 
-    function isCodeFlowSupportedForReference(reference: ExpressionNode): boolean {
-        if (reference.nodeType === ParseNodeType.Name) {
-            return true;
-        }
-
-        if (reference.nodeType === ParseNodeType.MemberAccess) {
-            return isCodeFlowSupportedForReference(reference.leftExpression);
-        }
-
-        return false;
-    }
-
     function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
         const importInfo = AnalyzerNodeInfo.getImportInfo(flowNode.node.module);
         assert(importInfo && importInfo.isImportFound);
@@ -6625,24 +6614,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return analyzer.getFlowType(reference, targetSymbolId, initialType);
-    }
-
-    function createKeyForReference(reference: NameNode | MemberAccessNode, targetSymbolId: number): string {
-        let key;
-        if (reference.nodeType === ParseNodeType.Name) {
-            key = reference.nameToken.value;
-        } else {
-            key = reference.memberName.nameToken.value;
-            let leftNode = reference.leftExpression;
-            while (leftNode.nodeType === ParseNodeType.MemberAccess) {
-                key = leftNode.memberName.nameToken.value + '.' + key;
-                leftNode = leftNode.leftExpression;
-            }
-            assert(leftNode.nodeType === ParseNodeType.Name);
-            key = (leftNode as NameNode).nameToken.value + '.' + key;
-        }
-
-        return key + '.' + targetSymbolId.toString();
     }
 
     // Creates a new code flow analyzer that can be used to narrow the types

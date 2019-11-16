@@ -37,7 +37,8 @@ import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags, FlowLabel,
-    FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport, getUniqueFlowNodeId } from './codeFlow';
+    FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport, getUniqueFlowNodeId,
+    isCodeFlowSupportedForReference } from './codeFlow';
 import { AliasDeclaration, ClassDeclaration, DeclarationType, FunctionDeclaration,
     IntrinsicType, ModuleLoaderActions, VariableDeclaration } from './declaration';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
@@ -1480,7 +1481,7 @@ export class Binder extends ParseTreeWalker {
         switch (expression.nodeType) {
             case ParseNodeType.Name:
             case ParseNodeType.MemberAccess: {
-                return true;
+                return isCodeFlowSupportedForReference(expression);
             }
 
             case ParseNodeType.BinaryOperation: {
@@ -1599,7 +1600,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         const prevFlowNode = this._currentFlowNode;
-        if (!this._isCodeUnreachable()) {
+        if (!this._isCodeUnreachable() && isCodeFlowSupportedForReference(node)) {
             const flowNode: FlowAssignment = {
                 flags: FlowFlags.Assignment,
                 id: getUniqueFlowNodeId(),
