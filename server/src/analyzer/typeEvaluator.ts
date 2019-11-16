@@ -7670,16 +7670,17 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
-        // If there's a declared type, it takes precedence.
-        if (symbol.hasTypedDeclarations()) {
-            return getDeclaredTypeOfSymbol(symbol) || UnknownType.create();
-        }
-
         // Is there an undeclared type associated with the
         // symbol (used for synthesized classes)?
         const undeclaredType = symbol.getUndeclaredType();
         if (undeclaredType) {
             return undeclaredType;
+        }
+
+        // If there's a declared type, it takes precedence over
+        // inferred types.
+        if (symbol.hasTypedDeclarations()) {
+            return getDeclaredTypeOfSymbol(symbol) || UnknownType.create();
         }
 
         // Infer the type.
