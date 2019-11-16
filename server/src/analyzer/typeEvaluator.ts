@@ -6522,6 +6522,69 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return getInferredTypeOfDeclaration(wildcardDecl!) || UnknownType.create();
     }
 
+    // When we're evaluating a call to determine whether it returns NoReturn,
+    // we don't want to do a full type evaluation, which would be expensive
+    // and create circular dependencies in type evaluation. Instead, we do
+    // a best-effort evaluation using only declared types (functions, parameters,
+    // etc.).
+    function getDeclaredCallBaseType(node: ExpressionNode): Type | undefined {
+        if (node.nodeType === ParseNodeType.Name) {
+            const symbolWithScope = lookUpSymbolRecursive(node, node.nameToken.value);
+
+            if (!symbolWithScope) {
+                return undefined;
+            }
+
+            const symbol = symbolWithScope.symbol;
+            const type = getDeclaredTypeOfSymbol(symbol);
+            if (type) {
+                return type;
+            }
+
+            // There was no declared type. Before we give up, see if the
+            // symbol is a function parameter whose value can be inferred.
+            const declarations = symbol.getDeclarations();
+            if (declarations.length === 0) {
+                return undefined;
+            }
+
+            const decl = declarations[declarations.length - 1];
+            if (decl.type !== DeclarationType.Parameter) {
+                return undefined;
+            }
+
+            evaluateTypeOfParameter(decl.node);
+            return readTypeCache(decl.node.name!);
+        }
+
+        if (node.nodeType === ParseNodeType.MemberAccess) {
+            const memberName = node.memberName.nameToken.value;
+            const baseType = getDeclaredCallBaseType(node.leftExpression);
+            if (!baseType) {
+                return undefined;
+            }
+
+            let symbol: Symbol | undefined;
+            if (baseType.category === TypeCategory.Module) {
+                symbol = ModuleType.getField(baseType, memberName);
+            } else if (baseType.category === TypeCategory.Class) {
+                const classMemberInfo = lookUpClassMember(baseType, memberName, importLookup);
+                symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
+            } else if (baseType.category === TypeCategory.Object) {
+                const classMemberInfo = lookUpClassMember(baseType.classType, memberName, importLookup);
+                symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
+            }
+
+            if (!symbol) {
+                return undefined;
+            }
+
+            return getDeclaredTypeOfSymbol(symbol);
+        }
+
+        return undefined;
+    }
+
     // Determines whether a call never returns without fully evaluating its type.
     function isCallNoReturn(node: CallNode) {
         // See if this information is cached already.
@@ -6532,38 +6595,40 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Initially set to false to avoid infinite recursion.
         callIsNoReturnCache.set(node.id, false);
 
-        // Evaluate the call base type.
-        const callType = getType(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
         let callIsNoReturn = false;
 
-        // We assume here that no constructors or __call__ methods
-        // will be inferred "no return" types, so we can restrict
-        // our check to functions.
-        let functionType: FunctionType | undefined;
-        if (callType.category === TypeCategory.Function) {
-            functionType = callType;
-        } else if (callType.category === TypeCategory.OverloadedFunction) {
-            // Use the last overload, which should be the most general.
-            const overloadedFunction = callType;
-            functionType = overloadedFunction.overloads[overloadedFunction.overloads.length - 1];
-        }
+        // Evaluate the call base type.
+        const callType = getDeclaredCallBaseType(node.leftExpression);
+        if (callType) {
+            // We assume here that no constructors or __call__ methods
+            // will be inferred "no return" types, so we can restrict
+            // our check to functions.
+            let functionType: FunctionType | undefined;
+            if (callType.category === TypeCategory.Function) {
+                functionType = callType;
+            } else if (callType.category === TypeCategory.OverloadedFunction) {
+                // Use the last overload, which should be the most general.
+                const overloadedFunction = callType;
+                functionType = overloadedFunction.overloads[overloadedFunction.overloads.length - 1];
+            }
 
-        if (functionType) {
-            if (functionType.details.declaredReturnType) {
-                callIsNoReturn = isNoReturnType(functionType.details.declaredReturnType);
-            } else if (functionType.inferredReturnType) {
-                // If the inferred return type has already been lazily
-                // evaluated, use it.
-                callIsNoReturn = isNoReturnType(functionType.inferredReturnType);
-            } else if (functionType.details.declaration) {
-                // If the function has yield expressions, it's a generator, and
-                // we'll assume the yield statements are reachable. Also, don't
-                // infer a "no return" type for abstract methods.
-                if (!functionType.details.declaration.yieldExpressions &&
-                        !FunctionType.isAbstractMethod(functionType) &&
-                        !FunctionType.isStubDefinition(functionType)) {
+            if (functionType) {
+                if (functionType.details.declaredReturnType) {
+                    callIsNoReturn = isNoReturnType(functionType.details.declaredReturnType);
+                } else if (functionType.inferredReturnType) {
+                    // If the inferred return type has already been lazily
+                    // evaluated, use it.
+                    callIsNoReturn = isNoReturnType(functionType.inferredReturnType);
+                } else if (functionType.details.declaration) {
+                    // If the function has yield expressions, it's a generator, and
+                    // we'll assume the yield statements are reachable. Also, don't
+                    // infer a "no return" type for abstract methods.
+                    if (!functionType.details.declaration.yieldExpressions &&
+                            !FunctionType.isAbstractMethod(functionType) &&
+                            !FunctionType.isStubDefinition(functionType)) {
 
-                    callIsNoReturn = !isAfterNodeReachable(functionType.details.declaration.node);
+                        callIsNoReturn = !isAfterNodeReachable(functionType.details.declaration.node);
+                    }
                 }
             }
         }
