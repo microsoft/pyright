@@ -1796,28 +1796,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
-            const executionScopeNode = ParseTreeUtils.getExecutionScopeNode(node);
 
-            // Does the symbol have a declared type? If it's inferred, determine
-            // the type(s) that are contributed by other execution scopes.
-            type = getEffectiveTypeOfSymbol(symbol, executionScopeNode);
+            type = getEffectiveTypeOfSymbol(symbol);
             const isSpecialBuiltIn = !!type && type.category === TypeCategory.Class &&
                 ClassType.isSpecialBuiltIn(type);
-
-            if (type && !(flags & EvaluatorFlags.DoNotSpecialize)) {
-                if (type.category === TypeCategory.Class) {
-                    if (!type.typeArguments) {
-                        type = createSpecializedClassType(type, undefined, node);
-                    }
-                } else if (type.category === TypeCategory.Object) {
-                    // If this is an object that contains a Type[X], transform it
-                    // into class X.
-                    const typeType = getClassFromPotentialTypeObject(type);
-                    if (typeType) {
-                        type = typeType;
-                    }
-                }
-            }
 
             const isTypeStub = fileInfo.isStubFile;
 
@@ -1856,6 +1838,21 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             type = type || UnknownType.create();
+
+            if (type && !(flags & EvaluatorFlags.DoNotSpecialize)) {
+                if (type.category === TypeCategory.Class) {
+                    if (!type.typeArguments) {
+                        type = createSpecializedClassType(type, undefined, node);
+                    }
+                } else if (type.category === TypeCategory.Object) {
+                    // If this is an object that contains a Type[X], transform it
+                    // into class X.
+                    const typeType = getClassFromPotentialTypeObject(type);
+                    if (typeType) {
+                        type = typeType;
+                    }
+                }
+            }
 
             if (isUnbound(type)) {
                 addError(`'${ name }' is unbound`, node);
@@ -7699,15 +7696,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
     }
 
-    // If the symbol has a declared type, it is returned. If the symbol's
-    // type needs to be inferred from one or more assignments, these are
-    // evaluated, and the union of the assigned types is returned. Callers
-    // can pass an optional execution scope that should be ignored when
-    // evaluating inferred types, effectively computing the type that is
-    // provided by other execution scopes.
-    function getEffectiveTypeOfSymbol(symbol: Symbol,
-            executionScopeToIgnore?: ParseTreeUtils.ExecutionScopeNode): Type {
-
+    function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
         // If there's a declared type, it takes precedence over
         // inferred types.
         if (symbol.hasTypedDeclarations()) {
@@ -7718,26 +7707,21 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const typesToCombine: Type[] = [];
         const isPrivate = symbol.isPrivateMember();
         symbol.getDeclarations().forEach(decl => {
-            const executionScopeOfDecl = executionScopeToIgnore ?
-                ParseTreeUtils.getExecutionScopeNode(decl.node) : undefined;
+            if (pushSymbolResolution(symbol, decl)) {
+                let type = getInferredTypeOfDeclaration(decl);
 
-            if (!executionScopeToIgnore || executionScopeOfDecl !== executionScopeToIgnore) {
-                if (pushSymbolResolution(symbol, decl)) {
-                    let type = getInferredTypeOfDeclaration(decl);
+                if (!popSymbolResolution(symbol)) {
+                    // We hit a recursion.
+                } else if (type) {
+                    const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
 
-                    if (!popSymbolResolution(symbol)) {
-                        // We hit a recursion.
-                    } else if (type) {
-                        const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
-
-                        // If the symbol is private or constant, we can retain the literal
-                        // value. Otherwise, strip them off to make the type less specific,
-                        // allowing other values to be assigned to it in subclasses.
-                        if (!isPrivate && !isConstant) {
-                            type = stripLiteralValue(type);
-                        }
-                        typesToCombine.push(type);
+                    // If the symbol is private or constant, we can retain the literal
+                    // value. Otherwise, strip them off to make the type less specific,
+                    // allowing other values to be assigned to it in subclasses.
+                    if (!isPrivate && !isConstant) {
+                        type = stripLiteralValue(type);
                     }
+                    typesToCombine.push(type);
                 }
             }
         });
