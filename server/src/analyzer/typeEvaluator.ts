@@ -3816,7 +3816,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod |
                 FunctionTypeFlags.SynthesizedMethod);
             constructorType.details.declaredReturnType = ObjectType.create(classType);
-            if (isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
+            if (ParseTreeUtils.isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
                 constructorType.details.flags |= FunctionTypeFlags.DisableDefaultChecks;
             }
             FunctionType.addParameter(constructorType, {
@@ -4005,73 +4005,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return classType;
-    }
-
-    // Sometimes a NamedTuple assignment statement is followed by a statement
-    // that looks like the following:
-    //    MyNamedTuple.__new__.__defaults__ = ...
-    // This pattern is commonly used to set the default values that are
-    // not specified in the original list.
-    function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): boolean {
-        if (callNode.nodeType !== ParseNodeType.Call || !callNode.parent ||
-                callNode.parent.nodeType !== ParseNodeType.Assignment ||
-                callNode.parent.leftExpression.nodeType !== ParseNodeType.Name ||
-                !callNode.parent.parent ||
-                callNode.parent.parent.nodeType !== ParseNodeType.StatementList) {
-
-            return false;
-        }
-
-        const namedTupleAssignedName = callNode.parent.leftExpression.nameToken.value;
-        const statementList = callNode.parent.parent;
-        if (statementList.statements[0] !== callNode.parent ||
-                !statementList.parent ||
-                !(statementList.parent.nodeType === ParseNodeType.Module ||
-                    statementList.parent.nodeType === ParseNodeType.Suite)) {
-
-            return false;
-        }
-
-        const moduleOrSuite = statementList.parent;
-        let statementIndex = moduleOrSuite.statements.findIndex(s => s === statementList);
-
-        if (statementIndex < 0) {
-            return false;
-        }
-        statementIndex++;
-
-        while (statementIndex < moduleOrSuite.statements.length) {
-            const nextStatement = moduleOrSuite.statements[statementIndex];
-            if (nextStatement.nodeType !== ParseNodeType.StatementList) {
-                break;
-            }
-
-            if (nextStatement.statements[0].nodeType === ParseNodeType.StringList) {
-                // Skip over comments
-                statementIndex++;
-                continue;
-            }
-
-            if (nextStatement.statements[0].nodeType === ParseNodeType.Assignment) {
-                const assignNode = nextStatement.statements[0];
-                if (assignNode.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                        assignNode.leftExpression.memberName.nameToken.value === '__defaults__') {
-
-                    const defaultTarget = assignNode.leftExpression.leftExpression;
-                    if (defaultTarget.nodeType === ParseNodeType.MemberAccess &&
-                            defaultTarget.memberName.nameToken.value === '__new__' &&
-                            defaultTarget.leftExpression.nodeType === ParseNodeType.Name &&
-                            defaultTarget.leftExpression.nameToken.value === namedTupleAssignedName) {
-
-                        return true;
-                    }
-                }
-            }
-
-            break;
-        }
-
-        return false;
     }
 
     function getTypeFromConstant(node: ConstantNode): TypeResult | undefined {
