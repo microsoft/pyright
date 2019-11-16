@@ -6724,8 +6724,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         return setCacheEntry(curFlowNode, undefined);
                     }
 
-                    if (curFlowNode.flags & FlowFlags.Start) {
-                        return setCacheEntry(curFlowNode, initialType);
+                    if (curFlowNode.flags & FlowFlags.Call) {
+                        const callFlowNode = curFlowNode as FlowCall;
+
+                        // If this function returns a "NoReturn" type, that means
+                        // it always raises an exception or otherwise doesn't return,
+                        // so we can assume that the code before this is unreachable.
+                        if (isCallNoReturn(callFlowNode.node)) {
+                            return setCacheEntry(curFlowNode, undefined);
+                        }
+
+                        curFlowNode = callFlowNode.antecedent;
+                        continue;
                     }
 
                     if (curFlowNode.flags & FlowFlags.Assignment) {
@@ -6779,20 +6789,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         return setCacheEntry(curFlowNode, combineTypes(typesToCombine));
                     }
 
-                    if (curFlowNode.flags & FlowFlags.WildcardImport) {
-                        const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
-                        if (reference.nodeType === ParseNodeType.Name) {
-                            const nameValue = reference.nameToken.value;
-                            if (wildcardImportFlowNode.names.some(name => name === nameValue)) {
-                                const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
-                                return setCacheEntry(curFlowNode, type);
-                            }
-                        }
-
-                        curFlowNode = wildcardImportFlowNode.antecedent;
-                        continue;
-                    }
-
                     if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                         const conditionalFlowNode = curFlowNode as FlowCondition;
                         const typeNarrowingCallback = getTypeNarrowingCallback(reference, conditionalFlowNode);
@@ -6806,20 +6802,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
 
                         curFlowNode = conditionalFlowNode.antecedent;
-                        continue;
-                    }
-
-                    if (curFlowNode.flags & FlowFlags.Call) {
-                        const callFlowNode = curFlowNode as FlowCall;
-
-                        // If this function returns a "NoReturn" type, that means
-                        // it always raises an exception or otherwise doesn't return,
-                        // so we can assume that the code before this is unreachable.
-                        if (isCallNoReturn(callFlowNode.node)) {
-                            return setCacheEntry(curFlowNode, undefined);
-                        }
-
-                        curFlowNode = callFlowNode.antecedent;
                         continue;
                     }
 
@@ -6840,6 +6822,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             reference, targetSymbolId, initialType);
                         postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
                         return setCacheEntry(curFlowNode, flowType);
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.Start) {
+                        return setCacheEntry(curFlowNode, initialType);
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.WildcardImport) {
+                        const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
+                        if (reference.nodeType === ParseNodeType.Name) {
+                            const nameValue = reference.nameToken.value;
+                            if (wildcardImportFlowNode.names.some(name => name === nameValue)) {
+                                const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
+                                return setCacheEntry(curFlowNode, type);
+                            }
+                        }
+
+                        curFlowNode = wildcardImportFlowNode.antecedent;
+                        continue;
                     }
 
                     // We shouldn't get here.
