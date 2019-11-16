@@ -6569,23 +6569,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return callIsNoReturnCache.get(node.id);
         }
 
-        // Evaluate the call type speculatively, since we may need additional
-        // context to evaluate its specialized type correctly.
-        let callType: Type | undefined;
-        useSpeculativeMode(() => {
-            callType = getType(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
-        });
+        // Evaluate the call base type.
+        const callType = getType(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
         let callIsNoReturn = false;
 
         // We assume here that no constructors or __call__ methods
         // will be inferred "no return" types, so we can restrict
         // our check to functions.
         let functionType: FunctionType | undefined;
-        if (callType!.category === TypeCategory.Function) {
-            functionType = callType as FunctionType;
-        } else if (callType!.category === TypeCategory.OverloadedFunction) {
+        if (callType.category === TypeCategory.Function) {
+            functionType = callType;
+        } else if (callType.category === TypeCategory.OverloadedFunction) {
             // Use the last overload, which should be the most general.
-            const overloadedFunction = callType as OverloadedFunctionType;
+            const overloadedFunction = callType;
             functionType = overloadedFunction.overloads[overloadedFunction.overloads.length - 1];
         }
 
