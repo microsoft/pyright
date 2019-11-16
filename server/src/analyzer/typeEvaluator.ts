@@ -230,6 +230,8 @@ export interface TypeEvaluator {
     getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
     getInferredTypeOfDeclaration: (decl: Declaration) => Type | undefined;
     resolveAliasDeclaration: (declaration: Declaration) => Declaration | undefined;
+    getTypeFromIterable: (type: Type, isAsync: boolean,
+        errorNode: ParseNode | undefined, supportGetItem: boolean) => Type;
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
@@ -1869,6 +1871,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             node, baseTypeResult, { method: 'get' }, flags);
 
         if (isCodeFlowSupportedForReference(node)) {
+            // Before performing code fow analysis, update the cache to prevent
+            // recursion.
+            writeTypeCache(node, memberType.type);
+            writeTypeCache(node.memberName, memberType.type);
+
             // See if we can refine the type based on code flow analysis.
             const codeFlowType = getFlowTypeOfReference(node, indeterminateSymbolId, memberType.type);
             if (codeFlowType) {
@@ -5208,6 +5215,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function evaluateTypesForAssignmentStatement(node: AssignmentNode): void {
         const fileInfo = getFileInfo(node);
 
+        // If the entire statement has already been evaluated, don't
+        // re-evaluate it.
+        if (readTypeCache(node)) {
+            return;
+        }
+
         // Is this type already cached?
         let rightHandType = readTypeCache(node.rightExpression);
 
@@ -5260,26 +5273,22 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         node.leftExpression, rightHandType);
                 }
             }
-
-            if (rightHandType) {
-                assignTypeToExpression(node.leftExpression, rightHandType, node.rightExpression);
-            }
         }
+
+        assignTypeToExpression(node.leftExpression, rightHandType, node.rightExpression);
+
+        writeTypeCache(node, rightHandType);
     }
 
     function evaluateTypesForAugmentedAssignment(node: AugmentedAssignmentNode): void {
-        // Is this type already cached?
-        let destType = readTypeCache(node.destExpression);
-
-        // If there was a cached value and no target of interest or the entire
-        // LHS is the target of interest, there's no need to do additional work.
-        if (destType) {
+        if (readTypeCache(node)) {
             return;
         }
 
-        destType = getTypeFromAugmentedAssignment(node);
-
+        const destType = getTypeFromAugmentedAssignment(node);
         assignTypeToExpression(node.destExpression, destType, node.rightExpression);
+
+        writeTypeCache(node, destType);
     }
 
     function getTypeOfClass(node: ClassNode): ClassTypeResult | undefined {
@@ -6110,87 +6119,57 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function evaluateTypesForForStatement(node: ForNode): void {
-        // Is this type already cached?
-        let iteratedType = readTypeCache(node.targetExpression);
-        if (iteratedType) {
+        if (readTypeCache(node)) {
             return;
         }
 
-        // The type wasn't cached. Compute it.
         const iteratorType = getType(node.iterableExpression);
-        iteratedType = getTypeFromIterable(
+        const iteratedType = getTypeFromIterable(
             iteratorType, !!node.isAsync, node.iterableExpression, !node.isAsync);
 
         assignTypeToExpression(node.targetExpression, iteratedType, node.targetExpression);
+
+        writeTypeCache(node, iteratedType);
     }
 
     function evaluateTypesForExceptStatement(node: ExceptNode): void {
         // This should be called only if the except node has a target exception.
         assert(node.typeExpression !== undefined);
 
-        // Is this type already cached?
-        let exceptionTypes = readTypeCache(node.typeExpression!);
-        let typeIsCached = true;
-
-        if (!exceptionTypes) {
-            exceptionTypes = getType(node.typeExpression!);
-            typeIsCached = false;
+        if (readTypeCache(node)) {
+            return;
         }
 
+        const exceptionTypes = getType(node.typeExpression!);
+
         function getExceptionType(exceptionType: Type, errorNode: ParseNode) {
-            const baseExceptionType = getBuiltInType(node, 'BaseException');
-            const derivesFromBaseException = (classType: ClassType) => {
-                if (!baseExceptionType || !(baseExceptionType.category === TypeCategory.Class)) {
-                    return true;
-                }
-
-                return derivesFromClassRecursive(classType, baseExceptionType);
-            };
-
-            const diagAddendum = new DiagnosticAddendum();
-            let resultingExceptionType: Type | undefined;
-
             if (isAnyOrUnknown(exceptionType)) {
-                resultingExceptionType = exceptionType;
-            } else if (exceptionType.category === TypeCategory.Class) {
-                if (!derivesFromBaseException(exceptionType)) {
-                    diagAddendum.addMessage(
-                        `'${printType(exceptionType)}' does not derive from BaseException`);
-                }
-                resultingExceptionType = ObjectType.create(exceptionType);
-            } else if (exceptionType.category === TypeCategory.Object) {
+                return exceptionType;
+            }
+
+            if (exceptionType.category === TypeCategory.Class) {
+                return ObjectType.create(exceptionType);
+            }
+
+            if (exceptionType.category === TypeCategory.Object) {
                 const iterableType = getTypeFromIterable(
                     exceptionType, false, errorNode, false);
 
-                resultingExceptionType = doForSubtypes(iterableType, subtype => {
+                return doForSubtypes(iterableType, subtype => {
                     if (isAnyOrUnknown(subtype)) {
                         return subtype;
                     }
 
                     const transformedSubtype = transformTypeObjectToClass(subtype);
                     if (transformedSubtype.category === TypeCategory.Class) {
-                        if (!derivesFromBaseException(transformedSubtype)) {
-                            diagAddendum.addMessage(
-                                `'${printType(exceptionType)}' does not derive from BaseException`);
-                        }
-
                         return ObjectType.create(transformedSubtype);
                     }
 
-                    diagAddendum.addMessage(
-                        `'${printType(exceptionType)}' does not derive from BaseException`);
                     return UnknownType.create();
                 });
             }
 
-            if (!typeIsCached && diagAddendum.getMessageCount() > 0) {
-                addError(
-                    `'${printType(exceptionType)}' is not valid exception class` +
-                    diagAddendum.getString(),
-                    errorNode);
-            }
-
-            return resultingExceptionType || UnknownType.create();
+            return UnknownType.create();
         }
 
         const targetType = doForSubtypes(exceptionTypes, subType => {
@@ -6207,18 +6186,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return getExceptionType(subType, node.typeExpression!);
         });
 
-        if (node.name && !typeIsCached) {
+        if (node.name) {
             assignTypeToExpression(node.name, targetType);
         }
+
+        writeTypeCache(node, targetType);
     }
 
     function evaluateTypesForWithStatement(node: WithItemNode): void {
-        // Is this type already cached?
-        if (node.target) {
-            const targetType = readTypeCache(node.target);
-            if (targetType) {
-                return;
-            }
+        if (readTypeCache(node)) {
+            return;
         }
 
         let exprType = getType(node.expression);
@@ -6271,9 +6248,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (node.target) {
             assignTypeToExpression(node.target, scopedType, node.target);
         }
+
+        writeTypeCache(node, scopedType);
     }
 
     function evaluateTypesForImportAs(node: ImportAsNode): void {
+        if (readTypeCache(node)) {
+            return;
+        }
+
         let symbolNameNode: NameNode;
         if (node.alias) {
             // The symbol name is defined by the alias.
@@ -6282,14 +6265,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // There was no alias, so we need to use the first element of
             // the name parts as the symbol.
             symbolNameNode = node.module.nameParts[0];
-        }
-
-        // Is this type already cached?
-        if (symbolNameNode) {
-            const targetType = readTypeCache(symbolNameNode);
-            if (targetType) {
-                return;
-            }
         }
 
         // Look up the symbol to find the alias declaration.
@@ -6306,16 +6281,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         assignTypeToNameNode(symbolNameNode, symbolType);
+
+        writeTypeCache(node, symbolType);
     }
 
     function evaluateTypesForImportFrom(node: ImportFromAsNode): void {
-        const aliasNode = node.alias || node.name;
-
-        // Is this type already cached?
-        const targetType = readTypeCache(aliasNode);
-        if (targetType) {
+        if (readTypeCache(node)) {
             return;
         }
+
+        const aliasNode = node.alias || node.name;
 
         let symbolType = getAliasedSymbolTypeForName(node, aliasNode.nameToken.value);
         if (!symbolType) {
@@ -6341,6 +6316,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         assignTypeToNameNode(aliasNode, symbolType);
+        writeTypeCache(node, symbolType);
     }
 
     function getAliasedSymbolTypeForName(node: ParseNode, name: string): Type | undefined {
@@ -9135,6 +9111,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         getTypeForDeclaration,
         getInferredTypeOfDeclaration,
         resolveAliasDeclaration,
+        getTypeFromIterable,
         getEffectiveTypeOfSymbol,
         getFunctionDeclaredReturnType,
         getFunctionInferredReturnType,

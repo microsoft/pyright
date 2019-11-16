@@ -373,6 +373,9 @@ export class Checker extends ParseTreeWalker {
     visitExcept(node: ExceptNode): boolean {
         if (node.typeExpression) {
             this._evaluator.evaluateTypesForStatement(node);
+
+            const exceptionType = this._evaluator.getType(node.typeExpression);
+            this._validateExceptionType(exceptionType, node.typeExpression);
         }
 
         return true;
@@ -522,6 +525,62 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _validateExceptionType(exceptionType: Type, errorNode: ParseNode) {
+        const baseExceptionType = this._evaluator.getBuiltInType(errorNode, 'BaseException');
+        const derivesFromBaseException = (classType: ClassType) => {
+            if (!baseExceptionType || !(baseExceptionType.category === TypeCategory.Class)) {
+                return true;
+            }
+
+            return derivesFromClassRecursive(classType, baseExceptionType);
+        };
+
+        const diagAddendum = new DiagnosticAddendum();
+        let resultingExceptionType: Type | undefined;
+
+        if (isAnyOrUnknown(exceptionType)) {
+            resultingExceptionType = exceptionType;
+        } else if (exceptionType.category === TypeCategory.Class) {
+            if (!derivesFromBaseException(exceptionType)) {
+                diagAddendum.addMessage(
+                    `'${this._evaluator.printType(exceptionType)}' does not derive from BaseException`);
+            }
+            resultingExceptionType = ObjectType.create(exceptionType);
+        } else if (exceptionType.category === TypeCategory.Object) {
+            const iterableType = this._evaluator.getTypeFromIterable(
+                exceptionType, false, errorNode, false);
+
+            resultingExceptionType = doForSubtypes(iterableType, subtype => {
+                if (isAnyOrUnknown(subtype)) {
+                    return subtype;
+                }
+
+                const transformedSubtype = transformTypeObjectToClass(subtype);
+                if (transformedSubtype.category === TypeCategory.Class) {
+                    if (!derivesFromBaseException(transformedSubtype)) {
+                        diagAddendum.addMessage(
+                            `'${this._evaluator.printType(exceptionType)}' does not derive from BaseException`);
+                    }
+
+                    return ObjectType.create(transformedSubtype);
+                }
+
+                diagAddendum.addMessage(
+                    `'${this._evaluator.printType(exceptionType)}' does not derive from BaseException`);
+                return UnknownType.create();
+            });
+        }
+
+        if (diagAddendum.getMessageCount() > 0) {
+            this._evaluator.addError(
+                `'${this._evaluator.printType(exceptionType)}' is not valid exception class` +
+                diagAddendum.getString(),
+                errorNode);
+        }
+
+        return resultingExceptionType || UnknownType.create();
     }
 
     private _validateSymbolTables() {
