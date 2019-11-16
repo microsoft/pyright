@@ -6620,16 +6620,41 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return analyzer.getFlowType(reference, targetSymbolId, initialType);
     }
 
+    function createKeyForReference(reference: NameNode | MemberAccessNode, targetSymbolId: number): string {
+        let key;
+        if (reference.nodeType === ParseNodeType.Name) {
+            key = reference.nameToken.value;
+        } else {
+            key = reference.memberName.nameToken.value;
+            let leftNode = reference.leftExpression;
+            while (leftNode.nodeType === ParseNodeType.MemberAccess) {
+                key = leftNode.memberName.nameToken.value + '.' + key;
+                leftNode = leftNode.leftExpression;
+            }
+            assert(leftNode.nodeType === ParseNodeType.Name);
+            key = (leftNode as NameNode).nameToken.value + '.' + key;
+        }
+
+        return key + '.' + targetSymbolId.toString();
+    }
+
     // Creates a new code flow analyzer that can be used to narrow the types
     // of the expressions within an execution context. Each code flow analyzer
     // instance maintains a cache of types it has already determined.
     function createCodeFlowAnalyzer(): CodeFlowAnalyzer {
+        const flowNodeTypeCacheSet = new Map<string, Map<number, FlowNodeType | undefined>>();
+
         function getFlowType(reference: NameNode | MemberAccessNode,
                 targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
-            const typeFlowRecursionMap = new Map<number, true>();
             const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
-            const flowNodeTypeCache = new Map<number, FlowNodeType | undefined>();
+            const typeFlowRecursionMap = new Map<number, true>();
+            const referenceKey = createKeyForReference(reference, targetSymbolId);
+            let flowNodeTypeCache = flowNodeTypeCacheSet.get(referenceKey);
+            if (!flowNodeTypeCache) {
+                flowNodeTypeCache = new Map<number, FlowNodeType | undefined>();
+                flowNodeTypeCacheSet.set(referenceKey, flowNodeTypeCache);
+            }
 
             function preventFlowNodeRecursion(flowNodeId: number, callback: () => void) {
                 typeFlowRecursionMap.set(flowNodeId, true);
@@ -6639,7 +6664,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             // Caches the type of the flow node in our local cache, keyed by the flow node ID.
             function setCacheEntry(flowNode: FlowNode, type?: Type): FlowNodeType | undefined {
-                flowNodeTypeCache.set(flowNode.id, type);
+                flowNodeTypeCache!.set(flowNode.id, type);
                 return type;
             }
 
@@ -6682,7 +6707,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 while (true) {
                     // Have we already been here? If so, use the cached value.
-                    const cachedEntry = flowNodeTypeCache.get(curFlowNode.id);
+                    const cachedEntry = flowNodeTypeCache!.get(curFlowNode.id);
                     if (cachedEntry) {
                         return cachedEntry;
                     }
@@ -6708,16 +6733,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         // Are we targeting the same symbol? We need to do this extra check because the same
                         // symbol name might refer to different symbols in different scopes (e.g. a list
                         // comprehension introduces a new scope).
-                        if (targetSymbolId === assignmentFlowNode.targetSymbolId) {
-                            if (ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)) {
-                                // Is this a special "unbind" assignment? If so,
-                                // we can handle it immediately without any further evaluation.
-                                if (curFlowNode.flags & FlowFlags.Unbind) {
-                                    return setCacheEntry(curFlowNode, UnboundType.create());
-                                }
+                        if (targetSymbolId === assignmentFlowNode.targetSymbolId &&
+                                ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)) {
 
-                                return evaluateAssignmentFlowNode(assignmentFlowNode);
+                            // Is this a special "unbind" assignment? If so,
+                            // we can handle it immediately without any further evaluation.
+                            if (curFlowNode.flags & FlowFlags.Unbind) {
+                                return setCacheEntry(curFlowNode, UnboundType.create());
                             }
+
+                            return setCacheEntry(curFlowNode, evaluateAssignmentFlowNode(assignmentFlowNode));
                         }
 
                         curFlowNode = assignmentFlowNode.antecedent;
@@ -6814,7 +6839,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         const flowType = getTypeFromFlowNode(postFinallyFlowNode.antecedent,
                             reference, targetSymbolId, initialType);
                         postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
-                        return flowType;
+                        return setCacheEntry(curFlowNode, flowType);
                     }
 
                     // We shouldn't get here.
