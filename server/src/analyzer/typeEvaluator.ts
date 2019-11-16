@@ -1797,22 +1797,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
 
-            type = getEffectiveTypeOfSymbol(symbol);
-            const isSpecialBuiltIn = !!type && type.category === TypeCategory.Class &&
-                ClassType.isSpecialBuiltIn(type);
+            const typeAtStart = getEffectiveTypeOfSymbol(symbol);
 
-            const isTypeStub = fileInfo.isStubFile;
-
-            let typeAtStart: Type | undefined;
-
-            // For type stubs, we'll never default to Unbound. This is necessary
-            // to support certain type aliases, which appear as variable declarations.
-            if (symbolWithScope.isBeyondExecutionScope || isTypeStub) {
-                typeAtStart = type;
-            } else if (symbol.isInitiallyUnbound()) {
-                typeAtStart = UnboundType.create();
-            }
-
+            const isSpecialBuiltIn = !!typeAtStart && typeAtStart.category === TypeCategory.Class &&
+                ClassType.isSpecialBuiltIn(typeAtStart);
             let useCodeFlowAnalysis = !isSpecialBuiltIn;
 
             // Don't use code-flow analysis if forward references are allowed
@@ -1824,7 +1812,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             }
 
-            if (isTypeStub) {
+            if (fileInfo.isStubFile) {
                 // Type stubs allow forward references of classes, so
                 // don't use code flow analysis in this case.
                 const decl = getLastTypedDeclaredForSymbol(symbolWithScope.symbol);
@@ -1833,13 +1821,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             }
 
+            type = typeAtStart;
             if (useCodeFlowAnalysis) {
-                type = getFlowTypeOfReference(node, symbol.getId(), typeAtStart) || type;
+                // See if code flow analysis can tell us anything more about the type.
+                const codeFlowType = getFlowTypeOfReference(node, symbol.getId(), typeAtStart);
+                if (codeFlowType) {
+                    type = codeFlowType;
+                }
             }
 
-            type = type || UnknownType.create();
-
-            if (type && !(flags & EvaluatorFlags.DoNotSpecialize)) {
+            if (!(flags & EvaluatorFlags.DoNotSpecialize)) {
                 if (type.category === TypeCategory.Class) {
                     if (!type.typeArguments) {
                         type = createSpecializedClassType(type, undefined, node);
@@ -1878,8 +1869,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             node, baseTypeResult, { method: 'get' }, flags);
 
         if (isCodeFlowSupportedForReference(node)) {
-            memberType.type = getFlowTypeOfReference(node, indeterminateSymbolId, memberType.type) ||
-                memberType.type;
+            // See if we can refine the type based on code flow analysis.
+            const codeFlowType = getFlowTypeOfReference(node, indeterminateSymbolId, memberType.type);
+            if (codeFlowType) {
+                memberType.type = codeFlowType;
+            }
         }
 
         // Cache the type information in the member name node as well.
@@ -6604,6 +6598,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return callIsNoReturn;
     }
 
+    // Attempts to determine the type of the reference expression at the
+    // point in the code. If the code flow analysis has nothing to say
+    // about that expression, it return undefined.
     function getFlowTypeOfReference(reference: NameNode | MemberAccessNode,
            targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
@@ -7760,7 +7757,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 if (pushSymbolResolution(symbol, decl)) {
-                    const type = getTypeForDeclaration(decl) || UnknownType.create();
+                    const type = getTypeForDeclaration(decl);
 
                     if (!popSymbolResolution(symbol)) {
                         return undefined;
