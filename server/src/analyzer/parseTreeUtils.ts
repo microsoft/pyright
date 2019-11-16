@@ -14,10 +14,14 @@ import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { ArgumentCategory, ClassNode, ExpressionNode, FunctionNode, isExpressionNode,
-    ModuleNode, ParameterCategory, ParseNode, ParseNodeType, StatementNode, SuiteNode } from '../parser/parseNodes';
+    LambdaNode, ListComprehensionNode, ModuleNode, ParameterCategory, ParseNode, ParseNodeType,
+    StatementNode, SuiteNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { decodeDocString } from './docStringUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
+
+export type EvaluationScopeNode = LambdaNode | FunctionNode | ModuleNode | ClassNode | ListComprehensionNode;
+export type ExecutionScopeNode = LambdaNode | FunctionNode | ModuleNode;
 
 export const enum PrintExpressionFlags {
     None = 0,
@@ -457,6 +461,73 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
     }
 
     return undefined;
+}
+
+// Returns the parse node corresponding to the scope that is used to evaluate
+// a symbol referenced in the specified node.
+export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
+    let prevNode: ParseNode | undefined;
+    let curNode: ParseNode | undefined = node;
+    let isParamNameNode = false;
+
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Parameter && prevNode === curNode.name) {
+            // Note that we passed through a parameter name node.
+            isParamNameNode = true;
+        }
+
+        // We found a scope associated with this node. In most cases,
+        // we'll return this scope, but in a few cases we need to return
+        // the enclosing scope instead.
+        switch (curNode.nodeType) {
+            case ParseNodeType.Function: {
+                if (curNode.parameters.some(param => param === prevNode)) {
+                    if (isParamNameNode) {
+                        return curNode;
+                    }
+                } else if (prevNode === curNode.suite) {
+                    return curNode;
+                }
+                break;
+            }
+
+            case ParseNodeType.Class: {
+                if (prevNode === curNode.suite) {
+                    return curNode;
+                }
+                break;
+            }
+
+            case ParseNodeType.ListComprehension:
+            case ParseNodeType.Module:
+            case ParseNodeType.Lambda: {
+                return curNode;
+            }
+        }
+
+        prevNode = curNode;
+        curNode = curNode.parent;
+    }
+
+    assert.fail('Did not find evaluation scope');
+    return undefined!;
+}
+
+// Returns the parse node corresponding to the scope that is used
+// for executing the code referenced in the specified node.
+export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
+    let evaluationScope = getEvaluationScopeNode(node);
+
+    // Classes are not considered execution scope because they are executed
+    // within the context of their containing module or function. Likewise, list
+    // comprehensions are executed within their container.
+    while (evaluationScope.nodeType === ParseNodeType.Class ||
+            evaluationScope.nodeType === ParseNodeType.ListComprehension) {
+
+        evaluationScope = getEvaluationScopeNode(evaluationScope.parent!);
+    }
+
+    return evaluationScope;
 }
 
 export function isNodeContainedWithin(node: ParseNode, potentialContainer: ParseNode): boolean {

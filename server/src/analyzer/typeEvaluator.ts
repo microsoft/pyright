@@ -255,6 +255,11 @@ export interface TypeEvaluator {
     printFunctionParts: (type: FunctionType) => [string[], string];
 }
 
+interface CodeFlowAnalyzer {
+    getFlowType: (reference: NameNode | MemberAccessNode,
+           targetSymbolId: number, initialType: Type | undefined) => Type | undefined;
+}
+
 interface TypeCacheEntry {
     type: Type;
     isSpeculative?: boolean;
@@ -291,6 +296,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     const typeResolutionStack: TypeResolutionStackEntry[] = [];
     const isReachableRecursionMap = new Map<number, true>();
     const callIsNoReturnCache = new Map<number, boolean>();
+    const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     const typeCache = new Map<number, TypeCacheEntry>();
 
     function readTypeCache(node: ParseNode): Type | undefined {
@@ -6599,210 +6605,237 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getFlowTypeOfReference(reference: NameNode | MemberAccessNode,
-        targetSymbolId: number, initialType: Type | undefined): Type | undefined {
+           targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
-        const typeFlowRecursionMap = new Map<number, true>();
-        const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
-        const flowNodeTypeCache = new Map<number, FlowNodeType | undefined>();
+        // Is there an code flow analyzer cached for this execution scope?
+        const executionNode = ParseTreeUtils.getExecutionScopeNode(reference);
+        let analyzer = codeFlowAnalyzerCache.get(executionNode.id);
 
-        function preventFlowNodeRecursion(flowNodeId: number, callback: () => void) {
-            typeFlowRecursionMap.set(flowNodeId, true);
-            callback();
-            typeFlowRecursionMap.delete(flowNodeId);
+        if (!analyzer) {
+            // Allocate a new code flow analyzer.
+            analyzer = createCodeFlowAnalyzer();
+            codeFlowAnalyzerCache.set(executionNode.id, analyzer);
         }
 
-        // Caches the type of the flow node in our local cache, keyed by the flow node ID.
-        function setCacheEntry(flowNode: FlowNode, type?: Type): FlowNodeType | undefined {
-            flowNodeTypeCache.set(flowNode.id, type);
+        return analyzer.getFlowType(reference, targetSymbolId, initialType);
+    }
+
+    // Creates a new code flow analyzer that can be used to narrow the types
+    // of the expressions within an execution context. Each code flow analyzer
+    // instance maintains a cache of types it has already determined.
+    function createCodeFlowAnalyzer(): CodeFlowAnalyzer {
+        function getFlowType(reference: NameNode | MemberAccessNode,
+                targetSymbolId: number, initialType: Type | undefined): Type | undefined {
+
+            const typeFlowRecursionMap = new Map<number, true>();
+            const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
+            const flowNodeTypeCache = new Map<number, FlowNodeType | undefined>();
+
+            function preventFlowNodeRecursion(flowNodeId: number, callback: () => void) {
+                typeFlowRecursionMap.set(flowNodeId, true);
+                callback();
+                typeFlowRecursionMap.delete(flowNodeId);
+            }
+
+            // Caches the type of the flow node in our local cache, keyed by the flow node ID.
+            function setCacheEntry(flowNode: FlowNode, type?: Type): FlowNodeType | undefined {
+                flowNodeTypeCache.set(flowNode.id, type);
+                return type;
+            }
+
+            function evaluateAssignmentFlowNode(flowNode: FlowAssignment): FlowNodeType | undefined {
+                // For function and class nodes, the reference node is the name
+                // node, but we need to use the parent node (the FunctionNode or ClassNode)
+                // to access the decorated type in the type cache.
+                let nodeForCacheLookup: ParseNode = flowNode.node;
+                const parentNode = flowNode.node.parent;
+                if (parentNode) {
+                    if (parentNode.nodeType === ParseNodeType.Function ||
+                            parentNode.nodeType === ParseNodeType.Class) {
+
+                        nodeForCacheLookup = parentNode;
+                    }
+                }
+
+                let cachedType = readTypeCache(nodeForCacheLookup);
+                if (!cachedType) {
+                    // There is no cached type for this expression, so we need to
+                    // evaluate it.
+                    evaluateTypesForStatement(flowNode.node);
+                    cachedType = readTypeCache(nodeForCacheLookup);
+                    if (!cachedType) {
+                        assert.fail('evaluateAssignmentFlowNode failed to evaluate target');
+                        cachedType = UnknownType.create();
+                    }
+                }
+
+                return setCacheEntry(flowNode, cachedType);
+            }
+
+            // If this flow has no knowledge of the target expression, it returns undefined.
+            // If the start flow node for this scope is reachable, the typeAtStart value is
+            // returned.
+            function getTypeFromFlowNode(flowNode: FlowNode, reference: NameNode | MemberAccessNode,
+                targetSymbolId: number, initialType: Type | undefined): FlowNodeType | undefined {
+
+                let curFlowNode = flowNode;
+
+                while (true) {
+                    // Have we already been here? If so, use the cached value.
+                    const cachedEntry = flowNodeTypeCache.get(curFlowNode.id);
+                    if (cachedEntry) {
+                        return cachedEntry;
+                    }
+
+                    // Avoid infinite recursion.
+                    if (typeFlowRecursionMap.has(curFlowNode.id)) {
+                        return undefined;
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.Unreachable) {
+                        // We can get here if there are nodes in a compound logical expression
+                        // (e.g. "False and x") that are never executed but are evaluated.
+                        // The type doesn't matter in this case.
+                        return setCacheEntry(curFlowNode, undefined);
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.Start) {
+                        return setCacheEntry(curFlowNode, initialType);
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.Assignment) {
+                        const assignmentFlowNode = curFlowNode as FlowAssignment;
+                        // Are we targeting the same symbol? We need to do this extra check because the same
+                        // symbol name might refer to different symbols in different scopes (e.g. a list
+                        // comprehension introduces a new scope).
+                        if (targetSymbolId === assignmentFlowNode.targetSymbolId) {
+                            if (ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)) {
+                                // Is this a special "unbind" assignment? If so,
+                                // we can handle it immediately without any further evaluation.
+                                if (curFlowNode.flags & FlowFlags.Unbind) {
+                                    return setCacheEntry(curFlowNode, UnboundType.create());
+                                }
+
+                                return evaluateAssignmentFlowNode(assignmentFlowNode);
+                            }
+                        }
+
+                        curFlowNode = assignmentFlowNode.antecedent;
+                        continue;
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.AssignmentAlias) {
+                        const aliasFlowNode = curFlowNode as FlowAssignmentAlias;
+
+                        // If the target symbol ID matches, replace with its alias
+                        // and continue to traverse the code flow graph.
+                        if (targetSymbolId === aliasFlowNode.targetSymbolId) {
+                            targetSymbolId = aliasFlowNode.aliasSymbolId;
+                        }
+                        curFlowNode = aliasFlowNode.antecedent;
+                        continue;
+                    }
+
+                    if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
+                        const labelNode = curFlowNode as FlowLabel;
+                        const typesToCombine: Type[] = [];
+                        preventFlowNodeRecursion(curFlowNode.id, () => {
+                            labelNode.antecedents.map(antecedent => {
+                                const flowType = getTypeFromFlowNode(antecedent, reference,
+                                    targetSymbolId, initialType);
+                                if (flowType) {
+                                    typesToCombine.push(flowType);
+                                }
+                            });
+                        });
+                        if (typesToCombine.length === 0) {
+                            return setCacheEntry(curFlowNode, undefined);
+                        }
+                        return setCacheEntry(curFlowNode, combineTypes(typesToCombine));
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.WildcardImport) {
+                        const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
+                        if (reference.nodeType === ParseNodeType.Name) {
+                            const nameValue = reference.nameToken.value;
+                            if (wildcardImportFlowNode.names.some(name => name === nameValue)) {
+                                const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
+                                return setCacheEntry(curFlowNode, type);
+                            }
+                        }
+
+                        curFlowNode = wildcardImportFlowNode.antecedent;
+                        continue;
+                    }
+
+                    if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
+                        const conditionalFlowNode = curFlowNode as FlowCondition;
+                        const typeNarrowingCallback = getTypeNarrowingCallback(reference, conditionalFlowNode);
+                        if (typeNarrowingCallback) {
+                            let flowType: FlowNodeType | undefined;
+                            preventFlowNodeRecursion(curFlowNode.id, () => {
+                                flowType = getTypeFromFlowNode(conditionalFlowNode.antecedent,
+                                    reference, targetSymbolId, initialType);
+                            });
+                            return setCacheEntry(curFlowNode, flowType ? typeNarrowingCallback(flowType) : undefined);
+                        }
+
+                        curFlowNode = conditionalFlowNode.antecedent;
+                        continue;
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.Call) {
+                        const callFlowNode = curFlowNode as FlowCall;
+
+                        // If this function returns a "NoReturn" type, that means
+                        // it always raises an exception or otherwise doesn't return,
+                        // so we can assume that the code before this is unreachable.
+                        if (isCallNoReturn(callFlowNode.node)) {
+                            return setCacheEntry(curFlowNode, undefined);
+                        }
+
+                        curFlowNode = callFlowNode.antecedent;
+                        continue;
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
+                        const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
+                        if (preFinallyFlowNode.isGateClosed) {
+                            return undefined;
+                        }
+                        curFlowNode = preFinallyFlowNode.antecedent;
+                        continue;
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.PostFinally) {
+                        const postFinallyFlowNode = curFlowNode as FlowPostFinally;
+                        const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
+                        postFinallyFlowNode.preFinallyGate.isGateClosed = true;
+                        const flowType = getTypeFromFlowNode(postFinallyFlowNode.antecedent,
+                            reference, targetSymbolId, initialType);
+                        postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
+                        return flowType;
+                    }
+
+                    // We shouldn't get here.
+                    assert.fail('Unexpected flow node flags');
+                    return setCacheEntry(curFlowNode, undefined);
+                }
+            }
+
+            if (!pushTypeResolution(reference)) {
+                return undefined;
+            }
+            const type = getTypeFromFlowNode(flowNode!, reference, targetSymbolId, initialType);
+            if (!popTypeResolution(reference)) {
+                return undefined;
+            }
             return type;
         }
 
-        function evaluateAssignmentFlowNode(flowNode: FlowAssignment): FlowNodeType | undefined {
-            // For function and class nodes, the reference node is the name
-            // node, but we need to use the parent node (the FunctionNode or ClassNode)
-            // to access the decorated type in the type cache.
-            let nodeForCacheLookup: ParseNode = flowNode.node;
-            const parentNode = flowNode.node.parent;
-            if (parentNode) {
-                if (parentNode.nodeType === ParseNodeType.Function || parentNode.nodeType === ParseNodeType.Class) {
-                    nodeForCacheLookup = parentNode;
-                }
-            }
-
-            let cachedType = readTypeCache(nodeForCacheLookup);
-            if (!cachedType) {
-                // There is no cached type for this expression, so we need to
-                // evaluate it.
-                evaluateTypesForStatement(flowNode.node);
-                cachedType = readTypeCache(nodeForCacheLookup);
-                if (!cachedType) {
-                    assert.fail('evaluateAssignmentFlowNode failed to evaluate target');
-                    cachedType = UnknownType.create();
-                }
-            }
-
-            return setCacheEntry(flowNode, cachedType);
-        }
-
-        // If this flow has no knowledge of the target expression, it returns undefined.
-        // If the start flow node for this scope is reachable, the typeAtStart value is
-        // returned.
-        function getTypeFromFlowNode(flowNode: FlowNode, reference: NameNode | MemberAccessNode,
-            targetSymbolId: number, initialType: Type | undefined): FlowNodeType | undefined {
-
-            let curFlowNode = flowNode;
-
-            while (true) {
-                // Have we already been here? If so, use the cached value.
-                const cachedEntry = flowNodeTypeCache.get(curFlowNode.id);
-                if (cachedEntry) {
-                    return cachedEntry;
-                }
-
-                // Avoid infinite recursion.
-                if (typeFlowRecursionMap.has(curFlowNode.id)) {
-                    return undefined;
-                }
-
-                if (curFlowNode.flags & FlowFlags.Unreachable) {
-                    // We can get here if there are nodes in a compound logical expression
-                    // (e.g. "False and x") that are never executed but are evaluated.
-                    // The type doesn't matter in this case.
-                    return setCacheEntry(curFlowNode, undefined);
-                }
-
-                if (curFlowNode.flags & FlowFlags.Start) {
-                    return setCacheEntry(curFlowNode, initialType);
-                }
-
-                if (curFlowNode.flags & FlowFlags.Assignment) {
-                    const assignmentFlowNode = curFlowNode as FlowAssignment;
-                    // Are we targeting the same symbol? We need to do this extra check because the same
-                    // symbol name might refer to different symbols in different scopes (e.g. a list
-                    // comprehension introduces a new scope).
-                    if (targetSymbolId === assignmentFlowNode.targetSymbolId) {
-                        if (ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)) {
-                            // Is this a special "unbind" assignment? If so,
-                            // we can handle it immediately without any further evaluation.
-                            if (curFlowNode.flags & FlowFlags.Unbind) {
-                                return setCacheEntry(curFlowNode, UnboundType.create());
-                            }
-
-                            return evaluateAssignmentFlowNode(assignmentFlowNode);
-                        }
-                    }
-
-                    curFlowNode = assignmentFlowNode.antecedent;
-                    continue;
-                }
-
-                if (curFlowNode.flags & FlowFlags.AssignmentAlias) {
-                    const aliasFlowNode = curFlowNode as FlowAssignmentAlias;
-
-                    // If the target symbol ID matches, replace with its alias
-                    // and continue to traverse the code flow graph.
-                    if (targetSymbolId === aliasFlowNode.targetSymbolId) {
-                        targetSymbolId = aliasFlowNode.aliasSymbolId;
-                    }
-                    curFlowNode = aliasFlowNode.antecedent;
-                    continue;
-                }
-
-                if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
-                    const labelNode = curFlowNode as FlowLabel;
-                    const typesToCombine: Type[] = [];
-                    preventFlowNodeRecursion(curFlowNode.id, () => {
-                        labelNode.antecedents.map(antecedent => {
-                            const flowType = getTypeFromFlowNode(antecedent, reference,
-                                targetSymbolId, initialType);
-                            if (flowType) {
-                                typesToCombine.push(flowType);
-                            }
-                        });
-                    });
-                    if (typesToCombine.length === 0) {
-                        return setCacheEntry(curFlowNode, undefined);
-                    }
-                    return setCacheEntry(curFlowNode, combineTypes(typesToCombine));
-                }
-
-                if (curFlowNode.flags & FlowFlags.WildcardImport) {
-                    const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
-                    if (reference.nodeType === ParseNodeType.Name) {
-                        const nameValue = reference.nameToken.value;
-                        if (wildcardImportFlowNode.names.some(name => name === nameValue)) {
-                            const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
-                            return setCacheEntry(curFlowNode, type);
-                        }
-                    }
-
-                    curFlowNode = wildcardImportFlowNode.antecedent;
-                    continue;
-                }
-
-                if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
-                    const conditionalFlowNode = curFlowNode as FlowCondition;
-                    const typeNarrowingCallback = getTypeNarrowingCallback(reference, conditionalFlowNode);
-                    if (typeNarrowingCallback) {
-                        let flowType: FlowNodeType | undefined;
-                        preventFlowNodeRecursion(curFlowNode.id, () => {
-                            flowType = getTypeFromFlowNode(conditionalFlowNode.antecedent,
-                                reference, targetSymbolId, initialType);
-                        });
-                        return setCacheEntry(curFlowNode, flowType ? typeNarrowingCallback(flowType) : undefined);
-                    }
-
-                    curFlowNode = conditionalFlowNode.antecedent;
-                    continue;
-                }
-
-                if (curFlowNode.flags & FlowFlags.Call) {
-                    const callFlowNode = curFlowNode as FlowCall;
-
-                    // If this function returns a "NoReturn" type, that means
-                    // it always raises an exception or otherwise doesn't return,
-                    // so we can assume that the code before this is unreachable.
-                    if (isCallNoReturn(callFlowNode.node)) {
-                        return setCacheEntry(curFlowNode, undefined);
-                    }
-
-                    curFlowNode = callFlowNode.antecedent;
-                    continue;
-                }
-
-                if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
-                    const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
-                    if (preFinallyFlowNode.isGateClosed) {
-                        return undefined;
-                    }
-                    curFlowNode = preFinallyFlowNode.antecedent;
-                    continue;
-                }
-
-                if (curFlowNode.flags & FlowFlags.PostFinally) {
-                    const postFinallyFlowNode = curFlowNode as FlowPostFinally;
-                    const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
-                    postFinallyFlowNode.preFinallyGate.isGateClosed = true;
-                    const flowType = getTypeFromFlowNode(postFinallyFlowNode.antecedent,
-                        reference, targetSymbolId, initialType);
-                    postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
-                    return flowType;
-                }
-
-                // We shouldn't get here.
-                assert.fail('Unexpected flow node flags');
-                return setCacheEntry(curFlowNode, undefined);
-            }
-        }
-
-        if (!pushTypeResolution(reference)) {
-            return undefined;
-        }
-        const type = getTypeFromFlowNode(flowNode!, reference, targetSymbolId, initialType);
-        if (!popTypeResolution(reference)) {
-            return undefined;
-        }
-        return type;
+        return {
+            getFlowType
+        };
     }
 
     function isFlowNodeReachable(flowNode: FlowNode): boolean {
