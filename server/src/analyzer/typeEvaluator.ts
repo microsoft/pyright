@@ -3598,7 +3598,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
+        const classType = ClassType.create(className, ClassTypeFlags.EnumClass, errorNode.id);
         classType.details.baseClasses.push(enumClass);
 
         const classFields = classType.details.fields;
@@ -7587,6 +7587,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // If the resolved declaration had no defined type, use the
             // inferred type for this node.
             if (resolvedDecl.type === DeclarationType.Parameter) {
+                const cachedValue = readTypeCache(resolvedDecl.node.name!);
+                if (cachedValue) {
+                    return cachedValue;
+                }
                 evaluateTypeOfParameter(resolvedDecl.node);
                 return readTypeCache(resolvedDecl.node.name!);
             }
@@ -7670,13 +7674,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
-        // Is there an undeclared type associated with the
-        // symbol (used for synthesized classes)?
-        const undeclaredType = symbol.getUndeclaredType();
-        if (undeclaredType) {
-            return undeclaredType;
-        }
-
         // If there's a declared type, it takes precedence over
         // inferred types.
         if (symbol.hasTypedDeclarations()) {
@@ -7710,6 +7707,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
+        const undeclaredType = symbol.getUndeclaredType();
+        if (undeclaredType) {
+            return undeclaredType;
+        }
+
         const typedDecls = symbol.getTypedDeclarations();
 
         if (typedDecls.length === 0) {
