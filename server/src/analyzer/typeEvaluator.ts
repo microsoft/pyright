@@ -6883,8 +6883,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return false;
                 }
 
-                if (curFlowNode.flags & FlowFlags.Start) {
-                    return true;
+                if (curFlowNode.flags & FlowFlags.Call) {
+                    const callFlowNode = curFlowNode as FlowCall;
+
+                    // If this function returns a "NoReturn" type, that means
+                    // it always raises an exception or otherwise doesn't return,
+                    // so we can assume that the code before this is unreachable.
+                    if (isCallNoReturn(callFlowNode.node)) {
+                        return false;
+                    }
+
+                    curFlowNode = callFlowNode.antecedent;
+                    continue;
                 }
 
                 if (curFlowNode.flags & FlowFlags.Assignment) {
@@ -6909,29 +6919,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return false;
                 }
 
-                if (curFlowNode.flags & FlowFlags.WildcardImport) {
-                    const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
-                    curFlowNode = wildcardImportFlowNode.antecedent;
-                    continue;
-                }
-
                 if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                     const conditionalFlowNode = curFlowNode as FlowCondition;
                     curFlowNode = conditionalFlowNode.antecedent;
-                    continue;
-                }
-
-                if (curFlowNode.flags & FlowFlags.Call) {
-                    const callFlowNode = curFlowNode as FlowCall;
-
-                    // If this function returns a "NoReturn" type, that means
-                    // it always raises an exception or otherwise doesn't return,
-                    // so we can assume that the code before this is unreachable.
-                    if (isCallNoReturn(callFlowNode.node)) {
-                        return false;
-                    }
-
-                    curFlowNode = callFlowNode.antecedent;
                     continue;
                 }
 
@@ -6951,6 +6941,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const isReachable = isFlowNodeReachableRecursive(postFinallyFlowNode.antecedent);
                     postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
                     return isReachable;
+                }
+
+                if (curFlowNode.flags & FlowFlags.Start) {
+                    return true;
+                }
+
+                if (curFlowNode.flags & FlowFlags.WildcardImport) {
+                    const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
+                    curFlowNode = wildcardImportFlowNode.antecedent;
+                    continue;
                 }
 
                 // We shouldn't get here.
