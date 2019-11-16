@@ -954,7 +954,7 @@ function _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap | und
     return ClassType.cloneForSpecialization(classType, newTypeArgs);
 }
 
-export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel: number): Type {
+export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0): Type {
     const boundType = type.boundType;
     if (boundType) {
         return specializeType(boundType, undefined, false, recursionLevel + 1);

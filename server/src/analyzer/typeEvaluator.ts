@@ -2332,7 +2332,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const type = doForSubtypes(baseType, subtype => {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
-            } else if (subtype.category === TypeCategory.Class) {
+            }
+
+            if (subtype.category === TypeCategory.Class) {
                 // Setting the value of an indexed class will always result
                 // in an exception.
                 if (usage.method === 'set') {
@@ -2344,7 +2346,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (ClassType.isSpecialBuiltIn(subtype, 'Literal')) {
                     // Special-case Literal types.
                     return createLiteralType(node);
-                } else if (ClassType.isBuiltIn(subtype, 'InitVar')) {
+                }
+
+                if (ClassType.isBuiltIn(subtype, 'InitVar')) {
                     // Special-case InitVar, used in data classes.
                     const typeArgs = getTypeArgs(node.items, flags);
                     if (typeArgs.length === 1) {
@@ -2355,20 +2359,26 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             node.baseExpression);
                         return UnknownType.create();
                     }
-                } else if (ClassType.isEnumClass(subtype)) {
+                }
+
+                if (ClassType.isEnumClass(subtype)) {
                     // Special-case Enum types.
                     // TODO - validate that there's only one index entry
                     // that is a str type.
                     // TODO - validate that literal strings are referencing
                     // a known enum member.
                     return ObjectType.create(subtype);
-                } else {
-                    const typeArgs = getTypeArgs(node.items, flags);
-                    return createSpecializedClassType(subtype, typeArgs, node.items);
                 }
-            } else if (subtype.category === TypeCategory.Object) {
+
+                const typeArgs = getTypeArgs(node.items, flags);
+                return createSpecializedClassType(subtype, typeArgs, node.items);
+            }
+
+            if (subtype.category === TypeCategory.Object) {
                 return getTypeFromIndexedObject(node, subtype, usage);
-            } else if (isNoneOrNever(subtype)) {
+            }
+
+            if (isNoneOrNever(subtype)) {
                 addDiagnostic(
                     getFileInfo(node).diagnosticSettings.reportOptionalSubscript,
                     DiagnosticRule.reportOptionalSubscript,
@@ -2376,15 +2386,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     node.baseExpression);
 
                 return UnknownType.create();
-            } else {
-                if (!isUnbound(subtype)) {
-                    addError(
-                        `Object of type '${printType(subtype)}' cannot be subscripted`,
-                        node.baseExpression);
-                }
-
-                return UnknownType.create();
             }
+
+            if (!isUnbound(subtype)) {
+                addError(
+                    `Object of type '${printType(subtype)}' cannot be subscripted`,
+                    node.baseExpression);
+            }
+
+            return UnknownType.create();
         });
 
         // In case we didn't walk the list items above, do so now.
@@ -2668,7 +2678,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         });
 
         return getTypeFromCallWithBaseType(
-            node, argList, baseTypeResult, expectedType, flags);
+            node, argList, baseTypeResult, expectedType, flags & ~EvaluatorFlags.DoNotSpecialize);
     }
 
     function getTypeFromSuperCall(node: CallNode): Type {
@@ -4669,6 +4679,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             let paramType: Type = UnknownType.create();
             if (expectedFunctionType && index < expectedFunctionType.details.parameters.length) {
                 paramType = FunctionType.getEffectiveParameterType(expectedFunctionType, index);
+                paramType = specializeType(paramType, undefined, true);
             }
 
             if (param.name) {
@@ -6562,7 +6573,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // context to evaluate its specialized type correctly.
         let callType: Type | undefined;
         useSpeculativeMode(() => {
-            callType = getType(node.leftExpression);
+            callType = getType(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
         });
         let callIsNoReturn = false;
 
