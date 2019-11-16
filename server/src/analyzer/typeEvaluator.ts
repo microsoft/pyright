@@ -333,7 +333,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const index = getIndexOfSymbolResolution(symbol, declaration);
         if (index >= 0) {
             // Mark all of the entries between these two as invalid.
-            for (let i = index; i < symbolResolutionStack.length; i++) {
+            for (let i = index + 1; i < symbolResolutionStack.length; i++) {
                 symbolResolutionStack[i].isResultValid = false;
             }
             return false;
@@ -373,7 +373,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const index = typeResolutionStack.findIndex(entry => entry.reference === reference);
         if (index >= 0) {
             // Mark all of the entries between these two as invalid.
-            for (let i = index; i < typeResolutionStack.length; i++) {
+            for (let i = index + 1; i < typeResolutionStack.length; i++) {
                 typeResolutionStack[i].isResultValid = false;
             }
             return false;
@@ -7131,16 +7131,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return filteredTypes.map(t => ObjectType.create(t));
         };
 
-        const finalizeFilteredTypeList = (types: Type[]): Type => {
-            return combineTypes(types);
-        };
-
         if (isInstanceCheck && effectiveType.category === TypeCategory.Object) {
             const filteredType = filterType(effectiveType.classType);
-            return finalizeFilteredTypeList(filteredType);
+            return combineTypes(filteredType);
         } else if (!isInstanceCheck && effectiveType.category === TypeCategory.Class) {
             const filteredType = filterType(effectiveType);
-            return finalizeFilteredTypeList(filteredType);
+            return combineTypes(filteredType);
         } else if (effectiveType.category === TypeCategory.Union) {
             let remainingTypes: Type[] = [];
 
@@ -7161,7 +7157,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             });
 
-            return finalizeFilteredTypeList(remainingTypes);
+            return combineTypes(remainingTypes);
         }
 
         // Return the original type.
