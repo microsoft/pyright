@@ -5274,8 +5274,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         let classType = readTypeCache(node.name) as ClassType;
         let decoratedType = readTypeCache(node);
 
-        if (classType && decoratedType) {
-            return { classType, decoratedType };
+        if (classType) {
+            return { classType, decoratedType: decoratedType || UnknownType.create() };
         }
 
         // The type wasn't cached, so we need to create a new one.
@@ -5296,6 +5296,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const classSymbol = scope.lookUpSymbol(node.name.nameToken.value);
         const classDecl = AnalyzerNodeInfo.getDeclaration(node)!;
         setSymbolResolutionPartialType(classSymbol!, classDecl, classType);
+        writeTypeCache(node, classType);
+        writeTypeCache(node.name, classType);
 
         // Keep a list of unique type parameters that are used in the
         // base class arguments.
@@ -5323,7 +5325,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     argType = removeUnboundFromUnion(argType);
                 }
 
-                if (!isAnyOrUnknown(argType)) {
+                if (!isAnyOrUnknown(argType) && argType.category !== TypeCategory.Unbound) {
                     // Handle "Type[X]" object.
                     argType = transformTypeObjectToClass(argType);
                     if (argType.category !== TypeCategory.Class) {
@@ -5526,8 +5528,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         let functionType = readTypeCache(node.name) as FunctionType;
         let decoratedType = readTypeCache(node);
 
-        if (functionType && decoratedType) {
-            return { functionType, decoratedType };
+        if (functionType) {
+            return { functionType, decoratedType: decoratedType || UnknownType.create() };
         }
 
         const functionDecl = AnalyzerNodeInfo.getDeclaration(node) as FunctionDeclaration;
@@ -5574,6 +5576,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const scope = ScopeUtils.getScopeForNode(node);
         const functionSymbol = scope.lookUpSymbol(node.name.nameToken.value);
         setSymbolResolutionPartialType(functionSymbol!, functionDecl, functionType);
+        writeTypeCache(node, functionType);
+        writeTypeCache(node.name, functionType);
 
         // If there was a defined return type, analyze that first so when we
         // walk the contents of the function, return statements can be
@@ -7667,9 +7671,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
         // If there's a declared type, it takes precedence.
-        const declaredType = getDeclaredTypeOfSymbol(symbol);
-        if (declaredType) {
-            return declaredType;
+        if (symbol.hasTypedDeclarations()) {
+            return getDeclaredTypeOfSymbol(symbol) || UnknownType.create();
         }
 
         // Is there an undeclared type associated with the

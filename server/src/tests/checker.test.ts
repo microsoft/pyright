@@ -139,7 +139,7 @@ test('TypeConstraint6', () => {
 test('CircularBaseClass', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circularBaseClass.py']);
 
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 2);
 });
 
 test('ReturnTypes1', () => {
