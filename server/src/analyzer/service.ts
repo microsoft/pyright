@@ -37,6 +37,7 @@ export { MaxAnalysisTime } from './program';
 export interface AnalysisResults {
     diagnostics: FileDiagnostics[];
     filesInProgram: number;
+    checkingOnlyOpenFiles: boolean;
     filesRequiringAnalysis: number;
     fatalErrorOccurred: boolean;
     configParseErrorOccurred: boolean;
@@ -325,9 +326,8 @@ export class AnalyzerService {
             }
         }
 
-        if (commandLineOptions.verboseOutput) {
-           configOptions.verboseOutput = true;
-        }
+        configOptions.verboseOutput = !!commandLineOptions.verboseOutput;
+        configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
 
         // Do some sanity checks on the specified settings and report missing
         // or inconsistent information.
@@ -809,7 +809,7 @@ export class AnalyzerService {
         // How long has it been since the user interacted with the service?
         // If the user is actively typing, back off to let him or her finish.
         const timeSinceLastUserInteractionInMs = Date.now() - this._lastUserInteractionTime;
-        const minBackoffTimeInMs = 3000;
+        const minBackoffTimeInMs = 1500;
 
         // We choose a small non-zero value here. If this value
         // is too small (like zero), the VS Code extension becomes
@@ -866,6 +866,7 @@ export class AnalyzerService {
                 diagnostics: this._program.getDiagnostics(this._configOptions),
                 filesInProgram: this._program.getFileCount(),
                 filesRequiringAnalysis: filesLeftToAnalyze,
+                checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: false,
                 elapsedTime: duration.getDurationInSeconds()
@@ -890,6 +891,7 @@ export class AnalyzerService {
                     diagnostics: [],
                     filesInProgram: 0,
                     filesRequiringAnalysis: 0,
+                    checkingOnlyOpenFiles: true,
                     fatalErrorOccurred: true,
                     configParseErrorOccurred: false,
                     elapsedTime: 0
@@ -907,6 +909,7 @@ export class AnalyzerService {
                     diagnostics: fileDiags,
                     filesInProgram: this._program.getFileCount(),
                     filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
+                    checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
                     fatalErrorOccurred: false,
                     configParseErrorOccurred: false,
                     elapsedTime: 0
@@ -921,6 +924,7 @@ export class AnalyzerService {
                 diagnostics: [],
                 filesInProgram: 0,
                 filesRequiringAnalysis: 0,
+                checkingOnlyOpenFiles: true,
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: true,
                 elapsedTime: 0

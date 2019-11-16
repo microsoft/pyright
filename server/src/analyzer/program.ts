@@ -35,8 +35,6 @@ import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
-const _maxAnalysisTimeForCompletions = 500;
-const _analyzeOnlyOpenFiles = false;
 const _allowAllThirdPartyImports = true;
 
 export interface SourceFileInfo {
@@ -146,13 +144,17 @@ export class Program {
                     fileInfo.sourceFile.isBindingRequired() ||
                     fileInfo.sourceFile.isCheckingRequired()) {
 
-                if ((!_analyzeOnlyOpenFiles && fileInfo.isTracked) || fileInfo.isOpenByClient) {
+                if ((!this._configOptions.checkOnlyOpenFiles && fileInfo.isTracked) || fileInfo.isOpenByClient) {
                     sourceFileCount++;
                 }
             }
         });
 
         return sourceFileCount;
+    }
+
+    isCheckingOnlyOpenFiles() {
+        return this._configOptions.checkOnlyOpenFiles;
     }
 
     addTrackedFiles(filePaths: string[]) {
@@ -295,7 +297,7 @@ export class Program {
             }
         }
 
-        if (!_analyzeOnlyOpenFiles) {
+        if (!this._configOptions.checkOnlyOpenFiles) {
             // Do type analysis of remaining files.
             const allFiles = this._sourceFileList;
 
@@ -700,7 +702,7 @@ export class Program {
         const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
 
         this._sourceFileList.forEach(sourceFileInfo => {
-            if ((!_analyzeOnlyOpenFiles && sourceFileInfo.isTracked) || sourceFileInfo.isOpenByClient) {
+            if ((!options.checkOnlyOpenFiles && sourceFileInfo.isTracked) || sourceFileInfo.isOpenByClient) {
                 const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
                         options, sourceFileInfo.diagnosticsVersion);
                 if (diagnostics !== undefined) {
@@ -954,7 +956,7 @@ export class Program {
             } else {
                 // If we're showing the user errors only for open files, clear
                 // out the errors for the now-closed file.
-                if (_analyzeOnlyOpenFiles && !fileInfo.isOpenByClient) {
+                if (this._configOptions.checkOnlyOpenFiles && !fileInfo.isOpenByClient) {
                     fileDiagnostics.push({
                         filePath: fileInfo.sourceFile.getFilePath(),
                         diagnostics: []

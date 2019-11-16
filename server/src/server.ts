@@ -32,6 +32,7 @@ interface PythonSettings {
 
 interface PyrightSettings {
     disableLanguageServices?: boolean;
+    openFilesOnly?: boolean;
 }
 
 interface WorkspaceServiceInstance {
@@ -92,7 +93,8 @@ function _createAnalyzerService(name: string): AnalyzerService {
             });
 
             if (results.filesRequiringAnalysis > 0) {
-                if (!_isDisplayingProgress) {
+                // Display a progress spinner if we're checking the entire program.
+                if (!_isDisplayingProgress && !results.checkingOnlyOpenFiles) {
                     _isDisplayingProgress = true;
                     _connection.sendNotification('pyright/beginProgress');
                 }
@@ -573,68 +575,72 @@ _connection.onDidCloseTextDocument(params => {
     service.setFileClosed(filePath);
 });
 
-function getConfiguration(workspace: WorkspaceServiceInstance, section: string) {
-    if (workspace.rootUri) {
-        return _connection.workspace.getConfiguration({
-            scopeUri: workspace.rootUri || undefined,
-            section
-        });
-    } else {
-        return _connection.workspace.getConfiguration(section);
-    }
+function getConfiguration(workspace: WorkspaceServiceInstance, sections: string[]) {
+    const scopeUri = workspace.rootUri ? workspace.rootUri : undefined;
+    return _connection.workspace.getConfiguration(
+        sections.map(section => {
+            return {
+                scopeUri,
+                section
+            };
+        })
+    );
+}
+
+function fetchSettingsForWorkspace(workspace: WorkspaceServiceInstance,
+        callback: (pythonSettings: PythonSettings, pyrightSettings: PyrightSettings) => void) {
+    const pythonSettingsPromise = getConfiguration(workspace, ['python', 'pyright']);
+    pythonSettingsPromise.then((settings: [PythonSettings, PyrightSettings]) => {
+        callback(settings[0], settings[1]);
+    }, () => {
+        // An error occurred trying to read the settings
+        // for this workspace, so ignore.
+    });
 }
 
 function updateSettingsForAllWorkspaces() {
     _workspaceMap.forEach(workspace => {
-        const pythonSettingsPromise = getConfiguration(workspace, 'python');
-        pythonSettingsPromise.then((settings: PythonSettings) => {
-            updateOptionsAndRestartService(workspace, settings);
-        }, () => {
-            // An error occurred trying to read the settings
-            // for this workspace, so ignore.
-        });
+        fetchSettingsForWorkspace(workspace, (pythonSettings, pyrightSettings) => {
+            updateOptionsAndRestartService(workspace, pythonSettings, pyrightSettings);
 
-        const pyrightSettingsPromise = getConfiguration(workspace, 'pyright');
-        pyrightSettingsPromise.then((settings?: PyrightSettings) => {
-            workspace.disableLanguageServices = settings !== undefined &&
-                !!settings.disableLanguageServices;
-        }, () => {
-            // An error occurred trying to read the settings
-            // for this workspace, so ignore.
+            workspace.disableLanguageServices = !!pyrightSettings.disableLanguageServices;
         });
     });
 }
 
 function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
-        settings: PythonSettings, typeStubTargetImportName?: string) {
+        pythonSettings: PythonSettings, pyrightSettings?: PyrightSettings,
+        typeStubTargetImportName?: string) {
 
     const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
     commandLineOptions.watch = true;
+    commandLineOptions.checkOnlyOpenFiles = pyrightSettings ?
+        !!pyrightSettings.openFilesOnly : true;
 
-    if (settings.venvPath) {
+    if (pythonSettings.venvPath) {
         commandLineOptions.venvPath = combinePaths(workspace.rootPath || _rootPath,
-            normalizePath(_expandPathVariables(settings.venvPath)));
+            normalizePath(_expandPathVariables(pythonSettings.venvPath)));
     }
 
-    if (settings.pythonPath) {
+    if (pythonSettings.pythonPath) {
         // The Python VS Code extension treats the value "python" specially. This means
         // the local python interpreter should be used rather than interpreting the
         // setting value as a path to the interpreter. We'll simply ignore it in this case.
-        if (settings.pythonPath.trim() !== 'python') {
+        if (pythonSettings.pythonPath.trim() !== 'python') {
             commandLineOptions.pythonPath = combinePaths(workspace.rootPath || _rootPath,
-                normalizePath(_expandPathVariables(settings.pythonPath)));
+                normalizePath(_expandPathVariables(pythonSettings.pythonPath)));
         }
     }
 
-    if (settings.analysis &&
-            settings.analysis.typeshedPaths &&
-            settings.analysis.typeshedPaths.length > 0) {
+    if (pythonSettings.analysis &&
+            pythonSettings.analysis.typeshedPaths &&
+            pythonSettings.analysis.typeshedPaths.length > 0) {
 
         // Pyright supports only one typeshed path currently, whereas the
         // official VS Code Python extension supports multiple typeshed paths.
         // We'll use the first one specified and ignore the rest.
         commandLineOptions.typeshedPath =
-            _expandPathVariables(settings.analysis.typeshedPaths[0]);
+            _expandPathVariables(pythonSettings.analysis.typeshedPaths[0]);
     }
 
     if (typeStubTargetImportName) {
@@ -712,12 +718,8 @@ _connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
                     disableLanguageServices: true
                 };
 
-                const pythonSettingsPromise = getConfiguration(workspace, 'python');
-                pythonSettingsPromise.then((settings: PythonSettings) => {
-                    updateOptionsAndRestartService(workspace, settings, importName);
-                }, () => {
-                    // An error occurred trying to read the settings
-                    // for this workspace, so ignore.
+                fetchSettingsForWorkspace(workspace, (pythonSettings, pyrightSettings) => {
+                    updateOptionsAndRestartService(workspace, pythonSettings, pyrightSettings, importName);
                 });
             });
 

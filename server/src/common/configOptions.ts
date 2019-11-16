@@ -323,6 +323,9 @@ export class ConfigOptions {
     // Emit verbose information to console?
     verboseOutput: boolean;
 
+    // Perform type checking and report diagnostics only for open files?
+    checkOnlyOpenFiles: boolean;
+
     //---------------------------------------------------------------
     // Diagnostics Settings
 

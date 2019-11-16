@@ -109,6 +109,7 @@ function processArgs() {
     }
 
     options.verboseOutput = !!args.verbose;
+    options.checkOnlyOpenFiles = false;
 
     const watch = args.watch !== undefined;
     options.watch = watch;
