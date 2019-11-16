@@ -1796,7 +1796,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
-            type = getEffectiveTypeOfSymbol(symbol);
+            const executionScopeNode = ParseTreeUtils.getExecutionScopeNode(node);
+
+            // Does the symbol have a declared type? If it's inferred, determine
+            // the type(s) that are contributed by other execution scopes.
+            type = getEffectiveTypeOfSymbol(symbol, executionScopeNode);
             const isSpecialBuiltIn = !!type && type.category === TypeCategory.Class &&
                 ClassType.isSpecialBuiltIn(type);
 
@@ -6558,6 +6562,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return callIsNoReturnCache.get(node.id);
         }
 
+        // Initially set to false to avoid infinite recursion.
+        callIsNoReturnCache.set(node.id, false);
+
         // Evaluate the call base type.
         const callType = getType(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
         let callIsNoReturn = false;
@@ -6626,18 +6633,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
             const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
-            const typeFlowRecursionMap = new Map<number, true>();
             const referenceKey = createKeyForReference(reference, targetSymbolId);
             let flowNodeTypeCache = flowNodeTypeCacheSet.get(referenceKey);
             if (!flowNodeTypeCache) {
                 flowNodeTypeCache = new Map<number, FlowNodeType | undefined>();
                 flowNodeTypeCacheSet.set(referenceKey, flowNodeTypeCache);
-            }
-
-            function preventFlowNodeRecursion(flowNodeId: number, callback: () => void) {
-                typeFlowRecursionMap.set(flowNodeId, true);
-                callback();
-                typeFlowRecursionMap.delete(flowNodeId);
             }
 
             // Caches the type of the flow node in our local cache, keyed by the flow node ID.
@@ -6690,11 +6690,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         return cachedEntry;
                     }
 
-                    // Avoid infinite recursion.
-                    if (typeFlowRecursionMap.has(curFlowNode.id)) {
-                        return undefined;
-                    }
-
                     if (curFlowNode.flags & FlowFlags.Unreachable) {
                         // We can get here if there are nodes in a compound logical expression
                         // (e.g. "False and x") that are never executed but are evaluated.
@@ -6730,7 +6725,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                 return setCacheEntry(curFlowNode, UnboundType.create());
                             }
 
-                            return setCacheEntry(curFlowNode, evaluateAssignmentFlowNode(assignmentFlowNode));
+                            setCacheEntry(curFlowNode, undefined);
+                            const flowType = evaluateAssignmentFlowNode(assignmentFlowNode);
+                            return setCacheEntry(curFlowNode, flowType);
                         }
 
                         curFlowNode = assignmentFlowNode.antecedent;
@@ -6752,31 +6749,35 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
                         const labelNode = curFlowNode as FlowLabel;
                         const typesToCombine: Type[] = [];
-                        preventFlowNodeRecursion(curFlowNode.id, () => {
-                            labelNode.antecedents.map(antecedent => {
-                                const flowType = getTypeFromFlowNode(antecedent, reference,
-                                    targetSymbolId, initialType);
-                                if (flowType) {
-                                    typesToCombine.push(flowType);
-                                }
-                            });
+
+                        let effectiveType: Type | undefined;
+                        setCacheEntry(curFlowNode, effectiveType);
+
+                        labelNode.antecedents.map(antecedent => {
+                            const flowType = getTypeFromFlowNode(antecedent, reference,
+                                targetSymbolId, initialType);
+                            if (flowType) {
+                                typesToCombine.push(flowType);
+                                effectiveType = combineTypes(typesToCombine);
+                                setCacheEntry(curFlowNode, effectiveType);
+                            }
                         });
-                        if (typesToCombine.length === 0) {
-                            return setCacheEntry(curFlowNode, undefined);
-                        }
-                        return setCacheEntry(curFlowNode, combineTypes(typesToCombine));
+                        return effectiveType;
                     }
 
                     if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                         const conditionalFlowNode = curFlowNode as FlowCondition;
                         const typeNarrowingCallback = getTypeNarrowingCallback(reference, conditionalFlowNode);
                         if (typeNarrowingCallback) {
-                            let flowType: FlowNodeType | undefined;
-                            preventFlowNodeRecursion(curFlowNode.id, () => {
-                                flowType = getTypeFromFlowNode(conditionalFlowNode.antecedent,
-                                    reference, targetSymbolId, initialType);
-                            });
-                            return setCacheEntry(curFlowNode, flowType ? typeNarrowingCallback(flowType) : undefined);
+                            setCacheEntry(curFlowNode, undefined);
+
+                            let flowType = getTypeFromFlowNode(conditionalFlowNode.antecedent,
+                                reference, targetSymbolId, initialType);
+                            if (flowType) {
+                                flowType = typeNarrowingCallback(flowType);
+                            }
+
+                            return setCacheEntry(curFlowNode, flowType);
                         }
 
                         curFlowNode = conditionalFlowNode.antecedent;
@@ -6826,14 +6827,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             }
 
-            if (!pushTypeResolution(reference)) {
-                return undefined;
-            }
-            const type = getTypeFromFlowNode(flowNode!, reference, targetSymbolId, initialType);
-            if (!popTypeResolution(reference)) {
-                return undefined;
-            }
-            return type;
+            return getTypeFromFlowNode(flowNode!, reference, targetSymbolId, initialType);
         }
 
         return {
@@ -7705,7 +7699,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
     }
 
-    function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
+    // If the symbol has a declared type, it is returned. If the symbol's
+    // type needs to be inferred from one or more assignments, these are
+    // evaluated, and the union of the assigned types is returned. Callers
+    // can pass an optional execution scope that should be ignored when
+    // evaluating inferred types, effectively computing the type that is
+    // provided by other execution scopes.
+    function getEffectiveTypeOfSymbol(symbol: Symbol,
+            executionScopeToIgnore?: ParseTreeUtils.ExecutionScopeNode): Type {
+
         // If there's a declared type, it takes precedence over
         // inferred types.
         if (symbol.hasTypedDeclarations()) {
@@ -7716,26 +7718,31 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const typesToCombine: Type[] = [];
         const isPrivate = symbol.isPrivateMember();
         symbol.getDeclarations().forEach(decl => {
-            if (pushSymbolResolution(symbol, decl)) {
-                let type = getInferredTypeOfDeclaration(decl);
+            const executionScopeOfDecl = executionScopeToIgnore ?
+                ParseTreeUtils.getExecutionScopeNode(decl.node) : undefined;
 
-                if (!popSymbolResolution(symbol)) {
-                    // We hit a recursion.
-                } else if (type) {
-                    const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
+            if (!executionScopeToIgnore || executionScopeOfDecl !== executionScopeToIgnore) {
+                if (pushSymbolResolution(symbol, decl)) {
+                    let type = getInferredTypeOfDeclaration(decl);
 
-                    // If the symbol is private or constant, we can retain the literal
-                    // value. Otherwise, strip them off to make the type less specific,
-                    // allowing other values to be assigned to it in subclasses.
-                    if (!isPrivate && !isConstant) {
-                        type = stripLiteralValue(type);
+                    if (!popSymbolResolution(symbol)) {
+                        // We hit a recursion.
+                    } else if (type) {
+                        const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
+
+                        // If the symbol is private or constant, we can retain the literal
+                        // value. Otherwise, strip them off to make the type less specific,
+                        // allowing other values to be assigned to it in subclasses.
+                        if (!isPrivate && !isConstant) {
+                            type = stripLiteralValue(type);
+                        }
+                        typesToCombine.push(type);
                     }
-                    typesToCombine.push(type);
                 }
             }
         });
 
-        return typesToCombine.length > 0 ? combineTypes(typesToCombine) : UnknownType.create();
+        return typesToCombine.length > 0 ? combineTypes(typesToCombine) : UnboundType.create();
     }
 
     function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
