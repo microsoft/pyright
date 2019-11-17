@@ -160,7 +160,12 @@ interface ParamAssignmentInfo {
 
 export type SetAnalysisChangedCallback = (reason: string) => void;
 
-type FlowNodeType = Type;
+const speculativeTypeCategory = -1;
+interface SpeculativeType {
+    category: -1;
+    type: Type | undefined;
+}
+type FlowNodeType = Type | SpeculativeType;
 
 const arithmeticOperatorMap: { [operator: number]: [string, string] } = {
     [OperatorType.Add]: ['__add__', '__radd__'],
@@ -6676,12 +6681,25 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             // Caches the type of the flow node in our local cache, keyed by the flow node ID.
-            function setCacheEntry(flowNode: FlowNode, type?: Type): FlowNodeType | undefined {
-                flowNodeTypeCache!.set(flowNode.id, type);
+            function setCacheEntry(flowNode: FlowNode, type: Type | undefined): Type | undefined {
+                const entry: FlowNodeType | Type | undefined = isSpeculativeMode ?
+                    { category: speculativeTypeCategory, type } : type;
+                flowNodeTypeCache!.set(flowNode.id, entry);
                 return type;
             }
 
-            function evaluateAssignmentFlowNode(flowNode: FlowAssignment): FlowNodeType | undefined {
+            function getCacheEntry(flowNode: FlowNode): Type | undefined {
+                const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
+                if (!cachedEntry) {
+                    return cachedEntry;
+                }
+                if (cachedEntry.category === speculativeTypeCategory) {
+                    return isSpeculativeMode ? (cachedEntry as SpeculativeType).type : undefined;
+                }
+                return cachedEntry;
+            }
+
+            function evaluateAssignmentFlowNode(flowNode: FlowAssignment): Type | undefined {
                 // For function and class nodes, the reference node is the name
                 // node, but we need to use the parent node (the FunctionNode or ClassNode)
                 // to access the decorated type in the type cache.
@@ -6714,13 +6732,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // If the start flow node for this scope is reachable, the typeAtStart value is
             // returned.
             function getTypeFromFlowNode(flowNode: FlowNode, reference: NameNode | MemberAccessNode,
-                targetSymbolId: number, initialType: Type | undefined): FlowNodeType | undefined {
+                targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
                 let curFlowNode = flowNode;
 
                 while (true) {
                     // Have we already been here? If so, use the cached value.
-                    const cachedEntry = flowNodeTypeCache!.get(curFlowNode.id);
+                    const cachedEntry = getCacheEntry(curFlowNode);
                     if (cachedEntry) {
                         return cachedEntry;
                     }
