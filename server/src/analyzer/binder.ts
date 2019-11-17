@@ -36,9 +36,9 @@ import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags, FlowLabel,
-    FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport, getUniqueFlowNodeId,
-    isCodeFlowSupportedForReference } from './codeFlow';
+import { createKeyForReference, FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
+    FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport,
+    getUniqueFlowNodeId, isCodeFlowSupportedForReference } from './codeFlow';
 import { AliasDeclaration, ClassDeclaration, DeclarationType, FunctionDeclaration,
     IntrinsicType, ModuleLoaderActions, VariableDeclaration } from './declaration';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
@@ -67,8 +67,11 @@ interface MemberAccessInfo {
 interface DeferredBindingTask {
     scope: Scope;
     nonLocalBindingsMap: Map<string, NameBindingType>;
+    codeFlowExpressionMap: Map<string, string>;
     callback: () => void;
 }
+
+type NarrowingExpressionNode = NameNode | MemberAccessNode;
 
 export interface BinderResults {
     moduleDocString?: string;
@@ -116,6 +119,10 @@ export class Binder extends ParseTreeWalker {
 
     // Flow nodes used for return statements.
     private _currentReturnTarget?: FlowLabel;
+
+    // Map of symbols within the current execution scope
+    // and require code flow analysis to resolve.
+    private _currentExecutionScopeReferenceMap: Map<string, string>;
 
     // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = {
@@ -192,6 +199,8 @@ export class Binder extends ParseTreeWalker {
             this._currentFlowNode = this._createStartFlowNode();
 
             this._walkStatementsAndReportUnreachable(node.statements);
+
+            AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap);
         });
 
         // Perform all analysis that was deferred during the first pass.
@@ -407,6 +416,8 @@ export class Binder extends ParseTreeWalker {
                 const returnFlowNode = this._finishFlowLabel(this._currentReturnTarget);
                 AnalyzerNodeInfo.setAfterFlowNode(node, returnFlowNode);
             });
+
+            AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap);
         });
 
         this._createAssignmentTargetFlowNodes(node.name);
@@ -451,6 +462,8 @@ export class Binder extends ParseTreeWalker {
 
                 // Walk the expression that make up the lambda body.
                 this.walk(node.expression);
+
+                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap);
             });
         });
 
@@ -1445,9 +1458,15 @@ export class Binder extends ParseTreeWalker {
             return Binder._unreachableFlowNode;
         }
 
-        if (!this._isNarrowingExpression(expression)) {
+        const expressionList: NarrowingExpressionNode[] = [];
+        if (!this._isNarrowingExpression(expression, expressionList)) {
             return antecedent;
         }
+
+        expressionList.forEach(expr => {
+            const referenceKey = createKeyForReference(expr);
+            this._currentExecutionScopeReferenceMap.set(referenceKey, referenceKey);
+        });
 
         const conditionalFlowNode: FlowCondition = {
             flags,
@@ -1477,11 +1496,18 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    private _isNarrowingExpression(expression: ExpressionNode): boolean {
+    private _isNarrowingExpression(expression: ExpressionNode,
+            expressionList: NarrowingExpressionNode[]): boolean {
+
         switch (expression.nodeType) {
             case ParseNodeType.Name:
             case ParseNodeType.MemberAccess: {
-                return isCodeFlowSupportedForReference(expression);
+                if (isCodeFlowSupportedForReference(expression)) {
+                    expressionList.push(expression);
+                    return true;
+                }
+
+                return false;
             }
 
             case ParseNodeType.BinaryOperation: {
@@ -1493,7 +1519,7 @@ export class Binder extends ParseTreeWalker {
                     if (expression.rightExpression.nodeType === ParseNodeType.Constant &&
                             expression.rightExpression.constType === KeywordType.None) {
 
-                        return true;
+                        return this._isNarrowingExpression(expression.leftExpression, expressionList);
                     }
 
                     // Look for "type(X) is Y" or "type(X) is not Y".
@@ -1503,7 +1529,8 @@ export class Binder extends ParseTreeWalker {
                         expression.leftExpression.arguments.length === 1 &&
                             expression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
 
-                        return true;
+                        return this._isNarrowingExpression(
+                            expression.leftExpression.arguments[0].valueExpression, expressionList);
                     }
                 }
 
@@ -1512,18 +1539,22 @@ export class Binder extends ParseTreeWalker {
 
             case ParseNodeType.UnaryOperation: {
                 return expression.operator === OperatorType.Not &&
-                    this._isNarrowingExpression(expression.expression);
+                    this._isNarrowingExpression(expression.expression, expressionList);
             }
 
             case ParseNodeType.AugmentedAssignment: {
-                return this._isNarrowingExpression(expression.rightExpression);
+                return this._isNarrowingExpression(expression.rightExpression, expressionList);
             }
 
             case ParseNodeType.Call: {
-                return expression.leftExpression.nodeType === ParseNodeType.Name &&
-                    (expression.leftExpression.value === 'isinstance' ||
-                        expression.leftExpression.value === 'issubclass') &&
-                    expression.arguments.length === 2;
+                if (expression.leftExpression.nodeType === ParseNodeType.Name &&
+                        (expression.leftExpression.value === 'isinstance' ||
+                            expression.leftExpression.value === 'issubclass') &&
+                        expression.arguments.length === 2) {
+
+                    return this._isNarrowingExpression(expression.arguments[0].valueExpression,
+                        expressionList);
+                }
             }
         }
 
@@ -1608,6 +1639,9 @@ export class Binder extends ParseTreeWalker {
                 antecedent: this._currentFlowNode,
                 targetSymbolId
             };
+
+            const referenceKey = createKeyForReference(node);
+            this._currentExecutionScopeReferenceMap.set(referenceKey, referenceKey);
 
             if (unbound) {
                 flowNode.flags |= FlowFlags.Unbind;
@@ -1774,11 +1808,21 @@ export class Binder extends ParseTreeWalker {
         const prevScope = this._currentScope;
         this._currentScope = new Scope(scopeType, parentScope);
 
+        // If this scope is an execution scope, allocate a new reference map.
+        const isExecutionScope = scopeType === ScopeType.Builtin || scopeType === ScopeType.Module ||
+            scopeType === ScopeType.Function;
+        const prevReferenceMap = this._currentExecutionScopeReferenceMap;
+
+        if (isExecutionScope) {
+            this._currentExecutionScopeReferenceMap = new Map<string, string>();
+        }
+
         const prevNonLocalBindings = this._notLocalBindings;
         this._notLocalBindings = new Map<string, NameBindingType>();
 
         callback();
 
+        this._currentExecutionScopeReferenceMap = prevReferenceMap;
         this._currentScope = prevScope;
         this._notLocalBindings = prevNonLocalBindings;
     }
@@ -2091,6 +2135,7 @@ export class Binder extends ParseTreeWalker {
         this._deferredBindingTasks.push({
             scope: this._currentScope,
             nonLocalBindingsMap: this._notLocalBindings,
+            codeFlowExpressionMap: this._currentExecutionScopeReferenceMap,
             callback
         });
     }
@@ -2103,6 +2148,7 @@ export class Binder extends ParseTreeWalker {
             this._currentScope = nextItem.scope;
             this._notLocalBindings = nextItem.nonLocalBindingsMap;
             this._nestedExceptDepth = 0;
+            this._currentExecutionScopeReferenceMap = nextItem.codeFlowExpressionMap;
 
             nextItem.callback();
         }

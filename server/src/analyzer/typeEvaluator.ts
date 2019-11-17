@@ -6611,6 +6611,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function getFlowTypeOfReference(reference: NameNode | MemberAccessNode,
            targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
+        // See if this execution scope requires code flow for this reference expression.
+        const referenceKey = createKeyForReference(reference);
+        const executionScope = ParseTreeUtils.getExecutionScopeNode(reference);
+        const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionScope);
+
+        assert(codeFlowExpressions !== undefined);
+        if (!codeFlowExpressions!.has(referenceKey)) {
+            return undefined;
+        }
+
         // Is there an code flow analyzer cached for this execution scope?
         const executionNode = ParseTreeUtils.getExecutionScopeNode(reference);
         let analyzer = codeFlowAnalyzerCache.get(executionNode.id);
@@ -6634,7 +6644,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 targetSymbolId: number, initialType: Type | undefined): FlowNodeTypeResult {
 
             const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
-            const referenceKey = createKeyForReference(reference, targetSymbolId);
+            const referenceKey = createKeyForReference(reference) + `.${ targetSymbolId.toString() }`;
             let flowNodeTypeCache = flowNodeTypeCacheSet.get(referenceKey);
             if (!flowNodeTypeCache) {
                 flowNodeTypeCache = new Map<number, CachedType | undefined>();

@@ -116,9 +116,7 @@ export function isCodeFlowSupportedForReference(reference: ExpressionNode): bool
     return false;
 }
 
-export function createKeyForReference(reference: NameNode | MemberAccessNode,
-        targetSymbolId: number): string {
-
+export function createKeyForReference(reference: NameNode | MemberAccessNode): string {
     let key;
     if (reference.nodeType === ParseNodeType.Name) {
         key = reference.value;
@@ -126,12 +124,12 @@ export function createKeyForReference(reference: NameNode | MemberAccessNode,
         key = reference.memberName.value;
         let leftNode = reference.leftExpression;
         while (leftNode.nodeType === ParseNodeType.MemberAccess) {
-            key = leftNode.memberName.value + '.' + key;
+            key = leftNode.memberName.value + `.${ key }`;
             leftNode = leftNode.leftExpression;
         }
         assert(leftNode.nodeType === ParseNodeType.Name);
-        key = (leftNode as NameNode).value + '.' + key;
+        key = (leftNode as NameNode).value + `.${ key }`;
     }
 
-    return key + '.' + targetSymbolId.toString();
+    return key;
 }

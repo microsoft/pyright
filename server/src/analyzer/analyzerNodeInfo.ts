@@ -10,8 +10,8 @@
 * (e.g. hover information).
 */
 
-import { ClassNode, FunctionNode, LambdaNode, ListComprehensionNode, ModuleNode,
-    ParseNode } from '../parser/parseNodes';
+import { ClassNode, ExecutionScopeNode, FunctionNode, LambdaNode, ListComprehensionNode,
+    ModuleNode, ParseNode } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { FlowFlags, FlowNode } from './codeFlow';
 import { Declaration } from './declaration';
@@ -44,6 +44,10 @@ interface AnalyzerNodeInfo {
 
     // Info about the source file, used only on module nodes.
     fileInfo?: AnalyzerFileInfo;
+
+    // Map of expressions used within an execution scope (module,
+    // function or lambda) that requires code flow analysis.
+    codeFlowExpressions?: Map<string, string>;
 }
 
 export type ScopedNode = ModuleNode | ClassNode | FunctionNode |
@@ -118,6 +122,16 @@ export function getFileInfo(node: ModuleNode): AnalyzerFileInfo | undefined {
 export function setFileInfo(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.fileInfo = fileInfo;
+}
+
+export function getCodeFlowExpressions(node: ExecutionScopeNode): Map<string, string> | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode.codeFlowExpressions;
+}
+
+export function setCodeFlowExpressions(node: ExecutionScopeNode, map: Map<string, string>) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode.codeFlowExpressions = map;
 }
 
 export function isCodeUnreachable(node: ParseNode): boolean {

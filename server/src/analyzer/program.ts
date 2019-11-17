@@ -976,7 +976,7 @@ export class Program {
                     // If it's a relative import, we'll allow it because the
                     // importer was already deemed to be allowed.
                     thirdPartyImportAllowed = true;
-                } else if (this._allowedThirdPartyImports.some(importName => {
+                } else if (this._allowedThirdPartyImports.some((importName: string) => {
                     // If this import name is the one that was explicitly
                     // allowed or is a child of that import name,
                     // it's considered allowed.

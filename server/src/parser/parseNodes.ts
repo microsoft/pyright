@@ -1705,3 +1705,6 @@ export type ParseNode = ErrorNode | ArgumentNode | AssertNode | AssignmentExpres
     TernaryNode | TupleNode | TryNode | TypeAnnotationNode |
     UnaryOperationNode | UnpackNode | WhileNode | WithNode | WithItemNode |
     YieldNode | YieldFromNode;
+
+export type EvaluationScopeNode = LambdaNode | FunctionNode | ModuleNode | ClassNode | ListComprehensionNode;
+export type ExecutionScopeNode = LambdaNode | FunctionNode | ModuleNode;

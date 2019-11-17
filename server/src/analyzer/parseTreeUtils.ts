@@ -13,15 +13,12 @@ import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { ArgumentCategory, ClassNode, ExpressionNode, FunctionNode, isExpressionNode,
-    LambdaNode, ListComprehensionNode, ModuleNode, ParameterCategory, ParseNode, ParseNodeType,
+import { ArgumentCategory, ClassNode, EvaluationScopeNode, ExecutionScopeNode, ExpressionNode,
+    FunctionNode, isExpressionNode, ModuleNode, ParameterCategory, ParseNode, ParseNodeType,
     StatementNode, SuiteNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { decodeDocString } from './docStringUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
-
-export type EvaluationScopeNode = LambdaNode | FunctionNode | ModuleNode | ClassNode | ListComprehensionNode;
-export type ExecutionScopeNode = LambdaNode | FunctionNode | ModuleNode;
 
 export const enum PrintExpressionFlags {
     None = 0,
