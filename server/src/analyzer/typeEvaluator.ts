@@ -160,13 +160,6 @@ interface ParamAssignmentInfo {
 
 export type SetAnalysisChangedCallback = (reason: string) => void;
 
-const speculativeTypeCategory = -1;
-interface SpeculativeType {
-    category: -1;
-    type: Type | undefined;
-}
-type FlowNodeType = Type | SpeculativeType;
-
 const arithmeticOperatorMap: { [operator: number]: [string, string] } = {
     [OperatorType.Add]: ['__add__', '__radd__'],
     [OperatorType.Subtract]: ['__sub__', '__rsub__'],
@@ -268,9 +261,12 @@ interface CodeFlowAnalyzer {
            targetSymbolId: number, initialType: Type | undefined) => Type | undefined;
 }
 
-interface TypeCacheEntry {
-    type: Type;
-    isSpeculative?: boolean;
+type CachedType = Type | SpeculativeType;
+
+const speculativeTypeCategory = -1;
+interface SpeculativeType {
+    category: -1;
+    type: Type | undefined;
 }
 
 interface SymbolResolutionStackEntry {
@@ -294,37 +290,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     const functionRecursionMap = new Map<number, true>();
     const callIsNoReturnCache = new Map<number, boolean>();
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
-    const typeCache = new Map<number, TypeCacheEntry>();
+    const typeCache = new Map<number, CachedType>();
 
     function readTypeCache(node: ParseNode): Type | undefined {
-        const typeCacheEntry = typeCache.get(node.id);
-        if (!typeCacheEntry) {
+        const cachedType = typeCache.get(node.id);
+        if (cachedType === undefined) {
             return undefined;
         }
 
-        if (typeCacheEntry.isSpeculative) {
-            return isSpeculativeMode ? typeCacheEntry.type : undefined;
+        if (cachedType.category === speculativeTypeCategory) {
+            return isSpeculativeMode ? (cachedType as SpeculativeType).type : undefined;
         }
 
-        return typeCacheEntry.type;
+        return cachedType;
     }
 
     function writeTypeCache(node: ParseNode, type: Type) {
-        let typeCacheEntry = typeCache.get(node.id);
-        if (typeCacheEntry) {
-            if (!isSpeculativeMode) {
-                delete typeCacheEntry.isSpeculative;
-            } else {
-                typeCacheEntry.isSpeculative = true;
-            }
-            typeCacheEntry.type = type;
-        } else {
-            typeCacheEntry = { type };
-            if (isSpeculativeMode) {
-                typeCacheEntry.isSpeculative = true;
-            }
-            typeCache.set(node.id, typeCacheEntry);
-        }
+        const cachedType = isSpeculativeMode ? { category: speculativeTypeCategory, type } : type;
+        typeCache.set(node.id, cachedType);
     }
 
     function getIndexOfSymbolResolution(symbol: Symbol, declaration: Declaration) {
@@ -6628,7 +6611,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // of the expressions within an execution context. Each code flow analyzer
     // instance maintains a cache of types it has already determined.
     function createCodeFlowAnalyzer(): CodeFlowAnalyzer {
-        const flowNodeTypeCacheSet = new Map<string, Map<number, FlowNodeType | undefined>>();
+        const flowNodeTypeCacheSet = new Map<string, Map<number, CachedType | undefined>>();
 
         function getTypeFromCodeFlow(reference: NameNode | MemberAccessNode,
                 targetSymbolId: number, initialType: Type | undefined): Type | undefined {
@@ -6637,13 +6620,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const referenceKey = createKeyForReference(reference, targetSymbolId);
             let flowNodeTypeCache = flowNodeTypeCacheSet.get(referenceKey);
             if (!flowNodeTypeCache) {
-                flowNodeTypeCache = new Map<number, FlowNodeType | undefined>();
+                flowNodeTypeCache = new Map<number, CachedType | undefined>();
                 flowNodeTypeCacheSet.set(referenceKey, flowNodeTypeCache);
             }
 
             // Caches the type of the flow node in our local cache, keyed by the flow node ID.
             function setCacheEntry(flowNode: FlowNode, type: Type | undefined): Type | undefined {
-                const entry: FlowNodeType | Type | undefined = isSpeculativeMode ?
+                const entry: CachedType | Type | undefined = isSpeculativeMode ?
                     { category: speculativeTypeCategory, type } : type;
                 flowNodeTypeCache!.set(flowNode.id, entry);
                 return type;
