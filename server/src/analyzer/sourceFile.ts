@@ -391,11 +391,18 @@ export class SourceFile {
     // Adds a new circular dependency for this file but only if
     // it hasn't already been added.
     addCircularDependency(circDependency: CircularDependency) {
+        let updatedDependencyList = false;
+
         // Some topologies can result in a massive number of cycles. We'll cut it off.
         if (this._circularDependencies.length < _maxImportCyclesPerFile) {
             if (!this._circularDependencies.some(dep => dep.isEqual(circDependency))) {
                 this._circularDependencies.push(circDependency);
+                updatedDependencyList = true;
             }
+        }
+
+        if (updatedDependencyList) {
+            this._diagnosticVersion++;
         }
     }
 
@@ -694,7 +701,7 @@ export class SourceFile {
         assert(this._parseResults);
 
         try {
-            timingStats.typeAnalyzerTime.timeOperation(() => {
+            timingStats.typeCheckerTime.timeOperation(() => {
                 const checker = new Checker(this._parseResults!.parseTree, evaluator);
                 checker.check();
                 this._isCheckingNeeded = false;

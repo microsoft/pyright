@@ -48,6 +48,16 @@ export class TimingStat {
         }
     }
 
+    subtractFromTime(callback: () => void) {
+        if (this.isTiming) {
+            const duration = new Duration();
+            callback();
+            this.totalTime -= duration.getDurationInMilliseconds();
+        } else {
+            callback();
+        }
+    }
+
     printTime(): string {
         const totalTimeInSec = this.totalTime / 1000;
         const roundedTime = Math.round(totalTimeInSec * 100) / 100;
@@ -64,7 +74,7 @@ export class TimingStats {
     resolveImportsTime = new TimingStat();
     cycleDetectionTime = new TimingStat();
     bindTime = new TimingStat();
-    typeAnalyzerTime = new TimingStat();
+    typeCheckerTime = new TimingStat();
 
     printSummary(console: ConsoleInterface) {
         console.log(`Completed in ${ this.totalDuration.getDurationInSeconds() }sec`);
@@ -79,7 +89,7 @@ export class TimingStats {
         console.log('Parse:                ' + this.parseFileTime.printTime());
         console.log('Resolve Imports:      ' + this.resolveImportsTime.printTime());
         console.log('Bind:                 ' + this.bindTime.printTime());
-        console.log('Analyze:              ' + this.typeAnalyzerTime.printTime());
+        console.log('Check:                ' + this.typeCheckerTime.printTime());
         console.log('Detect Cycles:        ' + this.cycleDetectionTime.printTime());
     }
 }

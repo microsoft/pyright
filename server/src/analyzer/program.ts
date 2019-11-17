@@ -19,7 +19,7 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getRelativePath, makeDirectories,
     normalizePath, stripFileExtension } from '../common/pathUtils';
-import { Duration } from '../common/timing';
+import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
@@ -468,7 +468,11 @@ export class Program {
             return undefined;
         }
 
-        this._bindFile(sourceFileInfo);
+        // Bind the file if it's not already bound. Don't count this time
+        // against the type checker.
+        timingStats.typeCheckerTime.subtractFromTime(() => {
+            this._bindFile(sourceFileInfo);
+        });
 
         const symbolTable = sourceFileInfo.sourceFile.getModuleSymbolTable();
         if (!symbolTable) {
@@ -517,111 +521,60 @@ export class Program {
         }
 
         this._bindFile(fileToCheck);
-
         fileToCheck.sourceFile.check(this._evaluator);
-        if (timeElapsedCallback()) {
-            return true;
+
+        // Detect import cycles that involve the file.
+        if (this._configOptions.diagnosticSettings.reportImportCycles !== 'none') {
+            // Don't detect import cycles when doing type stub generation. Some
+            // third-party modules are pretty convoluted.
+            if (!this._allowedThirdPartyImports) {
+                // We need to force all of the files to be parsed and build
+                // a closure map for the files.
+                const closureMap = new Map<string, SourceFileInfo>();
+                this._getImportsRecursive(fileToCheck, closureMap, 0);
+
+                closureMap.forEach(file => {
+                    timingStats.cycleDetectionTime.timeOperation(() => {
+                        this._detectAndReportImportCycles(file);
+                    });
+                });
+            }
         }
-
-        // TODO - need to add back cycle detection
-
-        // // Discover all imports (recursively) that have not yet been checked.
-        // const closureMap = new Map<string, boolean>();
-        // const analysisQueue: SourceFileInfo[] = [];
-        // if (this._getNonFinalizedImportsRecursive(fileToCheck, closureMap,
-        //         analysisQueue, timeElapsedCallback, 0)) {
-        //     return true;
-        // }
-
-        // // Perform type analysis on the files in the analysis queue, which
-        // // is ordered in a way that should minimize the number of passes
-        // // we need to perform (with lower-level imports earlier in the list).
-        // while (true) {
-        //     const fileToCheck = analysisQueue.shift();
-        //     if (!fileToCheck) {
-        //         break;
-        //     }
-
-        //     closureMap.set(fileToCheck.sourceFile.getFilePath(), false);
-
-        //     if (fileToCheck.sourceFile.isCheckingRequired()) {
-        //         fileToCheck.sourceFile.check(this._evaluator);
-        //         if (timeElapsedCallback()) {
-        //             return true;
-        //         }
-        //     }
-        // }
-
-        // closureMap.forEach((_, filePath) => {
-        //     // Don't detect import cycles when doing type stub generation. Some
-        //     // third-party modules are pretty convoluted.
-        //     if (this._allowedThirdPartyImports) {
-        //         return;
-        //     }
-
-        //     if (this._configOptions.diagnosticSettings.reportImportCycles !== 'none') {
-        //         timingStats.cycleDetectionTime.timeOperation(() => {
-        //             this._detectAndReportImportCycles(this._sourceFileMap[filePath]);
-        //         });
-        //     }
-        // });
 
         return false;
     }
 
-    // Builds a map of files that includes fileToAnalyze and all of the files
-    // it imports (recursively) and ensures that all such files have completed
-    // binding in preparation for the type analysis phase. If any of these files have
-    // already been finalized (they and their recursive imports have completed the
-    // type analysis phase), they are not included in the results. Also builds a
-    // prioritized queue of files to analyze. Returns true if it ran out of time before
-    // completing.
-    private _getNonFinalizedImportsRecursive(fileToAnalyze: SourceFileInfo,
-            closureMap: Map<string, boolean>, analysisQueue: SourceFileInfo[],
-            timeElapsedCallback: () => boolean,
-            recursionCount: number): boolean {
-
-        // If the file is already checked, no need to do any more work.
-        if (!fileToAnalyze.sourceFile.isCheckingRequired()) {
-            return false;
-        }
+    // Builds a map of files that includes the specified file and all of the files
+    // it imports (recursively) and ensures that all such files. If any of these files
+    // have already been checked (they and their recursive imports have completed the
+    // check phase), they are not included in the results.
+    private _getImportsRecursive(file: SourceFileInfo, closureMap: Map<string, SourceFileInfo>,
+            recursionCount: number) {
 
         // If the file is already in the closure map, we found a cyclical
         // dependency. Don't recur further.
-        const filePath = fileToAnalyze.sourceFile.getFilePath();
+        const filePath = file.sourceFile.getFilePath();
         if (closureMap.has(filePath)) {
-            return false;
+            return;
         }
 
         // If the import chain is too long, emit an error. Otherwise we
         // risk blowing the stack.
         if (recursionCount > _maxImportDepth) {
-            fileToAnalyze.sourceFile.setHitMaxImportDepth(_maxImportDepth);
-            return false;
+            file.sourceFile.setHitMaxImportDepth(_maxImportDepth);
+            return;
         }
 
-        // Make sure the file is parsed and bound.
-        this._bindFile(fileToAnalyze);
+        // Make sure the file is parsed so its imports are discovered.
+        this._parseFile(file);
 
         // Add the file to the closure map.
-        closureMap.set(filePath, false);
+        closureMap.set(filePath, file);
 
         // Recursively add the file's imports.
-        for (const importedFileInfo of fileToAnalyze.imports) {
-            if (this._getNonFinalizedImportsRecursive(importedFileInfo, closureMap,
-                    analysisQueue, timeElapsedCallback, recursionCount + 1)) {
-                return true;
-            }
+        for (const importedFileInfo of file.imports) {
+            this._getImportsRecursive(importedFileInfo, closureMap, recursionCount + 1);
         }
-
-        // If the file hasn't already been added to the analysis queue,
-        // add it now.
-        if (!closureMap.get(filePath)) {
-            closureMap.set(filePath, true);
-            analysisQueue.push(fileToAnalyze);
-        }
-
-        return false;
     }
 
     private _detectAndReportImportCycles(sourceFileInfo: SourceFileInfo,
@@ -630,12 +583,6 @@ export class Program {
 
         // Don't bother checking for typestub files.
         if (sourceFileInfo.sourceFile.isStubFile()) {
-            return;
-        }
-
-        // Don't bother checking files that are already finalized
-        // because they've already been searched.
-        if (!sourceFileInfo.sourceFile.isCheckingRequired()) {
             return;
         }
 
