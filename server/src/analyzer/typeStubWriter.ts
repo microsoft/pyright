@@ -13,8 +13,9 @@ import * as fs from 'fs';
 import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentNode,
     ClassNode, DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode,
     ImportFromNode, ImportNode, ModuleNameNode, NameNode, ParameterCategory, ParameterNode,
-    ParseNodeType, StatementListNode, StringNode, TryNode, TypeAnnotationNode,
-    WhileNode, WithNode } from '../parser/parseNodes';
+    ParseNode, ParseNodeType, StatementListNode, StringNode, TryNode,
+    TypeAnnotationNode, WhileNode, WithNode } from '../parser/parseNodes';
+import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { getScopeForNode } from './scopeUtils';
@@ -47,10 +48,11 @@ interface TrackedImportSymbol {
 }
 
 class TrackedImportFrom extends TrackedImport {
+    symbols: TrackedImportSymbol[] = [];
+
     constructor(importName: string, public isWildcardImport: boolean, public node?: ImportFromNode) {
         super(importName);
     }
-    symbols: TrackedImportSymbol[] = [];
 
     addSymbol(symbol: Symbol | undefined, name: string,
             alias: string | undefined, isAccessed = false) {
@@ -76,6 +78,12 @@ class ImportSymbolWalker extends ParseTreeWalker {
 
     analyze(node: ExpressionNode) {
         this.walk(node);
+    }
+
+    walk(node: ParseNode) {
+        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
+            super.walk(node);
+        }
     }
 
     visitName(node: NameNode) {
@@ -127,6 +135,12 @@ export class TypeStubWriter extends ParseTreeWalker {
         this.walk(parseResults.parseTree);
 
         this._writeFile();
+    }
+
+    walk(node: ParseNode) {
+        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
+            super.walk(node);
+        }
     }
 
     visitClass(node: ClassNode) {

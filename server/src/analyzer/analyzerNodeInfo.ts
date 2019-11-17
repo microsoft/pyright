@@ -13,7 +13,7 @@
 import { ClassNode, FunctionNode, LambdaNode, ListComprehensionNode, ModuleNode,
     ParseNode } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
-import { FlowNode } from './codeFlow';
+import { FlowFlags, FlowNode } from './codeFlow';
 import { Declaration } from './declaration';
 import { ImportResult } from './importResult';
 import { Scope } from './scope';
@@ -118,4 +118,20 @@ export function getFileInfo(node: ModuleNode): AnalyzerFileInfo | undefined {
 export function setFileInfo(node: ModuleNode, fileInfo: AnalyzerFileInfo) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.fileInfo = fileInfo;
+}
+
+export function isCodeUnreachable(node: ParseNode): boolean {
+    let curNode: ParseNode | undefined = node;
+
+    // Walk up the parse tree until we find a node with
+    // an associated flow node.
+    while (curNode) {
+        const flowNode = getFlowNode(curNode);
+        if (flowNode) {
+            return !!(flowNode.flags & FlowFlags.Unreachable);
+        }
+        curNode = curNode.parent;
+    }
+
+    return false;
 }

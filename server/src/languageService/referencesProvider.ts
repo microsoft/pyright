@@ -52,7 +52,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     }
 
     walk(node: ParseNode) {
-        if (!this._isCodeUnreachable(node)) {
+        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         }
     }
@@ -89,22 +89,6 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
         // need to call resolveAliasDeclaration on them.
         return this._referencesResult.declarations.some(decl =>
             DeclarationUtils.areDeclarationsSame(decl, resolvedDecl));
-    }
-
-    private _isCodeUnreachable(node: ParseNode): boolean {
-        let curNode: ParseNode | undefined = node;
-
-        // Walk up the parse tree until we find a node with
-        // an associated flow node.
-        while (curNode) {
-            const flowNode = AnalyzerNodeInfo.getFlowNode(curNode);
-            if (flowNode) {
-                return !!(flowNode.flags & FlowFlags.Unreachable);
-            }
-            curNode = curNode.parent;
-        }
-
-        return false;
     }
 }
 

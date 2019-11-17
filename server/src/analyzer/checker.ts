@@ -70,7 +70,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     walk(node: ParseNode) {
-        if (!this._isCodeUnreachable(node)) {
+        if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         }
     }
@@ -991,7 +991,7 @@ export class Checker extends ParseTreeWalker {
         };
 
         suiteNode.statements.forEach(statement => {
-            if (!this._isCodeUnreachable(statement)) {
+            if (!AnalyzerNodeInfo.isCodeUnreachable(statement)) {
                 if (statement.nodeType === ParseNodeType.StatementList) {
                     for (const substatement of statement.statements) {
                         if (substatement.nodeType !== ParseNodeType.TypeAnnotation &&
@@ -1007,22 +1007,6 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         });
-    }
-
-    private _isCodeUnreachable(node: ParseNode): boolean {
-        let curNode: ParseNode | undefined = node;
-
-        // Walk up the parse tree until we find a node with
-        // an associated flow node.
-        while (curNode) {
-            const flowNode = AnalyzerNodeInfo.getFlowNode(curNode);
-            if (flowNode) {
-                return !!(flowNode.flags & FlowFlags.Unreachable);
-            }
-            curNode = curNode.parent;
-        }
-
-        return false;
     }
 
     private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType) {
