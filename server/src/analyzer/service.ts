@@ -809,7 +809,7 @@ export class AnalyzerService {
         // How long has it been since the user interacted with the service?
         // If the user is actively typing, back off to let him or her finish.
         const timeSinceLastUserInteractionInMs = Date.now() - this._lastUserInteractionTime;
-        const minBackoffTimeInMs = 1500;
+        const minBackoffTimeInMs = 1000;
 
         // We choose a small non-zero value here. If this value
         // is too small (like zero), the VS Code extension becomes
