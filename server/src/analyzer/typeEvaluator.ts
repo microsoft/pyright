@@ -259,7 +259,7 @@ export interface TypeEvaluator {
 }
 
 interface CodeFlowAnalyzer {
-    getFlowType: (reference: NameNode | MemberAccessNode,
+    getTypeFromCodeFlow: (reference: NameNode | MemberAccessNode,
            targetSymbolId: number, initialType: Type | undefined) => Type | undefined;
 }
 
@@ -6655,7 +6655,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             codeFlowAnalyzerCache.set(executionNode.id, analyzer);
         }
 
-        return analyzer.getFlowType(reference, targetSymbolId, initialType);
+        return analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType);
     }
 
     // Creates a new code flow analyzer that can be used to narrow the types
@@ -6664,7 +6664,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function createCodeFlowAnalyzer(): CodeFlowAnalyzer {
         const flowNodeTypeCacheSet = new Map<string, Map<number, FlowNodeType | undefined>>();
 
-        function getFlowType(reference: NameNode | MemberAccessNode,
+        function getTypeFromCodeFlow(reference: NameNode | MemberAccessNode,
                 targetSymbolId: number, initialType: Type | undefined): Type | undefined {
 
             const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
@@ -6866,7 +6866,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return {
-            getFlowType
+            getTypeFromCodeFlow
         };
     }
 
