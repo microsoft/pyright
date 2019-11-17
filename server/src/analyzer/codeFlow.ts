@@ -121,16 +121,16 @@ export function createKeyForReference(reference: NameNode | MemberAccessNode,
 
     let key;
     if (reference.nodeType === ParseNodeType.Name) {
-        key = reference.nameToken.value;
+        key = reference.value;
     } else {
-        key = reference.memberName.nameToken.value;
+        key = reference.memberName.value;
         let leftNode = reference.leftExpression;
         while (leftNode.nodeType === ParseNodeType.MemberAccess) {
-            key = leftNode.memberName.nameToken.value + '.' + key;
+            key = leftNode.memberName.value + '.' + key;
             leftNode = leftNode.leftExpression;
         }
         assert(leftNode.nodeType === ParseNodeType.Name);
-        key = (leftNode as NameNode).nameToken.value + '.' + key;
+        key = (leftNode as NameNode).value + '.' + key;
     }
 
     return key + '.' + targetSymbolId.toString();

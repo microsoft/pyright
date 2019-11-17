@@ -53,12 +53,12 @@ export function evaluateStaticBoolExpression(node: ExpressionNode,
                 _isSysVersionInfoExpression(node.leftExpression.baseExpression) &&
                 node.leftExpression.items.items.length === 1 &&
                 node.leftExpression.items.items[0].nodeType === ParseNodeType.Number &&
-                node.leftExpression.items.items[0].token.value === 0 &&
+                node.leftExpression.items.items[0].value === 0 &&
                 node.rightExpression.nodeType === ParseNodeType.Number) {
 
             // Handle the special case of "sys.version_info[0] >= X"
             return _evaluateNumericBinaryOperation(node.operator,
-                Math.floor(execEnv.pythonVersion / 256), node.rightExpression.token.value);
+                Math.floor(execEnv.pythonVersion / 256), node.rightExpression.value);
         } else if (_isSysPlatformInfoExpression(node.leftExpression) &&
                 node.rightExpression.nodeType === ParseNodeType.StringList) {
             // Handle the special case of "sys.platform != 'X'"
@@ -76,13 +76,13 @@ export function evaluateStaticBoolExpression(node: ExpressionNode,
             }
         }
     } else if (node.nodeType === ParseNodeType.Constant) {
-        if (node.token.keywordType === KeywordType.True) {
+        if (node.constType === KeywordType.True) {
             return true;
-        } else if (node.token.keywordType === KeywordType.False) {
+        } else if (node.constType === KeywordType.False) {
             return false;
         }
     } else if (node.nodeType === ParseNodeType.Name) {
-        if (node.nameToken.value === 'TYPE_CHECKING') {
+        if (node.value === 'TYPE_CHECKING') {
             return true;
         }
     }
@@ -97,7 +97,7 @@ export function evaluateStaticBoolLikeExpression(node: ExpressionNode,
         execEnv: ExecutionEnvironment): boolean | undefined {
 
     if (node.nodeType === ParseNodeType.Constant) {
-        if (node.token.keywordType === KeywordType.None) {
+        if (node.constType === KeywordType.None) {
             return false;
         }
     }
@@ -112,11 +112,11 @@ function _convertTupleToVersion(node: TupleNode): number | undefined {
                 node.expressions[1].nodeType === ParseNodeType.Number) {
             const majorVersion = node.expressions[0];
             const minorVersion = node.expressions[1];
-            comparisonVersion = majorVersion.token.value * 256 + minorVersion.token.value;
+            comparisonVersion = majorVersion.value * 256 + minorVersion.value;
         }
     } else if (node.expressions.length === 1) {
         const majorVersion = node.expressions[0] as NumberNode;
-        comparisonVersion = majorVersion.token.value * 256;
+        comparisonVersion = majorVersion.value * 256;
     }
 
     return comparisonVersion;
@@ -159,8 +159,8 @@ function _evaluateStringBinaryOperation(operatorType: OperatorType,
 function _isSysVersionInfoExpression(node: ExpressionNode): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
         if (node.leftExpression.nodeType === ParseNodeType.Name &&
-                node.leftExpression.nameToken.value === 'sys' &&
-                node.memberName.nameToken.value === 'version_info') {
+                node.leftExpression.value === 'sys' &&
+                node.memberName.value === 'version_info') {
             return true;
         }
     }
@@ -171,8 +171,8 @@ function _isSysVersionInfoExpression(node: ExpressionNode): boolean {
 function _isSysPlatformInfoExpression(node: ExpressionNode): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
         if (node.leftExpression.nodeType === ParseNodeType.Name &&
-                node.leftExpression.nameToken.value === 'sys' &&
-                node.memberName.nameToken.value === 'platform') {
+                node.leftExpression.value === 'sys' &&
+                node.memberName.value === 'platform') {
             return true;
         }
     }
@@ -183,8 +183,8 @@ function _isSysPlatformInfoExpression(node: ExpressionNode): boolean {
 function _isOsNameInfoExpression(node: ExpressionNode): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
         if (node.leftExpression.nodeType === ParseNodeType.Name &&
-                node.leftExpression.nameToken.value === 'os' &&
-                node.memberName.nameToken.value === 'name') {
+                node.leftExpression.value === 'os' &&
+                node.memberName.value === 'name') {
             return true;
         }
     }

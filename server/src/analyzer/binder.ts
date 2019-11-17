@@ -255,7 +255,7 @@ export class Binder extends ParseTreeWalker {
                 TextRange.getEnd(node.name), this._fileInfo.lines)
         };
 
-        const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+        const symbol = this._bindNameToScope(this._currentScope, node.name.value);
         if (symbol) {
             symbol.addDeclaration(classDeclaration);
         }
@@ -284,7 +284,7 @@ export class Binder extends ParseTreeWalker {
         // Add the class symbol. We do this in the binder to speed
         // up overall analysis times. Without this, the type analyzer needs
         // to do more passes to resolve classes.
-        this._addSymbolToCurrentScope(node.name.nameToken.value, true);
+        this._addSymbolToCurrentScope(node.name.value, true);
 
         this._createAssignmentTargetFlowNodes(node.name);
 
@@ -292,7 +292,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
-        const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+        const symbol = this._bindNameToScope(this._currentScope, node.name.value);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         const declarationType = containingClassNode ?
             DeclarationType.Method : DeclarationType.Function;
@@ -375,7 +375,7 @@ export class Binder extends ParseTreeWalker {
 
                 node.parameters.forEach(paramNode => {
                     if (paramNode.name) {
-                        const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
+                        const symbol = this._bindNameToScope(this._currentScope, paramNode.name.value);
                         if (symbol) {
                             symbol.addDeclaration({
                                 type: DeclarationType.Parameter,
@@ -433,7 +433,7 @@ export class Binder extends ParseTreeWalker {
 
                 node.parameters.forEach(paramNode => {
                     if (paramNode.name) {
-                        const symbol = this._bindNameToScope(this._currentScope, paramNode.name.nameToken.value);
+                        const symbol = this._bindNameToScope(this._currentScope, paramNode.name.value);
                         if (symbol) {
                             symbol.addDeclaration({
                                 type: DeclarationType.Parameter,
@@ -709,14 +709,14 @@ export class Binder extends ParseTreeWalker {
         }
 
         if (node.name) {
-            const symbol = this._bindNameToScope(this._currentScope, node.name.nameToken.value);
+            const symbol = this._bindNameToScope(this._currentScope, node.name.value);
             this._createAssignmentTargetFlowNodes(node.name);
             this.walk(node.name);
             if (symbol) {
                 const declaration: VariableDeclaration = {
                     type: DeclarationType.Variable,
                     node: node.name,
-                    isConstant: isConstantName(node.name.nameToken.value),
+                    isConstant: isConstantName(node.name.value),
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
                         this._fileInfo.lines)
@@ -936,7 +936,7 @@ export class Binder extends ParseTreeWalker {
         const globalScope = this._currentScope.getGlobalScope();
 
         node.nameList.forEach(name => {
-            const nameValue = name.nameToken.value;
+            const nameValue = name.value;
 
             // Is the binding inconsistent?
             if (this._notLocalBindings.get(nameValue) === NameBindingType.Nonlocal) {
@@ -968,7 +968,7 @@ export class Binder extends ParseTreeWalker {
             this._addError('Nonlocal declaration not allowed at module level', node);
         } else {
             node.nameList.forEach(name => {
-                const nameValue = name.nameToken.value;
+                const nameValue = name.value;
 
                 // Is the binding inconsistent?
                 if (this._notLocalBindings.get(nameValue) === NameBindingType.Global) {
@@ -993,12 +993,12 @@ export class Binder extends ParseTreeWalker {
 
     visitImportAs(node: ImportAsNode): boolean {
         if (node.module.nameParts.length > 0) {
-            const firstNamePartValue = node.module.nameParts[0].nameToken.value;
+            const firstNamePartValue = node.module.nameParts[0].value;
 
             let symbolName: string | undefined;
             if (node.alias) {
                 // The symbol name is defined by the alias.
-                symbolName = node.alias.nameToken.value;
+                symbolName = node.alias.value;
             } else {
                 // There was no alias, so we need to use the first element of
                 // the name parts as the symbol.
@@ -1044,7 +1044,7 @@ export class Binder extends ParseTreeWalker {
                             break;
                         }
 
-                        const namePartValue = node.module.nameParts[i].nameToken.value;
+                        const namePartValue = node.module.nameParts[i].value;
 
                         // Is there an existing loader action for this name?
                         let loaderActions = curLoaderActions.implicitImports ?
@@ -1150,9 +1150,9 @@ export class Binder extends ParseTreeWalker {
             }
         } else {
             node.imports.forEach(importSymbolNode => {
-                const importedName = importSymbolNode.name.nameToken.value;
+                const importedName = importSymbolNode.name.value;
                 const nameNode = importSymbolNode.alias || importSymbolNode.name;
-                const symbol = this._bindNameToScope(this._currentScope, nameNode.nameToken.value);
+                const symbol = this._bindNameToScope(this._currentScope, nameNode.value);
 
                 if (symbol) {
                     // Is the import referring to an implicitly-imported module?
@@ -1491,7 +1491,7 @@ export class Binder extends ParseTreeWalker {
                     // Look for "X is None" or "X is not None". These are commonly-used
                     // patterns used in control flow.
                     if (expression.rightExpression.nodeType === ParseNodeType.Constant &&
-                            expression.rightExpression.token.keywordType === KeywordType.None) {
+                            expression.rightExpression.constType === KeywordType.None) {
 
                         return true;
                     }
@@ -1499,7 +1499,7 @@ export class Binder extends ParseTreeWalker {
                     // Look for "type(X) is Y" or "type(X) is not Y".
                     if (expression.leftExpression.nodeType === ParseNodeType.Call &&
                         expression.leftExpression.leftExpression.nodeType === ParseNodeType.Name &&
-                        expression.leftExpression.leftExpression.nameToken.value === 'type' &&
+                        expression.leftExpression.leftExpression.value === 'type' &&
                         expression.leftExpression.arguments.length === 1 &&
                             expression.leftExpression.arguments[0].argumentCategory === ArgumentCategory.Simple) {
 
@@ -1521,8 +1521,8 @@ export class Binder extends ParseTreeWalker {
 
             case ParseNodeType.Call: {
                 return expression.leftExpression.nodeType === ParseNodeType.Name &&
-                    (expression.leftExpression.nameToken.value === 'isinstance' ||
-                        expression.leftExpression.nameToken.value === 'issubclass') &&
+                    (expression.leftExpression.value === 'isinstance' ||
+                        expression.leftExpression.value === 'issubclass') &&
                     expression.arguments.length === 2;
             }
         }
@@ -1594,7 +1594,7 @@ export class Binder extends ParseTreeWalker {
     private _createFlowAssignment(node: NameNode | MemberAccessNode, unbound = false) {
         let targetSymbolId = indeterminateSymbolId;
         if (node.nodeType === ParseNodeType.Name) {
-            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.nameToken.value);
+            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.value);
             assert(symbolWithScope !== undefined);
             targetSymbolId = symbolWithScope!.symbol.getId();
         }
@@ -1696,7 +1696,7 @@ export class Binder extends ParseTreeWalker {
     private _bindPossibleTupleNamedTarget(target: ExpressionNode, addedSymbols?: Map<string, Symbol>) {
         switch (target.nodeType) {
             case ParseNodeType.Name: {
-                this._bindNameToScope(this._currentScope, target.nameToken.value, addedSymbols);
+                this._bindNameToScope(this._currentScope, target.value, addedSymbols);
                 break;
             }
 
@@ -1786,13 +1786,13 @@ export class Binder extends ParseTreeWalker {
     private _addInferredTypeAssignmentForVariable(target: ExpressionNode, source: ParseNode) {
         switch (target.nodeType) {
             case ParseNodeType.Name: {
-                const name = target.nameToken;
+                const name = target;
                 const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
                 if (symbolWithScope && symbolWithScope.symbol) {
                     const declaration: VariableDeclaration = {
                         type: DeclarationType.Variable,
                         node: target,
-                        isConstant: isConstantName(target.nameToken.value),
+                        isConstant: isConstantName(target.value),
                         inferredTypeSource: source,
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
@@ -1805,7 +1805,7 @@ export class Binder extends ParseTreeWalker {
             case ParseNodeType.MemberAccess: {
                 const memberAccessInfo = this._getMemberAccessInfo(target);
                 if (memberAccessInfo) {
-                    const name = target.memberName.nameToken;
+                    const name = target.memberName;
 
                     let symbol = memberAccessInfo.classScope.lookUpSymbol(name.value);
                     if (!symbol) {
@@ -1870,7 +1870,7 @@ export class Binder extends ParseTreeWalker {
 
         switch (target.nodeType) {
             case ParseNodeType.Name: {
-                const name = target.nameToken;
+                const name = target;
                 const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
                 if (symbolWithScope && symbolWithScope.symbol) {
                     const declaration: VariableDeclaration = {
@@ -1899,7 +1899,7 @@ export class Binder extends ParseTreeWalker {
 
                 const memberAccessInfo = this._getMemberAccessInfo(target);
                 if (memberAccessInfo) {
-                    const name = target.memberName.nameToken;
+                    const name = target.memberName;
 
                     let symbol = memberAccessInfo.classScope.lookUpSymbol(name.value);
                     if (!symbol) {
@@ -1953,7 +1953,7 @@ export class Binder extends ParseTreeWalker {
             return undefined;
         }
 
-        const leftSymbolName = node.leftExpression.nameToken.value;
+        const leftSymbolName = node.leftExpression.value;
 
         // Make sure the expression is within a function (i.e. a method) that's
         // within a class definition.
@@ -1975,8 +1975,8 @@ export class Binder extends ParseTreeWalker {
             return undefined;
         }
 
-        const className = classNode.name.nameToken.value;
-        const firstParamName = methodNode.parameters[0].name.nameToken.value;
+        const className = classNode.name.value;
+        const firstParamName = methodNode.parameters[0].name.value;
 
         if (leftSymbolName === className) {
             isInstanceMember = false;
@@ -1988,7 +1988,7 @@ export class Binder extends ParseTreeWalker {
             // To determine whether the first parameter of the method
             // refers to the class or the instance, we need to apply
             // some heuristics.
-            if (methodNode.name.nameToken.value === '__new__') {
+            if (methodNode.name.value === '__new__') {
                 // The __new__ method is special. It acts as a classmethod even
                 // though it doesn't have a @classmethod decorator.
                 isInstanceMember = false;
@@ -1998,7 +1998,7 @@ export class Binder extends ParseTreeWalker {
                 isInstanceMember = true;
                 for (const decorator of methodNode.decorators) {
                     if (decorator.leftExpression.nodeType === ParseNodeType.Name) {
-                        const decoratorName = decorator.leftExpression.nameToken.value;
+                        const decoratorName = decorator.leftExpression.value;
 
                         if (decoratorName === 'staticmethod') {
                             // A static method doesn't have a "self" or "cls" parameter.
@@ -2068,7 +2068,7 @@ export class Binder extends ParseTreeWalker {
             'TypedDict': true
         };
 
-        const assignedName = assignedNameNode.nameToken.value;
+        const assignedName = assignedNameNode.value;
 
         if (!specialTypes[assignedName]) {
             return false;

@@ -656,7 +656,7 @@ export class Parser {
             }
 
             if (param.name) {
-                const name = param.name.nameToken.value;
+                const name = param.name.value;
                 if (!paramMap.set(name, name)) {
                     this._addError(`Duplicate parameter '${ name }'`, param.name);
                 }
@@ -1017,7 +1017,7 @@ export class Parser {
         // change the way we interpret the rest of the file.
         const isFutureImport = modName.leadingDots === 0 &&
             modName.nameParts.length === 1 &&
-            modName.nameParts[0].nameToken.value === '__future__';
+            modName.nameParts[0].value === '__future__';
 
         const possibleInputToken = this._peekToken();
         if (!this._consumeTokenIfKeyword(KeywordType.Import)) {
@@ -1090,8 +1090,8 @@ export class Parser {
         this._importedModules.push({
             nameNode: importFromNode.module,
             leadingDots: importFromNode.module.leadingDots,
-            nameParts: importFromNode.module.nameParts.map(p => p.nameToken.value),
-            importedSymbols: importFromNode.imports.map(imp => imp.name.nameToken.value)
+            nameParts: importFromNode.module.nameParts.map(p => p.value),
+            importedSymbols: importFromNode.imports.map(imp => imp.name.value)
         });
 
         return importFromNode;
@@ -1126,7 +1126,7 @@ export class Parser {
             this._importedModules.push({
                 nameNode: importAsNode.module,
                 leadingDots: importAsNode.module.leadingDots,
-                nameParts: importAsNode.module.nameParts.map(p => p.nameToken.value),
+                nameParts: importAsNode.module.nameParts.map(p => p.value),
                 importedSymbols: undefined
             });
 
@@ -1870,7 +1870,7 @@ export class Parser {
                 // type annotations properly. We need to suspend treating strings as
                 // type annotations within a Literal subscript.
                 const isLiteralSubscript = atomExpression.nodeType === ParseNodeType.Name &&
-                        atomExpression.nameToken.value === 'Literal';
+                        atomExpression.value === 'Literal';
 
                 const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
                 if (isLiteralSubscript) {
@@ -2048,7 +2048,7 @@ export class Parser {
                 valueExpr = this._parseTestExpression(false);
 
                 if (nameExpr.nodeType === ParseNodeType.Name) {
-                    nameIdentifier = nameExpr.nameToken;
+                    nameIdentifier = nameExpr.token;
                 } else {
                     this._addError('Expected parameter name', nameExpr);
                 }

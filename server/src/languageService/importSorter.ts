@@ -186,7 +186,7 @@ export class ImportSorter {
     private _formatImportNode(subnode: ImportAsNode, moduleName: string): string {
         let importText = `import ${ moduleName }`;
         if (subnode.alias) {
-            importText += ` as ${ subnode.alias.nameToken.value }`;
+            importText += ` as ${ subnode.alias.value }`;
         }
 
         return importText;
@@ -196,9 +196,9 @@ export class ImportSorter {
         const symbols = node.imports.
             sort((a, b) => this._compareSymbols(a, b)).
             map(symbol => {
-                let symbolText = symbol.name.nameToken.value;
+                let symbolText = symbol.name.value;
                 if (symbol.alias) {
-                    symbolText += ` as ${ symbol.alias.nameToken.value }`;
+                    symbolText += ` as ${ symbol.alias.value }`;
                 }
 
                 return symbolText;
@@ -255,6 +255,6 @@ export class ImportSorter {
     }
 
     private _compareSymbols(a: ImportFromAsNode, b: ImportFromAsNode) {
-        return a.name.nameToken.value < b.name.nameToken.value ? -1 : 1;
+        return a.name.value < b.name.value ? -1 : 1;
     }
 }

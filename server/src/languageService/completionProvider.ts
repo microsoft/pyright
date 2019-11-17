@@ -595,14 +595,14 @@ export class CompletionProvider {
                 name => {
                     // Don't suggest symbols that have already been imported.
                     return !importFromNode.imports.find(
-                        imp => imp.name.nameToken.value === name);
+                        imp => imp.name.value === name);
                 },
                 priorWord, completionList);
         }
 
         // Add the implicit imports.
         importInfo.implicitImports.forEach(implImport => {
-            if (!importFromNode.imports.find(imp => imp.name.nameToken.value === implImport.name)) {
+            if (!importFromNode.imports.find(imp => imp.name.value === implImport.name)) {
                 this._addNameToCompletionList(implImport.name, CompletionItemKind.Module,
                     priorWord, completionList);
             }
@@ -941,7 +941,7 @@ export class CompletionProvider {
         const moduleDescriptor: ImportedModuleDescriptor = {
             leadingDots: node.leadingDots,
             hasTrailingDot: node.hasTrailingDot,
-            nameParts: node.nameParts.map(part => part.nameToken.value),
+            nameParts: node.nameParts.map(part => part.value),
             importedSymbols: []
         };
 

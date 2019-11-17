@@ -61,7 +61,7 @@ export class HoverProvider {
                 // is a directory (a namespace package), and we don't want to provide any hover
                 // information in that case.
                 if (results.parts.length === 0) {
-                    this._addResultsPart(results.parts, node.nameToken.value +
+                    this._addResultsPart(results.parts, node.value +
                         this._getTypeText(node, evaluator), true);
                     this._addDocumentationPart(results.parts, node, evaluator);
                 }
@@ -76,14 +76,14 @@ export class HoverProvider {
 
         const resolvedDecl = evaluator.resolveAliasDeclaration(declaration);
         if (!resolvedDecl) {
-            this._addResultsPart(parts, `(import) ` + node.nameToken.value +
+            this._addResultsPart(parts, `(import) ` + node.value +
                 this._getTypeText(node, evaluator), true);
             return;
         }
 
         switch (resolvedDecl.type) {
             case DeclarationType.Intrinsic: {
-                this._addResultsPart(parts, node.nameToken.value +
+                this._addResultsPart(parts, node.value +
                     this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
@@ -91,14 +91,14 @@ export class HoverProvider {
 
             case DeclarationType.Variable: {
                 const label = resolvedDecl.isConstant ? 'constant' : 'variable';
-                this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
+                this._addResultsPart(parts, `(${ label }) ` + node.value +
                     this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
             case DeclarationType.Parameter: {
-                this._addResultsPart(parts, '(parameter) ' + node.nameToken.value +
+                this._addResultsPart(parts, '(parameter) ' + node.value +
                     this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
@@ -106,13 +106,13 @@ export class HoverProvider {
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass: {
-                this._addResultsPart(parts, '(class) ' + node.nameToken.value, true);
+                this._addResultsPart(parts, '(class) ' + node.value, true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
             case DeclarationType.Function: {
-                this._addResultsPart(parts, '(function) ' + node.nameToken.value +
+                this._addResultsPart(parts, '(function) ' + node.value +
                     this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
@@ -122,14 +122,14 @@ export class HoverProvider {
                 const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
                 const label = declaredType && declaredType.category === TypeCategory.Property ?
                     'property' : 'method';
-                this._addResultsPart(parts, `(${ label }) ` + node.nameToken.value +
+                this._addResultsPart(parts, `(${ label }) ` + node.value +
                     this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
             case DeclarationType.Alias: {
-                this._addResultsPart(parts, '(module) ' + node.nameToken.value, true);
+                this._addResultsPart(parts, '(module) ' + node.value, true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
             }

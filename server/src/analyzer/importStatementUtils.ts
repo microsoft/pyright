@@ -78,7 +78,7 @@ export function getTextEditsForAutoImportSymbolAddition(symbolName: string,
 
     if (importStatement.node && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
         for (const curImport of importStatement.node.imports) {
-            if (priorImport && curImport.name.nameToken.value > symbolName) {
+            if (priorImport && curImport.name.value > symbolName) {
                 break;
             }
 
@@ -193,7 +193,7 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
                     stopHere = false;
                 } else if (simpleStatement.nodeType === ParseNodeType.Assignment) {
                     if (simpleStatement.leftExpression.nodeType === ParseNodeType.Name) {
-                        if (SymbolNameUtils.isDunderName(simpleStatement.leftExpression.nameToken.value)) {
+                        if (SymbolNameUtils.isDunderName(simpleStatement.leftExpression.value)) {
                             // Assume that it's an assignment of __copyright__, __author__, etc.
                             stopHere = false;
                         }
@@ -306,7 +306,7 @@ function _formatModuleName(node: ModuleNameNode): string {
         moduleName = moduleName + '.';
     }
 
-    moduleName += node.nameParts.map(part => part.nameToken.value).join('.');
+    moduleName += node.nameParts.map(part => part.value).join('.');
 
     return moduleName;
 }

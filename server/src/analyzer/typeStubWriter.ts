@@ -79,7 +79,7 @@ class ImportSymbolWalker extends ParseTreeWalker {
     }
 
     visitName(node: NameNode) {
-        this._accessedImportedSymbols.set(node.nameToken.value, true);
+        this._accessedImportedSymbols.set(node.value, true);
         return true;
     }
 
@@ -130,7 +130,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     visitClass(node: ClassNode) {
-        const className = node.name.nameToken.value;
+        const className = node.name.value;
 
         this._emittedSuite = true;
         this._emitDocString = true;
@@ -140,7 +140,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             line += `(${ node.arguments.map(arg => {
                 let argString = '';
                 if (arg.name) {
-                    argString = arg.name.nameToken.value + '=';
+                    argString = arg.name.value + '=';
                 }
                 argString += this._printExpression(arg.valueExpression);
                 return argString;
@@ -162,7 +162,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode) {
-        const functionName = node.name.nameToken.value;
+        const functionName = node.name.value;
 
         // Skip if we're already within a function.
         if (this._functionNestCount === 0) {
@@ -253,7 +253,7 @@ export class TypeStubWriter extends ParseTreeWalker {
 
         if (node.leftExpression.nodeType === ParseNodeType.Name) {
             // Handle "__all__" assignments specially.
-            if (node.leftExpression.nameToken.value === '__all__') {
+            if (node.leftExpression.value === '__all__') {
                 this._emitLine(this._printExpression(node, false, true));
                 return false;
             }
@@ -264,8 +264,8 @@ export class TypeStubWriter extends ParseTreeWalker {
         } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
             const baseExpression = node.leftExpression.leftExpression;
             if (baseExpression.nodeType === ParseNodeType.Name) {
-                if (baseExpression.nameToken.value === 'self') {
-                    const memberName = node.leftExpression.memberName.nameToken.value;
+                if (baseExpression.value === 'self') {
+                    const memberName = node.leftExpression.memberName.value;
                     if (!SymbolNameUtils.isPrivateOrProtectedName(memberName)) {
                         line = this._printExpression(node.leftExpression);
                     }
@@ -297,7 +297,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     visitAugmentedAssignment(node: AugmentedAssignmentNode) {
         if (this._classNestCount === 0 && this._functionNestCount === 0) {
             if (node.leftExpression.nodeType === ParseNodeType.Name) {
-                if (node.leftExpression.nameToken.value === '__all__') {
+                if (node.leftExpression.value === '__all__') {
                     this._emitLine(this._printExpression(node, false, true));
                 }
             }
@@ -314,8 +314,8 @@ export class TypeStubWriter extends ParseTreeWalker {
             } else if (node.valueExpression.nodeType === ParseNodeType.MemberAccess) {
                 const baseExpression = node.valueExpression.leftExpression;
                 if (baseExpression.nodeType === ParseNodeType.Name) {
-                    if (baseExpression.nameToken.value === 'self') {
-                        const memberName = node.valueExpression.memberName.nameToken.value;
+                    if (baseExpression.value === 'self') {
+                        const memberName = node.valueExpression.memberName.value;
                         if (!SymbolNameUtils.isPrivateOrProtectedName(memberName)) {
                             line = this._printExpression(node.valueExpression);
                         }
@@ -343,13 +343,13 @@ export class TypeStubWriter extends ParseTreeWalker {
             node.list.forEach(imp => {
                 const moduleName = this._printModuleName(imp.module);
                 if (!this._trackedImportAs.has(moduleName)) {
-                    const symbolName = imp.alias ? imp.alias.nameToken.value :
+                    const symbolName = imp.alias ? imp.alias.value :
                         (imp.module.nameParts.length > 0 ?
-                            imp.module.nameParts[0].nameToken.value : '');
+                            imp.module.nameParts[0].value : '');
                     const symbolInfo = currentScope.lookUpSymbolRecursive(symbolName);
                     if (symbolInfo) {
                         const trackedImportAs = new TrackedImportAs(moduleName,
-                            imp.alias ? imp.alias.nameToken.value : undefined,
+                            imp.alias ? imp.alias.value : undefined,
                             symbolInfo.symbol);
                         this._trackedImportAs.set(moduleName, trackedImportAs);
                     }
@@ -378,11 +378,11 @@ export class TypeStubWriter extends ParseTreeWalker {
 
             node.imports.forEach(imp => {
                 const symbolName = imp.alias ?
-                    imp.alias.nameToken.value : imp.name.nameToken.value;
+                    imp.alias.value : imp.name.value;
                 const symbolInfo = currentScope.lookUpSymbolRecursive(symbolName);
                 if (symbolInfo) {
-                    trackedImportFrom!.addSymbol(symbolInfo.symbol, imp.name.nameToken.value,
-                        imp.alias ? imp.alias.nameToken.value : undefined, false);
+                    trackedImportFrom!.addSymbol(symbolInfo.symbol, imp.name.value,
+                        imp.alias ? imp.alias.value : undefined, false);
                 }
             });
         }
@@ -462,7 +462,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         for (let i = 0; i < node.leadingDots; i++) {
             line += '.';
         }
-        line += node.nameParts.map(part => part.nameToken.value).join('.');
+        line += node.nameParts.map(part => part.value).join('.');
         return line;
     }
 
@@ -487,7 +487,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         }
 
         if (node.name) {
-            line += node.name.nameToken.value;
+            line += node.name.value;
         }
 
         let paramType = '';
@@ -535,7 +535,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         }
 
         if (node.name) {
-            line += node.name.nameToken.value + '=';
+            line += node.name.value + '=';
         }
 
         return line + this._printExpression(node.valueExpression);

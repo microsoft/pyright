@@ -105,7 +105,7 @@ export class Checker extends ParseTreeWalker {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                             DiagnosticRule.reportUnknownParameterType,
-                            `Type of '${ param.name.nameToken.value }' is unknown`,
+                            `Type of '${ param.name.value }' is unknown`,
                             param.name);
                     }
                 }
@@ -161,13 +161,13 @@ export class Checker extends ParseTreeWalker {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                         DiagnosticRule.reportUnknownLambdaType,
-                        `Type of '${ param.name.nameToken.value }' is unknown`,
+                        `Type of '${ param.name.value }' is unknown`,
                         param.name);
                 } else if (containsUnknown(paramType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
                         DiagnosticRule.reportUnknownLambdaType,
-                        `Type of '${ param.name.nameToken.value }', ` +
+                        `Type of '${ param.name.value }', ` +
                         `'${ this._evaluator.printType(paramType) }', is partially unknown`,
                         param.name);
                 }
@@ -640,7 +640,7 @@ export class Checker extends ParseTreeWalker {
                         // Handle multi-part names specially.
                         const nameParts = decl.node.module.nameParts;
                         if (nameParts.length > 0) {
-                            const multipartName = nameParts.map(np => np.nameToken.value).join('.');
+                            const multipartName = nameParts.map(np => np.value).join('.');
                             const textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
                             TextRange.extend(textRange, nameParts[nameParts.length - 1]);
                             this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
@@ -659,7 +659,7 @@ export class Checker extends ParseTreeWalker {
                     // files that shouldn't be edited.
                     const importFrom = decl.node.parent as ImportFromNode;
                     if (importFrom.module.nameParts.length === 0 ||
-                            importFrom.module.nameParts[0].nameToken.value !== '__future__' &&
+                            importFrom.module.nameParts[0].value !== '__future__' &&
                             !this._fileInfo.filePath.endsWith('_pb2.py')) {
 
                         nameNode = decl.node.alias || decl.node.name;
@@ -667,7 +667,7 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 if (nameNode) {
-                    message = `Import '${ nameNode.nameToken.value }' is not accessed`;
+                    message = `Import '${ nameNode.value }' is not accessed`;
                 }
                 break;
 
@@ -680,7 +680,7 @@ export class Checker extends ParseTreeWalker {
                 if (decl.node.nodeType === ParseNodeType.Name) {
                     nameNode = decl.node;
                     rule = DiagnosticRule.reportUnusedVariable;
-                    message = `Variable '${ nameNode.nameToken.value }' is not accessed`;
+                    message = `Variable '${ nameNode.value }' is not accessed`;
                 }
                 break;
 
@@ -691,7 +691,7 @@ export class Checker extends ParseTreeWalker {
                 diagnosticLevel = this._fileInfo.diagnosticSettings.reportUnusedClass;
                 nameNode = decl.node.name;
                 rule = DiagnosticRule.reportUnusedClass;
-                message = `Class '${ nameNode.nameToken.value }' is not accessed`;
+                message = `Class '${ nameNode.value }' is not accessed`;
                 break;
 
             case DeclarationType.Function:
@@ -701,7 +701,7 @@ export class Checker extends ParseTreeWalker {
                 diagnosticLevel = this._fileInfo.diagnosticSettings.reportUnusedFunction;
                 nameNode = decl.node.name;
                 rule = DiagnosticRule.reportUnusedFunction;
-                message = `Function '${ nameNode.nameToken.value }' is not accessed`;
+                message = `Function '${ nameNode.value }' is not accessed`;
                 break;
 
             default:
@@ -710,7 +710,7 @@ export class Checker extends ParseTreeWalker {
 
         if (nameNode && rule !== undefined && message) {
             this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
-                `'${ nameNode.nameToken.value }' is not accessed`, nameNode);
+                `'${ nameNode.value }' is not accessed`, nameNode);
             this._evaluator.addDiagnostic(
                 diagnosticLevel, rule, message, nameNode);
         }
@@ -733,13 +733,13 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (node.leftExpression.nodeType !== ParseNodeType.Name ||
-                (node.leftExpression.nameToken.value !== 'isinstance' &&
-                    node.leftExpression.nameToken.value !== 'issubclass') ||
+                (node.leftExpression.value !== 'isinstance' &&
+                    node.leftExpression.value !== 'issubclass') ||
                 node.arguments.length !== 2) {
             return;
         }
 
-        const callName = node.leftExpression.nameToken.value;
+        const callName = node.leftExpression.value;
         const isInstanceCheck = callName === 'isinstance';
         const arg0Type = doForSubtypes(
             this._getTypeOfExpression(node.arguments[0].valueExpression),
@@ -891,7 +891,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const nameValue = node.nameToken.value;
+        const nameValue = node.value;
         const isPrivateName = SymbolNameUtils.isPrivateName(nameValue);
         const isProtectedName = SymbolNameUtils.isProtectedName(nameValue);
 
@@ -1141,19 +1141,19 @@ export class Checker extends ParseTreeWalker {
     // Performs checks on a function that is located within a class
     // and has been determined not to be a property accessor.
     private _validateMethod(node: FunctionNode, functionType: FunctionType) {
-        if (node.name && node.name.nameToken.value === '__new__') {
+        if (node.name && node.name.value === '__new__') {
             // __new__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name ||
-                    (node.parameters[0].name.nameToken.value !== 'cls' &&
-                    node.parameters[0].name.nameToken.value !== 'mcs')) {
+                    (node.parameters[0].name.value !== 'cls' &&
+                    node.parameters[0].name.value !== 'mcs')) {
                 this._evaluator.addError(
                     `The __new__ override should take a 'cls' parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name);
             }
-        } else if (node.name && node.name.nameToken.value === '__init_subclass__') {
+        } else if (node.name && node.name.value === '__init_subclass__') {
             // __init_subclass__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name ||
-                    node.parameters[0].name.nameToken.value !== 'cls') {
+                    node.parameters[0].name.value !== 'cls') {
                 this._evaluator.addError(
                     `The __init_subclass__ override should take a 'cls' parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name);
@@ -1161,7 +1161,7 @@ export class Checker extends ParseTreeWalker {
         } else if (FunctionType.isStaticMethod(functionType)) {
             // Static methods should not have "self" or "cls" parameters.
             if (node.parameters.length > 0 && node.parameters[0].name) {
-                const paramName = node.parameters[0].name.nameToken.value;
+                const paramName = node.parameters[0].name.value;
                 if (paramName === 'self' || paramName === 'cls') {
                     this._evaluator.addError(
                         `Static methods should not take a 'self' or 'cls' parameter`,
@@ -1171,7 +1171,7 @@ export class Checker extends ParseTreeWalker {
         } else if (FunctionType.isClassMethod(functionType)) {
             let paramName = '';
             if (node.parameters.length > 0 && node.parameters[0].name) {
-                paramName = node.parameters[0].name.nameToken.value;
+                paramName = node.parameters[0].name.value;
             }
             // Class methods should have a "cls" parameter. We'll exempt parameter
             // names that start with an underscore since those are used in a few
@@ -1191,7 +1191,7 @@ export class Checker extends ParseTreeWalker {
                 let firstParamIsSimple = true;
                 if (node.parameters.length > 0) {
                     if (node.parameters[0].name) {
-                        paramName = node.parameters[0].name.nameToken.value;
+                        paramName = node.parameters[0].name.value;
                     }
 
                     if (node.parameters[0].category !== ParameterCategory.Simple) {
@@ -1206,7 +1206,7 @@ export class Checker extends ParseTreeWalker {
                     // Special-case the ABCMeta.register method in abc.pyi.
                     const isRegisterMethod = this._fileInfo.isStubFile &&
                         paramName === 'cls' &&
-                        node.name.nameToken.value === 'register';
+                        node.name.value === 'register';
 
                     if (!isRegisterMethod) {
                         this._evaluator.addError(

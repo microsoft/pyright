@@ -80,12 +80,12 @@ export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | u
 export function printExpression(node: ExpressionNode, flags = PrintExpressionFlags.None): string {
     switch (node.nodeType) {
         case ParseNodeType.Name: {
-            return node.nameToken.value;
+            return node.value;
         }
 
         case ParseNodeType.MemberAccess: {
             return printExpression(node.leftExpression, flags) + '.' +
-                node.memberName.nameToken.value;
+                node.memberName.value;
         }
 
         case ParseNodeType.Call: {
@@ -98,7 +98,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                         argStr = '**';
                     }
                     if (arg.name) {
-                        argStr += arg.name.nameToken.value + '=';
+                        argStr += arg.name.value + '=';
                     }
                     argStr += printExpression(arg.valueExpression, flags);
                     return argStr;
@@ -124,7 +124,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Number: {
-            return node.token.value.toString();
+            return node.value.toString();
         }
         case ParseNodeType.StringList: {
             if ((flags & PrintExpressionFlags.ForwardDeclarations) && node.typeAnnotation) {
@@ -286,7 +286,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 }
 
                 if (param.name) {
-                    paramStr += param.name.nameToken.value;
+                    paramStr += param.name.value;
                 }
 
                 if (param.defaultValue) {
@@ -297,13 +297,13 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Constant: {
-            if (node.token.keywordType === KeywordType.True) {
+            if (node.constType === KeywordType.True) {
                 return 'True';
-            } else if (node.token.keywordType === KeywordType.False) {
+            } else if (node.constType === KeywordType.False) {
                 return 'False';
-            } else if (node.token.keywordType === KeywordType.Debug) {
+            } else if (node.constType === KeywordType.Debug) {
                 return '__debug__';
-            } else if (node.token.keywordType === KeywordType.None) {
+            } else if (node.constType === KeywordType.None) {
                 return 'None';
             }
             break;
@@ -565,10 +565,10 @@ export function isSuiteEmpty(node: SuiteNode): boolean {
 
 export function isMatchingExpression(expression1: ExpressionNode, expression2: ExpressionNode): boolean {
     if (expression1.nodeType === ParseNodeType.Name && expression2.nodeType === ParseNodeType.Name) {
-        return expression1.nameToken.value === expression2.nameToken.value;
+        return expression1.value === expression2.value;
     } else if (expression1.nodeType === ParseNodeType.MemberAccess && expression2.nodeType === ParseNodeType.MemberAccess) {
         return isMatchingExpression(expression1.leftExpression, expression2.leftExpression) &&
-            expression1.memberName.nameToken.value === expression2.memberName.nameToken.value;
+            expression1.memberName.value === expression2.memberName.value;
     }
 
     return false;
@@ -641,7 +641,7 @@ export function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): 
         return false;
     }
 
-    const namedTupleAssignedName = callNode.parent.leftExpression.nameToken.value;
+    const namedTupleAssignedName = callNode.parent.leftExpression.value;
     const statementList = callNode.parent.parent;
     if (statementList.statements[0] !== callNode.parent ||
             !statementList.parent ||
@@ -674,13 +674,13 @@ export function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): 
         if (nextStatement.statements[0].nodeType === ParseNodeType.Assignment) {
             const assignNode = nextStatement.statements[0];
             if (assignNode.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                    assignNode.leftExpression.memberName.nameToken.value === '__defaults__') {
+                    assignNode.leftExpression.memberName.value === '__defaults__') {
 
                 const defaultTarget = assignNode.leftExpression.leftExpression;
                 if (defaultTarget.nodeType === ParseNodeType.MemberAccess &&
-                        defaultTarget.memberName.nameToken.value === '__new__' &&
+                        defaultTarget.memberName.value === '__new__' &&
                         defaultTarget.leftExpression.nodeType === ParseNodeType.Name &&
-                        defaultTarget.leftExpression.nameToken.value === namedTupleAssignedName) {
+                        defaultTarget.leftExpression.value === namedTupleAssignedName) {
 
                     return true;
                 }

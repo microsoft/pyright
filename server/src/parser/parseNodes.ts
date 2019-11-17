@@ -9,8 +9,8 @@
 */
 
 import { TextRange } from '../common/textRange';
-import { IdentifierToken, KeywordToken, NumberToken,
-    OperatorType, StringToken, Token } from './tokenizerTypes';
+import { IdentifierToken, KeywordToken, KeywordType,
+    NumberToken, OperatorType, StringToken, Token, TokenType } from './tokenizerTypes';
 
 export const enum ParseNodeType {
     Error, // 0
@@ -1106,7 +1106,8 @@ export namespace LambdaNode {
 
 export interface NameNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Name;
-    nameToken: IdentifierToken;
+    token: IdentifierToken;
+    value: string;
 }
 
 export namespace NameNode {
@@ -1116,7 +1117,8 @@ export namespace NameNode {
             length: nameToken.length,
             nodeType: ParseNodeType.Name,
             id: _nextNodeId++,
-            nameToken
+            token: nameToken,
+            value: nameToken.value
         };
 
         return node;
@@ -1125,7 +1127,7 @@ export namespace NameNode {
 
 export interface ConstantNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Constant;
-    token: KeywordToken;
+    constType: KeywordType;
 }
 
 export namespace ConstantNode {
@@ -1135,7 +1137,7 @@ export namespace ConstantNode {
             length: token.length,
             nodeType: ParseNodeType.Constant,
             id: _nextNodeId++,
-            token
+            constType: token.keywordType
         };
 
         return node;
@@ -1161,7 +1163,8 @@ export namespace EllipsisNode {
 
 export interface NumberNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Number;
-    token: NumberToken;
+    value: number;
+    isInteger: boolean;
 }
 
 export namespace NumberNode {
@@ -1171,7 +1174,8 @@ export namespace NumberNode {
             length: token.length,
             nodeType: ParseNodeType.Number,
             id: _nextNodeId++,
-            token
+            value: token.value,
+            isInteger: token.isInteger
         };
 
         return node;
