@@ -35,7 +35,10 @@ import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
-const _allowAllThirdPartyImports = true;
+
+// We may enable this through a switch in future versions. For now,
+// disable analysis of third-party library implementations.
+const _allowAllThirdPartyImports = false;
 
 export interface SourceFileInfo {
     sourceFile: SourceFile;
