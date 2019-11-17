@@ -258,15 +258,22 @@ export interface TypeEvaluator {
 
 interface CodeFlowAnalyzer {
     getTypeFromCodeFlow: (reference: NameNode | MemberAccessNode,
-           targetSymbolId: number, initialType: Type | undefined) => Type | undefined;
+           targetSymbolId: number, initialType: Type | undefined) => FlowNodeTypeResult;
 }
 
-type CachedType = Type | SpeculativeType;
+type CachedType = Type | PartialType;
 
-const speculativeTypeCategory = -1;
-interface SpeculativeType {
+const partialTypeCategory = -1;
+interface PartialType {
     category: -1;
     type: Type | undefined;
+    isIncomplete?: boolean;
+    isSpeculative?: boolean;
+}
+
+interface FlowNodeTypeResult {
+    type: Type | undefined;
+    isIncomplete: boolean;
 }
 
 interface SymbolResolutionStackEntry {
@@ -298,15 +305,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undefined;
         }
 
-        if (cachedType.category === speculativeTypeCategory) {
-            return isSpeculativeMode ? (cachedType as SpeculativeType).type : undefined;
+        if (cachedType.category === partialTypeCategory) {
+            return isSpeculativeMode ? (cachedType as PartialType).type : undefined;
         }
 
         return cachedType;
     }
 
     function writeTypeCache(node: ParseNode, type: Type) {
-        const cachedType = isSpeculativeMode ? { category: speculativeTypeCategory, type } : type;
+        const cachedType = isSpeculativeMode ? { category: partialTypeCategory, type } : type;
         typeCache.set(node.id, cachedType);
     }
 
@@ -6604,7 +6611,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             codeFlowAnalyzerCache.set(executionNode.id, analyzer);
         }
 
-        return analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType);
+        const typeResult = analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType);
+        return typeResult.type;
     }
 
     // Creates a new code flow analyzer that can be used to narrow the types
@@ -6614,7 +6622,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const flowNodeTypeCacheSet = new Map<string, Map<number, CachedType | undefined>>();
 
         function getTypeFromCodeFlow(reference: NameNode | MemberAccessNode,
-                targetSymbolId: number, initialType: Type | undefined): Type | undefined {
+                targetSymbolId: number, initialType: Type | undefined): FlowNodeTypeResult {
 
             const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
             const referenceKey = createKeyForReference(reference, targetSymbolId);
@@ -6625,22 +6633,54 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             // Caches the type of the flow node in our local cache, keyed by the flow node ID.
-            function setCacheEntry(flowNode: FlowNode, type: Type | undefined): Type | undefined {
-                const entry: CachedType | Type | undefined = isSpeculativeMode ?
-                    { category: speculativeTypeCategory, type } : type;
+            function setCacheEntry(flowNode: FlowNode, type: Type | undefined,
+                    isIncomplete: boolean): FlowNodeTypeResult {
+
+                // For speculative or incomplete types, we'll create a separate
+                // object. For non-speculative and complete types, we'll store
+                // the type directly.
+                const entry: PartialType | Type | undefined =
+                    (isSpeculativeMode || isIncomplete) ? {
+                        category: partialTypeCategory,
+                        type,
+                        isSpeculative: isSpeculativeMode,
+                        isIncomplete
+                    } : type;
+
                 flowNodeTypeCache!.set(flowNode.id, entry);
-                return type;
+
+                return {
+                    type,
+                    isIncomplete
+                };
             }
 
-            function getCacheEntry(flowNode: FlowNode): Type | undefined {
+            function deleteCacheEntry(flowNode: FlowNode) {
+                flowNodeTypeCache!.delete(flowNode.id);
+            }
+
+            function getCacheEntry(flowNode: FlowNode): FlowNodeTypeResult | undefined {
                 const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
                 if (!cachedEntry) {
-                    return cachedEntry;
+                    return undefined;
                 }
-                if (cachedEntry.category === speculativeTypeCategory) {
-                    return isSpeculativeMode ? (cachedEntry as SpeculativeType).type : undefined;
+
+                if (cachedEntry.category !== partialTypeCategory) {
+                    return {
+                        type: cachedEntry,
+                        isIncomplete: false
+                    };
                 }
-                return cachedEntry;
+
+                const partialType = cachedEntry as PartialType;
+                if (partialType.isSpeculative && !isSpeculativeMode) {
+                    return undefined;
+                }
+
+                return {
+                    type: partialType.type,
+                    isIncomplete: !!partialType.isIncomplete
+                };
             }
 
             function evaluateAssignmentFlowNode(flowNode: FlowAssignment): Type | undefined {
@@ -6669,14 +6709,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 }
 
-                return setCacheEntry(flowNode, cachedType);
+                return cachedType;
             }
 
             // If this flow has no knowledge of the target expression, it returns undefined.
             // If the start flow node for this scope is reachable, the typeAtStart value is
             // returned.
             function getTypeFromFlowNode(flowNode: FlowNode, reference: NameNode | MemberAccessNode,
-                targetSymbolId: number, initialType: Type | undefined): Type | undefined {
+                targetSymbolId: number, initialType: Type | undefined): FlowNodeTypeResult {
 
                 let curFlowNode = flowNode;
 
@@ -6691,7 +6731,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         // We can get here if there are nodes in a compound logical expression
                         // (e.g. "False and x") that are never executed but are evaluated.
                         // The type doesn't matter in this case.
-                        return setCacheEntry(curFlowNode, undefined);
+                        return setCacheEntry(curFlowNode, undefined, false);
                     }
 
                     if (curFlowNode.flags & FlowFlags.Call) {
@@ -6701,7 +6741,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         // it always raises an exception or otherwise doesn't return,
                         // so we can assume that the code before this is unreachable.
                         if (isCallNoReturn(callFlowNode.node)) {
-                            return setCacheEntry(curFlowNode, undefined);
+                            return setCacheEntry(curFlowNode, undefined, false);
                         }
 
                         curFlowNode = callFlowNode.antecedent;
@@ -6719,12 +6759,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             // Is this a special "unbind" assignment? If so,
                             // we can handle it immediately without any further evaluation.
                             if (curFlowNode.flags & FlowFlags.Unbind) {
-                                return setCacheEntry(curFlowNode, UnboundType.create());
+                                return setCacheEntry(curFlowNode, UnboundType.create(), false);
                             }
 
-                            setCacheEntry(curFlowNode, undefined);
+                            // Set the cache entry to undefined before evaluating the
+                            // expression in case it depends on itself. This will prevent
+                            // an infinite loop.
+                            setCacheEntry(curFlowNode, undefined, false);
                             const flowType = evaluateAssignmentFlowNode(assignmentFlowNode);
-                            return setCacheEntry(curFlowNode, flowType);
+                            return setCacheEntry(curFlowNode, flowType, false);
                         }
 
                         curFlowNode = assignmentFlowNode.antecedent;
@@ -6748,33 +6791,63 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         const typesToCombine: Type[] = [];
 
                         let effectiveType: Type | undefined;
-                        setCacheEntry(curFlowNode, effectiveType);
+                        let sawIncomplete = false;
+                        let firstWasIncomplete = false;
+                        const isLoop = (curFlowNode.flags & FlowFlags.LoopLabel) !== 0;
 
-                        labelNode.antecedents.map(antecedent => {
-                            const flowType = getTypeFromFlowNode(antecedent, reference,
+                        if (isLoop) {
+                            setCacheEntry(curFlowNode, undefined, true);
+                        }
+
+                        labelNode.antecedents.map((antecedent, index) => {
+                            const flowTypeResult = getTypeFromFlowNode(antecedent, reference,
                                 targetSymbolId, initialType);
-                            if (flowType) {
-                                typesToCombine.push(flowType);
+
+                            if (flowTypeResult.isIncomplete) {
+                                sawIncomplete = true;
+                                if (index === 0) {
+                                    firstWasIncomplete = true;
+                                }
+                            }
+
+                            if (flowTypeResult.type) {
+                                typesToCombine.push(flowTypeResult.type);
                                 effectiveType = combineTypes(typesToCombine);
-                                setCacheEntry(curFlowNode, effectiveType);
+                                if (isLoop) {
+                                    setCacheEntry(curFlowNode, effectiveType, true);
+                                }
                             }
                         });
-                        return effectiveType;
+
+                        if (isLoop) {
+                            // If this is a loop label, the result is incomplete only if the first
+                            // antecedent (the edge that feeds the loop) is incomplete.
+                            if (firstWasIncomplete) {
+                                deleteCacheEntry(curFlowNode);
+                                return { type: effectiveType, isIncomplete: true };
+                            }
+                            return setCacheEntry(curFlowNode, effectiveType, firstWasIncomplete);
+                        }
+
+                        // For branch labels, don't write back the result if it's incomplete.
+                        return sawIncomplete ? { type: effectiveType, isIncomplete: true } :
+                            setCacheEntry(curFlowNode, effectiveType, false);
                     }
 
                     if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                         const conditionalFlowNode = curFlowNode as FlowCondition;
                         const typeNarrowingCallback = getTypeNarrowingCallback(reference, conditionalFlowNode);
                         if (typeNarrowingCallback) {
-                            setCacheEntry(curFlowNode, undefined);
-
-                            let flowType = getTypeFromFlowNode(conditionalFlowNode.antecedent,
+                            const flowTypeResult = getTypeFromFlowNode(conditionalFlowNode.antecedent,
                                 reference, targetSymbolId, initialType);
+                            let flowType = flowTypeResult.type;
                             if (flowType) {
                                 flowType = typeNarrowingCallback(flowType);
                             }
 
-                            return setCacheEntry(curFlowNode, flowType);
+                            // If the type is incomplete, don't write back to the cache.
+                            return flowTypeResult.isIncomplete ? { type: flowType, isIncomplete: true } :
+                                setCacheEntry(curFlowNode, flowType, false);
                         }
 
                         curFlowNode = conditionalFlowNode.antecedent;
@@ -6784,7 +6857,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
                         const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
                         if (preFinallyFlowNode.isGateClosed) {
-                            return undefined;
+                            return { type: undefined, isIncomplete: false };
                         }
                         curFlowNode = preFinallyFlowNode.antecedent;
                         continue;
@@ -6794,14 +6867,17 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         const postFinallyFlowNode = curFlowNode as FlowPostFinally;
                         const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
                         postFinallyFlowNode.preFinallyGate.isGateClosed = true;
-                        const flowType = getTypeFromFlowNode(postFinallyFlowNode.antecedent,
+                        const flowTypeResult = getTypeFromFlowNode(postFinallyFlowNode.antecedent,
                             reference, targetSymbolId, initialType);
                         postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
-                        return setCacheEntry(curFlowNode, flowType);
+
+                        // If the type is incomplete, don't write back to the cache.
+                        return flowTypeResult.isIncomplete ? flowTypeResult :
+                            setCacheEntry(curFlowNode, flowTypeResult.type, false);
                     }
 
                     if (curFlowNode.flags & FlowFlags.Start) {
-                        return setCacheEntry(curFlowNode, initialType);
+                        return setCacheEntry(curFlowNode, initialType, false);
                     }
 
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
@@ -6810,7 +6886,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             const nameValue = reference.nameToken.value;
                             if (wildcardImportFlowNode.names.some(name => name === nameValue)) {
                                 const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
-                                return setCacheEntry(curFlowNode, type);
+                                return setCacheEntry(curFlowNode, type, false);
                             }
                         }
 
@@ -6820,7 +6896,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                     // We shouldn't get here.
                     assert.fail('Unexpected flow node flags');
-                    return setCacheEntry(curFlowNode, undefined);
+                    return setCacheEntry(curFlowNode, undefined, false);
                 }
             }
 
