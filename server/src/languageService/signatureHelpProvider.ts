@@ -10,6 +10,7 @@
 */
 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
+import { isCodeUnreachable } from '../analyzer/analyzerNodeInfo';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
@@ -79,6 +80,10 @@ export class SignatureHelpProvider {
         }
 
         if (offset > TextRange.getEnd(callNode)) {
+            return undefined;
+        }
+
+        if (isCodeUnreachable(callNode.leftExpression)) {
             return undefined;
         }
 

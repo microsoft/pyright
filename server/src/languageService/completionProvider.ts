@@ -391,6 +391,10 @@ export class CompletionProvider {
     private _getMemberAccessCompletions(leftExprNode: ExpressionNode,
             priorWord: string): CompletionList | undefined {
 
+        if (AnalyzerNodeInfo.isCodeUnreachable(leftExprNode)) {
+            return undefined;
+        }
+
         const leftType = this._evaluator.getType(leftExprNode);
         const symbolTable = new Map<string, Symbol>();
 

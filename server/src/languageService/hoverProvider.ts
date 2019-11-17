@@ -9,6 +9,7 @@
 * position within a smart editor.
 */
 
+import { isCodeUnreachable } from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
@@ -137,6 +138,10 @@ export class HoverProvider {
     }
 
     private static _getTypeFromNode(node: NameNode, evaluator: TypeEvaluator): Type | undefined {
+        if (isCodeUnreachable(node)) {
+            return undefined;
+        }
+
         return evaluator.getType(node);
     }
 
