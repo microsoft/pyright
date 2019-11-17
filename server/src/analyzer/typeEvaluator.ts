@@ -1761,10 +1761,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
 
-            const typeAtStart = getEffectiveTypeOfSymbol(symbol);
+            const effectiveType = getEffectiveTypeOfSymbol(symbol);
 
-            const isSpecialBuiltIn = !!typeAtStart && typeAtStart.category === TypeCategory.Class &&
-                ClassType.isSpecialBuiltIn(typeAtStart);
+            const isSpecialBuiltIn = !!effectiveType && effectiveType.category === TypeCategory.Class &&
+                ClassType.isSpecialBuiltIn(effectiveType);
             let useCodeFlowAnalysis = !isSpecialBuiltIn;
 
             // Don't use code-flow analysis if forward references are allowed
@@ -1785,9 +1785,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             }
 
-            type = typeAtStart;
+            type = effectiveType;
             if (useCodeFlowAnalysis) {
                 // See if code flow analysis can tell us anything more about the type.
+                // If the symbol is declared outside of our execution scope, use its effective
+                // type. If it's declared inside our execution scope, it generally starts
+                // as unbound at the start of the code flow.
+                const typeAtStart = symbolWithScope.isBeyondExecutionScope || !symbol.isInitiallyUnbound() ?
+                    effectiveType : UnboundType.create();
                 const codeFlowType = getFlowTypeOfReference(node, symbol.getId(), typeAtStart);
                 if (codeFlowType) {
                     type = codeFlowType;
@@ -6498,19 +6503,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             // There was no declared type. Before we give up, see if the
-            // symbol is a function parameter whose value can be inferred.
+            // symbol is a function parameter whose value can be inferred
+            // or an imported symbol.
             const declarations = symbol.getDeclarations();
             if (declarations.length === 0) {
                 return undefined;
             }
 
             const decl = declarations[declarations.length - 1];
-            if (decl.type !== DeclarationType.Parameter) {
-                return undefined;
+            if (decl.type === DeclarationType.Parameter) {
+                evaluateTypeOfParameter(decl.node);
+                return readTypeCache(decl.node.name!);
             }
 
-            evaluateTypeOfParameter(decl.node);
-            return readTypeCache(decl.node.name!);
+            if (decl.type === DeclarationType.Alias) {
+                return getInferredTypeOfDeclaration(decl);
+            }
+
+            return undefined;
         }
 
         if (node.nodeType === ParseNodeType.MemberAccess) {
@@ -6611,8 +6621,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             codeFlowAnalyzerCache.set(executionNode.id, analyzer);
         }
 
-        const typeResult = analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType);
-        return typeResult.type;
+        return analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType).type;
     }
 
     // Creates a new code flow analyzer that can be used to narrow the types
