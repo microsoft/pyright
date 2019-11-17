@@ -30,7 +30,7 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
     NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
     SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode,
     YieldFromNode, YieldNode } from '../parser/parseNodes';
-import { KeywordType, OperatorType, StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { createKeyForReference, FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
@@ -59,7 +59,8 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     isEllipsisType, isNoReturnType, isOptionalType, lookUpClassMember, lookUpObjectMember,
     partiallySpecializeType, printLiteralValue, removeFalsinessFromType,
     removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, specializeType,
-    specializeTypeVarType, stripFirstParameter, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
+    specializeTypeVarType, stripFirstParameter, stripLiteralValue, transformTypeObjectToClass,
+    TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -391,7 +392,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case ParseNodeType.Index: {
-                typeResult = getTypeFromIndex(node, flags);
+                typeResult = getTypeFromIndex(node, expectedType, flags);
                 break;
             }
 
@@ -1208,6 +1209,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         let destType = type;
         if (declaredType && srcExpression) {
             const diagAddendum = new DiagnosticAddendum();
+
             if (!canAssignType(declaredType, type, diagAddendum)) {
                 addError(
                     `Expression of type '${printType(type)}' cannot be ` +
@@ -1229,7 +1231,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const isPrivate = isPrivateOrProtectedName(nameValue);
 
                 if (!isConstant && (!isPrivate ||
-                    getFileInfo(nameNode).diagnosticSettings.reportPrivateUsage === 'none')) {
+                        getFileInfo(nameNode).diagnosticSettings.reportPrivateUsage === 'none')) {
+
                     destType = stripLiteralValue(destType);
                 }
             }
@@ -2265,12 +2268,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return undefined;
     }
 
-    function getTypeFromIndex(node: IndexNode, flags: EvaluatorFlags): TypeResult {
+    function getTypeFromIndex(node: IndexNode, expectedType?: Type, flags = EvaluatorFlags.None): TypeResult {
         const baseTypeResult = getTypeOfExpression(node.baseExpression,
             undefined, flags | EvaluatorFlags.DoNotSpecialize);
 
         return getTypeFromIndexWithBaseType(node, baseTypeResult.type,
-            { method: 'get' }, flags);
+            { method: 'get', expectedType }, flags);
     }
 
     function getTypeFromIndexWithBaseType(node: IndexNode, baseType: Type,
