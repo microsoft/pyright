@@ -8,6 +8,8 @@
 * by a location within a file.
 */
 
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
+import { FlowFlags } from '../analyzer/codeFlow';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -49,6 +51,12 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
         this.walk(this._parseResults.parseTree);
     }
 
+    walk(node: ParseNode) {
+        if (!this._isCodeUnreachable(node)) {
+            super.walk(node);
+        }
+    }
+
     visitName(node: NameNode): boolean {
         const declarations = this._evaluator.getDeclarationsForNameNode(node);
 
@@ -81,6 +89,22 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
         // need to call resolveAliasDeclaration on them.
         return this._referencesResult.declarations.some(decl =>
             DeclarationUtils.areDeclarationsSame(decl, resolvedDecl));
+    }
+
+    private _isCodeUnreachable(node: ParseNode): boolean {
+        let curNode: ParseNode | undefined = node;
+
+        // Walk up the parse tree until we find a node with
+        // an associated flow node.
+        while (curNode) {
+            const flowNode = AnalyzerNodeInfo.getFlowNode(curNode);
+            if (flowNode) {
+                return !!(flowNode.flags & FlowFlags.Unreachable);
+            }
+            curNode = curNode.parent;
+        }
+
+        return false;
     }
 }
 
