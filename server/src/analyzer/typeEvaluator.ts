@@ -287,22 +287,11 @@ interface SymbolResolutionStackEntry {
     partialType?: Type;
 }
 
-interface TypeResolutionStackEntry {
-    // The name or member access expression being evaluated
-    // within the code flow engine or the function node being
-    // evaluated for its inferred return type.
-    reference: NameNode | MemberAccessNode | FunctionNode;
-
-    // Initially true, it's set to false if a recursion is
-    // detected.
-    isResultValid: boolean;
-}
-
 export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     let isSpeculativeMode = false;
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
-    const typeResolutionStack: TypeResolutionStackEntry[] = [];
     const isReachableRecursionMap = new Map<number, true>();
+    const functionRecursionMap = new Map<number, true>();
     const callIsNoReturnCache = new Map<number, boolean>();
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     const typeCache = new Map<number, TypeCacheEntry>();
@@ -381,28 +370,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return undefined;
-    }
-
-    function pushTypeResolution(reference: NameNode | MemberAccessNode | FunctionNode) {
-        const index = typeResolutionStack.findIndex(entry => entry.reference === reference);
-        if (index >= 0) {
-            // Mark all of the entries between these two as invalid.
-            for (let i = index + 1; i < typeResolutionStack.length; i++) {
-                typeResolutionStack[i].isResultValid = false;
-            }
-            return false;
-        }
-        typeResolutionStack.push({
-            reference,
-            isResultValid: true
-        });
-        return true;
-    }
-
-    function popTypeResolution(reference: NameNode | MemberAccessNode | FunctionNode) {
-        const poppedNode = typeResolutionStack.pop()!;
-        assert(poppedNode.reference === reference);
-        return poppedNode.isResultValid;
     }
 
     // Wrapper around getTypeOfExpression for callers who are interested in
@@ -6026,7 +5993,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return inferredReturnType;
         }
 
-        if (pushTypeResolution(node)) {
+        if (!functionRecursionMap.has(node.id)) {
+            functionRecursionMap.set(node.id, true);
+
             const functionDecl = AnalyzerNodeInfo.getDeclaration(node) as FunctionDeclaration;
 
             // Is it a generator?
@@ -6108,16 +6077,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // before being returned.
             inferredReturnType = removeUnboundFromUnion(inferredReturnType);
 
-            if (!popTypeResolution(node)) {
-                addDiagnostic(
-                    getFileInfo(node).diagnosticSettings.reportUnknownParameterType,
-                    DiagnosticRule.reportUnknownParameterType,
-                    `Return type could not be inferred because of recursion`,
-                    node.name);
-                inferredReturnType = UnknownType.create();
-            }
-
             writeTypeCache(node.suite, inferredReturnType);
+            functionRecursionMap.delete(node.id);
         }
 
         return inferredReturnType;
