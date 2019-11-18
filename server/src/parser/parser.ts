@@ -13,7 +13,6 @@
 
 import * as assert from 'assert';
 
-import { CancelToken } from '../common/cancelToken';
 import { Diagnostic } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
@@ -86,7 +85,6 @@ export class Parser {
     private _tokenizerOutput?: TokenizerOutput;
     private _tokenIndex = 0;
     private _parseOptions: ParseOptions = new ParseOptions();
-    private _cancelToken?: CancelToken;
     private _diagSink: DiagnosticSink = new DiagnosticSink();
     private _isInLoop = false;
     private _isInFinally = false;
@@ -96,11 +94,11 @@ export class Parser {
     private _containsWildcardImport = false;
 
     parseSourceFile(fileContents: string, parseOptions: ParseOptions,
-            diagSink: DiagnosticSink, cancelToken?: CancelToken): ParseResults {
+            diagSink: DiagnosticSink): ParseResults {
 
         timingStats.tokenizeFileTime.timeOperation(() => {
             this._startNewParse(fileContents, 0, fileContents.length,
-                parseOptions, diagSink, cancelToken);
+                parseOptions, diagSink);
         });
 
         const moduleNode = ModuleNode.create({ start: 0, length: fileContents.length });
@@ -124,8 +122,6 @@ export class Parser {
                         statement.parent = moduleNode;
                         moduleNode.statements.push(statement);
                     }
-
-                    this._checkCancel();
                 }
             }
         });
@@ -164,20 +160,15 @@ export class Parser {
     }
 
     private _startNewParse(fileContents: string, textOffset: number, textLength: number,
-            parseOptions: ParseOptions, diagSink: DiagnosticSink, cancelToken?: CancelToken) {
+            parseOptions: ParseOptions, diagSink: DiagnosticSink) {
         this._fileContents = fileContents;
         this._parseOptions = parseOptions;
-        this._cancelToken = cancelToken;
         this._diagSink = diagSink;
-
-        this._checkCancel();
 
         // Tokenize the file contents.
         const tokenizer = new Tokenizer();
         this._tokenizerOutput = tokenizer.tokenize(fileContents, textOffset, textLength);
         this._tokenIndex = 0;
-
-        this._checkCancel();
     }
 
     // stmt: simple_stmt | compound_stmt
@@ -2835,12 +2826,6 @@ export class Parser {
         }
 
         return false;
-    }
-
-    private _checkCancel() {
-        if (this._cancelToken) {
-            this._cancelToken.throwIfCanceled();
-        }
     }
 
     private _getNextToken(): Token {
