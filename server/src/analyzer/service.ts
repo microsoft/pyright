@@ -22,7 +22,7 @@ import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
     getFileName, getFileSpec, getFileSystemEntries, isDirectory,
-    isFile, normalizePath, stripFileExtension } from '../common/pathUtils';
+    normalizePath, stripFileExtension } from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
@@ -609,17 +609,23 @@ export class AnalyzerService {
                 this._console.log(`Import '${ this._typeStubTargetImportName }' not found`);
             }
         } else {
-            this._console.log(`Searching for source files`);
-            const fileList = this._getFileNamesFromFileSpecs();
+            let fileList: string[] = [];
+            if (!this._configOptions.checkOnlyOpenFiles) {
+                this._console.log(`Searching for source files`);
+                fileList = this._getFileNamesFromFileSpecs();
+            }
 
             const fileDiagnostics = this._program.setTrackedFiles(fileList);
             this._reportDiagnosticsForRemovedFiles(fileDiagnostics);
             this._program.markAllFilesDirty(markFilesDirtyUnconditionally);
-            if (fileList.length === 0) {
-                this._console.log(`No source files found.`);
-            } else {
-                this._console.log(`Found ${ fileList.length } ` +
-                    `source ${ fileList.length === 1 ? 'file' : 'files' }`);
+
+            if (!this._configOptions.checkOnlyOpenFiles) {
+                if (fileList.length === 0) {
+                    this._console.log(`No source files found.`);
+                } else {
+                    this._console.log(`Found ${ fileList.length } ` +
+                        `source ${ fileList.length === 1 ? 'file' : 'files' }`);
+                }
             }
         }
 

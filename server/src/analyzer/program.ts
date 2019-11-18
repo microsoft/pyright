@@ -287,7 +287,8 @@ export class Program {
 
             // Check the open files.
             for (const sourceFileInfo of openFiles) {
-                if (this._checkTypes(sourceFileInfo, isTimeElapsedOpenFiles)) {
+                this._checkTypes(sourceFileInfo);
+                if (isTimeElapsedOpenFiles()) {
                     return true;
                 }
             }
@@ -316,7 +317,8 @@ export class Program {
 
             // Now do type parsing and analysis of the remaining.
             for (const sourceFileInfo of allFiles) {
-                if (this._checkTypes(sourceFileInfo, isTimeElapsedNoOpenFiles)) {
+                this._checkTypes(sourceFileInfo);
+                if (isTimeElapsedNoOpenFiles()) {
                     return true;
                 }
             }
@@ -504,20 +506,20 @@ export class Program {
         return moduleSymbolMap;
     }
 
-    private _checkTypes(fileToCheck: SourceFileInfo, timeElapsedCallback: () => boolean): boolean {
+    private _checkTypes(fileToCheck: SourceFileInfo) {
         // If the file isn't needed because it was eliminated from the
         // transitive closure or deleted, skip the file rather than wasting
         // time on it.
         if (!this._isFileNeeded(fileToCheck)) {
-            return false;
+            return;
         }
 
         if (!fileToCheck.sourceFile.isCheckingRequired()) {
-            return false;
+            return;
         }
 
         if (!fileToCheck.isTracked && !fileToCheck.isOpenByClient) {
-            return false;
+            return;
         }
 
         this._bindFile(fileToCheck);
@@ -540,8 +542,6 @@ export class Program {
                 });
             }
         }
-
-        return false;
     }
 
     // Builds a map of files that includes the specified file and all of the files
@@ -564,9 +564,6 @@ export class Program {
             file.sourceFile.setHitMaxImportDepth(_maxImportDepth);
             return;
         }
-
-        // Make sure the file is parsed so its imports are discovered.
-        this._parseFile(file);
 
         // Add the file to the closure map.
         closureMap.set(filePath, file);

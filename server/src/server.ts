@@ -92,20 +92,22 @@ function _createAnalyzerService(name: string): AnalyzerService {
                 diagnostics
             });
 
-            if (results.filesRequiringAnalysis > 0) {
-                // Display a progress spinner if we're checking the entire program.
-                if (!_isDisplayingProgress && !results.checkingOnlyOpenFiles) {
-                    _isDisplayingProgress = true;
-                    _connection.sendNotification('pyright/beginProgress');
-                }
+            if (!results.checkingOnlyOpenFiles) {
+                if (results.filesRequiringAnalysis > 0) {
+                    // Display a progress spinner if we're checking the entire program.
+                    if (!_isDisplayingProgress) {
+                        _isDisplayingProgress = true;
+                        _connection.sendNotification('pyright/beginProgress');
+                    }
 
-                const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
-                _connection.sendNotification('pyright/reportProgress',
-                    `${ results.filesRequiringAnalysis } ${ fileOrFiles } to analyze`);
-            } else {
-                if (_isDisplayingProgress) {
-                    _isDisplayingProgress = false;
-                    _connection.sendNotification('pyright/endProgress');
+                    const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
+                    _connection.sendNotification('pyright/reportProgress',
+                        `${ results.filesRequiringAnalysis } ${ fileOrFiles } to analyze`);
+                } else {
+                    if (_isDisplayingProgress) {
+                        _isDisplayingProgress = false;
+                        _connection.sendNotification('pyright/endProgress');
+                    }
                 }
             }
         });
