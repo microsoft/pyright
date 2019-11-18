@@ -1330,10 +1330,10 @@ export class Binder extends ParseTreeWalker {
                     // if it's the same name as a symbol in an outer scope. If so, we'll
                     // create an alias node in the control flow graph.
                     for (const addedSymbol of addedSymbols) {
-                        const aliasSymbol = this._currentScope.getParent()!.
+                        const aliasSymbol = this._currentScope.parent!.
                             lookUpSymbol(addedSymbol[0]);
                         if (aliasSymbol) {
-                            this._createAssignmentAliasFlowNode(addedSymbol[1].getId(), aliasSymbol.getId());
+                            this._createAssignmentAliasFlowNode(addedSymbol[1].id, aliasSymbol.id);
                         }
                     }
 
@@ -1627,7 +1627,7 @@ export class Binder extends ParseTreeWalker {
         if (node.nodeType === ParseNodeType.Name) {
             const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.value);
             assert(symbolWithScope !== undefined);
-            targetSymbolId = symbolWithScope!.symbol.getId();
+            targetSymbolId = symbolWithScope!.symbol.id;
         }
 
         const prevFlowNode = this._currentFlowNode;
@@ -1790,7 +1790,7 @@ export class Binder extends ParseTreeWalker {
                 symbolFlags |= SymbolFlags.InitiallyUnbound;
             }
 
-            if (this._currentScope.getType() === ScopeType.Class) {
+            if (this._currentScope.type === ScopeType.Class) {
                 symbolFlags |= SymbolFlags.ClassMember;
             }
 

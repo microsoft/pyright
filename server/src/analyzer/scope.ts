@@ -4,11 +4,9 @@
 * Licensed under the MIT license.
 * Author: Eric Traut
 *
-* Represents a symbolic scope and its defined symbols. Unlike
-* a "Namespace", a scope object tracks dynamic (runtime)
-* bindings between names types. The analyzer stores these types
-* in the scope as it walks through the program, effective doing
-* what the Python interpreter will do.
+* Represents an evaluation scope and its defined symbols.
+* It also contains a link to a parent scope (except for the
+* top-most built-in scope).
 */
 
 import * as assert from 'assert';
@@ -57,21 +55,21 @@ export interface SymbolWithScope {
 
 export class Scope {
     // The scope type, as defined in the enumeration.
-    private _scopeType: ScopeType;
+    readonly type: ScopeType;
 
     // The next scope in the hierarchy or undefined if it's the
     // top-most scope.
-    private _parent?: Scope;
+    readonly parent?: Scope;
 
     // Association between names and symbols.
-    private _symbolTable: SymbolTable = new Map<string, Symbol>();
+    readonly symbolTable: SymbolTable = new Map<string, Symbol>();
 
     // Names not in _exportFilterMap will be hidden from child scopes.
     private _exportFilterMap: Map<string, true> | undefined;
 
     constructor(type: ScopeType, parent?: Scope) {
-        this._scopeType = type;
-        this._parent = parent;
+        this.type = type;
+        this.parent = parent;
     }
 
     setExportFilter(namesToExport: string[]) {
@@ -81,26 +79,14 @@ export class Scope {
         }
     }
 
-    getSymbolTable(): SymbolTable {
-        return this._symbolTable;
-    }
-
-    getType(): ScopeType {
-        return this._scopeType;
-    }
-
-    getParent(): Scope | undefined {
-        return this._parent;
-    }
-
     getGlobalScope(): Scope {
         let curScope: Scope | undefined = this;
         while (curScope) {
-            if (curScope._scopeType === ScopeType.Module || curScope._scopeType === ScopeType.Builtin) {
+            if (curScope.type === ScopeType.Module || curScope.type === ScopeType.Builtin) {
                 return curScope;
             }
 
-            curScope = curScope._parent;
+            curScope = curScope.parent;
         }
 
         assert.fail('failed to find scope');
@@ -111,12 +97,11 @@ export class Scope {
     // of their parent scopes. Classes are executed in the context of their parent
     // scope, so they don't fit this category.
     isIndependentlyExecutable(): boolean {
-        return this._scopeType === ScopeType.Module ||
-            this._scopeType === ScopeType.Function;
+        return this.type === ScopeType.Module || this.type === ScopeType.Function;
     }
 
     lookUpSymbol(name: string): Symbol | undefined {
-        return this._symbolTable.get(name);
+        return this.symbolTable.get(name);
     }
 
     lookUpSymbolRecursive(name: string): SymbolWithScope | undefined {
@@ -128,14 +113,14 @@ export class Scope {
             flags |= SymbolFlags.ExternallyHidden;
         }
         const symbol = new Symbol(flags);
-        this._symbolTable.set(name, symbol);
+        this.symbolTable.set(name, symbol);
         return symbol;
     }
 
     private _lookUpSymbolRecursiveInternal(name: string, isOutsideCallerModule: boolean,
             isBeyondExecutionScope: boolean): SymbolWithScope | undefined {
 
-        const symbol = this._symbolTable.get(name);
+        const symbol = this.symbolTable.get(name);
 
         if (symbol) {
             // If we're searching outside of the original caller's module (global) scope,
@@ -152,12 +137,12 @@ export class Scope {
             };
         }
 
-        if (this._parent) {
+        if (this.parent) {
             // If our recursion is about to take us outside the scope of the current
             // module (i.e. into a built-in scope), indicate as such with the second
             // parameter.
-            return this._parent._lookUpSymbolRecursiveInternal(name,
-                isOutsideCallerModule || this._scopeType === ScopeType.Module,
+            return this.parent._lookUpSymbolRecursiveInternal(name,
+                isOutsideCallerModule || this.type === ScopeType.Module,
                 isBeyondExecutionScope || this.isIndependentlyExecutable());
         }
 

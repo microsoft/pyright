@@ -319,7 +319,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function getIndexOfSymbolResolution(symbol: Symbol, declaration: Declaration) {
         return symbolResolutionStack.findIndex(
-                entry => entry.symbolId === symbol.getId() && entry.declaration === declaration);
+                entry => entry.symbolId === symbol.id && entry.declaration === declaration);
     }
 
     function pushSymbolResolution(symbol: Symbol, declaration: Declaration) {
@@ -333,7 +333,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         symbolResolutionStack.push({
-            symbolId: symbol.getId(),
+            symbolId: symbol.id,
             declaration,
             isResultValid: true
         });
@@ -342,7 +342,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function popSymbolResolution(symbol: Symbol) {
         const poppedEntry = symbolResolutionStack.pop()!;
-        assert(poppedEntry.symbolId === symbol.getId());
+        assert(poppedEntry.symbolId === symbol.id);
         return poppedEntry.isResultValid;
     }
 
@@ -1225,7 +1225,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // variable that can be overridden by a child class, use the more general
             // version by stripping off the literal.
             const scope = ScopeUtils.getScopeForNode(nameNode);
-            if (scope.getType() === ScopeType.Class) {
+            if (scope.type === ScopeType.Class) {
                 const isConstant = isConstantName(nameValue);
                 const isPrivate = isPrivateOrProtectedName(nameValue);
 
@@ -1483,7 +1483,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // Handle '__all__' as a special case in the module scope.
                 if (name.value === '__all__' && srcExpr) {
                     const scope = ScopeUtils.getScopeForNode(target);
-                    if (scope.getType() === ScopeType.Module) {
+                    if (scope.type === ScopeType.Module) {
                         // It's common for modules to include the expression
                         // __all__ = ['a', 'b', 'c']
                         // We will mark the symbols referenced by these strings as accessed.
@@ -1651,7 +1651,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function setSymbolAccessed(fileInfo: AnalyzerFileInfo, symbol: Symbol) {
         if (!isSpeculativeMode) {
-            fileInfo.accessedSymbolMap.set(symbol.getId(), true);
+            fileInfo.accessedSymbolMap.set(symbol.id, true);
         }
     }
 
@@ -1795,7 +1795,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // as unbound at the start of the code flow.
                 const typeAtStart = symbolWithScope.isBeyondExecutionScope || !symbol.isInitiallyUnbound() ?
                     effectiveType : UnboundType.create();
-                const codeFlowType = getFlowTypeOfReference(node, symbol.getId(), typeAtStart);
+                const codeFlowType = getFlowTypeOfReference(node, symbol.id, typeAtStart);
                 if (codeFlowType) {
                     type = codeFlowType;
                 }
@@ -5271,7 +5271,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const fileInfo = getFileInfo(node);
         let classFlags = ClassTypeFlags.None;
-        if (scope.getType() === ScopeType.Builtin || fileInfo.isTypingStubFile || fileInfo.isBuiltInStubFile) {
+        if (scope.type === ScopeType.Builtin || fileInfo.isTypingStubFile || fileInfo.isBuiltInStubFile) {
             classFlags |= ClassTypeFlags.BuiltInClass;
         }
 
@@ -5421,7 +5421,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // The scope for this class becomes the "fields" for the corresponding type.
         const innerScope = ScopeUtils.getScopeForNode(node.suite);
-        classType.details.fields = innerScope.getSymbolTable();
+        classType.details.fields = innerScope.symbolTable;
 
         if (ClassType.isTypedDictClass(classType)) {
             synthesizeTypedDictClassMethods(classType);

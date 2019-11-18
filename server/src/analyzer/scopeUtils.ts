@@ -18,8 +18,8 @@ export function getBuiltInScope(currentScope: Scope): Scope {
     // be the top-most parent.
     let builtInScope = currentScope;
 
-    while (builtInScope.getType() !== ScopeType.Builtin) {
-        builtInScope = builtInScope.getParent()!;
+    while (builtInScope.type !== ScopeType.Builtin) {
+        builtInScope = builtInScope.parent!;
     }
 
     return builtInScope;

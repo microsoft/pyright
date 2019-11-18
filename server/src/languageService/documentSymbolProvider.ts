@@ -76,7 +76,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
             return;
         }
 
-        const symbolTable = scope.getSymbolTable();
+        const symbolTable = scope.symbolTable;
         symbolTable.forEach((symbol, key) => {
             const declarations = symbol.getDeclarations();
             if (declarations && declarations.length > 0) {

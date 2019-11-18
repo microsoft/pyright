@@ -602,18 +602,16 @@ export class Checker extends ParseTreeWalker {
 
         for (const scopedNode of this._scopedNodes) {
             const scope = AnalyzerNodeInfo.getScope(scopedNode)!;
-            const symbolTable = scope.getSymbolTable();
-            const scopeType = scope.getType();
 
-            symbolTable.forEach((symbol, name) => {
-                this._conditionallyReportUnusedSymbol(name, symbol, scopeType);
+            scope.symbolTable.forEach((symbol, name) => {
+                this._conditionallyReportUnusedSymbol(name, symbol, scope.type);
             });
         }
     }
 
     private _conditionallyReportUnusedSymbol(name: string, symbol: Symbol, scopeType: ScopeType) {
         const accessedSymbolMap = this._fileInfo.accessedSymbolMap;
-        if (symbol.isIgnoredForProtocolMatch() || accessedSymbolMap.has(symbol.getId())) {
+        if (symbol.isIgnoredForProtocolMatch() || accessedSymbolMap.has(symbol.id)) {
             return;
         }
 

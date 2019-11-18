@@ -633,9 +633,9 @@ export class CompletionProvider {
             let scope = AnalyzerNodeInfo.getScope(curNode);
             if (scope) {
                 while (scope) {
-                    this._addSymbolsForSymbolTable(scope.getSymbolTable(),
+                    this._addSymbolsForSymbolTable(scope.symbolTable,
                         () => true, priorWord, completionList);
-                    scope = scope.getParent();
+                    scope = scope.parent;
                 }
                 break;
             }
@@ -682,7 +682,7 @@ export class CompletionProvider {
                 if (this._itemToResolve) {
                     const completionItemData = this._itemToResolve.data;
 
-                    if (completionItemData.symbolId === symbol.getId()) {
+                    if (completionItemData.symbolId === symbol.id) {
                         // This call can be expensive to perform on every completion item
                         // that we return, so we do it lazily in the "resolve" callback.
                         const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
@@ -764,7 +764,7 @@ export class CompletionProvider {
             }
 
             this._addNameToCompletionList(name, itemKind, priorWord, completionList,
-                undefined, undefined, autoImportText, additionalTextEdits, symbol.getId());
+                undefined, undefined, autoImportText, additionalTextEdits, symbol.id);
         }
     }
 

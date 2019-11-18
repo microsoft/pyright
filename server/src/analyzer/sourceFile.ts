@@ -673,7 +673,7 @@ export class SourceFile {
                 this._bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
                 const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
                 assert(moduleScope !== undefined);
-                this._moduleSymbolTable = moduleScope!.getSymbolTable();
+                this._moduleSymbolTable = moduleScope!.symbolTable;
             });
         } catch (e) {
             const message: string = (e.stack ? e.stack.toString() : undefined) ||

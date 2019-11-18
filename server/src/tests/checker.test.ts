@@ -62,12 +62,12 @@ test('Builtins1', () => {
     const moduleScope = AnalyzerNodeInfo.getScope(analysisResults[0].parseResults!.parseTree)!;
     assert.notEqual(moduleScope, undefined);
 
-    const builtinsScope = moduleScope.getParent()!;
+    const builtinsScope = moduleScope.parent!;
     assert.notEqual(builtinsScope, undefined);
-    assert.equal(builtinsScope.getType(), ScopeType.Builtin);
+    assert.equal(builtinsScope.type, ScopeType.Builtin);
 
     // Make sure all the expected symbols are present.
-    const builtinsSymbolTable = builtinsScope.getSymbolTable();
+    const builtinsSymbolTable = builtinsScope.symbolTable;
     for (const symbolName of expectedBuiltinsSymbols) {
         const symbol = moduleScope.lookUpSymbolRecursive(symbolName);
         if (symbol === undefined) {

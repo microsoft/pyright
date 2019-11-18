@@ -62,7 +62,7 @@ export class Symbol {
     private _flags: SymbolFlags;
 
     // Unique numeric ID for each symbol allocated.
-    private _id: number;
+    readonly id: number;
 
     // Symbols that are completely synthesized (i.e. have no
     // corresponding declarations in the program) can have
@@ -70,7 +70,7 @@ export class Symbol {
     private _undeclaredType?: Type;
 
     constructor(flags = SymbolFlags.ClassMember) {
-        this._id = getUniqueSymbolId();
+        this.id = getUniqueSymbolId();
         this._flags = flags;
     }
 
@@ -80,24 +80,12 @@ export class Symbol {
         return newSymbol;
     }
 
-    getId() {
-        return this._id;
-    }
-
     isInitiallyUnbound() {
         return !!(this._flags & SymbolFlags.InitiallyUnbound);
     }
 
     isExternallyHidden() {
         return !!(this._flags & SymbolFlags.ExternallyHidden);
-    }
-
-    setIsExternallyHidden(isHidden: boolean) {
-        if (isHidden) {
-            this._flags |= SymbolFlags.ExternallyHidden;
-        } else {
-            this._flags &= ~SymbolFlags.ExternallyHidden;
-        }
     }
 
     setIsIgnoredForProtocolMatch() {
@@ -153,12 +141,8 @@ export class Symbol {
         }
     }
 
-    getDeclarationCount() {
-        return this._declarations ? this._declarations.length : 0;
-    }
-
     hasDeclarations() {
-        return this.getDeclarationCount() > 0;
+        return this._declarations ? this._declarations.length > 0 : false;
     }
 
     getDeclarations() {
