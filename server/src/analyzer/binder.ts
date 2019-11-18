@@ -36,8 +36,8 @@ import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { createKeyForReference, FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
-    FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport,
+import { createKeyForReference, FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition,
+    FlowFlags, FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport,
     getUniqueFlowNodeId, isCodeFlowSupportedForReference } from './codeFlow';
 import { AliasDeclaration, ClassDeclaration, DeclarationType, FunctionDeclaration,
     IntrinsicType, ModuleLoaderActions, VariableDeclaration } from './declaration';

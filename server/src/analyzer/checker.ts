@@ -1088,10 +1088,6 @@ export class Checker extends ParseTreeWalker {
     // as the original method. Also marks the class as abstract if one or
     // more abstract methods are not overridden.
     private _validateClassMethods(classType: ClassType) {
-        if (this._evaluator.doesClassHaveAbstractMethods(classType)) {
-            ClassType.setIsAbstractClass(classType);
-        }
-
         // Skip the overridden method check for stub files. Many of the built-in
         // typeshed stub files trigger this diagnostic.
         if (!this._fileInfo.isStubFile) {

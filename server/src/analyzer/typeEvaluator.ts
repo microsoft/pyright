@@ -244,7 +244,6 @@ export interface TypeEvaluator {
         typeVarMap?: TypeVarMap) => boolean;
     canOverrideMethod: (baseMethod: Type, overrideMethod: FunctionType,
         diag: DiagnosticAddendum) => boolean;
-    doesClassHaveAbstractMethods: (classType: ClassType) => boolean;
 
     addError: (message: string, node: ParseNode) => Diagnostic | undefined;
     addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;
@@ -2792,7 +2791,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     } else if (className === 'auto' && argList.length === 0) {
                         type = getBuiltInObject(errorNode, 'int');
                     }
-                } else if (ClassType.isAbstractClass(callType)) {
+                } else if (ClassType.hasAbstractMethods(callType)) {
                     // If the class is abstract, it can't be instantiated.
                     const symbolTable = new Map<string, ClassMember>();
                     getAbstractMethodsRecursive(callType, symbolTable);
@@ -5367,13 +5366,23 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 if (isMetaclass) {
                     classType.details.metaClass = argType;
-                    if (argType.category === TypeCategory.Class && ClassType.isBuiltIn(argType, 'EnumMeta')) {
-                        classType.details.flags |= ClassTypeFlags.EnumClass;
+                    if (argType.category === TypeCategory.Class) {
+                        if (ClassType.isBuiltIn(argType, 'EnumMeta')) {
+                            classType.details.flags |= ClassTypeFlags.EnumClass;
+                        } else if (ClassType.isBuiltIn(argType, 'ABCMeta')) {
+                            classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
+                        }
                     }
                 } else {
                     classType.details.baseClasses.push(argType);
-                    if (argType.category === TypeCategory.Class && ClassType.isEnumClass(argType)) {
-                        classType.details.flags |= ClassTypeFlags.EnumClass;
+                    if (argType.category === TypeCategory.Class) {
+                        if (ClassType.isEnumClass(argType)) {
+                            classType.details.flags |= ClassTypeFlags.EnumClass;
+                        }
+
+                        if (ClassType.supportsAbstractMethods(argType)) {
+                            classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
+                        }
                     }
                 }
 
@@ -5416,6 +5425,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         if (ClassType.isTypedDictClass(classType)) {
             synthesizeTypedDictClassMethods(classType);
+        }
+
+        // Determine if the class is abstract.
+        if (ClassType.supportsAbstractMethods(classType)) {
+            if (doesClassHaveAbstractMethods(classType)) {
+                classType.details.flags |= ClassTypeFlags.HasAbstractMethods;
+            }
         }
 
         // Now determine the decorated type of the class.
@@ -5535,7 +5551,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             containingClassType = classInfo.classType;
         }
 
-        let functionFlags = getFunctionFlagsFromDescriptors(node, !!containingClassNode);
+        let functionFlags = getFunctionFlagsFromDecorators(node, !!containingClassNode);
         if (functionDecl.yieldExpressions) {
             functionFlags |= FunctionTypeFlags.Generator;
         }
@@ -5574,11 +5590,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (node.returnTypeAnnotation) {
             const returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
             functionType.details.declaredReturnType = returnType;
-        }
-
-        // Mark the class as abstract if it contains at least one abstract method.
-        if (FunctionType.isAbstractMethod(functionType) && containingClassType) {
-            ClassType.setIsAbstractClass(containingClassType);
         }
 
         const paramTypes: Type[] = [];
@@ -5779,7 +5790,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     // Scans through the decorators to find a few built-in decorators
     // that affect the function flags.
-    function getFunctionFlagsFromDescriptors(node: FunctionNode, isInClass: boolean) {
+    function getFunctionFlagsFromDecorators(node: FunctionNode, isInClass: boolean) {
         let flags = FunctionTypeFlags.None;
 
         // The "__new__" magic method is not an instance method.
@@ -6371,7 +6382,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (containingClassNode) {
                 const classInfo = getTypeOfClass(containingClassNode);
                 if (classInfo) {
-                    const functionFlags = getFunctionFlagsFromDescriptors(functionNode, true);
+                    const functionFlags = getFunctionFlagsFromDecorators(functionNode, true);
                     // If the first parameter doesn't have an explicit type annotation,
                     // provide a type if it's an instance, class or constructor method.
                     const inferredParamType = inferFirstParamType(functionFlags, classInfo.classType);
@@ -8882,7 +8893,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         for (const baseClass of classType.details.baseClasses) {
             if (baseClass.category === TypeCategory.Class) {
-                if (ClassType.isAbstractClass(baseClass)) {
+                if (ClassType.hasAbstractMethods(baseClass)) {
                     // Recursively get abstract methods for subclasses.
                     getAbstractMethodsRecursive(baseClass, symbolTable, recursiveCount + 1);
                 }
@@ -8891,28 +8902,25 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Remove any entries that are overridden in this class with
         // non-abstract methods.
-        if (symbolTable.size > 0 || ClassType.isAbstractClass(classType)) {
-            const memberFields = classType.details.fields;
-            for (const symbolName of memberFields.keys()) {
-                const symbol = memberFields.get(symbolName)!;
+        classType.details.fields.forEach((symbol, symbolName) => {
+            // We do a quick-and-dirty evaluation of methods based on
+            // decorators to determine which ones are abstract. This allows
+            // us to avoid evaluating the full function types.
+            const decl = getLastTypedDeclaredForSymbol(symbol);
+            if (symbol.isClassMember() && decl && decl.type === DeclarationType.Method) {
+                const functionFlags = getFunctionFlagsFromDecorators(decl.node, true);
 
-                if (symbol.isClassMember()) {
-                    const symbolType = getEffectiveTypeOfSymbol(symbol);
-
-                    if (symbolType.category === TypeCategory.Function) {
-                        if (FunctionType.isAbstractMethod(symbolType)) {
-                            symbolTable.set(symbolName, {
-                                symbol,
-                                isInstanceMember: false,
-                                classType
-                            });
-                        } else {
-                            symbolTable.delete(symbolName);
-                        }
-                    }
+                if (functionFlags & FunctionTypeFlags.AbstractMethod) {
+                    symbolTable.set(symbolName, {
+                        symbol,
+                        isInstanceMember: false,
+                        classType
+                    });
+                } else {
+                    symbolTable.delete(symbolName);
                 }
             }
-        }
+        });
     }
 
     // Determines whether the specified keys and values can be assigned to
@@ -9242,7 +9250,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         bindFunctionToClassOrObject,
         canAssignType,
         canOverrideMethod,
-        doesClassHaveAbstractMethods,
         addError,
         addWarning,
         addDiagnostic,

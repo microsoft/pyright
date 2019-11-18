@@ -172,7 +172,17 @@ export const enum ClassTypeFlags {
 
     // The class has a metaclass of EnumMet or derives from
     // a class that has this metaclass.
-    EnumClass               = 1 << 6
+    EnumClass               = 1 << 6,
+
+    // The class derives from a class that has the ABCMeta
+    // metaclass. Such classes are allowed to contain
+    // @abstractmethod decorators.
+    SupportsAbstractMethods = 1 << 7,
+
+    // The class has at least one abstract method or derives
+    // from a base class that is abstract without providing
+    // non-abstract overrides for all abstract methods.
+    HasAbstractMethods      = 1 << 8
 }
 
 interface ClassDetails {
@@ -184,7 +194,6 @@ interface ClassDetails {
     aliasClass?: ClassType;
     fields: SymbolTable;
     typeParameters: TypeVarType[];
-    isAbstractClass?: boolean;
     docString?: string;
     dataClassParameters?: FunctionParameter[];
 }
@@ -280,13 +289,13 @@ export namespace ClassType {
         }) !== undefined;
     }
 
-    export function setIsAbstractClass(classType: ClassType) {
-        classType.details.isAbstractClass = true;
+    export function hasAbstractMethods(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.HasAbstractMethods) &&
+            !classType.skipAbstractClassTest;
     }
 
-    export function isAbstractClass(classType: ClassType) {
-        return classType.details.isAbstractClass &&
-            !classType.skipAbstractClassTest;
+    export function supportsAbstractMethods(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SupportsAbstractMethods);
     }
 
     export function isDataClass(classType: ClassType) {
