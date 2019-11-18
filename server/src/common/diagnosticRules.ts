@@ -42,5 +42,6 @@ export const enum DiagnosticRule {
     reportUnknownMemberType = 'reportUnknownMemberType',
     reportCallInDefaultInitializer = 'reportCallInDefaultInitializer',
     reportUnnecessaryIsInstance = 'reportUnnecessaryIsInstance',
-    reportUnnecessaryCast = 'reportUnnecessaryCast'
+    reportUnnecessaryCast = 'reportUnnecessaryCast',
+    reportAssertAlwaysTrue = 'reportAssertAlwaysTrue'
 }

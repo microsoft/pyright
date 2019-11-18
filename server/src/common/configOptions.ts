@@ -146,6 +146,9 @@ export interface DiagnosticSettings {
     // Report calls to cast that are statically determined
     // to always unnecessary.
     reportUnnecessaryCast: DiagnosticLevel;
+
+    // Report assert expressions that will always evaluate to true.
+    reportAssertAlwaysTrue: DiagnosticLevel;
 }
 
 export function cloneDiagnosticSettings(
@@ -198,7 +201,8 @@ export function getDiagLevelSettings() {
         DiagnosticRule.reportUnknownMemberType,
         DiagnosticRule.reportCallInDefaultInitializer,
         DiagnosticRule.reportUnnecessaryIsInstance,
-        DiagnosticRule.reportUnnecessaryCast
+        DiagnosticRule.reportUnnecessaryCast,
+        DiagnosticRule.reportAssertAlwaysTrue
     ];
 }
 
@@ -236,7 +240,8 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportUnknownMemberType: 'error',
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'error',
-        reportUnnecessaryCast: 'error'
+        reportUnnecessaryCast: 'error',
+        reportAssertAlwaysTrue: 'error'
     };
 
     return diagSettings;
@@ -276,7 +281,8 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportUnknownMemberType: 'none',
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
-        reportUnnecessaryCast: 'none'
+        reportUnnecessaryCast: 'none',
+        reportAssertAlwaysTrue: 'warning'
     };
 
     return diagSettings;
@@ -623,7 +629,12 @@ export class ConfigOptions {
             // Read the "reportUnnecessaryCast" entry.
             reportUnnecessaryCast: this._convertDiagnosticLevel(
                 configObj.reportUnnecessaryCast, DiagnosticRule.reportUnnecessaryCast,
-                defaultSettings.reportUnnecessaryCast)
+                defaultSettings.reportUnnecessaryCast),
+
+            // Read the "reportAssertAlwaysTrue" entry.
+            reportAssertAlwaysTrue: this._convertDiagnosticLevel(
+                configObj.reportAssertAlwaysTrue, DiagnosticRule.reportAssertAlwaysTrue,
+                defaultSettings.reportAssertAlwaysTrue)
         };
 
         // Read the "venvPath".

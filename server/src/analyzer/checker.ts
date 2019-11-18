@@ -386,7 +386,18 @@ export class Checker extends ParseTreeWalker {
             this._getTypeOfExpression(node.exceptionExpression);
         }
 
-        this._getTypeOfExpression(node.testExpression);
+        const type = this._getTypeOfExpression(node.testExpression);
+        if (type.category === TypeCategory.Object) {
+            if (ClassType.isBuiltIn(type.classType, 'Tuple') && type.classType.typeArguments) {
+                if (type.classType.typeArguments.length > 0) {
+                    this._evaluator.addDiagnosticForTextRange(this._fileInfo,
+                        this._fileInfo.diagnosticSettings.reportAssertAlwaysTrue,
+                        DiagnosticRule.reportAssertAlwaysTrue,
+                        `Assert expression always evaluates to true`, node.testExpression);
+                }
+            }
+        }
+
         return true;
     }
 

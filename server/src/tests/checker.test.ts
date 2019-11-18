@@ -673,6 +673,24 @@ test('UnnecessaryCast', () => {
     validateResults(analysisResults, 1);
 });
 
+test('AssertAlwaysTrue', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, this is reported as a warning.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['assert1.py'], configOptions);
+    validateResults(analysisResults, 0, 1);
+
+    // Enable it as an error.
+    configOptions.diagnosticSettings.reportAssertAlwaysTrue = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['assert1.py'], configOptions);
+    validateResults(analysisResults, 1, 0);
+
+    // Turn off the diagnostic.
+    configOptions.diagnosticSettings.reportAssertAlwaysTrue = 'none';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['assert1.py'], configOptions);
+    validateResults(analysisResults, 0, 0);
+});
+
 test('RevealedType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['revealedType1.py']);
 
