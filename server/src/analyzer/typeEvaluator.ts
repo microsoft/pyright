@@ -1758,7 +1758,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Look for the scope that contains the value definition and
         // see if it has a declared type.
-        const symbolWithScope = lookUpSymbolRecursive(node, name);
+        const symbolWithScope =  lookUpSymbolRecursive(node, name);
 
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
@@ -7660,6 +7660,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function getInferredTypeOfDeclaration(decl: Declaration): Type | undefined {
         const resolvedDecl = resolveAliasDeclaration(decl);
 
+        // We couldn't resolve the alias. Substitute an unknown
+        // type in this case.
+        if (!resolvedDecl) {
+            return UnknownType.create();
+        }
+
         function applyLoaderActionsToModuleType(moduleType: ModuleType,
             loaderActions: ModuleLoaderActions, importLookup: ImportLookup): Type {
             if (loaderActions.path) {
@@ -7691,7 +7697,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // If the resolved declaration is still an alias, the alias
         // is pointing at a module, and we need to synthesize a
         // module type.
-        if (resolvedDecl && resolvedDecl.type === DeclarationType.Alias) {
+        if (resolvedDecl.type === DeclarationType.Alias) {
             // Build a module type that corresponds to the declaration and
             // its associated loader actions.
             const moduleType = ModuleType.create();
@@ -7707,37 +7713,35 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        if (resolvedDecl) {
-            const declaredType = getTypeForDeclaration(resolvedDecl);
-            if (declaredType) {
-                return declaredType;
+        const declaredType = getTypeForDeclaration(resolvedDecl);
+        if (declaredType) {
+            return declaredType;
+        }
+
+        // If the resolved declaration had no defined type, use the
+        // inferred type for this node.
+        if (resolvedDecl.type === DeclarationType.Parameter) {
+            const cachedValue = readTypeCache(resolvedDecl.node.name!);
+            if (cachedValue) {
+                return cachedValue;
+            }
+            evaluateTypeOfParameter(resolvedDecl.node);
+            return readTypeCache(resolvedDecl.node.name!);
+        }
+
+        if (resolvedDecl.type === DeclarationType.Variable && resolvedDecl.inferredTypeSource) {
+            let inferredType = readTypeCache(resolvedDecl.node);
+
+            if (!inferredType) {
+                evaluateTypesForStatement(resolvedDecl.inferredTypeSource);
+                inferredType = readTypeCache(resolvedDecl.node);
             }
 
-            // If the resolved declaration had no defined type, use the
-            // inferred type for this node.
-            if (resolvedDecl.type === DeclarationType.Parameter) {
-                const cachedValue = readTypeCache(resolvedDecl.node.name!);
-                if (cachedValue) {
-                    return cachedValue;
-                }
-                evaluateTypeOfParameter(resolvedDecl.node);
-                return readTypeCache(resolvedDecl.node.name!);
+            if (inferredType && resolvedDecl.node.nodeType === ParseNodeType.Name) {
+                inferredType = transformTypeForPossibleEnumClass(resolvedDecl.node, inferredType);
             }
 
-            if (resolvedDecl.type === DeclarationType.Variable && resolvedDecl.inferredTypeSource) {
-                let inferredType = readTypeCache(resolvedDecl.node);
-
-                if (!inferredType) {
-                    evaluateTypesForStatement(resolvedDecl.inferredTypeSource);
-                    inferredType = readTypeCache(resolvedDecl.node);
-                }
-
-                if (inferredType && resolvedDecl.node.nodeType === ParseNodeType.Name) {
-                    inferredType = transformTypeForPossibleEnumClass(resolvedDecl.node, inferredType);
-                }
-
-                return inferredType;
-            }
+            return inferredType;
         }
 
         return undefined;
