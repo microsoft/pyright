@@ -280,16 +280,15 @@ export class Program {
         );
 
         if (openFiles.length > 0) {
-            const isTimeElapsedOpenFiles = () => {
-                return maxTime !== undefined &&
-                    elapsedTime.getDurationInMilliseconds() > maxTime.openFilesTimeInMs;
-            };
+            const effectiveMaxTime = maxTime ?
+                maxTime.openFilesTimeInMs : Number.MAX_VALUE;
 
             // Check the open files.
             for (const sourceFileInfo of openFiles) {
-                this._checkTypes(sourceFileInfo);
-                if (isTimeElapsedOpenFiles()) {
-                    return true;
+                if (this._checkTypes(sourceFileInfo)) {
+                    if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+                        return true;
+                    }
                 }
             }
 
@@ -304,22 +303,16 @@ export class Program {
         if (!this._configOptions.checkOnlyOpenFiles) {
             // Do type analysis of remaining files.
             const allFiles = this._sourceFileList;
-
-            const isTimeElapsedNoOpenFiles = () => {
-                if (maxTime === undefined) {
-                    return false;
-                }
-                const effectiveMaxTime = interactiveMode ?
-                    maxTime.openFilesTimeInMs :
-                    maxTime.noOpenFilesTimeInMs;
-                return elapsedTime.getDurationInMilliseconds() > effectiveMaxTime;
-            };
+            const effectiveMaxTime = maxTime ?
+                (interactiveMode ? maxTime.openFilesTimeInMs : maxTime.noOpenFilesTimeInMs) :
+                Number.MAX_VALUE;
 
             // Now do type parsing and analysis of the remaining.
             for (const sourceFileInfo of allFiles) {
-                this._checkTypes(sourceFileInfo);
-                if (isTimeElapsedNoOpenFiles()) {
-                    return true;
+                if (this._checkTypes(sourceFileInfo)) {
+                    if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+                        return true;
+                    }
                 }
             }
         }
@@ -513,15 +506,15 @@ export class Program {
         // transitive closure or deleted, skip the file rather than wasting
         // time on it.
         if (!this._isFileNeeded(fileToCheck)) {
-            return;
+            return false;
         }
 
         if (!fileToCheck.sourceFile.isCheckingRequired()) {
-            return;
+            return false;
         }
 
         if (!fileToCheck.isTracked && !fileToCheck.isOpenByClient) {
-            return;
+            return false;
         }
 
         this._bindFile(fileToCheck);
@@ -544,6 +537,8 @@ export class Program {
                 });
             }
         }
+
+        return true;
     }
 
     // Builds a map of files that includes the specified file and all of the files
