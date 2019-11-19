@@ -46,9 +46,11 @@ export class TimingStat {
 
     subtractFromTime(callback: () => void) {
         if (this.isTiming) {
+            this.isTiming = false;
             const duration = new Duration();
             callback();
             this.totalTime -= duration.getDurationInMilliseconds();
+            this.isTiming = true;
         } else {
             callback();
         }

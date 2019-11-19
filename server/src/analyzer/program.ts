@@ -470,11 +470,13 @@ export class Program {
             return undefined;
         }
 
-        // Bind the file if it's not already bound. Don't count this time
-        // against the type checker.
-        timingStats.typeCheckerTime.subtractFromTime(() => {
-            this._bindFile(sourceFileInfo);
-        });
+        if (sourceFileInfo.sourceFile.isBindingRequired()) {
+            // Bind the file if it's not already bound. Don't count this time
+            // against the type checker.
+            timingStats.typeCheckerTime.subtractFromTime(() => {
+                this._bindFile(sourceFileInfo);
+            });
+        }
 
         const symbolTable = sourceFileInfo.sourceFile.getModuleSymbolTable();
         if (!symbolTable) {
