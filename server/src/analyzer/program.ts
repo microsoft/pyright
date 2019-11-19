@@ -580,8 +580,8 @@ export class Program {
             dependencyChain: SourceFileInfo[] = [],
             dependencyMap = new Map<string, boolean>()): void {
 
-        // Don't bother checking for typestub files.
-        if (sourceFileInfo.sourceFile.isStubFile()) {
+        // Don't bother checking for typestub files or third-party files.
+        if (sourceFileInfo.sourceFile.isStubFile() || sourceFileInfo.isThirdPartyImport) {
             return;
         }
 
