@@ -84,6 +84,10 @@ export class Symbol {
         return !!(this._flags & SymbolFlags.InitiallyUnbound);
     }
 
+    setIsExternallyHidden() {
+        this._flags |= SymbolFlags.ExternallyHidden;
+    }
+
     isExternallyHidden() {
         return !!(this._flags & SymbolFlags.ExternallyHidden);
     }

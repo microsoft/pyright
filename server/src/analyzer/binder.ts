@@ -1019,6 +1019,12 @@ export class Binder extends ParseTreeWalker {
             }
 
             const symbol = this._bindNameToScope(this._currentScope, symbolName);
+            if (symbol && this._fileInfo.isStubFile && !node.alias) {
+                // PEP 484 indicates that imported symbols should not be
+                // considered "reexported" from a type stub file unless
+                // they are imported using the "as" form.
+                symbol.setIsExternallyHidden();
+            }
 
             const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
             assert(importInfo !== undefined);
@@ -1168,6 +1174,13 @@ export class Binder extends ParseTreeWalker {
                 const symbol = this._bindNameToScope(this._currentScope, nameNode.value);
 
                 if (symbol) {
+                    if (this._fileInfo.isStubFile && !importSymbolNode.alias) {
+                        // PEP 484 indicates that imported symbols should not be
+                        // considered "reexported" from a type stub file unless
+                        // they are imported using the "as" form.
+                        symbol.setIsExternallyHidden();
+                    }
+
                     // Is the import referring to an implicitly-imported module?
                     let implicitImport: ImplicitImport | undefined;
                     if (importInfo && importInfo.implicitImports) {
