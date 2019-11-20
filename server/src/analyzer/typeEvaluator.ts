@@ -254,6 +254,8 @@ export interface TypeEvaluator {
 
     printType: (type: Type) => string;
     printFunctionParts: (type: FunctionType) => [string[], string];
+
+    hasGrownTooLarge: () => boolean;
 }
 
 interface CodeFlowAnalyzer {
@@ -298,6 +300,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     const callIsNoReturnCache = new Map<number, boolean>();
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     const typeCache = new Map<number, CachedType>();
+
+    function hasGrownTooLarge(): boolean {
+        // We may need to discard the evaluator instance and its caches if they
+        // grow too large. Otherwise we risk overflowing the heap and getting killed.
+        // The value below has been tuned empirically.
+        return typeCache.size > 500000;
+    }
 
     function readTypeCache(node: ParseNode): Type | undefined {
         const cachedType = typeCache.get(node.id);
@@ -9259,6 +9268,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         addDiagnostic,
         addDiagnosticForTextRange,
         printType,
-        printFunctionParts
+        printFunctionParts,
+        hasGrownTooLarge
     };
 }

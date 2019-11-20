@@ -518,6 +518,14 @@ export class Program {
         }
 
         this._bindFile(fileToCheck);
+
+        // For very large programs, we may need to discard the evaluator and
+        // its cached types to avoid running out of heap space.
+        if (this._evaluator.hasGrownTooLarge()) {
+            this._console.log('Emptying type cache to avoid heap overflow');
+            this._createNewEvaluator();
+        }
+
         fileToCheck.sourceFile.check(this._evaluator);
 
         // Detect import cycles that involve the file.
