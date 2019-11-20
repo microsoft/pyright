@@ -5,11 +5,11 @@
 */
 
 import {
-    CodeAction, CodeActionKind, Command, CompletionItem, createConnection,
-    Diagnostic, DiagnosticSeverity, DiagnosticTag, ExecuteCommandParams,
-    IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter, Location,
-    ParameterInformation, Position, Range, ResponseError, SignatureInformation, SymbolInformation,
-    TextDocuments, TextEdit, WorkspaceEdit
+    CodeAction, CodeActionKind, Command, createConnection,
+    Diagnostic, DiagnosticSeverity, DiagnosticTag, DocumentSymbol,
+    ExecuteCommandParams, IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter,
+    Location, ParameterInformation, Position, Range, ResponseError, SignatureInformation,
+    SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
@@ -390,7 +390,7 @@ _connection.onDocumentSymbol(params => {
         return undefined;
     }
 
-    const symbolList: SymbolInformation[] = [];
+    const symbolList: DocumentSymbol[] = [];
     workspace.serviceInstance.addSymbolsForDocument(filePath, symbolList);
     return symbolList;
 });

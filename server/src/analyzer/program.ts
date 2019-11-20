@@ -9,7 +9,7 @@
 */
 
 import * as assert from 'assert';
-import { CompletionItem, CompletionList, SymbolInformation } from 'vscode-languageserver';
+import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
@@ -731,12 +731,12 @@ export class Program {
         return referencesResult.locations;
     }
 
-    addSymbolsForDocument(filePath: string, symbolList: SymbolInformation[]) {
+    addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[]) {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (sourceFileInfo) {
             this._bindFile(sourceFileInfo);
 
-            sourceFileInfo.sourceFile.addSymbolsForDocument(
+            sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(
                 symbolList, this._evaluator);
         }
     }

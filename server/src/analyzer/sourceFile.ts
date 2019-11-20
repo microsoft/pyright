@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 import * as fs from 'fs';
-import { CompletionItem, CompletionList, SymbolInformation } from 'vscode-languageserver';
+import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 
 import { ConfigOptions, ExecutionEnvironment,
     getDefaultDiagnosticSettings } from '../common/configOptions';
@@ -547,6 +547,16 @@ export class SourceFile {
         ReferencesProvider.addReferences(
             this._parseResults, this._filePath, referencesResult, includeDeclaration,
             evaluator);
+    }
+
+    addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[], evaluator: TypeEvaluator) {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._parseResults) {
+            return;
+        }
+
+        DocumentSymbolProvider.addHierarchicalSymbolsForDocument(symbolList,
+            this._parseResults, evaluator);
     }
 
     addSymbolsForDocument(symbolList: SymbolInformation[], evaluator: TypeEvaluator,

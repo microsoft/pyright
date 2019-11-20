@@ -8,18 +8,21 @@
 * source file document.
 */
 
-import { Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode-languageserver';
+import { DocumentSymbol, Location, Position, Range, SymbolInformation,
+    SymbolKind } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
+import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { TypeCategory } from '../analyzer/types';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
+import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
-import { ClassNode, FunctionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
+import { ClassNode, FunctionNode, ListComprehensionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 // We'll use a somewhat-arbitrary cutoff value here to determine
@@ -33,13 +36,13 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
     private _query: string | undefined;
     private _evaluator: TypeEvaluator;
 
-    constructor(filePath: string, parseResults: ParseResults, results: SymbolInformation[],
+    constructor(filePath: string, parseResults: ParseResults, symbolInfoResults: SymbolInformation[],
             query: string | undefined, evaluator: TypeEvaluator) {
 
         super();
         this._filePath = filePath;
         this._parseResults = parseResults;
-        this._symbolResults = results;
+        this._symbolResults = symbolInfoResults;
         this._query = query;
         this._evaluator = evaluator;
     }
@@ -49,13 +52,13 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
     }
 
     visitModule(node: ModuleNode) {
-        this._addSymbolsForScope(node, '');
+        this._addSymbolInformationForScope(node, '');
         return true;
     }
 
     visitClass(node: ClassNode) {
         const className = node.name.value;
-        this._addSymbolsForScope(node, className);
+        this._addSymbolInformationForScope(node, className);
         return true;
     }
 
@@ -66,29 +69,41 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
         if (containingClass) {
             containerName = containingClass.name.value + '.' + functionName;
         }
-        this._addSymbolsForScope(node, containerName);
+        this._addSymbolInformationForScope(node, containerName);
         return true;
     }
 
-    private _addSymbolsForScope(node: ParseNode, containerName: string) {
+    visitListComprehension(node: ListComprehensionNode) {
+        this._addSymbolInformationForScope(node);
+        return true;
+    }
+
+    private _addSymbolInformationForScope(node: ParseNode, containerName?: string) {
         const scope = AnalyzerNodeInfo.getScope(node);
         if (!scope) {
             return;
         }
 
         const symbolTable = scope.symbolTable;
-        symbolTable.forEach((symbol, key) => {
-            const declarations = symbol.getDeclarations();
-            if (declarations && declarations.length > 0) {
-                const primaryDecl = declarations[0];
+        symbolTable.forEach((symbol, name) => {
+            if (!symbol.isIgnoredForProtocolMatch()) {
+                // Prefer declarations with a defined type.
+                let decl = getLastTypedDeclaredForSymbol(symbol);
 
-                this._addSymbolFromDeclaration(key, primaryDecl, containerName);
+                // Fall back to declarations without a type.
+                if (!decl && symbol.hasDeclarations()) {
+                    decl = symbol.getDeclarations()[0];
+                }
+
+                if (decl) {
+                    this._addSymbolInformationFromDeclaration(name, decl, containerName);
+                }
             }
         });
     }
 
-    private _addSymbolFromDeclaration(name: string, declaration: Declaration,
-            containerName: string) {
+    private _addSymbolInformationFromDeclaration(name: string, declaration: Declaration,
+            containerName?: string) {
 
         if (declaration.path !== this._filePath) {
             return;
@@ -106,54 +121,15 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
             return;
         }
 
-        let symbolKind: SymbolKind;
-        switch (declaration.type) {
-            case DeclarationType.Class:
-            case DeclarationType.SpecialBuiltInClass:
-                symbolKind = SymbolKind.Class;
-                break;
-
-            case DeclarationType.Function:
-                symbolKind = SymbolKind.Function;
-                break;
-
-            case DeclarationType.Method:
-                const declType = this._evaluator.getTypeForDeclaration(declaration);
-                if (declType && declType.category === TypeCategory.Property) {
-                    symbolKind = SymbolKind.Property;
-                } else {
-                    symbolKind = SymbolKind.Method;
-                }
-                break;
-
-            case DeclarationType.Alias:
-                symbolKind = SymbolKind.Module;
-                break;
-
-            case DeclarationType.Parameter:
-                if (name === 'self' || name === 'cls' || name === '_') {
-                    return;
-                }
-                symbolKind = SymbolKind.Variable;
-                break;
-
-            case DeclarationType.Variable:
-                if (name === '_') {
-                    return;
-                }
-                symbolKind = declaration.isConstant ?
-                    SymbolKind.Constant : SymbolKind.Variable;
-                break;
-
-            default:
-                symbolKind = SymbolKind.Variable;
-                break;
-        }
-
         const location: Location = {
             uri: URI.file(this._filePath).toString(),
-            range: this._convertRange(declaration.range)
+            range: convertRange(declaration.range)
         };
+
+        const symbolKind = getSymbolKind(name, declaration, this._evaluator);
+        if (symbolKind === undefined) {
+            return;
+        }
 
         const symbolInfo: SymbolInformation = {
             name,
@@ -167,16 +143,129 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
 
         this._symbolResults.push(symbolInfo);
     }
+}
 
-    private _convertRange(range: DiagnosticTextRange): Range {
-        return Range.create(this._convertPosition(range.start),
-            this._convertPosition(range.end));
+function getSymbolKind(name: string, declaration: Declaration, evaluator: TypeEvaluator): SymbolKind | undefined {
+    let symbolKind: SymbolKind;
+    switch (declaration.type) {
+        case DeclarationType.Class:
+        case DeclarationType.SpecialBuiltInClass:
+            symbolKind = SymbolKind.Class;
+            break;
+
+        case DeclarationType.Function:
+            symbolKind = SymbolKind.Function;
+            break;
+
+        case DeclarationType.Method:
+            const declType = evaluator.getTypeForDeclaration(declaration);
+            if (declType && declType.category === TypeCategory.Property) {
+                symbolKind = SymbolKind.Property;
+            } else {
+                symbolKind = SymbolKind.Method;
+            }
+            break;
+
+        case DeclarationType.Alias:
+            symbolKind = SymbolKind.Module;
+            break;
+
+        case DeclarationType.Parameter:
+            if (name === 'self' || name === 'cls' || name === '_') {
+                return;
+            }
+            symbolKind = SymbolKind.Variable;
+            break;
+
+        case DeclarationType.Variable:
+            if (name === '_') {
+                return;
+            }
+            symbolKind = declaration.isConstant ?
+                SymbolKind.Constant : SymbolKind.Variable;
+            break;
+
+        default:
+            symbolKind = SymbolKind.Variable;
+            break;
     }
 
-    private _convertPosition(position: DiagnosticTextPosition): Position {
-        return Position.create(position.line, position.column);
-   }
+    return symbolKind;
+}
 
+function convertRange(range: DiagnosticTextRange): Range {
+    return Range.create(convertPosition(range.start),
+        convertPosition(range.end));
+}
+
+function convertPosition(position: DiagnosticTextPosition): Position {
+    return Position.create(position.line, position.column);
+}
+
+function getDocumentSymbolsRecursive(node: AnalyzerNodeInfo.ScopedNode,
+        docSymbolResults: DocumentSymbol[], parseResults: ParseResults,
+        evaluator: TypeEvaluator) {
+
+    const scope = AnalyzerNodeInfo.getScope(node);
+    if (!scope) {
+        return;
+    }
+
+    const symbolTable = scope.symbolTable;
+    symbolTable.forEach((symbol, name) => {
+        if (!symbol.isIgnoredForProtocolMatch()) {
+            // Prefer declarations with a defined type.
+            let decl = getLastTypedDeclaredForSymbol(symbol);
+
+            // Fall back to declarations without a type.
+            if (!decl && symbol.hasDeclarations()) {
+                decl = symbol.getDeclarations()[0];
+            }
+
+            if (decl) {
+                getDocumentSymbolRecursive(name, decl, evaluator, parseResults, docSymbolResults);
+            }
+        }
+    });
+}
+
+function getDocumentSymbolRecursive(name: string, declaration: Declaration,
+        evaluator: TypeEvaluator, parseResults: ParseResults,
+        docSymbolResults: DocumentSymbol[]) {
+
+    if (declaration.type === DeclarationType.Alias) {
+        return;
+    }
+
+    const symbolKind = getSymbolKind(name, declaration, evaluator);
+    if (symbolKind === undefined) {
+        return;
+    }
+
+    const range = convertRange(declaration.range);
+    let selectionRange = range;
+    const children: DocumentSymbol[] = [];
+
+    if (declaration.type === DeclarationType.Class ||
+            declaration.type === DeclarationType.Function) {
+
+        getDocumentSymbolsRecursive(declaration.node, children, parseResults, evaluator);
+
+        const nameRange = convertOffsetsToRange(declaration.node.name.start,
+            declaration.node.name.start + declaration.node.name.length,
+            parseResults.tokenizerOutput.lines);
+        selectionRange = convertRange(nameRange);
+    }
+
+    const symbolInfo: DocumentSymbol = {
+        name,
+        kind: symbolKind,
+        range,
+        selectionRange,
+        children
+    };
+
+    docSymbolResults.push(symbolInfo);
 }
 
 export class DocumentSymbolProvider {
@@ -186,5 +275,11 @@ export class DocumentSymbolProvider {
         const symbolTreeWalker = new FindSymbolTreeWalker(filePath, parseResults,
             symbolList, query, evaluator);
         symbolTreeWalker.findSymbols();
+    }
+
+    static addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[],
+            parseResults: ParseResults, evaluator: TypeEvaluator) {
+
+        getDocumentSymbolsRecursive(parseResults.parseTree, symbolList, parseResults, evaluator);
     }
 }

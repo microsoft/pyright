@@ -11,7 +11,7 @@
 import * as assert from 'assert';
 import * as chokidar from 'chokidar';
 import * as fs from 'fs';
-import { CompletionItem, CompletionList, SymbolInformation } from 'vscode-languageserver';
+import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
@@ -139,7 +139,7 @@ export class AnalyzerService {
         return this._program.getReferencesForPosition(filePath, position, includeDeclaration);
     }
 
-    addSymbolsForDocument(filePath: string, symbolList: SymbolInformation[]) {
+    addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[]) {
         this._program.addSymbolsForDocument(filePath, symbolList);
     }
 
