@@ -611,22 +611,18 @@ export class AnalyzerService {
             }
         } else {
             let fileList: string[] = [];
-            if (!this._configOptions.checkOnlyOpenFiles) {
-                this._console.log(`Searching for source files`);
-                fileList = this._getFileNamesFromFileSpecs();
-            }
+            this._console.log(`Searching for source files`);
+            fileList = this._getFileNamesFromFileSpecs();
 
             const fileDiagnostics = this._program.setTrackedFiles(fileList);
             this._reportDiagnosticsForRemovedFiles(fileDiagnostics);
             this._program.markAllFilesDirty(markFilesDirtyUnconditionally);
 
-            if (!this._configOptions.checkOnlyOpenFiles) {
-                if (fileList.length === 0) {
-                    this._console.log(`No source files found.`);
-                } else {
-                    this._console.log(`Found ${ fileList.length } ` +
-                        `source ${ fileList.length === 1 ? 'file' : 'files' }`);
-                }
+            if (fileList.length === 0) {
+                this._console.log(`No source files found.`);
+            } else {
+                this._console.log(`Found ${ fileList.length } ` +
+                    `source ${ fileList.length === 1 ? 'file' : 'files' }`);
             }
         }
 

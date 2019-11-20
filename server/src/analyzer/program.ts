@@ -689,12 +689,14 @@ export class Program {
     getDefinitionsForPosition(filePath: string, position: DiagnosticTextPosition):
             DocumentTextRange[] | undefined {
 
-        const sourceFile = this.getSourceFile(filePath);
-        if (!sourceFile) {
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
+        if (!sourceFileInfo) {
             return undefined;
         }
 
-        return sourceFile.getDefinitionsForPosition(position, this._evaluator);
+        this._bindFile(sourceFileInfo);
+
+        return sourceFileInfo.sourceFile.getDefinitionsForPosition(position, this._evaluator);
     }
 
     getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
@@ -732,6 +734,8 @@ export class Program {
     addSymbolsForDocument(filePath: string, symbolList: SymbolInformation[]) {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (sourceFileInfo) {
+            this._bindFile(sourceFileInfo);
+
             sourceFileInfo.sourceFile.addSymbolsForDocument(
                 symbolList, this._evaluator);
         }
@@ -745,6 +749,8 @@ export class Program {
         }
 
         for (const sourceFileInfo of this._sourceFileList) {
+            this._bindFile(sourceFileInfo);
+
             sourceFileInfo.sourceFile.addSymbolsForDocument(
                 symbolList, this._evaluator, query);
         }
@@ -757,6 +763,8 @@ export class Program {
         if (!sourceFileInfo) {
             return undefined;
         }
+
+        this._bindFile(sourceFileInfo);
 
         return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator);
     }
@@ -796,6 +804,8 @@ export class Program {
         if (!sourceFileInfo) {
             return;
         }
+
+        this._bindFile(sourceFileInfo);
 
         sourceFileInfo.sourceFile.resolveCompletionItem(
             this._configOptions, this._importResolver, this._lookUpImport, this._evaluator,
