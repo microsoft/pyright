@@ -36,10 +36,6 @@ import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
 
-// We may enable this through a switch in future versions. For now,
-// disable analysis of third-party library implementations.
-const _allowAllThirdPartyImports = false;
-
 export interface SourceFileInfo {
     sourceFile: SourceFile;
     isTracked: boolean;
@@ -968,7 +964,7 @@ export class Program {
     private _isImportAllowed(importer: SourceFileInfo, importResult: ImportResult,
             isImportStubFile: boolean): boolean {
 
-        let thirdPartyImportAllowed = _allowAllThirdPartyImports;
+        let thirdPartyImportAllowed = this._configOptions.useLibraryCodeForTypes;
 
         if (importResult.importType === ImportType.ThirdParty ||
                 (importer.isThirdPartyImport && importResult.importType === ImportType.Local)) {

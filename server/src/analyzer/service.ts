@@ -328,6 +328,7 @@ export class AnalyzerService {
 
         configOptions.verboseOutput = !!commandLineOptions.verboseOutput;
         configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
+        configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
 
         // Do some sanity checks on the specified settings and report missing
         // or inconsistent information.

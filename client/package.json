@@ -91,7 +91,13 @@
                 "pyright.openFilesOnly": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Report errors for all files in the workspace or only currently-open files?",
+                    "description": "Report errors only for currently-open files.",
+                    "scope": "resource"
+                },
+                "pyright.useLibraryCodeForTypes": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "In the absence of type stub files, use library implementations to extract type information.",
                     "scope": "resource"
                 }
             }

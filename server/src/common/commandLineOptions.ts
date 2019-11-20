@@ -49,6 +49,10 @@ export class CommandLineOptions {
     // Indicates that only open files should be checked.
     checkOnlyOpenFiles?: boolean;
 
+    // In the absence of type stubs, use library implementations
+    // to extract type information?
+    useLibraryCodeForTypes?: boolean;
+
     // Indicates that the settings came from VS Code rather than
     // from the command-line. Useful for providing clearer error
     // messages.

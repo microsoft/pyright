@@ -332,6 +332,10 @@ export class ConfigOptions {
     // Perform type checking and report diagnostics only for open files?
     checkOnlyOpenFiles: boolean;
 
+    // In the absence of type stubs, use library implementations to extract
+    // type information?
+    useLibraryCodeForTypes: boolean;
+
     //---------------------------------------------------------------
     // Diagnostics Settings
 

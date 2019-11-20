@@ -110,6 +110,7 @@ function processArgs() {
 
     options.verboseOutput = !!args.verbose;
     options.checkOnlyOpenFiles = false;
+    options.useLibraryCodeForTypes = false;
 
     const watch = args.watch !== undefined;
     options.watch = watch;

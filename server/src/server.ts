@@ -33,6 +33,7 @@ interface PythonSettings {
 interface PyrightSettings {
     disableLanguageServices?: boolean;
     openFilesOnly?: boolean;
+    useLibraryCodeForTypes?: boolean;
 }
 
 interface WorkspaceServiceInstance {
@@ -618,6 +619,8 @@ function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
     commandLineOptions.watch = true;
     commandLineOptions.checkOnlyOpenFiles = pyrightSettings ?
         !!pyrightSettings.openFilesOnly : true;
+    commandLineOptions.useLibraryCodeForTypes = pyrightSettings ?
+        !!pyrightSettings.useLibraryCodeForTypes : false;
 
     if (pythonSettings.venvPath) {
         commandLineOptions.venvPath = combinePaths(workspace.rootPath || _rootPath,
