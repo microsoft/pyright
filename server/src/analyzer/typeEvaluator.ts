@@ -5450,19 +5450,22 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
-            decoratedType = applyClassDecorator(decoratedType,
+            const newDecoratedType = applyClassDecorator(decoratedType,
                 classType, decorator);
-            if (decoratedType.category === TypeCategory.Unknown) {
+            if (newDecoratedType.category === TypeCategory.Unknown) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(
                         fileInfo.diagnosticSettings.reportUntypedClassDecorator,
                         DiagnosticRule.reportUntypedClassDecorator,
-                        `Untyped class declarator obscures type of class`,
+                        `Untyped class decorator obscures type of class, ignoring decorator`,
                         node.decorators[i].leftExpression);
 
                     foundUnknown = true;
                 }
+            } else {
+                // Apply the decorator only if the type is known.
+                decoratedType = newDecoratedType;
             }
         }
 
@@ -5718,18 +5721,21 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
-            decoratedType = applyFunctionDecorator(decoratedType, functionType, decorator);
-            if (decoratedType.category === TypeCategory.Unknown) {
+            const newDecoratedType = applyFunctionDecorator(decoratedType, functionType, decorator);
+            if (newDecoratedType.category === TypeCategory.Unknown) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(
                         fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
                         DiagnosticRule.reportUntypedFunctionDecorator,
-                        `Untyped function declarator obscures type of function`,
+                        `Untyped function decorator obscures type of function, ignoring decorator`,
                         node.decorators[i].leftExpression);
 
                     foundUnknown = true;
                 }
+            } else {
+                // Apply the decorator only if the type is known.
+                decoratedType = newDecoratedType;
             }
         }
 
