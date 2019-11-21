@@ -174,7 +174,7 @@ export class Parser {
     // stmt: simple_stmt | compound_stmt
     // compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | with_stmt
     //   | funcdef | classdef | decorated | async_stmt
-    private _parseStatement(): StatementNode | undefined {
+    private _parseStatement(): StatementNode | ErrorNode | undefined {
         // Handle the errant condition of a dedent token here to provide
         // better recovery.
         if (this._consumeTokenIfType(TokenType.Dedent)) {
@@ -553,17 +553,23 @@ export class Parser {
 
     // funcdef: 'def' NAME parameters ['->' test] ':' suite
     // parameters: '(' [typedargslist] ')'
-    private _parseFunctionDef(asyncToken?: KeywordToken, decorators?: DecoratorNode[]): FunctionNode {
+    private _parseFunctionDef(asyncToken?: KeywordToken, decorators?: DecoratorNode[]):
+            FunctionNode | ErrorNode {
+
         const defToken = this._getKeywordToken(KeywordType.Def);
 
-        let nameToken = this._getTokenIfIdentifier();
+        const nameToken = this._getTokenIfIdentifier();
         if (!nameToken) {
             this._addError('Expected function name after "def"', defToken);
-            nameToken = IdentifierToken.create(0, 0, '', undefined);
+            return ErrorNode.create(defToken,
+                ErrorExpressionCategory.MissingFunctionParameterList);
         }
 
         if (!this._consumeTokenIfType(TokenType.OpenParenthesis)) {
             this._addError('Expected "("', this._peekToken());
+            return ErrorNode.create(nameToken,
+                ErrorExpressionCategory.MissingFunctionParameterList,
+                NameNode.create(nameToken));
         }
 
         const paramList = this._parseVarArgsList(TokenType.CloseParenthesis, true);

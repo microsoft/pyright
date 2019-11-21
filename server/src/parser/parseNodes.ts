@@ -94,7 +94,8 @@ export const enum ErrorExpressionCategory {
     MissingIndexCloseBracket,
     MissingMemberAccessName,
     MissingTupleCloseParen,
-    MissingListCloseBracket
+    MissingListCloseBracket,
+    MissingFunctionParameterList
 }
 
 export interface ParseNodeBase extends TextRange {
@@ -545,7 +546,7 @@ export namespace StatementListNode {
 }
 
 export type StatementNode = IfNode | WhileNode | ForNode | TryNode |
-    FunctionNode | ClassNode | WithNode | StatementListNode;
+    FunctionNode | ClassNode | WithNode | StatementListNode | ErrorNode;
 
 export type SmallStatementNode = ExpressionNode | DelNode | PassNode |
     ImportNode | GlobalNode | NonlocalNode | AssertNode;
