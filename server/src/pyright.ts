@@ -18,7 +18,8 @@ import * as process from 'process';
 
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
-import { DiagnosticCategory } from './common/diagnostic';
+import { NullConsole } from './common/console';
+import { DiagnosticCategory, DiagnosticTextRange } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
 
@@ -29,6 +30,27 @@ enum ExitStatus {
     ErrorsReported = 1,
     FatalError = 2,
     ConfigFileParseError = 3
+}
+
+interface PyrightJsonResults {
+    version: string;
+    time: string;
+    diagnostics: PyrightJsonDiagnostic[];
+    summary: PyrightJsonSummary;
+}
+
+interface PyrightJsonDiagnostic {
+    file: string;
+    severity: 'error' | 'warning';
+    message: string;
+    range: DiagnosticTextRange;
+}
+
+interface PyrightJsonSummary {
+    filesAnalyzed: number;
+    errorCount: number;
+    warningCount: number;
+    timeInSec: number;
 }
 
 interface DiagnosticResult {
@@ -43,6 +65,7 @@ function processArgs() {
         { name: 'dependencies', type: Boolean },
         { name: 'files', type: String, multiple: true, defaultOption: true },
         { name: 'help', alias: 'h', type: Boolean },
+        { name: 'outputjson', type: Boolean },
         { name: 'project', alias: 'p', type: String },
         { name: 'stats' },
         { name: 'typeshed-path', alias: 't', type: String },
@@ -75,6 +98,16 @@ function processArgs() {
     if (args.version !== undefined) {
         printVersion();
         return;
+    }
+
+    if (args.outputjson) {
+        const incompatibleArgs = ['watch', 'stats', 'verbose', 'createstub', 'dependencies'];
+        for (const arg of incompatibleArgs) {
+            if (args[arg] !== undefined) {
+                console.error(`'outputjson' option cannot be used with '${ arg }' option`);
+                return;
+            }
+        }
     }
 
     const options = new PyrightCommandLineOptions(process.cwd(), false);
@@ -115,7 +148,8 @@ function processArgs() {
     const watch = args.watch !== undefined;
     options.watch = watch;
 
-    const service = new AnalyzerService('<default>');
+    const service = new AnalyzerService('<default>', args.outputjson ?
+        new NullConsole() : undefined);
 
     service.setCompletionCallback(results => {
         if (results.fatalErrorOccurred) {
@@ -128,8 +162,14 @@ function processArgs() {
 
         let errorCount = 0;
         if (results.diagnostics.length > 0 && !args.createstub) {
-            const report = reportDiagnostics(results.diagnostics);
-            errorCount += report.errorCount;
+            if (args.outputjson) {
+                const report = reportDiagnosticsAsJson(results.diagnostics,
+                    results.filesInProgram, results.elapsedTime);
+                errorCount += report.errorCount;
+            } else {
+                const report = reportDiagnosticsAsText(results.diagnostics);
+                errorCount += report.errorCount;
+            }
         }
 
         if (args.createstub && results.filesRequiringAnalysis === 0) {
@@ -190,6 +230,7 @@ function printUsage() {
         '  --createstub IMPORT              Create type stub file(s) for import\n' +
         '  --dependencies                   Emit import dependency information\n' +
         '  -h,--help                        Show this help message\n' +
+        '  --outputjson                     Output results in JSON format\n' +
         '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +
         '  --stats                          Print detailed performance stats\n' +
         '  -t,--typeshed-path DIRECTORY     Use typeshed type stubs at this location\n' +
@@ -200,12 +241,65 @@ function printUsage() {
     );
 }
 
-function printVersion() {
+function getVersionString() {
     const version = require('package.json').version;
-    console.log(`${ toolName } ${ version.toString() }`);
+    return version.toString();
 }
 
-function reportDiagnostics(fileDiagnostics: FileDiagnostics[]): DiagnosticResult {
+function printVersion() {
+    console.log(`${ toolName } ${ getVersionString() }`);
+}
+
+function reportDiagnosticsAsJson(fileDiagnostics: FileDiagnostics[], filesInProgram: number,
+        timeInSec: number): DiagnosticResult {
+
+    const report: PyrightJsonResults = {
+        version: getVersionString(),
+        time: Date.now().toString(),
+        diagnostics: [],
+        summary: {
+            filesAnalyzed: filesInProgram,
+            errorCount: 0,
+            warningCount: 0,
+            timeInSec
+        }
+    };
+
+    let errorCount = 0;
+    let warningCount = 0;
+
+    fileDiagnostics.forEach(fileDiag => {
+        fileDiag.diagnostics.forEach(diag => {
+            if (diag.category === DiagnosticCategory.Error || diag.category === DiagnosticCategory.Warning) {
+                report.diagnostics.push({
+                    file: fileDiag.filePath,
+                    severity: diag.category === DiagnosticCategory.Error ? 'error' : 'warning',
+                    message: diag.message,
+                    range: diag.range
+                });
+
+                if (diag.category === DiagnosticCategory.Error) {
+                    errorCount++;
+                } else {
+                    warningCount++;
+                }
+            }
+        });
+    });
+
+    report.summary.errorCount = errorCount;
+    report.summary.warningCount = warningCount;
+
+    console.log(JSON.stringify(report, undefined, 4));
+
+    return {
+        errorCount,
+        warningCount,
+        diagnosticCount: errorCount + warningCount
+    };
+}
+
+function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): DiagnosticResult {
     let errorCount = 0;
     let warningCount = 0;
 
