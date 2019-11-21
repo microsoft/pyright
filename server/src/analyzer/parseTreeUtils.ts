@@ -13,9 +13,9 @@ import { DiagnosticTextPosition } from '../common/diagnostic';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { ArgumentCategory, ClassNode, EvaluationScopeNode, ExecutionScopeNode, ExpressionNode,
-    FunctionNode, isExpressionNode, ModuleNode, ParameterCategory, ParseNode, ParseNodeType,
-    StatementNode, SuiteNode } from '../parser/parseNodes';
+import { ArgumentCategory, AssignmentExpressionNode, ClassNode, EvaluationScopeNode,
+    ExecutionScopeNode, ExpressionNode, FunctionNode, isExpressionNode, LambdaNode, ModuleNode,
+    ParameterCategory, ParseNode, ParseNodeType, StatementNode, SuiteNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { decodeDocString } from './docStringUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -452,6 +452,30 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
 
         if (curNode.nodeType === ParseNodeType.Class) {
             return undefined;
+        }
+
+        curNode = curNode.parent;
+    }
+
+    return undefined;
+}
+
+export function getEvaluationNodeForAssignmentExpression(node: AssignmentExpressionNode):
+        LambdaNode | FunctionNode | ModuleNode | undefined {
+
+    // PEP 572 indicates that the evaluation node for an assignment expression
+    // target is the containing lambda, function or module, but not a class.
+    let curNode: ParseNode | undefined = getEvaluationScopeNode(node);
+
+    while (curNode !== undefined) {
+        switch (curNode.nodeType) {
+            case ParseNodeType.Function:
+            case ParseNodeType.Lambda:
+            case ParseNodeType.Module:
+                return curNode;
+
+            case ParseNodeType.Class:
+                return undefined;
         }
 
         curNode = curNode.parent;

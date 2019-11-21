@@ -92,6 +92,7 @@ export class Parser {
     private _futureImportMap = new Map<string, boolean>();
     private _importedModules: ModuleImport[] = [];
     private _containsWildcardImport = false;
+    private _assignmentExpressionsAllowed = true;
 
     parseSourceFile(fileContents: string, parseOptions: ParseOptions,
             diagSink: DiagnosticSink): ParseResults {
@@ -400,7 +401,7 @@ export class Parser {
         return listCompNode;
     }
 
-    // comp_for: ['async'] 'for' exprlist 'in' assign_expr [comp_iter]
+    // comp_for: ['async'] 'for' exprlist 'in' or_test [comp_iter]
     private _tryParseCompForStatement(): ListComprehensionForNode | undefined {
         const startTokenKeywordType = this._peekKeywordType();
 
@@ -422,17 +423,19 @@ export class Parser {
 
         const exprListResult = this._parseExpressionList(true);
         const targetExpr = this._makeExpressionOrTuple(exprListResult);
-        let seqExpr: ExpressionNode;
+        let seqExpr: ExpressionNode | undefined;
 
         if (!this._consumeTokenIfKeyword(KeywordType.In)) {
             seqExpr = this._handleExpressionParseError(
                 ErrorExpressionCategory.MissingIn, 'Expected "in"');
         } else {
-            seqExpr = this._parseAssignmentExpression();
+            this._disallowAssignmentExpression(() => {
+                seqExpr = this._parseOrTest();
+            });
         }
 
         const compForNode = ListComprehensionForNode.create(asyncToken || forToken,
-            targetExpr, seqExpr);
+            targetExpr, seqExpr!);
 
         if (asyncToken) {
             compForNode.isAsync = true;
@@ -1576,9 +1579,15 @@ export class Parser {
             return leftExpr;
         }
 
+        if (!this._assignmentExpressionsAllowed) {
+            this._addError(
+                `Operator ':=' not allowed in this context`,
+                walrusToken);
+        }
+
         if (this._getLanguageVersion() < PythonVersion.V38) {
             this._addError(
-                `Use of ':=' requires Python 3.8 or newer`,
+                `Operator ':=' requires Python 3.8 or newer`,
                 walrusToken);
         }
 
@@ -2832,6 +2841,15 @@ export class Parser {
         }
 
         return false;
+    }
+
+    private _disallowAssignmentExpression(callback: () => void) {
+        const wasAllowed = this._assignmentExpressionsAllowed;
+        this._assignmentExpressionsAllowed = false;
+
+        callback();
+
+        this._assignmentExpressionsAllowed = wasAllowed;
     }
 
     private _getNextToken(): Token {

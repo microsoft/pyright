@@ -813,6 +813,16 @@ test('AssignmentExpr3', () => {
     validateResults(analysisResults, 3);
 });
 
+test('AssignmentExpr4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr4.py']);
+    validateResults(analysisResults, 17);
+});
+
+test('AssignmentExpr5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr5.py']);
+    validateResults(analysisResults, 0);
+});
+
 test('Import1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import1.py']);
     validateResults(analysisResults, 0);

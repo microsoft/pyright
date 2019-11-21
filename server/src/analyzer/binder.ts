@@ -503,7 +503,38 @@ export class Binder extends ParseTreeWalker {
         this.walk(node.rightExpression);
         this._addInferredTypeAssignmentForVariable(node.name, node.rightExpression);
 
-        this._bindPossibleTupleNamedTarget(node.name);
+        const evaluationNode = ParseTreeUtils.getEvaluationNodeForAssignmentExpression(node);
+        if (!evaluationNode) {
+            this._addError(
+                'Assignment expression must be within module, function or lambda',
+                node);
+        } else {
+            // Bind the name to the containing scope. This special logic is required
+            // because of the behavior defined in PEP 572. Targets of assignment
+            // expressions don't bind to a list comprehension's scope but instead
+            // bind to its containing scope.
+            const containerScope = AnalyzerNodeInfo.getScope(evaluationNode)!;
+
+            // If we're in a list comprehension (possibly nested), make sure that
+            // local for targets don't collide with the target of the assignment
+            // expression.
+            let curScope: Scope | undefined = this._currentScope;
+            while (curScope && curScope !== containerScope) {
+                const localSymbol = curScope.lookUpSymbol(node.name.value);
+                if (localSymbol) {
+                    this._addError(
+                        `Assignment expression target '${ node.name.value }' ` +
+                            `cannot use same name as comprehension for target`,
+                        node.name);
+                    break;
+                }
+
+                curScope = curScope.parent;
+            }
+
+            this._bindNameToScope(containerScope, node.name.value);
+        }
+
         this._createAssignmentTargetFlowNodes(node.name);
         this.walk(node.name);
 
@@ -1333,11 +1364,23 @@ export class Binder extends ParseTreeWalker {
 
             const falseLabel = this._createBranchLabel();
 
+            // We'll walk the comprehensions list twice. The first time we'll
+            // bind targets of for statements. The second time we'll walk
+            // expressions and create the control flow graph.
+            const boundSymbols: Map<string, Symbol>[] = [];
+            for (let i = 0; i < node.comprehensions.length; i++) {
+                const compr = node.comprehensions[i];
+                const addedSymbols = new Map<string, Symbol>();
+                if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
+                    this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
+                }
+                boundSymbols.push(addedSymbols);
+            }
+
             for (let i = 0; i < node.comprehensions.length; i++) {
                 const compr = node.comprehensions[i];
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
-                    const addedSymbols = new Map<string, Symbol>();
-                    this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
+                    const addedSymbols = boundSymbols[i];
 
                     // Determine if we added a new symbol to this scope. If so, see
                     // if it's the same name as a symbol in an outer scope. If so, we'll
