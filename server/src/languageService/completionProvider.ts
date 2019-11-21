@@ -429,6 +429,12 @@ export class CompletionProvider {
     private _getExpressionCompletions(parseNode: ParseNode, priorWord: string):
             CompletionList | undefined {
 
+        // If the user typed a "." as part of a number, don't present
+        // any completion options.
+        if (parseNode.nodeType === ParseNodeType.Number) {
+            return undefined;
+        }
+
         const completionList = CompletionList.create();
 
         // Add symbols.
