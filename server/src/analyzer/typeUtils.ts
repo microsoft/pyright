@@ -117,9 +117,13 @@ export function areTypesSame(types: Type[]): boolean {
 export function stripLiteralValue(type: Type): Type {
     if (type.category === TypeCategory.Object) {
         if (type.literalValue !== undefined) {
-            return ObjectType.create(type.classType);
+            type = ObjectType.create(type.classType);
         }
-    } else if (type.category === TypeCategory.Union) {
+
+        return type;
+    }
+
+    if (type.category === TypeCategory.Union) {
         return doForSubtypes(type, subtype => {
             return stripLiteralValue(subtype);
         });
@@ -1192,6 +1196,15 @@ export function printLiteralValue(type: ObjectType): string {
         literalStr = literalValue ? 'True' : 'False';
     } else {
         literalStr = literalValue.toString();
+    }
+
+    return literalStr;
+}
+
+export function printLiteralType(type: ObjectType): string {
+    const literalStr = printLiteralValue(type);
+    if (!literalStr) {
+        return '';
     }
 
     return `Literal[${ literalStr }]`;

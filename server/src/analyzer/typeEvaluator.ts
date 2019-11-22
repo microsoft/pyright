@@ -57,10 +57,10 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar, getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType, getMetaclass, getSpecializedTupleType, getTypeVarArgumentsRecursive,
     isEllipsisType, isNoReturnType, isOptionalType, lookUpClassMember, lookUpObjectMember,
-    partiallySpecializeType, printLiteralValue, removeFalsinessFromType,
-    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, specializeType,
-    specializeTypeVarType, stripFirstParameter, stripLiteralTypeArgsValue, stripLiteralValue,
-    transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
+    partiallySpecializeType, printLiteralType, printLiteralValue,
+    removeFalsinessFromType, removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType,
+    specializeType, specializeTypeVarType, stripFirstParameter, stripLiteralTypeArgsValue,
+    stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -8443,8 +8443,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (destLiteral !== undefined) {
                     const srcLiteral = srcType.literalValue;
                     if (srcLiteral !== destLiteral) {
-                        diag.addMessage(`'${srcLiteral ? printLiteralValue(srcType) : printType(srcType)}' ` +
-                            `cannot be assigned to '${printLiteralValue(destType)}'`);
+                        diag.addMessage(`'${srcLiteral ? printLiteralType(srcType) : printType(srcType)}' ` +
+                            `cannot be assigned to '${printLiteralType(destType)}'`);
 
                         return false;
                     }
@@ -9146,6 +9146,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function printType(type: Type, recursionCount = 0): string {
+        if (recursionCount >= maxTypeRecursionCount) {
+            return '';
+        }
+
         switch (type.category) {
             case TypeCategory.Unbound: {
                 return 'Unbound';
@@ -9167,11 +9171,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             case TypeCategory.Object: {
                 const objType = type;
                 if (objType.literalValue !== undefined) {
-                    return printLiteralValue(objType);
+                    return printLiteralType(objType);
                 }
 
-                return printObjectTypeForClass(objType.classType,
-                    recursionCount + 1);
+                return printObjectTypeForClass(objType.classType, recursionCount + 1);
             }
 
             case TypeCategory.Function: {
@@ -9189,25 +9192,50 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             case TypeCategory.Property: {
                 const propertyType = type;
                 const returnType = getFunctionEffectiveReturnType(propertyType.getter);
-                const returnTypeString = recursionCount < maxTypeRecursionCount ?
-                    printType(returnType, recursionCount + 1) : '';
-                return returnTypeString;
+                return printType(returnType, recursionCount + 1);
             }
 
             case TypeCategory.Union: {
                 const unionType = type;
-                const subtypes = unionType.subtypes;
+                let subtypes: Type[] = unionType.subtypes;
 
                 if (subtypes.find(t => t.category === TypeCategory.None) !== undefined) {
-                    const optionalType = recursionCount < maxTypeRecursionCount ?
-                        printType(removeNoneFromUnion(unionType), recursionCount + 1) : '';
+                    const optionalType = printType(removeNoneFromUnion(unionType), recursionCount + 1);
                     return 'Optional[' + optionalType + ']';
                 }
 
-                const unionTypeString = recursionCount < maxTypeRecursionCount ?
-                    subtypes.map(t => printType(t, recursionCount + 1)).join(', ') : '';
+                // Make a shallow copy of the array so we can manipulate it.
+                subtypes = [];
+                subtypes = subtypes.concat(...unionType.subtypes);
 
-                return 'Union[' + unionTypeString + ']';
+                const isLiteral = (type: Type) => type.category === TypeCategory.Object &&
+                    type.literalValue !== undefined;
+
+                const subtypeStrings: string[] = [];
+                while (subtypes.length > 0) {
+                    const subtype = subtypes.shift()!;
+                    if (isLiteral(subtype)) {
+                        // Combine all literal values. Rather than printing Union[Literal[1],
+                        // Literal[2]], print Literal[1, 2].
+                        const literals = subtypes.filter(t => isLiteral(t));
+                        literals.unshift(subtype);
+                        const literalValues = literals.map(t => printLiteralValue(t as ObjectType));
+                        subtypeStrings.push(`Literal[${ literalValues.join(', ') }]`);
+
+                        // Remove the items we've handled.
+                        if (literals.length > 1) {
+                            subtypes = subtypes.filter(t => !isLiteral(t));
+                        }
+                    } else {
+                        subtypeStrings.push(printType(subtype, recursionCount + 1));
+                    }
+                }
+
+                if (subtypeStrings.length === 1) {
+                    return subtypeStrings[0];
+                }
+
+                return `Union[${ subtypeStrings.join(', ') }]`;
             }
 
             case TypeCategory.TypeVar: {
@@ -9220,10 +9248,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return typeName;
                 }
                 const params: string[] = [`'${ typeName }'`];
-                if (recursionCount < maxTypeRecursionCount) {
-                    for (const constraint of typeVarType.constraints) {
-                        params.push(printType(constraint, recursionCount + 1));
-                    }
+                for (const constraint of typeVarType.constraints) {
+                    params.push(printType(constraint, recursionCount + 1));
                 }
                 return 'TypeVar[' + params.join(', ') + ']';
             }
