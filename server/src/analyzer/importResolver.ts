@@ -146,7 +146,7 @@ export class ImportResolver {
                     importFailureInfo.push(`Looking in python search path '${ searchPath }'`);
                     const thirdPartyImport = this._resolveAbsoluteImport(
                         searchPath, moduleDescriptor, importName, importFailureInfo,
-                        true, true);
+                        true, true, true);
                     if (thirdPartyImport) {
                         thirdPartyImport.importType = ImportType.ThirdParty;
 
@@ -562,7 +562,7 @@ export class ImportResolver {
     // https://www.python.org/dev/peps/pep-0420/
     private _resolveAbsoluteImport(rootPath: string, moduleDescriptor: ImportedModuleDescriptor,
             importName: string, importFailureInfo: string[], allowPartial = false,
-            allowPydFile = false): ImportResult | undefined {
+            allowPydFile = false, allowStubsFolder = false): ImportResult | undefined {
 
         importFailureInfo.push(`Attempting to resolve using root path '${ rootPath }'`);
 
@@ -602,7 +602,25 @@ export class ImportResolver {
         } else {
             for (let i = 0; i < moduleDescriptor.nameParts.length; i++) {
                 dirPath = combinePaths(dirPath, moduleDescriptor.nameParts[i]);
-                if (!fs.existsSync(dirPath) || !isDirectory(dirPath)) {
+                let foundDirectory = false;
+
+                if (allowStubsFolder) {
+                    // PEP 561 indicates that package authors can ship their stubs
+                    // separately from their package implementation by appending
+                    // the string '-stubs' to its top-level directory name. We'll
+                    // look there first.
+                    const stubsDirPath = dirPath + '-stubs';
+                    foundDirectory = fs.existsSync(stubsDirPath) && isDirectory(stubsDirPath);
+                    if (foundDirectory) {
+                        dirPath = stubsDirPath;
+                    }
+                }
+
+                if (!foundDirectory) {
+                    foundDirectory = fs.existsSync(dirPath) && isDirectory(dirPath);
+                }
+
+                if (!foundDirectory) {
                     importFailureInfo.push(`Could not find directory '${ dirPath }'`);
 
                     // We weren't able to find the subdirectory. See if we can
