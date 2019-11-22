@@ -59,8 +59,8 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     isEllipsisType, isNoReturnType, isOptionalType, lookUpClassMember, lookUpObjectMember,
     partiallySpecializeType, printLiteralValue, removeFalsinessFromType,
     removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, specializeType,
-    specializeTypeVarType, stripFirstParameter, stripLiteralValue, transformTypeObjectToClass,
-    TypedDictEntry } from './typeUtils';
+    specializeTypeVarType, stripFirstParameter, stripLiteralTypeArgsValue, stripLiteralValue,
+    transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -1229,6 +1229,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 destType = constrainDeclaredTypeBasedOnAssignedType(declaredType, type);
             }
         } else {
+            destType = stripLiteralTypeArgsValue(destType);
+
             // If this is a member name (within a class scope) and the member name
             // appears to be a constant, use the strict source type. If it's a member
             // variable that can be overridden by a child class, use the more general
@@ -7840,6 +7842,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 } else if (type) {
                     const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
 
+                    type = stripLiteralTypeArgsValue(type);
+
                     // If the symbol is private or constant, we can retain the literal
                     // value. Otherwise, strip them off to make the type less specific,
                     // allowing other values to be assigned to it in subclasses.
@@ -8290,29 +8294,26 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // TypeVar that we are attempting to match.
         if (destType.category === TypeCategory.TypeVar) {
             if (typeVarMap) {
-                // Strip any literal value first, since type matching never uses literals.
-                const noLiteralSrcType = stripLiteralValue(srcType);
-
                 const existingTypeVarMapping = typeVarMap.get(destType.name);
                 if (existingTypeVarMapping) {
                     const diagAddendum = new DiagnosticAddendum();
-                    if (!canAssignType(existingTypeVarMapping, noLiteralSrcType, diagAddendum,
+                    if (!canAssignType(existingTypeVarMapping, srcType, diagAddendum,
                         typeVarMap, flags, recursionCount + 1)) {
 
-                        if (canAssignType(noLiteralSrcType, existingTypeVarMapping, new DiagnosticAddendum(),
+                        if (canAssignType(srcType, existingTypeVarMapping, new DiagnosticAddendum(),
                             typeVarMap, flags, recursionCount + 1)) {
 
                             // Widen the type.
-                            typeVarMap.set(destType.name, noLiteralSrcType);
+                            typeVarMap.set(destType.name, srcType);
                         } else {
                             // Create a union, widening the type.
-                            const combinedType = combineTypes([existingTypeVarMapping, noLiteralSrcType]);
+                            const combinedType = combineTypes([existingTypeVarMapping, srcType]);
                             typeVarMap.set(destType.name, combinedType);
                         }
                     }
                 } else {
                     // Assign the type to the type var.
-                    typeVarMap.set(destType.name, noLiteralSrcType);
+                    typeVarMap.set(destType.name, srcType);
                 }
             }
 

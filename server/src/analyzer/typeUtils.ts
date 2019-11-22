@@ -128,6 +128,61 @@ export function stripLiteralValue(type: Type): Type {
     return type;
 }
 
+export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type {
+    if (recursionCount > maxTypeRecursionCount) {
+        return type;
+    }
+
+    if (type.category === TypeCategory.Class) {
+        if (type.typeArguments) {
+            const strippedTypeArgs = type.typeArguments.map(
+                t => stripLiteralTypeArgsValue(stripLiteralValue(t), recursionCount + 1));
+            return ClassType.cloneForSpecialization(type, strippedTypeArgs,
+                type.skipAbstractClassTest);
+        }
+    }
+
+    if (type.category === TypeCategory.Object) {
+        if (type.classType.typeArguments) {
+            type = ObjectType.create(
+                stripLiteralTypeArgsValue(type.classType, recursionCount + 1) as ClassType);
+        }
+
+        return type;
+    }
+
+    if (type.category === TypeCategory.Union) {
+        return doForSubtypes(type, subtype => {
+            return stripLiteralTypeArgsValue(subtype, recursionCount + 1);
+        });
+    }
+
+    if (type.category === TypeCategory.Function) {
+        if (type.specializedTypes) {
+            const strippedSpecializedTypes: SpecializedFunctionTypes = {
+                parameterTypes: type.specializedTypes.parameterTypes.map(
+                    t => stripLiteralTypeArgsValue(stripLiteralValue(t), recursionCount + 1)),
+                returnType: type.specializedTypes.returnType ?
+                    stripLiteralTypeArgsValue(stripLiteralValue(type.specializedTypes.returnType),
+                        recursionCount + 1) :
+                    undefined
+            };
+            type = FunctionType.cloneForSpecialization(type, strippedSpecializedTypes);
+        }
+
+        return type;
+    }
+
+    if (type.category === TypeCategory.OverloadedFunction) {
+        const strippedOverload = OverloadedFunctionType.create();
+        strippedOverload.overloads = type.overloads.map(
+            t => stripLiteralTypeArgsValue(t, recursionCount + 1) as FunctionType);
+        return strippedOverload;
+    }
+
+    return type;
+}
+
 export function canBeTruthy(type: Type): boolean {
     if (isNoneOrNever(type)) {
         return false;

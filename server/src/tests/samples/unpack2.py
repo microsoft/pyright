@@ -1,13 +1,13 @@
 # This sample tests the creation of tuples from unpacked values.
 
-from typing import Literal, Any, Tuple
+from typing import Any, Tuple
 
-def foo() -> Tuple[Literal[1], Literal[2], Literal[3]]:
+def foo() -> Tuple[int, int, int]:
     rest = (2, 3)
     t = 1, *rest
     return t
     
-def foo2() -> Tuple[Literal[1], Literal[2], Literal[3]]:
+def foo2() -> Tuple[int, int, int]:
     rest = (3, 4)
     t = 1, 2, *rest
     # This should generate an error
