@@ -85,6 +85,12 @@ export function evaluateStaticBoolExpression(node: ExpressionNode,
         if (node.value === 'TYPE_CHECKING') {
             return true;
         }
+    } else if (node.nodeType === ParseNodeType.MemberAccess &&
+            node.memberName.value === 'TYPE_CHECKING' &&
+            node.leftExpression.nodeType === ParseNodeType.Name &&
+            node.leftExpression.value === 'typing') {
+
+        return true;
     }
 
     return undefined;
