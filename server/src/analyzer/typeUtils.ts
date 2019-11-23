@@ -533,17 +533,13 @@ export function getMetaclass(type: ClassType, recursionCount = 0): ClassType | U
     return undefined;
 }
 
-export function addTypeVarToListIfUnique(list: TypeVarType[], type: TypeVarType) {
-    if (list.find(t => t === type) === undefined) {
-        list.push(type);
-    }
-}
-
 // Combines two lists of type var types, maintaining the combined order
 // but removing any duplicates.
 export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[]) {
-    for (const t of list2) {
-        addTypeVarToListIfUnique(list1, t);
+    for (const type2 of list2) {
+        if (!list1.find(type1 => type1 === type2)) {
+            list1.push(type2);
+        }
     }
 }
 
@@ -577,6 +573,21 @@ export function getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
             addTypeVarsToListIfUnique(combinedList,
                 getTypeVarArgumentsRecursive(subtype));
         }
+        return combinedList;
+    } else if (type.category === TypeCategory.Function) {
+        const combinedList: TypeVarType[] = [];
+
+        type.details.parameters.forEach(param => {
+            addTypeVarsToListIfUnique(combinedList,
+                getTypeVarArgumentsRecursive(param.type));
+        });
+
+        if (type.details.declaredReturnType) {
+            addTypeVarsToListIfUnique(combinedList,
+                getTypeVarArgumentsRecursive(type.details.declaredReturnType));
+        }
+
+        return combinedList;
     }
 
     return [];
