@@ -110,6 +110,9 @@ export class SourceFile {
     private _moduleSymbolTable?: SymbolTable;
     private _binderResults?: BinderResults;
 
+    // Reentrancy check for binding.
+    private _isBindingInProgress = false;
+
     // Diagnostics generated during different phases of analysis.
     private _parseDiagnostics: Diagnostic[] = [];
     private _bindDiagnostics: Diagnostic[] = [];
@@ -365,6 +368,10 @@ export class SourceFile {
     }
 
     isBindingRequired() {
+        if (this._isBindingInProgress) {
+            return false;
+        }
+
         if (this.isParseRequired()) {
             return true;
         }
@@ -660,6 +667,7 @@ export class SourceFile {
     bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope?: Scope) {
         assert(!this.isParseRequired());
         assert(this.isBindingRequired());
+        assert(!this._isBindingInProgress);
         assert(this._parseResults);
 
         try {
@@ -671,6 +679,7 @@ export class SourceFile {
                 AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
 
                 const binder = new Binder(fileInfo);
+                this._isBindingInProgress = true;
                 this._binderResults = binder.bindModule(this._parseResults!.parseTree);
 
                 // If we're in "test mode" (used for unit testing), run an additional
@@ -696,6 +705,8 @@ export class SourceFile {
             diagSink.addError(`An internal error occurred while performing name binding`,
                 getEmptyRange());
             this._bindDiagnostics = diagSink.fetchAndClear();
+        } finally {
+            this._isBindingInProgress = false;
         }
 
         // Prepare for the next stage of the analysis.
@@ -707,6 +718,7 @@ export class SourceFile {
     check(evaluator: TypeEvaluator) {
         assert(!this.isParseRequired());
         assert(!this.isBindingRequired());
+        assert(!this._isBindingInProgress);
         assert(this.isCheckingRequired());
         assert(this._parseResults);
 
