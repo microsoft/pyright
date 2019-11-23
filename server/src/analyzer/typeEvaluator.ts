@@ -8553,19 +8553,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
                     });
                 } else {
-                    const initMemberInfo = lookUpClassMember(srcType, '__init__', importLookup,
-                        ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass);
-                    const initMemberType = initMemberInfo ? getTypeOfMember(initMemberInfo) : undefined;
-                    if (initMemberType && initMemberType.category === TypeCategory.Function) {
-                        initMemberType.details.parameters.forEach((param, index) => {
-                            // Skip the 'self' parameter.
-                            if (index > 0) {
-                                FunctionType.addParameter(constructorFunction, param);
-                            }
-                        });
-                    } else {
-                        addDefaultFunctionParameters(constructorFunction);
-                    }
+                    addDefaultFunctionParameters(constructorFunction);
                 }
 
                 srcFunction = constructorFunction;
