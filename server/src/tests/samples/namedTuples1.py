@@ -20,10 +20,12 @@ NamedTuple1(1)
 NamedTuple1(1, 2, 3)
 
 
-NamedTuple2 = namedtuple("NamedTuple2", "field1 field2")
+NamedTuple2 = namedtuple("NamedTuple2", "field1,    field2")
 NamedTuple2.__new__.__defaults__ = ([], )
 NamedTuple2()
 NamedTuple2(1)
+
+NamedTuple2(field1=1, field2=3)
 
 # This should generate an error because there
 # should be two or fewer parameters.

@@ -3815,7 +3815,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (!includesTypes && entriesArg.valueExpression &&
                         entriesArg.valueExpression.nodeType === ParseNodeType.StringList) {
 
-                        const entries = entriesArg.valueExpression.strings.map(s => s.value).join('').split(' ');
+                        const entries = entriesArg.valueExpression.strings.map(s => s.value).join('').split(/[,\s]+/);
                         entries.forEach(entryName => {
                             entryName = entryName.trim();
                             if (entryName) {
