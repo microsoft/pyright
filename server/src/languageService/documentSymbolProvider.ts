@@ -242,8 +242,8 @@ function getDocumentSymbolRecursive(name: string, declaration: Declaration,
         return;
     }
 
-    const range = convertRange(declaration.range);
-    let selectionRange = range;
+    const selectionRange = convertRange(declaration.range);
+    let range = selectionRange;
     const children: DocumentSymbol[] = [];
 
     if (declaration.type === DeclarationType.Class ||
@@ -251,10 +251,10 @@ function getDocumentSymbolRecursive(name: string, declaration: Declaration,
 
         getDocumentSymbolsRecursive(declaration.node, children, parseResults, evaluator);
 
-        const nameRange = convertOffsetsToRange(declaration.node.name.start,
-            declaration.node.name.start + declaration.node.name.length,
+        const nameRange = convertOffsetsToRange(declaration.node.start,
+            declaration.node.name.start + declaration.node.length,
             parseResults.tokenizerOutput.lines);
-        selectionRange = convertRange(nameRange);
+        range = convertRange(nameRange);
     }
 
     const symbolInfo: DocumentSymbol = {
