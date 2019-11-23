@@ -15,11 +15,10 @@ class TD2(TypedDict, total=False):
     """ This is a test """
     a: int
 
+    # This should generate an error because "b"
+    # is redeclared below with a different type.
     b: str
 
-    # This should generate an error because "b"
-    # was already defined above with a different
-    # type.
     b: float
 
     c: 'Dict[Any, Any]'
