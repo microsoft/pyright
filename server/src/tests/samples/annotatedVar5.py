@@ -2,7 +2,6 @@
 
 class ClassC(object):
     def __init__(self):
-        # This should generate an error.
         self.inst_var1 = 3
 
     @property
@@ -24,8 +23,8 @@ class ClassC(object):
         # type doesn't match the previously declared type.
         self.inst_var1: int = 'hello'
 
-        # This should generate an error because the declared
-        # type doesn't match the previously declared type.
+        # This should generate an error because the assigned
+        # type doesn't match the declared type.
         self.inst_var1 = 'hello' # type: int
 
         self.prop1 = 3

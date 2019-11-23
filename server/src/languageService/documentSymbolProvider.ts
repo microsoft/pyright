@@ -19,6 +19,7 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { TypeCategory } from '../analyzer/types';
+import { isProperty } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
@@ -159,7 +160,7 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator: TypeEv
 
         case DeclarationType.Method:
             const declType = evaluator.getTypeForDeclaration(declaration);
-            if (declType && declType.category === TypeCategory.Property) {
+            if (declType && isProperty(declType)) {
                 symbolKind = SymbolKind.Property;
             } else {
                 symbolKind = SymbolKind.Method;

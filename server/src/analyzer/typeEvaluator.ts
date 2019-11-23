@@ -49,18 +49,18 @@ import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     FunctionType, FunctionTypeFlags, InheritanceChain, isAnyOrUnknown, isNoneOrNever,
     isPossiblyUnbound, isSameWithoutLiteralValue, isTypeSame, isUnbound, LiteralValue,
     maxTypeRecursionCount, ModuleType, NeverType, NoneType, ObjectType,
-    OverloadedFunctionType, PropertyType, removeNoneFromUnion, removeUnboundFromUnion, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
+    OverloadedFunctionType, removeNoneFromUnion, removeUnboundFromUnion, Type, TypeCategory,
+    TypeSourceId, TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
 import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedTypeForConstructor,
     areTypesSame, buildTypeVarMap, buildTypeVarMapFromSpecializedClass, CanAssignFlags, canBeFalsy,
     canBeTruthy, ClassMember, ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar, getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType, getMetaclass, getSpecializedTupleType, getTypeVarArgumentsRecursive,
-    isEllipsisType, isNoReturnType, isOptionalType, lookUpClassMember, lookUpObjectMember,
-    partiallySpecializeType, printLiteralType, printLiteralValue,
-    removeFalsinessFromType, removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType,
-    specializeType, specializeTypeVarType, stripFirstParameter, stripLiteralTypeArgsValue,
-    stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
+    isEllipsisType, isNoReturnType, isOptionalType, isProperty, lookUpClassMember,
+    lookUpObjectMember, partiallySpecializeType, printLiteralType,
+    printLiteralValue, removeFalsinessFromType, removeTruthinessFromType, requiresSpecialization,
+    selfSpecializeClassType, specializeType, specializeTypeVarType, stripFirstParameter,
+    stripLiteralTypeArgsValue, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -646,11 +646,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // to handle the case where we're fetching the object member from a
     // metaclass but binding to the class.
     function getTypeFromObjectMember(errorNode: ExpressionNode, objectType: ObjectType, memberName: string,
-        usage: EvaluatorUsage, memberAccessFlags = MemberAccessFlags.None,
+        usage: EvaluatorUsage, diag: DiagnosticAddendum, memberAccessFlags = MemberAccessFlags.None,
         bindToClass?: ClassType): Type | undefined {
 
         const memberInfo = getTypeFromClassMemberName(errorNode,
-            objectType.classType, memberName, usage, memberAccessFlags);
+            objectType.classType, memberName, usage, diag, memberAccessFlags);
 
         let resultType = memberInfo ? memberInfo.type : undefined;
         if (resultType) {
@@ -667,10 +667,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // Gets a member type from a class and if it's a function binds
     // it to the object.
     function getTypeFromClassMember(errorNode: ExpressionNode, classType: ClassType, memberName: string,
-        usage: EvaluatorUsage, memberAccessFlags = MemberAccessFlags.None): Type | undefined {
+        usage: EvaluatorUsage, diag: DiagnosticAddendum, memberAccessFlags = MemberAccessFlags.None): Type | undefined {
 
         const memberInfo = getTypeFromClassMemberName(errorNode,
-            classType, memberName, usage, memberAccessFlags | MemberAccessFlags.SkipInstanceMembers);
+            classType, memberName, usage, diag, memberAccessFlags | MemberAccessFlags.SkipInstanceMembers);
 
         let resultType = memberInfo ? memberInfo.type : undefined;
         if (resultType) {
@@ -751,16 +751,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (symbol) {
             let declaredType = getDeclaredTypeOfSymbol(symbol);
             if (declaredType) {
-                // If it's a property, we need to get the setter's type.
-                if (declaredType.category === TypeCategory.Property) {
-                    if (!declaredType.setter ||
-                        declaredType.setter.category !== TypeCategory.Function ||
-                        declaredType.setter.details.parameters.length < 2) {
+                // If it's a property, we need to get the fset's type.
+                if (isProperty(declaredType)) {
+                    const setterInfo = lookUpClassMember((declaredType as ObjectType).classType, 'fset', importLookup);
+                    const setter = setterInfo ? getTypeOfMember(setterInfo) : undefined;
+                    if (!setter ||
+                        setter.category !== TypeCategory.Function ||
+                        setter.details.parameters.length < 2) {
 
                         return undefined;
                     }
 
-                    declaredType = declaredType.setter.details.parameters[1].type;
+                    declaredType = setter.details.parameters[1].type;
                 }
 
                 if (classOrObjectBase) {
@@ -1348,7 +1350,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 } else {
                     // Is the target a property?
                     const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
-                    if (declaredType && declaredType.category !== TypeCategory.Property) {
+                    if (declaredType && !isProperty(declaredType)) {
                         // Handle the case where there is a class variable defined with the same
                         // name, but there's also now an instance variable introduced. Combine the
                         // type of the class variable with that of the new instance variable.
@@ -1371,7 +1373,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (declaredType.category === TypeCategory.Function) {
                         // Overwriting an existing method.
                         // TODO - not sure what assumption to make here.
-                    } else if (declaredType.category === TypeCategory.Property) {
+                    } else if (isProperty(declaredType)) {
                         // TODO - need to validate property setter type.
                     } else {
                         const diagAddendum = new DiagnosticAddendum();
@@ -1769,7 +1771,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Look for the scope that contains the value definition and
         // see if it has a declared type.
-        const symbolWithScope =  lookUpSymbolRecursive(node, name);
+        const symbolWithScope = lookUpSymbolRecursive(node, name);
 
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
@@ -1886,11 +1888,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             case TypeCategory.Class: {
                 type = getTypeFromClassMember(node.memberName, baseType,
-                    node.memberName.value, usage);
-
-                if (!type) {
-                    diag.addMessage(`Member '${memberName}' is unknown`);
-                }
+                    node.memberName.value, usage, diag);
                 break;
             }
 
@@ -1905,10 +1903,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 type = getTypeFromObjectMember(node.memberName, baseType,
-                    node.memberName.value, usage, MemberAccessFlags.None);
-                if (!type) {
-                    diag.addMessage(`Member '${memberName}' is unknown`);
-                }
+                    node.memberName.value, usage, diag, MemberAccessFlags.None);
                 break;
             }
 
@@ -1958,24 +1953,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         return typeResult.type;
                     }
                 });
-                break;
-            }
-
-            case TypeCategory.Property: {
-                if (memberName === 'getter' || memberName === 'setter' || memberName === 'deleter') {
-                    // Synthesize a decorator.
-                    const decoratorType = FunctionType.create(
-                        FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
-                    FunctionType.addParameter(decoratorType, {
-                        category: ParameterCategory.Simple,
-                        name: 'fn',
-                        type: UnknownType.create()
-                    });
-                    decoratorType.details.declaredReturnType = baseType;
-                    type = decoratorType;
-                } else {
-                    diag.addMessage(`Unknown property member`);
-                }
                 break;
             }
 
@@ -2045,7 +2022,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getTypeFromClassMemberName(errorNode: ExpressionNode, classType: ClassType, memberName: string,
-        usage: EvaluatorUsage, flags: MemberAccessFlags): ClassMemberLookup | undefined {
+        usage: EvaluatorUsage, diag: DiagnosticAddendum, flags: MemberAccessFlags): ClassMemberLookup | undefined {
 
         // If this is a special type (like "List") that has an alias
         // class (like "list"), switch to the alias, which defines
@@ -2077,13 +2054,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         if (memberInfo) {
-            const makeClassMember = (type: Type): ClassMemberLookup => {
-                return {
-                    type,
-                    isClassMember: !memberInfo!.isInstanceMember
-                };
-            };
-
             let type: Type;
             if (usage.method === 'get') {
                 type = getTypeOfMember(memberInfo);
@@ -2098,6 +2068,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (ClassType.isTypedDictClass(classType)) {
                 const typedDecls = memberInfo.symbol.getTypedDeclarations();
                 if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable) {
+                    diag.addMessage(`Member '${memberName}' is unknown`);
                     return undefined;
                 }
             }
@@ -2110,48 +2081,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (!(flags & MemberAccessFlags.SkipGetCheck)) {
-                if (type.category === TypeCategory.Property) {
-                    if (usage.method === 'get') {
-                        // Use the property's getter function to determine
-                        // the return type.
-                        const selfArg: FunctionArgument = {
-                            argumentCategory: ArgumentCategory.Simple,
-                            type: ObjectType.create(classType)
-                        };
-                        let propertyReturnType = validateCallArguments(
-                            errorNode, [selfArg], type.getter, new Map<string, Type>(), true);
-                        if (!propertyReturnType) {
-                            propertyReturnType = UnknownType.create();
-                        }
-
-                        return makeClassMember(propertyReturnType);
-                    } else if (usage.method === 'set') {
-                        let setterFunctionType = type.setter;
-                        if (setterFunctionType) {
-                            // Strip off the "self" parameter.
-                            setterFunctionType = stripFirstParameter(setterFunctionType);
-
-                            // Validate that we can call the setter with the specified type.
-                            assert(usage.setType !== undefined && usage.setErrorNode !== undefined);
-                            const argList: FunctionArgument[] = [];
-                            argList.push({ argumentCategory: ArgumentCategory.Simple, type: usage.setType! });
-                            validateFunctionArguments(usage.setErrorNode || errorNode,
-                                argList, setterFunctionType, new Map<string, Type>());
-
-                            // The return type isn't important here.
-                            return makeClassMember(NoneType.create());
-                        }
-
-                        return undefined;
-                    } else {
-                        assert(usage.method === 'del');
-                        if (type.deleter) {
-                            return makeClassMember(NoneType.create());
-                        }
-
-                        return undefined;
-                    }
-                } else if (type.category === TypeCategory.Object) {
+                if (type.category === TypeCategory.Object) {
                     // See if there's a magic "__get__", "__set__", or "__delete__"
                     // method on the object.
                     let accessMethodName: string;
@@ -2161,25 +2091,55 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     } else if (usage.method === 'set') {
                         accessMethodName = '__set__';
                     } else {
-                        accessMethodName = '__del__';
+                        accessMethodName = '__delete__';
                     }
 
                     const memberClassType = type.classType;
-                    const getMember = lookUpClassMember(memberClassType, accessMethodName,
+                    const accessMethod = lookUpClassMember(memberClassType, accessMethodName,
                         importLookup, ClassMemberLookupFlags.SkipInstanceVariables);
-                    if (getMember) {
-                        const getMemberType = getTypeOfMember(getMember);
-                        if (getMemberType.category === TypeCategory.Function) {
+
+                    // Handle properties specially.
+                    if (ClassType.isPropertyClass(type.classType)) {
+                        if (usage.method === 'set') {
+                            if (!accessMethod) {
+                                diag.addMessage(`Property '${memberName}' has no defined setter`);
+                                return undefined;
+                            }
+                        } else if (usage.method === 'del') {
+                            if (!accessMethod) {
+                                diag.addMessage(`Property '${memberName}' has no defined deleter`);
+                                return undefined;
+                            }
+                        }
+                    }
+
+                    if (accessMethod) {
+                        const accessMethodType = getTypeOfMember(accessMethod);
+                        if (accessMethodType.category === TypeCategory.Function) {
                             if (usage.method === 'get') {
-                                type = getFunctionEffectiveReturnType(getMemberType);
+                                type = getFunctionEffectiveReturnType(accessMethodType);
                             } else {
+                                if (usage.method === 'set') {
+                                    // Verify that the setter's parameter type matches
+                                    // the type of the value being assigned.
+                                    if (accessMethodType.details.parameters.length >= 2) {
+                                        const setValueType = accessMethodType.details.parameters[2].type;
+                                        if (!canAssignType(setValueType, usage.setType!, diag)) {
+                                            return undefined;
+                                        }
+                                    }
+                                }
+
                                 // The type isn't important for set or delete usage.
                                 // We just need to return some defined type.
                                 type = AnyType.create();
                             }
                         }
 
-                        return makeClassMember(type);
+                        return {
+                            type,
+                            isClassMember: !memberInfo.isInstanceMember
+                        };
                     }
                 }
             }
@@ -2216,19 +2176,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
 
                     // Verify that the assigned type is compatible.
-                    const diag = new DiagnosticAddendum();
                     if (!canAssignType(effectiveType, usage.setType!, diag.createAddendum())) {
-                        addError(
+                        diag.addMessage(
                             `Expression of type '${printType(usage.setType!)}'` +
                             ` cannot be assigned to member '${memberName}'` +
-                            ` of class '${printObjectTypeForClass(classType)}'` +
-                            diag.getString(),
-                            errorNode);
+                            ` of class '${printObjectTypeForClass(classType)}'`);
+                        return undefined;
                     }
                 }
             }
 
-            return makeClassMember(type);
+            return {
+                type,
+                isClassMember: !memberInfo.isInstanceMember
+            };
         }
 
         if (!(flags & MemberAccessFlags.SkipGetAttributeCheck)) {
@@ -2236,7 +2197,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // See if the class has a "__getattribute__" or "__getattr__" method.
                 // If so, arbitrary members are supported.
                 const getAttribType = getTypeFromClassMember(errorNode, classType,
-                    '__getattribute__', { method: 'get' },
+                    '__getattribute__', { method: 'get' }, new DiagnosticAddendum(),
                     MemberAccessFlags.SkipForMethodLookup |
                     MemberAccessFlags.SkipObjectBaseClass);
 
@@ -2248,7 +2209,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 const getAttrType = getTypeFromClassMember(errorNode, classType,
-                    '__getattr__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
+                    '__getattr__', { method: 'get' }, new DiagnosticAddendum(),
+                    MemberAccessFlags.SkipForMethodLookup);
                 if (getAttrType && getAttrType.category === TypeCategory.Function) {
                     return {
                         type: getFunctionEffectiveReturnType(getAttrType),
@@ -2257,7 +2219,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             } else if (usage.method === 'set') {
                 const setAttrType = getTypeFromClassMember(errorNode, classType,
-                    '__setattr__', { method: 'get' },
+                    '__setattr__', { method: 'get' }, new DiagnosticAddendum(),
                     MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
                 if (setAttrType) {
                     // The type doesn't matter for a set usage. We just need
@@ -2270,7 +2232,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             } else {
                 assert(usage.method === 'del');
                 const delAttrType = getTypeFromClassMember(errorNode, classType,
-                    '__detattr__', { method: 'get' },
+                    '__detattr__', { method: 'get' }, new DiagnosticAddendum(),
                     MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
                 if (delAttrType) {
                     // The type doesn't matter for a delete usage. We just need
@@ -2283,6 +2245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
+        diag.addMessage(`Member '${memberName}' is unknown`);
         return undefined;
     }
 
@@ -2467,7 +2430,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         const itemMethodType = getTypeFromObjectMember(node,
-            baseType, magicMethodName, { method: 'get' },
+            baseType, magicMethodName, { method: 'get' }, new DiagnosticAddendum(),
             MemberAccessFlags.SkipForMethodLookup);
 
         if (!itemMethodType) {
@@ -2932,7 +2895,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 } else {
                     const memberType = getTypeFromObjectMember(errorNode,
-                        callType, '__call__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup);
+                        callType, '__call__', { method: 'get' }, new DiagnosticAddendum(),
+                        MemberAccessFlags.SkipForMethodLookup);
                     if (memberType) {
                         type = validateCallArguments(errorNode, argList, memberType, new Map<string, Type>());
                         if (!type) {
@@ -3036,6 +3000,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // vargs and kwargs.
         const initMethodType = getTypeFromObjectMember(errorNode,
             ObjectType.create(type), '__init__', { method: 'get' },
+            new DiagnosticAddendum(),
             MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
         if (initMethodType) {
             const typeVarMap = new Map<string, Type>();
@@ -3059,7 +3024,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // probably going to be entirely redundant anyway.
         if (!reportedErrorsForInitCall) {
             const constructorMethodInfo = getTypeFromClassMemberName(errorNode,
-                type, '__new__', { method: 'get' }, MemberAccessFlags.SkipForMethodLookup |
+                type, '__new__', { method: 'get' }, new DiagnosticAddendum(),
+                MemberAccessFlags.SkipForMethodLookup |
             MemberAccessFlags.SkipObjectBaseClass);
             if (constructorMethodInfo) {
                 const constructorMethodType = bindFunctionToClassOrObject(
@@ -3146,7 +3112,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         } else if (callType.category === TypeCategory.Object) {
             const memberType = getTypeFromObjectMember(errorNode,
-                callType, '__call__', { method: 'get' },
+                callType, '__call__', { method: 'get' }, new DiagnosticAddendum(),
                 MemberAccessFlags.SkipForMethodLookup);
 
             if (memberType && memberType.category === TypeCategory.Function) {
@@ -4309,9 +4275,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Create a helper lambda for object subtypes.
         const handleObjectSubtype = (subtype: ObjectType, bindToClassType?: ClassType) => {
             const magicMethodType = getTypeFromObjectMember(errorNode,
-                subtype, magicMethodName,
-                { method: 'get' }, MemberAccessFlags.SkipForMethodLookup,
-                bindToClassType);
+                subtype, magicMethodName, { method: 'get' }, new DiagnosticAddendum(),
+                MemberAccessFlags.SkipForMethodLookup, bindToClassType);
 
             if (magicMethodType) {
                 const functionArgs = args.map(arg => {
@@ -5292,6 +5257,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         let classFlags = ClassTypeFlags.None;
         if (scope.type === ScopeType.Builtin || fileInfo.isTypingStubFile || fileInfo.isBuiltInStubFile) {
             classFlags |= ClassTypeFlags.BuiltInClass;
+
+            if (node.name.value === 'property') {
+                classFlags |= ClassTypeFlags.PropertyClass;
+            }
         }
 
         classType = ClassType.create(node.name.value, classFlags,
@@ -5343,6 +5312,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37) {
                                 addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
                             }
+                        }
+
+                        if (ClassType.isBuiltIn(argType, 'property')) {
+                            classType.details.flags |= ClassTypeFlags.PropertyClass;
                         }
 
                         // If the class directly derives from NamedTuple (in Python 3.6 or
@@ -5401,6 +5374,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                         if (ClassType.supportsAbstractMethods(argType)) {
                             classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
+                        }
+
+                        if (ClassType.isPropertyClass(argType)) {
+                            classType.details.flags |= ClassTypeFlags.PropertyClass;
                         }
                     }
                 }
@@ -5880,12 +5857,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // Handle property setters and deleters.
             if (decoratorNode.leftExpression.nodeType === ParseNodeType.MemberAccess) {
                 const baseType = getType(decoratorNode.leftExpression.leftExpression);
-                if (baseType.category === TypeCategory.Property) {
+                if (isProperty(baseType)) {
                     const memberName = decoratorNode.leftExpression.memberName.value;
                     if (memberName === 'setter') {
-                        return PropertyType.cloneWithSetter(baseType, originalFunctionType);
+                        return clonePropertyWithSetter(baseType, originalFunctionType);
                     } else if (memberName === 'deleter') {
-                        return PropertyType.cloneWithDeleter(baseType, originalFunctionType);
+                        return clonePropertyWithDeleter(baseType, originalFunctionType);
                     }
                 }
             }
@@ -5896,18 +5873,160 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     case 'staticmethod': {
                         return inputFunctionType;
                     }
+                }
+            }
 
-                    case 'property':
-                    case 'abstractproperty': {
-                        if (inputFunctionType.category === TypeCategory.Function) {
-                            return PropertyType.create(inputFunctionType);
-                        }
-                    }
+            // Handle properties and subclasses of properties specially.
+            if (ClassType.isPropertyClass(decoratorType)) {
+                if (inputFunctionType.category === TypeCategory.Function) {
+                    return createProperty(decoratorType.details.name,
+                        inputFunctionType, decoratorNode.id);
                 }
             }
         }
 
         return returnType;
+    }
+
+    function createProperty(className: string, fget: FunctionType, typeSourceId: TypeSourceId): ObjectType {
+        const propertyClass = ClassType.create(className, ClassTypeFlags.PropertyClass, typeSourceId);
+        const propertyObject = ObjectType.create(propertyClass);
+
+        // Fill in the fget method.
+        const fields = propertyClass.details.fields;
+        const fgetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fget);
+        fields.set('fget', fgetSymbol);
+
+        // Fill in the __get__ method.
+        const getFunction = FunctionType.create(FunctionTypeFlags.InstanceMethod);
+        getFunction.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'self',
+            type: propertyObject
+        });
+        getFunction.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'obj',
+            type: propertyObject
+        });
+        getFunction.details.declaredReturnType = fget.details.declaredReturnType;
+        getFunction.details.declaration = fget.details.declaration;
+        const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
+        fields.set('__get__', getSymbol);
+
+        // Fill in the getter, setter and deleter methods.
+        const accessorFunction = FunctionType.create(FunctionTypeFlags.InstanceMethod);
+        accessorFunction.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'self',
+            type: propertyObject
+        });
+        accessorFunction.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'accessor',
+            type: AnyType.create()
+        });
+        accessorFunction.details.declaredReturnType = propertyObject;
+        const accessorSymbol = Symbol.createWithType(SymbolFlags.ClassMember, accessorFunction);
+        fields.set('getter', accessorSymbol);
+        fields.set('setter', accessorSymbol);
+        fields.set('deleter', accessorSymbol);
+
+        return propertyObject;
+    }
+
+    function clonePropertyWithSetter(prop: Type, fset: FunctionType): Type {
+        if (!isProperty(prop)) {
+            return prop;
+        }
+
+        const classType = (prop as ObjectType).classType;
+        const propertyClass = ClassType.create(classType.details.name,
+            classType.details.flags, classType.details.typeSourceId);
+        const propertyObject = ObjectType.create(propertyClass);
+
+        // Clone the symbol table of the old class type.
+        const fields = propertyClass.details.fields;
+        classType.details.fields.forEach((symbol, name) => {
+            if (!symbol.isIgnoredForProtocolMatch()) {
+                fields.set(name, symbol);
+            }
+        });
+
+        // Fill in the fset method.
+        const fsetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fset);
+        fields.set('fset', fsetSymbol);
+
+        // Fill in the __set__ method.
+        const setFunction = FunctionType.create(FunctionTypeFlags.InstanceMethod);
+        setFunction.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'self',
+            type: propertyObject
+        });
+        setFunction.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'obj',
+            type: propertyObject
+        });
+        setFunction.details.declaredReturnType = NoneType.create();
+        let setParamType: Type = UnknownType.create();
+        if (fset.details.parameters.length >= 2 &&
+                fset.details.parameters[1].category === ParameterCategory.Simple &&
+                fset.details.parameters[1].name) {
+
+            setParamType = fset.details.parameters[1].type;
+        }
+        setFunction.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'value',
+            type: setParamType
+        });
+        const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
+        fields.set('__set__', setSymbol);
+
+        return propertyObject;
+    }
+
+    function clonePropertyWithDeleter(prop: Type, fdel: FunctionType): Type {
+        if (!isProperty(prop)) {
+            return prop;
+        }
+
+        const classType = (prop as ObjectType).classType;
+        const propertyClass = ClassType.create(classType.details.name,
+            classType.details.flags, classType.details.typeSourceId);
+        const propertyObject = ObjectType.create(propertyClass);
+
+        // Clone the symbol table of the old class type.
+        const fields = propertyClass.details.fields;
+        classType.details.fields.forEach((symbol, name) => {
+            if (!symbol.isIgnoredForProtocolMatch()) {
+                fields.set(name, symbol);
+            }
+        });
+
+        // Fill in the fdel method.
+        const fdelSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fdel);
+        fields.set('fdel', fdelSymbol);
+
+        // Fill in the __delete__ method.
+        const delFunction = FunctionType.create(FunctionTypeFlags.InstanceMethod);
+        delFunction.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'self',
+            type: propertyObject
+        });
+        delFunction.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'obj',
+            type: propertyObject
+        });
+        delFunction.details.declaredReturnType = NoneType.create();
+        const delSymbol = Symbol.createWithType(SymbolFlags.ClassMember, delFunction);
+        fields.set('__delete__', delSymbol);
+
+        return propertyObject;
     }
 
     // Given a function node and the function type associated with it, this
@@ -6215,9 +6334,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 return subtype;
             }
 
+            const diag = new DiagnosticAddendum();
             if (subtype.category === TypeCategory.Object) {
                 const memberType = getTypeFromObjectMember(node.expression,
-                    subtype, enterMethodName, { method: 'get' }, MemberAccessFlags.None);
+                    subtype, enterMethodName, { method: 'get' }, diag, MemberAccessFlags.None);
 
                 if (memberType) {
                     let memberReturnType: Type;
@@ -6237,7 +6357,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             addError(`Type ${printType(subtype)} cannot be used ` +
-                `with 'with' because it does not implement '${enterMethodName}'`,
+                `with 'with' because it does not implement '${enterMethodName}'` + diag.getString(),
                 node.expression);
             return UnknownType.create();
         });
@@ -9179,6 +9299,17 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return printLiteralType(objType);
                 }
 
+                if (isProperty(type)) {
+                    const getterInfo = lookUpObjectMember(type, 'fget', importLookup);
+                    if (getterInfo) {
+                        const getter = getTypeOfMember(getterInfo);
+                        if (getter.category === TypeCategory.Function) {
+                            const returnType = getFunctionEffectiveReturnType(getter);
+                            return printType(returnType, recursionCount + 1);
+                        }
+                    }
+                }
+
                 return printObjectTypeForClass(objType.classType, recursionCount + 1);
             }
 
@@ -9192,12 +9323,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const overloads = overloadedType.overloads.map(overload =>
                     printType(overload, recursionCount + 1));
                 return `Overload[${ overloads.join(', ') }]`;
-            }
-
-            case TypeCategory.Property: {
-                const propertyType = type;
-                const returnType = getFunctionEffectiveReturnType(propertyType.getter);
-                return printType(returnType, recursionCount + 1);
             }
 
             case TypeCategory.Union: {

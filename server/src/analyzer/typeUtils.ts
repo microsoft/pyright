@@ -291,6 +291,11 @@ export function isNoReturnType(type: Type): boolean {
     return false;
 }
 
+export function isProperty(type: Type): boolean {
+    return type.category === TypeCategory.Object &&
+        ClassType.isPropertyClass(type.classType);
+}
+
 // Partially specializes a type within the context of a specified
 // (presumably specialized) class.
 export function partiallySpecializeType(type: Type, contextClassType: ClassType): Type {
@@ -1162,22 +1167,6 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
         case TypeCategory.OverloadedFunction: {
             return type.overloads.find(
                 overload => requiresSpecialization(overload, recursionCount + 1)) !== undefined;
-        }
-
-        case TypeCategory.Property: {
-            if (requiresSpecialization(type.getter, recursionCount + 1)) {
-                return true;
-            }
-
-            if (type.setter && requiresSpecialization(type.setter, recursionCount + 1)) {
-                return true;
-            }
-
-            if (type.deleter && requiresSpecialization(type.deleter, recursionCount + 1)) {
-                return true;
-            }
-
-            return false;
         }
 
         case TypeCategory.Union: {

@@ -14,6 +14,7 @@ import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory, UnknownType } from '../analyzer/types';
+import { isProperty } from '../analyzer/typeUtils';
 import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -121,7 +122,7 @@ export class HoverProvider {
 
             case DeclarationType.Method: {
                 const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
-                const label = declaredType && declaredType.category === TypeCategory.Property ?
+                const label = declaredType && isProperty(declaredType) ?
                     'property' : 'method';
                 this._addResultsPart(parts, `(${ label }) ` + node.value +
                     this._getTypeText(node, evaluator), true);

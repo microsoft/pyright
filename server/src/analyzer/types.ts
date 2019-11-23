@@ -40,9 +40,6 @@ export const enum TypeCategory {
     // have multiple function declarations for a common implementation.
     OverloadedFunction,
 
-    // Value that has associated getter/setter/deleter function.
-    Property,
-
     // Class definition, including associated instance methods,
     // class methods, static methods, properties, and variables.
     Class,
@@ -61,7 +58,7 @@ export const enum TypeCategory {
 }
 
 export type Type = UnboundType | UnknownType | AnyType | NoneType | NeverType |
-    FunctionType | OverloadedFunctionType | PropertyType | ClassType |
+    FunctionType | OverloadedFunctionType | ClassType |
     ObjectType | ModuleType | UnionType | TypeVarType;
 
 export type LiteralValue = number | boolean | string;
@@ -182,7 +179,11 @@ export const enum ClassTypeFlags {
     // The class has at least one abstract method or derives
     // from a base class that is abstract without providing
     // non-abstract overrides for all abstract methods.
-    HasAbstractMethods      = 1 << 8
+    HasAbstractMethods      = 1 << 8,
+
+    // Derives from property class and has the semantics of
+    // a property (with optional setter, deleter).
+    PropertyClass           = 1 << 9
 }
 
 interface ClassDetails {
@@ -316,6 +317,10 @@ export namespace ClassType {
 
     export function isEnumClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.EnumClass);
+    }
+
+    export function isPropertyClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.PropertyClass);
     }
 
     export function getDataClassParameters(classType: ClassType): FunctionParameter[] {
@@ -703,47 +708,6 @@ export namespace OverloadedFunctionType {
     }
 }
 
-export interface PropertyType extends TypeBase {
-    category: TypeCategory.Property;
-
-    getter: FunctionType;
-    setter?: FunctionType;
-    deleter?: FunctionType;
-}
-
-export namespace PropertyType {
-    export function create(getter: FunctionType) {
-        const newPropertyType: PropertyType = {
-            category: TypeCategory.Property,
-            getter
-        };
-
-        return newPropertyType;
-    }
-
-    export function cloneWithSetter(propertyType: PropertyType, setter: FunctionType) {
-        const newPropertyType: PropertyType = {
-            category: TypeCategory.Property,
-            getter: propertyType.getter,
-            setter,
-            deleter: propertyType.deleter
-        };
-
-        return newPropertyType;
-    }
-
-    export function cloneWithDeleter(propertyType: PropertyType, deleter: FunctionType) {
-        const newPropertyType: PropertyType = {
-            category: TypeCategory.Property,
-            getter: propertyType.getter,
-            setter: propertyType.setter,
-            deleter
-        };
-
-        return newPropertyType;
-    }
-}
-
 export interface NoneType extends TypeBase {
     category: TypeCategory.None;
 }
@@ -1065,32 +1029,6 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             }
 
             return false;
-        }
-
-        case TypeCategory.Property: {
-            const type2Property = type2 as PropertyType;
-
-            if (!isTypeSame(type1.getter, type2Property.getter, recursionCount + 1)) {
-                return false;
-            }
-
-            if (type1.setter || type2Property.setter) {
-                if (!type1.setter || !type2Property.setter ||
-                        !isTypeSame(type1.setter, type2Property.setter, recursionCount + 1)) {
-
-                    return false;
-                }
-            }
-
-            if (type1.deleter || type2Property.deleter) {
-                if (!type1.deleter || !type2Property.deleter ||
-                        !isTypeSame(type1.deleter, type2Property.deleter, recursionCount + 1)) {
-
-                    return false;
-                }
-            }
-
-            return true;
         }
     }
 
