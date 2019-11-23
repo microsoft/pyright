@@ -37,7 +37,7 @@ else:
 def loads(s: _LoadsString,
           encoding: Any = ...,  # ignored and deprecated
           cls: Optional[Type[JSONDecoder]] = ...,
-          object_hook: Optional[Callable[[Dict], Any]] = ...,
+          object_hook: Optional[Callable[[Dict[Any, Any]], Any]] = ...,
           parse_float: Optional[Callable[[str], Any]] = ...,
           parse_int: Optional[Callable[[str], Any]] = ...,
           parse_constant: Optional[Callable[[str], Any]] = ...,
@@ -49,7 +49,7 @@ class _Reader(Protocol):
 
 def load(fp: _Reader,
          cls: Optional[Type[JSONDecoder]] = ...,
-         object_hook: Optional[Callable[[Dict], Any]] = ...,
+         object_hook: Optional[Callable[[Dict[Any, Any]], Any]] = ...,
          parse_float: Optional[Callable[[str], Any]] = ...,
          parse_int: Optional[Callable[[str], Any]] = ...,
          parse_constant: Optional[Callable[[str], Any]] = ...,

@@ -37,11 +37,11 @@ if sys.version_info >= (3, 6):
 TPFLAGS_IS_ABSTRACT: int
 
 if sys.version_info < (3, 6):
-    ModuleInfo = NamedTuple('ModuleInfo', [('name', str),
-                                           ('suffix', str),
-                                           ('mode', str),
-                                           ('module_type', int),
-                                           ])
+    class ModuleInfo(NamedTuple):
+        name: str
+        suffix: str
+        mode: str
+        module_type: int
     def getmoduleinfo(path: str) -> Optional[ModuleInfo]: ...
 
 def getmembers(object: object,
@@ -77,8 +77,7 @@ def ismemberdescriptor(object: object) -> bool: ...
 #
 # Retrieving source code
 #
-_SourceObjectType = Union[ModuleType, Type, MethodType, FunctionType,
-                          TracebackType, FrameType, CodeType]
+_SourceObjectType = Union[ModuleType, Type[Any], MethodType, FunctionType, TracebackType, FrameType, CodeType, Callable[..., Any]]
 
 def findsource(object: _SourceObjectType) -> Tuple[List[str], int]: ...
 def getabsfile(object: _SourceObjectType) -> str: ...
@@ -171,37 +170,36 @@ class BoundArguments:
 # _ClassTreeItem = Union[List[_ClassTreeItem], Tuple[type, Tuple[type, ...]]]
 def getclasstree(classes: List[type], unique: bool = ...) -> Any: ...
 
-ArgSpec = NamedTuple('ArgSpec', [('args', List[str]),
-                                 ('varargs', str),
-                                 ('keywords', str),
-                                 ('defaults', tuple),
-                                 ])
+class ArgSpec(NamedTuple):
+    args: List[str]
+    varargs: str
+    keywords: str
+    defaults: Tuple[Any, ...]
 
-Arguments = NamedTuple('Arguments', [('args', List[str]),
-                                     ('varargs', Optional[str]),
-                                     ('varkw', Optional[str]),
-                                     ])
+class Arguments(NamedTuple):
+    args: List[str]
+    varargs: Optional[str]
+    varkw: Optional[str]
 
 def getargs(co: CodeType) -> Arguments: ...
 def getargspec(func: object) -> ArgSpec: ...
 
-FullArgSpec = NamedTuple('FullArgSpec', [('args', List[str]),
-                                         ('varargs', Optional[str]),
-                                         ('varkw', Optional[str]),
-                                         ('defaults', tuple),
-                                         ('kwonlyargs', List[str]),
-                                         ('kwonlydefaults', Dict[str, Any]),
-                                         ('annotations', Dict[str, Any]),
-                                         ])
+class FullArgSpec(NamedTuple):
+    args: List[str]
+    varargs: Optional[str]
+    varkw: Optional[str]
+    defaults: Optional[Tuple[Any, ...]]
+    kwonlyargs: List[str]
+    kwonlydefaults: Optional[Dict[str, Any]]
+    annotations: Dict[str, Any]
 
 def getfullargspec(func: object) -> FullArgSpec: ...
 
-# TODO make the field types more specific here
-ArgInfo = NamedTuple('ArgInfo', [('args', List[str]),
-                                 ('varargs', Optional[str]),
-                                 ('keywords', Optional[str]),
-                                 ('locals', Dict[str, Any]),
-                                 ])
+class ArgInfo(NamedTuple):
+    args: List[str]
+    varargs: Optional[str]
+    keywords: Optional[str]
+    locals: Dict[str, Any]
 
 def getargvalues(frame: FrameType) -> ArgInfo: ...
 def formatannotation(annotation: object, base_module: Optional[str] = ...) -> str: ...
@@ -235,12 +233,11 @@ def getcallargs(func: Callable[..., Any],
                 *args: Any,
                 **kwds: Any) -> Dict[str, Any]: ...
 
-
-ClosureVars = NamedTuple('ClosureVars', [('nonlocals', Mapping[str, Any]),
-                                         ('globals', Mapping[str, Any]),
-                                         ('builtins', Mapping[str, Any]),
-                                         ('unbound', AbstractSet[str]),
-                                         ])
+class ClosureVars(NamedTuple):
+    nonlocals: Mapping[str, Any]
+    globals: Mapping[str, Any]
+    builtins: Mapping[str, Any]
+    unbound: AbstractSet[str]
 def getclosurevars(func: Callable[..., Any]) -> ClosureVars: ...
 
 def unwrap(func: Callable[..., Any],
@@ -252,25 +249,20 @@ def unwrap(func: Callable[..., Any],
 # The interpreter stack
 #
 
-Traceback = NamedTuple(
-    'Traceback',
-    [
-        ('filename', str),
-        ('lineno', int),
-        ('function', str),
-        ('code_context', List[str]),
-        ('index', int),
-    ]
-)
+class Traceback(NamedTuple):
+    filename: str
+    lineno: int
+    function: str
+    code_context: Optional[List[str]]
+    index: Optional[int]  # type: ignore
 
-# Python 3.5+ (functions returning it used to return regular tuples)
-FrameInfo = NamedTuple('FrameInfo', [('frame', FrameType),
-                                     ('filename', str),
-                                     ('lineno', int),
-                                     ('function', str),
-                                     ('code_context', List[str]),
-                                     ('index', int),
-                                     ])
+class FrameInfo(NamedTuple):
+    frame: FrameType
+    filename: str
+    lineno: int
+    function: str
+    code_context: Optional[List[str]]
+    index: Optional[int]  # type: ignore
 
 def getframeinfo(frame: Union[FrameType, TracebackType], context: int = ...) -> Traceback: ...
 def getouterframes(frame: Any, context: int = ...) -> List[FrameInfo]: ...
@@ -312,10 +304,10 @@ def getgeneratorlocals(generator: Generator[Any, Any, Any]) -> Dict[str, Any]: .
 # TODO can we be more specific than "object"?
 def getcoroutinelocals(coroutine: object) -> Dict[str, Any]: ...
 
-Attribute = NamedTuple('Attribute', [('name', str),
-                                     ('kind', str),
-                                     ('defining_class', type),
-                                     ('object', object),
-                                     ])
+class Attribute(NamedTuple):
+    name: str
+    kind: str
+    defining_class: type
+    object: object
 
 def classify_class_attrs(cls: type) -> List[Attribute]: ...

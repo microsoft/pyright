@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Iterable, List, Optional, Protocol, Sequence, Tuple, Union
+from typing import Any, Iterable, List, Optional, Protocol, Tuple, Union
 
 class _HasFileno(Protocol):
     def fileno(self) -> int: ...
@@ -76,7 +76,7 @@ class poll:
     def unregister(self, fd: _FileDescriptor) -> None: ...
     def poll(self, timeout: Optional[float] = ...) -> List[Tuple[int, int]]: ...
 
-def select(rlist: Sequence[Any], wlist: Sequence[Any], xlist: Sequence[Any],
+def select(rlist: Iterable[Any], wlist: Iterable[Any], xlist: Iterable[Any],
            timeout: Optional[float] = ...) -> Tuple[List[Any],
                                                     List[Any],
                                                     List[Any]]: ...

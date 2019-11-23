@@ -1,3 +1,4 @@
+import sys
 from enum import IntEnum
 
 class HTTPStatus(IntEnum):
@@ -5,7 +6,6 @@ class HTTPStatus(IntEnum):
     def phrase(self) -> str: ...
     @property
     def description(self) -> str: ...
-
     CONTINUE: int
     SWITCHING_PROTOCOLS: int
     PROCESSING: int
@@ -63,3 +63,5 @@ class HTTPStatus(IntEnum):
     LOOP_DETECTED: int
     NOT_EXTENDED: int
     NETWORK_AUTHENTICATION_REQUIRED: int
+    if sys.version_info >= (3, 7):
+        MISDIRECTED_REQUEST: int

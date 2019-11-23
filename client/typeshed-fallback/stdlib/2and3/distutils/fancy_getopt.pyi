@@ -5,7 +5,7 @@ from typing import (
     TypeVar, overload,
 )
 
-_Option = Tuple[str, str, str]
+_Option = Tuple[str, Optional[str], str]
 _GR = Tuple[List[str], OptionDummy]
 
 def fancy_getopt(options: List[_Option],

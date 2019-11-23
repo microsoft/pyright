@@ -3,7 +3,7 @@
 from typing import Pattern, Dict, Generator, Tuple, List, Union, TypeVar, Callable, Optional
 from xml.etree.ElementTree import Element
 
-xpath_tokenizer_re: Pattern
+xpath_tokenizer_re: Pattern[str]
 
 _token = Tuple[str, str]
 _next = Callable[[], _token]

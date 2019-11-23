@@ -5,13 +5,12 @@ import sys
 from typing import Any, NamedTuple, Optional, Tuple, Union
 
 if sys.version_info >= (3, 5):
-    SndHeaders = NamedTuple('SndHeaders', [
-        ('filetype', str),
-        ('framerate', int),
-        ('nchannels', int),
-        ('nframes', int),
-        ('sampwidth', Union[int, str]),
-    ])
+    class SndHeaders(NamedTuple):
+        filetype: str
+        framerate: int
+        nchannels: int
+        nframes: int
+        sampwidth: Union[int, str]
     _SndHeaders = SndHeaders
 else:
     _SndHeaders = Tuple[str, int, int, int, Union[int, str]]

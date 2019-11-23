@@ -2,7 +2,7 @@ from typing import Iterator, Any, Iterable, MutableSet, Optional, TypeVar, Gener
 
 _S = TypeVar('_S')
 _T = TypeVar('_T')
-_SelfT = TypeVar('_SelfT', bound=WeakSet)
+_SelfT = TypeVar('_SelfT', bound=WeakSet[Any])
 
 class WeakSet(MutableSet[_T], Generic[_T]):
     def __init__(self, data: Optional[Iterable[_T]] = ...) -> None: ...

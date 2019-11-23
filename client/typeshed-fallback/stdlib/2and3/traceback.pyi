@@ -94,7 +94,7 @@ if sys.version_info >= (3, 5):
         def format(self, *, chain: bool = ...) -> Generator[str, None, None]: ...
         def format_exception_only(self) -> Generator[str, None, None]: ...
 
-    class FrameSummary(Iterable):
+    class FrameSummary(Iterable[Any]):
         filename: str
         lineno: int
         name: str

@@ -1,5 +1,5 @@
 import sys
-from typing import Any, BinaryIO, IO, Optional, Tuple, Union, overload
+from typing import Any, BinaryIO, IO, NamedTuple, Optional, Tuple, Union, overload
 
 _chtype = Union[str, bytes, int]
 
@@ -452,3 +452,10 @@ class _CursesWindow:
     def vline(self, ch: _chtype, n: int) -> None: ...
     @overload
     def vline(self, y: int, x: int, ch: _chtype, n: int) -> None: ...
+
+if sys.version_info >= (3, 8):
+    class _ncurses_version(NamedTuple):
+        major: int
+        minor: int
+        patch: int
+    ncurses_version: _ncurses_version

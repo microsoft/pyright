@@ -25,14 +25,13 @@ AUDIO_UNKNOWN_SIZE: int
 if sys.version_info < (3, 0):
     _sunau_params = Tuple[int, int, int, int, str, str]
 else:
-    _sunau_params = NamedTuple('_sunau_params', [
-        ('nchannels', int),
-        ('sampwidth', int),
-        ('framerate', int),
-        ('nframes', int),
-        ('comptype', str),
-        ('compname', str),
-    ])
+    class _sunau_params(NamedTuple):
+        nchannels: int
+        sampwidth: int
+        framerate: int
+        nframes: int
+        comptype: str
+        compname: str
 
 class Au_read:
     def __init__(self, f: _File) -> None: ...

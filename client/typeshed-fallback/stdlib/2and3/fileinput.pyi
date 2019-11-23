@@ -8,15 +8,24 @@ if sys.version_info >= (3, 6):
 else:
     _Path = Union[Text, bytes]
 
-
-def input(
-    files: Union[_Path, Iterable[_Path], None] = ...,
-    inplace: bool = ...,
-    backup: str = ...,
-    bufsize: int = ...,
-    mode: str = ...,
-    openhook: Callable[[_Path, str], IO[AnyStr]] = ...) -> FileInput[AnyStr]: ...
-
+if sys.version_info >= (3, 8):
+    def input(
+        files: Union[_Path, Iterable[_Path], None] = ...,
+        inplace: bool = ...,
+        backup: str = ...,
+        *,
+        mode: str = ...,
+        openhook: Callable[[_Path, str], IO[AnyStr]] = ...,
+    ) -> FileInput[AnyStr]: ...
+else:
+    def input(
+        files: Union[_Path, Iterable[_Path], None] = ...,
+        inplace: bool = ...,
+        backup: str = ...,
+        bufsize: int = ...,
+        mode: str = ...,
+        openhook: Callable[[_Path, str], IO[AnyStr]] = ...,
+    ) -> FileInput[AnyStr]: ...
 
 def close() -> None: ...
 def nextfile() -> None: ...
@@ -28,15 +37,26 @@ def isfirstline() -> bool: ...
 def isstdin() -> bool: ...
 
 class FileInput(Iterable[AnyStr], Generic[AnyStr]):
-    def __init__(
-        self,
-        files: Union[None, _Path, Iterable[_Path]] = ...,
-        inplace: bool = ...,
-        backup: str = ...,
-        bufsize: int = ...,
-        mode: str = ...,
-        openhook: Callable[[_Path, str], IO[AnyStr]] = ...
-    ) -> None: ...
+    if sys.version_info >= (3, 8):
+        def __init__(
+            self,
+            files: Union[None, _Path, Iterable[_Path]] = ...,
+            inplace: bool = ...,
+            backup: str = ...,
+            *,
+            mode: str = ...,
+            openhook: Callable[[_Path, str], IO[AnyStr]] = ...
+        ) -> None: ...
+    else:
+        def __init__(
+            self,
+            files: Union[None, _Path, Iterable[_Path]] = ...,
+            inplace: bool = ...,
+            backup: str = ...,
+            bufsize: int = ...,
+            mode: str = ...,
+            openhook: Callable[[_Path, str], IO[AnyStr]] = ...
+        ) -> None: ...
 
     def __del__(self) -> None: ...
     def close(self) -> None: ...

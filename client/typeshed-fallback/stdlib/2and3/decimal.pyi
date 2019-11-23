@@ -13,10 +13,10 @@ else:
     _ComparableNum = Union[Decimal, float]
 _DecimalT = TypeVar('_DecimalT', bound=Decimal)
 
-DecimalTuple = NamedTuple('DecimalTuple',
-                          [('sign', int),
-                           ('digits', Tuple[int, ...]),
-                           ('exponent', int)])
+class DecimalTuple(NamedTuple):
+    sign: int
+    digits: Tuple[int, ...]
+    exponent: int
 
 ROUND_DOWN: str
 ROUND_HALF_UP: str

@@ -2,11 +2,7 @@
 
 # Based on http://docs.python.org/3.6/library/subprocess.html
 import sys
-from typing import (
-    Sequence, Any, Mapping, Callable, Tuple, IO, Optional, Union, List, Type, Text,
-    Generic, TypeVar, AnyStr,
-    overload,
-)
+from typing import Sequence, Any, Mapping, Callable, Tuple, IO, Optional, Union, Type, Text, Generic, TypeVar, AnyStr, overload
 from types import TracebackType
 
 if sys.version_info >= (3, 8):
@@ -40,6 +36,7 @@ else:
 _CMD = Union[_TXT, Sequence[_PATH]]
 _ENV = Union[Mapping[bytes, _TXT], Mapping[Text, _TXT]]
 
+_S = TypeVar('_S')
 _T = TypeVar('_T')
 
 class CompletedProcess(Generic[_T]):
@@ -817,7 +814,7 @@ class TimeoutExpired(SubprocessError):
 
 
 class CalledProcessError(Exception):
-    returncode = 0
+    returncode: int
     # morally: _CMD
     cmd: Any
     # morally: Optional[_TXT]
@@ -838,8 +835,8 @@ class Popen(Generic[AnyStr]):
     stdin: IO[AnyStr]
     stdout: IO[AnyStr]
     stderr: IO[AnyStr]
-    pid = 0
-    returncode = 0
+    pid: int
+    returncode: int
 
     # Technically it is wrong that Popen provides __new__ instead of __init__
     # but this shouldn't come up hopefully?
@@ -1169,7 +1166,7 @@ class Popen(Generic[AnyStr]):
     def send_signal(self, signal: int) -> None: ...
     def terminate(self) -> None: ...
     def kill(self) -> None: ...
-    def __enter__(self) -> Popen: ...
+    def __enter__(self: _S) -> _S: ...
     def __exit__(self, type: Optional[Type[BaseException]], value: Optional[BaseException], traceback: Optional[TracebackType]) -> None: ...
 
 # The result really is always a str.

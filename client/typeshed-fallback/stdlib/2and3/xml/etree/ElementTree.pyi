@@ -1,6 +1,26 @@
 # Stubs for xml.etree.ElementTree
 
-from typing import Any, Callable, Dict, Generator, IO, ItemsView, Iterable, Iterator, KeysView, List, MutableSequence, Optional, overload, Sequence, Text, Tuple, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    IO,
+    ItemsView,
+    Iterable,
+    Iterator,
+    KeysView,
+    List,
+    MutableSequence,
+    Optional,
+    Protocol,
+    Sequence,
+    Text,
+    Tuple,
+    TypeVar,
+    Union,
+    overload,
+)
 import io
 import sys
 
@@ -42,6 +62,41 @@ else:
     # comes out as a unicode string; otherwise it comes out as str. (see
     # _fixtext function in the source). Client code knows best:
     _str_result_type = Any
+
+_file_or_filename = Union[str, bytes, int, IO[Any]]
+
+if sys.version_info >= (3, 8):
+    class _Writeable(Protocol):
+        def write(self, __s: str) -> Any: ...
+
+    @overload
+    def canonicalize(
+        xml_data: Optional[_parser_input_type] = ...,
+        *,
+        out: None = ...,
+        from_file: Optional[_file_or_filename] = ...,
+        with_comments: bool = ...,
+        strip_text: bool = ...,
+        rewrite_prefixes: bool = ...,
+        qname_aware_tags: Optional[Iterable[str]] = ...,
+        qname_aware_attrs: Optional[Iterable[str]] = ...,
+        exclude_attrs: Optional[Iterable[str]] = ...,
+        exclude_tags: Optional[Iterable[str]] = ...,
+    ) -> str: ...
+    @overload
+    def canonicalize(
+        xml_data: Optional[_parser_input_type] = ...,
+        *,
+        out: _Writeable,
+        from_file: Optional[_file_or_filename] = ...,
+        with_comments: bool = ...,
+        strip_text: bool = ...,
+        rewrite_prefixes: bool = ...,
+        qname_aware_tags: Optional[Iterable[str]] = ...,
+        qname_aware_attrs: Optional[Iterable[str]] = ...,
+        exclude_attrs: Optional[Iterable[str]] = ...,
+        exclude_tags: Optional[Iterable[str]] = ...,
+    ) -> None: ...
 
 class Element(MutableSequence[Element]):
     tag: _str_result_type
@@ -99,9 +154,6 @@ PI: Callable[..., Element]
 class QName:
     text: str
     def __init__(self, text_or_uri: _str_argument_type, tag: Optional[_str_argument_type] = ...) -> None: ...
-
-
-_file_or_filename = Union[str, bytes, int, IO[Any]]
 
 class ElementTree:
     def __init__(self, element: Optional[Element] = ..., file: Optional[_file_or_filename] = ...) -> None: ...
@@ -176,13 +228,32 @@ class TreeBuilder:
     def start(self, tag: _parser_input_type, attrs: Dict[_parser_input_type, _parser_input_type]) -> Element: ...
     def end(self, tag: _parser_input_type) -> Element: ...
 
+if sys.version_info >= (3, 8):
+    class C14NWriterTarget:
+        def __init__(
+            self,
+            write: Callable[[str], Any],
+            *,
+            with_comments: bool = ...,
+            strip_text: bool = ...,
+            rewrite_prefixes: bool = ...,
+            qname_aware_tags: Optional[Iterable[str]] = ...,
+            qname_aware_attrs: Optional[Iterable[str]] = ...,
+            exclude_attrs: Optional[Iterable[str]] = ...,
+            exclude_tags: Optional[Iterable[str]] = ...,
+        ) -> None: ...
+
+
 class XMLParser:
     parser: Any
     target: TreeBuilder
     # TODO-what is entity used for???
     entity: Any
     version: str
-    def __init__(self, html: int = ..., target: Optional[TreeBuilder] = ..., encoding: Optional[str] = ...) -> None: ...
-    def doctype(self, name: str, pubid: str, system: str) -> None: ...
+    if sys.version_info >= (3, 8):
+        def __init__(self, *, target: Optional[TreeBuilder] = ..., encoding: Optional[str] = ...) -> None: ...
+    else:
+        def __init__(self, html: int = ..., target: Optional[TreeBuilder] = ..., encoding: Optional[str] = ...) -> None: ...
+        def doctype(self, name: str, pubid: str, system: str) -> None: ...
     def close(self) -> Element: ...
     def feed(self, data: _parser_input_type) -> None: ...

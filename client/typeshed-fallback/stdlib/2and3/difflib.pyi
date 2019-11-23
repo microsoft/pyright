@@ -16,11 +16,10 @@ else:
 
 _JunkCallback = Union[Callable[[Text], bool], Callable[[str], bool]]
 
-Match = NamedTuple('Match', [
-    ('a', int),
-    ('b', int),
-    ('size', int),
-])
+class Match(NamedTuple):
+    a: int
+    b: int
+    size: int
 
 class SequenceMatcher(Generic[_T]):
     def __init__(self, isjunk: Optional[Callable[[_T], bool]] = ...,

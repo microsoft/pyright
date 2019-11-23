@@ -1,6 +1,5 @@
 # Stubs for _operator (Python 3.5)
 
-import sys
 from typing import AnyStr
 
 # In reality the import is the other way around, but this way we can keep the operator stub in 2and3

@@ -3,6 +3,9 @@ import typing
 from typing import Any, Optional, ClassVar
 
 PyCF_ONLY_AST: int
+if sys.version_info >= (3, 8):
+    PyCF_TYPE_COMMENTS: int
+    PyCF_ALLOW_TOP_LEVEL_AWAIT: int
 
 _identifier = str
 
@@ -206,7 +209,7 @@ class IfExp(expr):
     orelse: expr
 
 class Dict(expr):
-    keys: typing.List[expr]
+    keys: typing.List[Optional[expr]]
     values: typing.List[expr]
 
 class Set(expr):
@@ -386,6 +389,8 @@ class ExceptHandler(excepthandler):
 
 
 class arguments(AST):
+    if sys.version_info >= (3, 8):
+        posonlyargs: typing.List[arg]
     args: typing.List[arg]
     vararg: Optional[arg]
     kwonlyargs: typing.List[arg]

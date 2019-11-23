@@ -1,16 +1,20 @@
-from typing import (
-    Any, AnyStr, Callable, Container, ContextManager, Dict, FrozenSet, Generic,
-    Iterable, List, NoReturn, Optional, overload, Pattern, Sequence, Set,
-    Tuple, Type, TypeVar, Union,
-)
+import datetime
 import logging
+import sys
 import unittest.result
 from types import TracebackType
-
+from typing import (
+    Any, AnyStr, Callable, Container, ContextManager, Dict, FrozenSet, Generic,
+    Iterable, List, Mapping, NoReturn, Optional, overload, Pattern, Sequence,
+    Set, Tuple, Type, TypeVar, Union,
+)
 
 _E = TypeVar('_E', bound=BaseException)
 _FT = TypeVar('_FT', bound=Callable[..., Any])
 
+if sys.version_info >= (3, 8):
+    def addModuleCleanup(__function: Callable[..., Any], *args: Any, **kwargs: Any) -> None: ...
+    def doModuleCleanups() -> None: ...
 
 def expectedFailure(func: _FT) -> _FT: ...
 def skip(reason: str) -> Callable[[_FT], _FT]: ...
@@ -114,8 +118,13 @@ class TestCase:
         self, logger: Optional[logging.Logger] = ...,
         level: Union[int, str, None] = ...
     ) -> _AssertLogsContext: ...
+    @overload
     def assertAlmostEqual(self, first: float, second: float, places: int = ...,
                           msg: Any = ..., delta: float = ...) -> None: ...
+    @overload
+    def assertAlmostEqual(self, first: datetime.datetime, second: datetime.datetime,
+                          places: int = ..., msg: Any = ...,
+                          delta: datetime.timedelta = ...) -> None: ...
     @overload
     def assertNotAlmostEqual(self, first: float, second: float, *,
                              msg: Any = ...) -> None: ...
@@ -125,6 +134,10 @@ class TestCase:
     @overload
     def assertNotAlmostEqual(self, first: float, second: float, *,
                              msg: Any = ..., delta: float = ...) -> None: ...
+    @overload
+    def assertNotAlmostEqual(self, first: datetime.datetime, second: datetime.datetime,
+                             places: int = ..., msg: Any = ...,
+                             delta: datetime.timedelta = ...) -> None: ...
     def assertRegex(self, text: AnyStr, expected_regex: Union[AnyStr, Pattern[AnyStr]],
                     msg: Any = ...) -> None: ...
     def assertNotRegex(self, text: AnyStr, unexpected_regex: Union[AnyStr, Pattern[AnyStr]],
@@ -154,6 +167,11 @@ class TestCase:
     def addCleanup(self, function: Callable[..., Any], *args: Any,
                    **kwargs: Any) -> None: ...
     def doCleanups(self) -> None: ...
+    if sys.version_info >= (3, 8):
+        @classmethod
+        def addClassCleanup(cls, __function: Callable[..., Any], *args: Any, **kwargs: Any) -> None: ...
+        @classmethod
+        def doClassCleanups(cls) -> None: ...
     def _formatMessage(self, msg: Optional[str], standardMsg: str) -> str: ...  # undocumented
     def _getAssertEqualityFunc(self, first: Any, second: Any) -> Callable[..., None]: ...  # undocumented
     # below is deprecated
@@ -189,12 +207,18 @@ class TestCase:
     @overload
     def assertRaisesRegexp(self,  # type: ignore
                            exception: Union[Type[BaseException], Tuple[Type[BaseException], ...]],
-                           callable: Callable[..., Any] = ...,
+                           expected_regex: Union[str, bytes, Pattern[str], Pattern[bytes]],
+                           callable: Callable[..., Any],
                            *args: Any, **kwargs: Any) -> None: ...
     @overload
     def assertRaisesRegexp(self,
                            exception: Union[Type[_E], Tuple[Type[_E], ...]],
+                           expected_regex: Union[str, bytes, Pattern[str], Pattern[bytes]],
                            msg: Any = ...) -> _AssertRaisesContext[_E]: ...
+    def assertDictContainsSubset(self,
+                                 expected: Mapping[Any, Any],
+                                 actual: Mapping[Any, Any],
+                                 msg: object = ...) -> None: ...
 
 class FunctionTestCase(TestCase):
     def __init__(self, testFunc: Callable[[], None],

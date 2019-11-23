@@ -1,4 +1,3 @@
-
 from typing import Union, IO, Optional, Type, NamedTuple, List, Tuple, Any, Text, overload
 from typing_extensions import Literal
 from types import TracebackType
@@ -6,8 +5,13 @@ import sys
 
 class Error(Exception): ...
 
-_aifc_params = NamedTuple('_aifc_params', [('nchannels', int), ('sampwidth', int), ('framerate', int),
-                                           ('nframes', int), ('comptype', bytes), ('compname', bytes)])
+class _aifc_params(NamedTuple):
+    nchannels: int
+    sampwidth: int
+    framerate: int
+    nframes: int
+    comptype: bytes
+    compname: bytes
 
 _File = Union[Text, IO[bytes]]
 _Marker = Tuple[int, int, bytes]

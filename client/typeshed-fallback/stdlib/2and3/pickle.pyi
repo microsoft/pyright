@@ -26,11 +26,11 @@ class PicklingError(PickleError): ...
 class UnpicklingError(PickleError): ...
 
 _reducedtype = Union[str,
-                     Tuple[Callable[..., Any], Tuple],
-                     Tuple[Callable[..., Any], Tuple, Any],
-                     Tuple[Callable[..., Any], Tuple, Any,
+                     Tuple[Callable[..., Any], Tuple[Any, ...]],
+                     Tuple[Callable[..., Any], Tuple[Any, ...], Any],
+                     Tuple[Callable[..., Any], Tuple[Any, ...], Any,
                            Optional[Iterator]],
-                     Tuple[Callable[..., Any], Tuple, Any,
+                     Tuple[Callable[..., Any], Tuple[Any, ...], Any,
                            Optional[Iterator], Optional[Iterator]]]
 
 
@@ -48,7 +48,8 @@ class Pickler:
     def dump(self, obj: Any) -> None: ...
     def clear_memo(self) -> None: ...
     def persistent_id(self, obj: Any) -> Any: ...
-
+    if sys.version_info >= (3, 8):
+        def reducer_override(self, obj: Any) -> Any: ...
 
 class Unpickler:
     if sys.version_info >= (3, 0):

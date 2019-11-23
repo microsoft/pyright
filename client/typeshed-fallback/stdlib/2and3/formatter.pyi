@@ -2,7 +2,7 @@
 # and https://github.com/python/cpython/blob/master/Lib/formatter.py
 from typing import Any, IO, List, Optional, Tuple
 
-AS_IS = None
+AS_IS: None
 _FontType = Tuple[str, bool, bool, bool]
 _StylesType = Tuple[Any, ...]
 
@@ -92,9 +92,9 @@ class AbstractWriter(NullWriter):
     def send_literal_data(self, data: str) -> None: ...
 
 class DumbWriter(NullWriter):
-    file: IO
+    file: IO[str]
     maxcol: int
-    def __init__(self, file: Optional[IO] = ..., maxcol: int = ...) -> None: ...
+    def __init__(self, file: Optional[IO[str]] = ..., maxcol: int = ...) -> None: ...
     def reset(self) -> None: ...
     def send_paragraph(self, blankline: int) -> None: ...
     def send_line_break(self) -> None: ...

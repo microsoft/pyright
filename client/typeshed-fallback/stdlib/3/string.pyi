@@ -2,7 +2,7 @@
 
 # Based on http://docs.python.org/3.2/library/string.html
 
-from typing import Mapping, Sequence, Any, Optional, Union, List, Tuple, Iterable
+from typing import Mapping, Sequence, Any, Optional, Union, Tuple, Iterable
 
 ascii_letters: str
 ascii_lowercase: str
@@ -32,10 +32,7 @@ class Formatter:
     def parse(self, format_string: str) -> Iterable[Tuple[str, Optional[str], Optional[str], Optional[str]]]: ...
     def get_field(self, field_name: str, args: Sequence[Any],
                   kwargs: Mapping[str, Any]) -> Any: ...
-    def get_value(self, key: Union[int, str], args: Sequence[Any],
-                  kwargs: Mapping[str, Any]) -> Any:
-        raise IndexError()
-        raise KeyError()
+    def get_value(self, key: Union[int, str], args: Sequence[Any], kwargs: Mapping[str, Any]) -> Any: ...
     def check_unused_args(self, used_args: Sequence[Union[int, str]], args: Sequence[Any],
                           kwargs: Mapping[str, Any]) -> None: ...
     def format_field(self, value: Any, format_spec: str) -> Any: ...

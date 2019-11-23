@@ -9,7 +9,10 @@ else:
     Loader = Any
 
 if sys.version_info >= (3, 6):
-    ModuleInfo = NamedTuple('ModuleInfo', [('module_finder', Any), ('name', str), ('ispkg', bool)])
+    class ModuleInfo(NamedTuple):
+        module_finder: Any
+        name: str
+        ispkg: bool
     _YMFNI = Generator[ModuleInfo, None, None]
 else:
     _YMFNI = Generator[Tuple[Any, str, bool], None, None]
@@ -24,7 +27,7 @@ class ImpLoader:
     def __init__(self, fullname: str, file: IO[str], filename: str,
                  etc: Tuple[str, str, int]) -> None: ...
 
-def find_loader(fullname: str) -> Loader: ...
+def find_loader(fullname: str) -> Optional[Loader]: ...
 def get_importer(path_item: str) -> Any: ...  # TODO precise type
 def get_loader(module_or_name: str) -> Loader: ...
 def iter_importers(fullname: str = ...) -> Generator[Any, None, None]: ...  # TODO precise type

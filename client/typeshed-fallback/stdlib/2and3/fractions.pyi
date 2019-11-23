@@ -4,7 +4,7 @@
 # Note: these stubs are incomplete. The more complex type
 # signatures are currently omitted. Also see numbers.pyi.
 
-from typing import Optional, TypeVar, Union, overload, Any
+from typing import Optional, TypeVar, Union, overload, Any, Tuple
 from numbers import Real, Integral, Rational
 from decimal import Decimal
 import sys
@@ -42,6 +42,8 @@ class Fraction(Rational):
     def from_decimal(cls, dec: Decimal) -> Fraction: ...
     def limit_denominator(self, max_denominator: int = ...) -> Fraction: ...
 
+    if sys.version_info >= (3, 8):
+        def as_integer_ratio(self) -> Tuple[int, int]: ...
     @property
     def numerator(self) -> int: ...
     @property

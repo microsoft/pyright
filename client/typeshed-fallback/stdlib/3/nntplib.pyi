@@ -20,17 +20,15 @@ class NNTPDataError(NNTPError): ...
 NNTP_PORT: int
 NNTP_SSL_PORT: int
 
-GroupInfo = NamedTuple('GroupInfo', [
-    ('group', str),
-    ('last', str),
-    ('first', str),
-    ('flag', str),
-])
-ArticleInfo = NamedTuple('ArticleInfo', [
-    ('number', int),
-    ('message_id', str),
-    ('lines', List[bytes]),
-])
+class GroupInfo(NamedTuple):
+    group: str
+    last: str
+    first: str
+    flag: str
+class ArticleInfo(NamedTuple):
+    number: int
+    message_id: str
+    lines: List[bytes]
 
 def decode_header(header_str: str) -> str: ...
 

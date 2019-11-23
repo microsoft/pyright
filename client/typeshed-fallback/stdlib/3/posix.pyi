@@ -3,38 +3,36 @@
 # NOTE: These are incomplete!
 
 import sys
-from typing import NamedTuple, Tuple
+from typing import List, NamedTuple, Optional, overload
 
 from os import stat_result as stat_result
 
-uname_result = NamedTuple('uname_result', [
-    ('sysname', str),
-    ('nodename', str),
-    ('release', str),
-    ('version', str),
-    ('machine', str),
-])
+if sys.version_info >= (3, 6):
+    from builtins import _PathLike  # See comment in builtins
 
-times_result = NamedTuple('times_result', [
-    ('user', float),
-    ('system', float),
-    ('children_user', float),
-    ('children_system', float),
-    ('elapsed', float),
-])
+class uname_result(NamedTuple):
+    sysname: str
+    nodename: str
+    release: str
+    version: str
+    machine: str
 
-waitid_result = NamedTuple('waitid_result', [
-    ('si_pid', int),
-    ('si_uid', int),
-    ('si_signo', int),
-    ('si_status', int),
-    ('si_code', int),
-])
+class times_result(NamedTuple):
+    user: float
+    system: float
+    children_user: float
+    children_system: float
+    elapsed: float
 
-sched_param = NamedTuple('sched_param', [
-    ('sched_priority', int),
-])
+class waitid_result(NamedTuple):
+    si_pid: int
+    si_uid: int
+    si_signo: int
+    si_status: int
+    si_code: int
 
+class sched_param(NamedTuple):
+    sched_priority: int
 
 EX_CANTCREAT: int
 EX_CONFIG: int
@@ -109,3 +107,20 @@ WNOHANG: int
 WSTOPSIG: int
 WTERMSIG: int
 WUNTRACED: int
+
+if sys.version_info >= (3, 6):
+    @overload
+    def listdir(path: Optional[str] = ...) -> List[str]: ...
+    @overload
+    def listdir(path: bytes) -> List[bytes]: ...
+    @overload
+    def listdir(path: int) -> List[str]: ...
+    @overload
+    def listdir(path: _PathLike[str]) -> List[str]: ...
+else:
+    @overload
+    def listdir(path: Optional[str] = ...) -> List[str]: ...
+    @overload
+    def listdir(path: bytes) -> List[bytes]: ...
+    @overload
+    def listdir(path: int) -> List[str]: ...

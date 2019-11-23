@@ -2,7 +2,6 @@
 
 # Based on http://docs.python.org/3.2/library/heapq.html
 
-import sys
 from typing import TypeVar, List, Iterable, Any, Callable, Optional
 
 _T = TypeVar('_T')

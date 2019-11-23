@@ -1,7 +1,7 @@
 # Stubs for http.server (Python 3.4)
 
 import sys
-from typing import Any, BinaryIO, Dict, List, Mapping, Optional, Tuple, Union
+from typing import Any, BinaryIO, ClassVar, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 import socketserver
 import email.message
 
@@ -36,6 +36,8 @@ class BaseHTTPRequestHandler:
     protocol_version: str
     MessageClass: type
     responses: Mapping[int, Tuple[str, str]]
+    weekdayname: ClassVar[Sequence[str]] = ...  # Undocumented
+    monthname: ClassVar[Sequence[Optional[str]]] = ...  # Undocumented
     def __init__(self, request: bytes, client_address: Tuple[str, int],
                  server: socketserver.BaseServer) -> None: ...
     def handle(self) -> None: ...
@@ -58,6 +60,7 @@ class BaseHTTPRequestHandler:
     def date_time_string(self, timestamp: Optional[int] = ...) -> str: ...
     def log_date_time_string(self) -> str: ...
     def address_string(self) -> str: ...
+    def parse_request(self) -> bool: ...  # Undocumented
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     extensions_map: Dict[str, str]

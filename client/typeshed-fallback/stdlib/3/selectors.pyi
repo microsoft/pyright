@@ -12,18 +12,14 @@ _FileObject = Union[int, _HasFileno]
 _FileDescriptor = int
 _EventMask = int
 
-
 EVENT_READ: _EventMask
 EVENT_WRITE: _EventMask
 
-
-SelectorKey = NamedTuple('SelectorKey', [
-    ('fileobj', _FileObject),
-    ('fd', _FileDescriptor),
-    ('events', _EventMask),
-    ('data', Any)
-])
-
+class SelectorKey(NamedTuple):
+    fileobj: _FileObject
+    fd: _FileDescriptor
+    events: _EventMask
+    data: Any
 
 class BaseSelector(metaclass=ABCMeta):
     @abstractmethod

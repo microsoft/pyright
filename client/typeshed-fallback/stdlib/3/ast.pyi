@@ -3,7 +3,7 @@ import sys
 # from _ast below when loaded in an unorthodox way by the Dropbox
 # internal Bazel integration.
 import typing as _typing
-from typing import overload, Any, Iterator, Optional, Union, TypeVar
+from typing import Any, Iterator, Optional, TypeVar, Union, overload
 
 # The same unorthodox Bazel integration causes issues with sys, which
 # is imported in both modules. unfortunately we can't just rename sys,
@@ -16,27 +16,36 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Literal
 
-class NodeVisitor():
+class NodeVisitor:
     def visit(self, node: AST) -> Any: ...
     def generic_visit(self, node: AST) -> Any: ...
 
 class NodeTransformer(NodeVisitor):
     def generic_visit(self, node: AST) -> Optional[AST]: ...
 
-_T = TypeVar('_T', bound=AST)
+_T = TypeVar("_T", bound=AST)
 
 if sys.version_info >= (3, 8):
     @overload
-    def parse(source: Union[str, bytes], filename: Union[str, bytes] = ..., mode: Literal["exec"] = ...,
-              type_comments: bool = ..., feature_version: int = ...) -> Module: ...
-
+    def parse(
+        source: Union[str, bytes],
+        filename: Union[str, bytes] = ...,
+        mode: Literal["exec"] = ...,
+        type_comments: bool = ...,
+        feature_version: Union[None, int, _typing.Tuple[int, int]] = ...,
+    ) -> Module: ...
     @overload
-    def parse(source: Union[str, bytes], filename: Union[str, bytes] = ..., mode: str = ...,
-              type_comments: bool = ..., feature_version: int = ...) -> AST: ...
+    def parse(
+        source: Union[str, bytes],
+        filename: Union[str, bytes] = ...,
+        mode: str = ...,
+        type_comments: bool = ...,
+        feature_version: Union[None, int, _typing.Tuple[int, int]] = ...,
+    ) -> AST: ...
+
 else:
     @overload
     def parse(source: Union[str, bytes], filename: Union[str, bytes] = ..., mode: Literal["exec"] = ...) -> Module: ...
-
     @overload
     def parse(source: Union[str, bytes], filename: Union[str, bytes] = ..., mode: str = ...) -> AST: ...
 
@@ -48,4 +57,5 @@ def increment_lineno(node: _T, n: int = ...) -> _T: ...
 def iter_child_nodes(node: AST) -> Iterator[AST]: ...
 def iter_fields(node: AST) -> Iterator[_typing.Tuple[str, Any]]: ...
 def literal_eval(node_or_string: Union[str, AST]) -> Any: ...
+def get_source_segment(source: str, node: AST, *, padded: bool = ...) -> Optional[str]: ...
 def walk(node: AST) -> Iterator[AST]: ...

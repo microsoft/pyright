@@ -4,10 +4,9 @@ import sys
 import types
 import unittest
 
-TestResults = NamedTuple('TestResults', [
-    ('failed', int),
-    ('attempted', int),
-])
+class TestResults(NamedTuple):
+    failed: int
+    attempted: int
 
 OPTIONFLAGS_BY_NAME: Dict[str, int]
 def register_optionflag(name: str) -> int: ...

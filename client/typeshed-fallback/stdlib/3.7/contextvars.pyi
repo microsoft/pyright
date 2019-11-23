@@ -1,4 +1,4 @@
-from typing import Any, Callable, ClassVar, Generic, Iterator, Mapping, TypeVar, Union
+from typing import Any, Callable, ClassVar, Generic, Iterator, Mapping, TypeVar
 
 _T = TypeVar('_T')
 

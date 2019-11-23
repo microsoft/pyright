@@ -1,6 +1,6 @@
 from collections import OrderedDict
 import sys
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Type, Union
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Text, Type, Union
 
 from _csv import (_reader,
                   _writer,
@@ -64,7 +64,7 @@ class DictReader(Iterator[_DRMapping]):
     dialect: _Dialect
     line_num: int
     fieldnames: Sequence[str]
-    def __init__(self, f: Iterable[str], fieldnames: Sequence[str] = ...,
+    def __init__(self, f: Iterable[Text], fieldnames: Sequence[str] = ...,
                  restkey: Optional[str] = ..., restval: Optional[str] = ..., dialect: _Dialect = ...,
                  *args: Any, **kwds: Any) -> None: ...
     def __iter__(self) -> DictReader: ...

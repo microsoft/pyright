@@ -8,7 +8,7 @@ import sys
 
 
 if sys.version_info >= (3, 6):
-    _Path = Union[os.PathLike[Text], Text]
+    _Path = Union[os.PathLike[str], str]
 else:
     _Path = Text
 _SZI = Union[Text, ZipInfo]
@@ -29,7 +29,7 @@ class ZipExtFile(io.BufferedIOBase):
     MIN_READ_SIZE: int = ...
 
     if sys.version_info < (3, 6):
-        PATTERN: Pattern = ...
+        PATTERN: Pattern[str] = ...
 
     if sys.version_info >= (3, 7):
         MAX_SEEK_READ: int = ...
@@ -51,8 +51,30 @@ class ZipFile:
     fp: IO[bytes]
     NameToInfo: Dict[Text, ZipInfo]
     start_dir: int  # undocumented
-    def __init__(self, file: Union[_Path, IO[bytes]], mode: Text = ..., compression: int = ...,
-                 allowZip64: bool = ...) -> None: ...
+    if sys.version_info >= (3, 8):
+        def __init__(
+            self,
+            file: Union[_Path, IO[bytes]],
+            mode: Text = ...,
+            compression: int = ...,
+            allowZip64: bool = ...,
+            compresslevel: Optional[int] = ...,
+            *,
+            strict_timestamps: bool = ...,
+        ) -> None: ...
+    elif sys.version_info >= (3, 7):
+        def __init__(
+            self,
+            file: Union[_Path, IO[bytes]],
+            mode: Text = ...,
+            compression: int = ...,
+            allowZip64: bool = ...,
+            compresslevel: Optional[int] = ...,
+        ) -> None: ...
+    else:
+        def __init__(
+            self, file: Union[_Path, IO[bytes]], mode: Text = ..., compression: int = ..., allowZip64: bool = ...,
+        ) -> None: ...
     def __enter__(self) -> ZipFile: ...
     def __exit__(self, exc_type: Optional[Type[BaseException]],
                  exc_val: Optional[BaseException],

@@ -23,7 +23,7 @@ _F = TypeVar('_F', bound=Callable[..., Any])
 _ExitFunc = Callable[[Optional[Type[BaseException]],
                       Optional[BaseException],
                       Optional[TracebackType]], bool]
-_CM_EF = TypeVar('_CM_EF', ContextManager, _ExitFunc)
+_CM_EF = TypeVar('_CM_EF', ContextManager[Any], _ExitFunc)
 
 if sys.version_info >= (3, 2):
     class _GeneratorContextManager(ContextManager[_T], Generic[_T]):
@@ -85,7 +85,7 @@ if sys.version_info >= (3, 7):
                               Optional[BaseException],
                               Optional[TracebackType]], Awaitable[bool]]
     _CallbackCoroFunc = Callable[..., Awaitable[Any]]
-    _ACM_EF = TypeVar('_ACM_EF', AsyncContextManager, _ExitCoroFunc)
+    _ACM_EF = TypeVar('_ACM_EF', AsyncContextManager[Any], _ExitCoroFunc)
 
     class AsyncExitStack(AsyncContextManager[AsyncExitStack]):
         def __init__(self) -> None: ...

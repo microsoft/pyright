@@ -1,6 +1,5 @@
 # Stubs for _imp (Python 3.6)
 
-import sys
 import types
 from typing import Any, List
 

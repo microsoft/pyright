@@ -10,13 +10,12 @@ if sys.version_info < (3, 7):
 
 _Position = Tuple[int, int]
 
-_TokenInfo = NamedTuple('TokenInfo', [
-    ('type', int),
-    ('string', str),
-    ('start', _Position),
-    ('end', _Position),
-    ('line', str)
-])
+class _TokenInfo(NamedTuple):
+    type: int
+    string: str
+    start: _Position
+    end: _Position
+    line: str
 
 class TokenInfo(_TokenInfo):
     @property
@@ -41,11 +40,11 @@ class Untokenizer:
 def untokenize(iterable: Iterable[_Token]) -> Any: ...
 def detect_encoding(readline: Callable[[], bytes]) -> Tuple[str, Sequence[bytes]]: ...
 def tokenize(readline: Callable[[], bytes]) -> Generator[TokenInfo, None, None]: ...
-def generate_tokens(readline: Callable[[], str]) -> Generator[TokenInfo, None, None]: ...
+def generate_tokens(readline: Callable[[], bytes]) -> Generator[TokenInfo, None, None]: ...  # undocumented
 
 if sys.version_info >= (3, 6):
     from os import PathLike
-    def open(filename: Union[str, bytes, int, PathLike]) -> TextIO: ...
+    def open(filename: Union[str, bytes, int, PathLike[Any]]) -> TextIO: ...
 else:
     def open(filename: Union[str, bytes, int]) -> TextIO: ...
 

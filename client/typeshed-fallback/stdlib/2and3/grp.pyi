@@ -1,9 +1,10 @@
 from typing import List, NamedTuple, Optional
 
-struct_group = NamedTuple("struct_group", [("gr_name", str),
-                                           ("gr_passwd", Optional[str]),
-                                           ("gr_gid", int),
-                                           ("gr_mem", List[str])])
+class struct_group(NamedTuple):
+    gr_name: str
+    gr_passwd: Optional[str]
+    gr_gid: int
+    gr_mem: List[str]
 
 def getgrall() -> List[struct_group]: ...
 def getgrgid(gid: int) -> struct_group: ...

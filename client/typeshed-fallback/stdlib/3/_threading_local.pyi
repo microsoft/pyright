@@ -1,13 +1,12 @@
 # Source: https://github.com/python/cpython/blob/master/Lib/_threading_local.py
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 from weakref import ReferenceType
 
-__all__: List[str]
 localdict = Dict[Any, Any]
 
 class _localimpl:
     key: str
-    dicts: Dict[int, Tuple[ReferenceType, localdict]]
+    dicts: Dict[int, Tuple[ReferenceType[Any], localdict]]
     def __init__(self) -> None: ...
     def get_dict(self) -> localdict: ...
     def create_dict(self) -> localdict: ...

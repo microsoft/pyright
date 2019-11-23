@@ -1,7 +1,6 @@
 import importlib.abc
-import sys
 import types
-from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, List, Optional, Sequence, Tuple
 
 # ModuleSpec is exported from this module, but for circular import
 # reasons exists in its own stub file (with Loader and ModuleType).
