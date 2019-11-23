@@ -6320,6 +6320,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undefined;
         }
 
+        const resolvedDecl = resolveAliasDeclaration(aliasDecl);
+        if (!resolvedDecl) {
+            return resolvedDecl;
+        }
+
         return getInferredTypeOfDeclaration(aliasDecl);
     }
 
