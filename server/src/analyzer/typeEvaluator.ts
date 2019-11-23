@@ -1920,6 +1920,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
 
                     type = getEffectiveTypeOfSymbol(symbol);
+
+                    // If the type resolved to "unbound", treat it as "unknown" in
+                    // the case of a module reference because if it's truly unbound,
+                    // that error will be reported within the module and should not
+                    // leak into other modules that import it.
+                    if (type.category === TypeCategory.Unbound) {
+                        type = UnknownType.create();
+                    }
                 } else {
                     addError(`'${memberName}' is not a known member of module`, node.memberName);
                     type = UnknownType.create();
@@ -6512,8 +6520,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         assert(symbolWithScope);
         const decls = symbolWithScope!.symbol.getDeclarations();
         const wildcardDecl = decls.find(decl => decl.node === flowNode.node);
-        assert(wildcardDecl);
-        return getInferredTypeOfDeclaration(wildcardDecl!) || UnknownType.create();
+
+        if (!wildcardDecl) {
+            return UnknownType.create();
+        }
+
+        return getInferredTypeOfDeclaration(wildcardDecl) || UnknownType.create();
     }
 
     // When we're evaluating a call to determine whether it returns NoReturn,
