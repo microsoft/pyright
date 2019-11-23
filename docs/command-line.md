@@ -7,6 +7,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | --createstub IMPORT                 | Create type stub file(s) for import                  |
 | --dependencies                      | Emit import dependency information                   |
 | -h, --help                          | Show help message                                    |
+| --lib                               | Use library code for types when stubs are missing    |
 | --outputjson                        | Output results in JSON format                        |
 | -p, --project FILE OR DIRECTORY     | Use the configuration file at this location          |
 | --stats                             | Print detailed performance stats                     |

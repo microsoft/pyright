@@ -65,6 +65,7 @@ function processArgs() {
         { name: 'dependencies', type: Boolean },
         { name: 'files', type: String, multiple: true, defaultOption: true },
         { name: 'help', alias: 'h', type: Boolean },
+        { name: 'lib', type: Boolean },
         { name: 'outputjson', type: Boolean },
         { name: 'project', alias: 'p', type: String },
         { name: 'stats' },
@@ -143,7 +144,7 @@ function processArgs() {
 
     options.verboseOutput = !!args.verbose;
     options.checkOnlyOpenFiles = false;
-    options.useLibraryCodeForTypes = false;
+    options.useLibraryCodeForTypes = !!args.lib;
 
     const watch = args.watch !== undefined;
     options.watch = watch;
@@ -230,6 +231,7 @@ function printUsage() {
         '  --createstub IMPORT              Create type stub file(s) for import\n' +
         '  --dependencies                   Emit import dependency information\n' +
         '  -h,--help                        Show this help message\n' +
+        '  --lib                            Use library code to infer types when stubs are missing' +
         '  --outputjson                     Output results in JSON format\n' +
         '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +
         '  --stats                          Print detailed performance stats\n' +
