@@ -828,6 +828,11 @@ test('Import1', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Import2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import2.py']);
+    validateResults(analysisResults, 2);
+});
+
 test('Overload1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
     validateResults(analysisResults, 2);

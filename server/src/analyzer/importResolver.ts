@@ -601,6 +601,7 @@ export class ImportResolver {
             implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
         } else {
             for (let i = 0; i < moduleDescriptor.nameParts.length; i++) {
+                const isLastPart = i === moduleDescriptor.nameParts.length - 1;
                 dirPath = combinePaths(dirPath, moduleDescriptor.nameParts[i]);
                 let foundDirectory = false;
 
@@ -620,60 +621,72 @@ export class ImportResolver {
                     foundDirectory = fs.existsSync(dirPath) && isDirectory(dirPath);
                 }
 
-                if (!foundDirectory) {
-                    importFailureInfo.push(`Could not find directory '${ dirPath }'`);
+                if (foundDirectory) {
+                    if (!isLastPart) {
+                        // We are not at the last part, and we found a directory,
+                        // so continue to look for the next part.
+                        resolvedPaths.push(dirPath);
+                        continue;
+                    }
 
-                    // We weren't able to find the subdirectory. See if we can
-                    // find a ".py" or ".pyi" file with this name.
-                    const pyFilePath = stripTrailingDirectorySeparator(dirPath) + '.py';
+                    // See if we can find an __init__.py[i] in this directory.
+                    const pyFilePath = combinePaths(dirPath, '__init__.py');
                     const pyiFilePath = pyFilePath + 'i';
-                    const pydFilePath = pyFilePath + 'd';
+                    let foundInit = false;
 
                     if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
                         importFailureInfo.push(`Resolved import with file '${ pyiFilePath }'`);
                         resolvedPaths.push(pyiFilePath);
-                        if (i === moduleDescriptor.nameParts.length - 1) {
+                        if (isLastPart) {
                             isStubFile = true;
                         }
+                        foundInit = true;
                     } else if (fs.existsSync(pyFilePath) && isFile(pyFilePath)) {
                         importFailureInfo.push(`Resolved import with file '${ pyFilePath }'`);
                         resolvedPaths.push(pyFilePath);
-                    } else if (allowPydFile && fs.existsSync(pydFilePath) && isFile(pydFilePath)) {
-                        importFailureInfo.push(`Resolved import with file '${ pydFilePath }'`);
-                        resolvedPaths.push(pydFilePath);
-                        if (i === moduleDescriptor.nameParts.length - 1) {
-                            isPydFile = true;
-                        }
-                    } else {
-                        importFailureInfo.push(`Did not find file '${ pyiFilePath }',` +
-                            ` '${ pyFilePath }' or '${ pydFilePath }'`);
+                        foundInit = true;
                     }
-                    break;
+
+                    if (foundInit) {
+                        implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
+                        break;
+                    }
                 }
 
-                const pyFilePath = combinePaths(dirPath, '__init__.py');
+                // We weren't able to find a directory or we found a directory with
+                // no __init__.py[i] file. See if we can find a ".py" or ".pyi" file
+                // with this name.
+                const pyFilePath = stripTrailingDirectorySeparator(dirPath) + '.py';
                 const pyiFilePath = pyFilePath + 'i';
+                const pydFilePath = pyFilePath + 'd';
 
                 if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
                     importFailureInfo.push(`Resolved import with file '${ pyiFilePath }'`);
                     resolvedPaths.push(pyiFilePath);
-                    if (i === moduleDescriptor.nameParts.length - 1) {
+                    if (isLastPart) {
                         isStubFile = true;
                     }
                 } else if (fs.existsSync(pyFilePath) && isFile(pyFilePath)) {
                     importFailureInfo.push(`Resolved import with file '${ pyFilePath }'`);
                     resolvedPaths.push(pyFilePath);
-                } else {
+                } else if (allowPydFile && fs.existsSync(pydFilePath) && isFile(pydFilePath)) {
+                    importFailureInfo.push(`Resolved import with file '${ pydFilePath }'`);
+                    resolvedPaths.push(pydFilePath);
+                    if (isLastPart) {
+                        isPydFile = true;
+                    }
+                } else if (foundDirectory) {
                     importFailureInfo.push(`Partially resolved import with directory '${ dirPath }'`);
                     resolvedPaths.push('');
-                    if (i === moduleDescriptor.nameParts.length - 1) {
+                    if (isLastPart) {
+                        implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
                         isNamespacePackage = true;
                     }
+                } else {
+                    importFailureInfo.push(`Did not find file '${ pyiFilePath }',` +
+                        ` '${ pyFilePath }' or '${ pydFilePath }'`);
                 }
-
-                if (i === moduleDescriptor.nameParts.length - 1) {
-                    implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
-                }
+                break;
             }
         }
 
