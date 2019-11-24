@@ -183,7 +183,11 @@ export const enum ClassTypeFlags {
 
     // Derives from property class and has the semantics of
     // a property (with optional setter, deleter).
-    PropertyClass           = 1 << 9
+    PropertyClass           = 1 << 9,
+
+    // The class is decorated with a "@final" decorator
+    // indicating that it cannot be subclassed.
+    Final                   = 1 << 10
 }
 
 interface ClassDetails {
@@ -321,6 +325,10 @@ export namespace ClassType {
 
     export function isPropertyClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.PropertyClass);
+    }
+
+    export function isFinal(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.Final);
     }
 
     export function getDataClassParameters(classType: ClassType): FunctionParameter[] {
@@ -530,7 +538,8 @@ export const enum FunctionTypeFlags {
     Overloaded              = 1 << 8,
     Async                   = 1 << 9,
     WrapReturnTypeInAwait   = 1 << 10,
-    StubDefinition          = 1 << 11
+    StubDefinition          = 1 << 11,
+    Final                   = 1 << 12
 }
 
 interface FunctionDetails {
@@ -668,6 +677,10 @@ export namespace FunctionType {
 
     export function isStubDefinition(type: FunctionType) {
         return (type.details.flags & FunctionTypeFlags.StubDefinition) !== 0;
+    }
+
+    export function isFinal(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.Final) !== 0;
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {

@@ -5379,6 +5379,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         if (ClassType.isPropertyClass(argType)) {
                             classType.details.flags |= ClassTypeFlags.PropertyClass;
                         }
+
+                        if (ClassType.isFinal(argType)) {
+                            const className = printObjectTypeForClass(argType);
+                            addError(
+                                `Base class '${ className }' is marked final and cannot be subclassed`,
+                                arg.valueExpression);
+                        }
                     }
                 }
 
@@ -5519,6 +5526,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     originalClassType.details.flags |= ClassTypeFlags.SkipSynthesizedInit;
                 }
                 return inputClassType;
+            }
+        } else if (decoratorType.category === TypeCategory.Function) {
+            if (decoratorType.details.builtInName === 'final') {
+                originalClassType.details.flags |= ClassTypeFlags.Final;
             }
         }
 
@@ -5807,6 +5818,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (decoratorType.category === TypeCategory.Function) {
                 if (decoratorType.details.builtInName === 'abstractmethod') {
                     flags |= FunctionTypeFlags.AbstractMethod;
+                } else if (decoratorType.details.builtInName === 'final') {
+                    flags |= FunctionTypeFlags.Final;
                 }
             } else if (decoratorType.category === TypeCategory.Class) {
                 if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {

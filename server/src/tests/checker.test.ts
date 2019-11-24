@@ -843,3 +843,13 @@ test('Overload1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
     validateResults(analysisResults, 2);
 });
+
+test('Final1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final1.py']);
+    validateResults(analysisResults, 1);
+});
+
+test('Final2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final2.py']);
+    validateResults(analysisResults, 2);
+});

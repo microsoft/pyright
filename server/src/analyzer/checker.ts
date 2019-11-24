@@ -27,13 +27,13 @@ import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignme
     WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { FlowFlags } from './codeFlow';
 import { Declaration, DeclarationType } from './declaration';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { ScopeType } from './scope';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
+import { getLastTypedDeclaredForSymbol } from './symbolUtils';
 import { EvaluatorFlags, TypeEvaluator } from './typeEvaluator';
 import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, isTypeSame,
     NoneType, ObjectType, Type, TypeCategory, UnknownType } from './types';
@@ -1089,11 +1089,7 @@ export class Checker extends ParseTreeWalker {
         // Skip the overridden method check for stub files. Many of the built-in
         // typeshed stub files trigger this diagnostic.
         if (!this._fileInfo.isStubFile) {
-            // Skip this check (which is somewhat expensive) if it is disabled.
-            if (this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride !== 'none') {
-
-                this._validateOveriddenMethods(classType);
-            }
+            this._validateOveriddenMethods(classType);
         }
     }
 
@@ -1111,14 +1107,25 @@ export class Checker extends ParseTreeWalker {
                         if (!this._evaluator.canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol,
                                 diagAddendum)) {
 
-                            const declarations = symbol.getDeclarations();
-                            const errorNode = declarations[0].node;
-                            if (errorNode) {
+                            const decl = getLastTypedDeclaredForSymbol(symbol);
+                            if (decl && decl.type === DeclarationType.Method) {
                                 this._evaluator.addDiagnostic(
                                     this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
                                     DiagnosticRule.reportIncompatibleMethodOverride,
                                     `Method '${ name }' overrides class '${ baseClassAndSymbol.class.details.name }' ` +
-                                        `in an incompatible manner` + diagAddendum.getString(), errorNode);
+                                        `in an incompatible manner` + diagAddendum.getString(), decl.node.name);
+                            }
+                        }
+
+                        if (typeOfBaseClassMethod.category === TypeCategory.Function) {
+                            if (FunctionType.isFinal(typeOfBaseClassMethod)) {
+                                const decl = getLastTypedDeclaredForSymbol(symbol);
+                                if (decl && decl.type === DeclarationType.Method) {
+                                    this._evaluator.addError(
+                                        `Method '${ name }' cannot override final method defined ` +
+                                        `in class '${ baseClassAndSymbol.class.details.name }'`,
+                                        decl.node.name);
+                                }
                             }
                         }
                     }
