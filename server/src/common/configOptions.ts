@@ -692,7 +692,7 @@ export class ConfigOptions {
             if (typeof configObj.typeshedPath !== 'string') {
                 console.log(`Config "typeshedPath" field must contain a string.`);
             } else {
-                this.typeshedPath = configObj.typeshedPath;
+                this.typeshedPath = normalizePath(combinePaths(this.projectRoot, configObj.typeshedPath));
             }
         }
 
