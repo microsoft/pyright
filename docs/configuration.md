@@ -36,7 +36,7 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **strictParameterNoneValue** [boolean]: PEP 484 indicates that when a function parameter is assigned a default value of None, its type should implicitly be Optional even if the explicit type is not. When enabled, this rule requires that parameter type annotations use Optional explicitly in this case. The default value for this setting is 'false'.
 
-**enableTypeIgnoreComments** [boolean]: PEP 484 defines support for "# type ignore" comments. This switch enables or disables support for these comments. The default value for this setting is 'true'.
+**enableTypeIgnoreComments** [boolean]: PEP 484 defines support for "# type: ignore" comments. This switch enables or disables support for these comments. The default value for this setting is 'true'.
 
 **reportTypeshedErrors** [boolean or string, optional]: Generate or suppress diagnostics for typeshed type stub files. In general, these type stub files should be “clean” and generate no errors. The default value for this setting is 'none'.
 
