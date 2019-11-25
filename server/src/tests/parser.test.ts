@@ -28,3 +28,10 @@ test('Sample1', () => {
     assert.equal(diagSink.fetchAndClear().length, 0);
     assert.equal(parseResults.parseTree.statements.length, 4);
 });
+
+test('TypeSyntax1', () => {
+    const diagSink = new DiagnosticSink();
+    TestUtils.parseSampleFile('typeSyntax1.py', diagSink);
+
+    assert.equal(diagSink.fetchAndClear().length, 13);
+});

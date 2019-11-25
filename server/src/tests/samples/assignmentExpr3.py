@@ -20,9 +20,6 @@ default_value: int = 3
 def foo4(answer: p := default_value = 5):  # INVALID
     ...
 
-def foo5(answer: (p := default_value) = 5):  # Valid, but probably never useful
-    ...
-
 # This should generate an error.
 (lambda: x := 1) # INVALID
 lambda: (x := 1) # Valid, but unlikely to be useful

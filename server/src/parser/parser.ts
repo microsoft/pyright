@@ -13,7 +13,7 @@
 
 import * as assert from 'assert';
 
-import { Diagnostic } from '../common/diagnostic';
+import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
 import { latestStablePythonVersion, PythonVersion } from '../common/pythonVersion';
@@ -89,6 +89,7 @@ export class Parser {
     private _isInLoop = false;
     private _isInFinally = false;
     private _isParsingTypeAnnotation = false;
+    private _isParsingIndexTrailer = false;
     private _futureImportMap = new Map<string, boolean>();
     private _importedModules: ModuleImport[] = [];
     private _containsWildcardImport = false;
@@ -138,12 +139,19 @@ export class Parser {
     }
 
     parseTextExpression(fileContents: string, textOffset: number, textLength: number,
-            parseOptions: ParseOptions): ParseExpressionTextResults {
+            parseOptions: ParseOptions, parseTypeAnnotation: boolean): ParseExpressionTextResults {
 
         const diagSink = new DiagnosticSink();
         this._startNewParse(fileContents, textOffset, textLength, parseOptions, diagSink);
 
-        const parseTree = this._parseTestExpression(false);
+        let parseTree: ExpressionNode | undefined;
+        if (parseTypeAnnotation) {
+            this._parseTypeAnnotation(() => {
+                parseTree = this._parseAtomExpression();
+            });
+        } else {
+            parseTree = this._parseTestExpression(false);
+        }
 
         if (this._peekTokenType() === TokenType.NewLine) {
             this._getNextToken();
@@ -585,7 +593,7 @@ export class Parser {
         let returnType: ExpressionNode | undefined;
         if (this._consumeTokenIfType(TokenType.Arrow)) {
             this._parseTypeAnnotation(() => {
-                returnType = this._parseTestExpression(false);
+                returnType = this._parseAtomExpression();
             });
         }
 
@@ -766,7 +774,7 @@ export class Parser {
 
         if (allowAnnotations && this._consumeTokenIfType(TokenType.Colon)) {
             this._parseTypeAnnotation(() => {
-                paramNode.typeAnnotation = this._parseTestExpression(false);
+                paramNode.typeAnnotation = this._parseAtomExpression();
                 paramNode.typeAnnotation.parent = paramNode;
                 extendRange(paramNode, paramNode.typeAnnotation);
             });
@@ -1822,7 +1830,7 @@ export class Parser {
     // trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
     private _parseAtomExpression(): ExpressionNode {
         let awaitToken: KeywordToken | undefined;
-        if (this._peekKeywordType() === KeywordType.Await) {
+        if (this._peekKeywordType() === KeywordType.Await && !this._isParsingTypeAnnotation) {
             awaitToken = this._getKeywordToken(KeywordType.Await);
             if (this._getLanguageVersion() < PythonVersion.V35) {
                 this._addError(
@@ -1868,6 +1876,16 @@ export class Parser {
                     extendRange(callNode, nextToken);
                 }
 
+                if (this._isParsingTypeAnnotation) {
+                    const diag = new DiagnosticAddendum();
+                    if (atomExpression.nodeType === ParseNodeType.Name && atomExpression.value === 'type') {
+                        diag.addMessage('Use Type[T] instead');
+                    }
+                    this._addError(
+                        `Function call not allowed in type annotation` + diag.getString(),
+                        callNode);
+                }
+
                 atomExpression = callNode;
             } else if (this._consumeTokenIfType(TokenType.OpenBracket)) {
                 // Is it an index operator?
@@ -1875,15 +1893,23 @@ export class Parser {
                 // This is an unfortunate hack that's necessary to accommodate 'Literal'
                 // type annotations properly. We need to suspend treating strings as
                 // type annotations within a Literal subscript.
-                const isLiteralSubscript = atomExpression.nodeType === ParseNodeType.Name &&
-                        atomExpression.value === 'Literal';
+                const isLiteralSubscript =
+                    (atomExpression.nodeType === ParseNodeType.Name &&
+                        atomExpression.value === 'Literal') ||
+                    (atomExpression.nodeType === ParseNodeType.MemberAccess &&
+                        atomExpression.leftExpression.nodeType === ParseNodeType.Name &&
+                        atomExpression.leftExpression.value === 'typing' &&
+                        atomExpression.memberName.value === 'Literal');
 
+                const wasParsingIndexTrailer = this._isParsingIndexTrailer;
                 const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
                 if (isLiteralSubscript) {
                     this._isParsingTypeAnnotation = false;
                 }
+                this._isParsingIndexTrailer = true;
                 const indexExpr = this._parseSubscriptList();
                 this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
+                this._isParsingIndexTrailer = wasParsingIndexTrailer;
 
                 let expressions = [indexExpr];
                 if (indexExpr.nodeType === ParseNodeType.Tuple) {
@@ -2087,7 +2113,13 @@ export class Parser {
         }
 
         if (nextToken.type === TokenType.Number) {
-            return NumberNode.create(this._getNextToken() as NumberToken);
+            const numberNode = NumberNode.create(this._getNextToken() as NumberToken);
+            if (this._isParsingTypeAnnotation) {
+                this._addError(
+                    'Numeric literal not allowed in type annotation',
+                    numberNode);
+            }
+            return numberNode;
         }
 
         if (nextToken.type === TokenType.Identifier) {
@@ -2099,11 +2131,38 @@ export class Parser {
         }
 
         if (nextToken.type === TokenType.OpenParenthesis) {
-            return this._parseTupleAtom();
+            const tupleNode = this._parseTupleAtom();
+            if (this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
+                // This is allowed inside of an index trailer, specifically
+                // to support Tuple[()], which is the documented way to annotate
+                // a zero-length tuple.
+                const diag = new DiagnosticAddendum();
+                diag.addMessage('Use Tuple[T1, ..., Tn] instead');
+                this._addError(
+                    'Tuple expression not allowed in type annotation' + diag.getString(),
+                    tupleNode);
+            }
+            return tupleNode;
         } else if (nextToken.type === TokenType.OpenBracket) {
-            return this._parseListAtom();
+            const listNode = this._parseListAtom();
+            if (this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
+                const diag = new DiagnosticAddendum();
+                diag.addMessage('Use List[T] instead');
+                this._addError(
+                    'List expression not allowed in type annotation' + diag.getString(),
+                    listNode);
+            }
+            return listNode;
         } else if (nextToken.type === TokenType.OpenCurlyBrace) {
-            return this._parseDictionaryOrSetAtom();
+            const dictNode = this._parseDictionaryOrSetAtom();
+            if (this._isParsingTypeAnnotation) {
+                const diag = new DiagnosticAddendum();
+                diag.addMessage('Use Dict[T1, T2] instead');
+                this._addError(
+                    'Dictionary expression not allowed in type annotation' + diag.getString(),
+                    dictNode);
+            }
+            return dictNode;
         }
 
         if (nextToken.type === TokenType.Keyword) {
@@ -2112,7 +2171,18 @@ export class Parser {
                     keywordToken.keywordType === KeywordType.True ||
                     keywordToken.keywordType === KeywordType.Debug ||
                     keywordToken.keywordType === KeywordType.None) {
-                return ConstantNode.create(this._getNextToken() as KeywordToken);
+
+                const constNode = ConstantNode.create(this._getNextToken() as KeywordToken);
+
+                if (this._isParsingTypeAnnotation) {
+                    if (keywordToken.keywordType !== KeywordType.None) {
+                        this._addError(
+                            'Keyword not allowed in type annotation',
+                            constNode);
+                    }
+                }
+
+                return constNode;
             }
 
             // Make an identifier out of the keyword.
@@ -2433,7 +2503,7 @@ export class Parser {
         // Is this a type annotation assignment?
         if (this._consumeTokenIfType(TokenType.Colon)) {
             this._parseTypeAnnotation(() => {
-                annotationExpr = this._parseTestExpression(false);
+                annotationExpr = this._parseAtomExpression();
                 leftExpr = TypeAnnotationNode.create(leftExpr, annotationExpr);
 
                 if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
@@ -2584,7 +2654,7 @@ export class Parser {
 
         const parser = new Parser();
         const parseResults = parser.parseTextExpression(this._fileContents!,
-            tokenOffset, typeString.length, this._parseOptions);
+            tokenOffset, typeString.length, this._parseOptions, true);
 
         parseResults.diagnostics.forEach(diag => {
             this._addError(diag.message, stringListNode);
@@ -2613,7 +2683,7 @@ export class Parser {
 
                 const parseResults = parser.parseTextExpression(this._fileContents!,
                     stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength +
-                    segment.offset, segmentExprLength, this._parseOptions);
+                    segment.offset, segmentExprLength, this._parseOptions, false);
 
                 parseResults.diagnostics.forEach(diag => {
                     const textRangeStart = (diag.range ?
@@ -2756,7 +2826,7 @@ export class Parser {
                 } else {
                     const parser = new Parser();
                     const parseResults = parser.parseTextExpression(this._fileContents!,
-                        tokenOffset + prefixLength, unescapedString.length, this._parseOptions);
+                        tokenOffset + prefixLength, unescapedString.length, this._parseOptions, true);
 
                     parseResults.diagnostics.forEach(diag => {
                         this._addError(diag.message, stringNode);
