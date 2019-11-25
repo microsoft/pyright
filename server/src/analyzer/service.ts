@@ -31,6 +31,8 @@ import { MaxAnalysisTime, Program } from './program';
 import * as PythonPathUtils from './pythonPathUtils';
 
 const _defaultConfigFileName = 'pyrightconfig.json';
+const _isMacintosh = process.platform === 'darwin';
+const _isLinux = process.platform === 'linux';
 
 export { MaxAnalysisTime } from './program';
 
@@ -722,7 +724,8 @@ export class AnalyzerService {
                         this._console.log(`Adding file system watcher for ${ fileSpec }`);
                     }
 
-                    return chokidar.watch([fileSpec], { ignoreInitial: true }).on('all', (event, path, stats) => {
+                    return this._createDirectoryWatcher(fileSpec)
+                    .on('all', (event, path) => {
                         if (this._verboseOutput) {
                             this._console.log(`Received fs event '${ event }' for path '${ path }'`);
                         }
@@ -749,12 +752,43 @@ export class AnalyzerService {
         }
     }
 
+    private _createDirectoryWatcher(path: string): chokidar.FSWatcher {
+        // The following optinos are copied from VS Code source base. It also
+        // uses chokidar for its file watching.
+        const watcherOptions: chokidar.WatchOptions = {
+            ignoreInitial: true,
+            ignorePermissionErrors: true,
+            followSymlinks: true, // this is the default of chokidar and supports file events through symlinks
+            interval: 1000, // while not used in normal cases, if any error causes chokidar to fallback to polling, increase its intervals
+            binaryInterval: 1000,
+            disableGlobbing: true // fix https://github.com/Microsoft/vscode/issues/4586
+        };
+
+        const excludes: string[] = [];
+        if ((_isMacintosh || _isLinux) && (path.length === 0 || path === '/')) {
+            excludes.push('/dev/**');
+            if (_isLinux) {
+                excludes.push('/proc/**', '/sys/**');
+            }
+        }
+        watcherOptions.ignored = excludes;
+
+        const watcher = chokidar.watch(path, watcherOptions);
+
+        // Detect if for some reason the native watcher library fails to load
+        if (_isMacintosh && !watcher.options.useFsEvents) {
+            this._console.error('Watcher is not using native fsevents library and is falling back to inefficient polling.');
+        }
+
+        return watcher;
+    }
+
     private _updateConfigFileWatcher() {
         this._removeConfigFileWatcher();
 
         if (this._watchForChanges && this._configFilePath) {
-            this._configFileWatcher = chokidar.watch(this._configFilePath, { ignoreInitial: true })
-            .on('all', (event, path, stats) => {
+            this._configFileWatcher = this._createDirectoryWatcher(this._configFilePath)
+            .on('all', event => {
                 if (this._verboseOutput) {
                     this._console.log(`Received fs event '${ event }' for config file`);
                 }
