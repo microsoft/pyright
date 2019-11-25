@@ -24,7 +24,7 @@
     },
     "devDependencies": {
         "@types/mocha": "^5.2.7",
-        "@types/node": "^12.12.8",
+        "@types/node": "^12.12.12",
         "typescript": "^3.7.2"
     },
     "main": "index.js",
