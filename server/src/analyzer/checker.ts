@@ -15,7 +15,7 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import { DiagnosticAddendum } from '../common/diagnostic';
+import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentNode,
@@ -39,7 +39,7 @@ import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, i
     NoneType, ObjectType, Type, TypeCategory, UnknownType } from './types';
 import { containsUnknown, derivesFromClassRecursive, doForSubtypes,
     getDeclaredGeneratorReturnType, getDeclaredGeneratorYieldType, getSymbolFromBaseClasses,
-    isNoReturnType, specializeType, transformTypeObjectToClass } from './typeUtils';
+    isNoReturnType, isProperty, specializeType, transformTypeObjectToClass } from './typeUtils';
 
 export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
@@ -88,6 +88,8 @@ export class Checker extends ParseTreeWalker {
                 this._validateTypedDictClassSuite(node.suite);
             }
         }
+
+        this._scopedNodes.push(node);
 
         return false;
     }
@@ -145,6 +147,8 @@ export class Checker extends ParseTreeWalker {
             this._validateFunctionReturn(node, functionTypeResult.functionType);
         }
 
+        this._scopedNodes.push(node);
+
         return false;
     }
 
@@ -188,6 +192,8 @@ export class Checker extends ParseTreeWalker {
                 node.expression);
         }
 
+        this._scopedNodes.push(node);
+
         return false;
     }
 
@@ -214,6 +220,9 @@ export class Checker extends ParseTreeWalker {
 
     visitListComprehension(node: ListComprehensionNode): boolean {
         this._getTypeOfExpression(node);
+
+        this._scopedNodes.push(node);
+
         return true;
     }
 
@@ -404,10 +413,7 @@ export class Checker extends ParseTreeWalker {
     visitAssignment(node: AssignmentNode): boolean {
         this._evaluator.evaluateTypesForStatement(node);
         if (node.typeAnnotationComment) {
-            // Evaluate the annotated type.
-            const declaredType = this._evaluator.getTypeOfAnnotation(node.typeAnnotationComment);
-            this._validateDeclaredTypeMatches(node.leftExpression, declaredType,
-                node.typeAnnotationComment);
+            this._evaluator.getTypeOfAnnotation(node.typeAnnotationComment);
         }
 
         return true;
@@ -514,16 +520,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitTypeAnnotation(node: TypeAnnotationNode): boolean {
-        // Evaluate the annotated type.
-        let declaredType = this._evaluator.getTypeOfAnnotation(node.typeAnnotation);
-
-        // If this is within an enum, transform the type.
-        if (node.valueExpression && node.valueExpression.nodeType === ParseNodeType.Name) {
-            declaredType = this._evaluator.transformTypeForPossibleEnumClass(
-                node.valueExpression, declaredType);
-        }
-
-        this._validateDeclaredTypeMatches(node.valueExpression, declaredType, node.typeAnnotation);
+        this._evaluator.getTypeOfAnnotation(node.typeAnnotation);
         return true;
     }
 
@@ -605,7 +602,130 @@ export class Checker extends ParseTreeWalker {
 
             scope.symbolTable.forEach((symbol, name) => {
                 this._conditionallyReportUnusedSymbol(name, symbol, scope.type);
+
+                this._reportIncompatibleDeclarations(name, symbol);
             });
+        }
+    }
+
+    private _reportIncompatibleDeclarations(name: string, symbol: Symbol) {
+        // If there's one or more declaration with a declared type,
+        // all other declarations should match. The only exception is
+        // for functions that have an overload.
+        const primaryDecl = getLastTypedDeclaredForSymbol(symbol);
+
+        // If there's no declaration with a declared type, we're done.
+        if (!primaryDecl) {
+            return;
+        }
+
+        let otherDecls = symbol.getDeclarations().filter(decl => decl !== primaryDecl);
+
+        // If it's a function, we can skip any other declarations
+        // that are overloads.
+        if (primaryDecl.type === DeclarationType.Function) {
+            otherDecls = otherDecls.filter(decl => decl.type !== DeclarationType.Function);
+        }
+
+        // If there are no other declarations to consider, we're done.
+        if (otherDecls.length === 0) {
+            return;
+        }
+
+        let primaryDeclType = '';
+        if (primaryDecl.type === DeclarationType.Function) {
+            primaryDeclType = primaryDecl.isMethod ? 'method ' : 'function ';
+        } else if (primaryDecl.type === DeclarationType.Class) {
+            primaryDeclType = 'class ';
+        } else if (primaryDecl.type === DeclarationType.Parameter) {
+            primaryDeclType = 'parameter ';
+        } else if (primaryDecl.type === DeclarationType.Variable) {
+            primaryDeclType = 'variable ';
+        }
+
+        const addPrimaryDeclInfo = (diag?: Diagnostic) => {
+            if (diag) {
+                let primaryDeclNode: ParseNode | undefined;
+                if (primaryDecl.type === DeclarationType.Function ||
+                        primaryDecl.type === DeclarationType.Class) {
+
+                    primaryDeclNode = primaryDecl.node.name;
+                } else if (primaryDecl.type === DeclarationType.Variable) {
+                    if (primaryDecl.node.nodeType === ParseNodeType.Name) {
+                        primaryDeclNode = primaryDecl.node;
+                    }
+                } else if (primaryDecl.type === DeclarationType.Parameter) {
+                    if (primaryDecl.node.name) {
+                        primaryDeclNode = primaryDecl.node.name;
+                    }
+                }
+
+                if (primaryDeclNode) {
+                    diag.addRelatedInfo(`See ${ primaryDeclType }declaration`,
+                        primaryDecl.path, primaryDecl.range);
+                }
+            }
+        };
+
+        for (const otherDecl of otherDecls) {
+            if (otherDecl.type === DeclarationType.Class) {
+                const diag = this._evaluator.addError(
+                    `Class declaration '${ name }' is obscured by a ${ primaryDeclType }` +
+                        `declaration of the same name`,
+                    otherDecl.node.name
+                );
+                addPrimaryDeclInfo(diag);
+            } else if (otherDecl.type === DeclarationType.Function) {
+                const diag = this._evaluator.addError(
+                    `Function declaration '${ name }' is obscured by a ${ primaryDeclType }` +
+                        `declaration of the same name`,
+                    otherDecl.node.name
+                );
+                addPrimaryDeclInfo(diag);
+            } else if (otherDecl.type === DeclarationType.Parameter) {
+                if (otherDecl.node.name) {
+                    const diag = this._evaluator.addError(
+                        `Parameter '${ name }' is obscured by a ${ primaryDeclType }` +
+                            `declaration of the same name`,
+                        otherDecl.node.name
+                    );
+                    addPrimaryDeclInfo(diag);
+                }
+            } else if (otherDecl.type === DeclarationType.Variable) {
+                const primaryType = this._evaluator.getTypeForDeclaration(primaryDecl);
+
+                if (otherDecl.typeAnnotationNode) {
+                    if (otherDecl.node.nodeType === ParseNodeType.Name) {
+                        let duplicateIsOk = false;
+
+                        // If both declarations are variables, it's OK if they
+                        // both have the same declared type.
+                        if (primaryDecl.type === DeclarationType.Variable) {
+                            const otherType = this._evaluator.getTypeForDeclaration(otherDecl);
+                            if (primaryType && otherType && isTypeSame(primaryType, otherType)) {
+                                duplicateIsOk = true;
+                            }
+                        }
+
+                        if (!duplicateIsOk) {
+                            const diag = this._evaluator.addError(
+                                `Declared type for '${ name }' is obscured by an ` +
+                                    `incompatible ${ primaryDeclType }declaration`,
+                                otherDecl.node
+                            );
+                            addPrimaryDeclInfo(diag);
+                        }
+                    }
+                } else if (primaryType && !isProperty(primaryType)) {
+                    if (primaryDecl.type === DeclarationType.Function || primaryDecl.type === DeclarationType.Class) {
+                        const diag = this._evaluator.addError(
+                            `Declared ${ primaryDeclType } already exists for '${ name }'`,
+                            otherDecl.node
+                        );
+                        addPrimaryDeclInfo(diag);
+                    }
+                }
+            }
         }
     }
 
@@ -1248,21 +1368,5 @@ export class Checker extends ParseTreeWalker {
 
     private _getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): Type {
         return this._evaluator.getTypeOfExpression(node, expectedType, flags).type;
-    }
-
-    // Validates that a new type declaration doesn't conflict with an
-    // existing type declaration.
-    private _validateDeclaredTypeMatches(node: ExpressionNode, type: Type,
-            errorNode: ExpressionNode) {
-
-        const declaredType = this._evaluator.getDeclaredTypeForExpression(node);
-        if (declaredType) {
-            if (!isTypeSame(declaredType, type)) {
-                this._evaluator.addError(
-                    `Declared type '${ this._evaluator.printType(type) }' is not compatible ` +
-                        `with declared type '${ this._evaluator.printType(declaredType) }'`,
-                    errorNode);
-            }
-        }
     }
 }

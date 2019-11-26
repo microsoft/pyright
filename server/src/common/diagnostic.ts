@@ -85,8 +85,8 @@ export interface AddMissingOptionalToParamAction extends DiagnosticAction {
 }
 
 export interface DiagnosticRelatedInfo {
-    filePath: string;
     message: string;
+    filePath: string;
     range: DiagnosticTextRange;
 }
 
@@ -120,8 +120,8 @@ export class Diagnostic {
         return this._rule;
     }
 
-    addRelatedInfo(info: DiagnosticRelatedInfo) {
-        this._relatedInfo.push(info);
+    addRelatedInfo(message: string, filePath: string, range: DiagnosticTextRange) {
+        this._relatedInfo.push({ filePath, message, range });
     }
 
     getRelatedInfo() {
