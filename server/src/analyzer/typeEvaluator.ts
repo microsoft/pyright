@@ -8184,6 +8184,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // perform a member-by-member check.
         if (ClassType.isProtocol(destType)) {
             const destClassFields = destType.details.fields;
+            const destProtocolTypeVarMap = new Map<string, Type>();
 
             // Some protocol definitions include recursive references to themselves.
             // We need to protect against infinite recursion, so we'll check for that here.
@@ -8192,7 +8193,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             let typesAreConsistent = true;
-            const destClassTypeVarMap = buildTypeVarMapFromSpecializedClass(destType);
+            const srcClassTypeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
 
             destClassFields.forEach((symbol, name) => {
                 if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
@@ -8204,12 +8205,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     } else {
                         const declaredType = getDeclaredTypeOfSymbol(symbol);
                         if (declaredType) {
-                            const destMemberType = specializeType(declaredType,
-                                destClassTypeVarMap, false);
-                            const srcMemberType = getTypeOfMember(memberInfo);
+                            const srcMemberType = specializeType(
+                                getTypeOfMember(memberInfo), srcClassTypeVarMap, false,
+                                recursionCount + 1);
 
-                            if (!canAssignType(destMemberType, srcMemberType,
-                                diag.createAddendum(), typeVarMap, CanAssignFlags.Default,
+                            if (!canAssignType(declaredType, srcMemberType,
+                                diag.createAddendum(), destProtocolTypeVarMap, CanAssignFlags.Default,
                                 recursionCount + 1)) {
                                 diag.addMessage(`'${name}' is an incompatible type`);
                                 typesAreConsistent = false;
@@ -8218,6 +8219,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 }
             });
+
+            // If the dest protocol has type parameters, make sure the source type arguments match.
+            if (typesAreConsistent && destType.details.typeParameters.length > 0) {
+                // Create a specialized version of the protocol defined by the dest and
+                // make sure the resulting type args can be assigned.
+                const unspecializedDestProtocol = ClassType.cloneForSpecialization(destType, undefined);
+                const specializedSrcProtocol = specializeType(unspecializedDestProtocol, destProtocolTypeVarMap,
+                    true, recursionCount + 1) as ClassType;
+
+                if (!verifyTypeArgumentsAssignable(destType, specializedSrcProtocol, diag, typeVarMap, recursionCount)) {
+                    typesAreConsistent = false;
+                }
+            }
 
             return typesAreConsistent;
         }
@@ -8259,13 +8273,17 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Special-case conversion for the "numeric tower".
         if (ClassType.isBuiltIn(destType, 'float')) {
             if (ClassType.isBuiltIn(srcType, 'int')) {
-                return true;
+                if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
+                    return true;
+                }
             }
         }
 
         if (ClassType.isBuiltIn(destType, 'complex')) {
             if (ClassType.isBuiltIn(srcType, 'int') || ClassType.isBuiltIn(srcType, 'float')) {
-                return true;
+                if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
+                    return true;
+                }
             }
         }
 

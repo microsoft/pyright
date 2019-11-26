@@ -239,7 +239,7 @@ export namespace ClassType {
     }
 
     export function cloneForSpecialization(classType: ClassType,
-            typeArguments: Type[], skipAbstractClassTest = false): ClassType {
+            typeArguments: Type[] | undefined, skipAbstractClassTest = false): ClassType {
 
         const newClassType = create(classType.details.name,
             classType.details.flags, classType.details.typeSourceId);
