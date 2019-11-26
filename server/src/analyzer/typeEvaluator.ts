@@ -3429,6 +3429,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const expectedType = specializeType(argParam.paramType, typeVarMap, makeConcrete);
             const exprType = getTypeOfExpression(argParam.argument.valueExpression, expectedType);
             argType = exprType.type;
+
+            if (argParam.argument && argParam.argument.name && !isSpeculativeMode) {
+                writeTypeCache(argParam.argument.name, argType);
+            }
         } else {
             argType = getTypeForArgument(argParam.argument);
         }
@@ -7647,6 +7651,22 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return AnalyzerNodeInfo.getFileInfo(node)!;
     }
 
+    function getDeclarationFromFunctionNamedParameter(type: FunctionType, paramName: string): Declaration | undefined {
+        if (type.category === TypeCategory.Function && type.details.declaration) {
+            const functionDecl = type.details.declaration;
+            if (functionDecl.type === DeclarationType.Method || functionDecl.type === DeclarationType.Function) {
+                const functionNode = functionDecl.node;
+                const functionScope = AnalyzerNodeInfo.getScope(functionNode)!;
+                const paramSymbol = functionScope.lookUpSymbol(paramName)!;
+                if (paramSymbol) {
+                    return paramSymbol.getDeclarations().find(decl => decl.type === DeclarationType.Parameter);
+                }
+            }
+        }
+
+        return undefined;
+    }
+
     function getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
         const declarations: Declaration[] = [];
         const nameValue = node.value;
@@ -7722,6 +7742,32 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         implicitImports: new Map<string, ModuleLoaderActions>()
                     };
                     declarations.push(aliasDeclaration);
+                }
+            }
+        } else if (node.parent && node.parent.nodeType === ParseNodeType.Argument && node === node.parent.name) {
+            // The target node is the name in a named argument. We need to determine whether
+            // the corresponding named parameter can be determined from the context.
+            const argNode = node.parent;
+            const paramName = node.value;
+            if (argNode.parent && argNode.parent.nodeType === ParseNodeType.Call) {
+                const baseType = getType(argNode.parent.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
+
+                if (baseType.category === TypeCategory.Function && baseType.details.declaration) {
+                    const paramDecl = getDeclarationFromFunctionNamedParameter(baseType, paramName);
+                    if (paramDecl) {
+                        declarations.push(paramDecl);
+                    }
+                } else if (baseType.category === TypeCategory.Class) {
+                    const initMethodType = getTypeFromObjectMember(argNode.parent.leftExpression,
+                        ObjectType.create(baseType), '__init__', { method: 'get' },
+                        new DiagnosticAddendum(),
+                        MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
+                    if (initMethodType && initMethodType.category === TypeCategory.Function) {
+                        const paramDecl = getDeclarationFromFunctionNamedParameter(initMethodType, paramName);
+                        if (paramDecl) {
+                            declarations.push(paramDecl);
+                        }
+                    }
                 }
             }
         } else {

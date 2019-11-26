@@ -132,7 +132,10 @@ export class ReferencesProvider {
         const symbolDeclType = resolvedDeclarations[0].type;
 
         // Parameters are local to a scope, so they don't require a global search.
-        const requiresGlobalSearch = symbolDeclType !== DeclarationType.Parameter;
+        // If it's a named argument referring to a parameter, we still need to perform
+        // the global search.
+        const requiresGlobalSearch = symbolDeclType !== DeclarationType.Parameter ||
+            (node.parent !== undefined && node.parent.nodeType === ParseNodeType.Argument);
 
         const results: ReferencesResult = {
             requiresGlobalSearch,
