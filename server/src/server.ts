@@ -80,7 +80,7 @@ function _createAnalyzerService(name: string): AnalyzerService {
     // reporting results. This will keep it responsive.
     service.setMaxAnalysisDuration({
         openFilesTimeInMs: 50,
-        noOpenFilesTimeInMs: 500
+        noOpenFilesTimeInMs: 200
     });
 
     service.setCompletionCallback(results => {
