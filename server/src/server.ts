@@ -6,10 +6,10 @@
 
 import {
     CodeAction, CodeActionKind, Command, createConnection,
-    Diagnostic, DiagnosticSeverity, DiagnosticTag, DocumentSymbol,
-    ExecuteCommandParams, IConnection, InitializeResult, IPCMessageReader, IPCMessageWriter,
-    Location, ParameterInformation, Position, Range, ResponseError, SignatureInformation,
-    SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
+    Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DiagnosticTag,
+    DocumentSymbol, ExecuteCommandParams, IConnection, InitializeResult, IPCMessageReader,
+    IPCMessageWriter, Location, ParameterInformation, Position, Range, ResponseError,
+    SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
@@ -766,6 +766,17 @@ function _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
         if (diag.category === DiagnosticCategory.UnusedCode) {
             vsDiag.tags = [DiagnosticTag.Unnecessary];
             vsDiag.severity = DiagnosticSeverity.Hint;
+        }
+
+        const relatedInfo = diag.getRelatedInfo();
+        if (relatedInfo.length > 0) {
+            vsDiag.relatedInformation = relatedInfo.map(info => {
+                return DiagnosticRelatedInformation.create(
+                    Location.create(_convertPathToUri(info.filePath),
+                        _convertRange(info.range)),
+                    info.message
+                );
+            });
         }
 
         return vsDiag;

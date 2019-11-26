@@ -84,10 +84,17 @@ export interface AddMissingOptionalToParamAction extends DiagnosticAction {
     offsetOfTypeNode: number;
 }
 
+export interface DiagnosticRelatedInfo {
+    filePath: string;
+    message: string;
+    range: DiagnosticTextRange;
+}
+
 // Represents a single error or warning.
 export class Diagnostic {
     private _actions: DiagnosticAction[] | undefined;
     private _rule: string | undefined;
+    private _relatedInfo: DiagnosticRelatedInfo[] = [];
 
     constructor(readonly category: DiagnosticCategory, readonly message: string,
         readonly range: DiagnosticTextRange) {
@@ -111,6 +118,14 @@ export class Diagnostic {
 
     getRule() {
         return this._rule;
+    }
+
+    addRelatedInfo(info: DiagnosticRelatedInfo) {
+        this._relatedInfo.push(info);
+    }
+
+    getRelatedInfo() {
+        return this._relatedInfo;
     }
 }
 
