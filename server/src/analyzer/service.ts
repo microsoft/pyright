@@ -760,6 +760,7 @@ export class AnalyzerService {
             ignorePermissionErrors: true,
             followSymlinks: true, // this is the default of chokidar and supports file events through symlinks
             interval: 1000, // while not used in normal cases, if any error causes chokidar to fallback to polling, increase its intervals
+            usePolling: _isLinux, // Don't enable on MacOS because of memory and CPU utilization issues
             binaryInterval: 1000,
             disableGlobbing: true // fix https://github.com/Microsoft/vscode/issues/4586
         };
@@ -774,10 +775,13 @@ export class AnalyzerService {
         watcherOptions.ignored = excludes;
 
         const watcher = chokidar.watch(path, watcherOptions);
+        watcher.on('error', _ => {
+            this._console.error('Error returned from file system watcher.');
+        });
 
         // Detect if for some reason the native watcher library fails to load
         if (_isMacintosh && !watcher.options.useFsEvents) {
-            this._console.error('Watcher is not using native fsevents library and is falling back to inefficient polling.');
+            this._console.error('Watcher could not use native fsevents library. File system watcher disabled.');
         }
 
         return watcher;
