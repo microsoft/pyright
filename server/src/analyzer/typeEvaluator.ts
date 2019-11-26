@@ -9023,7 +9023,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const overrideReturnType = getFunctionEffectiveReturnType(overrideMethod);
         if (!canAssignType(baseReturnType, overrideReturnType, diag.createAddendum())) {
             diag.addMessage(`Return type mismatch: ` +
-                `base method returns type '${printType(baseReturnType)}, ` +
+                `base method returns type '${printType(baseReturnType)}', ` +
                 `override is type '${printType(overrideReturnType)}'`);
 
             canOverride = false;
