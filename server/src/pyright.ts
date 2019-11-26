@@ -231,7 +231,7 @@ function printUsage() {
         '  --createstub IMPORT              Create type stub file(s) for import\n' +
         '  --dependencies                   Emit import dependency information\n' +
         '  -h,--help                        Show this help message\n' +
-        '  --lib                            Use library code to infer types when stubs are missing' +
+        '  --lib                            Use library code to infer types when stubs are missing\n' +
         '  --outputjson                     Output results in JSON format\n' +
         '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +
         '  --stats                          Print detailed performance stats\n' +
