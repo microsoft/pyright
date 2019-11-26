@@ -8504,6 +8504,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         } else {
                             // Create a union, widening the type.
                             const combinedType = combineTypes([existingTypeVarMapping, srcType]);
+
+                            // If the TypeVar is constrained, the widened type needs to match
+                            // one of the types uniquely, not the union of all constrained types.
+                            if (destType.constraints.length > 0) {
+                                if (!destType.constraints.some(constraintType =>
+                                        canAssignType(constraintType, combinedType, new DiagnosticAddendum()))) {
+
+                                    diag.addMessage(`Type '${printType(srcType)}' cannot be assigned to ` +
+                                        `type '${printType(existingTypeVarMapping)}'`);
+                                    return false;
+                                }
+                            }
+
                             typeVarMap.set(destType.name, combinedType);
                         }
                     }
