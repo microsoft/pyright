@@ -50,7 +50,7 @@ export class ParseTreeWalker {
         switch (node.nodeType) {
             case ParseNodeType.Argument:
                 if (this.visitArgument(node)) {
-                    return [node.valueExpression];
+                    return [node.name, node.valueExpression];
                 }
                 break;
 
