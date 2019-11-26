@@ -303,11 +303,10 @@ export class Binder extends ParseTreeWalker {
     visitFunction(node: FunctionNode): boolean {
         const symbol = this._bindNameToScope(this._currentScope, node.name.value);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
-        const declarationType = containingClassNode ?
-            DeclarationType.Method : DeclarationType.Function;
         const functionDeclaration: FunctionDeclaration = {
-            type: declarationType,
+            type: DeclarationType.Function,
             node,
+            isMethod: !!containingClassNode,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
                 this._fileInfo.lines)

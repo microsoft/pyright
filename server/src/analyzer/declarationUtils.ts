@@ -9,18 +9,12 @@
 
 import { Declaration, DeclarationType } from './declaration';
 
-export function isFunctionOrMethodDeclaration(declaration: Declaration) {
-    return declaration.type === DeclarationType.Method ||
-        declaration.type === DeclarationType.Function;
-}
-
 export function hasTypeForDeclaration(declaration: Declaration): boolean {
     switch (declaration.type) {
         case DeclarationType.Intrinsic:
         case DeclarationType.Class:
         case DeclarationType.SpecialBuiltInClass:
         case DeclarationType.Function:
-        case DeclarationType.Method:
             return true;
 
         case DeclarationType.Parameter:

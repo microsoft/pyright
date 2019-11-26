@@ -421,7 +421,7 @@ export class CompletionProvider {
 
         symbolTable.forEach((symbol, name) => {
             const decl = getLastTypedDeclaredForSymbol(symbol);
-            if (decl && decl.type === DeclarationType.Method) {
+            if (decl && decl.type === DeclarationType.Function) {
                 const isSimilar = StringUtils.computeCompletionSimilarity(partialName.value, name) > similarityLimit;
                 if (isSimilar) {
                     const range: Range = {
@@ -785,7 +785,6 @@ export class CompletionProvider {
                                     break;
 
                                 case DeclarationType.Function:
-                                case DeclarationType.Method:
                                     if (type.category === TypeCategory.OverloadedFunction) {
                                         typeDetail = type.overloads.map(overload =>
                                             name + this._evaluator.printType(overload)).join('\n');
@@ -1017,10 +1016,8 @@ export class CompletionProvider {
                     CompletionItemKind.Variable;
 
             case DeclarationType.Function:
-                return CompletionItemKind.Function;
-
-            case DeclarationType.Method:
-                return CompletionItemKind.Method;
+                return resolvedDeclaration.isMethod ?
+                    CompletionItemKind.Method : CompletionItemKind.Function;
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass:

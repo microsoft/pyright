@@ -155,15 +155,15 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator: TypeEv
             break;
 
         case DeclarationType.Function:
-            symbolKind = SymbolKind.Function;
-            break;
-
-        case DeclarationType.Method:
-            const declType = evaluator.getTypeForDeclaration(declaration);
-            if (declType && isProperty(declType)) {
-                symbolKind = SymbolKind.Property;
+            if (declaration.isMethod) {
+                const declType = evaluator.getTypeForDeclaration(declaration);
+                if (declType && isProperty(declType)) {
+                    symbolKind = SymbolKind.Property;
+                } else {
+                    symbolKind = SymbolKind.Method;
+                }
             } else {
-                symbolKind = SymbolKind.Method;
+                symbolKind = SymbolKind.Function;
             }
             break;
 

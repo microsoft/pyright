@@ -6062,7 +6062,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const overloadedTypes: FunctionType[] = [type];
                 while (declIndex > 0) {
                     const decl = decls[declIndex - 1];
-                    if (decl.type !== DeclarationType.Function && decl.type !== DeclarationType.Method) {
+                    if (decl.type !== DeclarationType.Function) {
                         break;
                     }
 
@@ -7654,7 +7654,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function getDeclarationFromFunctionNamedParameter(type: FunctionType, paramName: string): Declaration | undefined {
         if (type.category === TypeCategory.Function && type.details.declaration) {
             const functionDecl = type.details.declaration;
-            if (functionDecl.type === DeclarationType.Method || functionDecl.type === DeclarationType.Function) {
+            if (functionDecl.type === DeclarationType.Function) {
                 const functionNode = functionDecl.node;
                 const functionScope = AnalyzerNodeInfo.getScope(functionNode)!;
                 const paramSymbol = functionScope.lookUpSymbol(paramName)!;
@@ -7821,8 +7821,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 return getTypeOfAnnotation(declaration.node.typeAnnotation);
             }
 
-            case DeclarationType.Function:
-            case DeclarationType.Method: {
+            case DeclarationType.Function: {
                 const functionTypeInfo = getTypeOfFunction(declaration.node);
                 return functionTypeInfo ? functionTypeInfo.decoratedType : undefined;
             }
@@ -9142,7 +9141,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // decorators to determine which ones are abstract. This allows
             // us to avoid evaluating the full function types.
             const decl = getLastTypedDeclaredForSymbol(symbol);
-            if (symbol.isClassMember() && decl && decl.type === DeclarationType.Method) {
+            if (symbol.isClassMember() && decl && decl.type === DeclarationType.Function) {
                 const functionFlags = getFunctionFlagsFromDecorators(decl.node, true);
 
                 if (functionFlags & FunctionTypeFlags.AbstractMethod) {

@@ -20,7 +20,6 @@ export const enum DeclarationType {
     Variable,
     Parameter,
     Function,
-    Method,
     Class,
     SpecialBuiltInClass,
     Alias
@@ -61,8 +60,9 @@ export interface SpecialBuiltInClassDeclaration extends DeclarationBase {
 }
 
 export interface FunctionDeclaration extends DeclarationBase {
-    type: DeclarationType.Function | DeclarationType.Method;
+    type: DeclarationType.Function;
     node: FunctionNode;
+    isMethod: boolean;
     returnExpressions?: ReturnNode[];
     yieldExpressions?: (YieldNode | YieldFromNode)[];
 }

@@ -114,16 +114,13 @@ export class HoverProvider {
             }
 
             case DeclarationType.Function: {
-                this._addResultsPart(parts, '(function) ' + node.value +
-                    this._getTypeText(node, evaluator), true);
-                this._addDocumentationPart(parts, node, evaluator);
-                break;
-            }
+                let label = 'function';
+                if (resolvedDecl.isMethod) {
+                    const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
+                    label = declaredType && isProperty(declaredType) ?
+                        'property' : 'method';
+                }
 
-            case DeclarationType.Method: {
-                const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
-                const label = declaredType && isProperty(declaredType) ?
-                    'property' : 'method';
                 this._addResultsPart(parts, `(${ label }) ` + node.value +
                     this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);

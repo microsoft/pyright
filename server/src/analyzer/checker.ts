@@ -1108,7 +1108,7 @@ export class Checker extends ParseTreeWalker {
                                 diagAddendum)) {
 
                             const decl = getLastTypedDeclaredForSymbol(symbol);
-                            if (decl && decl.type === DeclarationType.Method) {
+                            if (decl && decl.type === DeclarationType.Function) {
                                 this._evaluator.addDiagnostic(
                                     this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
                                     DiagnosticRule.reportIncompatibleMethodOverride,
@@ -1120,7 +1120,7 @@ export class Checker extends ParseTreeWalker {
                         if (typeOfBaseClassMethod.category === TypeCategory.Function) {
                             if (FunctionType.isFinal(typeOfBaseClassMethod)) {
                                 const decl = getLastTypedDeclaredForSymbol(symbol);
-                                if (decl && decl.type === DeclarationType.Method) {
+                                if (decl && decl.type === DeclarationType.Function) {
                                     this._evaluator.addError(
                                         `Method '${ name }' cannot override final method defined ` +
                                         `in class '${ baseClassAndSymbol.class.details.name }'`,
