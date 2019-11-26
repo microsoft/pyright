@@ -40,7 +40,7 @@ import { createKeyForReference, FlowAssignment, FlowAssignmentAlias, FlowCall, F
     FlowFlags, FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport,
     getUniqueFlowNodeId, isCodeFlowSupportedForReference } from './codeFlow';
 import { AliasDeclaration, ClassDeclaration, DeclarationType, FunctionDeclaration,
-    IntrinsicType, ModuleLoaderActions, VariableDeclaration } from './declaration';
+    IntrinsicType, ModuleLoaderActions, ParameterDeclaration, VariableDeclaration } from './declaration';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -385,13 +385,16 @@ export class Binder extends ParseTreeWalker {
                     if (paramNode.name) {
                         const symbol = this._bindNameToScope(this._currentScope, paramNode.name.value);
                         if (symbol) {
-                            symbol.addDeclaration({
+                            const paramDeclaration: ParameterDeclaration = {
                                 type: DeclarationType.Parameter,
                                 node: paramNode,
                                 path: this._fileInfo.filePath,
                                 range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
                                     this._fileInfo.lines)
-                            });
+                            };
+
+                            symbol.addDeclaration(paramDeclaration);
+                            AnalyzerNodeInfo.setDeclaration(paramNode.name, paramDeclaration);
                         }
 
                         this._createFlowAssignment(paramNode.name);
@@ -445,13 +448,16 @@ export class Binder extends ParseTreeWalker {
                     if (paramNode.name) {
                         const symbol = this._bindNameToScope(this._currentScope, paramNode.name.value);
                         if (symbol) {
-                            symbol.addDeclaration({
+                            const paramDeclaration: ParameterDeclaration = {
                                 type: DeclarationType.Parameter,
                                 node: paramNode,
                                 path: this._fileInfo.filePath,
                                 range: convertOffsetsToRange(paramNode.start, TextRange.getEnd(paramNode),
                                     this._fileInfo.lines)
-                            });
+                            };
+
+                            symbol.addDeclaration(paramDeclaration);
+                            AnalyzerNodeInfo.setDeclaration(paramNode.name, paramDeclaration);
                         }
 
                         this._createFlowAssignment(paramNode.name);
