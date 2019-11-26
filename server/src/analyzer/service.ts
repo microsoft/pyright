@@ -760,10 +760,15 @@ export class AnalyzerService {
             ignorePermissionErrors: true,
             followSymlinks: true, // this is the default of chokidar and supports file events through symlinks
             interval: 1000, // while not used in normal cases, if any error causes chokidar to fallback to polling, increase its intervals
-            usePolling: _isLinux, // Don't enable on MacOS because of memory and CPU utilization issues
             binaryInterval: 1000,
             disableGlobbing: true // fix https://github.com/Microsoft/vscode/issues/4586
         };
+
+        if (_isMacintosh) {
+            // Explicitly disable on MacOS because it uses up large amounts of memory
+            // and CPU for large file hierarchies, resulting in instability and creashes.
+            watcherOptions.usePolling = false;
+        }
 
         const excludes: string[] = [];
         if ((_isMacintosh || _isLinux) && (path.length === 0 || path === '/')) {
