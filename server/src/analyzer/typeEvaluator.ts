@@ -6530,8 +6530,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // If the parent is an expression, we'll evaluate it to provide
         // the context for its child. If it's not, we'll evaluate the
         // child directly without any context.
-        getTypeOfExpression(isExpressionNode(parent) ? parent as ExpressionNode :
-            lastContextualExpression);
+        const nodeToEvaluate = isExpressionNode(parent) && parent.nodeType !== ParseNodeType.Error ?
+            parent as ExpressionNode : lastContextualExpression;
+        getTypeOfExpression(nodeToEvaluate);
     }
 
     function evaluateTypeOfParameter(node: ParameterNode): void {
