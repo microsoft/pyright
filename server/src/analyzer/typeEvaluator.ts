@@ -299,7 +299,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // We may need to discard the evaluator instance and its caches if they
         // grow too large. Otherwise we risk overflowing the heap and getting killed.
         // The value below has been tuned empirically.
-        return typeCache.size > 500000;
+        return typeCache.size > 750000;
     }
 
     function readTypeCache(node: ParseNode): Type | undefined {
