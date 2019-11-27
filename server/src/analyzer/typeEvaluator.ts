@@ -751,7 +751,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (symbol) {
             let declaredType = getDeclaredTypeOfSymbol(symbol);
             if (declaredType) {
-                // If it's a property, we need to get the fset's type.
+                // If it's a property, we need to get the fset type.
                 if (isProperty(declaredType)) {
                     const setterInfo = lookUpClassMember((declaredType as ObjectType).classType, 'fset', importLookup);
                     const setter = setterInfo ? getTypeOfMember(setterInfo) : undefined;
@@ -9263,13 +9263,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         baseType, memberType);
                 }
             } else if (FunctionType.isClassMethod(memberType) || treatAsClassMember) {
-                if (baseType.category === TypeCategory.Class) {
-                    return partiallySpecializeFunctionForBoundClassOrObject(
-                        baseType, memberType);
-                } else {
-                    return partiallySpecializeFunctionForBoundClassOrObject(
-                        baseType.classType, memberType);
-                }
+                return partiallySpecializeFunctionForBoundClassOrObject(
+                    baseType.category === TypeCategory.Class ? baseType : baseType.classType,
+                    memberType);
             }
         } else if (memberType.category === TypeCategory.OverloadedFunction) {
             const newOverloadType = OverloadedFunctionType.create();

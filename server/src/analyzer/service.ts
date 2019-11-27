@@ -753,7 +753,7 @@ export class AnalyzerService {
     }
 
     private _createDirectoryWatcher(path: string): chokidar.FSWatcher {
-        // The following optinos are copied from VS Code source base. It also
+        // The following options are copied from VS Code source base. It also
         // uses chokidar for its file watching.
         const watcherOptions: chokidar.WatchOptions = {
             ignoreInitial: true,
@@ -766,7 +766,7 @@ export class AnalyzerService {
 
         if (_isMacintosh) {
             // Explicitly disable on MacOS because it uses up large amounts of memory
-            // and CPU for large file hierarchies, resulting in instability and creashes.
+            // and CPU for large file hierarchies, resulting in instability and crashes.
             watcherOptions.usePolling = false;
         }
 
