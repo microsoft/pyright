@@ -161,35 +161,39 @@ export class Checker extends ParseTreeWalker {
         node.parameters.forEach(param => {
             if (param.name) {
                 const paramType = this._evaluator.getType(param.name);
-                if (paramType.category === TypeCategory.Unknown) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
-                        DiagnosticRule.reportUnknownLambdaType,
-                        `Type of '${ param.name.value }' is unknown`,
-                        param.name);
-                } else if (containsUnknown(paramType)) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
-                        DiagnosticRule.reportUnknownLambdaType,
-                        `Type of '${ param.name.value }', ` +
-                        `'${ this._evaluator.printType(paramType) }', is partially unknown`,
-                        param.name);
+                if (paramType) {
+                    if (paramType.category === TypeCategory.Unknown) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                            DiagnosticRule.reportUnknownLambdaType,
+                            `Type of '${ param.name.value }' is unknown`,
+                            param.name);
+                    } else if (containsUnknown(paramType)) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                            DiagnosticRule.reportUnknownLambdaType,
+                            `Type of '${ param.name.value }', ` +
+                            `'${ this._evaluator.printType(paramType) }', is partially unknown`,
+                            param.name);
+                    }
                 }
             }
         });
 
         const returnType = this._evaluator.getType(node.expression);
-        if (returnType.category === TypeCategory.Unknown) {
-            this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
-                DiagnosticRule.reportUnknownLambdaType,
-                `Type of lambda expression is unknown`, node.expression);
-        } else if (containsUnknown(returnType)) {
-            this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
-                DiagnosticRule.reportUnknownLambdaType,
-                `Type of lambda expression, '${ this._evaluator.printType(returnType) }', is partially unknown`,
-                node.expression);
+        if (returnType) {
+            if (returnType.category === TypeCategory.Unknown) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                    DiagnosticRule.reportUnknownLambdaType,
+                    `Type of lambda expression is unknown`, node.expression);
+            } else if (containsUnknown(returnType)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                    DiagnosticRule.reportUnknownLambdaType,
+                    `Type of lambda expression, '${ this._evaluator.printType(returnType) }', is partially unknown`,
+                    node.expression);
+            }
         }
 
         this._scopedNodes.push(node);
@@ -250,7 +254,7 @@ export class Checker extends ParseTreeWalker {
             undefined;
 
         if (node.returnExpression) {
-            returnType = this._evaluator.getType(node.returnExpression);
+            returnType = this._evaluator.getType(node.returnExpression) || UnknownType.create();
         } else {
             // There is no return expression, so "None" is assumed.
             returnType = NoneType.create();
@@ -289,7 +293,7 @@ export class Checker extends ParseTreeWalker {
         // Wrap the yield type in an Iterator.
         let adjYieldType = yieldType;
         const iteratorType = this._evaluator.getBuiltInType(node, 'Iterator');
-        if (iteratorType.category === TypeCategory.Class) {
+        if (yieldType && iteratorType.category === TypeCategory.Class) {
             adjYieldType = ObjectType.create(ClassType.cloneForSpecialization(iteratorType, [yieldType]));
         } else {
             adjYieldType = UnknownType.create();
@@ -302,7 +306,9 @@ export class Checker extends ParseTreeWalker {
 
     visitYieldFrom(node: YieldFromNode) {
         const yieldType = this._evaluator.getType(node.expression);
-        this._validateYieldType(node, yieldType);
+        if (yieldType) {
+            this._validateYieldType(node, yieldType);
+        }
 
         return true;
     }
@@ -314,7 +320,7 @@ export class Checker extends ParseTreeWalker {
             const exceptionType = this._evaluator.getType(node.typeExpression);
 
             // Validate that the argument of "raise" is an exception object or class.
-            if (baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
+            if (exceptionType && baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
                 const diagAddendum = new DiagnosticAddendum();
 
                 doForSubtypes(exceptionType, subtype => {
@@ -347,7 +353,7 @@ export class Checker extends ParseTreeWalker {
             const exceptionType = this._evaluator.getType(node.valueExpression);
 
             // Validate that the argument of "raise" is an exception object or None.
-            if (baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
+            if (exceptionType && baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
                 const diagAddendum = new DiagnosticAddendum();
 
                 doForSubtypes(exceptionType, subtype => {
@@ -380,7 +386,9 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.evaluateTypesForStatement(node);
 
             const exceptionType = this._evaluator.getType(node.typeExpression);
-            this._validateExceptionType(exceptionType, node.typeExpression);
+            if (exceptionType) {
+                this._validateExceptionType(exceptionType, node.typeExpression);
+            }
         }
 
         return true;
@@ -392,7 +400,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const type = this._evaluator.getType(node.testExpression);
-        if (type.category === TypeCategory.Object) {
+        if (type && type.category === TypeCategory.Object) {
             if (ClassType.isBuiltIn(type.classType, 'Tuple') && type.classType.typeArguments) {
                 if (type.classType.typeArguments.length > 0) {
                     this._evaluator.addDiagnosticForTextRange(this._fileInfo,
@@ -866,10 +874,11 @@ export class Checker extends ParseTreeWalker {
 
         const callName = node.leftExpression.value;
         const isInstanceCheck = callName === 'isinstance';
-        const arg0Type = doForSubtypes(
-            this._evaluator.getType(node.arguments[0].valueExpression),
-                subtype => {
-
+        let arg0Type = this._evaluator.getType(node.arguments[0].valueExpression);
+        if (!arg0Type) {
+            return;
+        }
+        arg0Type = doForSubtypes(arg0Type, subtype => {
             return transformTypeObjectToClass(subtype);
         });
 
@@ -878,6 +887,9 @@ export class Checker extends ParseTreeWalker {
         }
 
         const arg1Type = this._evaluator.getType(node.arguments[1].valueExpression);
+        if (!arg1Type) {
+            return;
+        }
 
         const classTypeList: ClassType[] = [];
         if (arg1Type.category === TypeCategory.Class) {

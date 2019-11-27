@@ -209,7 +209,7 @@ export interface FunctionTypeResult {
 }
 
 export interface TypeEvaluator {
-    getType: (node: ExpressionNode) => Type;
+    getType: (node: ExpressionNode) => Type | undefined;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
     evaluateTypesForStatement: (node: ParseNode) => void;
@@ -368,15 +368,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // Determines the type of the specified node by evaluating it in
     // context, logging any errors in the process. This may require the
     // type of surrounding statements to be evaluated.
-    function getType(node: ExpressionNode): Type {
+    function getType(node: ExpressionNode): Type | undefined {
         evaluateTypesForExpressionInContext(node);
 
         // We assume here that the type for the node in question
         // will be populated in the cache. Some nodes don't have
         // defined types (e.g. a raw list comprehension outside
-        // of its containing list), so we'll return unknown in those
+        // of its containing list), so we'll return undefined in those
         // cases.
-        return readTypeCache(node) || UnknownType.create();
+        return readTypeCache(node);
     }
 
     function getTypeOfExpression(node: ExpressionNode, expectedType?: Type,
@@ -6512,6 +6512,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return;
         }
 
+        if (parent.nodeType === ParseNodeType.ModuleName) {
+            // Names within a module name isn't an expression,
+            // so there's nothing we can evaluate here.
+            return;
+        }
+
         if (parent.nodeType === ParseNodeType.Return && parent.returnExpression) {
             const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
             const declaredReturnType = enclosingFunctionNode ?
@@ -7691,7 +7697,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (node.parent && node.parent.nodeType === ParseNodeType.MemberAccess &&
             node === node.parent.memberName) {
 
-            const baseType = getTypeOfExpression(node.parent.leftExpression).type;
+            const baseType = getType(node.parent.leftExpression);
             if (baseType) {
                 const memberName = node.parent.memberName.value;
                 doForSubtypes(baseType, subtype => {
@@ -7758,23 +7764,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const argNode = node.parent;
             const paramName = node.value;
             if (argNode.parent && argNode.parent.nodeType === ParseNodeType.Call) {
-                const baseType = getTypeOfExpression(argNode.parent.leftExpression,
-                    undefined, EvaluatorFlags.DoNotSpecialize).type;
+                const baseType = getType(argNode.parent.leftExpression);
 
-                if (baseType.category === TypeCategory.Function && baseType.details.declaration) {
-                    const paramDecl = getDeclarationFromFunctionNamedParameter(baseType, paramName);
-                    if (paramDecl) {
-                        declarations.push(paramDecl);
-                    }
-                } else if (baseType.category === TypeCategory.Class) {
-                    const initMethodType = getTypeFromObjectMember(argNode.parent.leftExpression,
-                        ObjectType.create(baseType), '__init__', { method: 'get' },
-                        new DiagnosticAddendum(),
-                        MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
-                    if (initMethodType && initMethodType.category === TypeCategory.Function) {
-                        const paramDecl = getDeclarationFromFunctionNamedParameter(initMethodType, paramName);
+                if (baseType) {
+                    if (baseType.category === TypeCategory.Function && baseType.details.declaration) {
+                        const paramDecl = getDeclarationFromFunctionNamedParameter(baseType, paramName);
                         if (paramDecl) {
                             declarations.push(paramDecl);
+                        }
+                    } else if (baseType.category === TypeCategory.Class) {
+                        const initMethodType = getTypeFromObjectMember(argNode.parent.leftExpression,
+                            ObjectType.create(baseType), '__init__', { method: 'get' },
+                            new DiagnosticAddendum(),
+                            MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
+                        if (initMethodType && initMethodType.category === TypeCategory.Function) {
+                            const paramDecl = getDeclarationFromFunctionNamedParameter(initMethodType, paramName);
+                            if (paramDecl) {
+                                declarations.push(paramDecl);
+                            }
                         }
                     }
                 }
