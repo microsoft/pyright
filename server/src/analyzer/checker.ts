@@ -153,14 +153,14 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitLambda(node: LambdaNode): boolean {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
 
         // Walk the children.
         this.walkMultiple([...node.parameters, node.expression]);
 
         node.parameters.forEach(param => {
             if (param.name) {
-                const paramType = this._getTypeOfExpression(param.name);
+                const paramType = this._evaluator.getType(param.name);
                 if (paramType.category === TypeCategory.Unknown) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
@@ -178,7 +178,7 @@ export class Checker extends ParseTreeWalker {
             }
         });
 
-        const returnType = this._getTypeOfExpression(node.expression);
+        const returnType = this._evaluator.getType(node.expression);
         if (returnType.category === TypeCategory.Unknown) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
@@ -198,7 +198,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitCall(node: CallNode): boolean {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
 
         this._validateIsInstanceCallNecessary(node);
 
@@ -219,20 +219,17 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitListComprehension(node: ListComprehensionNode): boolean {
-        this._getTypeOfExpression(node);
-
         this._scopedNodes.push(node);
-
         return true;
     }
 
     visitIf(node: IfNode): boolean {
-        this._getTypeOfExpression(node.testExpression);
+        this._evaluator.getType(node.testExpression);
         return true;
     }
 
     visitWhile(node: WhileNode): boolean {
-        this._getTypeOfExpression(node.testExpression);
+        this._evaluator.getType(node.testExpression);
         return true;
     }
 
@@ -253,8 +250,7 @@ export class Checker extends ParseTreeWalker {
             undefined;
 
         if (node.returnExpression) {
-            returnType = this._getTypeOfExpression(node.returnExpression,
-                EvaluatorFlags.None, declaredReturnType);
+            returnType = this._evaluator.getType(node.returnExpression);
         } else {
             // There is no return expression, so "None" is assumed.
             returnType = NoneType.create();
@@ -288,7 +284,7 @@ export class Checker extends ParseTreeWalker {
 
     visitYield(node: YieldNode) {
         const yieldType = node.expression ?
-            this._getTypeOfExpression(node.expression) : NoneType.create();
+            this._evaluator.getType(node.expression) : NoneType.create();
 
         // Wrap the yield type in an Iterator.
         let adjYieldType = yieldType;
@@ -305,7 +301,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitYieldFrom(node: YieldFromNode) {
-        const yieldType = this._getTypeOfExpression(node.expression);
+        const yieldType = this._evaluator.getType(node.expression);
         this._validateYieldType(node, yieldType);
 
         return true;
@@ -315,7 +311,7 @@ export class Checker extends ParseTreeWalker {
         const baseExceptionType = this._evaluator.getBuiltInType(node, 'BaseException') as ClassType;
 
         if (node.typeExpression) {
-            const exceptionType = this._getTypeOfExpression(node.typeExpression);
+            const exceptionType = this._evaluator.getType(node.typeExpression);
 
             // Validate that the argument of "raise" is an exception object or class.
             if (baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
@@ -348,7 +344,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (node.valueExpression) {
-            const exceptionType = this._getTypeOfExpression(node.valueExpression);
+            const exceptionType = this._evaluator.getType(node.valueExpression);
 
             // Validate that the argument of "raise" is an exception object or None.
             if (baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
@@ -392,10 +388,10 @@ export class Checker extends ParseTreeWalker {
 
     visitAssert(node: AssertNode) {
         if (node.exceptionExpression) {
-            this._getTypeOfExpression(node.exceptionExpression);
+            this._evaluator.getType(node.exceptionExpression);
         }
 
-        const type = this._getTypeOfExpression(node.testExpression);
+        const type = this._evaluator.getType(node.testExpression);
         if (type.category === TypeCategory.Object) {
             if (ClassType.isBuiltIn(type.classType, 'Tuple') && type.classType.typeArguments) {
                 if (type.classType.typeArguments.length > 0) {
@@ -413,14 +409,14 @@ export class Checker extends ParseTreeWalker {
     visitAssignment(node: AssignmentNode): boolean {
         this._evaluator.evaluateTypesForStatement(node);
         if (node.typeAnnotationComment) {
-            this._evaluator.getTypeOfAnnotation(node.typeAnnotationComment);
+            this._evaluator.getType(node.typeAnnotationComment);
         }
 
         return true;
     }
 
     visitAssignmentExpression(node: AssignmentExpressionNode): boolean {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
         return true;
     }
 
@@ -430,43 +426,43 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitIndex(node: IndexNode): boolean {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
         return true;
     }
 
     visitBinaryOperation(node: BinaryOperationNode): boolean {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
         return true;
     }
 
     visitSlice(node: SliceNode): boolean {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
         return true;
     }
 
     visitUnpack(node: UnpackNode): boolean {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
         return true;
     }
 
     visitTuple(node: TupleNode): boolean {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
         return true;
     }
 
     visitUnaryOperation(node: UnaryOperationNode): boolean {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
         return true;
     }
 
     visitTernary(node: TernaryNode): boolean {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
         return true;
     }
 
     visitStringList(node: StringListNode): boolean {
         if (node.typeAnnotation) {
-            this._getTypeOfExpression(node);
+            this._evaluator.getType(node);
         }
 
         return true;
@@ -474,7 +470,7 @@ export class Checker extends ParseTreeWalker {
 
     visitFormatString(node: FormatStringNode): boolean {
         node.expressions.forEach(formatExpr => {
-            this._getTypeOfExpression(formatExpr);
+            this._evaluator.getType(formatExpr);
         });
 
         return true;
@@ -495,7 +491,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitMemberAccess(node: MemberAccessNode) {
-        this._getTypeOfExpression(node);
+        this._evaluator.getType(node);
         this._conditionallyReportPrivateUsage(node.memberName);
 
         // Walk the leftExpression but not the memberName.
@@ -520,7 +516,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitTypeAnnotation(node: TypeAnnotationNode): boolean {
-        this._evaluator.getTypeOfAnnotation(node.typeAnnotation);
+        this._evaluator.getType(node.typeAnnotation);
         return true;
     }
 
@@ -528,7 +524,7 @@ export class Checker extends ParseTreeWalker {
         // Get the type of the child so it's available to
         // the completion provider.
         if (node.child) {
-            this._getTypeOfExpression(node.child);
+            this._evaluator.getType(node.child);
         }
 
         // Don't explore further.
@@ -871,7 +867,7 @@ export class Checker extends ParseTreeWalker {
         const callName = node.leftExpression.value;
         const isInstanceCheck = callName === 'isinstance';
         const arg0Type = doForSubtypes(
-            this._getTypeOfExpression(node.arguments[0].valueExpression),
+            this._evaluator.getType(node.arguments[0].valueExpression),
                 subtype => {
 
             return transformTypeObjectToClass(subtype);
@@ -881,7 +877,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const arg1Type = this._getTypeOfExpression(node.arguments[1].valueExpression);
+        const arg1Type = this._evaluator.getType(node.arguments[1].valueExpression);
 
         const classTypeList: ClassType[] = [];
         if (arg1Type.category === TypeCategory.Class) {
@@ -1364,9 +1360,5 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         }
-    }
-
-    private _getTypeOfExpression(node: ExpressionNode, flags = EvaluatorFlags.None, expectedType?: Type): Type {
-        return this._evaluator.getTypeOfExpression(node, expectedType, flags).type;
     }
 }

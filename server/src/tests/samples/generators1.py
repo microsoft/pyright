@@ -1,7 +1,7 @@
 # This sample tests various type checking operations relating to
 # generator functions (those with a "yield" method).
 
-from typing import Generator, Iterator
+from typing import Generator, Dict, Iterator
 
 class ClassA():
     pass
@@ -36,7 +36,7 @@ def generator2() -> Generator[ClassA, ClassB, ClassC]:
 
     while cont.shouldContinue():
         # This should generate an error because 3 isn't
-        # assignable to the yeild type (ClassA).
+        # assignable to the yield type (ClassA).
         cont = yield 3
 
 
@@ -47,7 +47,7 @@ def generator3() -> Generator[ClassA]:
 
     while cont.shouldContinue():
         # This should generate an error because 3 isn't
-        # assignable to the yeild type (ClassA).
+        # assignable to the yield type (ClassA).
         cont = yield 3
 
 
@@ -77,4 +77,8 @@ def generator6():
 def generator7() -> Generator[None]:
     yield
 
+def generator8() -> Iterator[Dict[str, int]]:
+    # This tests the bidirectional type inference
+    # of dict types. It should not generate an error.
+    yield {'hello': 3}
 
