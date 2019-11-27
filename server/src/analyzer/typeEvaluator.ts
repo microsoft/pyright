@@ -5741,9 +5741,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function inferFirstParamType(flags: FunctionTypeFlags, containingClassType: ClassType): Type | undefined {
         if (flags & (FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) {
-            // Don't specialize the "self" for protocol classes because type
-            // comparisons will fail during structural typing analysis.
-            if (containingClassType && !ClassType.isProtocol(containingClassType)) {
+            if (containingClassType) {
+                if (ClassType.isProtocol(containingClassType)) {
+                    // Don't specialize the "self" for protocol classes because type
+                    // comparisons will fail during structural typing analysis. We'll
+                    // use an "Any" type here to avoid triggering errors about Unknown
+                    // types.
+                    return AnyType.create();
+                }
+
                 if (flags & FunctionTypeFlags.InstanceMethod) {
                     const specializedClassType = selfSpecializeClassType(containingClassType);
                     return ObjectType.create(specializedClassType);
