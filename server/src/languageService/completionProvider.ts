@@ -22,7 +22,7 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { ClassType, TypeCategory } from '../analyzer/types';
+import { TypeCategory } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { DiagnosticTextPosition } from '../common/diagnostic';
@@ -471,10 +471,6 @@ export class CompletionProvider {
 
     private _getMemberAccessCompletions(leftExprNode: ExpressionNode,
             priorWord: string): CompletionList | undefined {
-
-        if (AnalyzerNodeInfo.isCodeUnreachable(leftExprNode)) {
-            return undefined;
-        }
 
         const leftType = this._evaluator.getType(leftExprNode);
         const symbolTable = new Map<string, Symbol>();

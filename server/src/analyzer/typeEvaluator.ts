@@ -369,6 +369,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // context, logging any errors in the process. This may require the
     // type of surrounding statements to be evaluated.
     function getType(node: ExpressionNode): Type | undefined {
+        if (AnalyzerNodeInfo.isCodeUnreachable(node)) {
+            return undefined;
+        }
+
         evaluateTypesForExpressionInContext(node);
 
         // We assume here that the type for the node in question
@@ -7689,6 +7693,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getDeclarationsForNameNode(node: NameNode): Declaration[] | undefined {
+        if (AnalyzerNodeInfo.isCodeUnreachable(node)) {
+            return undefined;
+        }
+
         const declarations: Declaration[] = [];
         const nameValue = node.value;
 
