@@ -267,10 +267,9 @@ export class AnalyzerService {
             });
         } else if (!configFilePath) {
             // If no config file was found and there are no explicit include
-            // paths specified and this is the command-line version of the tool
-            // (versus the VS Code extension), assume the caller wants to analyze
-            // everything under the execution root path.
-            if (commandLineOptions.executionRoot && !commandLineOptions.fromVsCodeExtension) {
+            // paths specified, assume the caller wants to include all source
+            // files under the execution root path.
+            if (commandLineOptions.executionRoot) {
                 configOptions.include.push(getFileSpec('', commandLineOptions.executionRoot));
             }
         }
