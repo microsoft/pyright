@@ -1237,11 +1237,17 @@ export class Checker extends ParseTreeWalker {
 
                             const decl = getLastTypedDeclaredForSymbol(symbol);
                             if (decl && decl.type === DeclarationType.Function) {
-                                this._evaluator.addDiagnostic(
+                                const diag = this._evaluator.addDiagnostic(
                                     this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
                                     DiagnosticRule.reportIncompatibleMethodOverride,
                                     `Method '${ name }' overrides class '${ baseClassAndSymbol.class.details.name }' ` +
                                         `in an incompatible manner` + diagAddendum.getString(), decl.node.name);
+
+                                const origDecl = getLastTypedDeclaredForSymbol(
+                                    baseClassAndSymbol.symbol);
+                                if (diag && origDecl) {
+                                    diag.addRelatedInfo('Overridden method', origDecl.path, origDecl.range);
+                                }
                             }
                         }
 
@@ -1249,10 +1255,16 @@ export class Checker extends ParseTreeWalker {
                             if (FunctionType.isFinal(typeOfBaseClassMethod)) {
                                 const decl = getLastTypedDeclaredForSymbol(symbol);
                                 if (decl && decl.type === DeclarationType.Function) {
-                                    this._evaluator.addError(
+                                    const diag = this._evaluator.addError(
                                         `Method '${ name }' cannot override final method defined ` +
                                         `in class '${ baseClassAndSymbol.class.details.name }'`,
                                         decl.node.name);
+
+                                    const origDecl = getLastTypedDeclaredForSymbol(
+                                        baseClassAndSymbol.symbol);
+                                    if (diag && origDecl) {
+                                        diag.addRelatedInfo('Final method', origDecl.path, origDecl.range);
+                                    }
                                 }
                             }
                         }

@@ -570,6 +570,19 @@ test('Classes1', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Classes2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, optional diagnostics are ignored.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes2.py'], configOptions);
+    validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticSettings.reportIncompatibleMethodOverride = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes2.py'], configOptions);
+    validateResults(analysisResults, 1);
+});
+
 test('Enums1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums1.py']);
 
