@@ -4,6 +4,9 @@ node_modules
 # Optional npm cache directory
 .npm
 
+# vs cache directory
+.vs
+
 # Output files
 dist
 server/out/
