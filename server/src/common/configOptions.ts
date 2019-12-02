@@ -805,7 +805,7 @@ export class ConfigOptions {
 
             // Validate the pythonPlatform.
             if (envObj.pythonPlatform) {
-                if (typeof envObj.root === 'string') {
+                if (typeof envObj.pythonPlatform === 'string') {
                     newExecEnv.pythonPlatform = envObj.pythonPlatform;
                 } else {
                     console.log(`Config executionEnvironments index ${ index } pythonPlatform must be a string.`);
