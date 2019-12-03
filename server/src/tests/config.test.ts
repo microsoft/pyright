@@ -118,3 +118,22 @@ test('FindExecEnv1', () => {
     assert.equal(normalizeSlashes(defaultExecEnv.root),
         normalizeSlashes(configOptions.projectRoot));
 });
+
+test('PythonPlatform', () => {
+    const nullConsole = new NullConsole();
+    const configOptions = new ConfigOptions(process.cwd());
+
+    const json = JSON.parse(`{
+        "executionEnvironments" : [
+        {
+            "root": ".",
+            "pythonVersion" : "3.7",
+            "pythonPlatform" : "platform",
+            "extraPaths" : []
+    }]}`);
+
+    configOptions.initializeFromJson(json, nullConsole);
+
+    const env = configOptions.executionEnvironments[0];
+    assert.equal(env.pythonPlatform, 'platform');
+});
