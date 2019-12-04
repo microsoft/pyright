@@ -2094,8 +2094,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
 
                     if (accessMethod) {
-                        const accessMethodType = getTypeOfMember(accessMethod);
+                        let accessMethodType = getTypeOfMember(accessMethod);
                         if (accessMethodType.category === TypeCategory.Function) {
+                            // Bind the accessor to the base object type.
+                            accessMethodType = bindFunctionToClassOrObject(ObjectType.create(classType),
+                                accessMethodType) as FunctionType;
+
                             if (usage.method === 'get') {
                                 type = getFunctionEffectiveReturnType(accessMethodType);
                                 type = partiallySpecializeType(type, classType);
@@ -2104,7 +2108,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                     // Verify that the setter's parameter type matches
                                     // the type of the value being assigned.
                                     if (accessMethodType.details.parameters.length >= 2) {
-                                        const setValueType = accessMethodType.details.parameters[2].type;
+                                        const setValueType = accessMethodType.details.parameters[1].type;
                                         if (!canAssignType(setValueType, usage.setType!, diag)) {
                                             return undefined;
                                         }
@@ -5916,7 +5920,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         getFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
-            type: propertyObject
+            type: fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create()
         });
         getFunction.details.parameters.push({
             category: ParameterCategory.Simple,
@@ -5976,7 +5980,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
-            type: propertyObject
+            type: fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create()
         });
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
@@ -6029,7 +6033,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
-            type: propertyObject
+            type: fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create()
         });
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
