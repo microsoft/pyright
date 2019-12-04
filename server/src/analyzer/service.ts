@@ -431,7 +431,7 @@ export class AnalyzerService {
             // We should never get here because we always generate a
             // default typings path if none was specified.
             const errMsg = 'No typings path was specified';
-            this._console.error(errMsg);
+            this._console.log(errMsg);
             throw new Error(errMsg);
         }
 
@@ -780,12 +780,12 @@ export class AnalyzerService {
 
         const watcher = chokidar.watch(path, watcherOptions);
         watcher.on('error', _ => {
-            this._console.error('Error returned from file system watcher.');
+            this._console.log('Error returned from file system watcher.');
         });
 
         // Detect if for some reason the native watcher library fails to load
         if (_isMacintosh && !watcher.options.useFsEvents) {
-            this._console.error('Watcher could not use native fsevents library. File system watcher disabled.');
+            this._console.log('Watcher could not use native fsevents library. File system watcher disabled.');
         }
 
         return watcher;
