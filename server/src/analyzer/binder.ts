@@ -1572,11 +1572,14 @@ export class Binder extends ParseTreeWalker {
             }
 
             case ParseNodeType.BinaryOperation: {
-                if (expression.operator === OperatorType.Is ||
-                        expression.operator === OperatorType.IsNot) {
+                const isOrIsNotOperator = expression.operator === OperatorType.Is ||
+                    expression.operator === OperatorType.IsNot;
+                const equalsOrNotEqualsOperator = expression.operator === OperatorType.Equals ||
+                    expression.operator === OperatorType.NotEquals;
 
-                    // Look for "X is None" or "X is not None". These are commonly-used
-                    // patterns used in control flow.
+                if (isOrIsNotOperator || equalsOrNotEqualsOperator) {
+                    // Look for "X is None", "X is not None", "X == None", "X != None".
+                    // These are commonly-used patterns used in control flow.
                     if (expression.rightExpression.nodeType === ParseNodeType.Constant &&
                             expression.rightExpression.constType === KeywordType.None) {
 
@@ -1584,7 +1587,8 @@ export class Binder extends ParseTreeWalker {
                     }
 
                     // Look for "type(X) is Y" or "type(X) is not Y".
-                    if (expression.leftExpression.nodeType === ParseNodeType.Call &&
+                    if (isOrIsNotOperator &&
+                        expression.leftExpression.nodeType === ParseNodeType.Call &&
                         expression.leftExpression.leftExpression.nodeType === ParseNodeType.Name &&
                         expression.leftExpression.leftExpression.value === 'type' &&
                         expression.leftExpression.arguments.length === 1 &&

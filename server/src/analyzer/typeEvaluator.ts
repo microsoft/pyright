@@ -7255,13 +7255,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const isPositiveTest = !!(flowNode.flags & FlowFlags.TrueCondition);
 
         if (testExpression.nodeType === ParseNodeType.BinaryOperation) {
-            if (testExpression.operator === OperatorType.Is || testExpression.operator === OperatorType.IsNot) {
+            const isOrIsNotOperator = testExpression.operator === OperatorType.Is ||
+                testExpression.operator === OperatorType.IsNot;
+            const equalsOrNotEqualsOperator = testExpression.operator === OperatorType.Equals ||
+                testExpression.operator === OperatorType.NotEquals;
+
+            if (isOrIsNotOperator || equalsOrNotEqualsOperator) {
                 // Invert the "isPositiveTest" value if this is an "is not" operation.
-                const adjIsPositiveTest = testExpression.operator === OperatorType.Is ?
+                const adjIsPositiveTest = (testExpression.operator === OperatorType.Is ||
+                        testExpression.operator === OperatorType.Equals) ?
                     isPositiveTest : !isPositiveTest;
 
-                // Look for "X is None" or "X is not None". These are commonly-used
-                // patterns used in control flow.
+                // Look for "X is None", "X is not None", "X == None", and "X != None".
+                // These are commonly-used patterns used in control flow.
                 if (testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
                     testExpression.rightExpression.constType === KeywordType.None) {
 
@@ -7296,7 +7302,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 // Look for "type(X) is Y" or "type(X) is not Y".
-                if (testExpression.leftExpression.nodeType === ParseNodeType.Call) {
+                if (isOrIsNotOperator && testExpression.leftExpression.nodeType === ParseNodeType.Call) {
                     const callType = getTypeOfExpression(testExpression.leftExpression.leftExpression).type;
                     if (callType.category === TypeCategory.Class &&
                         ClassType.isBuiltIn(callType, 'type') &&
