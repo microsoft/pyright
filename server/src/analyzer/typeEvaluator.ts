@@ -5784,10 +5784,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case ParameterCategory.VarArgList: {
-                const listType = getBuiltInType(node, 'List');
-
-                if (listType.category === TypeCategory.Class) {
-                    return ObjectType.create(ClassType.cloneForSpecialization(listType, [type]));
+                // Create a Tuple[X, ...] type.
+                const tupleType = getTypingType(node, 'Tuple');
+                if (tupleType && tupleType.category === TypeCategory.Class) {
+                    return ObjectType.create(ClassType.cloneForSpecialization(tupleType, [type, AnyType.create(true)]));
                 }
 
                 return UnknownType.create();
