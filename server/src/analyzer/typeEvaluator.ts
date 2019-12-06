@@ -8074,9 +8074,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (pushSymbolResolution(symbol, decl)) {
                 let type = getInferredTypeOfDeclaration(decl);
 
-                if (!popSymbolResolution(symbol)) {
-                    // We hit a recursion.
-                } else if (type) {
+                popSymbolResolution(symbol);
+
+                if (type) {
                     const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
 
                     type = stripLiteralTypeArgsValue(type);

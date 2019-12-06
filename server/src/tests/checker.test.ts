@@ -908,3 +908,8 @@ test('Final2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final2.py']);
     validateResults(analysisResults, 2);
 });
+
+test('InferredTypes1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inferredTypes1.py']);
+    validateResults(analysisResults, 0);
+});
