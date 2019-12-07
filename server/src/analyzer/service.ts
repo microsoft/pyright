@@ -124,11 +124,6 @@ export class AnalyzerService {
         this._scheduleReanalysis(false);
     }
 
-    markFilesChanged(fileList: string[]) {
-        this._program.markFilesDirty(fileList);
-        this._scheduleReanalysis(false);
-    }
-
     getDefinitionForPosition(filePath: string, position: DiagnosticTextPosition):
             DocumentTextRange[] | undefined {
 
