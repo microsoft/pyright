@@ -8503,7 +8503,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
                     } else if (destTypeParam.isContravariant) {
                         if (!canAssignType(srcTypeArg, destTypeArg, diag.createAddendum(),
-                            typeVarMap, CanAssignFlags.Default, recursionCount + 1)) {
+                            typeVarMap, CanAssignFlags.ReverseTypeVarMatching, recursionCount + 1)) {
 
                             return false;
                         }
@@ -8516,6 +8516,69 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 }
             }
+        }
+
+        return true;
+    }
+
+    // Assigns the source type to the dest type var in the type map. If an existing type is
+    // already associated with that type var name, it attempts to either widen or narrow
+    // the type (depending on the value of the widenType parameter).
+    function performTypeVarMatching(destType: TypeVarType, srcType: Type, widenType: boolean,
+        diag: DiagnosticAddendum, typeVarMap: TypeVarMap, flags = CanAssignFlags.Default, recursionCount = 0): boolean {
+
+        const existingTypeVarMapping = typeVarMap.get(destType.name);
+        if (existingTypeVarMapping) {
+            const diagAddendum = new DiagnosticAddendum();
+            if (widenType) {
+                // Handle the widen case.
+                if (!canAssignType(existingTypeVarMapping, srcType, diagAddendum,
+                    typeVarMap, flags, recursionCount + 1)) {
+
+                    if (canAssignType(srcType, existingTypeVarMapping, new DiagnosticAddendum(),
+                        typeVarMap, flags, recursionCount + 1)) {
+
+                        // Widen the type.
+                        typeVarMap.set(destType.name, srcType);
+                    } else {
+                        // Create a union, widening the type.
+                        const combinedType = combineTypes([existingTypeVarMapping, srcType]);
+
+                        // If the TypeVar is constrained, the widened type needs to match
+                        // one of the types uniquely, not the union of all constrained types.
+                        if (destType.constraints.length > 0) {
+                            if (!destType.constraints.some(constraintType =>
+                                    canAssignType(constraintType, combinedType, new DiagnosticAddendum()))) {
+
+                                diag.addMessage(`Type '${printType(srcType)}' cannot be assigned to ` +
+                                    `type '${printType(existingTypeVarMapping)}'`);
+                                return false;
+                            }
+                        }
+
+                        typeVarMap.set(destType.name, combinedType);
+                    }
+                }
+            } else {
+                // Handle the narrowing case (used for contravariant type matching).
+                if (!canAssignType(srcType, existingTypeVarMapping, diagAddendum,
+                    typeVarMap, flags, recursionCount + 1)) {
+
+                    if (canAssignType(existingTypeVarMapping, srcType, new DiagnosticAddendum(),
+                        typeVarMap, flags, recursionCount + 1)) {
+
+                        // Narrow the type.
+                        typeVarMap.set(destType.name, srcType);
+                    } else {
+                        diag.addMessage(`Type '${printType(srcType)}' cannot be assigned to ` +
+                            `type '${printType(existingTypeVarMapping)}'`);
+                        return false;
+                    }
+                }
+            }
+        } else {
+            // Assign the type to the type var.
+            typeVarMap.set(destType.name, srcType);
         }
 
         return true;
@@ -8545,43 +8608,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return true;
         }
 
+        // Strip the ReverseTypeVarMatching from the incoming flags.
+        // We don't want to propagate this flag to any nested calls to
+        // canAssignType.
+        const reverseTypeVarMatching = (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0;
+        flags &= ~CanAssignFlags.ReverseTypeVarMatching;
+
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
         if (destType.category === TypeCategory.TypeVar) {
             if (typeVarMap) {
-                const existingTypeVarMapping = typeVarMap.get(destType.name);
-                if (existingTypeVarMapping) {
-                    const diagAddendum = new DiagnosticAddendum();
-                    if (!canAssignType(existingTypeVarMapping, srcType, diagAddendum,
+                if (!performTypeVarMatching(destType, srcType, true, diag,
                         typeVarMap, flags, recursionCount + 1)) {
 
-                        if (canAssignType(srcType, existingTypeVarMapping, new DiagnosticAddendum(),
-                            typeVarMap, flags, recursionCount + 1)) {
-
-                            // Widen the type.
-                            typeVarMap.set(destType.name, srcType);
-                        } else {
-                            // Create a union, widening the type.
-                            const combinedType = combineTypes([existingTypeVarMapping, srcType]);
-
-                            // If the TypeVar is constrained, the widened type needs to match
-                            // one of the types uniquely, not the union of all constrained types.
-                            if (destType.constraints.length > 0) {
-                                if (!destType.constraints.some(constraintType =>
-                                        canAssignType(constraintType, combinedType, new DiagnosticAddendum()))) {
-
-                                    diag.addMessage(`Type '${printType(srcType)}' cannot be assigned to ` +
-                                        `type '${printType(existingTypeVarMapping)}'`);
-                                    return false;
-                                }
-                            }
-
-                            typeVarMap.set(destType.name, combinedType);
-                        }
-                    }
-                } else {
-                    // Assign the type to the type var.
-                    typeVarMap.set(destType.name, srcType);
+                    return false;
                 }
             }
 
@@ -8593,10 +8633,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         if (srcType.category === TypeCategory.TypeVar) {
-            // This should happen only if we have a bug and forgot to specialize
-            // the source type or the code being analyzed contains a bug where
-            // a return type uses a type var that is not referenced elsewhere
-            // in a function.
+            // In most cases, the source type will be specialized before
+            // canAssignType is called, so we won't get here. However, there
+            // are cases where this can occur (e.g. when we swap the src and dest
+            // types because they are contravariant).
+            if (reverseTypeVarMatching && typeVarMap) {
+                if (!performTypeVarMatching(srcType, destType, false, diag,
+                        typeVarMap, flags, recursionCount + 1)) {
+
+                    return false;
+                }
+
+                return canAssignToTypeVar(srcType, destType, diag, flags, recursionCount + 1);
+            }
+
             const specializedSrcType = specializeTypeVarType(srcType);
             return canAssignType(destType, specializedSrcType, diag,
                 undefined, flags, recursionCount + 1);
@@ -8898,7 +8948,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             // Call canAssignType once to perform any typeVarMap population.
             canAssignType(srcParamType, destParamType, paramDiag.createAddendum(),
-                typeVarMap, CanAssignFlags.Default, recursionCount + 1);
+                typeVarMap, CanAssignFlags.ReverseTypeVarMatching, recursionCount + 1);
 
             // Make sure we can assign the specialized dest type to the
             // source type.
