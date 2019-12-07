@@ -33,7 +33,7 @@
         "@types/command-line-args": "^5.0.0",
         "@types/fs-extra": "^8.0.1",
         "@types/jest": "^24.0.23",
-        "@types/node": "^12.12.12",
+        "@types/node": "^12.12.14",
         "fs-extra": "^8.1.0",
         "jest": "^24.9.0",
         "node-loader": "^0.6.0",
@@ -41,7 +41,7 @@
         "ts-loader": "^6.2.1",
         "tslint": "^5.20.1",
         "tslint-microsoft-contrib": "^6.2.0",
-        "typescript": "^3.7.2",
+        "typescript": "^3.7.3",
         "webpack": "^4.41.2",
         "webpack-cli": "^3.3.10"
     },
