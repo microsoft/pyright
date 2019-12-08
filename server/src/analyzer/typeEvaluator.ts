@@ -233,6 +233,8 @@ export interface TypeEvaluator {
     getTypeOfMember: (member: ClassMember) => Type;
     bindFunctionToClassOrObject: (baseType: ClassType | ObjectType | undefined,
         memberType: Type, treatAsClassMember: boolean) => Type;
+    getBoundMethod: (classType: ClassType, memberName: string, treatAsClassMember: boolean) =>
+            FunctionType | OverloadedFunctionType | undefined;
 
     canAssignType: (destType: Type, srcType: Type, diag: DiagnosticAddendum,
         typeVarMap?: TypeVarMap) => boolean;
@@ -688,6 +690,37 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return resultType;
+    }
+
+    function getBoundMethod(classType: ClassType, memberName: string, treatAsClassMember: boolean):
+            FunctionType | OverloadedFunctionType | undefined {
+
+        const aliasClass = classType.details.aliasClass;
+        if (aliasClass) {
+            classType = aliasClass;
+        }
+
+        const memberInfo = lookUpClassMember(classType, memberName,
+            importLookup, ClassMemberLookupFlags.SkipInstanceVariables |
+                ClassMemberLookupFlags.SkipObjectBaseClass);
+
+        if (memberInfo) {
+            const unboundMethodType = getTypeOfMember(memberInfo);
+            if (unboundMethodType.category === TypeCategory.Function ||
+                    unboundMethodType.category === TypeCategory.OverloadedFunction) {
+
+                const boundMethod = bindFunctionToClassOrObject(
+                    ObjectType.create(classType), unboundMethodType, treatAsClassMember);
+
+                if (boundMethod.category === TypeCategory.Function ||
+                        boundMethod.category === TypeCategory.OverloadedFunction) {
+
+                    return boundMethod;
+                }
+            }
+        }
+
+        return undefined;
     }
 
     // Determines whether the specified expression is a symbol with a declared type
@@ -4780,6 +4813,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     FunctionType.addParameter(functionType, {
                         category: ParameterCategory.Simple,
                         name: `p${index.toString()}`,
+                        isNameSynthesized: true,
                         type: convertClassToObject(entry.type)
                     });
                 });
@@ -9597,6 +9631,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         getBuiltInType,
         getTypeOfMember,
         bindFunctionToClassOrObject,
+        getBoundMethod,
         canAssignType,
         canOverrideMethod,
         addError,

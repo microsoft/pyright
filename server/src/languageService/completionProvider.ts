@@ -22,18 +22,18 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { TypeCategory } from '../analyzer/types';
+import { FunctionType, OverloadedFunctionType, TypeCategory } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
-import { DiagnosticTextPosition } from '../common/diagnostic';
+import { comparePositions, DiagnosticTextPosition } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
-import { convertPositionToOffset } from '../common/positionUtils';
+import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
-import { ErrorExpressionCategory, ErrorNode, ExpressionNode, FunctionNode,
-    ImportFromNode, isExpressionNode, ModuleNameNode, NameNode, ParameterCategory,
-    ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { CallNode, ErrorExpressionCategory, ErrorNode, ExpressionNode,
+    FunctionNode, ImportFromNode, isExpressionNode, ModuleNameNode, NameNode,
+    ParameterCategory, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { TokenType } from '../parser/tokenizerTypes';
 
@@ -89,6 +89,9 @@ enum SortCategory {
 
     // A module name used in an import statement.
     ImportModuleName,
+
+    // A named parameter in a call expression.
+    NamedParameter,
 
     // A keyword or symbol that was recently used for completion.
     RecentKeywordOrSymbol,
@@ -514,6 +517,18 @@ export class CompletionProvider {
 
         const completionList = CompletionList.create();
 
+        // If we're within the argument list of a call, add parameter names.
+        const callNode = this._getCallNode(parseNode);
+        if (callNode) {
+            // Are we past the call expression and within the argument list?
+            const callNameEnd = convertOffsetToPosition(
+                callNode.leftExpression.start + callNode.leftExpression.length,
+                this._parseResults.tokenizerOutput.lines);
+            if (comparePositions(this._position, callNameEnd) > 0) {
+                this._addNamedParameters(callNode, priorWord, completionList);
+            }
+        }
+
         // Add symbols.
         this._addSymbols(parseNode, priorWord, completionList);
 
@@ -533,6 +548,20 @@ export class CompletionProvider {
         }
 
         return completionList;
+    }
+
+    private _getCallNode(parseNode: ParseNode): CallNode | undefined {
+        let curParseNode: ParseNode | undefined = parseNode;
+
+        while (curParseNode) {
+            if (curParseNode.nodeType === ParseNodeType.Call) {
+                return curParseNode;
+            }
+
+            curParseNode = curParseNode.parent;
+        }
+
+        return undefined;
     }
 
     private _getAutoImportCompletions(priorWord: string, completionList: CompletionList) {
@@ -704,6 +733,102 @@ export class CompletionProvider {
                 return StringUtils.computeCompletionSimilarity(partialMatch, keyword) > similarityLimit;
             } else {
                 return true;
+            }
+        });
+    }
+
+    private _addNamedParameters(callNode: CallNode, priorWord: string, completionList: CompletionList) {
+        const callType = this._evaluator.getType(callNode.leftExpression);
+        if (!callType) {
+            return;
+        }
+
+        const argNameMap = new Map<string, string>();
+
+        doForSubtypes(callType, subtype => {
+            switch (subtype.category) {
+                case TypeCategory.Function:
+                case TypeCategory.OverloadedFunction: {
+                    this._addNamedParametersToMap(subtype, argNameMap);
+                    break;
+                }
+
+                case TypeCategory.Object: {
+                    const methodType = this._evaluator.getBoundMethod(
+                        subtype.classType, '__call__', false);
+                    if (methodType) {
+                        this._addNamedParametersToMap(methodType, argNameMap);
+                    }
+                    break;
+                }
+
+                case TypeCategory.Class: {
+                    // Try to get the __new__ method first. We skip the base "object",
+                    // which typically provides the __new__ method. We'll fall back on
+                    // the __init__ if there is no custom __new__.
+                    let methodType = this._evaluator.getBoundMethod(subtype, '__new__', true);
+                    if (!methodType) {
+                        methodType = this._evaluator.getBoundMethod(subtype, '__init__',  false);
+                    }
+                    if (methodType) {
+                        if (methodType.category === TypeCategory.Function ||
+                                methodType.category === TypeCategory.OverloadedFunction) {
+
+                            this._addNamedParametersToMap(methodType, argNameMap);
+                        }
+                    }
+                    break;
+                }
+            }
+
+            return undefined;
+        });
+
+        // Remove any named parameters that are already provided.
+        callNode.arguments.forEach(arg => {
+            if (arg.name) {
+                argNameMap.delete(arg.name.value);
+            }
+        });
+
+        // Add the remaining unique parameter names to the completion list.
+        argNameMap.forEach(argName => {
+            const similarity = StringUtils.computeCompletionSimilarity(priorWord, argName);
+
+            if (similarity > similarityLimit) {
+                const completionItem = CompletionItem.create(argName);
+                completionItem.kind = CompletionItemKind.Variable;
+
+                const completionItemData: CompletionItemData = {
+                    workspacePath: this._workspacePath,
+                    filePath: this._filePath,
+                    position: this._position
+                };
+                completionItem.data = completionItemData;
+                completionItem.sortText = this._makeSortText(SortCategory.NamedParameter, argName);
+
+                completionList.items.push(completionItem);
+            }
+        });
+    }
+
+    private _addNamedParametersToMap(type: FunctionType | OverloadedFunctionType,
+            paramMap: Map<string, string>) {
+
+        if (type.category === TypeCategory.OverloadedFunction) {
+            type.overloads.forEach(overload => {
+                this._addNamedParametersToMap(overload, paramMap);
+            });
+            return;
+        }
+
+        type.details.parameters.forEach(param => {
+            if (param.name && !param.isNameSynthesized) {
+                // Don't add private or protected names. These are assumed
+                // not to be named parameters.
+                if (!SymbolNameUtils.isPrivateOrProtectedName(param.name)) {
+                    paramMap.set(param.name, param.name);
+                }
             }
         });
     }

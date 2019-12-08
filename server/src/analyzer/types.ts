@@ -521,6 +521,7 @@ export namespace ObjectType {
 export interface FunctionParameter {
     category: ParameterCategory;
     name?: string;
+    isNameSynthesized?: boolean;
     hasDefault?: boolean;
     type: Type;
 }
