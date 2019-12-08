@@ -255,6 +255,7 @@ export class AnalyzerService {
         }
 
         const configOptions = new ConfigOptions(projectRoot);
+        const defaultExcludes = ['**/node_modules', '**/__pycache__'];
 
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach(fileSpec => {
@@ -266,6 +267,11 @@ export class AnalyzerService {
             // files under the execution root path.
             if (commandLineOptions.executionRoot) {
                 configOptions.include.push(getFileSpec('', commandLineOptions.executionRoot));
+
+                // Add a few common excludes to avoid long scan times.
+                defaultExcludes.forEach(exclude => {
+                    configOptions.exclude.push(getFileSpec(exclude, commandLineOptions.executionRoot));
+                });
             }
         }
 
@@ -283,6 +289,14 @@ export class AnalyzerService {
                 if (configOptions.include.length === 0) {
                     this._console.log(`No include entries specified; assuming ${ configFilePath }`);
                     configOptions.include.push(getFileSpec('', getDirectoryPath(configFilePath)));
+                }
+
+                // If there was no explicit set of excludes, add a few common ones to avoid long scan times.
+                if (configOptions.exclude.length === 0) {
+                    defaultExcludes.forEach(exclude => {
+                        this._console.log(`Auto-excluding ${ exclude }`);
+                        configOptions.exclude.push(getFileSpec(exclude, commandLineOptions.executionRoot));
+                    });
                 }
             }
             this._updateConfigFileWatcher();
