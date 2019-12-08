@@ -58,7 +58,7 @@ export class AnalyzerService {
     private _typeStubTargetPath: string | undefined;
     private _typeStubTargetIsSingleFile = false;
     private _console: ConsoleInterface;
-    private _sourceFileWatcher: (fs.FSWatcher | undefined)[] | undefined;
+    private _sourceFileWatcher: fs.FSWatcher | undefined;
     private _reloadConfigTimer: any;
     private _configFilePath: string | undefined;
     private _configFileWatcher: fs.FSWatcher | undefined;
@@ -686,11 +686,7 @@ export class AnalyzerService {
 
     private _removeSourceFileWatchers() {
         if (this._sourceFileWatcher) {
-            this._sourceFileWatcher.forEach(watcher => {
-                if (watcher) {
-                    watcher.close();
-                }
-            });
+            this._sourceFileWatcher.close();
             this._sourceFileWatcher = undefined;
         }
     }
@@ -712,30 +708,26 @@ export class AnalyzerService {
                 return combinePaths(this._executionRootPath, spec.wildcardRoot);
             });
 
-            this._sourceFileWatcher = fileList.map(fileSpec => {
-                try {
+            try {
+                if (this._verboseOutput) {
+                    this._console.log(`Adding fs watcher for directories:\n ${ fileList.join('\n') }`);
+                }
+
+                this._sourceFileWatcher = this._createFileSystemWatcher(fileList).on('all', (event, path) => {
                     if (this._verboseOutput) {
-                        this._console.log(`Adding file system watcher for ${ fileSpec }`);
+                        this._console.log(`Received fs event '${ event }' for path '${ path }'`);
                     }
 
-                    return this._createDirectoryWatcher(fileSpec)
-                    .on('all', (event, path) => {
-                        if (this._verboseOutput) {
-                            this._console.log(`Received fs event '${ event }' for path '${ path }'`);
-                        }
-
-                        if (event === 'change') {
-                            this._program.markFilesDirty([path]);
-                            this._scheduleReanalysis(false);
-                        } else {
-                            this._scheduleReanalysis(true);
-                        }
-                    });
-                } catch {
-                    this._console.log(`Exception caught when trying to install file system watcher for (${ fileSpec })`);
-                    return undefined;
-                }
-            });
+                    if (event === 'change') {
+                        this._program.markFilesDirty([path]);
+                        this._scheduleReanalysis(false);
+                    } else {
+                        this._scheduleReanalysis(true);
+                    }
+                });
+            } catch {
+                this._console.log(`Exception caught when installing fs watcher for:\n ${ fileList.join('\n') }`);
+            }
         }
     }
 
@@ -746,7 +738,7 @@ export class AnalyzerService {
         }
     }
 
-    private _createDirectoryWatcher(path: string): chokidar.FSWatcher {
+    private _createFileSystemWatcher(paths: string[]): chokidar.FSWatcher {
         // The following options are copied from VS Code source base. It also
         // uses chokidar for its file watching.
         const watcherOptions: chokidar.WatchOptions = {
@@ -765,15 +757,17 @@ export class AnalyzerService {
         }
 
         const excludes: string[] = [];
-        if ((_isMacintosh || _isLinux) && (path.length === 0 || path === '/')) {
-            excludes.push('/dev/**');
-            if (_isLinux) {
-                excludes.push('/proc/**', '/sys/**');
+        if (_isMacintosh || _isLinux) {
+            if (paths.some(path => path === '' || path === '/')) {
+                excludes.push('/dev/**');
+                if (_isLinux) {
+                    excludes.push('/proc/**', '/sys/**');
+                }
             }
         }
         watcherOptions.ignored = excludes;
 
-        const watcher = chokidar.watch(path, watcherOptions);
+        const watcher = chokidar.watch(paths, watcherOptions);
         watcher.on('error', _ => {
             this._console.log('Error returned from file system watcher.');
         });
@@ -790,7 +784,7 @@ export class AnalyzerService {
         this._removeConfigFileWatcher();
 
         if (this._watchForChanges && this._configFilePath) {
-            this._configFileWatcher = this._createDirectoryWatcher(this._configFilePath)
+            this._configFileWatcher = this._createFileSystemWatcher([this._configFilePath])
             .on('all', event => {
                 if (this._verboseOutput) {
                     this._console.log(`Received fs event '${ event }' for config file`);
