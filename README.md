@@ -67,6 +67,10 @@ To update to the latest version:
 `sudo npm update -g pyright`
 
 
+## Using Pyright with VS Code Python Extension
+Pyright provides some features that overlap with functionality provided by the standard VS Code Python extension: “hover”, type completion, definitions, references, rename symbols, etc. You may see duplicate results if Pyright is installed alongside the Python extension. There is currently no way to disable this functionality in the Python extension. If you want to disable these features in Pyright, there is a setting to do so: `pyright.disableLanguageServices`.
+
+
 ## Documentation
 * [Getting Started with Type Checking](/docs/getting-started.md)
 * [Command-line Options](/docs/command-line.md)
