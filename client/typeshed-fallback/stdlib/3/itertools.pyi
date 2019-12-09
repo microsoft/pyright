@@ -10,6 +10,9 @@ _S = TypeVar('_S')
 _N = TypeVar('_N', int, float)
 Predicate = Callable[[_T], object]
 
+@overload
+def count() -> Iterator[int]: ...
+@overload
 def count(start: _N = ...,
           step: _N = ...) -> Iterator[_N]: ...  # more general types?
 def cycle(iterable: Iterable[_T]) -> Iterator[_T]: ...
