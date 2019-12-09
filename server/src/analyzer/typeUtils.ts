@@ -7,6 +7,7 @@
 * Collection of functions that operate on Type objects.
 */
 
+import { types } from '@babel/core';
 import { ParameterCategory } from '../parser/parseNodes';
 import { ImportLookup } from './analyzerFileInfo';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
@@ -680,33 +681,13 @@ export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] 
                 typeArgType = typeArgs[index];
             }
         } else {
-            typeArgType = specializeTypeVarType(typeParam);
+            typeArgType = getConcreteTypeFromTypeVar(typeParam);
         }
 
         typeArgMap.set(typeVarName, typeArgType);
     });
 
     return typeArgMap;
-}
-
-// Converts a type var type into the most specific type
-// that fits the specified constraints.
-export function specializeTypeVarType(type: TypeVarType): Type {
-    const subtypes: Type[] = [];
-    type.constraints.forEach(constraint => {
-        subtypes.push(constraint);
-    });
-
-    const boundType = type.boundType;
-    if (boundType) {
-        subtypes.push(boundType);
-    }
-
-    if (subtypes.length === 0) {
-        return AnyType.create();
-    }
-
-    return combineTypes(subtypes);
 }
 
 export function cloneTypeVarMap(typeVarMap: TypeVarMap): TypeVarMap {
@@ -1016,7 +997,7 @@ function _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap | und
             } else {
                 // If the type var map wasn't provided or doesn't contain this
                 // type var, specialize the type var.
-                typeArgType = specializeTypeVarType(typeParam);
+                typeArgType = getConcreteTypeFromTypeVar(typeParam);
                 if (typeArgType !== typeParam) {
                     specializationNeeded = true;
                 }
@@ -1034,22 +1015,25 @@ function _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap | und
     return ClassType.cloneForSpecialization(classType, newTypeArgs);
 }
 
+// Converts a type var type into the most specific type
+// that fits the specified constraints.
 export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0): Type {
-    const boundType = type.boundType;
-    if (boundType) {
-        return specializeType(boundType, undefined, false, recursionLevel + 1);
+    if (type.boundType) {
+        return specializeType(type.boundType, undefined, false, recursionLevel + 1);
     }
 
-    const constraints = type.constraints;
-    if (constraints.length === 0) {
-        return AnyType.create();
+    // We can't use constraints to determine the type because
+    // we need to match exactly one, and we can't express that
+    // in a Union. The best we can do is to convert it to an
+    // unknown.
+    if (type.constraints.length > 0) {
+        return UnknownType.create();
     }
 
-    const concreteTypes = constraints.map(constraint =>
-        specializeType(constraint, undefined, false, recursionLevel + 1)
-    );
-
-    return combineTypes(concreteTypes);
+    // TODO - we currently convert to Any, but this should
+    // probably be Unknown. We need to assess the compatibility
+    // impact of making this change.
+    return AnyType.create();
 }
 
 function _specializeOverloadedFunctionType(type: OverloadedFunctionType,

@@ -57,9 +57,8 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar, getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType, getMetaclass, getSpecializedTupleType, getTypeVarArgumentsRecursive,
     isEllipsisType, isNoReturnType, isOptionalType, isProperty, lookUpClassMember,
-    lookUpObjectMember, partiallySpecializeType, printLiteralType,
-    printLiteralValue, removeFalsinessFromType, removeTruthinessFromType, requiresSpecialization,
-    selfSpecializeClassType, specializeType, specializeTypeVarType, stripFirstParameter,
+    lookUpObjectMember, partiallySpecializeType, printLiteralType, printLiteralValue, removeFalsinessFromType,
+    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, specializeType, stripFirstParameter,
     stripLiteralTypeArgsValue, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
@@ -2020,7 +2019,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // If the type arg is a type var itself, specialize it in
                 // case it's bound or constrained.
                 if (firstTypeArg.category === TypeCategory.TypeVar) {
-                    firstTypeArg = specializeTypeVarType(firstTypeArg);
+                    firstTypeArg = getConcreteTypeFromTypeVar(firstTypeArg);
                 }
 
                 if (firstTypeArg.category === TypeCategory.Object) {
@@ -7635,7 +7634,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             t => convertClassToObject(t.type)) : [];
         const typeParams = ClassType.getTypeParameters(classType);
         for (let i = typeArgTypes.length; i < typeParams.length; i++) {
-            typeArgTypes.push(specializeTypeVarType(typeParams[i]));
+            typeArgTypes.push(getConcreteTypeFromTypeVar(typeParams[i]));
         }
 
         typeArgTypes.forEach((typeArgType, index) => {
@@ -8702,7 +8701,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 return true;
             }
 
-            const specializedSrcType = specializeTypeVarType(srcType);
+            const specializedSrcType = getConcreteTypeFromTypeVar(srcType);
             return canAssignType(destType, specializedSrcType, diag,
                 undefined, flags, recursionCount + 1);
         }
