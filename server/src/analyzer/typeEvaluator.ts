@@ -3098,66 +3098,85 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         let returnType: Type | undefined;
 
-        if (isAnyOrUnknown(callType)) {
-            // Touch all of the args so they're marked accessed.
-            argList.forEach(arg => getTypeForArgument(arg));
-            returnType = callType;
-        } else if (callType.category === TypeCategory.Function) {
-            returnType = validateFunctionArguments(errorNode, argList, callType, typeVarMap);
-        } else if (callType.category === TypeCategory.OverloadedFunction) {
-            const overloadedFunctionType = findOverloadedFunctionType(
-                errorNode, argList, callType);
-            if (overloadedFunctionType) {
-                returnType = validateFunctionArguments(errorNode,
-                    argList, overloadedFunctionType, typeVarMap);
-            } else {
-                const exprString = ParseTreeUtils.printExpression(errorNode);
-                const diagAddendum = new DiagnosticAddendum();
-                const argTypes = argList.map(t => printType(getTypeForArgument(t)));
-                diagAddendum.addMessage(`Argument types: (${argTypes.join(', ')})`);
-                addError(
-                    `No overloads for '${exprString}' match parameters` + diagAddendum.getString(),
-                    errorNode);
+        switch (callType.category) {
+            case TypeCategory.Unknown:
+            case TypeCategory.Any: {
+                // Touch all of the args so they're marked accessed.
+                argList.forEach(arg => getTypeForArgument(arg));
+                returnType = callType;
+                break;
             }
-        } else if (callType.category === TypeCategory.Class) {
-            if (!ClassType.isSpecialBuiltIn(callType)) {
-                returnType = validateConstructorArguments(errorNode, argList, callType);
-            } else {
-                addError(
-                    `'${callType.details.name}' cannot be instantiated`,
-                    errorNode);
-            }
-        } else if (callType.category === TypeCategory.Object) {
-            const memberType = getTypeFromObjectMember(errorNode,
-                callType, '__call__', { method: 'get' }, new DiagnosticAddendum(),
-                MemberAccessFlags.SkipForMethodLookup);
 
-            if (memberType && memberType.category === TypeCategory.Function) {
-                const callMethodType = stripFirstParameter(memberType);
-                returnType = validateCallArguments(
-                    errorNode, argList, callMethodType, typeVarMap);
+            case TypeCategory.Function: {
+                returnType = validateFunctionArguments(errorNode, argList, callType, typeVarMap);
+                break;
             }
-        } else if (callType.category === TypeCategory.Union) {
-            const returnTypes: Type[] = [];
 
-            for (const type of callType.subtypes) {
-                if (isNoneOrNever(type)) {
-                    addDiagnostic(
-                        getFileInfo(errorNode).diagnosticSettings.reportOptionalCall,
-                        DiagnosticRule.reportOptionalCall,
-                        `Object of type 'None' cannot be called`,
-                        errorNode);
+            case TypeCategory.OverloadedFunction: {
+                const overloadedFunctionType = findOverloadedFunctionType(
+                    errorNode, argList, callType);
+                if (overloadedFunctionType) {
+                    returnType = validateFunctionArguments(errorNode,
+                        argList, overloadedFunctionType, typeVarMap);
                 } else {
-                    const entryReturnType = validateCallArguments(
-                        errorNode, argList, type, typeVarMap);
-                    if (entryReturnType) {
-                        returnTypes.push(entryReturnType);
+                    const exprString = ParseTreeUtils.printExpression(errorNode);
+                    const diagAddendum = new DiagnosticAddendum();
+                    const argTypes = argList.map(t => printType(getTypeForArgument(t)));
+                    diagAddendum.addMessage(`Argument types: (${argTypes.join(', ')})`);
+                    addError(
+                        `No overloads for '${exprString}' match parameters` + diagAddendum.getString(),
+                        errorNode);
+                }
+                break;
+            }
+
+            case TypeCategory.Class: {
+                if (!ClassType.isSpecialBuiltIn(callType)) {
+                    returnType = validateConstructorArguments(errorNode, argList, callType);
+                } else {
+                    addError(
+                        `'${callType.details.name}' cannot be instantiated`,
+                        errorNode);
+                }
+                break;
+            }
+
+            case TypeCategory.Object: {
+                const memberType = getTypeFromObjectMember(errorNode,
+                    callType, '__call__', { method: 'get' }, new DiagnosticAddendum(),
+                    MemberAccessFlags.SkipForMethodLookup);
+
+                if (memberType && memberType.category === TypeCategory.Function) {
+                    const callMethodType = stripFirstParameter(memberType);
+                    returnType = validateCallArguments(
+                        errorNode, argList, callMethodType, typeVarMap);
+                }
+                break;
+            }
+
+            case TypeCategory.Union: {
+                const returnTypes: Type[] = [];
+
+                for (const type of callType.subtypes) {
+                    if (isNoneOrNever(type)) {
+                        addDiagnostic(
+                            getFileInfo(errorNode).diagnosticSettings.reportOptionalCall,
+                            DiagnosticRule.reportOptionalCall,
+                            `Object of type 'None' cannot be called`,
+                            errorNode);
+                    } else {
+                        const entryReturnType = validateCallArguments(
+                            errorNode, argList, type, typeVarMap);
+                        if (entryReturnType) {
+                            returnTypes.push(entryReturnType);
+                        }
                     }
                 }
-            }
 
-            if (returnTypes.length > 0) {
-                returnType = combineTypes(returnTypes);
+                if (returnTypes.length > 0) {
+                    returnType = combineTypes(returnTypes);
+                }
+                break;
             }
         }
 
