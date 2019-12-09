@@ -8562,57 +8562,78 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         diag: DiagnosticAddendum, typeVarMap: TypeVarMap, flags = CanAssignFlags.Default, recursionCount = 0): boolean {
 
         const existingTypeVarMapping = typeVarMap.get(destType.name);
-        if (existingTypeVarMapping) {
-            const diagAddendum = new DiagnosticAddendum();
-            if (widenType) {
-                // Handle the widen case.
-                if (!canAssignType(existingTypeVarMapping, srcType, diagAddendum,
-                    typeVarMap, flags, recursionCount + 1)) {
 
-                    if (canAssignType(srcType, existingTypeVarMapping, new DiagnosticAddendum(),
-                        typeVarMap, flags, recursionCount + 1)) {
+        // Handle the constrained case.
+        if (destType.constraints.length > 0) {
+            // Find the first constrained type that is compatible.
+            const constrainedType = destType.constraints.find(constraintType => {
+                return canAssignType(constraintType, srcType, new DiagnosticAddendum());
+            });
 
-                        // Widen the type.
-                        typeVarMap.set(destType.name, srcType);
-                    } else {
-                        // Create a union, widening the type.
-                        const combinedType = combineTypes([existingTypeVarMapping, srcType]);
+            if (!constrainedType) {
+                diag.addMessage(`Type '${printType(srcType)}' is not compatible with ` +
+                    `constraints imposed by TypeVar '${destType.name}'`);
+                return false;
+            }
 
-                        // If the TypeVar is constrained, the widened type needs to match
-                        // one of the types uniquely, not the union of all constrained types.
-                        if (destType.constraints.length > 0) {
-                            if (!destType.constraints.some(constraintType =>
-                                    canAssignType(constraintType, combinedType, new DiagnosticAddendum()))) {
-
-                                diag.addMessage(`Type '${printType(srcType)}' cannot be assigned to ` +
-                                    `type '${printType(existingTypeVarMapping)}'`);
-                                return false;
-                            }
-                        }
-
-                        typeVarMap.set(destType.name, combinedType);
-                    }
+            if (existingTypeVarMapping) {
+                if (!isTypeSame(existingTypeVarMapping, constrainedType)) {
+                    diag.addMessage(`Type '${printType(srcType)}' is not compatible with ` +
+                        `constrained type '${printType(existingTypeVarMapping)}'`);
+                    return false;
                 }
             } else {
-                // Handle the narrowing case (used for contravariant type matching).
-                if (!canAssignType(srcType, existingTypeVarMapping, diagAddendum,
-                    typeVarMap, flags, recursionCount + 1)) {
+                // Assign the type to the type var.
+                typeVarMap.set(destType.name, constrainedType);
+            }
+        } else {
+            let updatedType = srcType;
 
-                    if (canAssignType(existingTypeVarMapping, srcType, new DiagnosticAddendum(),
-                        typeVarMap, flags, recursionCount + 1)) {
+            if (existingTypeVarMapping) {
+                const diagAddendum = new DiagnosticAddendum();
+                if (widenType) {
+                    // Handle the widen case.
+                    if (!canAssignType(existingTypeVarMapping, srcType, diagAddendum,
+                            typeVarMap, flags, recursionCount + 1)) {
 
-                        // Narrow the type.
-                        typeVarMap.set(destType.name, srcType);
-                    } else {
+                        if (!canAssignType(srcType, existingTypeVarMapping, new DiagnosticAddendum(),
+                                typeVarMap, flags, recursionCount + 1)) {
+
+                            // Create a union, widening the type.
+                            updatedType = combineTypes([existingTypeVarMapping, srcType]);
+                        }
+                    }
+                } else {
+                    // Handle the narrowing case (used for contravariant type matching).
+                    if (canAssignType(srcType, existingTypeVarMapping, diagAddendum,
+                            typeVarMap, flags, recursionCount + 1)) {
+
+                        updatedType = existingTypeVarMapping;
+                    } else if (!canAssignType(existingTypeVarMapping, srcType, new DiagnosticAddendum(),
+                            typeVarMap, flags, recursionCount + 1)) {
+
                         diag.addMessage(`Type '${printType(srcType)}' cannot be assigned to ` +
                             `type '${printType(existingTypeVarMapping)}'`);
                         return false;
                     }
                 }
+            } else {
+                // Assign the type to the type var.
+                typeVarMap.set(destType.name, srcType);
             }
-        } else {
-            // Assign the type to the type var.
-            typeVarMap.set(destType.name, srcType);
+
+            // If there's a bound type, make sure the source is derived from it.
+            if (destType.boundType) {
+                if (!canAssignType(destType.boundType, updatedType, diag.createAddendum(),
+                        undefined, flags, recursionCount + 1)) {
+
+                    diag.addMessage(`Type '${printType(updatedType)}' is not compatible with ` +
+                        `bound type '${printType(destType.boundType)}' for TypeVar '${destType.name}'`);
+                    return false;
+                }
+            }
+
+            typeVarMap.set(destType.name, updatedType);
         }
 
         return true;
@@ -8659,7 +8680,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             }
 
-            return canAssignToTypeVar(destType, srcType, diag, flags, recursionCount + 1);
+            return true;
         }
 
         if (isAnyOrUnknown(destType) || isAnyOrUnknown(srcType)) {
@@ -8678,7 +8699,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return false;
                 }
 
-                return canAssignToTypeVar(srcType, destType, diag, flags, recursionCount + 1);
+                return true;
             }
 
             const specializedSrcType = specializeTypeVarType(srcType);
