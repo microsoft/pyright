@@ -18,6 +18,7 @@ import { versionToString } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as PythonPathUtils from './pythonPathUtils';
+import { isDunderName } from './symbolNameUtils';
 
 export interface ImportedModuleDescriptor {
     leadingDots: number;
@@ -781,6 +782,16 @@ export class ImportResolver {
 
     private _addUniqueSuggestion(suggestionToAdd: string, suggestions: string[]) {
         if (suggestions.some(s => s === suggestionToAdd)) {
+            return;
+        }
+
+        // Don't add directories with illegal module names.
+        if (suggestionToAdd.indexOf('.') >= 0) {
+            return;
+        }
+
+        // Don't add directories with dunder names like "__pycache__".
+        if (isDunderName(suggestionToAdd)) {
             return;
         }
 
