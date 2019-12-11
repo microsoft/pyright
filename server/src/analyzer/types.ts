@@ -540,7 +540,8 @@ export const enum FunctionTypeFlags {
     Async                   = 1 << 9,
     WrapReturnTypeInAwait   = 1 << 10,
     StubDefinition          = 1 << 11,
-    Final                   = 1 << 12
+    Final                   = 1 << 12,
+    UnannotatedParams       = 1 << 13
 }
 
 interface FunctionDetails {
@@ -682,6 +683,10 @@ export namespace FunctionType {
 
     export function isFinal(type: FunctionType) {
         return (type.details.flags & FunctionTypeFlags.Final) !== 0;
+    }
+
+    export function hasUnannotatedParams(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.UnannotatedParams) !== 0;
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {

@@ -287,6 +287,11 @@ interface SymbolResolutionStackEntry {
     partialType?: Type;
 }
 
+interface ReturnTypeInferenceContext {
+    functionNode: FunctionNode;
+    codeFlowAnalyzer: CodeFlowAnalyzer;
+}
+
 export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     let isSpeculativeMode = false;
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
@@ -296,6 +301,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     const typeCache = new Map<number, CachedType>();
 
+    const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
+    let returnTypeInferenceTypeCache: Map<number, CachedType> | undefined;
+
     function hasGrownTooLarge(): boolean {
         // We may need to discard the evaluator instance and its caches if they
         // grow too large. Otherwise we risk overflowing the heap and getting killed.
@@ -304,7 +312,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function readTypeCache(node: ParseNode): Type | undefined {
-        const cachedType = typeCache.get(node.id);
+        let cachedType: CachedType | undefined;
+
+        // Should we use a temporary cache associated with a contextual
+        // analysis of a function, contextualized based on call-site argument types?
+        if (returnTypeInferenceTypeCache && isNodeInReturnTypeInferenceContext(node)) {
+            cachedType = returnTypeInferenceTypeCache.get(node.id);
+        } else {
+            cachedType = typeCache.get(node.id);
+        }
+
         if (cachedType === undefined) {
             return undefined;
         }
@@ -318,7 +335,44 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function writeTypeCache(node: ParseNode, type: Type) {
         const cachedType = isSpeculativeMode ? { category: partialTypeCategory, type } : type;
-        typeCache.set(node.id, cachedType);
+
+        // Should we use a temporary cache associated with a contextual
+        // analysis of a function, contextualized based on call-site argument types?
+        if (returnTypeInferenceTypeCache && isNodeInReturnTypeInferenceContext(node)) {
+            returnTypeInferenceTypeCache.set(node.id, cachedType);
+        } else {
+            typeCache.set(node.id, cachedType);
+        }
+    }
+
+    // Determines whether the specified node is contained within
+    // the function node corresponding to the function that we
+    // are currently analyzing in the context of parameter types
+    // defined by a call site.
+    function isNodeInReturnTypeInferenceContext(node: ParseNode) {
+        const stackSize = returnTypeInferenceContextStack.length;
+        if (stackSize === 0) {
+            return false;
+        }
+
+        const contextNode = returnTypeInferenceContextStack[stackSize - 1];
+
+        let curNode: ParseNode | undefined = node;
+        while (curNode) {
+            if (curNode === contextNode.functionNode) {
+                return true;
+            }
+            curNode = curNode.parent;
+        }
+
+        return false;
+    }
+
+    function getCodeFlowAnalyzerForReturnTypeInferenceContext() {
+        const stackSize = returnTypeInferenceContextStack.length;
+        assert(stackSize > 0);
+        const contextNode = returnTypeInferenceContextStack[stackSize - 1];
+        return contextNode.codeFlowAnalyzer;
     }
 
     function getIndexOfSymbolResolution(symbol: Symbol, declaration: Declaration) {
@@ -3453,7 +3507,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undefined;
         }
 
-        return specializeType(getFunctionEffectiveReturnType(type), typeVarMap);
+        return specializeType(getFunctionEffectiveReturnType(type, validateArgTypeParams), typeVarMap);
     }
 
     function validateArgType(argParam: ValidateArgTypeParams, typeVarMap: TypeVarMap,
@@ -5756,6 +5810,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         paramTypes.forEach((paramType, index) => {
             const paramNameNode = node.parameters[index].name;
             if (paramNameNode) {
+                if (paramType.category === TypeCategory.Unknown) {
+                    functionType.details.flags |= FunctionTypeFlags.UnannotatedParams;
+                }
                 writeTypeCache(paramNameNode, paramType);
             }
         });
@@ -6887,12 +6944,22 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Is there an code flow analyzer cached for this execution scope?
         const executionNode = ParseTreeUtils.getExecutionScopeNode(reference);
-        let analyzer = codeFlowAnalyzerCache.get(executionNode.id);
+        let analyzer: CodeFlowAnalyzer | undefined;
 
-        if (!analyzer) {
-            // Allocate a new code flow analyzer.
-            analyzer = createCodeFlowAnalyzer();
-            codeFlowAnalyzerCache.set(executionNode.id, analyzer);
+        if (isNodeInReturnTypeInferenceContext(executionNode)) {
+            // If we're performing the analysis within a temporary
+            // context of a function for purposes of inferring its
+            // return type for a specified set of arguments, use
+            // a temporary analyzer that we'll use only for this context.
+            analyzer = getCodeFlowAnalyzerForReturnTypeInferenceContext();
+        } else {
+            analyzer = codeFlowAnalyzerCache.get(executionNode.id);
+
+            if (!analyzer) {
+                // Allocate a new code flow analyzer.
+                analyzer = createCodeFlowAnalyzer();
+                codeFlowAnalyzerCache.set(executionNode.id, analyzer);
+            }
         }
 
         return analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType).type;
@@ -8196,49 +8263,161 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return undefined;
     }
 
-    function getFunctionEffectiveReturnType(type: FunctionType) {
+    // Returns the return type of the function. If the type is explicitly provided in
+    // a type annotation, that type is returned. If not, an attempt is made to infer
+    // the return type. If a list of args is provided, the inference logic may take
+    // into account argument types to infer the return type.
+    function getFunctionEffectiveReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         const specializedReturnType = FunctionType.getSpecializedReturnType(type);
         if (specializedReturnType) {
             return specializedReturnType;
         }
 
-        return getFunctionInferredReturnType(type);
+        return getFunctionInferredReturnType(type, args);
     }
 
-    function getFunctionInferredReturnType(type: FunctionType) {
+    function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
+        let returnType: Type | undefined;
+
         // If the return type has already been lazily evaluated,
         // don't bother computing it again.
         if (type.inferredReturnType) {
-            return type.inferredReturnType;
+            returnType = type.inferredReturnType;
+        } else {
+            if (type.details.declaration) {
+                const functionNode = type.details.declaration.node;
+
+                // We should never get here if there is a type annotation.
+                assert(!functionNode.returnTypeAnnotation);
+
+                // Temporarily disable speculative mode while we
+                // lazily evaluate the return type.
+                disableSpeculativeMode(() => {
+                    returnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
+                });
+
+                // Do we need to wrap this in an awaitable?
+                if (returnType && FunctionType.isWrapReturnTypeInAwait(type) && !isNoReturnType(returnType)) {
+                    returnType = createAwaitableReturnType(functionNode, returnType);
+                }
+            }
+
+            if (!returnType) {
+                returnType = UnknownType.create();
+            }
+
+            // Cache the type for next time.
+            type.inferredReturnType = returnType;
         }
 
-        let returnType: Type | undefined;
-        if (type.details.declaration) {
-            const functionNode = type.details.declaration.node;
+        // If the type is partially unknown and the function has one or more unannotated
+        // params, try to analyze the function with the provided argument types and
+        // attempt to do a better job at inference.
+        if (containsUnknown(returnType) && FunctionType.hasUnannotatedParams(type) &&
+                !FunctionType.isStubDefinition(type) && args) {
 
-            // We should never get here if there is a type annotation.
-            assert(!functionNode.returnTypeAnnotation);
-
-            // Temporarily disable speculative mode while we
-            // lazily evaluate the return type.
-            disableSpeculativeMode(() => {
-                returnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
-            });
-
-            // Do we need to wrap this in an awaitable?
-            if (returnType && FunctionType.isWrapReturnTypeInAwait(type) && !isNoReturnType(returnType)) {
-                returnType = createAwaitableReturnType(functionNode, returnType);
+            const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, args);
+            if (contextualReturnType) {
+                returnType = contextualReturnType;
             }
         }
 
-        if (!returnType) {
-            returnType = UnknownType.create();
+        return returnType;
+    }
+
+    function getFunctionInferredReturnTypeUsingArguments(type: FunctionType,
+            args: ValidateArgTypeParams[]): Type | undefined {
+
+        let contextualReturnType: Type | undefined;
+
+        if (!type.details.declaration) {
+            return undefined;
+        }
+        const functionNode = type.details.declaration.node;
+
+        // If an arg hasn't been matched to a specific named parameter,
+        // it's an unpacked value that corresponds to multiple parameters.
+        // That's an edge case that we don't handle here.
+        if (args.some(arg => !arg.paramName)) {
+            return undefined;
         }
 
-        // Cache the type for next time.
-        type.inferredReturnType = returnType;
+        // Detect recurrence. If a function invokes itself either directly
+        // or indirectly, we won't attempt to infer contextual return
+        // types any further.
+        if (returnTypeInferenceContextStack.some(context => context.functionNode === functionNode)) {
+            return undefined;
+        }
 
-        return returnType;
+        const functionType = getTypeOfFunction(functionNode);
+        if (!functionType) {
+            return undefined;
+        }
+
+        // Enable speculative mode because we don't want to generate errors
+        // or overwrite the type cache in this case.
+        useSpeculativeMode(() => {
+            // Allocate a new temporary type cache for the context of just
+            // this function so we can analyze it separately without polluting
+            // the main type cache.
+            const prevTypeCache = returnTypeInferenceTypeCache;
+            returnTypeInferenceContextStack.push({
+                functionNode,
+                codeFlowAnalyzer: createCodeFlowAnalyzer()
+            });
+            returnTypeInferenceTypeCache = new Map<number, CachedType>();
+
+            let allArgTypesAreUnknown = true;
+            functionNode.parameters.forEach((param, index) => {
+                if (param.name) {
+                    let paramType: Type | undefined;
+                    const arg = args.find(arg => param.name!.value === arg.paramName);
+                    if (arg && arg.argument.valueExpression) {
+                        paramType = getTypeOfExpression(arg.argument.valueExpression).type;
+                        allArgTypesAreUnknown = false;
+                    } else if (param.defaultValue) {
+                        paramType = getTypeOfExpression(param.defaultValue).type;
+                        allArgTypesAreUnknown = false;
+                    } else if (index === 0) {
+                        if (FunctionType.isInstanceMethod(functionType.functionType) ||
+                                FunctionType.isInstanceMethod(functionType.functionType)) {
+
+                            if (functionType.functionType.details.parameters.length > 0) {
+                                if (functionNode.parameters[0].name) {
+                                    paramType = functionType.functionType.details.parameters[0].type;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!paramType) {
+                        paramType = UnknownType.create();
+                    }
+
+                    writeTypeCache(param.name, paramType);
+                }
+            });
+
+            // Don't bother trying to determine the contextual return
+            // type if none of the argument types are known.
+            if (!allArgTypesAreUnknown) {
+                contextualReturnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
+            }
+
+            returnTypeInferenceContextStack.pop();
+            returnTypeInferenceTypeCache = prevTypeCache;
+        });
+
+        if (contextualReturnType) {
+            // Do we need to wrap this in an awaitable?
+            if (FunctionType.isWrapReturnTypeInAwait(type) && !isNoReturnType(contextualReturnType)) {
+                contextualReturnType = createAwaitableReturnType(functionNode, contextualReturnType);
+            }
+
+            return contextualReturnType;
+        }
+
+        return undefined;
     }
 
     function getFunctionDeclaredReturnType(node: FunctionNode): Type | undefined {
