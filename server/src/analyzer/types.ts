@@ -563,6 +563,10 @@ export interface FunctionType extends TypeBase {
 
     details: FunctionDetails;
 
+    // This flag is set when the first parameter is stripped
+    // (see "clone" method below).
+    ignoreFirstParamOfDeclaration?: boolean;
+
     // A function type can be specialized (i.e. generic type
     // variables replaced by a concrete type).
     specializedTypes?: SpecializedFunctionTypes;
@@ -604,6 +608,7 @@ export namespace FunctionType {
         if (deleteFirstParam) {
             newFunction.details.flags &= ~(FunctionTypeFlags.InstanceMethod |
                 FunctionTypeFlags.ClassMethod);
+            newFunction.ignoreFirstParamOfDeclaration = true;
         }
 
         if (type.specializedTypes) {

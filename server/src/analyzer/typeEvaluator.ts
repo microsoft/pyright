@@ -9706,6 +9706,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     printType(paramType, recursionCount + 1) : '';
                 paramString += ': ' + paramTypeString;
             }
+
+            if (type.details.declaration) {
+                const adjustedIndex = type.ignoreFirstParamOfDeclaration ? index + 1 : index;
+                const paramNode = type.details.declaration.node.parameters[adjustedIndex];
+                if (paramNode.defaultValue) {
+                    paramString += ' = ' + ParseTreeUtils.printExpression(paramNode.defaultValue);
+                }
+            }
+
             return paramString;
         });
 
