@@ -6517,6 +6517,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             symbolNameNode = node.module.nameParts[0];
         }
 
+        if (!symbolNameNode) {
+            // This can happen in certain cases where there are parse errors.
+            return;
+        }
+
         // Look up the symbol to find the alias declaration.
         let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value) ||
             UnknownType.create();

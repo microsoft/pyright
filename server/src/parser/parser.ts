@@ -1353,7 +1353,10 @@ export class Parser {
             if (this._peekTokenType() === TokenType.Invalid) {
                 const invalidToken = this._getNextToken();
                 const text = this._fileContents!.substr(invalidToken.start, invalidToken.length);
-                this._addError(`Invalid token: "${ text }"`, invalidToken);
+
+                // Remove any non-printable characters.
+                const cleanedText = text.replace(/[\S\W]/g, '');
+                this._addError(`Invalid character in token: "${ cleanedText }"`, invalidToken);
                 this._consumeTokensUntilType(TokenType.NewLine);
                 break;
             }
@@ -2976,6 +2979,14 @@ export class Parser {
         const nextToken = this._peekToken();
         if (nextToken.type === TokenType.Identifier) {
             return this._getNextToken() as IdentifierToken;
+        }
+
+        // If the next token is invalid, treat it as an identifier.
+        if (nextToken.type === TokenType.Invalid) {
+            this._getNextToken();
+            this._addError(`Invalid character in identifier`, nextToken);
+            return IdentifierToken.create(nextToken.start,
+                nextToken.length, '', nextToken.comments);
         }
 
         // If keywords are allowed in this context, convert the keyword

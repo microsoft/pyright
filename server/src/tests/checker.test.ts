@@ -100,6 +100,15 @@ function validateResults(results: TestUtils.FileAnalysisResult[],
     assert.equal(results[0].warnings.length, warningCount);
 }
 
+test('BadToken1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['badToken1.py']);
+
+    // We include this in the checker test rather than the tokenizer or
+    // parser test suite because it has cascading effects that potentially
+    // affect the type checker logic.
+    validateResults(analysisResults, 1);
+});
+
 test('TypeConstraint1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint1.py']);
 
