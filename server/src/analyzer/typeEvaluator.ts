@@ -292,6 +292,12 @@ interface ReturnTypeInferenceContext {
     codeFlowAnalyzer: CodeFlowAnalyzer;
 }
 
+// How many levels deep should we attempt to infer return
+// types based on call-site argument types? The deeper we go,
+// the more types we may be able to infer, but the worse the
+// performance.
+const maxReturnTypeInferenceStackSize = 3;
+
 export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     let isSpeculativeMode = false;
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
@@ -8351,6 +8357,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const functionType = getTypeOfFunction(functionNode);
         if (!functionType) {
+            return undefined;
+        }
+
+        // Don't explore arbitrarily deep in the call graph.
+        if (returnTypeInferenceContextStack.length >= maxReturnTypeInferenceStackSize) {
             return undefined;
         }
 
