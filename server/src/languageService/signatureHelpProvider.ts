@@ -42,7 +42,7 @@ export interface SignatureHelpResults {
 
 export class SignatureHelpProvider {
     static getSignatureHelpForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
-            importLookup: ImportLookup, evaluator: TypeEvaluator):
+            evaluator: TypeEvaluator):
                 SignatureHelpResults | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);

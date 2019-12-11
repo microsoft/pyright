@@ -599,7 +599,7 @@ export class SourceFile {
         }
 
         return SignatureHelpProvider.getSignatureHelpForPosition(
-            this._parseResults, position, importLookup, evaluator);
+            this._parseResults, position, evaluator);
     }
 
     getCompletionsForPosition(position: DiagnosticTextPosition,
