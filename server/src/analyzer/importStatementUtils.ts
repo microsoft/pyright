@@ -81,22 +81,21 @@ export function getTextEditsForAutoImportSymbolAddition(symbolName: string,
         // already exists in the import list.
         if (!importStatement.node.imports.some(importAs => importAs.name.value === symbolName)) {
             for (const curImport of importStatement.node.imports) {
-                if (priorImport && curImport.name.value > symbolName) {
+                if (curImport.name.value > symbolName) {
                     break;
                 }
 
                 priorImport = curImport;
             }
 
-            if (priorImport) {
-                const insertionOffset = TextRange.getEnd(priorImport);
-                const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.tokenizerOutput.lines);
+            const insertionOffset = priorImport ? TextRange.getEnd(priorImport) :
+                importStatement.node.imports[0].start;
+            const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.tokenizerOutput.lines);
 
-                textEditList.push({
-                    range: { start: insertionPosition, end: insertionPosition },
-                    replacementText: ', ' + symbolName
-                });
-            }
+            textEditList.push({
+                range: { start: insertionPosition, end: insertionPosition },
+                replacementText: priorImport ? (', ' + symbolName) : (symbolName + ', ')
+            });
         }
     }
 
