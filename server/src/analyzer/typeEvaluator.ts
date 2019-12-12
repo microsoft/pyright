@@ -1508,7 +1508,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const entryTypes = tupleType.typeArguments;
                 let entryCount = entryTypes.length;
 
-                const sourceEndsInEllipsis = entryCount > 0 &&
+                const sourceEndsInEllipsis = entryCount > 1 &&
                     isEllipsisType(entryTypes[entryCount - 1]);
                 if (sourceEndsInEllipsis) {
                     entryCount--;
@@ -1538,11 +1538,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             target);
                     }
                 } else {
-                    if (target.expressions.length === entryCount ||
-                        (sourceEndsInEllipsis && target.expressions.length >= entryCount)) {
-
+                    if (target.expressions.length === entryCount || sourceEndsInEllipsis) {
                         for (let index = 0; index < target.expressions.length; index++) {
-                            const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
+                            const entryType = index < entryCount ? entryTypes[index] : entryTypes[entryCount - 1];
                             targetTypes[index].push(entryType);
                         }
                     } else {
