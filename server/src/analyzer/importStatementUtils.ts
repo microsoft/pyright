@@ -77,22 +77,26 @@ export function getTextEditsForAutoImportSymbolAddition(symbolName: string,
     let priorImport: ImportFromAsNode | undefined;
 
     if (importStatement.node && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
-        for (const curImport of importStatement.node.imports) {
-            if (priorImport && curImport.name.value > symbolName) {
-                break;
+        // Make sure we're not attempting to auto-import a symbol that
+        // already exists in the import list.
+        if (!importStatement.node.imports.some(importAs => importAs.name.value === symbolName)) {
+            for (const curImport of importStatement.node.imports) {
+                if (priorImport && curImport.name.value > symbolName) {
+                    break;
+                }
+
+                priorImport = curImport;
             }
 
-            priorImport = curImport;
-        }
+            if (priorImport) {
+                const insertionOffset = TextRange.getEnd(priorImport);
+                const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.tokenizerOutput.lines);
 
-        if (priorImport) {
-            const insertionOffset = TextRange.getEnd(priorImport);
-            const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.tokenizerOutput.lines);
-
-            textEditList.push({
-                range: { start: insertionPosition, end: insertionPosition },
-                replacementText: ', ' + symbolName
-            });
+                textEditList.push({
+                    range: { start: insertionPosition, end: insertionPosition },
+                    replacementText: ', ' + symbolName
+                });
+            }
         }
     }
 
