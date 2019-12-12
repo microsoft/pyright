@@ -56,10 +56,11 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     canBeTruthy, ClassMember, ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar, getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType, getMetaclass, getSpecializedTupleType, getTypeVarArgumentsRecursive,
-    isEllipsisType, isNoReturnType, isOptionalType, isProperty, lookUpClassMember,
-    lookUpObjectMember, partiallySpecializeType, printLiteralType, printLiteralValue, removeFalsinessFromType,
-    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, specializeType, stripFirstParameter,
-    stripLiteralTypeArgsValue, stripLiteralValue, transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
+    isEllipsisType, isNoReturnType, isOptionalType, isProperty, lookUpClassMember, lookUpObjectMember,
+    partiallySpecializeType, printLiteralType, printLiteralValue, removeFalsinessFromType,
+    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, setTypeArgumentsRecursive,
+    specializeType, stripFirstParameter, stripLiteralTypeArgsValue, stripLiteralValue,
+    transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
 interface TypeResult {
     type: Type;
@@ -4518,12 +4519,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     addUnknown = false;
                 } else {
                     if (unexpandedType.category === TypeCategory.Object) {
-                        let classType = unexpandedType.classType;
-                        if (classType.details.aliasClass) {
-                            classType = classType.details.aliasClass;
-                        }
+                        const classType = unexpandedType.classType;
+                        const aliasType = classType.details.aliasClass || classType;
 
-                        if (ClassType.isBuiltIn(classType, 'dict')) {
+                        if (ClassType.isBuiltIn(aliasType, 'dict')) {
                             const typeArgs = classType.typeArguments;
                             if (typeArgs && typeArgs.length >= 2) {
                                 keyTypes.push(typeArgs[0]);
