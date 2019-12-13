@@ -58,7 +58,7 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     getDeclaredGeneratorSendType, getMetaclass, getSpecializedTupleType, getTypeVarArgumentsRecursive,
     isEllipsisType, isNoReturnType, isOptionalType, isProperty, lookUpClassMember, lookUpObjectMember,
     partiallySpecializeType, printLiteralType, printLiteralValue, removeFalsinessFromType,
-    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, setTypeArgumentsRecursive,
+    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType,
     specializeType, stripFirstParameter, stripLiteralTypeArgsValue, stripLiteralValue,
     transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
