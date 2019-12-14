@@ -304,84 +304,67 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
             output.value += String.fromCharCode(curChar);
             formatSegment.value += String.fromCharCode(curChar);
             strOffset++;
-        } else {
-            if (isFormat && !formatSegment.isExpression && curChar === Char.OpenBrace) {
-                if (getEscapedCharacter(1) === Char.OpenBrace) {
-                    output.value += String.fromCharCode(curChar);
-                    formatSegment.value += String.fromCharCode(curChar);
-                    strOffset += 2;
-                } else {
-                    // A single open brace within a format literal indicates that
-                    // an expression is starting.
-                    formatSegment.length = strOffset - formatSegment.offset;
-                    output.formatStringSegments.push(formatSegment);
-                    strOffset++;
-
-                    // Start a new segment.
-                    formatSegment = {
-                        offset: strOffset,
-                        length: 0,
-                        value: '',
-                        isExpression: true
-                    };
-                    formatExpressionNestCount++;
-                }
-            } else if (isFormat && !formatSegment.isExpression && curChar === Char.CloseBrace) {
-                if (getEscapedCharacter(1) === Char.CloseBrace) {
-                    output.value += String.fromCharCode(curChar);
-                    formatSegment.value += String.fromCharCode(curChar);
-                    strOffset += 2;
-                } else {
-                    output.unescapeErrors.push({
-                        offset: strOffset,
-                        length: 1,
-                        errorType: UnescapeErrorType.SingleCloseBraceWithinFormatLiteral
-                    });
-                    strOffset++;
-                }
-            } else if (isFormat && formatSegment.isExpression &&
-                    formatExpressionNestCount > 0 && curChar === Char.CloseBrace) {
-
-                formatExpressionNestCount--;
-                if (formatExpressionNestCount > 0) {
-                    // We're still within a nested expression, so don't treat the
-                    // close brace as the end of the expression.
-                    output.value += String.fromCharCode(curChar);
-                    formatSegment.value += String.fromCharCode(curChar);
-                    strOffset++;
-                } else {
-                    if (formatExpressionNestCount === 0) {
-                        // A close brace within a format expression indicates that
-                        // the expression is complete.
-                        formatSegment.length = strOffset - formatSegment.offset;
-                        output.formatStringSegments.push(formatSegment);
-                        strOffset++;
-
-                        // Start a new segment.
-                        formatSegment = {
-                            offset: strOffset,
-                            length: 0,
-                            value: '',
-                            isExpression: false
-                        };
-                    }
-                }
-            } else {
-                // If we're within a format expression and we see an open brace,
-                // increase the nest count.
-                if (isFormat && formatSegment.isExpression && curChar === Char.OpenBrace) {
-                    formatExpressionNestCount++;
-                }
-
-                // There's nothing to unescape, so output the escaped character directly.
-                if (isBytes && curChar >= 128) {
-                    output.nonAsciiInBytes = true;
-                }
-
+        } else if (isFormat && curChar === Char.OpenBrace) {
+            if (!formatSegment.isExpression && getEscapedCharacter(1) === Char.OpenBrace) {
                 output.value += String.fromCharCode(curChar);
                 formatSegment.value += String.fromCharCode(curChar);
+                strOffset += 2;
+            } else {
+                // A single open brace within a format literal indicates that
+                // an expression is starting.
+                formatSegment.length = strOffset - formatSegment.offset;
+                if (formatSegment.length > 0) {
+                    output.formatStringSegments.push(formatSegment);
+                }
                 strOffset++;
+
+                // Start a new segment.
+                formatSegment = {
+                    offset: strOffset,
+                    length: 0,
+                    value: '',
+                    isExpression: true
+                };
+                formatExpressionNestCount++;
             }
+        } else if (isFormat && curChar === Char.CloseBrace) {
+            if (!formatSegment.isExpression && getEscapedCharacter(1) === Char.CloseBrace) {
+                output.value += String.fromCharCode(curChar);
+                formatSegment.value += String.fromCharCode(curChar);
+                strOffset += 2;
+            } else if (formatExpressionNestCount === 0) {
+                output.unescapeErrors.push({
+                    offset: strOffset,
+                    length: 1,
+                    errorType: UnescapeErrorType.SingleCloseBraceWithinFormatLiteral
+                });
+                strOffset++;
+            } else {
+                formatExpressionNestCount--;
+
+                // A close brace within a format expression indicates that
+                // the expression is complete.
+                formatSegment.length = strOffset - formatSegment.offset;
+                output.formatStringSegments.push(formatSegment);
+                strOffset++;
+
+                // Start a new segment.
+                formatSegment = {
+                    offset: strOffset,
+                    length: 0,
+                    value: '',
+                    isExpression: false
+                };
+            }
+        } else {
+            // There's nothing to unescape, so output the escaped character directly.
+            if (isBytes && curChar >= 128) {
+                output.nonAsciiInBytes = true;
+            }
+
+            output.value += String.fromCharCode(curChar);
+            formatSegment.value += String.fromCharCode(curChar);
+            strOffset++;
         }
     }
 }

@@ -958,3 +958,8 @@ test('DuplicateImports1', () => {
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['duplicateImports1.py'], configOptions);
     validateResults(analysisResults, 2);
 });
+
+test('FString2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['fstring2.py']);
+    validateResults(analysisResults, 0);
+});
