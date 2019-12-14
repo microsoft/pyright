@@ -63,7 +63,7 @@ export class AnalyzerService {
     private _configFilePath: string | undefined;
     private _configFileWatcher: fs.FSWatcher | undefined;
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
-    private _watchForChanges = false;
+    private _watchForSourceChanges = false;
     private _verboseOutput = false;
     private _maxAnalysisTime?: MaxAnalysisTime;
     private _analyzeTimer: any;
@@ -96,7 +96,7 @@ export class AnalyzerService {
     }
 
     setOptions(commandLineOptions: CommandLineOptions): void {
-        this._watchForChanges = !!commandLineOptions.watch;
+        this._watchForSourceChanges = !!commandLineOptions.watch;
         this._verboseOutput = !!commandLineOptions.verboseOutput;
         this._configOptions = this._getConfigOptions(commandLineOptions);
         this._program.setConfigOptions(this._configOptions);
@@ -715,7 +715,7 @@ export class AnalyzerService {
         // been deleted or added.
         this._importResolver.invalidateCache();
 
-        if (!this._watchForChanges) {
+        if (!this._watchForSourceChanges) {
             return;
         }
 
@@ -799,7 +799,7 @@ export class AnalyzerService {
     private _updateConfigFileWatcher() {
         this._removeConfigFileWatcher();
 
-        if (this._watchForChanges && this._configFilePath) {
+        if (this._configFilePath) {
             this._configFileWatcher = this._createFileSystemWatcher([this._configFilePath])
             .on('all', event => {
                 if (this._verboseOutput) {
