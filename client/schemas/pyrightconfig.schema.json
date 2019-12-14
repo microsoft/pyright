@@ -56,7 +56,7 @@
       }
     },
     "typeshedPath": {
-      "$id": "#/properties/typingsPath",
+      "$id": "#/properties/typeshedPath",
       "type": "string",
       "title": "Path to directory containing typeshed type stub files",
       "default": "",
