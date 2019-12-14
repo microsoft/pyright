@@ -19,22 +19,23 @@ import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignmentNode,
-    BinaryOperationNode, CallNode, ClassNode, DelNode, ErrorNode, ExceptNode, ExpressionNode,
-    FormatStringNode, ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromNode, IndexNode,
-    LambdaNode, ListComprehensionNode, MemberAccessNode, ModuleNode, NameNode, ParameterCategory,
-    ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceNode, StringListNode, SuiteNode,
-    TernaryNode, TupleNode, TypeAnnotationNode, UnaryOperationNode, UnpackNode, WhileNode,
-    WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
+    BinaryOperationNode, CallNode, ClassNode, DelNode, ErrorNode, ExceptNode,
+    FormatStringNode, ForNode, FunctionNode, IfNode, ImportAsNode, ImportFromAsNode, ImportFromNode,
+    IndexNode, LambdaNode, ListComprehensionNode, MemberAccessNode, ModuleNode, NameNode,
+    ParameterCategory, ParseNode, ParseNodeType, RaiseNode, ReturnNode, SliceNode, StringListNode,
+    SuiteNode, TernaryNode, TupleNode, TypeAnnotationNode, UnaryOperationNode, UnpackNode,
+    WhileNode, WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
+import { getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { ScopeType } from './scope';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from './symbolUtils';
-import { EvaluatorFlags, TypeEvaluator } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluator';
 import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, isTypeSame,
     NoneType, ObjectType, Type, TypeCategory, UnknownType } from './types';
 import { containsUnknown, derivesFromClassRecursive, doForSubtypes,
@@ -67,6 +68,8 @@ export class Checker extends ParseTreeWalker {
         // Perform a one-time validation of symbols in all scopes
         // defined in this module for things like unaccessed variables.
         this._validateSymbolTables();
+
+        this._reportDuplicateImports();
     }
 
     walk(node: ParseNode) {
@@ -1384,5 +1387,47 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         }
+    }
+
+    private _reportDuplicateImports() {
+        const importStatements = getTopLevelImports(this._moduleNode);
+
+        const importModuleMap = new Map<string, ImportAsNode>();
+
+        importStatements.orderedImports.forEach(importStatement => {
+            if (importStatement.node.nodeType === ParseNodeType.ImportFrom) {
+                const symbolMap = new Map<string, ImportFromAsNode>();
+
+                importStatement.node.imports.forEach(importFromAs => {
+                    // Ignore duplicates if they're aliased.
+                    if (!importFromAs.alias) {
+                        const prevImport = symbolMap.get(importFromAs.name.value);
+                        if (prevImport) {
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticSettings.reportDuplicateImport,
+                                DiagnosticRule.reportDuplicateImport,
+                                `'${ importFromAs.name.value }' is imported more than once`,
+                                importFromAs.name);
+                        } else {
+                            symbolMap.set(importFromAs.name.value, importFromAs);
+                        }
+                    }
+                });
+            } else if (importStatement.subnode) {
+                // Ignore duplicates if they're aliased.
+                if (!importStatement.subnode.alias) {
+                    const prevImport = importModuleMap.get(importStatement.moduleName);
+                    if (prevImport) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportDuplicateImport,
+                            DiagnosticRule.reportDuplicateImport,
+                            `'${ importStatement.moduleName }' is imported more than once`,
+                            importStatement.subnode);
+                    } else {
+                        importModuleMap.set(importStatement.moduleName, importStatement.subnode);
+                    }
+                }
+            }
+        });
     }
 }

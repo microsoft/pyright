@@ -22,6 +22,7 @@ export const enum DiagnosticRule {
     reportUnusedClass = 'reportUnusedClass',
     reportUnusedFunction = 'reportUnusedFunction',
     reportUnusedVariable = 'reportUnusedVariable',
+    reportDuplicateImport = 'reportDuplicateImport',
     reportOptionalSubscript = 'reportOptionalSubscript',
     reportOptionalMemberAccess = 'reportOptionalMemberAccess',
     reportOptionalCall = 'reportOptionalCall',

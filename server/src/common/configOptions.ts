@@ -79,6 +79,9 @@ export interface DiagnosticSettings {
     // Report variable that is not accessed?
     reportUnusedVariable: DiagnosticLevel;
 
+    // Report symbol or module that is imported more than once?
+    reportDuplicateImport: DiagnosticLevel;
+
     // Report attempts to subscript (index) an Optional type?
     reportOptionalSubscript: DiagnosticLevel;
 
@@ -181,6 +184,7 @@ export function getDiagLevelSettings() {
         DiagnosticRule.reportUnusedClass,
         DiagnosticRule.reportUnusedFunction,
         DiagnosticRule.reportUnusedVariable,
+        DiagnosticRule.reportDuplicateImport,
         DiagnosticRule.reportOptionalSubscript,
         DiagnosticRule.reportOptionalMemberAccess,
         DiagnosticRule.reportOptionalCall,
@@ -220,6 +224,7 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportUnusedClass: 'error',
         reportUnusedFunction: 'error',
         reportUnusedVariable: 'error',
+        reportDuplicateImport: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
@@ -261,6 +266,7 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportUnusedClass: 'none',
         reportUnusedFunction: 'none',
         reportUnusedVariable: 'none',
+        reportDuplicateImport: 'none',
         reportOptionalSubscript: 'none',
         reportOptionalMemberAccess: 'none',
         reportOptionalCall: 'none',
@@ -519,6 +525,11 @@ export class ConfigOptions {
             reportUnusedVariable: this._convertDiagnosticLevel(
                 configObj.reportUnusedVariable, DiagnosticRule.reportUnusedVariable,
                 defaultSettings.reportUnusedVariable),
+
+            // Read the "reportDuplicateImport" entry.
+            reportDuplicateImport: this._convertDiagnosticLevel(
+                configObj.reportDuplicateImport, DiagnosticRule.reportDuplicateImport,
+                defaultSettings.reportDuplicateImport),
 
             // Read the "reportMissingTypeStubs" entry.
             reportMissingTypeStubs: this._convertDiagnosticLevel(

@@ -945,3 +945,16 @@ test('CallSite2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite2.py']);
     validateResults(analysisResults, 0);
 });
+
+test('DuplicateImports1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, optional diagnostics are ignored.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['duplicateImports1.py'], configOptions);
+    validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticSettings.reportDuplicateImport = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['duplicateImports1.py'], configOptions);
+    validateResults(analysisResults, 2);
+});
