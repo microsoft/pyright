@@ -70,3 +70,20 @@ def (a: Union[Foo, Bar]):
 
 In this case, the type of parameter “a” is initially “Union[Foo, Bar]”. Within the “if” clause, the type constraint logic will conclude that it must be of type “Foo”. Within the “elif” clause, it must be of type “Bar”. What type is it within the “else” clause? The type constraint system has eliminated all possible subtypes, so it gives it the type “Never”. This is generally indicates that there’s a logic error in the code because there’s way that code block will ever be executed.
 
+## Type Inference
+
+In cases where explicit type annotations are not provided, Pyright attempts to infer the types. The inferred return type of a function is determined from all of the return (and yield) statements within the function’s definition. The inferred type of a local variable is determined by the expression that is assigned to that variable. Likewise, the type of a member variable is inferred from all assignments to that member variable within its defining class.
+
+The types of input parameters cannot be inferred, with the exception of the “self” or “cls” parameter for instance members and class members, respectively.
+
+If an inferred return type is unknown or partially unknown because input parameter types are not annotated, Pyright may still be able to infer the return type based on the types of arguments at the call site. 
+```
+def add_values(a, b):
+    return a + b
+
+# The type of result1 is "int"
+result1 = add_values(1, 2)
+
+# Type type of result2 is "str"
+result2 = add_values('abc', 'def')
+```
