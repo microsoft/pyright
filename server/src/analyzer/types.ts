@@ -472,7 +472,8 @@ export namespace ClassType {
             return true;
         }
 
-        for (const baseClass of subclassType.details.baseClasses) {
+        const aliasedSubclass = subclassType.details.aliasClass || subclassType;
+        for (const baseClass of aliasedSubclass.details.baseClasses) {
             if (baseClass.category === TypeCategory.Class) {
                 if (isDerivedFrom(baseClass, parentClassType, inheritanceChain)) {
                     if (inheritanceChain) {
