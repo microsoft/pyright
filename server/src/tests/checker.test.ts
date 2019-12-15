@@ -607,7 +607,7 @@ test('Classes2', () => {
     // Turn on errors.
     configOptions.diagnosticSettings.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes2.py'], configOptions);
-    validateResults(analysisResults, 1);
+    validateResults(analysisResults, 2);
 });
 
 test('Enums1', () => {

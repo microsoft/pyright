@@ -9368,6 +9368,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (baseParams.length !== overrideParams.length) {
             diag.addMessage(`Parameter count mismatch: base method has ` +
                 `${ baseParams.length }, but override has ${ overrideParams.length }`);
+            return false;
         }
 
         const paramCount = Math.min(baseParams.length, overrideParams.length);
