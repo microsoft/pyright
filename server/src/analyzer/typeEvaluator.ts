@@ -58,7 +58,7 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedT
     getDeclaredGeneratorSendType, getMetaclass, getSpecializedTupleType, getTypeVarArgumentsRecursive,
     isEllipsisType, isNoReturnType, isOptionalType, isProperty, lookUpClassMember, lookUpObjectMember,
     partiallySpecializeType, printLiteralType, printLiteralValue, removeFalsinessFromType,
-    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType,
+    removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, setTypeArgumentsRecursive,
     specializeType, stripFirstParameter, stripLiteralTypeArgsValue, stripLiteralValue,
     transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 
@@ -691,11 +691,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 return functionArg;
             });
 
-            // Evaluate the decorator, but don't specialize the
-            // return result.
+            // Evaluate the decorator.
             decoratorCall = getTypeFromCallWithBaseType(
                 node.leftExpression, argList, decoratorCall,
-                undefined, EvaluatorFlags.None, false);
+                undefined, EvaluatorFlags.None);
         }
 
         const argList = [{
@@ -703,9 +702,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             type: functionOrClassType
         }];
 
-        return getTypeFromCallWithBaseType(
-            node.leftExpression, argList, decoratorCall, undefined,
-            EvaluatorFlags.None, false).type;
+        return getTypeFromCallWithBaseType(node.leftExpression, argList, decoratorCall,
+            undefined, EvaluatorFlags.None).type;
     }
 
     // Gets a member type from an object and if it's a function binds
@@ -931,6 +929,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         const nextMethodName = isAsync ? '__anext__' : '__next__';
         const getItemMethodName = supportGetItem ? '__getitem__' : '';
+
+        if (type.category === TypeCategory.TypeVar) {
+            type = specializeType(type, undefined);
+        }
 
         if (type.category === TypeCategory.Union && type.subtypes.some(t => isNoneOrNever(t))) {
             if (errorNode) {
@@ -1963,6 +1965,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 break;
             }
 
+            case TypeCategory.TypeVar: {
+                return getTypeFromMemberAccessWithBaseType(node,
+                    {
+                        type: specializeType(baseType, undefined),
+                        node
+                    },
+                    usage,
+                    EvaluatorFlags.None);
+            }
+
             case TypeCategory.Object: {
                 const classFromTypeObject = getClassFromPotentialTypeObject(baseType);
                 if (classFromTypeObject) {
@@ -2360,6 +2372,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         const type = doForSubtypes(baseType, subtype => {
+            if (subtype.category === TypeCategory.TypeVar) {
+                subtype = specializeType(baseType, undefined);
+            }
+
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
@@ -2809,7 +2825,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function getTypeFromCallWithBaseType(errorNode: ExpressionNode,
         argList: FunctionArgument[], baseTypeResult: TypeResult, expectedType: Type | undefined,
-        flags: EvaluatorFlags, specializeReturnType = true): TypeResult {
+        flags: EvaluatorFlags): TypeResult {
 
         let type: Type | undefined;
         let callType = baseTypeResult.type;
@@ -2898,8 +2914,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         errorNode);
                     type = createNamedTupleType(errorNode, argList, false);
                 } else if (callType.details.builtInName === 'NewType') {
-                    type = validateCallArguments(errorNode, argList, callType,
-                        new Map<string, Type>(), specializeReturnType);
+                    type = validateCallArguments(errorNode, argList, callType, new Map<string, Type>());
 
                     // If the call's arguments were validated, replace the
                     // type with a new synthesized subclass.
@@ -2907,8 +2922,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         type = createNewType(errorNode, argList);
                     }
                 } else {
-                    type = validateCallArguments(errorNode, argList, callType,
-                        new Map<string, Type>(), specializeReturnType);
+                    type = validateCallArguments(errorNode, argList, callType, new Map<string, Type>());
 
                     if (callType.details.builtInName === '__import__') {
                         // For the special __import__ type, we'll override the return type to be "Any".
@@ -2944,8 +2958,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
                     }
 
-                    type = validateCallArguments(errorNode, argList, callType,
-                        new Map<string, Type>(), specializeReturnType);
+                    type = validateCallArguments(errorNode, argList, callType, new Map<string, Type>());
                     if (!type) {
                         type = UnknownType.create();
                     }
@@ -3142,11 +3155,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             returnType = ObjectType.create(specializedClassType);
         }
 
-        // Make the type concrete if it wasn't already specialized.
-        if (returnType) {
-            returnType = specializeType(returnType, undefined);
-        }
-
         return returnType;
     }
 
@@ -3154,9 +3162,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // list, specializes the call based on arg types, and returns the
     // specialized type of the return value. If it detects an error along
     // the way, it emits a diagnostic and returns undefined.
-    function validateCallArguments(errorNode: ExpressionNode,
-        argList: FunctionArgument[], callType: Type, typeVarMap: TypeVarMap,
-        specializeReturnType = true): Type | undefined {
+    function validateCallArguments(errorNode: ExpressionNode, argList: FunctionArgument[],
+            callType: Type, typeVarMap: TypeVarMap): Type | undefined {
 
         let returnType: Type | undefined;
 
@@ -3240,11 +3247,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
                 break;
             }
-        }
-
-        // Make the type concrete if it wasn't already specialized.
-        if (returnType && specializeReturnType) {
-            returnType = specializeType(returnType, undefined);
         }
 
         return returnType;
@@ -4113,6 +4115,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function getTypeFromUnaryOperation(node: UnaryOperationNode): TypeResult {
         let exprType = getTypeOfExpression(node.expression).type;
+        if (exprType.category === TypeCategory.TypeVar) {
+            exprType = specializeType(exprType, undefined);
+        }
 
         // Map unary operators to magic functions. Note that the bitwise
         // invert has two magic functions that are aliases of each other.
@@ -4177,7 +4182,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         let leftType = getTypeOfExpression(leftExpression).type;
+        if (leftType.category === TypeCategory.TypeVar) {
+            leftType = specializeType(leftType, undefined);
+        }
         let rightType = getTypeOfExpression(node.rightExpression).type;
+        if (rightType.category === TypeCategory.TypeVar) {
+            rightType = specializeType(rightType, undefined);
+        }
 
         // Optional checks apply to all operations except for boolean operations.
         if (booleanOperatorMap[node.operator] === undefined) {
@@ -4232,7 +4243,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         useSpeculativeMode(() => {
             leftType = getTypeOfExpression(node.leftExpression).type;
         });
-        const rightType = getTypeOfExpression(node.rightExpression).type;
+        if (leftType!.category === TypeCategory.TypeVar) {
+            leftType = specializeType(leftType!, undefined);
+        }
+
+        let rightType = getTypeOfExpression(node.rightExpression).type;
+        if (rightType.category === TypeCategory.TypeVar) {
+            rightType = specializeType(rightType, undefined);
+        }
 
         type = doForSubtypes(leftType!, leftSubtype => {
             return doForSubtypes(rightType, rightSubtype => {
@@ -5784,13 +5802,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             FunctionType.addParameter(functionType, functionParam);
 
             if (param.name) {
-                const specializedParamType = specializeType(functionParam.type, undefined);
-
-                // If the type contains type variables, specialize them now
-                // so we convert them to a concrete type (or unknown if there
-                // is no bound or constraint).
                 const variadicParamType = transformVariadicParamType(node,
-                    param.category, specializedParamType);
+                    param.category, functionParam.type);
                 paramTypes.push(variadicParamType);
             } else {
                 paramTypes.push(functionParam.type);
@@ -8896,7 +8909,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return true;
         }
 
-        if (isAnyOrUnknown(destType) || isAnyOrUnknown(srcType)) {
+        if (isAnyOrUnknown(destType)) {
+            return true;
+        }
+
+        if (isAnyOrUnknown(srcType)) {
+            if (typeVarMap) {
+                // If it's an ellipsis type, convert it to a regular "Any"
+                // type. These are functionally equivalent, but "Any" looks
+                // better in the text representation.
+                const typeVarSubstitution = isEllipsisType(srcType) ?
+                    AnyType.create() : srcType;
+                setTypeArgumentsRecursive(destType, typeVarSubstitution, typeVarMap);
+            }
             return true;
         }
 
@@ -8948,10 +8973,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (destType.category === TypeCategory.Union) {
             // For union destinations, we just need to match one of the types.
             const diagAddendum = new DiagnosticAddendum();
-            const compatibleType = destType.subtypes.find(
-                t => canAssignType(t, srcType, diagAddendum, typeVarMap,
-                    flags, recursionCount + 1));
-            if (!compatibleType) {
+
+            let foundMatch = false;
+            // Run through all subtypes in the union. Don't stop at the first
+            // match we find because we may need to match TypeVars in other
+            // subtypes.
+            destType.subtypes.forEach(subtype => {
+                if (canAssignType(subtype, srcType, diagAddendum, typeVarMap, flags, recursionCount + 1)) {
+                    foundMatch = true;
+                }
+            });
+
+            if (!foundMatch) {
                 diag.addAddendum(diagAddendum);
                 return false;
             }
@@ -9428,6 +9461,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // If the source type is a type var itself, convert it to a concrete
         // type to see if it is compatible with the dest type.
         if (srcType.category === TypeCategory.TypeVar) {
+            if (isTypeSame(srcType, destType)) {
+                return true;
+            }
+
             effectiveSrcType = getConcreteTypeFromTypeVar(srcType, recursionCount + 1);
         }
 

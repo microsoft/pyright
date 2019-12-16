@@ -659,6 +659,63 @@ export function stripFirstParameter(type: FunctionType): FunctionType {
     return FunctionType.clone(type, true);
 }
 
+// Recursively finds all of the type arguments to the specified srcType.
+export function setTypeArgumentsRecursive(destType: Type, srcType: Type,
+        typeVarMap: TypeVarMap, recursionCount = 0) {
+
+    switch (destType.category) {
+        case TypeCategory.Union:
+            destType.subtypes.forEach(subtype => {
+                setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount + 1);
+            });
+            break;
+
+        case TypeCategory.Class:
+            if (destType.typeArguments) {
+                destType.typeArguments.forEach(typeArg => {
+                    setTypeArgumentsRecursive(typeArg, srcType, typeVarMap, recursionCount + 1);
+                });
+            }
+            break;
+
+        case TypeCategory.Object:
+            setTypeArgumentsRecursive(destType.classType, srcType, typeVarMap, recursionCount + 1);
+            break;
+
+        case TypeCategory.Function:
+            if (destType.specializedTypes) {
+                destType.specializedTypes.parameterTypes.forEach(paramType => {
+                    setTypeArgumentsRecursive(paramType, srcType, typeVarMap, recursionCount + 1);
+                });
+                if (destType.specializedTypes.returnType) {
+                    setTypeArgumentsRecursive(destType.specializedTypes.returnType, srcType,
+                        typeVarMap, recursionCount + 1);
+                }
+            } else {
+                destType.details.parameters.forEach(param => {
+                    setTypeArgumentsRecursive(param.type, srcType, typeVarMap, recursionCount + 1);
+                });
+                if (destType.details.declaredReturnType) {
+                    setTypeArgumentsRecursive(destType.details.declaredReturnType, srcType,
+                        typeVarMap, recursionCount + 1);
+                }
+            }
+            break;
+
+        case TypeCategory.OverloadedFunction:
+            destType.overloads.forEach(subtype => {
+                setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount + 1);
+            });
+            break;
+
+        case TypeCategory.TypeVar:
+            if (!typeVarMap.has(destType.name)) {
+                typeVarMap.set(destType.name, srcType);
+            }
+            break;
+    }
+}
+
 // Builds a mapping between type parameters and their specialized
 // types. For example, if the generic type is Dict[_T1, _T2] and the
 // specialized type is Dict[str, int], it returns a map that associates
@@ -1030,10 +1087,8 @@ export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0
         return UnknownType.create();
     }
 
-    // TODO - we currently convert to Any, but this should
-    // probably be Unknown. We need to assess the compatibility
-    // impact of making this change.
-    return AnyType.create();
+    // In all other cases, treat as unknown.
+    return UnknownType.create();
 }
 
 function _specializeOverloadedFunctionType(type: OverloadedFunctionType,
