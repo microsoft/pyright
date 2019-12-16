@@ -616,18 +616,16 @@ function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
         typeStubTargetImportName?: string) {
 
     const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
-
-    // Disable watching of source files in the VS Code extension. This
-    // was previously enabled, but the file system watcher code caused
-    // lots of problems across multiple platforms. The benefit it provides
-    // (being able to catch changes made to files outside of VS Code) are
-    // not worth the problems it causes.
-    commandLineOptions.watch = false;
-
     commandLineOptions.checkOnlyOpenFiles = pyrightSettings ?
         !!pyrightSettings.openFilesOnly : true;
     commandLineOptions.useLibraryCodeForTypes = pyrightSettings ?
         !!pyrightSettings.useLibraryCodeForTypes : false;
+
+    // Disable watching of source files in the VS Code extension if we're
+    // analyzing only open files. The file system watcher code has caused
+    // lots of problems across multiple platforms. It provides little or
+    // no benefit when we're in "openFilesOnly" mode.
+    commandLineOptions.watch = !commandLineOptions.checkOnlyOpenFiles;
 
     if (pythonSettings.venvPath) {
         commandLineOptions.venvPath = combinePaths(workspace.rootPath || _rootPath,
