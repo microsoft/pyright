@@ -82,3 +82,5 @@ movie5: MovieNotTotal = {
     'name': 'Blade Runner'
 }
 
+unknown_str_value: str = 'blah'
+a = movie5[unknown_str_value]

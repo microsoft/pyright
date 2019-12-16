@@ -2454,9 +2454,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return subtype;
                 }
 
-                if (subtype.category === TypeCategory.Object &&
-                    ClassType.isBuiltIn(subtype.classType, 'str') &&
-                    !!subtype.literalValue) {
+                if (subtype.category === TypeCategory.Object && ClassType.isBuiltIn(subtype.classType, 'str')) {
+                    if (!subtype.literalValue) {
+                        // If it's a plain str with no literal value, we can't
+                        // make any determination about the resulting type.
+                        return UnknownType.create();
+                    }
 
                     // Look up the entry in the typed dict to get its type.
                     const entryName = subtype.literalValue as string;
