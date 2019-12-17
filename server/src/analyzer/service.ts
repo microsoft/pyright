@@ -255,7 +255,7 @@ export class AnalyzerService {
         }
 
         const configOptions = new ConfigOptions(projectRoot);
-        const defaultExcludes = ['**/node_modules', '**/__pycache__'];
+        const defaultExcludes = ['**/node_modules', '**/__pycache__', '.venv', '.git'];
 
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach(fileSpec => {
