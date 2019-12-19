@@ -93,7 +93,7 @@ export function buildAnalyzerFileInfo(filePath: string, parseResults: ParseResul
 }
 
 export function bindSampleFile(fileName: string,
-        configOptions = new ConfigOptions('.')): FileAnalysisResult {
+    configOptions = new ConfigOptions('.')): FileAnalysisResult {
 
     const diagSink = new DiagnosticSink();
     const filePath = resolveSampleFilePath(fileName);
@@ -101,7 +101,7 @@ export function bindSampleFile(fileName: string,
     const parseResults = parseSampleFile(fileName, diagSink, execEnvironment);
 
     const fileInfo = buildAnalyzerFileInfo(filePath, parseResults, configOptions);
-    const binder = new Binder(fileInfo);
+    const binder = new Binder(fileInfo, configOptions);
     binder.bindModule(parseResults.parseTree);
 
     // Walk the AST to verify internal consistency.

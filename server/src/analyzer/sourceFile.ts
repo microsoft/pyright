@@ -677,8 +677,7 @@ export class SourceFile {
 
                 const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope);
                 AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
-
-                const binder = new Binder(fileInfo);
+                const binder = new Binder(fileInfo, configOptions);
                 this._isBindingInProgress = true;
                 this._binderResults = binder.bindModule(this._parseResults!.parseTree);
 

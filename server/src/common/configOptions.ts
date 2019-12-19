@@ -315,6 +315,11 @@ export class ConfigOptions {
     // Path to custom typings (stub) modules.
     typingsPath?: string;
 
+    // A list of custom builtins to add to the builtins export list.
+    // Can be combined with typeshedPath to use a custom builtins.pyi
+    // and access a variable without importing it
+    customBuiltins: string[];
+
     // A list of file specs to include in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories
     // are included.
@@ -716,6 +721,23 @@ export class ConfigOptions {
                 console.log(`Config "typingsPath" field must contain a string.`);
             } else {
                 this.typingsPath = normalizePath(combinePaths(this.projectRoot, configObj.typingsPath));
+            }
+        }
+
+        // Read the "customBuiltins".
+        this.customBuiltins = [];
+        if (configObj.customBuiltins !== undefined) {
+            if (!Array.isArray(configObj.customBuiltins)) {
+                console.log(`Config "customBuiltins" field must contain an array.`);
+            } else {
+              const builtinList = configObj.customBuiltins as string[];
+              builtinList.forEach((builtin, index) => {
+                  if (typeof builtin !== 'string') {
+                      console.log(`Index ${ index } of "builtinsList" array should be a string.`);
+                  } else {
+                      this.customBuiltins.push(builtin);
+                  }
+              });
             }
         }
 

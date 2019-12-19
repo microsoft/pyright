@@ -72,6 +72,17 @@
       ],
       "pattern": "^(.*)$"
     },
+    "customBuiltins": {
+      "$id": "#/properties/customBuiltins",
+      "type": "array",
+      "title": "A list of custom builtins to add to the builtins export list",
+      "items": {
+        "$id": "#/properties/customBuiltins/items",
+        "type": "string",
+        "title": "Item of the builtins.pyi file that will be available without imports",
+        "pattern": "^(.*)$"
+      }
+    },
     "strictListInference": {
       "$id": "#/properties/strictListInference",
       "type": "boolean",

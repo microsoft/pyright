@@ -18,7 +18,7 @@
 
 import * as assert from 'assert';
 
-import { DiagnosticLevel } from '../common/configOptions';
+import { ConfigOptions, DiagnosticLevel } from '../common/configOptions';
 import { CreateTypeStubFileAction, getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
@@ -120,6 +120,8 @@ export class Binder extends ParseTreeWalker {
     // Flow nodes used for return statements.
     private _currentReturnTarget?: FlowLabel;
 
+    private _configOptions: ConfigOptions;
+
     // Map of symbols within the current execution scope
     // and require code flow analysis to resolve.
     private _currentExecutionScopeReferenceMap: Map<string, string>;
@@ -130,9 +132,9 @@ export class Binder extends ParseTreeWalker {
         id: getUniqueFlowNodeId()
     };
 
-    constructor(fileInfo: AnalyzerFileInfo) {
+    constructor(fileInfo: AnalyzerFileInfo, configOptions: ConfigOptions) {
         super();
-
+        this._configOptions = configOptions;
         this._fileInfo = fileInfo;
     }
 
@@ -149,8 +151,9 @@ export class Binder extends ParseTreeWalker {
             // If this is the built-in scope, we need to hide symbols
             // that are in the stub file but are not officially part of
             // the built-in list of symbols in Python.
+            // We also consider customBuiltins specified in the ConfigOptions.
             if (isBuiltInModule) {
-                const builtinsToExport = [
+              const defaultBuiltinsToExport = [
                     'ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException',
                     'BlockingIOError', 'BrokenPipeError', 'BufferError', 'BytesWarning',
                     'ChildProcessError', 'ConnectionAbortedError', 'ConnectionError',
@@ -180,8 +183,9 @@ export class Binder extends ParseTreeWalker {
                     'property', 'quit', 'range', 'repr', 'reversed', 'round', 'set', 'setattr',
                     'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple', 'type',
                     'vars', 'zip'];
-
-                this._currentScope.setExportFilter(builtinsToExport);
+              const customBuiltinsToExport = this._configOptions.customBuiltins || [];
+              const builtinsToExport = defaultBuiltinsToExport.concat(customBuiltinsToExport);
+              this._currentScope.setExportFilter(builtinsToExport);
             }
 
             // Bind implicit names.
