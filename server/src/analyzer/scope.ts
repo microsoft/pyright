@@ -64,19 +64,9 @@ export class Scope {
     // Association between names and symbols.
     readonly symbolTable: SymbolTable = new Map<string, Symbol>();
 
-    // Names not in _exportFilterMap will be hidden from child scopes.
-    private _exportFilterMap: Map<string, true> | undefined;
-
     constructor(type: ScopeType, parent?: Scope) {
         this.type = type;
         this.parent = parent;
-    }
-
-    setExportFilter(namesToExport: string[]) {
-        this._exportFilterMap = new Map<string, true>();
-        for (const name of namesToExport) {
-            this._exportFilterMap.set(name, true);
-        }
     }
 
     getGlobalScope(): Scope {
@@ -109,9 +99,6 @@ export class Scope {
     }
 
     addSymbol(name: string, flags: SymbolFlags): Symbol {
-        if (this._exportFilterMap && !this._exportFilterMap.has(name)) {
-            flags |= SymbolFlags.ExternallyHidden;
-        }
         const symbol = new Symbol(flags);
         this.symbolTable.set(name, symbol);
         return symbol;

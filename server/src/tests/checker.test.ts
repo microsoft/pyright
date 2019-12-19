@@ -37,7 +37,7 @@ test('Builtins1', () => {
         'FileExistsError', 'FileNotFoundError', 'FloatingPointError',
         'FutureWarning', 'GeneratorExit', 'IOError', 'ImportError',
         'ImportWarning', 'IndentationError', 'IndexError', 'InterruptedError',
-        'IsADirectoryError', 'KeyError', 'KeyboardInterrupt', 'LookupError',
+        'IsADirectoryError', 'KeyError', 'KeyboardInterrupt', 'LookupError', 'ModuleNotFoundError',
         'MemoryError', 'NameError', 'NotADirectoryError', 'NotImplemented',
         'NotImplementedError', 'OSError', 'OverflowError', 'PendingDeprecationWarning',
         'PermissionError', 'ProcessLookupError', 'RecursionError', 'ReferenceError',
@@ -57,7 +57,9 @@ test('Builtins1', () => {
         'memoryview', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'print',
         'property', 'quit', 'range', 'repr', 'reversed', 'round', 'set', 'setattr',
         'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple', 'type',
-        'vars', 'zip'];
+        'vars', 'zip',
+        // These really shouldn't be exposed but are defined by builtins.pyi currently.
+        'function', 'ellipsis'];
 
     const moduleScope = AnalyzerNodeInfo.getScope(analysisResults[0].parseResults!.parseTree)!;
     assert.notEqual(moduleScope, undefined);

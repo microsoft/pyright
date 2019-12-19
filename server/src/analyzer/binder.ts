@@ -47,7 +47,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
-import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 
 export const enum NameBindingType {
     // With "nonlocal" keyword
@@ -145,44 +145,6 @@ export class Binder extends ParseTreeWalker {
                 this._fileInfo.builtinsScope, () => {
 
             AnalyzerNodeInfo.setScope(node, this._currentScope);
-
-            // If this is the built-in scope, we need to hide symbols
-            // that are in the stub file but are not officially part of
-            // the built-in list of symbols in Python.
-            if (isBuiltInModule) {
-                const builtinsToExport = [
-                    'ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException',
-                    'BlockingIOError', 'BrokenPipeError', 'BufferError', 'BytesWarning',
-                    'ChildProcessError', 'ConnectionAbortedError', 'ConnectionError',
-                    'ConnectionRefusedError', 'ConnectionResetError', 'DeprecationWarning',
-                    'EOFError', 'Ellipsis', 'EnvironmentError', 'Exception',
-                    'FileExistsError', 'FileNotFoundError', 'FloatingPointError',
-                    'FutureWarning', 'GeneratorExit', 'IOError', 'ImportError',
-                    'ImportWarning', 'IndentationError', 'IndexError', 'InterruptedError',
-                    'IsADirectoryError', 'KeyError', 'KeyboardInterrupt', 'LookupError',
-                    'MemoryError', 'NameError', 'NotADirectoryError', 'NotImplemented',
-                    'NotImplementedError', 'OSError', 'OverflowError', 'PendingDeprecationWarning',
-                    'PermissionError', 'ProcessLookupError', 'RecursionError', 'ReferenceError',
-                    'ResourceWarning', 'RuntimeError', 'RuntimeWarning', 'StopAsyncIteration',
-                    'StopIteration', 'SyntaxError', 'SyntaxWarning', 'SystemError', 'SystemExit',
-                    'TabError', 'TimeoutError', 'TypeError', 'UnboundLocalError',
-                    'UnicodeDecodeError', 'UnicodeEncodeError', 'UnicodeError', 'UnicodeTranslateError',
-                    'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning', 'WindowsError',
-                    'ZeroDivisionError',
-                    '__import__', '__loader__', '__name__',
-                    '__package__', '__spec__', 'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'breakpoint',
-                    'bytearray', 'bytes', 'callable', 'chr', 'classmethod', 'compile', 'complex',
-                    'copyright', 'credits', 'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval',
-                    'exec', 'exit', 'filter', 'float', 'format', 'frozenset', 'getattr', 'globals',
-                    'hasattr', 'hash', 'help', 'hex', 'id', 'input', 'int', 'isinstance',
-                    'issubclass', 'iter', 'len', 'license', 'list', 'locals', 'map', 'max',
-                    'memoryview', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'print',
-                    'property', 'quit', 'range', 'repr', 'reversed', 'round', 'set', 'setattr',
-                    'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple', 'type',
-                    'vars', 'zip'];
-
-                this._currentScope.setExportFilter(builtinsToExport);
-            }
 
             // Bind implicit names.
             // List taken from https://docs.python.org/3/reference/import.html#__name__
@@ -1781,6 +1743,11 @@ export class Binder extends ParseTreeWalker {
             if (!symbol) {
                 symbol = scope.addSymbol(name,
                     SymbolFlags.InitiallyUnbound | SymbolFlags.ClassMember);
+
+                if (this._fileInfo.isStubFile && isPrivateOrProtectedName(name)) {
+                    symbol.setIsExternallyHidden();
+                }
+
                 if (addedSymbols) {
                     addedSymbols.set(name, symbol);
                 }
@@ -1857,6 +1824,10 @@ export class Binder extends ParseTreeWalker {
 
             if (this._currentScope.type === ScopeType.Class) {
                 symbolFlags |= SymbolFlags.ClassMember;
+            }
+
+            if (this._fileInfo.isStubFile && isPrivateOrProtectedName(nameValue)) {
+                symbolFlags |= SymbolFlags.ExternallyHidden;
             }
 
             // Add the symbol. Assume that symbols with a default type source ID
