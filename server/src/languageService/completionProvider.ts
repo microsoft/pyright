@@ -910,7 +910,7 @@ export class CompletionProvider {
                                         typeDetail = type.overloads.map(overload =>
                                             name + this._evaluator.printType(overload)).join('\n');
                                     } else {
-                                        typeDetail = name + this._evaluator.printType(type);
+                                        typeDetail = name + ': ' + this._evaluator.printType(type);
                                     }
                                     break;
 
