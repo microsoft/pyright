@@ -9392,9 +9392,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType, diag: DiagnosticAddendum): boolean {
-        // If we're overriding a non-method, don't report any error.
-        if (!(baseMethod.category === TypeCategory.Function)) {
-            return true;
+        // If we're overriding an overloaded method, uses the last overload.
+        if (baseMethod.category === TypeCategory.OverloadedFunction) {
+            baseMethod = baseMethod.overloads[baseMethod.overloads.length - 1];
+        }
+
+        // If we're overriding a non-method with a method, report it as an error.
+        // This occurs when a non-property overrides a property.
+        if (baseMethod.category !== TypeCategory.Function) {
+            diag.addMessage(`Base class defines type as ${ printType(baseMethod) }`);
+            return false;
         }
 
         let canOverride = true;
