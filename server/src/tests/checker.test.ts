@@ -965,3 +965,8 @@ test('FString2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['fstring2.py']);
     validateResults(analysisResults, 0);
 });
+
+test('MemberAccess1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess1.py']);
+    validateResults(analysisResults, 0);
+});

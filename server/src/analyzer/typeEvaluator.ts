@@ -2198,6 +2198,28 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                     if (accessMethod) {
                         let accessMethodType = getTypeOfMember(accessMethod);
+
+                        // If it's an overloaded function, determine which overload to use.
+                        if (accessMethodType.category === TypeCategory.OverloadedFunction) {
+                            const argList: FunctionArgument[] = [{
+                                argumentCategory: ArgumentCategory.Simple,
+                                type: ObjectType.create(memberClassType)
+                            }, {
+                                argumentCategory: ArgumentCategory.Simple,
+                                type: (flags & MemberAccessFlags.SkipInstanceMembers) ?
+                                    NoneType.create() :
+                                    ObjectType.create(memberClassType)
+                            }, {
+                                argumentCategory: ArgumentCategory.Simple,
+                                type: AnyType.create()
+                            }];
+
+                            const overload = findOverloadedFunctionType(errorNode, argList, accessMethodType);
+                            if (overload) {
+                                accessMethodType = overload;
+                            }
+                        }
+
                         if (accessMethodType.category === TypeCategory.Function) {
                             // Bind the accessor to the base object type.
                             accessMethodType = bindFunctionToClassOrObject(ObjectType.create(classType),
