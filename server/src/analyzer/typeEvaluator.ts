@@ -9738,10 +9738,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // If there is a type arguments array, it's a specialized class.
         if (type.typeArguments) {
+            // Handle Tuple[()] as a special case.
             if (type.typeArguments.length > 0) {
                 objName += '[' + type.typeArguments.map(typeArg => {
                     return printType(typeArg, recursionCount + 1);
                 }).join(', ') + ']';
+            } else {
+                if (ClassType.isBuiltIn(type, 'Tuple')) {
+                    objName += '[()]';
+                }
             }
         } else {
             const typeParams = ClassType.getTypeParameters(type);
