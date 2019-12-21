@@ -1166,7 +1166,7 @@ function _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
                 return classType.typeArguments;
             }
 
-            if (className === 'Iterator' || className === 'AsyncIterator') {
+            if (className === 'Iterator' || className === 'AsyncIterator' || className === 'AsyncIterable') {
                 return classType.typeArguments;
             }
         }

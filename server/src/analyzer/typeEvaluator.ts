@@ -6281,10 +6281,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             ClassType.cloneForSpecialization(asyncGeneratorType, typeArgs));
                     }
 
-                } else if (classType.details.name === 'AsyncGenerator' ||
-                        classType.details.name === 'AsyncIterator') {
+                } else if (['AsyncGenerator', 'AsyncIterator', 'AsyncIterable'].some(
+                        name => name === classType.details.name)) {
 
-                    // If it's already an AsyncGenerator or AsyncIterator, leave it as is.
+                    // If it's already an AsyncGenerator, AsyncIterator or AsyncIterable,
+                    // leave it as is.
                     awaitableReturnType = returnType;
                 }
             }
