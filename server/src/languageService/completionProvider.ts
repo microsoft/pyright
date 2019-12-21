@@ -22,7 +22,7 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { FunctionType, OverloadedFunctionType, TypeCategory } from '../analyzer/types';
+import { FunctionType, OverloadedFunctionType, Type, TypeCategory } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { comparePositions, DiagnosticTextPosition } from '../common/diagnostic';
@@ -972,6 +972,15 @@ export class CompletionProvider {
             this._addNameToCompletionList(name, itemKind, priorWord, completionList,
                 undefined, undefined, autoImportText, textEdit,
                 additionalTextEdits, symbol.id);
+        } else {
+            // Does the symbol have no declaration but instead has an "undeclared" type?
+            const undeclaredType = symbol.getUndeclaredType();
+            if (undeclaredType) {
+               const itemKind: CompletionItemKind = CompletionItemKind.Variable;
+               this._addNameToCompletionList(name, itemKind, priorWord, completionList,
+                    undefined, undefined, undefined, textEdit,
+                    additionalTextEdits, symbol.id);
+            }
         }
     }
 
