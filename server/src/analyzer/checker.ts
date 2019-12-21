@@ -855,7 +855,10 @@ export class Checker extends ParseTreeWalker {
     // Validates that a call to isinstance or issubclass are necessary. This is a
     // common source of programming errors.
     private _validateIsInstanceCallNecessary(node: CallNode) {
-        if (this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance === 'none') {
+        if (node.leftExpression.nodeType !== ParseNodeType.Name ||
+                (node.leftExpression.value !== 'isinstance' &&
+                    node.leftExpression.value !== 'issubclass') ||
+                node.arguments.length !== 2) {
             return;
         }
 
@@ -868,15 +871,9 @@ export class Checker extends ParseTreeWalker {
             curNode = curNode.parent;
         }
 
-        if (node.leftExpression.nodeType !== ParseNodeType.Name ||
-                (node.leftExpression.value !== 'isinstance' &&
-                    node.leftExpression.value !== 'issubclass') ||
-                node.arguments.length !== 2) {
-            return;
-        }
-
         const callName = node.leftExpression.value;
         const isInstanceCheck = callName === 'isinstance';
+
         let arg0Type = this._evaluator.getType(node.arguments[0].valueExpression);
         if (!arg0Type) {
             return;
@@ -912,6 +909,13 @@ export class Checker extends ParseTreeWalker {
             }
         } else {
             return;
+        }
+
+        // According to PEP 544, protocol classes cannot be used as the right-hand
+        // argument to isinstance or issubclass.
+        if (classTypeList.some(type => ClassType.isProtocol(type))) {
+            this._evaluator.addError(`Protocol class cannot be used in ${ callName } call`,
+                node.arguments[1].valueExpression);
         }
 
         const finalizeFilteredTypeList = (types: Type[]): Type => {
