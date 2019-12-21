@@ -8,8 +8,8 @@ import {
     CodeAction, CodeActionKind, Command, createConnection,
     Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DiagnosticTag,
     DocumentSymbol, ExecuteCommandParams, IConnection, InitializeResult, IPCMessageReader,
-    IPCMessageWriter, Location, ParameterInformation, Position, Range, ResponseError,
-    SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
+    IPCMessageWriter, Location, MarkupKind, ParameterInformation, Position, Range,
+    ResponseError, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
@@ -422,18 +422,18 @@ _connection.onHover(params => {
         return undefined;
     }
 
-    const markedStrings = hoverResults.parts.map(part => {
+    const markupString = hoverResults.parts.map(part => {
         if (part.python) {
-            return {
-                language: 'python',
-                value: part.text
-            };
+            return '```python\n' + part.text + '\n```\n';
         }
         return part.text;
-    });
+    }).join('');
 
     return {
-        contents: markedStrings,
+        contents: {
+            kind: MarkupKind.Markdown,
+           value: markupString
+        },
         range: _convertRange(hoverResults.range)
     };
 });

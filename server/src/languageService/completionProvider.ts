@@ -14,6 +14,7 @@ import { CompletionItem, CompletionItemKind, CompletionList,
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { convertDocStringToMarkdown } from '../analyzer/docStringUtils';
 import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
@@ -948,9 +949,8 @@ export class CompletionProvider {
                             let markdownString = '```python\n' + typeDetail + '\n```\n';
 
                             if (documentation) {
-                                markdownString += '```text\n\n';
-                                markdownString += documentation;
-                                markdownString += '\n```\n';
+                                markdownString += '---\n';
+                                markdownString += convertDocStringToMarkdown(documentation);
                             }
 
                             if (markdownString) {
@@ -1039,12 +1039,8 @@ export class CompletionProvider {
             }
 
             if (documentation) {
-                markdownString += '```text\n\n';
-                // Add spaces to the beginning of each line so
-                // the text is treated as "preformatted" by the
-                // markdown interpreter.
-                markdownString += documentation;
-                markdownString += '\n```\n';
+                markdownString += '---\n';
+                markdownString += convertDocStringToMarkdown(documentation);
             }
 
             if (markdownString) {

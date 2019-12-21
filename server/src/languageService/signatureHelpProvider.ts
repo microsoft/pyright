@@ -9,7 +9,6 @@
 * arguments for the call.
 */
 
-import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
