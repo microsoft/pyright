@@ -929,6 +929,16 @@ test('Import2', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Import4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import4.py']);
+    validateResults(analysisResults, 1);
+});
+
+test('Import6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import6.py']);
+    validateResults(analysisResults, 2);
+});
+
 test('Overload1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
     validateResults(analysisResults, 2);

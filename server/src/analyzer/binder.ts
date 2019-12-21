@@ -34,7 +34,7 @@ import { ArgumentCategory, AssertNode, AssignmentExpressionNode, AssignmentNode,
     UnaryOperationNode, WhileNode, WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { AnalyzerFileInfo } from './analyzerFileInfo';
+import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { createKeyForReference, FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition,
     FlowFlags, FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport,
@@ -1110,12 +1110,15 @@ export class Binder extends ParseTreeWalker {
         }
 
         if (node.isWildcardImport) {
-            if (importInfo && importInfo.implicitImports) {
+            if (importInfo) {
                 const names: string[] = [];
 
                 const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                 if (lookupInfo) {
-                    lookupInfo.symbolTable.forEach((symbol, name) => {
+                    const wildcardNames = this._getWildcardImportNames(lookupInfo);
+                    wildcardNames.forEach(name => {
+                        const symbol = lookupInfo.symbolTable.get(name)!;
+
                         // Don't include the ignored names in the symbol table.
                         if (!symbol.isIgnoredForProtocolMatch()) {
                             const symbol = this._bindNameToScope(this._currentScope, name);
@@ -1377,6 +1380,52 @@ export class Binder extends ParseTreeWalker {
         });
 
         return false;
+    }
+
+    private _getWildcardImportNames(lookupInfo: ImportLookupResult): string[] {
+        const namesToImport: string[] = [];
+
+        // Is there an __all__ statement? If so, it overrides the normal
+        // wildcard logic.
+        const allSymbol = lookupInfo.symbolTable.get('__all__');
+        if (allSymbol) {
+            const decls = allSymbol.getDeclarations();
+
+            // For now, we handle only the case where __all__ is defined
+            // through a simple assignment. Some libraries use more complex
+            // logic like __all__.extend(X) or __all__ += X. We'll punt on
+            // those for now.
+            if (decls.length === 1 && decls[0].type === DeclarationType.Variable) {
+                const firstDecl = decls[0];
+                if (firstDecl.node.parent && firstDecl.node.parent.nodeType === ParseNodeType.Assignment) {
+                    const expr = firstDecl.node.parent.rightExpression;
+                    if (expr.nodeType === ParseNodeType.List) {
+                        expr.entries.forEach(listEntryNode => {
+                            if (listEntryNode.nodeType === ParseNodeType.StringList &&
+                                    listEntryNode.strings.length === 1 &&
+                                    listEntryNode.strings[0].nodeType === ParseNodeType.String) {
+
+                                const entryName = listEntryNode.strings[0].value;
+                                if (lookupInfo.symbolTable.get(entryName)) {
+                                    namesToImport.push(entryName);
+                                }
+                            }
+                        });
+
+                        return namesToImport;
+                    }
+                }
+            }
+        }
+
+        // Import all names that don't begin with an underscore.
+        lookupInfo.symbolTable.forEach((_, name) => {
+            if (!name.startsWith('_')) {
+                namesToImport.push(name);
+            }
+        });
+
+        return namesToImport;
     }
 
     private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {

@@ -89,7 +89,9 @@ export function getTextEditsForAutoImportSymbolAddition(symbolName: string,
             }
 
             const insertionOffset = priorImport ? TextRange.getEnd(priorImport) :
-                importStatement.node.imports[0].start;
+                (importStatement.node.imports.length > 0 ?
+                    importStatement.node.imports[0].start :
+                    importStatement.node.start + importStatement.node.length);
             const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.tokenizerOutput.lines);
 
             textEditList.push({
