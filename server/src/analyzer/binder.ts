@@ -1110,6 +1110,10 @@ export class Binder extends ParseTreeWalker {
         }
 
         if (node.isWildcardImport) {
+            if (ParseTreeUtils.getEnclosingClass(node) || ParseTreeUtils.getEnclosingFunction(node)) {
+                this._addError('Wildcard import is not allowed within a class or function', node);
+            }
+
             if (importInfo) {
                 const names: string[] = [];
 
