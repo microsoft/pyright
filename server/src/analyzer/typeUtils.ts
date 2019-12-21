@@ -1142,14 +1142,18 @@ function _specializeFunctionType(functionType: FunctionType,
     return FunctionType.cloneForSpecialization(functionType, specializedParameters);
 }
 
-// If the declared return type for the function is a Generator or AsyncGenerator,
-// returns the type arguments for the type.
+// If the declared return type for the function is a Generator, AsyncGenerator,
+// Iterator, or AsyncIterator, returns the type arguments for the type.
 function _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
     if (returnType.category === TypeCategory.Object) {
         const classType = returnType.classType;
         if (ClassType.isBuiltIn(classType)) {
             const className = classType.details.name;
             if (className === 'Generator' || className === 'AsyncGenerator') {
+                return classType.typeArguments;
+            }
+
+            if (className === 'Iterator' || className === 'AsyncIterator') {
                 return classType.typeArguments;
             }
         }

@@ -503,6 +503,12 @@ test('Generators4', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Generators5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators5.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Coroutines1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines1.py']);
 

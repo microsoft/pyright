@@ -1,7 +1,7 @@
 # This sample tests various type checking operations relating to
 # generator functions that use the "yield from" clause.
 
-from typing import Generator, Iterator
+from typing import Iterator
 
 class ClassA():
     pass

@@ -1,7 +1,7 @@
 # This sample tests various type checking operations relating to
 # generator functions where the return type is inferred.
 
-from typing import Generator, Iterator, Optional
+from typing import Optional
 
 class ClassA():
     pass
