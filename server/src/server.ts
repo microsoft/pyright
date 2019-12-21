@@ -261,6 +261,7 @@ function _getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
                 disableLanguageServices: false
             };
             _workspaceMap.set(_defaultWorkspacePath, defaultWorkspace);
+            updateSettingsForWorkspace(defaultWorkspace);
         }
 
         return defaultWorkspace;
@@ -590,8 +591,15 @@ function getConfiguration(workspace: WorkspaceServiceInstance, sections: string[
     );
 }
 
+function updateSettingsForAllWorkspaces() {
+    _workspaceMap.forEach(workspace => {
+        updateSettingsForWorkspace(workspace);
+    });
+}
+
 function fetchSettingsForWorkspace(workspace: WorkspaceServiceInstance,
         callback: (pythonSettings: PythonSettings, pyrightSettings: PyrightSettings) => void) {
+
     const pythonSettingsPromise = getConfiguration(workspace, ['python', 'pyright']);
     pythonSettingsPromise.then((settings: [PythonSettings, PyrightSettings]) => {
         callback(settings[0], settings[1]);
@@ -601,13 +609,11 @@ function fetchSettingsForWorkspace(workspace: WorkspaceServiceInstance,
     });
 }
 
-function updateSettingsForAllWorkspaces() {
-    _workspaceMap.forEach(workspace => {
-        fetchSettingsForWorkspace(workspace, (pythonSettings, pyrightSettings) => {
-            updateOptionsAndRestartService(workspace, pythonSettings, pyrightSettings);
+function updateSettingsForWorkspace(workspace: WorkspaceServiceInstance) {
+    fetchSettingsForWorkspace(workspace, (pythonSettings, pyrightSettings) => {
+        updateOptionsAndRestartService(workspace, pythonSettings, pyrightSettings);
 
-            workspace.disableLanguageServices = !!pyrightSettings.disableLanguageServices;
-        });
+        workspace.disableLanguageServices = !!pyrightSettings.disableLanguageServices;
     });
 }
 
@@ -669,13 +675,15 @@ _connection.onInitialized(() => {
 
         event.added.forEach(workspace => {
             const rootPath = _convertUriToPath(workspace.uri);
-            _workspaceMap.set(rootPath, {
+            const newWorkspace: WorkspaceServiceInstance = {
                 workspaceName: workspace.name,
                 rootPath,
                 rootUri: workspace.uri,
                 serviceInstance: _createAnalyzerService(workspace.name),
                 disableLanguageServices: false
-            });
+            };
+            _workspaceMap.set(rootPath, newWorkspace);
+            updateSettingsForWorkspace(newWorkspace);
         });
     });
 });
