@@ -193,16 +193,6 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
     return type;
 }
 
-export function canBeTruthy(type: Type): boolean {
-    if (isNoneOrNever(type)) {
-        return false;
-    } else if (type.category === TypeCategory.Never) {
-        return false;
-    }
-
-    return true;
-}
-
 // If the type is a concrete class X described by the object Type[X],
 // returns X. Otherwise returns the original type.
 export function transformTypeObjectToClass(type: Type): Type {
@@ -236,14 +226,6 @@ export function canBeFalsy(type: Type, importLookup: ImportLookup): boolean {
         return true;
     }
 
-    if (type.category === TypeCategory.Never) {
-        return false;
-    }
-
-    if (type.category === TypeCategory.Function || type.category === TypeCategory.OverloadedFunction) {
-        return false;
-    }
-
     if (type.category === TypeCategory.Object) {
         const lenMethod = lookUpObjectMember(type, '__len__', importLookup);
         if (lenMethod) {
@@ -254,9 +236,40 @@ export function canBeFalsy(type: Type, importLookup: ImportLookup): boolean {
         if (boolMethod) {
             return true;
         }
+
+        // Check for Literal[False].
+        if (ClassType.isBuiltIn(type.classType, 'bool')) {
+            if (type.literalValue === false) {
+                return true;
+            }
+        }
     }
 
     return false;
+}
+
+export function canBeTruthy(type: Type): boolean {
+    if (isNoneOrNever(type)) {
+        return false;
+    }
+
+    if (type.category === TypeCategory.Object) {
+        // Check for Tuple[()] (an empty tuple).
+        if (ClassType.isBuiltIn(type.classType, 'Tuple')) {
+            if (type.classType.typeArguments && type.classType.typeArguments.length === 0) {
+                return false;
+            }
+        }
+
+        // Check for Literal[False].
+        if (ClassType.isBuiltIn(type.classType, 'bool')) {
+            if (type.literalValue === false) {
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 // Determines whether the type is a Tuple class or object.
