@@ -529,19 +529,52 @@ export interface FunctionParameter {
 
 export const enum FunctionTypeFlags {
     None                    = 0,
+
+    // Function is an instance method; first parameter is "self";
+    // can be bound to object instantiated from associated class
     InstanceMethod          = 1 << 0,
+
+    // Function is a __new__ method; first parameter is "cls"
     ConstructorMethod       = 1 << 1,
+
+    // Function is decorated with @classmethod; first parameter is "cls";
+    // can be bound to associated class
     ClassMethod             = 1 << 2,
+
+    // Function is decorated with @staticmethod; cannot be bound to class
     StaticMethod            = 1 << 3,
+
+    // Function is decorated with @abstractmethod
     AbstractMethod          = 1 << 4,
+
+    // Function contains "yield" or "yield from" statements
     Generator               = 1 << 5,
+
+    // Skip check that validates that all parameters without default
+    // value expressions have corresponding arguments; used for
+    // named tuples in some cases
     DisableDefaultChecks    = 1 << 6,
+
+    // Method has no declaration in user code, it's synthesized; used
+    // for implied methods such as those used in namedtuple, dataclass, etc.
     SynthesizedMethod       = 1 << 7,
+
+    // Function is decorated with @overload
     Overloaded              = 1 << 8,
+
+    // Function is declared with async keyword
     Async                   = 1 << 9,
+
+    // Indicates that return type should be wrapped in an awaitable type
     WrapReturnTypeInAwait   = 1 << 10,
+
+    // Function is declared within a type stub fille
     StubDefinition          = 1 << 11,
+
+    // Function is decorated with @final
     Final                   = 1 << 12,
+
+    // Function has one or more parameters that are missing type annotations
     UnannotatedParams       = 1 << 13
 }
 
