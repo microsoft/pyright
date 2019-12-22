@@ -1145,7 +1145,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
     }
 
-    function synthesizeTypedDictClassMethods(classType: ClassType) {
+    function synthesizeTypedDictClassMethods(node: ClassNode | ExpressionNode, classType: ClassType) {
         assert(ClassType.isTypedDictClass(classType));
 
         // Synthesize a __new__ method.
@@ -1189,6 +1189,50 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const symbolTable = classType.details.fields;
         symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
         symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
+
+        // Synthesize a "get" method for each named entry.
+        const strClass = getBuiltInType(node, 'str');
+        if (strClass.category === TypeCategory.Class) {
+            const getOverloads: FunctionType[] = [];
+
+            entries.forEach((entry, name) => {
+                const getOverload = FunctionType.create(
+                    FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded);
+                FunctionType.addParameter(getOverload, {
+                    category: ParameterCategory.Simple,
+                    name: 'self',
+                    type: ObjectType.create(classType)
+                });
+                FunctionType.addParameter(getOverload, {
+                    category: ParameterCategory.Simple,
+                    name: 'k',
+                    type: ObjectType.cloneWithLiteral(ObjectType.create(strClass), name)
+                });
+                FunctionType.addParameter(getOverload, {
+                    category: ParameterCategory.Simple,
+                    name: 'default',
+                    type: entry.valueType,
+                    hasDefault: true
+                });
+                getOverload.details.declaredReturnType = entry.valueType;
+                getOverloads.push(getOverload);
+            });
+
+            if (getOverloads.length > 0) {
+                const mappingClass = getBuiltInType(node, 'Mapping');
+                if (mappingClass.category === TypeCategory.Class) {
+                    const overriddenGet = getTypeFromClassMemberName(node as ExpressionNode, mappingClass, 'get',
+                            { method: 'get' }, new DiagnosticAddendum(), MemberAccessFlags.SkipBaseClasses);
+                    if (overriddenGet && overriddenGet.type.category === TypeCategory.OverloadedFunction) {
+                        getOverloads.push(overriddenGet.type.overloads[overriddenGet.type.overloads.length - 1]);
+                    }
+                }
+
+                const getMethod = OverloadedFunctionType.create();
+                getMethod.overloads = getOverloads;
+                symbolTable.set('get', Symbol.createWithType(SymbolFlags.ClassMember, getMethod));
+            }
+        }
     }
 
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
@@ -3877,7 +3921,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        synthesizeTypedDictClassMethods(classType);
+        synthesizeTypedDictClassMethods(errorNode, classType);
 
         return classType;
     }
@@ -5578,7 +5622,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         classType.details.fields = innerScope.symbolTable;
 
         if (ClassType.isTypedDictClass(classType)) {
-            synthesizeTypedDictClassMethods(classType);
+            synthesizeTypedDictClassMethods(node, classType);
         }
 
         // Determine if the class is abstract.
