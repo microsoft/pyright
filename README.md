@@ -5,21 +5,22 @@
 ### Speed
 Pyright is a fast type checker meant for large Python source bases. It can run in a “watch” mode and performs fast incremental updates when files are modified.
 
-### No Dependency on Python Environment
-Pyright does not require a Python environment or imported third-party packages to be installed.
-
 ### Configurability
 Pyright supports [configuration files](/docs/configuration.md) that provide granular control over settings. Different “execution environments” can be associated with subdirectories within a source base. Each environment can specify different module search paths, python language versions, and platform targets.
 
-### Type Checking Features
-Pyright supports:
+### VS Code Integration
+Pyright ships as both a command-line tool and a VS Code extension that provides 
 
+### Type Checking Features
 * [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
 * [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
 * [PEP 589](https://www.python.org/dev/peps/pep-0589/) typed dictionaries
 * Type inference for function return values, instance variables, class variables, and globals
 * Smart type constraints that understand conditional code flow constructs like if/else statements
+
+### VS Code Integration
+Pyright ships as both a command-line tool and a VS Code extension that provides many powerful features that help improve programming efficiency.
 
 ### VS Code Language Features
 The VS Code extension supports many time-saving language features including:
@@ -86,6 +87,10 @@ Pyright provides some features that overlap with functionality provided by the s
 
 ## Limitations
 Pyright currently provides support for Python 3.0 and newer. There is currently no plan to support older versions.
+
+
+## Community
+Do you have questions about Pyright or Python type annotations in general? Post your questions in this [gitter channel](https://gitter.im/microsoft-pyright/community).
 
 
 ## FAQ
