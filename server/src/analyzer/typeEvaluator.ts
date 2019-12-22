@@ -2208,7 +2208,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                 argumentCategory: ArgumentCategory.Simple,
                                 type: (flags & MemberAccessFlags.SkipInstanceMembers) ?
                                     NoneType.create() :
-                                    ObjectType.create(memberClassType)
+                                    ObjectType.create(classType)
                             }, {
                                 argumentCategory: ArgumentCategory.Simple,
                                 type: AnyType.create()
@@ -5969,7 +5969,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         for (const decoratorNode of node.decorators) {
-            const decoratorType = getTypeOfExpression(decoratorNode.leftExpression).type;
+            const decoratorType = getTypeOfExpression(decoratorNode.leftExpression,
+                    undefined, EvaluatorFlags.DoNotSpecialize).type;
             if (decoratorType.category === TypeCategory.Function) {
                 if (decoratorType.details.builtInName === 'abstractmethod') {
                     flags |= FunctionTypeFlags.AbstractMethod;
@@ -6002,7 +6003,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function applyFunctionDecorator(inputFunctionType: Type,
         originalFunctionType: FunctionType, decoratorNode: DecoratorNode): Type {
 
-        const decoratorType = getTypeOfExpression(decoratorNode.leftExpression).type;
+        const decoratorType = getTypeOfExpression(decoratorNode.leftExpression,
+                undefined, EvaluatorFlags.DoNotSpecialize).type;
 
         // Special-case the "overload" because it has no definition.
         if (decoratorType.category === TypeCategory.Class &&
