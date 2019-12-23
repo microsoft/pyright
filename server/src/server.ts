@@ -270,7 +270,7 @@ function _getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
     return bestInstance;
 }
 
-_connection.onDidChangeConfiguration(change => {
+_connection.onDidChangeConfiguration(() => {
     _connection.console.log(`Received updated settings`);
     updateSettingsForAllWorkspaces();
 });

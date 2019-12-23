@@ -167,7 +167,7 @@ export interface IfNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.If;
     testExpression: ExpressionNode;
     ifSuite: SuiteNode;
-    elseSuite ?: SuiteNode | IfNode;
+    elseSuite?: SuiteNode | IfNode;
 }
 
 export namespace IfNode {

@@ -12,9 +12,9 @@
         "build:serverDebug": "tsc",
         "build:serverProd": "npm run installServer && webpack --config webpack.config-server.js",
         "installServer": "node ./customInstallServerIntoExtension.js ../client ./package.json ./tsconfig.json ./package-lock.json",
-        "build:cli": "node ./copyTypeshedFallback.js && npm run tslint && webpack --config webpack.config-cli.js",
+        "build:cli": "node ./copyTypeshedFallback.js && npm run eslint && webpack --config webpack.config-cli.js",
+        "eslint": "eslint src/**/*.ts",
         "watch": "tsc --watch",
-        "tslint": "tslint --project tsconfig.json --fix",
         "test": "jest"
     },
     "dependencies": {
@@ -34,13 +34,14 @@
         "@types/fs-extra": "^8.0.1",
         "@types/jest": "^24.0.24",
         "@types/node": "^12.12.21",
+        "@typescript-eslint/eslint-plugin": "^2.12.0",
+        "@typescript-eslint/parser": "^2.12.0",
+        "eslint": "^6.8.0",
         "fs-extra": "^8.1.0",
         "jest": "^24.9.0",
         "node-loader": "^0.6.0",
         "ts-jest": "^24.2.0",
         "ts-loader": "^6.2.1",
-        "tslint": "^5.20.1",
-        "tslint-microsoft-contrib": "^6.2.0",
         "typescript": "^3.7.3",
         "webpack": "^4.41.3",
         "webpack-cli": "^3.3.10"

@@ -786,7 +786,7 @@ export class ImportResolver {
         }
 
         // Don't add directories with illegal module names.
-        if (/[\.\-]/.test(suggestionToAdd)) {
+        if (/[.-]/.test(suggestionToAdd)) {
             return;
         }
 

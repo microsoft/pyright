@@ -218,7 +218,7 @@ function processArgs() {
     service.setOptions(options);
 
     // Sleep indefinitely.
-    const brokenPromise = new Promise(resolve => {
+    const brokenPromise = new Promise(() => {
         // Do nothing.
     });
     brokenPromise.then().catch();

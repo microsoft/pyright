@@ -829,7 +829,7 @@ export class Tokenizer {
         const value = this._cs.getText().substr(start, length);
         const comment = Comment.create(start, length, value);
 
-        if (value.match(/^\s*type\:\s*ignore(\s|$)/)) {
+        if (value.match(/^\s*type:\s*ignore(\s|$)/)) {
             if (this._tokens.findIndex(t => t.type !== TokenType.NewLine && t && t.type !== TokenType.Indent) < 0) {
                 this._typeIgnoreAll = true;
             } else {
