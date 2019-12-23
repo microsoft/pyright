@@ -1033,9 +1033,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         assert(ClassType.isDataClass(classType));
 
         const newType = FunctionType.create(
-            FunctionTypeFlags.StaticMethod | FunctionTypeFlags.SynthesizedMethod);
-        const initType = FunctionType.create(
-            FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
+            FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod);
+        const initType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
 
         FunctionType.addParameter(newType, {
             category: ParameterCategory.Simple,
@@ -1150,7 +1149,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Synthesize a __new__ method.
         const newType = FunctionType.create(
-            FunctionTypeFlags.StaticMethod | FunctionTypeFlags.SynthesizedMethod);
+            FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod);
         FunctionType.addParameter(newType, {
             category: ParameterCategory.Simple,
             name: 'cls',
@@ -1160,8 +1159,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         newType.details.declaredReturnType = ObjectType.create(classType);
 
         // Synthesize an __init__ method.
-        const initType = FunctionType.create(
-            FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
+        const initType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
         FunctionType.addParameter(initType, {
             category: ParameterCategory.Simple,
             name: 'self',
@@ -1197,7 +1195,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             entries.forEach((entry, name) => {
                 const getOverload = FunctionType.create(
-                    FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded);
+                    FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded);
                 FunctionType.addParameter(getOverload, {
                     category: ParameterCategory.Simple,
                     name: 'self',
@@ -3955,8 +3953,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const builtInTupleType = getBuiltInType(errorNode, 'Tuple');
         if (builtInTupleType.category === TypeCategory.Class) {
-            const constructorType = FunctionType.create(
-                FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ConstructorMethod |
+            const constructorType = FunctionType.create(FunctionTypeFlags.ConstructorMethod |
                 FunctionTypeFlags.SynthesizedMethod);
             constructorType.details.declaredReturnType = ObjectType.create(classType);
             if (ParseTreeUtils.isAssignmentToDefaultsFollowingNamedTuple(errorNode)) {
@@ -4112,8 +4109,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // will handle property type checking. We may need to disable default
             // parameter processing for __new__ (see setDefaultParameterCheckDisabled),
             // and we don't want to do it for __init__ as well.
-            const initType = FunctionType.create(
-                FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
+            const initType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
             FunctionType.addParameter(initType, selfParameter);
             addDefaultFunctionParameters(initType);
             initType.details.declaredReturnType = NoneType.create();
@@ -4127,15 +4123,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             classFields.set('keys', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
             classFields.set('items', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
 
-            const lenType = FunctionType.create(
-                FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
+            const lenType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
             lenType.details.declaredReturnType = getBuiltInObject(errorNode, 'int');
             FunctionType.addParameter(lenType, selfParameter);
             classFields.set('__len__', Symbol.createWithType(SymbolFlags.ClassMember, lenType));
 
             if (addGenericGetAttribute) {
-                const getAttribType = FunctionType.create(
-                    FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.SynthesizedMethod);
+                const getAttribType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
                 getAttribType.details.declaredReturnType = AnyType.create();
                 FunctionType.addParameter(getAttribType, selfParameter);
                 FunctionType.addParameter(getAttribType, {
@@ -5943,7 +5937,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function inferFirstParamType(flags: FunctionTypeFlags, containingClassType: ClassType): Type | undefined {
-        if (flags & (FunctionTypeFlags.InstanceMethod | FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) {
+        if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
             if (containingClassType) {
                 if (ClassType.isProtocol(containingClassType)) {
                     // Don't specialize the "self" for protocol classes because type
@@ -5953,14 +5947,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return AnyType.create();
                 }
 
-                if (flags & FunctionTypeFlags.InstanceMethod) {
-                    const specializedClassType = selfSpecializeClassType(containingClassType);
-                    return ObjectType.create(specializedClassType);
-                } else if (flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) {
+                if (flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) {
                     // For class methods, the cls parameter is allowed to skip the
                     // abstract class test because the caller is possibly passing
                     // in a non-abstract subclass.
                     return selfSpecializeClassType(containingClassType, true);
+                } else if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
+                    const specializedClassType = selfSpecializeClassType(containingClassType);
+                    return ObjectType.create(specializedClassType);
                 }
             }
         }
@@ -6007,8 +6001,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // The "__new__" magic method is not an instance method.
         // It acts as a static method instead.
-        if (node.name.value === '__new__') {
-            flags |= FunctionTypeFlags.StaticMethod;
+        if (node.name.value === '__new__' && isInClass) {
             flags |= FunctionTypeFlags.ConstructorMethod;
         }
 
@@ -6017,25 +6010,22 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     undefined, EvaluatorFlags.DoNotSpecialize).type;
             if (decoratorType.category === TypeCategory.Function) {
                 if (decoratorType.details.builtInName === 'abstractmethod') {
-                    flags |= FunctionTypeFlags.AbstractMethod;
+                    if (isInClass) {
+                        flags |= FunctionTypeFlags.AbstractMethod;
+                    }
                 } else if (decoratorType.details.builtInName === 'final') {
                     flags |= FunctionTypeFlags.Final;
                 }
             } else if (decoratorType.category === TypeCategory.Class) {
                 if (ClassType.isBuiltIn(decoratorType, 'staticmethod')) {
-                    flags |= FunctionTypeFlags.StaticMethod;
+                    if (isInClass) {
+                        flags |= FunctionTypeFlags.StaticMethod;
+                    }
                 } else if (ClassType.isBuiltIn(decoratorType, 'classmethod')) {
-                    flags |= FunctionTypeFlags.ClassMethod;
+                    if (isInClass) {
+                        flags |= FunctionTypeFlags.ClassMethod;
+                    }
                 }
-            }
-        }
-
-        // If the function is contained with a class but is not a class
-        // method or a static method, it's assumed to be an instance method.
-        if (isInClass) {
-            if ((flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.StaticMethod |
-                    FunctionTypeFlags.ConstructorMethod)) === 0) {
-                flags |= FunctionTypeFlags.InstanceMethod;
             }
         }
 
@@ -6112,7 +6102,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         fields.set('fget', fgetSymbol);
 
         // Fill in the __get__ method.
-        const getFunction = FunctionType.create(FunctionTypeFlags.InstanceMethod);
+        const getFunction = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
         getFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -6129,7 +6119,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         fields.set('__get__', getSymbol);
 
         // Fill in the getter, setter and deleter methods.
-        const accessorFunction = FunctionType.create(FunctionTypeFlags.InstanceMethod);
+        const accessorFunction = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
         accessorFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -6172,7 +6162,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         fields.set('fset', fsetSymbol);
 
         // Fill in the __set__ method.
-        const setFunction = FunctionType.create(FunctionTypeFlags.InstanceMethod);
+        const setFunction = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -6225,7 +6215,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         fields.set('fdel', fdelSymbol);
 
         // Fill in the __delete__ method.
-        const delFunction = FunctionType.create(FunctionTypeFlags.InstanceMethod);
+        const delFunction = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',

@@ -7,15 +7,15 @@
 * Collection of functions that operate on Type objects.
 */
 
-import { types } from '@babel/core';
 import { ParameterCategory } from '../parser/parseNodes';
 import { ImportLookup } from './analyzerFileInfo';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, maxTypeRecursionCount, ModuleType, NeverType, ObjectType,
-    OverloadedFunctionType, removeNoneFromUnion, SpecializedFunctionTypes, Type, TypeCategory,
+    OverloadedFunctionType, SpecializedFunctionTypes, Type, TypeCategory,
     TypeVarMap, TypeVarType, UnknownType } from './types';
+import { DeclarationType } from './declaration';
 
 export interface ClassMember {
     // Symbol
@@ -486,9 +486,23 @@ export function lookUpClassMember(classType: Type, memberName: string, importLoo
             const symbol = memberFields.get(memberName);
             if (symbol && symbol.isClassMember()) {
                 if (!declaredTypesOnly || symbol.hasTypedDeclarations()) {
+                    let isInstanceMember = false;
+
+                    // For data classes and typed dicts, variables that are declared
+                    // within the class are treated as instance variables. This distinction
+                    // is important in cases where a variable is a callable type because
+                    // we don't want to bind it to the instance like we would for a
+                    // class member.
+                    if (ClassType.isDataClass(classType) || ClassType.isTypedDictClass(classType)) {
+                        const decls = symbol.getDeclarations();
+                        if (decls.length > 0 && decls[0].type === DeclarationType.Variable) {
+                            isInstanceMember = true;
+                        }
+                    }
+
                     return {
                         symbol,
-                        isInstanceMember: false,
+                        isInstanceMember,
                         classType
                     };
                 }
@@ -669,7 +683,10 @@ export function selfSpecializeClassType(type: ClassType, setSkipAbstractClassTes
 
 // Removes the first parameter of the function and returns a new function.
 export function stripFirstParameter(type: FunctionType): FunctionType {
-    return FunctionType.clone(type, true);
+    if (type.details.parameters.length > 0 && type.details.parameters[0].category === ParameterCategory.Simple) {
+        return FunctionType.clone(type, true);
+    }
+    return type;
 }
 
 // Recursively finds all of the type arguments to the specified srcType.

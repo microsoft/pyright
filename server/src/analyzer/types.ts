@@ -530,52 +530,48 @@ export interface FunctionParameter {
 export const enum FunctionTypeFlags {
     None                    = 0,
 
-    // Function is an instance method; first parameter is "self";
-    // can be bound to object instantiated from associated class
-    InstanceMethod          = 1 << 0,
-
     // Function is a __new__ method; first parameter is "cls"
-    ConstructorMethod       = 1 << 1,
+    ConstructorMethod       = 1 << 0,
 
     // Function is decorated with @classmethod; first parameter is "cls";
     // can be bound to associated class
-    ClassMethod             = 1 << 2,
+    ClassMethod             = 1 << 1,
 
     // Function is decorated with @staticmethod; cannot be bound to class
-    StaticMethod            = 1 << 3,
+    StaticMethod            = 1 << 2,
 
     // Function is decorated with @abstractmethod
-    AbstractMethod          = 1 << 4,
+    AbstractMethod          = 1 << 3,
 
     // Function contains "yield" or "yield from" statements
-    Generator               = 1 << 5,
+    Generator               = 1 << 4,
 
     // Skip check that validates that all parameters without default
     // value expressions have corresponding arguments; used for
     // named tuples in some cases
-    DisableDefaultChecks    = 1 << 6,
+    DisableDefaultChecks    = 1 << 5,
 
     // Method has no declaration in user code, it's synthesized; used
     // for implied methods such as those used in namedtuple, dataclass, etc.
-    SynthesizedMethod       = 1 << 7,
+    SynthesizedMethod       = 1 << 6,
 
     // Function is decorated with @overload
-    Overloaded              = 1 << 8,
+    Overloaded              = 1 << 7,
 
     // Function is declared with async keyword
-    Async                   = 1 << 9,
+    Async                   = 1 << 8,
 
     // Indicates that return type should be wrapped in an awaitable type
-    WrapReturnTypeInAwait   = 1 << 10,
+    WrapReturnTypeInAwait   = 1 << 9,
 
     // Function is declared within a type stub fille
-    StubDefinition          = 1 << 11,
+    StubDefinition          = 1 << 10,
 
     // Function is decorated with @final
-    Final                   = 1 << 12,
+    Final                   = 1 << 11,
 
     // Function has one or more parameters that are missing type annotations
-    UnannotatedParams       = 1 << 13
+    UnannotatedParams       = 1 << 12
 }
 
 interface FunctionDetails {
@@ -640,8 +636,9 @@ export namespace FunctionType {
         // If we strip off the first parameter, this is no longer an
         // instance method or class method.
         if (deleteFirstParam) {
-            newFunction.details.flags &= ~(FunctionTypeFlags.InstanceMethod |
+            newFunction.details.flags &= ~(FunctionTypeFlags.ConstructorMethod |
                 FunctionTypeFlags.ClassMethod);
+            newFunction.details.flags |= FunctionTypeFlags.StaticMethod;
             newFunction.ignoreFirstParamOfDeclaration = true;
         }
 
@@ -673,7 +670,8 @@ export namespace FunctionType {
     }
 
     export function isInstanceMethod(type: FunctionType): boolean {
-        return (type.details.flags & FunctionTypeFlags.InstanceMethod) !== 0;
+        return (type.details.flags & (FunctionTypeFlags.ConstructorMethod |
+            FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ClassMethod)) === 0;
     }
 
     export function isConstructorMethod(type: FunctionType): boolean {
