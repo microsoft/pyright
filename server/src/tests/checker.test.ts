@@ -993,6 +993,11 @@ test('FString2', () => {
     validateResults(analysisResults, 0);
 });
 
+test('FString3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['fstring3.py']);
+    validateResults(analysisResults, 0);
+});
+
 test('MemberAccess1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess1.py']);
     validateResults(analysisResults, 0);

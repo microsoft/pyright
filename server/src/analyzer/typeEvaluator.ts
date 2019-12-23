@@ -30,7 +30,7 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
     NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
     SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode,
     YieldFromNode, YieldNode } from '../parser/parseNodes';
-import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags, StringToken } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { createKeyForReference, FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
@@ -502,10 +502,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     });
 
                     const isBytes = (node.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
-                    typeResult = {
-                        node, type: cloneBuiltinTypeWithLiteral(node,
-                            isBytes ? 'bytes' : 'str', node.strings.map(s => s.value).join(''))
-                    };
+
+                    // Don't create a literal type if it's an f-string.
+                    if (node.strings.some(str => str.nodeType === ParseNodeType.FormatString)) {
+                        typeResult = {
+                            node,
+                            type: getBuiltInObject(node, isBytes ? 'bytes' : 'str')
+                        };
+                    } else {
+                        typeResult = {
+                            node,
+                            type: cloneBuiltinTypeWithLiteral(node,
+                                isBytes ? 'bytes' : 'str', node.strings.map(s => s.value).join(''))
+                        }
+                    }
                 }
                 break;
             }
