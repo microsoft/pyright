@@ -124,6 +124,10 @@ export interface TokenizerOutput {
 
     // Tab sequence ('/t or consecutive spaces).
     predominantTabSequence: string;
+
+    // Does the code mostly use single or double quote
+    // characters for string literals?
+    predominantSingleQuoteCharacter: string;
 }
 
 interface StringScannerOutput {
@@ -158,6 +162,11 @@ export class Tokenizer {
     // Number of spaces that are added for an indent token
     // (used to determine predominant tab sequence).
     private _indentSpacesTotal = 0;
+
+    // Number of single or double quote string literals found
+    // in the code.
+    private _singleQuoteCount = 0;
+    private _doubleQuoteCount = 0;
 
     tokenize(text: string, start?: number, length?: number): TokenizerOutput {
         if (start === undefined) {
@@ -239,7 +248,8 @@ export class Tokenizer {
             typeIgnoreLines: this._typeIgnoreLines,
             typeIgnoreAll: this._typeIgnoreAll,
             predominantEndOfLineSequence,
-            predominantTabSequence
+            predominantTabSequence,
+            predominantSingleQuoteCharacter: this._singleQuoteCount >= this._doubleQuoteCount ? '\'' : '"'
         };
     }
 
@@ -930,6 +940,12 @@ export class Tokenizer {
             this._cs.advance(3);
         } else {
             this._cs.moveNext();
+
+            if (flags & StringTokenFlags.SingleQuote) {
+                this._singleQuoteCount++;
+            } else {
+                this._doubleQuoteCount++;
+            }
         }
 
         const stringLiteralInfo = this._skipToEndOfStringLiteral(flags);

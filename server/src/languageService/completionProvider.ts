@@ -23,8 +23,8 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { FunctionType, OverloadedFunctionType, Type, TypeCategory } from '../analyzer/types';
-import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
+import { FunctionType, OverloadedFunctionType, Type, TypeCategory, ClassType } from '../analyzer/types';
+import { doForSubtypes, getMembersForClass, getMembersForModule, TypedDictEntry } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { comparePositions, DiagnosticTextPosition } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
@@ -34,9 +34,8 @@ import * as StringUtils from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
 import { CallNode, ErrorExpressionCategory, ErrorNode, ExpressionNode,
     FunctionNode, ImportFromNode, isExpressionNode, ModuleNameNode, NameNode,
-    ParameterCategory, ParseNode, ParseNodeType } from '../parser/parseNodes';
+    ParameterCategory, ParseNode, ParseNodeType, StringNode, FormatStringNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { TokenType } from '../parser/tokenizerTypes';
 
 const _keywords: string[] = [
     // Expression keywords
@@ -93,6 +92,9 @@ enum SortCategory {
 
     // A named parameter in a call expression.
     NamedParameter,
+
+    // A literal string.
+    LiteralValue,
 
     // A keyword or symbol that was recently used for completion.
     RecentKeywordOrSymbol,
@@ -248,11 +250,12 @@ export class CompletionProvider {
         const lineTextRange = this._parseResults.tokenizerOutput.lines.getItemAt(this._position.line);
         const textOnLine = this._fileContents.substr(lineTextRange.start, lineTextRange.length);
         const priorText = textOnLine.substr(0, this._position.column);
+        const postText = textOnLine.substr(this._position.column);
         const priorWordIndex = priorText.search(/\w+$/);
         const priorWord = priorWordIndex >= 0 ? priorText.substr(priorWordIndex) : '';
 
-        // Don't offer completions if we're within a comment or a string.
-        if (this._isWithinCommentOrString(offset, priorText)) {
+        // Don't offer completions if we're within a comment.
+        if (this._isWithinComment(offset, priorText)) {
             return undefined;
         }
 
@@ -271,7 +274,10 @@ export class CompletionProvider {
         // that of its ancestors.
         let curNode = errorNode || node;
         while (true) {
-            // Don't offer completions inside of a string node.
+            if (curNode.nodeType === ParseNodeType.String) {
+                return this._getStringLiteralCompletions(curNode, priorText, postText);
+            }
+
             if (curNode.nodeType === ParseNodeType.StringList) {
                 return undefined;
             }
@@ -331,17 +337,13 @@ export class CompletionProvider {
         return undefined;
     }
 
-    private _isWithinCommentOrString(offset: number, priorText: string): boolean {
+    private _isWithinComment(offset: number, priorText: string): boolean {
         const tokenIndex = this._parseResults.tokenizerOutput.tokens.getItemAtPosition(offset);
         if (tokenIndex < 0) {
             return false;
         }
 
         const token = this._parseResults.tokenizerOutput.tokens.getItemAt(tokenIndex);
-
-        if (token.type === TokenType.String) {
-            return true;
-        }
 
         // If we're in the middle of a token, we're not in a comment.
         if (offset > token.start && offset < TextRange.getEnd(token)) {
@@ -369,6 +371,7 @@ export class CompletionProvider {
             }
 
             case ErrorExpressionCategory.MissingExpression:
+            case ErrorExpressionCategory.MissingIndexOrSlice:
             case ErrorExpressionCategory.MissingDecoratorCallName: {
                 return this._getExpressionCompletions(node, priorWord);
             }
@@ -548,7 +551,139 @@ export class CompletionProvider {
             this._getAutoImportCompletions(priorWord, completionList);
         }
 
+        // Add literal values if appropriate.
+        if (parseNode.nodeType === ParseNodeType.Error &&
+                parseNode.category === ErrorExpressionCategory.MissingIndexOrSlice) {
+
+            this._getIndexStringLiteral(parseNode, completionList);
+        }
+
         return completionList;
+    }
+
+    private _getStringLiteralCompletions(parseNode: StringNode, priorText: string,
+            postText: string): CompletionList | undefined {
+
+        let parentNode: ParseNode | undefined = parseNode.parent;
+        if (!parentNode || parentNode.nodeType !== ParseNodeType.StringList || parentNode.strings.length > 1) {
+            return undefined;
+        }
+
+        parentNode = parentNode.parent;
+        if (!parentNode || parentNode.nodeType !== ParseNodeType.IndexItems) {
+            return undefined;
+        }
+
+        parentNode = parentNode.parent;
+        if (!parentNode || parentNode.nodeType !== ParseNodeType.Index) {
+            return undefined;
+        }
+
+        const baseType = this._evaluator.getType(parentNode.baseExpression);
+        if (!baseType || baseType.category !== TypeCategory.Object) {
+            return undefined;
+        }
+    
+        // We currently handle only TypedDict objects.
+        const classType = baseType.classType;
+        if (!ClassType.isTypedDictClass(classType)) {
+            return;
+        }
+
+        const entries = this._evaluator.getTypedDictMembersForClass(classType);
+        const completionList = CompletionList.create();
+        const quoteValue = this._getQuoteValueFromPriorText(priorText);
+
+        entries.forEach((_, key) => {
+            this._addStringLiteralToCompletionList(key, quoteValue.stringValue, postText,
+                quoteValue.quoteCharacter, completionList);
+        });
+
+        return completionList;
+    }
+
+    // Given a string of text that precedes the current insertion point,
+    // determines which portion of it is the first part of a string literal
+    // (either starting with a single or double quote). Returns the quote
+    // type and the string literal value after the starting quote.
+    private _getQuoteValueFromPriorText(priorText: string) {
+        const lastSingleQuote = priorText.lastIndexOf('\'');
+        const lastDoubleQuote = priorText.lastIndexOf('"');
+
+        let quoteCharacter = this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter;
+        let stringValue = '';
+
+        if (lastSingleQuote > lastDoubleQuote) {
+            quoteCharacter = '\'';
+            stringValue = priorText.substr(lastSingleQuote + 1);
+        } else if (lastDoubleQuote > lastSingleQuote) {
+            quoteCharacter = '"';
+            stringValue = priorText.substr(lastDoubleQuote + 1);
+        }
+
+        return { stringValue, quoteCharacter };
+    }
+
+    private _getIndexStringLiteral(parseNode: ErrorNode, completionList: CompletionList) {
+        if (!parseNode.parent || parseNode.parent.nodeType !== ParseNodeType.IndexItems) {
+            return;
+        }
+
+        const parentNode = parseNode.parent;
+        if (!parentNode.parent || parentNode.parent.nodeType !== ParseNodeType.Index) {
+            return;
+        }
+
+        const baseType = this._evaluator.getType(parentNode.parent.baseExpression);
+        if (!baseType || baseType.category !== TypeCategory.Object) {
+            return;
+        }
+
+        // We currently handle only TypedDict objects.
+        const classType = baseType.classType;
+        if (!ClassType.isTypedDictClass(classType)) {
+            return;
+        }
+
+        const entries = this._evaluator.getTypedDictMembersForClass(classType);
+        entries.forEach((_, key) => {
+            this._addStringLiteralToCompletionList(key, undefined, undefined,
+                this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter,
+                completionList);
+        });
+    }
+
+    private _addStringLiteralToCompletionList(value: string, priorString: string | undefined,
+            postText: string | undefined, quoteCharacter: string, completionList: CompletionList) {
+
+        const isSimilar = StringUtils.computeCompletionSimilarity(priorString || '', value) > similarityLimit;
+        if (isSimilar) {
+            const valueWithQuotes = `${ quoteCharacter }${ value }${ quoteCharacter }`;
+            const completionItem = CompletionItem.create(valueWithQuotes);
+
+            completionItem.kind = CompletionItemKind.Text;
+            completionItem.sortText = this._makeSortText(SortCategory.LiteralValue, valueWithQuotes);
+            completionList.items.push(completionItem);
+            let rangeStartCol = this._position.column;
+            if (priorString !== undefined) {
+                rangeStartCol -= priorString.length + 1;
+            }
+
+            // If the text after the insertion point is the closing quote,
+            // replace it.
+            let rangeEndCol = this._position.column;
+            if (postText !== undefined) {
+                if (postText.startsWith(quoteCharacter)) {
+                    rangeEndCol++;
+                }
+            }
+
+            const range: Range = {
+                start: { line: this._position.line, character: rangeStartCol },
+                end: { line: this._position.line, character: rangeEndCol }
+            };
+            completionItem.textEdit = TextEdit.replace(range, valueWithQuotes);
+        }
     }
 
     private _getCallNode(parseNode: ParseNode): CallNode | undefined {

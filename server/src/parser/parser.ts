@@ -1970,7 +1970,7 @@ export class Parser {
 
         if (listResult.list.length === 0) {
             return this._handleExpressionParseError(
-                ErrorExpressionCategory.MissingExpression,
+                ErrorExpressionCategory.MissingIndexOrSlice,
                 'Expected index or slice expression');
         }
 

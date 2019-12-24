@@ -497,7 +497,8 @@ export class SourceFile {
                     typeIgnoreAll: false,
                     typeIgnoreLines: {},
                     predominantEndOfLineSequence: '\n',
-                    predominantTabSequence: '    '
+                    predominantTabSequence: '    ',
+                    predominantSingleQuoteCharacter: '\''
                 },
                 containsWildcardImport: false
             };

@@ -89,6 +89,7 @@ export const enum ErrorExpressionCategory {
     MissingIn,
     MissingElse,
     MissingExpression,
+    MissingIndexOrSlice,
     MissingDecoratorCallName,
     MissingCallCloseParen,
     MissingIndexCloseBracket,

@@ -204,7 +204,7 @@ _connection.onInitialize((params): InitializeResult => {
             hoverProvider: true,
             renameProvider: true,
             completionProvider: {
-                triggerCharacters: ['.'],
+                triggerCharacters: ['.', '['],
                 resolveProvider: true
             },
             signatureHelpProvider: {

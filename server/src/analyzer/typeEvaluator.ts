@@ -225,6 +225,7 @@ export interface TypeEvaluator {
     resolveAliasDeclaration: (declaration: Declaration) => Declaration | undefined;
     getTypeFromIterable: (type: Type, isAsync: boolean,
         errorNode: ParseNode | undefined, supportGetItem: boolean) => Type;
+    getTypedDictMembersForClass: (classType: ClassType) => Map<string, TypedDictEntry>;
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
@@ -1183,8 +1184,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             type: AnyType.create()
         });
 
-        const entries = new Map<string, TypedDictEntry>();
-        getTypedDictMembersForClassRecursive(classType, entries);
+        const entries = getTypedDictMembersForClass(classType);
         entries.forEach((entry, name) => {
             FunctionType.addParameter(initType, {
                 category: ParameterCategory.Simple,
@@ -2534,8 +2534,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 return UnknownType.create();
             }
 
-            const entries = new Map<string, TypedDictEntry>();
-            getTypedDictMembersForClassRecursive(baseType.classType, entries);
+            const entries = getTypedDictMembersForClass(baseType.classType);
 
             const indexType = getTypeOfExpression(node.items.items[0]).type;
             const diag = new DiagnosticAddendum();
@@ -8612,11 +8611,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // checking, as defined in PEP 589.
         if (ClassType.isTypedDictClass(destType) && ClassType.isTypedDictClass(srcType)) {
             let typesAreConsistent = true;
-            const destEntries = new Map<string, TypedDictEntry>();
-            getTypedDictMembersForClassRecursive(destType, destEntries);
-
-            const srcEntries = new Map<string, TypedDictEntry>();
-            getTypedDictMembersForClassRecursive(srcType, srcEntries);
+            const destEntries = getTypedDictMembersForClass(destType);
+            const srcEntries = getTypedDictMembersForClass(srcType);
 
             destEntries.forEach((destEntry, name) => {
                 const srcEntry = srcEntries.get(name);
@@ -9644,8 +9640,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         let isMatch = true;
 
-        const symbolMap = new Map<string, TypedDictEntry>();
-        getTypedDictMembersForClassRecursive(classType, symbolMap);
+        const symbolMap = getTypedDictMembersForClass(classType);
         const diag = new DiagnosticAddendum();
 
         keyTypes.forEach((keyType, index) => {
@@ -9684,6 +9679,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         return isMatch;
     }
+
+
+    function getTypedDictMembersForClass(classType: ClassType) {
+        const entries = new Map<string, TypedDictEntry>();
+        getTypedDictMembersForClassRecursive(classType, entries);
+        return entries;
+    }
+
 
     function getTypedDictMembersForClassRecursive(classType: ClassType,
         keyMap: Map<string, TypedDictEntry>, recursionCount = 0) {
@@ -9989,6 +9992,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         getTypeForDeclaration,
         resolveAliasDeclaration,
         getTypeFromIterable,
+        getTypedDictMembersForClass,
         getEffectiveTypeOfSymbol,
         getFunctionDeclaredReturnType,
         getFunctionInferredReturnType,
