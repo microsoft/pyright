@@ -1007,3 +1007,18 @@ test('MemberAccess2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess2.py']);
     validateResults(analysisResults, 0);
 });
+
+test('ParamName1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramName1.py'], configOptions);
+    validateResults(analysisResults, 0, 4);
+
+    configOptions.diagnosticSettings.reportSelfClsParameterName = 'none';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramName1.py'], configOptions);
+    validateResults(analysisResults, 0, 0);
+
+    configOptions.diagnosticSettings.reportSelfClsParameterName = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramName1.py'], configOptions);
+    validateResults(analysisResults, 4, 0);
+});
