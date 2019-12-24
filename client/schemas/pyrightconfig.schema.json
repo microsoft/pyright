@@ -84,6 +84,18 @@
       "title": "Infer strict types for dictionary expressions",
       "default": "false"
     },
+    "strictParameterNoneValue": {
+      "$id": "#/properties/strictParameterNoneValue",
+      "type": "boolean",
+      "title": "Allow implicit Optional when default parameter value is None",
+      "default": "false"
+    },
+    "enableTypeIgnoreComments": {
+      "$id": "#/properties/enableTypeIgnoreComments",
+      "type": "boolean",
+      "title": "Allow “# type: ignore” comments",
+      "default": "true"
+    },
     "reportTypeshedErrors": {
       "$id": "#/properties/reportTypeshedErrors",
       "$ref": "#/definitions/diagnostic",
@@ -220,7 +232,7 @@
       "$id": "#/properties/reportInvalidStringEscapeSequence",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of invalid escape sequences used within string literals",
-      "default": "none"
+      "default": "warning"
     },
     "reportUnknownParameterType": {
       "$id": "#/properties/reportUnknownParameterType",
@@ -268,7 +280,13 @@
       "$id": "#/properties/reportAssertAlwaysTrue",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting assert expressions that will always evaluate to true",
-      "default": "none"
+      "default": "warning"
+    },
+    "reportSelfClsParameterName": {
+      "$id": "#/properties/reportSelfClsParameterName",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting assert expressions that will always evaluate to true",
+      "default": "warning"
     },
     "pythonVersion": {
       "$id": "#/properties/pythonVersion",

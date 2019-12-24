@@ -117,7 +117,7 @@ export class Checker extends ParseTreeWalker {
             });
 
             if (containingClassNode) {
-                this._validateMethod(node, functionTypeResult.functionType);
+                this._validateMethod(node, functionTypeResult.functionType, containingClassNode);
             }
         }
 
@@ -1283,13 +1283,15 @@ export class Checker extends ParseTreeWalker {
 
     // Performs checks on a function that is located within a class
     // and has been determined not to be a property accessor.
-    private _validateMethod(node: FunctionNode, functionType: FunctionType) {
+    private _validateMethod(node: FunctionNode, functionType: FunctionType, classNode: ClassNode) {
         if (node.name && node.name.value === '__new__') {
             // __new__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name ||
                     (node.parameters[0].name.value !== 'cls' &&
                     node.parameters[0].name.value !== 'mcs')) {
-                this._evaluator.addError(
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                    DiagnosticRule.reportSelfClsParameterName,
                     `The __new__ override should take a 'cls' parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name);
             }
@@ -1297,7 +1299,9 @@ export class Checker extends ParseTreeWalker {
             // __init_subclass__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name ||
                     node.parameters[0].name.value !== 'cls') {
-                this._evaluator.addError(
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                    DiagnosticRule.reportSelfClsParameterName,
                     `The __init_subclass__ override should take a 'cls' parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name);
             }
@@ -1306,7 +1310,9 @@ export class Checker extends ParseTreeWalker {
             if (node.parameters.length > 0 && node.parameters[0].name) {
                 const paramName = node.parameters[0].name.value;
                 if (paramName === 'self' || paramName === 'cls') {
-                    this._evaluator.addError(
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                        DiagnosticRule.reportSelfClsParameterName,
                         `Static methods should not take a 'self' or 'cls' parameter`,
                         node.parameters[0].name);
                 }
@@ -1321,7 +1327,9 @@ export class Checker extends ParseTreeWalker {
             // cases in the stdlib pyi files.
             if (paramName !== 'cls') {
                 if (!this._fileInfo.isStubFile || (!paramName.startsWith('_') && paramName !== 'metacls')) {
-                    this._evaluator.addError(
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                        DiagnosticRule.reportSelfClsParameterName,
                         `Class methods should take a 'cls' parameter`,
                         node.parameters.length > 0 ? node.parameters[0] : node.name);
                 }
@@ -1342,17 +1350,26 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
 
-                // Instance methods should have a "self" parameter. We'll exempt parameter
-                // names that start with an underscore since those are used in a few
-                // cases in the stdlib pyi files.
-                if (firstParamIsSimple && paramName !== 'self' && !paramName.startsWith('_')) {
-                    // Special-case the ABCMeta.register method in abc.pyi.
-                    const isRegisterMethod = this._fileInfo.isStubFile &&
-                        paramName === 'cls' &&
-                        node.name.value === 'register';
+                // Instance methods should have a "self" parameter.
+                if (firstParamIsSimple && paramName !== 'self') {
+                    // Special-case metaclasses, which can use "cls".
+                    let isLegalMetaclassName = false;
+                    if (paramName === 'cls') {
+                        const classTypeInfo = this._evaluator.getTypeOfClass(classNode);
+                        const typeType = this._evaluator.getBuiltInType(classNode, 'type');
+                        if (typeType && typeType.category === TypeCategory.Class &&
+                                classTypeInfo && classTypeInfo.classType.category === TypeCategory.Class) {
 
-                    if (!isRegisterMethod) {
-                        this._evaluator.addError(
+                            if (derivesFromClassRecursive(classTypeInfo.classType, typeType)) {
+                                isLegalMetaclassName = true;
+                            }
+                        }
+                    }
+
+                    if (!isLegalMetaclassName) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                            DiagnosticRule.reportSelfClsParameterName,
                             `Instance methods should take a 'self' parameter`,
                             node.parameters.length > 0 ? node.parameters[0] : node.name);
                     }

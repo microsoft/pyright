@@ -152,6 +152,9 @@ export interface DiagnosticSettings {
 
     // Report assert expressions that will always evaluate to true.
     reportAssertAlwaysTrue: DiagnosticLevel;
+
+    // Report when "self" or "cls" parameter is missing or is misnamed.
+    reportSelfClsParameterName: DiagnosticLevel;
 }
 
 export function cloneDiagnosticSettings(
@@ -206,7 +209,8 @@ export function getDiagLevelSettings() {
         DiagnosticRule.reportCallInDefaultInitializer,
         DiagnosticRule.reportUnnecessaryIsInstance,
         DiagnosticRule.reportUnnecessaryCast,
-        DiagnosticRule.reportAssertAlwaysTrue
+        DiagnosticRule.reportAssertAlwaysTrue,
+        DiagnosticRule.reportSelfClsParameterName
     ];
 }
 
@@ -246,7 +250,8 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'error',
         reportUnnecessaryCast: 'error',
-        reportAssertAlwaysTrue: 'error'
+        reportAssertAlwaysTrue: 'error',
+        reportSelfClsParameterName: 'error'
     };
 
     return diagSettings;
@@ -288,7 +293,8 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
-        reportAssertAlwaysTrue: 'warning'
+        reportAssertAlwaysTrue: 'warning',
+        reportSelfClsParameterName: 'warning'
     };
 
     return diagSettings;
@@ -649,7 +655,12 @@ export class ConfigOptions {
             // Read the "reportAssertAlwaysTrue" entry.
             reportAssertAlwaysTrue: this._convertDiagnosticLevel(
                 configObj.reportAssertAlwaysTrue, DiagnosticRule.reportAssertAlwaysTrue,
-                defaultSettings.reportAssertAlwaysTrue)
+                defaultSettings.reportAssertAlwaysTrue),
+
+            // Read the "reportSelfClsParameterName" entry.
+            reportSelfClsParameterName: this._convertDiagnosticLevel(
+                configObj.reportSelfClsParameterName, DiagnosticRule.reportSelfClsParameterName,
+                defaultSettings.reportSelfClsParameterName)
         };
 
         // Read the "venvPath".

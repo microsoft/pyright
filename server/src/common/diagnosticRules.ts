@@ -44,5 +44,6 @@ export const enum DiagnosticRule {
     reportCallInDefaultInitializer = 'reportCallInDefaultInitializer',
     reportUnnecessaryIsInstance = 'reportUnnecessaryIsInstance',
     reportUnnecessaryCast = 'reportUnnecessaryCast',
-    reportAssertAlwaysTrue = 'reportAssertAlwaysTrue'
+    reportAssertAlwaysTrue = 'reportAssertAlwaysTrue',
+    reportSelfClsParameterName = 'reportSelfClsParameterName'
 }
