@@ -5045,7 +5045,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return UnknownType.create();
         }
 
-        // As per the specification, we support int, bool, str, and bytes literals.
+        // As per the specification, we support None, int, bool, str, and bytes literals.
         const literalTypes: Type[] = [];
 
         for (const item of node.items.items) {
@@ -5068,11 +5068,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     type = cloneBuiltinTypeWithLiteral(node, 'bool', true);
                 } else if (item.constType === KeywordType.False) {
                     type = cloneBuiltinTypeWithLiteral(node, 'bool', false);
+                } else if (item.constType === KeywordType.None) {
+                    type = NoneType.create();
                 }
             }
 
             if (!type) {
-                addError(`Type arguments for Literal must be an int, bool, str, or bytes value`,
+                addError(`Type arguments for Literal must be None, int, bool, str, or bytes value`,
                     item);
                 type = UnknownType.create();
             }

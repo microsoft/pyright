@@ -2,7 +2,7 @@
 
 from typing_extensions import Literal
 
-ValidResponses = Literal['a', b'b', 'c' "c", True]
+ValidResponses = Literal['a', b'b', 'c' "c", True, None]
 
 def foo(a: ValidResponses):
     pass
@@ -12,6 +12,7 @@ foo('a')
 foo(b'b')
 foo('cc')
 foo(True)
+foo(None)
 
 # This should generate an error because 'b'
 # isn't a valid literal value.
