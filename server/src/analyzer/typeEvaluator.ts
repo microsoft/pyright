@@ -30,7 +30,7 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
     NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
     SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode,
     YieldFromNode, YieldNode } from '../parser/parseNodes';
-import { KeywordType, OperatorType, StringTokenFlags, StringToken } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { createKeyForReference, FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition, FlowFlags,
@@ -4916,7 +4916,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             type = getBuiltInObject(node, 'Tuple', [keyType, valueType]);
         } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
-            const unexpandedType = getTypeOfExpression(node.expression.expandExpression);
+            getTypeOfExpression(node.expression.expandExpression);
 
             // TODO - need to implement
         } else if (isExpressionNode(node)) {

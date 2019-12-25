@@ -47,7 +47,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
-import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 
 export const enum NameBindingType {
     // With "nonlocal" keyword

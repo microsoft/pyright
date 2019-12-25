@@ -23,8 +23,8 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { FunctionType, OverloadedFunctionType, Type, TypeCategory, ClassType } from '../analyzer/types';
-import { doForSubtypes, getMembersForClass, getMembersForModule, TypedDictEntry } from '../analyzer/typeUtils';
+import { FunctionType, OverloadedFunctionType, TypeCategory, ClassType } from '../analyzer/types';
+import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { comparePositions, DiagnosticTextPosition } from '../common/diagnostic';
 import { TextEditAction } from '../common/editAction';
@@ -34,7 +34,7 @@ import * as StringUtils from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
 import { CallNode, ErrorExpressionCategory, ErrorNode, ExpressionNode,
     FunctionNode, ImportFromNode, isExpressionNode, ModuleNameNode, NameNode,
-    ParameterCategory, ParseNode, ParseNodeType, StringNode, FormatStringNode } from '../parser/parseNodes';
+    ParameterCategory, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 const _keywords: string[] = [

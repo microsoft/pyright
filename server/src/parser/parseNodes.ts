@@ -10,7 +10,7 @@
 
 import { TextRange } from '../common/textRange';
 import { IdentifierToken, KeywordToken, KeywordType,
-    NumberToken, OperatorType, StringToken, Token, TokenType } from './tokenizerTypes';
+    NumberToken, OperatorType, StringToken, Token } from './tokenizerTypes';
 
 export const enum ParseNodeType {
     Error, // 0
