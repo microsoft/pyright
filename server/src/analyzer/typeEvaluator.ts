@@ -5477,6 +5477,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // base class arguments.
         const typeParameters: TypeVarType[] = [];
 
+        // If the class derives from "Generic" directly, it will provide
+        // all of the type parameters in the specified order.
+        let genericTypeParameters: TypeVarType[] | undefined;
+
         let sawMetaclass = false;
         let nonMetaclassBaseClassCount = 0;
         node.arguments.forEach(arg => {
@@ -5587,10 +5591,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 }
 
-                // TODO - validate that we are not adding type parameters that
-                // are unique type vars but have conflicting names.
-                addTypeVarsToListIfUnique(typeParameters,
-                    getTypeVarArgumentsRecursive(argType));
+                addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(argType));
+                if (argType.category === TypeCategory.Class && ClassType.isBuiltIn(argType, 'Generic')) {
+                    if (genericTypeParameters) {
+                        addError(`Class cannot derive from 'Generic' more than once`, arg.valueExpression);
+                    } else {
+                        genericTypeParameters = [];
+                        addTypeVarsToListIfUnique(genericTypeParameters, getTypeVarArgumentsRecursive(argType));
+                    }
+                }
 
                 if (!isMetaclass) {
                     nonMetaclassBaseClassCount++;
@@ -5618,7 +5627,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        classType.details.typeParameters = typeParameters;
+        // TODO - validate that we are not adding type parameters that
+        // are unique type vars but have conflicting names.
+        // TODO - if genericTypeParameters are provided, make sure that
+        // typeParameters is a proper subset.
+        classType.details.typeParameters = genericTypeParameters || typeParameters;
 
         // The scope for this class becomes the "fields" for the corresponding type.
         const innerScope = ScopeUtils.getScopeForNode(node.suite);
