@@ -269,6 +269,7 @@ export class Binder extends ParseTreeWalker {
             type: DeclarationType.Function,
             node,
             isMethod: !!containingClassNode,
+            isGenerator: false,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
                 this._fileInfo.lines)
@@ -1452,6 +1453,16 @@ export class Binder extends ParseTreeWalker {
 
             if (!reportedUnreachable) {
                 this.walk(statement);
+            } else {
+                // If we're within a function, we need to look for unreachable yield
+                // statements because they affect the behavior of the function (making
+                // it a generator) even if they're never executed.
+                if (this._targetFunctionDeclaration && !this._targetFunctionDeclaration.isGenerator) {
+                    const yieldFinder = new YieldFinder();
+                    if (yieldFinder.checkContainsYield(statement)) {
+                        this._targetFunctionDeclaration.isGenerator = true;
+                    }
+                }
             }
         }
 
@@ -2261,6 +2272,7 @@ export class Binder extends ParseTreeWalker {
                 this._targetFunctionDeclaration.yieldExpressions = [];
             }
             this._targetFunctionDeclaration.yieldExpressions.push(node);
+            this._targetFunctionDeclaration.isGenerator = true;
         }
 
         if (node.expression) {
@@ -2298,3 +2310,23 @@ export class Binder extends ParseTreeWalker {
         return this._fileInfo.diagnosticSink.addWarningWithTextRange(message, textRange);
     }
 }
+
+export class YieldFinder extends ParseTreeWalker {
+    private _containsYield = false;
+
+    checkContainsYield(node: ParseNode) {
+        this.walk(node);
+        return this._containsYield;
+    }
+
+    visitYield(node: YieldNode): boolean {
+        this._containsYield = true;
+        return false;
+    }
+
+    visitYieldFrom(node: YieldFromNode): boolean {
+        this._containsYield = true;
+        return false;
+    }
+}
+

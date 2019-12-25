@@ -63,6 +63,7 @@ export interface FunctionDeclaration extends DeclarationBase {
     type: DeclarationType.Function;
     node: FunctionNode;
     isMethod: boolean;
+    isGenerator: boolean;
     returnExpressions?: ReturnNode[];
     yieldExpressions?: (YieldNode | YieldFromNode)[];
 }

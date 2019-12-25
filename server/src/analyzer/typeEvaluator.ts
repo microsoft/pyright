@@ -5760,7 +5760,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         let functionFlags = getFunctionFlagsFromDecorators(node, !!containingClassNode);
-        if (functionDecl.yieldExpressions) {
+        if (functionDecl.isGenerator) {
             functionFlags |= FunctionTypeFlags.Generator;
         }
 
