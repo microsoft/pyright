@@ -208,6 +208,13 @@ export interface FunctionTypeResult {
     decoratedType: Type;
 }
 
+export interface CallSignatureInfo {
+    callNode: CallNode;
+    signatures: FunctionType[];
+    activeArgumentIndex: number;
+    activeArgumentName?: string;
+}
+
 export interface TypeEvaluator {
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
@@ -236,6 +243,7 @@ export interface TypeEvaluator {
         memberType: Type, treatAsClassMember: boolean) => Type;
     getBoundMethod: (classType: ClassType, memberName: string, treatAsClassMember: boolean) =>
             FunctionType | OverloadedFunctionType | undefined;
+    getCallSignatureInfo: (node: ParseNode, insertionOffset: number) => CallSignatureInfo | undefined;
 
     canAssignType: (destType: Type, srcType: Type, diag: DiagnosticAddendum,
         typeVarMap?: TypeVarMap) => boolean;
@@ -790,6 +798,115 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return undefined;
+    }
+
+    // Returns the signature(s) associated with a call node that contains
+    // the specified node. It also returns the index of the argument
+    // that contains the node.
+    function getCallSignatureInfo(node: ParseNode, insertionOffset: number): CallSignatureInfo | undefined {
+        // Find the call node that contains the specified node.
+        let curNode: ParseNode | undefined = node;
+        let callNode: CallNode | undefined;
+        while (curNode !== undefined) {
+            if (curNode.nodeType === ParseNodeType.Call) {
+                callNode = curNode;
+                break;
+            }
+            curNode = curNode.parent;
+        }
+
+        if (!callNode) {
+            return undefined;
+        }
+
+        if (insertionOffset > TextRange.getEnd(callNode)) {
+            return undefined;
+        }
+
+        const signatures: FunctionType[] = [];
+        let activeArgumentIndex = 0;
+        let activeArgumentName: string | undefined;
+
+        const callType = getType(callNode.leftExpression);
+        if (callType === undefined) {
+            return undefined;
+        }
+
+        // Determine which argument is currently "active".
+        const args = callNode.arguments;
+        for (let i = args.length - 1; i >= 0; i--) {
+            if (insertionOffset > TextRange.getEnd(args[i].valueExpression)) {
+                activeArgumentIndex = i + 1;
+                break;
+            }
+
+            if (insertionOffset >= args[i].valueExpression.start) {
+                activeArgumentIndex = i;
+                break;
+            }
+        }
+
+        if (activeArgumentIndex < callNode.arguments.length) {
+            const argName = callNode.arguments[activeArgumentIndex].name;
+            if (argName) {
+                activeArgumentName = argName.value;
+            }
+        }
+
+        function addFunctionToSignature(type: FunctionType | OverloadedFunctionType) {
+            if (type.category === TypeCategory.Function) {
+                signatures.push(type);
+            } else {
+                signatures.push(...type.overloads);
+            }
+        }
+
+        doForSubtypes(callType, subtype => {
+            switch (subtype.category) {
+                case TypeCategory.Function:
+                case TypeCategory.OverloadedFunction: {
+                    addFunctionToSignature(subtype);
+                    break;
+                
+                }
+ 
+                case TypeCategory.Class: {
+                    // Try to get the __new__ method first. We skip the base "object",
+                    // which typically provides the __new__ method. We'll fall back on
+                    // the __init__ if there is no custom __new__.
+                    let methodType = getBoundMethod(subtype, '__new__', true);
+                    if (!methodType) {
+                        methodType = getBoundMethod(subtype, '__init__', false);
+                    }
+                    if (methodType) {
+                        addFunctionToSignature(methodType);
+                    }
+                    break;
+                }
+
+                case TypeCategory.Object: {
+                    const methodType = getBoundMethod(
+                        subtype.classType, '__call__', false);
+                    if (methodType) {
+                        addFunctionToSignature(methodType);
+                    }
+                    break;
+                }
+            }
+
+            return undefined;
+        });
+
+        if (signatures.length === 0) {
+            return undefined;
+        }
+
+        return {
+            callNode,
+            signatures,
+            activeArgumentIndex,
+            activeArgumentName
+        }
     }
 
     // Determines whether the specified expression is a symbol with a declared type
@@ -10015,6 +10132,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         getTypeOfMember,
         bindFunctionToClassOrObject,
         getBoundMethod,
+        getCallSignatureInfo,
         canAssignType,
         canOverrideMethod,
         addError,

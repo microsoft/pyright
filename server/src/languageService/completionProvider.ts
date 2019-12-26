@@ -22,8 +22,8 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
-import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { FunctionType, OverloadedFunctionType, TypeCategory, ClassType } from '../analyzer/types';
+import { TypeEvaluator, CallSignatureInfo } from '../analyzer/typeEvaluator';
+import { FunctionType, TypeCategory, ClassType } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { comparePositions, DiagnosticTextPosition } from '../common/diagnostic';
@@ -32,7 +32,7 @@ import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from 
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { TextRange } from '../common/textRange';
-import { CallNode, ErrorExpressionCategory, ErrorNode, ExpressionNode,
+import { ErrorExpressionCategory, ErrorNode, ExpressionNode,
     FunctionNode, ImportFromNode, isExpressionNode, ModuleNameNode, NameNode,
     ParameterCategory, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -90,11 +90,11 @@ enum SortCategory {
     // A module name used in an import statement.
     ImportModuleName,
 
-    // A named parameter in a call expression.
-    NamedParameter,
-
     // A literal string.
     LiteralValue,
+
+    // A named parameter in a call expression.
+    NamedParameter,
 
     // A keyword or symbol that was recently used for completion.
     RecentKeywordOrSymbol,
@@ -287,7 +287,8 @@ export class CompletionProvider {
             }
 
             if (curNode.nodeType === ParseNodeType.Error) {
-                return this._getExpressionErrorCompletions(curNode, priorWord);
+                return this._getExpressionErrorCompletions(curNode, priorWord,
+                    priorText, postText);
             }
 
             if (curNode.nodeType === ParseNodeType.MemberAccess) {
@@ -320,11 +321,11 @@ export class CompletionProvider {
             }
 
             if (isExpressionNode(curNode)) {
-                return this._getExpressionCompletions(curNode, priorWord);
+                return this._getExpressionCompletions(curNode, priorWord, priorText, postText);
             }
 
             if (curNode.nodeType === ParseNodeType.Suite || curNode.nodeType === ParseNodeType.Module) {
-                return this._getStatementCompletions(curNode, priorWord);
+                return this._getStatementCompletions(curNode, priorWord, priorText, postText);
             }
 
             if (!curNode.parent) {
@@ -355,8 +356,8 @@ export class CompletionProvider {
         return !!priorText.match(/#/);
     }
 
-    private _getExpressionErrorCompletions(node: ErrorNode, priorWord: string):
-            CompletionList | undefined {
+    private _getExpressionErrorCompletions(node: ErrorNode, priorWord: string,
+            priorText: string, postText: string): CompletionList | undefined {
 
         // Is the error due to a missing member access name? If so,
         // we can evaluate the left side of the member access expression
@@ -373,7 +374,7 @@ export class CompletionProvider {
             case ErrorExpressionCategory.MissingExpression:
             case ErrorExpressionCategory.MissingIndexOrSlice:
             case ErrorExpressionCategory.MissingDecoratorCallName: {
-                return this._getExpressionCompletions(node, priorWord);
+                return this._getExpressionCompletions(node, priorWord, priorText, postText);
             }
 
             case ErrorExpressionCategory.MissingMemberAccessName: {
@@ -503,15 +504,16 @@ export class CompletionProvider {
         return completionList;
     }
 
-    private _getStatementCompletions(parseNode: ParseNode, priorWord: string):
-            CompletionList | undefined {
+    private _getStatementCompletions(parseNode: ParseNode, priorWord: string,
+            priorText: string, postText: string): CompletionList | undefined {
 
         // For now, use the same logic for expressions and statements.
-        return this._getExpressionCompletions(parseNode, priorWord);
+        return this._getExpressionCompletions(parseNode, priorWord,
+            priorText, postText);
     }
 
-    private _getExpressionCompletions(parseNode: ParseNode, priorWord: string):
-            CompletionList | undefined {
+    private _getExpressionCompletions(parseNode: ParseNode, priorWord: string,
+            priorText: string, postText: string): CompletionList | undefined {
 
         // If the user typed a "." as part of a number, don't present
         // any completion options.
@@ -521,15 +523,23 @@ export class CompletionProvider {
 
         const completionList = CompletionList.create();
 
+        const offset = convertPositionToOffset(this._position,
+            this._parseResults.tokenizerOutput.lines)!;
+        const signatureInfo = this._evaluator.getCallSignatureInfo(parseNode, offset)
+
         // If we're within the argument list of a call, add parameter names.
-        const callNode = this._getCallNode(parseNode);
-        if (callNode) {
+        if (signatureInfo) {
             // Are we past the call expression and within the argument list?
             const callNameEnd = convertOffsetToPosition(
-                callNode.leftExpression.start + callNode.leftExpression.length,
+                signatureInfo.callNode.leftExpression.start + 
+                    signatureInfo.callNode.leftExpression.length,
                 this._parseResults.tokenizerOutput.lines);
+
             if (comparePositions(this._position, callNameEnd) > 0) {
-                this._addNamedParameters(callNode, priorWord, completionList);
+                this._addNamedParameters(signatureInfo, priorWord, completionList);
+
+                // Add literals that apply to this parameter.
+                this._addLiteralValuesForArgument(signatureInfo, priorText, postText, completionList);
             }
         }
 
@@ -559,6 +569,41 @@ export class CompletionProvider {
         }
 
         return completionList;
+    }
+
+    private _addLiteralValuesForArgument(signatureInfo: CallSignatureInfo,
+            priorText: string, postText: string, completionList: CompletionList) {
+
+        signatureInfo.signatures.forEach(signature => {
+            let paramIndex = -1;
+
+            if (signatureInfo.activeArgumentName !== undefined) {
+                paramIndex = signature.details.parameters.findIndex(param => {
+                    param.name === signatureInfo.activeArgumentName});
+            } else if (signatureInfo.activeArgumentIndex < signature.details.parameters.length) {
+                paramIndex = signatureInfo.activeArgumentIndex;
+            }
+
+            if (paramIndex < 0) {
+                return undefined;
+            }
+
+            const paramType = signature.details.parameters[paramIndex].type;
+            const quoteValue = this._getQuoteValueFromPriorText(priorText);
+            doForSubtypes(paramType, subtype => {
+                if (subtype.category === TypeCategory.Object) {
+                    if (ClassType.isBuiltIn(subtype.classType, 'str')) {
+                        this._addStringLiteralToCompletionList(subtype.literalValue as string,
+                            quoteValue.stringValue, postText, quoteValue.quoteCharacter,
+                            completionList);
+                    }
+                }
+
+                return undefined;
+            });
+
+            return undefined;
+        });
     }
 
     private _getStringLiteralCompletions(parseNode: StringNode, priorText: string,
@@ -611,7 +656,7 @@ export class CompletionProvider {
         const lastDoubleQuote = priorText.lastIndexOf('"');
 
         let quoteCharacter = this._parseResults.tokenizerOutput.predominantSingleQuoteCharacter;
-        let stringValue = '';
+        let stringValue = undefined;
 
         if (lastSingleQuote > lastDoubleQuote) {
             quoteCharacter = '\'';
@@ -663,7 +708,6 @@ export class CompletionProvider {
 
             completionItem.kind = CompletionItemKind.Text;
             completionItem.sortText = this._makeSortText(SortCategory.LiteralValue, valueWithQuotes);
-            completionList.items.push(completionItem);
             let rangeStartCol = this._position.column;
             if (priorString !== undefined) {
                 rangeStartCol -= priorString.length + 1;
@@ -683,22 +727,10 @@ export class CompletionProvider {
                 end: { line: this._position.line, character: rangeEndCol }
             };
             completionItem.textEdit = TextEdit.replace(range, valueWithQuotes);
+
+            completionList.items.push(completionItem);
         }
-    }
-
-    private _getCallNode(parseNode: ParseNode): CallNode | undefined {
-        let curParseNode: ParseNode | undefined = parseNode;
-
-        while (curParseNode) {
-            if (curParseNode.nodeType === ParseNodeType.Call) {
-                return curParseNode;
-            }
-
-            curParseNode = curParseNode.parent;
-        }
-
-        return undefined;
-    }
+     }
 
     private _getAutoImportCompletions(priorWord: string, completionList: CompletionList) {
         const moduleSymbolMap = this._moduleSymbolsCallback();
@@ -873,55 +905,15 @@ export class CompletionProvider {
         });
     }
 
-    private _addNamedParameters(callNode: CallNode, priorWord: string, completionList: CompletionList) {
-        const callType = this._evaluator.getType(callNode.leftExpression);
-        if (!callType) {
-            return;
-        }
-
+    private _addNamedParameters(signatureInfo: CallSignatureInfo, priorWord: string, completionList: CompletionList) {
         const argNameMap = new Map<string, string>();
 
-        doForSubtypes(callType, subtype => {
-            switch (subtype.category) {
-                case TypeCategory.Function:
-                case TypeCategory.OverloadedFunction: {
-                    this._addNamedParametersToMap(subtype, argNameMap);
-                    break;
-                }
-
-                case TypeCategory.Object: {
-                    const methodType = this._evaluator.getBoundMethod(
-                        subtype.classType, '__call__', false);
-                    if (methodType) {
-                        this._addNamedParametersToMap(methodType, argNameMap);
-                    }
-                    break;
-                }
-
-                case TypeCategory.Class: {
-                    // Try to get the __new__ method first. We skip the base "object",
-                    // which typically provides the __new__ method. We'll fall back on
-                    // the __init__ if there is no custom __new__.
-                    let methodType = this._evaluator.getBoundMethod(subtype, '__new__', true);
-                    if (!methodType) {
-                        methodType = this._evaluator.getBoundMethod(subtype, '__init__',  false);
-                    }
-                    if (methodType) {
-                        if (methodType.category === TypeCategory.Function ||
-                                methodType.category === TypeCategory.OverloadedFunction) {
-
-                            this._addNamedParametersToMap(methodType, argNameMap);
-                        }
-                    }
-                    break;
-                }
-            }
-
-            return undefined;
+        signatureInfo.signatures.forEach(signature => {
+            this._addNamedParametersToMap(signature, argNameMap);
         });
 
         // Remove any named parameters that are already provided.
-        callNode.arguments.forEach(arg => {
+        signatureInfo.callNode.arguments.forEach(arg => {
             if (arg.name) {
                 argNameMap.delete(arg.name.value);
             }
@@ -948,16 +940,7 @@ export class CompletionProvider {
         });
     }
 
-    private _addNamedParametersToMap(type: FunctionType | OverloadedFunctionType,
-            paramMap: Map<string, string>) {
-
-        if (type.category === TypeCategory.OverloadedFunction) {
-            type.overloads.forEach(overload => {
-                this._addNamedParametersToMap(overload, paramMap);
-            });
-            return;
-        }
-
+    private _addNamedParametersToMap(type: FunctionType, paramMap: Map<string, string>) {
         type.details.parameters.forEach(param => {
             if (param.name && !param.isNameSynthesized) {
                 // Don't add private or protected names. These are assumed
