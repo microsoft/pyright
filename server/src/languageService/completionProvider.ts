@@ -23,7 +23,7 @@ import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator, CallSignatureInfo } from '../analyzer/typeEvaluator';
-import { FunctionType, TypeCategory, ClassType } from '../analyzer/types';
+import { FunctionType, TypeCategory, ClassType, Type } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { comparePositions, DiagnosticTextPosition } from '../common/diagnostic';
@@ -275,7 +275,7 @@ export class CompletionProvider {
         let curNode = errorNode || node;
         while (true) {
             if (curNode.nodeType === ParseNodeType.String) {
-                return this._getStringLiteralCompletions(curNode, priorText, postText);
+                return this._getStringLiteralCompletions(curNode, priorWord, priorText, postText);
             }
 
             if (curNode.nodeType === ParseNodeType.StringList) {
@@ -523,27 +523,10 @@ export class CompletionProvider {
 
         const completionList = CompletionList.create();
 
-        const offset = convertPositionToOffset(this._position,
-            this._parseResults.tokenizerOutput.lines)!;
-        const signatureInfo = this._evaluator.getCallSignatureInfo(parseNode, offset)
+        // Add call argument completions.
+        this._addCallArgumentCompletions(parseNode, priorWord, priorText, postText, completionList);
 
-        // If we're within the argument list of a call, add parameter names.
-        if (signatureInfo) {
-            // Are we past the call expression and within the argument list?
-            const callNameEnd = convertOffsetToPosition(
-                signatureInfo.callNode.leftExpression.start + 
-                    signatureInfo.callNode.leftExpression.length,
-                this._parseResults.tokenizerOutput.lines);
-
-            if (comparePositions(this._position, callNameEnd) > 0) {
-                this._addNamedParameters(signatureInfo, priorWord, completionList);
-
-                // Add literals that apply to this parameter.
-                this._addLiteralValuesForArgument(signatureInfo, priorText, postText, completionList);
-            }
-        }
-
-        // Add symbols.
+        // Add symbols that are in scope.
         this._addSymbols(parseNode, priorWord, completionList);
 
         // Add keywords.
@@ -562,13 +545,47 @@ export class CompletionProvider {
         }
 
         // Add literal values if appropriate.
-        if (parseNode.nodeType === ParseNodeType.Error &&
-                parseNode.category === ErrorExpressionCategory.MissingIndexOrSlice) {
+        if (parseNode.nodeType === ParseNodeType.Error) {
+            if (parseNode.category === ErrorExpressionCategory.MissingIndexOrSlice) {
+                this._getIndexStringLiteral(parseNode, completionList);
+            } else if (parseNode.category === ErrorExpressionCategory.MissingExpression) {
+                if (parseNode.parent && parseNode.parent.nodeType === ParseNodeType.Assignment) {
+                    const declaredTypeOfTarget = this._evaluator.getDeclaredTypeForExpression(
+                        parseNode.parent.leftExpression);
 
-            this._getIndexStringLiteral(parseNode, completionList);
+                    if (declaredTypeOfTarget) {
+                        this._addLiteralValuesForTargetType(declaredTypeOfTarget,
+                            priorText, postText, completionList);
+                    }
+                }
+            }
         }
 
         return completionList;
+    }
+
+    private _addCallArgumentCompletions(parseNode: ParseNode, priorWord: string, priorText: string,
+            postText: string, completionList: CompletionList) {
+
+        // If we're within the argument list of a call, add parameter names.
+        const offset = convertPositionToOffset(this._position,
+            this._parseResults.tokenizerOutput.lines)!;
+        const signatureInfo = this._evaluator.getCallSignatureInfo(parseNode, offset)
+
+        if (signatureInfo) {
+            // Are we past the call expression and within the argument list?
+            const callNameEnd = convertOffsetToPosition(
+                signatureInfo.callNode.leftExpression.start + 
+                    signatureInfo.callNode.leftExpression.length,
+                this._parseResults.tokenizerOutput.lines);
+
+            if (comparePositions(this._position, callNameEnd) > 0) {
+                this._addNamedParameters(signatureInfo, priorWord, completionList);
+
+                // Add literals that apply to this parameter.
+                this._addLiteralValuesForArgument(signatureInfo, priorText, postText, completionList);
+            }
+        }
     }
 
     private _addLiteralValuesForArgument(signatureInfo: CallSignatureInfo,
@@ -589,25 +606,30 @@ export class CompletionProvider {
             }
 
             const paramType = signature.details.parameters[paramIndex].type;
-            const quoteValue = this._getQuoteValueFromPriorText(priorText);
-            doForSubtypes(paramType, subtype => {
-                if (subtype.category === TypeCategory.Object) {
-                    if (ClassType.isBuiltIn(subtype.classType, 'str')) {
-                        this._addStringLiteralToCompletionList(subtype.literalValue as string,
-                            quoteValue.stringValue, postText, quoteValue.quoteCharacter,
-                            completionList);
-                    }
-                }
+            this._addLiteralValuesForTargetType(paramType, priorText, postText, completionList);
+            return undefined;
+        });
+    }
 
-                return undefined;
-            });
+    private _addLiteralValuesForTargetType(type: Type, priorText: string, postText: string,
+            completionList: CompletionList) {
+
+        const quoteValue = this._getQuoteValueFromPriorText(priorText);
+        doForSubtypes(type, subtype => {
+            if (subtype.category === TypeCategory.Object) {
+                if (ClassType.isBuiltIn(subtype.classType, 'str')) {
+                    this._addStringLiteralToCompletionList(subtype.literalValue as string,
+                        quoteValue.stringValue, postText, quoteValue.quoteCharacter,
+                        completionList);
+                }
+            }
 
             return undefined;
         });
     }
 
-    private _getStringLiteralCompletions(parseNode: StringNode, priorText: string,
-            postText: string): CompletionList | undefined {
+    private _getStringLiteralCompletions(parseNode: StringNode, priorWord: string,
+            priorText: string, postText: string): CompletionList | undefined {
 
         let parentNode: ParseNode | undefined = parseNode.parent;
         if (!parentNode || parentNode.nodeType !== ParseNodeType.StringList || parentNode.strings.length > 1) {
@@ -615,34 +637,47 @@ export class CompletionProvider {
         }
 
         parentNode = parentNode.parent;
-        if (!parentNode || parentNode.nodeType !== ParseNodeType.IndexItems) {
+        if (!parentNode) {
             return undefined;
         }
 
-        parentNode = parentNode.parent;
-        if (!parentNode || parentNode.nodeType !== ParseNodeType.Index) {
-            return undefined;
-        }
-
-        const baseType = this._evaluator.getType(parentNode.baseExpression);
-        if (!baseType || baseType.category !== TypeCategory.Object) {
-            return undefined;
-        }
-    
-        // We currently handle only TypedDict objects.
-        const classType = baseType.classType;
-        if (!ClassType.isTypedDictClass(classType)) {
-            return;
-        }
-
-        const entries = this._evaluator.getTypedDictMembersForClass(classType);
         const completionList = CompletionList.create();
-        const quoteValue = this._getQuoteValueFromPriorText(priorText);
 
-        entries.forEach((_, key) => {
-            this._addStringLiteralToCompletionList(key, quoteValue.stringValue, postText,
-                quoteValue.quoteCharacter, completionList);
-        });
+        if (parentNode.nodeType === ParseNodeType.IndexItems) {
+            parentNode = parentNode.parent;
+            if (!parentNode || parentNode.nodeType !== ParseNodeType.Index) {
+                return undefined;
+            }
+
+            const baseType = this._evaluator.getType(parentNode.baseExpression);
+            if (!baseType || baseType.category !== TypeCategory.Object) {
+                return undefined;
+            }
+        
+            // We currently handle only TypedDict objects.
+            const classType = baseType.classType;
+            if (!ClassType.isTypedDictClass(classType)) {
+                return;
+            }
+
+            const entries = this._evaluator.getTypedDictMembersForClass(classType);
+            const quoteValue = this._getQuoteValueFromPriorText(priorText);
+
+            entries.forEach((_, key) => {
+                this._addStringLiteralToCompletionList(key, quoteValue.stringValue, postText,
+                    quoteValue.quoteCharacter, completionList);
+            });
+        } else if (parentNode.nodeType === ParseNodeType.Assignment) {
+            const declaredTypeOfTarget = this._evaluator.getDeclaredTypeForExpression(
+                parentNode.leftExpression);
+
+            if (declaredTypeOfTarget) {
+                this._addLiteralValuesForTargetType(declaredTypeOfTarget,
+                    priorText, postText, completionList);
+            }
+        } else {
+            this._addCallArgumentCompletions(parseNode, priorWord, priorText, postText, completionList);
+        }
 
         return completionList;
     }

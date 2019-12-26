@@ -2557,7 +2557,7 @@ export class Parser {
         }
 
         if (rightExpr.nodeType === ParseNodeType.Error) {
-            return rightExpr;
+            return AssignmentNode.create(leftExpr, rightExpr);
         }
 
         // Recur until we've consumed the entire chain.
