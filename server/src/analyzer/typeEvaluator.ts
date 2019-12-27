@@ -2024,13 +2024,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 ClassType.isSpecialBuiltIn(effectiveType);
             let useCodeFlowAnalysis = !isSpecialBuiltIn;
 
-            // Don't use code-flow analysis if forward references are allowed
-            // and there is a declared type for the symbol because the code flow
-            // order doesn't apply in that case.
+            // Don't use code-flow analysis if forward references are allowed.
             if (flags & EvaluatorFlags.AllowForwardReferences) {
-                if (symbol.hasTypedDeclarations()) {
-                    useCodeFlowAnalysis = false;
-                }
+                useCodeFlowAnalysis = false;
             }
 
             if (fileInfo.isStubFile) {

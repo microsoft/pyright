@@ -599,6 +599,12 @@ test('TypeAlias1', () => {
     validateResults(analysisResults, 0);
 });
 
+test('TypeAlias2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias2.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Dictionary1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dictionary1.py']);
 
