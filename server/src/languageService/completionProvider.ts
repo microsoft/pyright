@@ -618,9 +618,11 @@ export class CompletionProvider {
         doForSubtypes(type, subtype => {
             if (subtype.category === TypeCategory.Object) {
                 if (ClassType.isBuiltIn(subtype.classType, 'str')) {
-                    this._addStringLiteralToCompletionList(subtype.literalValue as string,
-                        quoteValue.stringValue, postText, quoteValue.quoteCharacter,
-                        completionList);
+                    if (subtype.literalValue !== undefined) {
+                        this._addStringLiteralToCompletionList(subtype.literalValue as string,
+                            quoteValue.stringValue, postText, quoteValue.quoteCharacter,
+                            completionList);
+                    }
                 }
             }
 
