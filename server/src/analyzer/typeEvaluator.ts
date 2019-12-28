@@ -8683,13 +8683,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // perform a member-by-member check.
         if (ClassType.isProtocol(destType)) {
             const destClassFields = destType.details.fields;
-            const destProtocolTypeVarMap = new Map<string, Type>();
 
             // Some protocol definitions include recursive references to themselves.
             // We need to protect against infinite recursion, so we'll check for that here.
             if (isTypeSame(srcType, destType)) {
                 return true;
             }
+
+            // Strip the type arguments off the dest protocol if they are provided.
+            const genericDestType = ClassType.cloneForSpecialization(destType, undefined);
+            const genericDestTypeVarMap = new Map<string, Type>();
 
             let typesAreConsistent = true;
             const srcClassTypeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
@@ -8709,7 +8712,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                 recursionCount + 1);
 
                             if (!canAssignType(declaredType, srcMemberType,
-                                    diag.createAddendum(), typeVarMap, CanAssignFlags.Default,
+                                    diag.createAddendum(), genericDestTypeVarMap, CanAssignFlags.Default,
                                     recursionCount + 1)) {
 
                                 diag.addMessage(`'${ name }' is an incompatible type`);
@@ -8724,10 +8727,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (typesAreConsistent && destType.details.typeParameters.length > 0) {
                 // Create a specialized version of the protocol defined by the dest and
                 // make sure the resulting type args can be assigned.
-                const unspecializedDestProtocol = ClassType.cloneForSpecialization(destType, undefined);
-                const specializedSrcProtocol = specializeType(unspecializedDestProtocol, destProtocolTypeVarMap,
-                    true, recursionCount + 1) as ClassType;
-
+                const specializedSrcProtocol = specializeType(genericDestType, genericDestTypeVarMap,
+                    false, recursionCount + 1) as ClassType;
                 if (!verifyTypeArgumentsAssignable(destType, specializedSrcProtocol, diag, typeVarMap, recursionCount)) {
                     typesAreConsistent = false;
                 }
