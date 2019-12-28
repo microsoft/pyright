@@ -8709,8 +8709,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                 recursionCount + 1);
 
                             if (!canAssignType(declaredType, srcMemberType,
-                                diag.createAddendum(), destProtocolTypeVarMap, CanAssignFlags.Default,
-                                recursionCount + 1)) {
+                                    diag.createAddendum(), typeVarMap, CanAssignFlags.Default,
+                                    recursionCount + 1)) {
+
                                 diag.addMessage(`'${ name }' is an incompatible type`);
                                 typesAreConsistent = false;
                             }
