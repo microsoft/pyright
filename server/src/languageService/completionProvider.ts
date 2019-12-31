@@ -950,7 +950,7 @@ export class CompletionProvider {
         });
 
         // Remove any named parameters that are already provided.
-        signatureInfo.callNode.arguments.forEach(arg => {
+        signatureInfo.callNode.arguments!.forEach(arg => {
             if (arg.name) {
                 argNameMap.delete(arg.name.value);
             }

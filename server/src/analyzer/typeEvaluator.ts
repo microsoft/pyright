@@ -209,7 +209,7 @@ export interface FunctionTypeResult {
 }
 
 export interface CallSignatureInfo {
-    callNode: CallNode;
+    callNode: CallNode | DecoratorNode;
     signatures: FunctionType[];
     activeArgumentIndex: number;
     activeArgumentName?: string;
@@ -806,16 +806,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function getCallSignatureInfo(node: ParseNode, insertionOffset: number): CallSignatureInfo | undefined {
         // Find the call node that contains the specified node.
         let curNode: ParseNode | undefined = node;
-        let callNode: CallNode | undefined;
+        let callNode: CallNode | DecoratorNode | undefined;
         while (curNode !== undefined) {
-            if (curNode.nodeType === ParseNodeType.Call) {
+            if (curNode.nodeType === ParseNodeType.Call || curNode.nodeType === ParseNodeType.Decorator) {
                 callNode = curNode;
                 break;
             }
             curNode = curNode.parent;
         }
 
-        if (!callNode) {
+        if (!callNode || !callNode.arguments) {
             return undefined;
         }
 
