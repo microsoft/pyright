@@ -25,5 +25,5 @@ class Foo2:
     def baz(self) -> int:
         return 3
 
-c: cached_property[Foo2, int] = Foo2.baz
+c: cached_property[int] = Foo2.baz
 d: int = Foo2().baz

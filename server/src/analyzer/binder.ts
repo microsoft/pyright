@@ -447,7 +447,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitAssignment(node: AssignmentNode): boolean {
-        if (this._handleTypingStubAssignment(node)) {
+        if (this._handleTypingStubAssignmentOrAnnotation(node)) {
             return false;
         }
 
@@ -532,6 +532,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitTypeAnnotation(node: TypeAnnotationNode): boolean {
+        if (this._handleTypingStubAssignmentOrAnnotation(node)) {
+            return false;
+        }
+
         this._bindPossibleTupleNamedTarget(node.valueExpression);
         this._addTypeDeclarationForVariable(node.valueExpression, node.typeAnnotation);
         return true;
@@ -2189,17 +2193,28 @@ export class Binder extends ParseTreeWalker {
 
     // Handles some special-case assignment statements that are found
     // within the typings.pyi file.
-    private _handleTypingStubAssignment(node: AssignmentNode) {
+    private _handleTypingStubAssignmentOrAnnotation(node: AssignmentNode | TypeAnnotationNode) {
         if (!this._fileInfo.isTypingStubFile) {
             return false;
         }
 
-        if (node.leftExpression.nodeType !== ParseNodeType.TypeAnnotation ||
-                node.leftExpression.valueExpression.nodeType !== ParseNodeType.Name) {
+        let annotationNode: TypeAnnotationNode;
+
+        if (node.nodeType === ParseNodeType.TypeAnnotation) {
+            annotationNode = node;
+        } else {
+            if (node.leftExpression.nodeType !== ParseNodeType.TypeAnnotation) {
+                return false;
+            }
+
+            annotationNode = node.leftExpression;
+        }
+
+        if (annotationNode.valueExpression.nodeType !== ParseNodeType.Name) {
             return false;
         }
 
-        const assignedNameNode = node.leftExpression.valueExpression;
+        const assignedNameNode = annotationNode.valueExpression;
         const specialTypes: { [name: string]: boolean } = {
             'Tuple': true,
             'Generic': true,
@@ -2222,10 +2237,10 @@ export class Binder extends ParseTreeWalker {
         if (symbol) {
             symbol.addDeclaration({
                 type: DeclarationType.SpecialBuiltInClass,
-                node: node.leftExpression,
+                node: annotationNode,
                 path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(node.leftExpression.start,
-                    TextRange.getEnd(node.leftExpression), this._fileInfo.lines)
+                range: convertOffsetsToRange(annotationNode.start,
+                    TextRange.getEnd(annotationNode), this._fileInfo.lines)
             });
         }
         return true;
