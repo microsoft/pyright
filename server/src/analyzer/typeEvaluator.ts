@@ -8873,24 +8873,26 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         srcArgCount = 1;
                     }
 
-                    if (srcTypeArgs.length === destArgCount || isDestHomogenousTuple || isSrcHomogeneousType) {
-                        for (let i = 0; i < Math.min(destArgCount, srcArgCount); i++) {
-                            const expectedDestType = isDestHomogenousTuple ? destTypeArgs[0] : destTypeArgs[i];
-                            const expectedSrcType = isSrcHomogeneousType ? srcTypeArgs[0] : srcTypeArgs[i];
+                    if (srcArgCount > 0 && destArgCount > 0) {
+                        if (srcTypeArgs.length === destArgCount || isDestHomogenousTuple || isSrcHomogeneousType) {
+                            for (let i = 0; i < Math.max(destArgCount, srcArgCount); i++) {
+                                const expectedDestType = isDestHomogenousTuple ? destTypeArgs[0] : destTypeArgs[i];
+                                const expectedSrcType = isSrcHomogeneousType ? srcTypeArgs[0] : srcTypeArgs[i];
 
-                            if (!canAssignType(expectedDestType, expectedSrcType,
-                                    diag.createAddendum(), typeVarMap, CanAssignFlags.Default,
-                                    recursionCount + 1)) {
+                                if (!canAssignType(expectedDestType, expectedSrcType,
+                                        diag.createAddendum(), typeVarMap, CanAssignFlags.Default,
+                                        recursionCount + 1)) {
 
-                                diag.addMessage(`Tuple entry ${ i + 1 } is incorrect type`);
-                                return false;
+                                    diag.addMessage(`Tuple entry ${ i + 1 } is incorrect type`);
+                                    return false;
+                                }
                             }
+                        } else {
+                            diag.addMessage(
+                                `Tuple size mismatch: expected ${ destArgCount }` +
+                                ` but got ${ srcTypeArgs.length }`);
+                            return false;
                         }
-                    } else {
-                        diag.addMessage(
-                            `Tuple size mismatch: expected ${ destArgCount }` +
-                            ` but got ${ srcTypeArgs.length }`);
-                        return false;
                     }
 
                     return true;

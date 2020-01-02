@@ -404,13 +404,19 @@ test('Constant1', () => {
 test('Tuples1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples1.py']);
 
-    validateResults(analysisResults, 7);
+    validateResults(analysisResults, 8);
 });
 
 test('Tuples2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples2.py']);
 
     validateResults(analysisResults, 3);
+});
+
+test('Tuples3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples3.py']);
+
+    validateResults(analysisResults, 2);
 });
 
 test('NamedTuples1', () => {
