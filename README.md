@@ -8,9 +8,6 @@ Pyright is a fast type checker meant for large Python source bases. It can run i
 ### Configurability
 Pyright supports [configuration files](/docs/configuration.md) that provide granular control over settings. Different “execution environments” can be associated with subdirectories within a source base. Each environment can specify different module search paths, python language versions, and platform targets.
 
-### VS Code Integration
-Pyright ships as both a command-line tool and a VS Code extension that provides 
-
 ### Type Checking Features
 * [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
