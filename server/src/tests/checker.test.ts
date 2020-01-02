@@ -980,6 +980,11 @@ test('Import7', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Import9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import9.py']);
+    validateResults(analysisResults, 0);
+});
+
 test('Overload1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
     validateResults(analysisResults, 2);

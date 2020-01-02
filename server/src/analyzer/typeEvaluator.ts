@@ -6770,11 +6770,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 // If we were able to resolve the import, report the error as
                 // an unresolved symbol.
-                if (importLookup(resolvedPath)) {
-                    addError(
-                        `'${ node.name.value }' is unknown import symbol`,
-                        node.name
-                    );
+                const importLookupInfo = importLookup(resolvedPath);
+                if (importLookupInfo) {
+                    const fileInfo = getFileInfo(node);
+
+                    // Handle PEP 562 support for module-level __getattr__ function,
+                    // introduced in Python 3.7.
+                    if (fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37 ||
+                            !importLookupInfo.symbolTable.get('__getattr__')) {
+
+                        addError(
+                            `'${ node.name.value }' is unknown import symbol`,
+                            node.name
+                        );
+                    }
                 }
             }
 
