@@ -4,15 +4,13 @@
 
 from typing import (Iterator, TypeVar, Iterable, overload, Any, Callable, Tuple,
                     Generic, Optional)
+import sys
 
 _T = TypeVar('_T')
 _S = TypeVar('_S')
 _N = TypeVar('_N', int, float)
 Predicate = Callable[[_T], object]
 
-@overload
-def count() -> Iterator[int]: ...
-@overload
 def count(start: _N = ...,
           step: _N = ...) -> Iterator[_N]: ...  # more general types?
 def cycle(iterable: Iterable[_T]) -> Iterator[_T]: ...
@@ -22,7 +20,17 @@ def repeat(object: _T) -> Iterator[_T]: ...
 @overload
 def repeat(object: _T, times: int) -> Iterator[_T]: ...
 
-def accumulate(iterable: Iterable[_T], func: Callable[[_T, _T], _T] = ...) -> Iterator[_T]: ...
+if sys.version_info >= (3, 8):
+    @overload
+    def accumulate(iterable: Iterable[_T],
+                   func: Callable[[_T, _T], _T] = ...) -> Iterator[_T]: ...
+    @overload
+    def accumulate(iterable: Iterable[_T],
+                   func: Callable[[_S, _T], _S],
+                   initial: Optional[_S]) -> Iterator[_S]: ...
+else:
+    def accumulate(iterable: Iterable[_T],
+                   func: Callable[[_T, _T], _T] = ...) -> Iterator[_T]: ...
 
 class chain(Iterator[_T], Generic[_T]):
     def __init__(self, *iterables: Iterable[_T]) -> None: ...
