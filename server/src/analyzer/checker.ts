@@ -284,6 +284,19 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
             }
+
+            if (returnType.category === TypeCategory.Unknown) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                    DiagnosticRule.reportUnknownVariableType,
+                    `Return type is unknown`, node.returnExpression!);
+            } else if (containsUnknown(returnType)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                    DiagnosticRule.reportUnknownVariableType,
+                    `Return type, '${ this._evaluator.printType(returnType) }', is partially unknown`,
+                        node.returnExpression!);
+            }
         }
 
         return true;
@@ -1164,9 +1177,27 @@ export class Checker extends ParseTreeWalker {
             const functionNeverReturns = !this._evaluator.isAfterNodeReachable(node);
             const implicitlyReturnsNone = this._evaluator.isAfterNodeReachable(node.suite);
 
-            const declaredReturnType = FunctionType.isGenerator(functionType) ?
-                getDeclaredGeneratorReturnType(functionType) :
-                functionType.details.declaredReturnType;
+            let declaredReturnType = functionType.details.declaredReturnType;
+
+            if (declaredReturnType) {
+                if (declaredReturnType.category === TypeCategory.Unknown) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                        DiagnosticRule.reportUnknownVariableType,
+                        `Declared return type is unknown`, node.returnTypeAnnotation);
+                } else if (containsUnknown(declaredReturnType)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                        DiagnosticRule.reportUnknownVariableType,
+                        `Declared return type, '${ this._evaluator.printType(declaredReturnType) }', is partially unknown`,
+                            node.returnTypeAnnotation);
+                }
+            }
+
+            // Wrap the declared type in a generator type if the function is a generator.
+            if (FunctionType.isGenerator(functionType)) {
+                declaredReturnType = getDeclaredGeneratorReturnType(functionType);
+            }
 
             // The types of all return statement expressions were already checked
             // against the declared type, but we need to verify the implicit None
