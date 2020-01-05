@@ -537,12 +537,12 @@ export function addDefaultFunctionParameters(functionType: FunctionType) {
     FunctionType.addParameter(functionType, {
         category: ParameterCategory.VarArgList,
         name: 'args',
-        type: UnknownType.create()
+        type: AnyType.create()
     });
     FunctionType.addParameter(functionType, {
         category: ParameterCategory.VarArgDictionary,
         name: 'kwargs',
-        type: UnknownType.create()
+        type: AnyType.create()
     });
 }
 
