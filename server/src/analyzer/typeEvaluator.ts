@@ -3271,6 +3271,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         let returnType: Type | undefined;
         let reportedErrorsForInitCall = false;
 
+        // Create a helper function that determines whether we should skip argument
+        // validation for either __init__ or __new__. This is required for certain
+        // synthesized constructor types, namely NamedTuples.
+        const skipConstructorCheck = (type: Type) => {
+            if (type.category !== TypeCategory.Function) {
+                return false;
+            }
+            return FunctionType.isSkipConstructorCheck(type);
+        };
+
         // Validate __init__
         // We validate __init__ before __new__ because the former typically has
         // more specific type annotations, and we want to evaluate the arguments
@@ -3280,7 +3290,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             ObjectType.create(type), '__init__', { method: 'get' },
             new DiagnosticAddendum(),
             MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
-        if (initMethodType) {
+        if (initMethodType && !skipConstructorCheck(initMethodType)) {
             const typeVarMap = new Map<string, Type>();
             if (validateCallArguments(errorNode, argList, initMethodType, typeVarMap)) {
                 let specializedClassType = type;
@@ -3305,7 +3315,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 type, '__new__', { method: 'get' }, new DiagnosticAddendum(),
                 MemberAccessFlags.SkipForMethodLookup |
             MemberAccessFlags.SkipObjectBaseClass);
-            if (constructorMethodInfo) {
+            if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
                 const constructorMethodType = bindFunctionToClassOrObject(
                     type, constructorMethodInfo.type, true);
                 const typeVarMap = new Map<string, Type>();
@@ -4229,9 +4239,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             // Always use generic parameters for __init__. The __new__ method
             // will handle property type checking. We may need to disable default
-            // parameter processing for __new__ (see setDefaultParameterCheckDisabled),
+            // parameter processing for __new__ (see isAssignmentToDefaultsFollowingNamedTuple),
             // and we don't want to do it for __init__ as well.
-            const initType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
+            const initType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod |
+                FunctionTypeFlags.SkipConstructorCheck);
             FunctionType.addParameter(initType, selfParameter);
             addDefaultFunctionParameters(initType);
             initType.details.declaredReturnType = NoneType.create();
