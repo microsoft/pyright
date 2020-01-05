@@ -5504,9 +5504,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const declaredType = getDeclaredTypeForExpression(node.leftExpression);
 
                 // Evaluate the type of the right-hand side.
-                // An assignment of ellipsis means "Any" within a type stub file.
-                let srcType = getTypeOfExpression(node.rightExpression, declaredType,
-                    fileInfo.isStubFile ? EvaluatorFlags.ConvertEllipsisToAny : undefined).type;
+                // Don't specialize it in case it's a type alias with no specialized
+                // type arguments.
+                let flags: EvaluatorFlags = EvaluatorFlags.DoNotSpecialize;
+                if (fileInfo.isStubFile) {
+                    // An assignment of ellipsis means "Any" within a type stub file.
+                    flags |= EvaluatorFlags.ConvertEllipsisToAny;
+                }
+                let srcType = getTypeOfExpression(node.rightExpression, declaredType, flags).type;
 
                 // Determine if the RHS is a constant boolean expression.
                 // If so, assign it a literal type.
