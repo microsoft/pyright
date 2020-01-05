@@ -9784,10 +9784,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         for (const baseClass of classType.details.baseClasses) {
             if (baseClass.category === TypeCategory.Class) {
-                if (ClassType.hasAbstractMethods(baseClass)) {
-                    // Recursively get abstract methods for subclasses.
-                    getAbstractMethodsRecursive(baseClass, symbolTable, recursiveCount + 1);
-                }
+                // Recursively get abstract methods for subclasses.
+                getAbstractMethodsRecursive(baseClass, symbolTable, recursiveCount + 1);
             }
         }
 
