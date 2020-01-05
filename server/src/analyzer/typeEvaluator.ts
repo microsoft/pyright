@@ -270,12 +270,18 @@ interface CodeFlowAnalyzer {
 
 type CachedType = Type | PartialType;
 
+// Each time we enter speculative mode, we increment
+// the speculative mode ID so we can distinguish between
+// types that were cached in a previous speculative mode.
+let nextSpeculativeModeId = 1;
+const invalidSpeculativeModeId = 0;
+
 const partialTypeCategory = -1;
 interface PartialType {
     category: -1;
     type: Type | undefined;
     isIncomplete?: boolean;
-    isSpeculative?: boolean;
+    speculativeModeId: number;
 }
 
 interface FlowNodeTypeResult {
@@ -309,13 +315,14 @@ interface ReturnTypeInferenceContext {
 const maxReturnTypeInferenceStackSize = 3;
 
 export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
-    let isSpeculativeMode = false;
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const isReachableRecursionMap = new Map<number, true>();
     const functionRecursionMap = new Map<number, true>();
     const callIsNoReturnCache = new Map<number, boolean>();
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     const typeCache = new Map<number, CachedType>();
+
+    let speculativeModeId = invalidSpeculativeModeId;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: Map<number, CachedType> | undefined;
@@ -343,14 +350,31 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         if (cachedType.category === partialTypeCategory) {
-            return isSpeculativeMode ? (cachedType as PartialType).type : undefined;
+            if (!isSpeculativeMode()) {
+                return undefined;
+            }
+            
+            const partialType = cachedType as PartialType;
+
+            // If the cached type was written as part of an older
+            // speculative mode, we will ignore it. If it was generated
+            // as part of a newer speculative mode, it is OK to use.
+            if (partialType.speculativeModeId < speculativeModeId) {
+                return undefined;
+            }
+
+            return partialType.type;
         }
 
         return cachedType;
     }
 
     function writeTypeCache(node: ParseNode, type: Type) {
-        const cachedType = isSpeculativeMode ? { category: partialTypeCategory, type } : type;
+        const cachedType = !isSpeculativeMode() ? type : {
+            category: partialTypeCategory,
+            speculativeModeId,
+            type
+        };
 
         // Should we use a temporary cache associated with a contextual
         // analysis of a function, contextualized based on call-site argument types?
@@ -1419,7 +1443,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function addWarning(message: string, node: ParseNode) {
-        if (!isSpeculativeMode) {
+        if (!isSpeculativeMode()) {
             const fileInfo = getFileInfo(node);
             return fileInfo.diagnosticSink.addWarningWithTextRange(message, node);
         }
@@ -1428,7 +1452,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function addError(message: string, node: ParseNode) {
-        if (!isSpeculativeMode) {
+        if (!isSpeculativeMode()) {
             const fileInfo = getFileInfo(node);
             return fileInfo.diagnosticSink.addErrorWithTextRange(message, node);
         }
@@ -1905,7 +1929,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function setSymbolAccessed(fileInfo: AnalyzerFileInfo, symbol: Symbol) {
-        if (!isSpeculativeMode) {
+        if (!isSpeculativeMode()) {
             fileInfo.accessedSymbolMap.set(symbol.id, true);
         }
     }
@@ -3247,15 +3271,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         let validOverload: FunctionType | undefined;
 
-        // Temporarily disable diagnostic output.
-        useSpeculativeMode(() => {
-            for (const overload of callType.overloads) {
+        for (const overload of callType.overloads) {
+            // Temporarily disable diagnostic output.
+            useSpeculativeMode(() => {
                 if (validateCallArguments(errorNode, argList, overload, new Map<string, Type>())) {
                     validOverload = overload;
-                    break;
                 }
+            });
+
+            if (validOverload) {
+                break;
             }
-        });
+        }
 
         return validOverload;
     }
@@ -3699,7 +3726,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Run through all the args that were not validated and evaluate their types
         // to ensure that we haven't missed any (due to arg/param mismatches). This will
         // ensure that referenced symbols are not reported as unaccessed.
-        if (!isSpeculativeMode) {
+        if (!isSpeculativeMode()) {
             argList.forEach(arg => {
                 if (arg.valueExpression) {
                     if (!validateArgTypeParams.some(validatedArg => validatedArg.argument === arg)) {
@@ -3726,7 +3753,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const exprType = getTypeOfExpression(argParam.argument.valueExpression, expectedType);
             argType = exprType.type;
 
-            if (argParam.argument && argParam.argument.name && !isSpeculativeMode) {
+            if (argParam.argument && argParam.argument.name && !isSpeculativeMode()) {
                 writeTypeCache(argParam.argument.name, argType);
             }
         } else {
@@ -7237,10 +7264,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // object. For non-speculative and complete types, we'll store
                 // the type directly.
                 const entry: PartialType | Type | undefined =
-                    (isSpeculativeMode || isIncomplete) ? {
+                    (isSpeculativeMode() || isIncomplete) ? {
                         category: partialTypeCategory,
                         type,
-                        isSpeculative: isSpeculativeMode,
+                        speculativeModeId,
                         isIncomplete
                     } : type;
 
@@ -7270,8 +7297,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 const partialType = cachedEntry as PartialType;
-                if (partialType.isSpeculative && !isSpeculativeMode) {
-                    return undefined;
+                if (partialType.speculativeModeId !== invalidSpeculativeModeId) {
+                    if (!isSpeculativeMode()) {
+                        return undefined;
+                    }
                 }
 
                 return {
@@ -8031,19 +8060,21 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // any caching of types, under the assumption that we're
     // performing speculative evaluations.
     function useSpeculativeMode(callback: () => void) {
-        const prevSpeculativeMode = isSpeculativeMode;
-        isSpeculativeMode = true;
+        const prevSpeculativeModeId = speculativeModeId;
+        speculativeModeId = nextSpeculativeModeId++;
         callback();
-        isSpeculativeMode = prevSpeculativeMode;
+        speculativeModeId = prevSpeculativeModeId;
+    }
+
+    function isSpeculativeMode() {
+        return speculativeModeId !== invalidSpeculativeModeId;
     }
 
     function disableSpeculativeMode(callback: () => void) {
-        const prevSpeculativeMode = isSpeculativeMode;
-        isSpeculativeMode = false;
-
+        const prevSpeculativeModeId = speculativeModeId;
+        speculativeModeId = invalidSpeculativeModeId;
         callback();
-
-        isSpeculativeMode = prevSpeculativeMode;
+        speculativeModeId = prevSpeculativeModeId;
     }
 
     function getFileInfo(node: ParseNode): AnalyzerFileInfo {
