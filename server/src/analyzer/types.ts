@@ -555,23 +555,28 @@ export const enum FunctionTypeFlags {
     // for implied methods such as those used in namedtuple, dataclass, etc.
     SynthesizedMethod       = 1 << 6,
 
+    // For some synthesized classes (in particular, NamedTuple), the
+    // __init__ method is created with default parameters, so we will
+    // skip the constructor check for these methods.
+    SkipConstructorCheck    = 1 << 7,
+
     // Function is decorated with @overload
-    Overloaded              = 1 << 7,
+    Overloaded              = 1 << 8,
 
     // Function is declared with async keyword
-    Async                   = 1 << 8,
+    Async                   = 1 << 9,
 
     // Indicates that return type should be wrapped in an awaitable type
-    WrapReturnTypeInAwait   = 1 << 9,
+    WrapReturnTypeInAwait   = 1 << 10,
 
     // Function is declared within a type stub fille
-    StubDefinition          = 1 << 10,
+    StubDefinition          = 1 << 11,
 
     // Function is decorated with @final
-    Final                   = 1 << 11,
+    Final                   = 1 << 12,
 
     // Function has one or more parameters that are missing type annotations
-    UnannotatedParams       = 1 << 12
+    UnannotatedParams       = 1 << 13
 }
 
 interface FunctionDetails {
@@ -696,6 +701,10 @@ export namespace FunctionType {
 
     export function isSynthesizedMethod(type: FunctionType): boolean {
         return (type.details.flags & FunctionTypeFlags.SynthesizedMethod) !== 0;
+    }
+
+    export function isSkipConstructorCheck(type: FunctionType): boolean {
+        return (type.details.flags & FunctionTypeFlags.SkipConstructorCheck) !== 0;
     }
 
     export function isOverloaded(type: FunctionType): boolean {

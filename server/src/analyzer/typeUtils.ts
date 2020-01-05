@@ -14,7 +14,7 @@ import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, maxTypeRecursionCount, ModuleType, NeverType, ObjectType,
     OverloadedFunctionType, SpecializedFunctionTypes, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnknownType } from './types';
+    TypeVarMap, TypeVarType, UnknownType, removeNoneFromUnion } from './types';
 import { DeclarationType } from './declaration';
 
 export interface ClassMember {
@@ -646,11 +646,14 @@ export function applyExpectedTypeForConstructor(type: ClassType,
         return;
     }
 
-    if (expectedType.category !== TypeCategory.Object) {
+    // It's common for the expected type to contain a None. Strip
+    // this out because we're trying to match the non-optional part.
+    const expectedTypeWithoutNone = removeNoneFromUnion(expectedType);
+    if (expectedTypeWithoutNone.category !== TypeCategory.Object) {
         return;
     }
 
-    const expectedClass = expectedType.classType;
+    const expectedClass = expectedTypeWithoutNone.classType;
 
     // If the expected class isn't the same as the target class, ignore it.
     if (!ClassType.isSameGenericClass(type, expectedClass)) {
