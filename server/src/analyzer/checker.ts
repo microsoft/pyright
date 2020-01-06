@@ -110,7 +110,15 @@ export class Checker extends ParseTreeWalker {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                             DiagnosticRule.reportUnknownParameterType,
-                            `Type of '${ param.name.value }' is unknown`,
+                            `Type of parameter '${ param.name.value }' is unknown`,
+                            param.name);
+                    } else if (containsUnknown(paramType)) {
+                        const diagAddendum = new DiagnosticAddendum();
+                        diagAddendum.addMessage(`Parameter type is '${ this._evaluator.printType(paramType) }'`);
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                            DiagnosticRule.reportUnknownParameterType,
+                            `Type of parameter '${ param.name.value }' is partially unknown` + diagAddendum.getString(),
                             param.name);
                     }
                 }

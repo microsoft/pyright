@@ -986,7 +986,9 @@ export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolT
     });
 }
 
-export function containsUnknown(type: Type, recursionCount = 0): boolean {
+export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = false,
+        recursionCount = 0): boolean {
+
     if (recursionCount > maxTypeRecursionCount) {
         return false;
     }
@@ -998,7 +1000,9 @@ export function containsUnknown(type: Type, recursionCount = 0): boolean {
     // See if a union contains an unknown type.
     if (type.category === TypeCategory.Union) {
         for (const subtype of type.subtypes) {
-            if (containsUnknown(subtype, recursionCount + 1)) {
+            if (containsUnknown(subtype, allowUnknownTypeArgsForClasses,
+                    recursionCount + 1)) {
+
                 return true;
             }
         }
@@ -1008,15 +1012,35 @@ export function containsUnknown(type: Type, recursionCount = 0): boolean {
 
     // See if an object or class has an unknown type argument.
     if (type.category === TypeCategory.Object) {
-        return containsUnknown(type.classType, recursionCount + 1);
+        return containsUnknown(type.classType, false, recursionCount + 1);
     }
 
     if (type.category === TypeCategory.Class) {
-        if (type.typeArguments) {
+        if (type.typeArguments && !allowUnknownTypeArgsForClasses) {
             for (const argType of type.typeArguments) {
-                if (containsUnknown(argType, recursionCount + 1)) {
+                if (containsUnknown(argType, allowUnknownTypeArgsForClasses,
+                        recursionCount + 1)) {
+
                     return true;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    // See if a function has an unknown type.
+    if (type.category === TypeCategory.OverloadedFunction) {
+        return type.overloads.some(overload => {
+            return containsUnknown(overload, false, recursionCount + 1);
+        });
+    }
+
+    if (type.category === TypeCategory.Function) {
+        for (let i = 0; i < type.details.parameters.length; i++) {
+            const paramType = FunctionType.getEffectiveParameterType(type, i);
+            if (containsUnknown(paramType, false, recursionCount + 1)) {
+                return true;
             }
         }
 
@@ -1087,7 +1111,7 @@ function _specializeClassType(classType: ClassType, typeVarMap: TypeVarMap | und
             } else {
                 // If the type var map wasn't provided or doesn't contain this
                 // type var, specialize the type var.
-                typeArgType = getConcreteTypeFromTypeVar(typeParam);
+                typeArgType = makeConcrete ? getConcreteTypeFromTypeVar(typeParam) : typeParam;
                 if (typeArgType !== typeParam) {
                     specializationNeeded = true;
                 }

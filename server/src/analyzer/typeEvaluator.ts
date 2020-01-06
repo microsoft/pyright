@@ -108,7 +108,10 @@ export const enum EvaluatorFlags {
     DoNotSpecialize = 2,
 
     // Allow forward references. Don't report unbound errors.
-    AllowForwardReferences = 4
+    AllowForwardReferences = 4,
+
+    // Skip the check for unknown arguments.
+    DoNotCheckForUnknownArgs = 8
 }
 
 interface EvaluatorUsage {
@@ -734,10 +737,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 return functionArg;
             });
 
-            // Evaluate the decorator.
+            // Evaluate the decorator. Don't check for unknown arguments
+            // because these errors will already be reported as unknown
+            // parameters.
             decoratorCall = getTypeFromCallWithBaseType(
                 node.leftExpression, argList, decoratorCall,
-                undefined, EvaluatorFlags.None);
+                undefined, EvaluatorFlags.DoNotCheckForUnknownArgs);
         }
 
         const argList = [{
@@ -746,7 +751,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }];
 
         return getTypeFromCallWithBaseType(node.leftExpression, argList, decoratorCall,
-            undefined, EvaluatorFlags.None).type;
+            undefined, EvaluatorFlags.DoNotCheckForUnknownArgs).type;
     }
 
     // Gets a member type from an object and if it's a function binds
@@ -2796,7 +2801,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         const returnType = validateCallArguments(node, argList,
-            itemMethodType, new Map<string, Type>());
+            itemMethodType, new Map<string, Type>(), false);
 
         return returnType || UnknownType.create();
     }
@@ -3006,7 +3011,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         // Python docs indicate that super() isn't valid for
-        // operations other than member accesses.
+        // operations other than member accesses or attribute lookups.
         const parentNode = node.parent!;
         if (parentNode.nodeType === ParseNodeType.MemberAccess) {
             const memberName = parentNode.memberName.value;
@@ -3016,16 +3021,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (lookupResults && lookupResults.classType.category === TypeCategory.Class) {
                 return ObjectType.create(lookupResults.classType);
             }
+        }
 
-            // If the lookup failed, try to return the first base class. An error
-            // will be reported by the member lookup logic at a later time.
-            if (targetClassType.category === TypeCategory.Class) {
-                const baseClasses = targetClassType.details.baseClasses;
-                if (baseClasses.length > 0) {
-                    const baseClassType = baseClasses[0];
-                    if (baseClassType.category === TypeCategory.Class) {
-                        return ObjectType.create(baseClassType);
-                    }
+        // If the lookup failed, try to return the first base class. An error
+        // will be reported by the member lookup logic at a later time.
+        if (targetClassType.category === TypeCategory.Class) {
+            const baseClasses = targetClassType.details.baseClasses;
+            if (baseClasses.length > 0) {
+                const baseClassType = baseClasses[0];
+                if (baseClassType.category === TypeCategory.Class) {
+                    return ObjectType.create(baseClassType);
                 }
             }
         }
@@ -3039,6 +3044,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         let type: Type | undefined;
         let callType = baseTypeResult.type;
+        const skipUnknownArgCheck = (flags & EvaluatorFlags.DoNotCheckForUnknownArgs) !== 0;
 
         if (callType.category === TypeCategory.TypeVar) {
             callType = specializeType(callType, undefined);
@@ -3059,9 +3065,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
 
                         // If the parameter to type() is not statically known,
-                        // fall back to unknown.
+                        // fall back to Any.
                         if (!type) {
-                            type = UnknownType.create();
+                            type = AnyType.create();
                         }
                     } else if (className === 'TypeVar') {
                         type = createTypeVarType(errorNode, argList);
@@ -3108,7 +3114,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 // Assume this is a call to the constructor.
                 if (!type) {
-                    type = validateConstructorArguments(errorNode, argList, callType, expectedType);
+                    type = validateConstructorArguments(errorNode, argList, callType,
+                        skipUnknownArgCheck, expectedType);
                 }
                 break;
             }
@@ -3124,7 +3131,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         errorNode);
                     type = createNamedTupleType(errorNode, argList, false);
                 } else if (callType.details.builtInName === 'NewType') {
-                    type = validateCallArguments(errorNode, argList, callType, new Map<string, Type>());
+                    type = validateCallArguments(errorNode, argList, callType,
+                        new Map<string, Type>(), skipUnknownArgCheck);
 
                     // If the call's arguments were validated, replace the
                     // type with a new synthesized subclass.
@@ -3132,7 +3140,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         type = createNewType(errorNode, argList);
                     }
                 } else {
-                    type = validateCallArguments(errorNode, argList, callType, new Map<string, Type>());
+                    type = validateCallArguments(errorNode, argList, callType,
+                        new Map<string, Type>(), skipUnknownArgCheck);
 
                     if (callType.details.builtInName === '__import__') {
                         // For the special __import__ type, we'll override the return type to be "Any".
@@ -3168,7 +3177,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
                     }
 
-                    type = validateCallArguments(errorNode, argList, callType, new Map<string, Type>());
+                    type = validateCallArguments(errorNode, argList, callType,
+                        new Map<string, Type>(), skipUnknownArgCheck);
                     if (!type) {
                         type = UnknownType.create();
                     }
@@ -3192,15 +3202,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (isAnyOrUnknown(classFromTypeObject)) {
                         type = classFromTypeObject;
                     } else if (classFromTypeObject.category === TypeCategory.Class) {
-                        type = validateConstructorArguments(errorNode,
-                            argList, classFromTypeObject, expectedType);
+                        type = validateConstructorArguments(errorNode, argList,
+                            classFromTypeObject, skipUnknownArgCheck, expectedType);
                     }
                 } else {
                     const memberType = getTypeFromObjectMember(errorNode,
                         callType, '__call__', { method: 'get' }, new DiagnosticAddendum(),
                         MemberAccessFlags.SkipForMethodLookup);
                     if (memberType) {
-                        type = validateCallArguments(errorNode, argList, memberType, new Map<string, Type>());
+                        type = validateCallArguments(errorNode, argList, memberType,
+                            new Map<string, Type>(), skipUnknownArgCheck);
                         if (!type) {
                             type = UnknownType.create();
                         }
@@ -3274,7 +3285,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         for (const overload of callType.overloads) {
             // Temporarily disable diagnostic output.
             useSpeculativeMode(() => {
-                if (validateCallArguments(errorNode, argList, overload, new Map<string, Type>())) {
+                if (validateCallArguments(errorNode, argList, overload, new Map<string, Type>(), true)) {
                     validOverload = overload;
                 }
             });
@@ -3292,7 +3303,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // is allocated by the constructor. If unsuccessful, it records diagnostic
     // information and returns undefined.
     function validateConstructorArguments(errorNode: ExpressionNode,
-        argList: FunctionArgument[], type: ClassType, expectedType?: Type): Type | undefined {
+        argList: FunctionArgument[], type: ClassType, skipUnknownArgCheck: boolean,
+        expectedType?: Type): Type | undefined {
 
         let validatedTypes = false;
         let returnType: Type | undefined;
@@ -3317,9 +3329,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             ObjectType.create(type), '__init__', { method: 'get' },
             new DiagnosticAddendum(),
             MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
+
         if (initMethodType && !skipConstructorCheck(initMethodType)) {
             const typeVarMap = new Map<string, Type>();
-            if (validateCallArguments(errorNode, argList, initMethodType, typeVarMap)) {
+            if (validateCallArguments(errorNode, argList, initMethodType, typeVarMap, skipUnknownArgCheck)) {
                 let specializedClassType = type;
                 if (expectedType) {
                     applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
@@ -3332,6 +3345,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 reportedErrorsForInitCall = true;
             }
             validatedTypes = true;
+            skipUnknownArgCheck = true;
         }
 
         // Validate __new__
@@ -3346,7 +3360,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const constructorMethodType = bindFunctionToClassOrObject(
                     type, constructorMethodInfo.type, true);
                 const typeVarMap = new Map<string, Type>();
-                validateCallArguments(errorNode, argList, constructorMethodType, typeVarMap);
+
+                // Skip the unknown argument check if we've already checked for __init__.
+                validateCallArguments(errorNode, argList, constructorMethodType,
+                    typeVarMap, skipUnknownArgCheck);
                 if (!returnType) {
                     let specializedClassType = type;
                     if (expectedType) {
@@ -3386,7 +3403,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // specialized type of the return value. If it detects an error along
     // the way, it emits a diagnostic and returns undefined.
     function validateCallArguments(errorNode: ExpressionNode, argList: FunctionArgument[],
-            callType: Type, typeVarMap: TypeVarMap): Type | undefined {
+            callType: Type, typeVarMap: TypeVarMap, skipUnknownArgCheck: boolean): Type | undefined {
 
         let returnType: Type | undefined;
 
@@ -3400,7 +3417,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case TypeCategory.Function: {
-                returnType = validateFunctionArguments(errorNode, argList, callType, typeVarMap);
+                returnType = validateFunctionArguments(errorNode, argList, callType,
+                    typeVarMap, skipUnknownArgCheck);
                 break;
             }
 
@@ -3409,7 +3427,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     errorNode, argList, callType);
                 if (overloadedFunctionType) {
                     returnType = validateFunctionArguments(errorNode,
-                        argList, overloadedFunctionType, typeVarMap);
+                        argList, overloadedFunctionType, typeVarMap, skipUnknownArgCheck);
                 } else {
                     const exprString = ParseTreeUtils.printExpression(errorNode);
                     const diagAddendum = new DiagnosticAddendum();
@@ -3424,7 +3442,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             case TypeCategory.Class: {
                 if (!ClassType.isSpecialBuiltIn(callType)) {
-                    returnType = validateConstructorArguments(errorNode, argList, callType);
+                    returnType = validateConstructorArguments(errorNode, argList,
+                        callType, skipUnknownArgCheck);
                 } else {
                     addError(
                         `'${ callType.details.name }' cannot be instantiated`,
@@ -3440,8 +3459,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 if (memberType && memberType.category === TypeCategory.Function) {
                     const callMethodType = stripFirstParameter(memberType);
-                    returnType = validateCallArguments(
-                        errorNode, argList, callMethodType, typeVarMap);
+                    returnType = validateCallArguments(errorNode, argList, callMethodType,
+                        typeVarMap, skipUnknownArgCheck);
                 }
                 break;
             }
@@ -3457,8 +3476,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             `Object of type 'None' cannot be called`,
                             errorNode);
                     } else {
-                        const entryReturnType = validateCallArguments(
-                            errorNode, argList, type, typeVarMap);
+                        const entryReturnType = validateCallArguments(errorNode,
+                            argList, type, typeVarMap, skipUnknownArgCheck);
                         if (entryReturnType) {
                             returnTypes.push(entryReturnType);
                         }
@@ -3480,7 +3499,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // specialized return type of the call.
     // This logic is based on PEP 3102: https://www.python.org/dev/peps/pep-3102/
     function validateFunctionArguments(errorNode: ExpressionNode,
-        argList: FunctionArgument[], type: FunctionType, typeVarMap: TypeVarMap): Type | undefined {
+        argList: FunctionArgument[], type: FunctionType, typeVarMap: TypeVarMap,
+        skipUnknownArgCheck: boolean): Type | undefined {
 
         let argIndex = 0;
         const typeParams = type.details.parameters;
@@ -3703,6 +3723,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             }
         }
+    
+        // Special-case a few built-in callse that are often used for
+        // casting or checking for unknown types.
+        if (['cast', 'isinstance', 'isclass'].some(name => name === type.details.builtInName)) {
+            skipUnknownArgCheck = true;
+        }
 
         // Run through all args and validate them against their matched parameter.
         // We'll do two passes. The first one will match any type arguments. The second
@@ -3711,14 +3737,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             useSpeculativeMode(() => {
                 validateArgTypeParams.forEach(argParam => {
                     if (argParam.requiresTypeVarMatching) {
-                        validateArgType(argParam, typeVarMap, false);
+                        validateArgType(argParam, typeVarMap, skipUnknownArgCheck);
                     }
                 });
             });
         }
 
         validateArgTypeParams.forEach(argParam => {
-            if (!validateArgType(argParam, typeVarMap, true)) {
+            if (!validateArgType(argParam, typeVarMap, skipUnknownArgCheck)) {
                 reportedArgError = true;
             }
         });
@@ -3744,12 +3770,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function validateArgType(argParam: ValidateArgTypeParams, typeVarMap: TypeVarMap,
-        makeConcrete: boolean): boolean {
+            skipUnknownCheck: boolean): boolean {
 
         let argType: Type | undefined;
 
         if (argParam.argument.valueExpression) {
-            const expectedType = specializeType(argParam.paramType, typeVarMap, makeConcrete);
+            let expectedType: Type | undefined = specializeType(
+                argParam.paramType, typeVarMap);
+            
+            // If the expected type is unknown, don't use an expected type. Instead,
+            // use default rules for evaluating the expression type.
+            if (expectedType.category === TypeCategory.Unknown) {
+                expectedType = undefined;
+            }
+
             const exprType = getTypeOfExpression(argParam.argument.valueExpression, expectedType);
             argType = exprType.type;
 
@@ -3770,6 +3804,30 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 diag.getString(),
                 argParam.errorNode);
             return false;
+        } else if (!skipUnknownCheck) {
+            const simplifiedType = removeUnboundFromUnion(argType);
+            const fileInfo = getFileInfo(argParam.errorNode);
+            if (simplifiedType.category === TypeCategory.Unknown) {
+                addDiagnostic(fileInfo.diagnosticSettings.reportUnknownArgumentType,
+                    DiagnosticRule.reportUnknownArgumentType,
+                    `Type of argument is unknown`, argParam.errorNode);
+            } else if (containsUnknown(simplifiedType, true)) {
+                // Don't report an error if the type is a partially-specialized
+                // class. This comes up frequenlty in cases where a type is passed
+                // as an argument (e.g. "defaultdict(list)").
+
+                // If the parameter type is also partially unknown, don't report
+                // the error because it's likely that the partially-unknown type
+                // arose due to bidirectional type matching.
+                if (!containsUnknown(argParam.paramType) && simplifiedType.category !== TypeCategory.Class) {
+                    const diagAddendum = new DiagnosticAddendum();
+                    diagAddendum.addMessage(`Argument type is '${ printType(simplifiedType) }'`);
+                    addDiagnostic(fileInfo.diagnosticSettings.reportUnknownArgumentType,
+                        DiagnosticRule.reportUnknownArgumentType,
+                        `Type of argument is partially unknown` + diagAddendum.getString(),
+                        argParam.errorNode);
+                }
+            }
         }
 
         return true;
@@ -4631,8 +4689,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 let returnType: Type | undefined;
 
                 useSpeculativeMode(() => {
-                    returnType = validateCallArguments(errorNode,
-                        functionArgs, magicMethodType, new Map<string, Type>());
+                    returnType = validateCallArguments(errorNode, functionArgs,
+                        magicMethodType, new Map<string, Type>(), true);
                 });
 
                 if (!returnType) {
@@ -5023,18 +5081,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         const nameValue = target.value;
+
+        // Sometimes variables contain an "unbound" type if they're
+        // assigned only within conditional statements. Remove this
+        // to avoid confusion.
         const simplifiedType = removeUnboundFromUnion(type);
+
         if (simplifiedType.category === TypeCategory.Unknown) {
             addDiagnostic(diagLevel, rule,
-                `Inferred type of '${ nameValue }' is unknown`, errorNode);
+                `Type of '${ nameValue }' is unknown`, errorNode);
         } else if (containsUnknown(simplifiedType)) {
-            // Sometimes variables contain an "unbound" type if they're
-            // assigned only within conditional statements. Remove this
-            // to avoid confusion.
             const diagAddendum = new DiagnosticAddendum();
             diagAddendum.addMessage(`Type of ${ nameValue } is '${ printType(simplifiedType) }'`);
             addDiagnostic(diagLevel, rule,
-                `Inferred type of '${ nameValue } is partially unknown` + diagAddendum.getString(),
+                `Type of '${ nameValue }' is partially unknown` + diagAddendum.getString(),
                 errorNode);
         }
     }

@@ -88,6 +88,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportUnknownParameterType** [boolean or string, optional]: Generate or suppress diagnostics for input or return parameters for functions or methods that have an unknown type. The default value for this setting is 'none'.
 
+**reportUnknownArgumentType** [boolean or string, optional]: Generate or suppress diagnostics for call arguments for functions or methods that have an unknown type. The default value for this setting is 'none'.
+
 **reportUnknownLambdaType** [boolean or string, optional]: Generate or suppress diagnostics for input or return parameters for lambdas that have an unknown type. The default value for this setting is 'none'.
 
 **reportUnknownVariableType** [boolean or string, optional]: Generate or suppress diagnostics for variables that have an unknown type. The default value for this setting is 'none'.

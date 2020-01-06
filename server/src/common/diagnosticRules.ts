@@ -38,6 +38,7 @@ export const enum DiagnosticRule {
     reportIncompatibleMethodOverride = 'reportIncompatibleMethodOverride',
     reportInvalidStringEscapeSequence = 'reportInvalidStringEscapeSequence',
     reportUnknownParameterType = 'reportUnknownParameterType',
+    reportUnknownArgumentType = 'reportUnknownArgumentType',
     reportUnknownLambdaType = 'reportUnknownLambdaType',
     reportUnknownVariableType = 'reportUnknownVariableType',
     reportUnknownMemberType = 'reportUnknownMemberType',
