@@ -14,7 +14,7 @@ import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, maxTypeRecursionCount, ModuleType, NeverType, ObjectType,
     OverloadedFunctionType, SpecializedFunctionTypes, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnknownType, removeNoneFromUnion } from './types';
+    TypeVarMap, TypeVarType, UnknownType } from './types';
 import { DeclarationType } from './declaration';
 
 export interface ClassMember {
@@ -629,47 +629,6 @@ export function getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
     }
 
     return [];
-}
-
-// If the specified type is not specialized and the expected type is
-// a specialized form of the type, the typeVarMap is populated accordingly.
-export function applyExpectedTypeForConstructor(type: ClassType,
-        expectedType: Type, typeVarMap: TypeVarMap) {
-
-    // If the type is already specialized, don't attempt to specialize it further.
-    if (type.typeArguments) {
-        return;
-    }
-
-    // If the type isn't generic, there's nothing to specialize.
-    if (type.details.typeParameters.length === 0) {
-        return;
-    }
-
-    // It's common for the expected type to contain a None. Strip
-    // this out because we're trying to match the non-optional part.
-    const expectedTypeWithoutNone = removeNoneFromUnion(expectedType);
-    if (expectedTypeWithoutNone.category !== TypeCategory.Object) {
-        return;
-    }
-
-    const expectedClass = expectedTypeWithoutNone.classType;
-
-    // If the expected class isn't the same as the target class, ignore it.
-    if (!ClassType.isSameGenericClass(type, expectedClass)) {
-        return;
-    }
-
-    // If the expected type class isn't specialized, ignore it.
-    if (!expectedClass.typeArguments) {
-        return;
-    }
-
-    type.details.typeParameters.forEach((typeVar, index) => {
-        if (index < expectedClass.typeArguments!.length) {
-            typeVarMap.set(typeVar.name, expectedClass.typeArguments![index]);
-        }
-    });
 }
 
 // If the class is generic, the type is cloned, and its own

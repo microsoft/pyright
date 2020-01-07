@@ -51,7 +51,7 @@ import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     maxTypeRecursionCount, ModuleType, NeverType, NoneType, ObjectType,
     OverloadedFunctionType, removeNoneFromUnion, removeUnboundFromUnion, Type, TypeCategory,
     TypeSourceId, TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
-import { addDefaultFunctionParameters, addTypeVarsToListIfUnique, applyExpectedTypeForConstructor,
+import { addDefaultFunctionParameters, addTypeVarsToListIfUnique,
     areTypesSame, buildTypeVarMap, buildTypeVarMapFromSpecializedClass, CanAssignFlags, canBeFalsy,
     canBeTruthy, ClassMember, ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar, getDeclaredGeneratorReturnType,
@@ -3341,13 +3341,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const callResult = validateCallArguments(errorNode, argList, initMethodType,
                 typeVarMap, skipUnknownArgCheck);
             if (!callResult.argumentErrors) {
-                let specializedClassType = type;
-                if (expectedType) {
-                    applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
-                }
-                if (typeVarMap.size > 0) {
-                    specializedClassType = specializeType(type, typeVarMap) as ClassType;
-                }
+                const specializedClassType = applyExpectedTypeForConstructor(
+                    specializeType(type, typeVarMap) as ClassType, expectedType);
                 returnType = ObjectType.create(specializedClassType);
             } else {
                 reportedErrors = true;
@@ -3377,13 +3372,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 if (!returnType) {
-                    let specializedClassType = type;
-                    if (expectedType) {
-                        applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
-                    }
-                    if (typeVarMap.size > 0) {
-                        specializedClassType = specializeType(type, typeVarMap) as ClassType;
-                    }
+                    const specializedClassType = applyExpectedTypeForConstructor(
+                        specializeType(type, typeVarMap) as ClassType, expectedType);
                     returnType = ObjectType.create(specializedClassType);
                 }
                 validatedTypes = true;
@@ -3396,18 +3386,55 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         } else if (!returnType) {
             // There was no __new__ or __init__, so fall back on the
             // object.__new__ which takes no parameters.
-            let specializedClassType = type;
-            const typeVarMap = new Map<string, Type>();
-            if (expectedType) {
-                applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
-            }
-            if (typeVarMap.size > 0) {
-                specializedClassType = specializeType(type, typeVarMap) as ClassType;
-            }
+            const specializedClassType = applyExpectedTypeForConstructor(type, expectedType);
             returnType = ObjectType.create(specializedClassType);
         }
 
         return { argumentErrors: reportedErrors, returnType };
+    }
+
+    function applyExpectedTypeForConstructor(type: ClassType, expectedType?: Type): ClassType {
+        if (!expectedType) {
+            return type;
+        }
+
+        // It's common for the expected type to contain a None. Strip
+        // this out because we're trying to match the non-optional part.
+        const expectedTypeWithoutNone = removeNoneFromUnion(expectedType);
+        if (expectedTypeWithoutNone.category !== TypeCategory.Object) {
+            return type;
+        }
+
+        if (expectedTypeWithoutNone.category !== TypeCategory.Object) {
+            return type;
+        }
+        const expectedClass = expectedTypeWithoutNone.classType;
+
+        const typeVarMap = new Map<string, Type>();
+        if (canAssignType(expectedClass, type, new DiagnosticAddendum(), typeVarMap)) {
+            return specializeType(expectedClass, typeVarMap) as ClassType;
+        }
+
+        // If it's the same generic class, see if we can assign the type arguments
+        // without the variance rules that canAssignType uses.
+        if (ClassType.isSameGenericClass(type, expectedClass) &&
+                expectedClass.typeArguments && type.typeArguments &&
+                expectedClass.typeArguments.length === type.typeArguments.length) {
+
+            let isAssignable = true;
+            expectedClass.typeArguments.forEach((expectedTypeArg, index) => {
+                const typeTypeArg = type.typeArguments![index];
+                if (!canAssignType(expectedTypeArg, typeTypeArg, new DiagnosticAddendum(), typeVarMap)) {
+                    isAssignable = false;
+                }
+            });
+
+            if (isAssignable) {
+                return specializeType(expectedClass, typeVarMap) as ClassType;
+            }
+        }
+
+        return type;
     }
 
     // Validates that the arguments can be assigned to the call's parameter
@@ -4806,8 +4833,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const expectedClass = expectedType.classType;
             if (ClassType.isBuiltIn(expectedClass, 'Dict') || ClassType.isBuiltIn(expectedClass, 'dict')) {
                 if (expectedClass.typeArguments && expectedClass.typeArguments.length === 2) {
-                    expectedKeyType = expectedClass.typeArguments[0];
-                    expectedValueType = expectedClass.typeArguments[1];
+                    expectedKeyType = specializeType(expectedClass.typeArguments[0], undefined);
+                    expectedValueType = specializeType(expectedClass.typeArguments[1], undefined);
                 }
             }
         }
