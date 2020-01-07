@@ -39,10 +39,8 @@ def returnsComplex1() -> complex:
     b = 2
     c = 4.0
 
-    # This should generate an error because it
-    # should evaluate to a complex, which is
-    # not compatible with the specified return
-    # type.
+    # This should generate an error because a
+    # float should be divisible by a complex.
     return a + b % (b / a - c // a)
 
 

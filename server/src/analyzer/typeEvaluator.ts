@@ -1533,7 +1533,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 destType = declaredType;
             } else {
                 // Constrain the resulting type to match the declared type.
-                destType = constrainDeclaredTypeBasedOnAssignedType(declaredType, type);
+                destType = narrowDeclaredTypeBasedOnAssignedType(declaredType, type);
             }
         } else {
             destType = stripLiteralTypeArgsValue(destType);
@@ -1684,7 +1684,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         const diagAddendum = new DiagnosticAddendum();
                         if (canAssignType(declaredType, srcType, diagAddendum)) {
                             // Constrain the resulting type to match the declared type.
-                            destType = constrainDeclaredTypeBasedOnAssignedType(destType, srcType);
+                            destType = narrowDeclaredTypeBasedOnAssignedType(destType, srcType);
                         }
                     }
                 }
@@ -1842,7 +1842,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const typeHintType = getTypeOfAnnotation(target.typeAnnotation);
                 const diagAddendum = new DiagnosticAddendum();
                 if (canAssignType(typeHintType, type, diagAddendum)) {
-                    type = constrainDeclaredTypeBasedOnAssignedType(typeHintType, type);
+                    type = narrowDeclaredTypeBasedOnAssignedType(typeHintType, type);
                 }
 
                 assignTypeToExpression(target.valueExpression, type, srcExpr);
@@ -3136,14 +3136,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         errorNode);
                     type = createNamedTupleType(errorNode, argList, false);
                 } else if (callType.details.builtInName === 'NewType') {
-                    type = validateCallArguments(errorNode, argList, callType,
-                        new Map<string, Type>(), skipUnknownArgCheck).returnType;
+                    const callResult = validateCallArguments(errorNode, argList, callType,
+                        new Map<string, Type>(), skipUnknownArgCheck);
 
                     // If the call's arguments were validated, replace the
                     // type with a new synthesized subclass.
-                    if (type) {
-                        type = createNewType(errorNode, argList);
-                    }
+                    type = callResult.argumentErrors ? callResult.returnType :
+                        createNewType(errorNode, argList);
                 } else {
                     type = validateCallArguments(errorNode, argList, callType,
                         new Map<string, Type>(), skipUnknownArgCheck).returnType;
@@ -4698,18 +4697,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     };
                 });
 
-                let returnType: Type | undefined;
+                let callResult: CallResult | undefined;
 
                 useSpeculativeMode(() => {
-                    returnType = validateCallArguments(errorNode, functionArgs,
-                        magicMethodType, new Map<string, Type>(), true).returnType;
+                    callResult = validateCallArguments(errorNode, functionArgs,
+                        magicMethodType, new Map<string, Type>(), true);
                 });
 
-                if (!returnType) {
+                if (callResult!.argumentErrors) {
                     magicMethodSupported = false;
                 }
 
-                return returnType;
+                return callResult!.returnType;
             }
 
             magicMethodSupported = false;
@@ -4749,41 +4748,39 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return returnType;
     }
 
-    function specializeExpectedType(expectedType: Type, srcType: Type) {
-        // The expected type might be generic, so we need to specialize it.
-        const typeVarMap = new Map<string, Type>();
-        const diag = new DiagnosticAddendum();
-        canAssignType(expectedType, srcType, diag, typeVarMap);
-        return specializeType(expectedType, typeVarMap);
-    }
-
     function getTypeFromSet(node: SetNode, expectedType?: Type): TypeResult {
-        const entryTypes: Type[] = [];
-
-        // Infer the set type based on the entries.
-        node.entries.forEach(entryNode => {
+        const entryTypes = node.entries.map(entryNode => {
             if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                const setEntryType = getElementTypeFromListComprehension(entryNode);
-                entryTypes.push(setEntryType);
-            } else {
-                entryTypes.push(getTypeOfExpression(entryNode).type);
+                return getElementTypeFromListComprehension(entryNode);
             }
+            return getTypeOfExpression(entryNode).type;
         });
 
-        // If there is an expected type, see if we can match any parts of it.
+        // If there is an expected type, see if we can match it.
         if (expectedType && entryTypes.length > 0) {
-            const specificSetType = getBuiltInObject(node, 'set', [combineTypes(entryTypes)]);
-            const remainingExpectedType = constrainDeclaredTypeBasedOnAssignedType(
-                expectedType, specificSetType);
+            const narrowedExpectedType = doForSubtypes(expectedType, subtype => {
+                if (subtype.category === TypeCategory.Object) {
+                    const classAlias = subtype.classType.details.aliasClass || subtype.classType;
+                    if (ClassType.isBuiltIn(classAlias, 'set') && subtype.classType.typeArguments) {
+                        const typeArg = subtype.classType.typeArguments[0];
+                        const typeVarMap = new Map<string, Type>();
 
-            // Have we eliminated all of the expected subtypes? If not, return
-            // the remaining one(s) that match the specific type.
-            if (remainingExpectedType.category !== TypeCategory.Never) {
-                const specializedType = specializeExpectedType(remainingExpectedType, specificSetType);
-                return { type: specializedType, node };
+                        for (const entryType of entryTypes) {
+                            if (!canAssignType(typeArg, entryType, new DiagnosticAddendum(), typeVarMap)) {
+                                return undefined;
+                            }
+                        }
+
+                        return specializeType(subtype, typeVarMap);
+                    }
+                }
+
+                return undefined;
+            });
+
+            if (narrowedExpectedType.category !== TypeCategory.Never) {
+                return { type: narrowedExpectedType, node };
             }
-
-            return { type: specificSetType, node };
         }
 
         const inferredEntryType = entryTypes.length > 0 ?
@@ -4869,41 +4866,43 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // If there is an expected type, see if we can match any parts of it.
         if (expectedType) {
-            const filteredTypedDict = doForSubtypes(expectedType, subtype => {
+            const narrowedExpectedType = doForSubtypes(expectedType, subtype => {
                 if (subtype.category !== TypeCategory.Object) {
                     return undefined;
                 }
 
-                if (!ClassType.isTypedDictClass(subtype.classType)) {
-                    return undefined;
+                if (ClassType.isTypedDictClass(subtype.classType) &&
+                        canAssignToTypedDict(subtype.classType, keyTypes, valueTypes)) {
+
+                    return subtype;
                 }
 
-                if (canAssignToTypedDict(subtype.classType, keyTypes, valueTypes)) {
-                    return subtype;
+                const classAlias = subtype.classType.details.aliasClass || subtype.classType;
+                if (ClassType.isBuiltIn(classAlias, 'dict') && subtype.classType.typeArguments) {
+                    const typeArg0 = subtype.classType.typeArguments[0];
+                    const typeArg1 = subtype.classType.typeArguments[1];
+                    const typeVarMap = new Map<string, Type>();
+
+                    for (const keyType of keyTypes) {
+                        if (!canAssignType(typeArg0, keyType, new DiagnosticAddendum(), typeVarMap)) {
+                            return undefined;
+                        }
+                    }
+
+                    for (const valueType of valueTypes) {
+                        if (!canAssignType(typeArg1, valueType, new DiagnosticAddendum(), typeVarMap)) {
+                            return undefined;
+                        }
+                    }
+
+                    return specializeType(subtype, typeVarMap);
                 }
 
                 return undefined;
             });
 
-            if (filteredTypedDict.category !== TypeCategory.Never) {
-                return { type: filteredTypedDict, node };
-            }
-
-            if (keyTypes.length > 0) {
-                const specificDictType = getBuiltInObject(node, 'dict',
-                    [combineTypes(keyTypes), combineTypes(valueTypes)]);
-                const remainingExpectedType = constrainDeclaredTypeBasedOnAssignedType(
-                    expectedType, specificDictType);
-
-                // Have we eliminated all of the expected subtypes? If not, return
-                // the remaining one(s) that match the specific type.
-                if (remainingExpectedType.category !== TypeCategory.Never) {
-                    const specializedType = specializeExpectedType(
-                        remainingExpectedType, specificDictType);
-                    return { type: specializedType, node };
-                }
-
-                return { type: specificDictType, node };
+            if (narrowedExpectedType.category !== TypeCategory.Never) {
+                return { type: narrowedExpectedType, node };
             }
         }
 
@@ -4934,42 +4933,53 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getTypeFromList(node: ListNode, expectedType?: Type): TypeResult {
-        let listEntryType: Type = AnyType.create();
-
-        if (node.entries.length === 1 && node.entries[0].nodeType === ParseNodeType.ListComprehension) {
-            listEntryType = getElementTypeFromListComprehension(node.entries[0]);
-        } else {
-            let entryTypes = node.entries.map(entry => getTypeOfExpression(entry).type);
-
-            // If there is an expected type, see if we can match any parts of it.
-            if (expectedType && entryTypes.length > 0) {
-                const specificListType = getBuiltInObject(node, 'list', [combineTypes(entryTypes)]);
-                const remainingExpectedType = constrainDeclaredTypeBasedOnAssignedType(
-                    expectedType, specificListType);
-
-                // Have we eliminated all of the expected subtypes? If not, return
-                // the remaining one(s) that match the specific type.
-                if (remainingExpectedType.category !== TypeCategory.Never) {
-                    const specializedType = specializeExpectedType(remainingExpectedType, specificListType);
-                    return { type: specializedType, node };
-                }
-
-                return { type: specificListType, node };
+        let entryTypes = node.entries.map(entry => {
+            if (entry.nodeType === ParseNodeType.ListComprehension) {
+                return getElementTypeFromListComprehension(entry);
             }
+            return getTypeOfExpression(entry).type;
+        });
 
-            entryTypes = entryTypes.map(t => stripLiteralValue(t));
+        // If there is an expected type, see if we can match it.
+        if (expectedType && entryTypes.length > 0) {
+            const narrowedExpectedType = doForSubtypes(expectedType, subtype => {
+                if (subtype.category === TypeCategory.Object) {
+                    const classAlias = subtype.classType.details.aliasClass || subtype.classType;
+                    if (ClassType.isBuiltIn(classAlias, 'list') && subtype.classType.typeArguments) {
+                        const typeArg = subtype.classType.typeArguments[0];
+                        const typeVarMap = new Map<string, Type>();
 
-            if (entryTypes.length > 0) {
-                if (getFileInfo(node).diagnosticSettings.strictListInference) {
-                    listEntryType = combineTypes(entryTypes);
-                } else {
-                    // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
-                    listEntryType = areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
+                        for (const entryType of entryTypes) {
+                            if (!canAssignType(typeArg, entryType, new DiagnosticAddendum(), typeVarMap)) {
+                                return undefined;
+                            }
+                        }
+
+                        return specializeType(subtype, typeVarMap);
+                    }
                 }
+
+                return undefined;
+            });
+
+            if (narrowedExpectedType.category !== TypeCategory.Never) {
+                return { type: narrowedExpectedType, node };
             }
         }
 
-        const type = getBuiltInObject(node, 'list', [listEntryType]);
+        entryTypes = entryTypes.map(t => stripLiteralValue(t));
+
+        let inferredEntryType: Type = AnyType.create();
+        if (entryTypes.length > 0) {
+            if (getFileInfo(node).diagnosticSettings.strictListInference) {
+                inferredEntryType = combineTypes(entryTypes);
+            } else {
+                // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
+                inferredEntryType = areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
+            }
+        }
+
+        const type = getBuiltInObject(node, 'list', [inferredEntryType]);
 
         return { type, node };
     }
@@ -5639,7 +5649,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const diagAddendum = new DiagnosticAddendum();
                     if (canAssignType(declaredType, srcType, diagAddendum)) {
                         // Constrain the resulting type to match the declared type.
-                        srcType = constrainDeclaredTypeBasedOnAssignedType(
+                        srcType = narrowDeclaredTypeBasedOnAssignedType(
                             declaredType, srcType);
                     }
                 }
@@ -9275,6 +9285,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return true;
         }
 
+        // If we need to enforce invariance, union types must match exactly.
+        if (flags & CanAssignFlags.EnforceInvariance) {
+            if (srcType.category === TypeCategory.Union || destType.category === TypeCategory.Union) {
+                if (!isTypeSame(srcType, destType)) {
+                    diag.addMessage(`Type '${ printType(srcType) }' cannot be assigned to ` +
+                        `type '${ printType(destType) }'`);
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
         if (srcType.category === TypeCategory.Union) {
             let isIncompatible = false;
 
@@ -9687,24 +9710,25 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     // When a variable with a declared type is assigned and the declared
-    // type is a union, we may be able to further constrain the type.
-    function constrainDeclaredTypeBasedOnAssignedType(declaredType: Type, assignedType: Type): Type {
+    // type is a union, we may be able to further narrow the type.
+    function narrowDeclaredTypeBasedOnAssignedType(declaredType: Type, assignedType: Type): Type {
         const diagAddendum = new DiagnosticAddendum();
 
         if (declaredType.category === TypeCategory.Union) {
             return doForSubtypes(declaredType, subtype => {
                 if (assignedType.category === TypeCategory.Union) {
-                    if (!assignedType.subtypes.some(
-                        t => canAssignType(subtype, t, diagAddendum))) {
+                    if (!assignedType.subtypes.some(t => canAssignType(subtype, t, diagAddendum))) {
                         return undefined;
                     } else {
                         return subtype;
                     }
-                } else if (!canAssignType(subtype, assignedType, diagAddendum)) {
-                    return undefined;
-                } else {
-                    return subtype;
                 }
+                
+                if (!canAssignType(subtype, assignedType, diagAddendum)) {
+                    return undefined;
+                }
+
+                return subtype;
             });
         }
 

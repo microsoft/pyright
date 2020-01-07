@@ -1136,12 +1136,8 @@ export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0
         return specializeType(type.boundType, undefined, false, recursionLevel + 1);
     }
 
-    // We can't use constraints to determine the type because
-    // we need to match exactly one, and we can't express that
-    // in a Union. The best we can do is to convert it to an
-    // unknown.
     if (type.constraints.length > 0) {
-        return UnknownType.create();
+        return combineTypes(type.constraints);
     }
 
     // In all other cases, treat as unknown.
