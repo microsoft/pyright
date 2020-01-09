@@ -1601,6 +1601,15 @@ export class Binder extends ParseTreeWalker {
                 return false;
             }
 
+            case ParseNodeType.AssignmentExpression: {
+                if (this._isNarrowingExpression(expression.rightExpression, expressionList)) {
+                    expressionList.push(expression.name);
+                    return true;
+                }
+
+                return false;
+            }
+
             case ParseNodeType.BinaryOperation: {
                 const isOrIsNotOperator = expression.operator === OperatorType.Is ||
                     expression.operator === OperatorType.IsNot;

@@ -7761,8 +7761,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // If the specified flow node is not associated with the target expression,
     // it returns undefined.
     function getTypeNarrowingCallback(reference: ExpressionNode, flowNode: FlowCondition): TypeNarrowingCallback | undefined {
-        const testExpression = flowNode.expression;
+        let testExpression = flowNode.expression;
         const isPositiveTest = !!(flowNode.flags & FlowFlags.TrueCondition);
+
+        if (testExpression.nodeType === ParseNodeType.AssignmentExpression) {
+            if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
+                testExpression = testExpression.rightExpression;
+            } else if (ParseTreeUtils.isMatchingExpression(reference, testExpression.name)) {
+                testExpression = testExpression.name;
+            }
+        }
 
         if (testExpression.nodeType === ParseNodeType.BinaryOperation) {
             const isOrIsNotOperator = testExpression.operator === OperatorType.Is ||
