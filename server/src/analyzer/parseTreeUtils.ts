@@ -121,8 +121,13 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Number: {
-            return node.value.toString();
+            let value = node.value.toString();
+            if (node.isImaginary) {
+                value += 'j';
+            }
+            return value;
         }
+
         case ParseNodeType.StringList: {
             if ((flags & PrintExpressionFlags.ForwardDeclarations) && node.typeAnnotation) {
                 return printExpression(node.typeAnnotation, flags);
@@ -132,6 +137,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 }).join(' ');
             }
         }
+
         case ParseNodeType.String: {
             let exprString = '';
             if (node.token.flags & StringTokenFlags.Raw) {

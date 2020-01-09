@@ -562,10 +562,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case ParseNodeType.Number: {
-                typeResult = {
-                    node, type: cloneBuiltinTypeWithLiteral(node,
-                        node.isInteger ? 'int' : 'float', node.value)
-                };
+                let builtInType = 'float';
+                if (node.isImaginary) {
+                    builtInType = 'complex';
+                } else if (node.isInteger) {
+                    builtInType = 'int';
+                }
+                typeResult = { node, type: cloneBuiltinTypeWithLiteral(node, builtInType, node.value) };
                 break;
             }
 
@@ -2771,7 +2774,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 ClassType.isBuiltIn(baseTypeClass, 'Tuple') &&
                 baseTypeClass.typeArguments) {
 
-                if (node.items.items[0].nodeType === ParseNodeType.Number) {
+                if (node.items.items[0].nodeType === ParseNodeType.Number &&
+                        node.items.items[0].isInteger &&
+                        !node.items.items[0].isImaginary) {
+
                     const numberNode = node.items.items[0];
 
                     if (numberNode.isInteger && numberNode.value >= 0 &&
@@ -5320,7 +5326,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     type = cloneBuiltinTypeWithLiteral(node, 'str', value);
                 }
             } else if (item.nodeType === ParseNodeType.Number) {
-                if (item.isInteger) {
+                if (!item.isImaginary && item.isInteger) {
                     type = cloneBuiltinTypeWithLiteral(node, 'int', item.value);
                 }
             } else if (item.nodeType === ParseNodeType.Constant) {

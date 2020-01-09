@@ -111,6 +111,11 @@ test('BadToken1', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Complex1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['complex1.py']);
+    validateResults(analysisResults, 0);
+});
+
 test('TypeConstraint1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint1.py']);
 

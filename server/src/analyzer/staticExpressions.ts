@@ -53,6 +53,7 @@ export function evaluateStaticBoolExpression(node: ExpressionNode,
                 _isSysVersionInfoExpression(node.leftExpression.baseExpression) &&
                 node.leftExpression.items.items.length === 1 &&
                 node.leftExpression.items.items[0].nodeType === ParseNodeType.Number &&
+                !node.leftExpression.items.items[0].isImaginary &&
                 node.leftExpression.items.items[0].value === 0 &&
                 node.rightExpression.nodeType === ParseNodeType.Number) {
 
@@ -116,7 +117,10 @@ function _convertTupleToVersion(node: TupleNode): number | undefined {
     let comparisonVersion: number | undefined;
     if (node.expressions.length === 2) {
         if (node.expressions[0].nodeType === ParseNodeType.Number &&
-                node.expressions[1].nodeType === ParseNodeType.Number) {
+                !node.expressions[0].isImaginary &&
+                node.expressions[1].nodeType === ParseNodeType.Number &&
+                !node.expressions[1].isImaginary) {
+
             const majorVersion = node.expressions[0];
             const minorVersion = node.expressions[1];
             comparisonVersion = majorVersion.value * 256 + minorVersion.value;

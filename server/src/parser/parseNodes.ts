@@ -1167,6 +1167,7 @@ export interface NumberNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Number;
     value: number;
     isInteger: boolean;
+    isImaginary: boolean;
 }
 
 export namespace NumberNode {
@@ -1177,7 +1178,8 @@ export namespace NumberNode {
             nodeType: ParseNodeType.Number,
             id: _nextNodeId++,
             value: token.value,
-            isInteger: token.isInteger
+            isInteger: token.isInteger,
+            isImaginary: token.isImaginary
         };
 
         return node;
