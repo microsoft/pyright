@@ -905,6 +905,7 @@ export class Parser {
             decoratorNode.arguments = this._parseArgList();
             decoratorNode.arguments.forEach(arg => {
                 arg.parent = decoratorNode;
+                extendRange(decoratorNode, arg);
             });
 
             const nextToken = this._peekToken();
