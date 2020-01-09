@@ -497,6 +497,13 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.getType(node);
         }
 
+        if (node.strings.length > 1) {
+            this._evaluator.addDiagnosticForTextRange(this._fileInfo,
+                this._fileInfo.diagnosticSettings.reportImplicitStringConcatenation,
+                DiagnosticRule.reportImplicitStringConcatenation,
+                `Implicit string concatenation not allowed`, node);
+        }
+
         return true;
     }
 

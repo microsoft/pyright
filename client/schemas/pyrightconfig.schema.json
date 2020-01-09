@@ -294,6 +294,12 @@
       "title": "Controls reporting assert expressions that will always evaluate to true",
       "default": "warning"
     },
+    "reportImplicitStringConcatenation": {
+      "$id": "#/properties/reportImplicitStringConcatenation",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting usage of implicit concatenation of string literals",
+      "default": "warning"
+    },
     "pythonVersion": {
       "$id": "#/properties/pythonVersion",
       "type": "string",
