@@ -20,11 +20,8 @@ import {
     DiagnosticCategory, DiagnosticTextPosition, DiagnosticTextRange
 } from './common/diagnostic';
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
-import {
-    commandAddMissingOptionalToParam, commandCreateTypeStub,
-    commandOrderImports
-} from '../../common/commands';
 import { CompletionItemData } from './languageService/completionProvider';
+import { commandOrderImports, commandCreateTypeStub, commandAddMissingOptionalToParam } from './languageService/commands';
 
 interface PythonSettings {
     venvPath?: string;
