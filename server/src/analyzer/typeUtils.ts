@@ -14,8 +14,9 @@ import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, maxTypeRecursionCount, ModuleType, NeverType, ObjectType,
     OverloadedFunctionType, SpecializedFunctionTypes, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnknownType } from './types';
+    TypeVarType, UnknownType } from './types';
 import { DeclarationType } from './declaration';
+import { TypeVarMap } from './typeVarMap';
 
 export interface ClassMember {
     // Symbol
@@ -348,7 +349,7 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
     }
 
     // Shortcut if there are no type variables defined.
-    if (typeVarMap && !makeConcrete && typeVarMap.size === 0) {
+    if (typeVarMap && !makeConcrete && typeVarMap.size() === 0) {
         return type;
     }
 
@@ -718,7 +719,7 @@ export function buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeV
 }
 
 export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] | undefined): TypeVarMap {
-    const typeArgMap = new Map<string, Type>();
+    const typeVarMap = new TypeVarMap();
     typeParameters.forEach((typeParam, index) => {
         const typeVarName = typeParam.name;
         let typeArgType: Type;
@@ -733,18 +734,10 @@ export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] 
             typeArgType = getConcreteTypeFromTypeVar(typeParam);
         }
 
-        typeArgMap.set(typeVarName, typeArgType);
+        typeVarMap.set(typeVarName, typeArgType);
     });
 
-    return typeArgMap;
-}
-
-export function cloneTypeVarMap(typeVarMap: TypeVarMap): TypeVarMap {
-    const newTypeVarMap = new Map<string, Type>();
-    newTypeVarMap.forEach((_, key) => {
-        newTypeVarMap.set(key, typeVarMap.get(key)!);
-    });
-    return newTypeVarMap;
+    return typeVarMap;
 }
 
 export function derivesFromClassRecursive(classType: ClassType, baseClassToFind: ClassType) {

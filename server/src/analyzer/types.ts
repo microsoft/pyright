@@ -68,8 +68,6 @@ export const maxTypeRecursionCount = 16;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
-export type TypeVarMap = Map<string, Type>;
-
 interface TypeBase {
     category: TypeCategory;
 }

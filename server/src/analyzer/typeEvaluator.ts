@@ -50,10 +50,10 @@ import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     isPossiblyUnbound, isSameWithoutLiteralValue, isTypeSame, isUnbound, LiteralValue,
     maxTypeRecursionCount, ModuleType, NeverType, NoneType, ObjectType,
     OverloadedFunctionType, removeNoneFromUnion, removeUnboundFromUnion, Type, TypeCategory,
-    TypeSourceId, TypeVarMap, TypeVarType, UnboundType, UnknownType } from './types';
+    TypeSourceId, TypeVarType, UnboundType, UnknownType } from './types';
 import { addDefaultFunctionParameters, addTypeVarsToListIfUnique,
     areTypesSame, buildTypeVarMap, buildTypeVarMapFromSpecializedClass, CanAssignFlags, canBeFalsy,
-    canBeTruthy, ClassMember, ClassMemberLookupFlags, cloneTypeVarMap, containsUnknown, convertClassToObject,
+    canBeTruthy, ClassMember, ClassMemberLookupFlags, containsUnknown, convertClassToObject,
     derivesFromClassRecursive, doForSubtypes, getConcreteTypeFromTypeVar, getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType, getMetaclass, getSpecializedTupleType, getTypeVarArgumentsRecursive,
     isEllipsisType, isNoReturnType, isOptionalType, isProperty, lookUpClassMember, lookUpObjectMember,
@@ -61,6 +61,7 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique,
     removeTruthinessFromType, requiresSpecialization, selfSpecializeClassType, setTypeArgumentsRecursive,
     specializeType, stripFirstParameter, stripLiteralTypeArgsValue, stripLiteralValue,
     transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
+import { TypeVarMap } from './typeVarMap';
 
 interface TypeResult {
     type: Type;
@@ -2812,7 +2813,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         const callResult = validateCallArguments(node, argList,
-            itemMethodType, new Map<string, Type>(), false);
+            itemMethodType, new TypeVarMap(), false);
 
         return callResult.returnType || UnknownType.create();
     }
@@ -3143,7 +3144,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     type = createNamedTupleType(errorNode, argList, false);
                 } else if (callType.details.builtInName === 'NewType') {
                     const callResult = validateCallArguments(errorNode, argList, callType,
-                        new Map<string, Type>(), skipUnknownArgCheck);
+                        new TypeVarMap(), skipUnknownArgCheck);
 
                     // If the call's arguments were validated, replace the
                     // type with a new synthesized subclass.
@@ -3151,7 +3152,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         createNewType(errorNode, argList);
                 } else {
                     type = validateCallArguments(errorNode, argList, callType,
-                        new Map<string, Type>(), skipUnknownArgCheck).returnType;
+                        new TypeVarMap(), skipUnknownArgCheck).returnType;
 
                     if (callType.details.builtInName === '__import__') {
                         // For the special __import__ type, we'll override the return type to be "Any".
@@ -3188,7 +3189,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
 
                     type = validateCallArguments(errorNode, argList, callType,
-                        new Map<string, Type>(), skipUnknownArgCheck).returnType;
+                        new TypeVarMap(), skipUnknownArgCheck).returnType;
                     if (!type) {
                         type = UnknownType.create();
                     }
@@ -3221,7 +3222,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         MemberAccessFlags.SkipForMethodLookup);
                     if (memberType) {
                         type = validateCallArguments(errorNode, argList, memberType,
-                            new Map<string, Type>(), skipUnknownArgCheck).returnType;
+                            new TypeVarMap(), skipUnknownArgCheck).returnType;
                         if (!type) {
                             type = UnknownType.create();
                         }
@@ -3296,7 +3297,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // Temporarily disable diagnostic output.
             useSpeculativeMode(() => {
                 const callResult = validateCallArguments(errorNode, argList, overload,
-                        new Map<string, Type>(), true);
+                        new TypeVarMap(), true);
                 if (!callResult.argumentErrors) {
                     validOverload = overload;
                 }
@@ -3343,7 +3344,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass);
 
         if (initMethodType && !skipConstructorCheck(initMethodType)) {
-            const typeVarMap = new Map<string, Type>();
+            const typeVarMap = new TypeVarMap();
             const callResult = validateCallArguments(errorNode, argList, initMethodType,
                 typeVarMap, skipUnknownArgCheck);
             if (!callResult.argumentErrors) {
@@ -3368,7 +3369,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
                 const constructorMethodType = bindFunctionToClassOrObject(
                     type, constructorMethodInfo.type, true);
-                const typeVarMap = new Map<string, Type>();
+                const typeVarMap = new TypeVarMap();
 
                 // Skip the unknown argument check if we've already checked for __init__.
                 const callResult = validateCallArguments(errorNode, argList,
@@ -3416,7 +3417,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
         const expectedClass = expectedTypeWithoutNone.classType;
 
-        const typeVarMap = new Map<string, Type>();
+        const typeVarMap = new TypeVarMap();
         if (canAssignType(expectedClass, type, new DiagnosticAddendum(), typeVarMap)) {
             return specializeType(expectedClass, typeVarMap) as ClassType;
         }
@@ -4734,7 +4735,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 useSpeculativeMode(() => {
                     callResult = validateCallArguments(errorNode, functionArgs,
-                        magicMethodType, new Map<string, Type>(), true);
+                        magicMethodType, new TypeVarMap(), true);
                 });
 
                 if (callResult!.argumentErrors) {
@@ -4796,7 +4797,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const classAlias = subtype.classType.details.aliasClass || subtype.classType;
                     if (ClassType.isBuiltIn(classAlias, 'set') && subtype.classType.typeArguments) {
                         const typeArg = subtype.classType.typeArguments[0];
-                        const typeVarMap = new Map<string, Type>();
+                        const typeVarMap = new TypeVarMap();
 
                         for (const entryType of entryTypes) {
                             if (!canAssignType(typeArg, entryType, new DiagnosticAddendum(), typeVarMap)) {
@@ -4914,7 +4915,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (ClassType.isBuiltIn(classAlias, 'dict') && subtype.classType.typeArguments) {
                     const typeArg0 = subtype.classType.typeArguments[0];
                     const typeArg1 = subtype.classType.typeArguments[1];
-                    const typeVarMap = new Map<string, Type>();
+                    const typeVarMap = new TypeVarMap();
 
                     for (const keyType of keyTypes) {
                         if (!canAssignType(typeArg0, keyType, new DiagnosticAddendum(), typeVarMap)) {
@@ -4980,7 +4981,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const classAlias = subtype.classType.details.aliasClass || subtype.classType;
                     if (ClassType.isBuiltIn(classAlias, 'list') && subtype.classType.typeArguments) {
                         const typeArg = subtype.classType.typeArguments[0];
-                        const typeVarMap = new Map<string, Type>();
+                        const typeVarMap = new TypeVarMap();
 
                         for (const entryType of entryTypes) {
                             if (!canAssignType(typeArg, entryType, new DiagnosticAddendum(), typeVarMap)) {
@@ -8871,7 +8872,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             // Strip the type arguments off the dest protocol if they are provided.
             const genericDestType = ClassType.cloneForSpecialization(destType, undefined);
-            const genericDestTypeVarMap = new Map<string, Type>();
+            const genericDestTypeVarMap = new TypeVarMap();
 
             let typesAreConsistent = true;
             const srcClassTypeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
@@ -9217,8 +9218,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (canAssignType(srcType, existingTypeVarMapping, diagAddendum,
                             typeVarMap, flags, recursionCount + 1)) {
 
-                        // No need to narrow.
-                        updatedType = existingTypeVarMapping;
+                        // No need to narrow. Stick with the existing type unless it's an Unknown,
+                        // in which case we'll try to replace it with a known type.
+                        if (!isAnyOrUnknown(existingTypeVarMapping) || updatedType.category === TypeCategory.Unknown) {
+                            updatedType = existingTypeVarMapping;
+                        }
                     } else if (!canAssignType(existingTypeVarMapping, srcType, new DiagnosticAddendum(),
                             typeVarMap, flags, recursionCount + 1)) {
 
@@ -9227,9 +9231,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         return false;
                     }
                 }
-            } else {
-                // Assign the type to the type var.
-                typeVarMap.set(destType.name, srcType);
             }
 
             // If there's a bound type, make sure the source is derived from it.
@@ -9530,7 +9531,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const overloads = srcType.overloads;
                 const overloadIndex = overloads.findIndex(overload => {
                     const typeVarMapClone = typeVarMap ?
-                        cloneTypeVarMap(typeVarMap) : undefined;
+                        typeVarMap.clone() : undefined;
                     return canAssignType(destType, overload, diag.createAddendum(),
                         typeVarMapClone, flags, recursionCount + 1);
                 });
@@ -10096,7 +10097,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // existing type arg mappings. If it hasn't, use a fresh type arg map.
         const typeVarMap = classType.typeArguments ?
             buildTypeVarMapFromSpecializedClass(classType) :
-            new Map<string, Type>();
+            new TypeVarMap();
 
         if (memberType.details.parameters.length > 0) {
             const firstParam = memberType.details.parameters[0];
