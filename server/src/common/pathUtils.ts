@@ -133,7 +133,7 @@ export function makeDirectories(dirPath: string, startingFromDirPath: string) {
 }
 
 export function normalizeSlashes(pathString: string): string {
-    const separatorRegExp = /[\\\/]/g;
+    const separatorRegExp = /[\\/]/g;
     return pathString.replace(separatorRegExp, path.sep);
 }
 
@@ -265,7 +265,7 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
 
     const pathComponents = getPathComponents(absolutePath);
     const doubleAsteriskRegexFragment = `(/[^/.][^/]*)*?`;
-    const reservedCharacterPattern = /[^\w\s\/]/g;
+    const reservedCharacterPattern = /[^\w\s/]/g;
 
     // Strip the directory separator from the root component.
     if (pathComponents.length > 0) {
@@ -321,7 +321,7 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
         if (component === '**') {
             break;
         } else {
-            if (component.match(/[\*\?]/)) {
+            if (component.match(/[*?]/)) {
                 break;
             }
 

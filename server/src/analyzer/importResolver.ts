@@ -626,7 +626,7 @@ export class ImportResolver {
                     if (!isLastPart) {
                         // We are not at the last part, and we found a directory,
                         // so continue to look for the next part.
-                        resolvedPaths.push(dirPath);
+                        resolvedPaths.push('');
                         continue;
                     }
 
@@ -786,7 +786,7 @@ export class ImportResolver {
         }
 
         // Don't add directories with illegal module names.
-        if (/[\.\-]/.test(suggestionToAdd)) {
+        if (/[.-]/.test(suggestionToAdd)) {
             return;
         }
 

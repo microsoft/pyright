@@ -110,14 +110,22 @@ export class Checker extends ParseTreeWalker {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticSettings.reportUnknownParameterType,
                             DiagnosticRule.reportUnknownParameterType,
-                            `Type of '${ param.name.value }' is unknown`,
+                            `Type of parameter '${ param.name.value }' is unknown`,
+                            param.name);
+                    } else if (containsUnknown(paramType)) {
+                        const diagAddendum = new DiagnosticAddendum();
+                        diagAddendum.addMessage(`Parameter type is '${ this._evaluator.printType(paramType) }'`);
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                            DiagnosticRule.reportUnknownParameterType,
+                            `Type of parameter '${ param.name.value }' is partially unknown` + diagAddendum.getString(),
                             param.name);
                     }
                 }
             });
 
             if (containingClassNode) {
-                this._validateMethod(node, functionTypeResult.functionType);
+                this._validateMethod(node, functionTypeResult.functionType, containingClassNode);
             }
         }
 
@@ -283,6 +291,19 @@ export class Checker extends ParseTreeWalker {
                             node.returnExpression ? node.returnExpression : node);
                     }
                 }
+            }
+
+            if (returnType.category === TypeCategory.Unknown) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                    DiagnosticRule.reportUnknownVariableType,
+                    `Return type is unknown`, node.returnExpression!);
+            } else if (containsUnknown(returnType)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                    DiagnosticRule.reportUnknownVariableType,
+                    `Return type, '${ this._evaluator.printType(returnType) }', is partially unknown`,
+                        node.returnExpression!);
             }
         }
 
@@ -474,6 +495,13 @@ export class Checker extends ParseTreeWalker {
     visitStringList(node: StringListNode): boolean {
         if (node.typeAnnotation) {
             this._evaluator.getType(node);
+        }
+
+        if (node.strings.length > 1) {
+            this._evaluator.addDiagnosticForTextRange(this._fileInfo,
+                this._fileInfo.diagnosticSettings.reportImplicitStringConcatenation,
+                DiagnosticRule.reportImplicitStringConcatenation,
+                `Implicit string concatenation not allowed`, node);
         }
 
         return true;
@@ -855,7 +883,10 @@ export class Checker extends ParseTreeWalker {
     // Validates that a call to isinstance or issubclass are necessary. This is a
     // common source of programming errors.
     private _validateIsInstanceCallNecessary(node: CallNode) {
-        if (this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance === 'none') {
+        if (node.leftExpression.nodeType !== ParseNodeType.Name ||
+                (node.leftExpression.value !== 'isinstance' &&
+                    node.leftExpression.value !== 'issubclass') ||
+                node.arguments.length !== 2) {
             return;
         }
 
@@ -868,15 +899,9 @@ export class Checker extends ParseTreeWalker {
             curNode = curNode.parent;
         }
 
-        if (node.leftExpression.nodeType !== ParseNodeType.Name ||
-                (node.leftExpression.value !== 'isinstance' &&
-                    node.leftExpression.value !== 'issubclass') ||
-                node.arguments.length !== 2) {
-            return;
-        }
-
         const callName = node.leftExpression.value;
         const isInstanceCheck = callName === 'isinstance';
+
         let arg0Type = this._evaluator.getType(node.arguments[0].valueExpression);
         if (!arg0Type) {
             return;
@@ -912,6 +937,13 @@ export class Checker extends ParseTreeWalker {
             }
         } else {
             return;
+        }
+
+        // According to PEP 544, protocol classes cannot be used as the right-hand
+        // argument to isinstance or issubclass.
+        if (classTypeList.some(type => ClassType.isProtocol(type))) {
+            this._evaluator.addError(`Protocol class cannot be used in ${ callName } call`,
+                node.arguments[1].valueExpression);
         }
 
         const finalizeFilteredTypeList = (types: Type[]): Type => {
@@ -1160,9 +1192,27 @@ export class Checker extends ParseTreeWalker {
             const functionNeverReturns = !this._evaluator.isAfterNodeReachable(node);
             const implicitlyReturnsNone = this._evaluator.isAfterNodeReachable(node.suite);
 
-            const declaredReturnType = FunctionType.isGenerator(functionType) ?
-                getDeclaredGeneratorReturnType(functionType) :
-                functionType.details.declaredReturnType;
+            let declaredReturnType = functionType.details.declaredReturnType;
+
+            if (declaredReturnType) {
+                if (declaredReturnType.category === TypeCategory.Unknown) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                        DiagnosticRule.reportUnknownVariableType,
+                        `Declared return type is unknown`, node.returnTypeAnnotation);
+                } else if (containsUnknown(declaredReturnType)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                        DiagnosticRule.reportUnknownVariableType,
+                        `Declared return type, '${ this._evaluator.printType(declaredReturnType) }', is partially unknown`,
+                            node.returnTypeAnnotation);
+                }
+            }
+
+            // Wrap the declared type in a generator type if the function is a generator.
+            if (FunctionType.isGenerator(functionType)) {
+                declaredReturnType = getDeclaredGeneratorReturnType(functionType);
+            }
 
             // The types of all return statement expressions were already checked
             // against the declared type, but we need to verify the implicit None
@@ -1279,13 +1329,15 @@ export class Checker extends ParseTreeWalker {
 
     // Performs checks on a function that is located within a class
     // and has been determined not to be a property accessor.
-    private _validateMethod(node: FunctionNode, functionType: FunctionType) {
+    private _validateMethod(node: FunctionNode, functionType: FunctionType, classNode: ClassNode) {
         if (node.name && node.name.value === '__new__') {
             // __new__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name ||
                     (node.parameters[0].name.value !== 'cls' &&
                     node.parameters[0].name.value !== 'mcs')) {
-                this._evaluator.addError(
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                    DiagnosticRule.reportSelfClsParameterName,
                     `The __new__ override should take a 'cls' parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name);
             }
@@ -1293,7 +1345,9 @@ export class Checker extends ParseTreeWalker {
             // __init_subclass__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name ||
                     node.parameters[0].name.value !== 'cls') {
-                this._evaluator.addError(
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                    DiagnosticRule.reportSelfClsParameterName,
                     `The __init_subclass__ override should take a 'cls' parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name);
             }
@@ -1302,7 +1356,9 @@ export class Checker extends ParseTreeWalker {
             if (node.parameters.length > 0 && node.parameters[0].name) {
                 const paramName = node.parameters[0].name.value;
                 if (paramName === 'self' || paramName === 'cls') {
-                    this._evaluator.addError(
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                        DiagnosticRule.reportSelfClsParameterName,
                         `Static methods should not take a 'self' or 'cls' parameter`,
                         node.parameters[0].name);
                 }
@@ -1317,7 +1373,9 @@ export class Checker extends ParseTreeWalker {
             // cases in the stdlib pyi files.
             if (paramName !== 'cls') {
                 if (!this._fileInfo.isStubFile || (!paramName.startsWith('_') && paramName !== 'metacls')) {
-                    this._evaluator.addError(
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                        DiagnosticRule.reportSelfClsParameterName,
                         `Class methods should take a 'cls' parameter`,
                         node.parameters.length > 0 ? node.parameters[0] : node.name);
                 }
@@ -1338,17 +1396,26 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
 
-                // Instance methods should have a "self" parameter. We'll exempt parameter
-                // names that start with an underscore since those are used in a few
-                // cases in the stdlib pyi files.
-                if (firstParamIsSimple && paramName !== 'self' && !paramName.startsWith('_')) {
-                    // Special-case the ABCMeta.register method in abc.pyi.
-                    const isRegisterMethod = this._fileInfo.isStubFile &&
-                        paramName === 'cls' &&
-                        node.name.value === 'register';
+                // Instance methods should have a "self" parameter.
+                if (firstParamIsSimple && paramName !== 'self') {
+                    // Special-case metaclasses, which can use "cls".
+                    let isLegalMetaclassName = false;
+                    if (paramName === 'cls') {
+                        const classTypeInfo = this._evaluator.getTypeOfClass(classNode);
+                        const typeType = this._evaluator.getBuiltInType(classNode, 'type');
+                        if (typeType && typeType.category === TypeCategory.Class &&
+                                classTypeInfo && classTypeInfo.classType.category === TypeCategory.Class) {
 
-                    if (!isRegisterMethod) {
-                        this._evaluator.addError(
+                            if (derivesFromClassRecursive(classTypeInfo.classType, typeType)) {
+                                isLegalMetaclassName = true;
+                            }
+                        }
+                    }
+
+                    if (!isLegalMetaclassName) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                            DiagnosticRule.reportSelfClsParameterName,
                             `Instance methods should take a 'self' parameter`,
                             node.parameters.length > 0 ? node.parameters[0] : node.name);
                     }

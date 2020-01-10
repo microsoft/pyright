@@ -28,6 +28,10 @@ def func2() -> Tuple[int, int, str]:
 
 def func3() -> Tuple[str, ...]:
     a = "1", 2, 3
+
+    # This should generate an error because the
+    # heterogenous tuple can't be assigned to
+    # the homogenous tuple type.
     return a
 
 def func4() -> Tuple[str, ...]:

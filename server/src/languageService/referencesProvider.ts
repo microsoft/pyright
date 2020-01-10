@@ -9,7 +9,6 @@
 */
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { FlowFlags } from '../analyzer/codeFlow';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';

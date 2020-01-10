@@ -120,6 +120,12 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         return localValue;
     };
 
+    const appendOutputChar = (charCode: number) => {
+        const char = String.fromCharCode(charCode);
+        output.value += char;
+        formatSegment.value += char;
+    }
+
     while (true) {
         let curChar = getEscapedCharacter();
         if (curChar === Char.EndOfText) {
@@ -295,19 +301,16 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         } else if (curChar === Char.LineFeed || curChar === Char.CarriageReturn) {
             // Skip over the escaped new line (either one or two characters).
             if (curChar === Char.CarriageReturn && getEscapedCharacter(1) === Char.LineFeed) {
-                output.value += String.fromCharCode(curChar);
-                formatSegment.value += String.fromCharCode(curChar);
+                appendOutputChar(curChar);
                 strOffset++;
                 curChar = getEscapedCharacter();
             }
 
-            output.value += String.fromCharCode(curChar);
-            formatSegment.value += String.fromCharCode(curChar);
+            appendOutputChar(curChar);
             strOffset++;
         } else if (isFormat && curChar === Char.OpenBrace) {
             if (!formatSegment.isExpression && getEscapedCharacter(1) === Char.OpenBrace) {
-                output.value += String.fromCharCode(curChar);
-                formatSegment.value += String.fromCharCode(curChar);
+                appendOutputChar(curChar);
                 strOffset += 2;
             } else {
                 // A single open brace within a format literal indicates that
@@ -329,8 +332,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
             }
         } else if (isFormat && curChar === Char.CloseBrace) {
             if (!formatSegment.isExpression && getEscapedCharacter(1) === Char.CloseBrace) {
-                output.value += String.fromCharCode(curChar);
-                formatSegment.value += String.fromCharCode(curChar);
+                appendOutputChar(curChar);
                 strOffset += 2;
             } else if (formatExpressionNestCount === 0) {
                 output.unescapeErrors.push({
@@ -356,14 +358,64 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                     isExpression: false
                 };
             }
+        } else if (formatSegment.isExpression && (curChar === Char.SingleQuote || curChar === Char.DoubleQuote)) {
+            // We're within an expression, and we've encountered a string literal.
+            // Skip over it.
+            const quoteChar = curChar;
+            appendOutputChar(curChar);
+            const isTriplicate = getEscapedCharacter(1) === quoteChar && getEscapedCharacter(2) === quoteChar;
+            if (isTriplicate) {
+                strOffset += 2;
+                appendOutputChar(curChar);
+                appendOutputChar(curChar);
+                output.value += String.fromCharCode(curChar);
+                output.value += String.fromCharCode(curChar);
+            }
+
+            while (true) {
+                strOffset++;
+                let strChar = getEscapedCharacter();
+                if (strChar === Char.EndOfText) {
+                    break;
+                }
+                
+                if (strChar === Char.Backslash) {
+                    appendOutputChar(strChar);
+                    strOffset++;
+                    strChar = getEscapedCharacter();
+                    appendOutputChar(strChar);
+                    continue;
+                }
+                
+                if (strChar === Char.LineFeed || strChar === Char.CarriageReturn) {
+                    break;
+                }
+                
+                if (strChar === quoteChar) {
+                    if (!isTriplicate) {
+                        strOffset++;
+                        appendOutputChar(strChar);
+                        break;
+                    }
+
+                    if (getEscapedCharacter(1) === quoteChar && getEscapedCharacter(2) === quoteChar) {
+                        strOffset += 3;
+                        appendOutputChar(strChar);
+                        appendOutputChar(strChar);
+                        appendOutputChar(strChar);
+                        break;
+                    }
+                }
+
+                appendOutputChar(strChar);
+            }
         } else {
             // There's nothing to unescape, so output the escaped character directly.
             if (isBytes && curChar >= 128) {
                 output.nonAsciiInBytes = true;
             }
 
-            output.value += String.fromCharCode(curChar);
-            formatSegment.value += String.fromCharCode(curChar);
+            appendOutputChar(curChar);
             strOffset++;
         }
     }

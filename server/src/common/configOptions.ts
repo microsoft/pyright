@@ -129,6 +129,9 @@ export interface DiagnosticSettings {
     // Report usage of unknown input or return parameters for functions?
     reportUnknownParameterType: DiagnosticLevel;
 
+    // Report usage of unknown arguments for function calls?
+    reportUnknownArgumentType: DiagnosticLevel;
+
     // Report usage of unknown input or return parameters for lambdas?
     reportUnknownLambdaType: DiagnosticLevel;
 
@@ -152,6 +155,12 @@ export interface DiagnosticSettings {
 
     // Report assert expressions that will always evaluate to true.
     reportAssertAlwaysTrue: DiagnosticLevel;
+
+    // Report when "self" or "cls" parameter is missing or is misnamed.
+    reportSelfClsParameterName: DiagnosticLevel;
+
+    // Report implicit concatenation of string literals.
+    reportImplicitStringConcatenation: DiagnosticLevel;
 }
 
 export function cloneDiagnosticSettings(
@@ -200,13 +209,16 @@ export function getDiagLevelSettings() {
         DiagnosticRule.reportIncompatibleMethodOverride,
         DiagnosticRule.reportInvalidStringEscapeSequence,
         DiagnosticRule.reportUnknownParameterType,
+        DiagnosticRule.reportUnknownArgumentType,
         DiagnosticRule.reportUnknownLambdaType,
         DiagnosticRule.reportUnknownVariableType,
         DiagnosticRule.reportUnknownMemberType,
         DiagnosticRule.reportCallInDefaultInitializer,
         DiagnosticRule.reportUnnecessaryIsInstance,
         DiagnosticRule.reportUnnecessaryCast,
-        DiagnosticRule.reportAssertAlwaysTrue
+        DiagnosticRule.reportAssertAlwaysTrue,
+        DiagnosticRule.reportSelfClsParameterName,
+        DiagnosticRule.reportImplicitStringConcatenation
     ];
 }
 
@@ -240,13 +252,16 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportIncompatibleMethodOverride: 'error',
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',
+        reportUnknownArgumentType: 'error',
         reportUnknownLambdaType: 'error',
         reportUnknownVariableType: 'error',
         reportUnknownMemberType: 'error',
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'error',
         reportUnnecessaryCast: 'error',
-        reportAssertAlwaysTrue: 'error'
+        reportAssertAlwaysTrue: 'error',
+        reportSelfClsParameterName: 'error',
+        reportImplicitStringConcatenation: 'none'
     };
 
     return diagSettings;
@@ -282,13 +297,16 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportIncompatibleMethodOverride: 'none',
         reportInvalidStringEscapeSequence: 'warning',
         reportUnknownParameterType: 'none',
+        reportUnknownArgumentType: 'none',
         reportUnknownLambdaType: 'none',
         reportUnknownVariableType: 'none',
         reportUnknownMemberType: 'none',
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
-        reportAssertAlwaysTrue: 'warning'
+        reportAssertAlwaysTrue: 'warning',
+        reportSelfClsParameterName: 'warning',
+        reportImplicitStringConcatenation: 'none'
     };
 
     return diagSettings;
@@ -616,6 +634,11 @@ export class ConfigOptions {
                 configObj.reportUnknownParameterType, DiagnosticRule.reportUnknownParameterType,
                 defaultSettings.reportUnknownParameterType),
 
+            // Read the "reportUnknownArgumentType" entry.
+            reportUnknownArgumentType: this._convertDiagnosticLevel(
+                configObj.reportUnknownArgumentType, DiagnosticRule.reportUnknownArgumentType,
+                defaultSettings.reportUnknownArgumentType),
+
             // Read the "reportUnknownLambdaType" entry.
             reportUnknownLambdaType: this._convertDiagnosticLevel(
                 configObj.reportUnknownLambdaType, DiagnosticRule.reportUnknownLambdaType,
@@ -649,7 +672,17 @@ export class ConfigOptions {
             // Read the "reportAssertAlwaysTrue" entry.
             reportAssertAlwaysTrue: this._convertDiagnosticLevel(
                 configObj.reportAssertAlwaysTrue, DiagnosticRule.reportAssertAlwaysTrue,
-                defaultSettings.reportAssertAlwaysTrue)
+                defaultSettings.reportAssertAlwaysTrue),
+
+            // Read the "reportSelfClsParameterName" entry.
+            reportSelfClsParameterName: this._convertDiagnosticLevel(
+                configObj.reportSelfClsParameterName, DiagnosticRule.reportSelfClsParameterName,
+                defaultSettings.reportSelfClsParameterName),
+
+            // Read the "reportImplicitStringConcatenation" entry.
+            reportImplicitStringConcatenation: this._convertDiagnosticLevel(
+                configObj.reportImplicitStringConcatenation, DiagnosticRule.reportImplicitStringConcatenation,
+                defaultSettings.reportImplicitStringConcatenation)
         };
 
         // Read the "venvPath".

@@ -1,0 +1,32 @@
+{
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended"
+    ],
+    "env": {
+        "browser": true
+    },
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": 2017,
+        "sourceType": "module"
+    },
+    "plugins": [
+        "@typescript-eslint/eslint-plugin"
+    ],
+    "rules": {
+        "no-constant-condition": 0,
+        "no-inner-declarations": 0,
+        "no-undef": 0,
+        "@typescript-eslint/explicit-function-return-type": 0,
+        "@typescript-eslint/ban-types": 0,
+        "@typescript-eslint/camelcase": 0,
+        "@typescript-eslint/no-empty-interface": 0,
+        "@typescript-eslint/no-explicit-any": 0,
+        "@typescript-eslint/no-namespace": 0,
+        "@typescript-eslint/no-non-null-assertion": 0,
+        "@typescript-eslint/no-this-alias": 0,
+        "@typescript-eslint/no-unused-vars": 0,
+        "@typescript-eslint/no-use-before-define": 0
+    }
+}

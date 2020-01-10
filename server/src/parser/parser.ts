@@ -905,6 +905,7 @@ export class Parser {
             decoratorNode.arguments = this._parseArgList();
             decoratorNode.arguments.forEach(arg => {
                 arg.parent = decoratorNode;
+                extendRange(decoratorNode, arg);
             });
 
             const nextToken = this._peekToken();
@@ -1970,7 +1971,7 @@ export class Parser {
 
         if (listResult.list.length === 0) {
             return this._handleExpressionParseError(
-                ErrorExpressionCategory.MissingExpression,
+                ErrorExpressionCategory.MissingIndexOrSlice,
                 'Expected index or slice expression');
         }
 
@@ -2557,7 +2558,7 @@ export class Parser {
         }
 
         if (rightExpr.nodeType === ParseNodeType.Error) {
-            return rightExpr;
+            return AssignmentNode.create(leftExpr, rightExpr);
         }
 
         // Recur until we've consumed the entire chain.
@@ -2635,7 +2636,7 @@ export class Parser {
 
         const interTokenContents = this._fileContents!.substring(
             curToken.start + curToken.length, nextToken.start);
-        const commentRegEx = /^(\s*#\s*type\:\s*)([^\r\n]*)/;
+        const commentRegEx = /^(\s*#\s*type:\s*)([^\r\n]*)/;
         const match = interTokenContents.match(commentRegEx);
         if (!match) {
             return undefined;

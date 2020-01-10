@@ -10,6 +10,7 @@
 */
 
 import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { convertDocStringToMarkdown } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory, UnknownType } from '../analyzer/types';
@@ -62,8 +63,19 @@ export class HoverProvider {
                 // is a directory (a namespace package), and we don't want to provide any hover
                 // information in that case.
                 if (results.parts.length === 0) {
-                    this._addResultsPart(results.parts, node.value +
-                        this._getTypeText(node, evaluator), true);
+                    const type = evaluator.getType(node) || UnknownType.create();
+
+                    let typeText = '';
+                    if (type.category === TypeCategory.Module) {
+                        // Handle modules specially because submodules aren't associated with
+                        // declarations, but we want them to be presented in the same way as
+                        // the top-level module, which does have a declaration.
+                        typeText = '(module) ' + node.value;
+                    } else {
+                        typeText = node.value + ': ' + evaluator.printType(type);
+                    }
+
+                    this._addResultsPart(results.parts, typeText, true);
                     this._addDocumentationPart(results.parts, node, evaluator);
                 }
             }
@@ -148,27 +160,21 @@ export class HoverProvider {
 
     private static _addDocumentationPartForType(parts: HoverTextPart[], type: Type) {
         if (type.category === TypeCategory.Module) {
-            const docString = type.docString;
-            if (docString) {
-                this._addResultsPart(parts, docString);
-            }
+            this._addDocumentationResultsPart(parts, type.docString);
         } else if (type.category === TypeCategory.Class) {
-            const docString = type.details.docString;
-            if (docString) {
-                this._addResultsPart(parts, docString);
-            }
+            this._addDocumentationResultsPart(parts, type.details.docString);
         } else if (type.category === TypeCategory.Function) {
-            const docString = type.details.docString;
-            if (docString) {
-                this._addResultsPart(parts, docString);
-            }
+            this._addDocumentationResultsPart(parts, type.details.docString);
         } else if (type.category === TypeCategory.OverloadedFunction) {
             type.overloads.forEach(overload => {
-                const docString = overload.details.docString;
-                if (docString) {
-                    this._addResultsPart(parts, docString);
-                }
+                this._addDocumentationResultsPart(parts, overload.details.docString);
             });
+        }
+    }
+
+    private static _addDocumentationResultsPart(parts: HoverTextPart[], docString?: string) {
+        if (docString) {
+            this._addResultsPart(parts, convertDocStringToMarkdown(docString));
         }
     }
 

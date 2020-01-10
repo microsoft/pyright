@@ -19,9 +19,6 @@ def call_len(x: Foo) -> None:
 for_each([1, 2, 3], call_len)
 
 
-_T1 = TypeVar('_T1')
-_T2 = TypeVar('_T2')
-
 def validate_param_types(i: int, s: str):
     pass
 

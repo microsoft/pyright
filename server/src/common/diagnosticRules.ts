@@ -38,11 +38,14 @@ export const enum DiagnosticRule {
     reportIncompatibleMethodOverride = 'reportIncompatibleMethodOverride',
     reportInvalidStringEscapeSequence = 'reportInvalidStringEscapeSequence',
     reportUnknownParameterType = 'reportUnknownParameterType',
+    reportUnknownArgumentType = 'reportUnknownArgumentType',
     reportUnknownLambdaType = 'reportUnknownLambdaType',
     reportUnknownVariableType = 'reportUnknownVariableType',
     reportUnknownMemberType = 'reportUnknownMemberType',
     reportCallInDefaultInitializer = 'reportCallInDefaultInitializer',
     reportUnnecessaryIsInstance = 'reportUnnecessaryIsInstance',
     reportUnnecessaryCast = 'reportUnnecessaryCast',
-    reportAssertAlwaysTrue = 'reportAssertAlwaysTrue'
+    reportAssertAlwaysTrue = 'reportAssertAlwaysTrue',
+    reportSelfClsParameterName = 'reportSelfClsParameterName',
+    reportImplicitStringConcatenation = 'reportImplicitStringConcatenation'
 }

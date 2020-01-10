@@ -989,6 +989,32 @@ test('Floating point numbers with operators', () => {
     assert.equal(results.tokens.getItemAt(6).length, 3);
 });
 
+test('Imaginary numbers', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('88.9j/100.0J*4.0e-5j-2.0j,');
+    assert.equal(results.tokens.count, 8 + _implicitTokenCount);
+
+    const token0 = results.tokens.getItemAt(0);
+    assert.equal(token0.type, TokenType.Number);
+    assert.equal(token0.length, 5);
+    assert((token0 as NumberToken).isImaginary);
+
+    const token2 = results.tokens.getItemAt(2);
+    assert.equal(token2.type, TokenType.Number);
+    assert.equal(token2.length, 6);
+    assert((token2 as NumberToken).isImaginary);
+
+    const token4 = results.tokens.getItemAt(4);
+    assert.equal(token4.type, TokenType.Number);
+    assert.equal(token4.length, 7);
+    assert((token4 as NumberToken).isImaginary);
+
+    const token6 = results.tokens.getItemAt(6);
+    assert.equal(token6.type, TokenType.Number);
+    assert.equal(token6.length, 4);
+    assert((token6 as NumberToken).isImaginary);
+});
+
 test('Underscore numbers', () => {
     const t = new Tokenizer();
     const results = t.tokenize('1_0_0_0 0_0 .5_00_3e-4 0xC__A_FE_F00D 10_000_000.0 0b_0011_1111_0100_1110');

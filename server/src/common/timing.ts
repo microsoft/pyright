@@ -92,4 +92,4 @@ export class TimingStats {
     }
 }
 
-export let timingStats = new TimingStats();
+export const timingStats = new TimingStats();

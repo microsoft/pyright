@@ -34,7 +34,7 @@ import { ArgumentCategory, AssertNode, AssignmentExpressionNode, AssignmentNode,
     UnaryOperationNode, WhileNode, WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
-import { AnalyzerFileInfo } from './analyzerFileInfo';
+import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { createKeyForReference, FlowAssignment, FlowAssignmentAlias, FlowCall, FlowCondition,
     FlowFlags, FlowLabel, FlowNode, FlowPostFinally, FlowPreFinallyGate, FlowWildcardImport,
@@ -47,7 +47,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
-import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 
 export const enum NameBindingType {
     // With "nonlocal" keyword
@@ -269,6 +269,7 @@ export class Binder extends ParseTreeWalker {
             type: DeclarationType.Function,
             node,
             isMethod: !!containingClassNode,
+            isGenerator: false,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name),
                 this._fileInfo.lines)
@@ -446,7 +447,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitAssignment(node: AssignmentNode): boolean {
-        if (this._handleTypingStubAssignment(node)) {
+        if (this._handleTypingStubAssignmentOrAnnotation(node)) {
             return false;
         }
 
@@ -531,6 +532,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitTypeAnnotation(node: TypeAnnotationNode): boolean {
+        if (this._handleTypingStubAssignmentOrAnnotation(node)) {
+            return false;
+        }
+
         this._bindPossibleTupleNamedTarget(node.valueExpression);
         this._addTypeDeclarationForVariable(node.valueExpression, node.typeAnnotation);
         return true;
@@ -1110,12 +1115,19 @@ export class Binder extends ParseTreeWalker {
         }
 
         if (node.isWildcardImport) {
-            if (importInfo && importInfo.implicitImports) {
+            if (ParseTreeUtils.getEnclosingClass(node) || ParseTreeUtils.getEnclosingFunction(node)) {
+                this._addError('Wildcard import is not allowed within a class or function', node);
+            }
+
+            if (importInfo) {
                 const names: string[] = [];
 
                 const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                 if (lookupInfo) {
-                    lookupInfo.symbolTable.forEach((symbol, name) => {
+                    const wildcardNames = this._getWildcardImportNames(lookupInfo);
+                    wildcardNames.forEach(name => {
+                        const symbol = lookupInfo.symbolTable.get(name)!;
+
                         // Don't include the ignored names in the symbol table.
                         if (!symbol.isIgnoredForProtocolMatch()) {
                             const symbol = this._bindNameToScope(this._currentScope, name);
@@ -1379,6 +1391,52 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
+    private _getWildcardImportNames(lookupInfo: ImportLookupResult): string[] {
+        const namesToImport: string[] = [];
+
+        // Is there an __all__ statement? If so, it overrides the normal
+        // wildcard logic.
+        const allSymbol = lookupInfo.symbolTable.get('__all__');
+        if (allSymbol) {
+            const decls = allSymbol.getDeclarations();
+
+            // For now, we handle only the case where __all__ is defined
+            // through a simple assignment. Some libraries use more complex
+            // logic like __all__.extend(X) or __all__ += X. We'll punt on
+            // those for now.
+            if (decls.length === 1 && decls[0].type === DeclarationType.Variable) {
+                const firstDecl = decls[0];
+                if (firstDecl.node.parent && firstDecl.node.parent.nodeType === ParseNodeType.Assignment) {
+                    const expr = firstDecl.node.parent.rightExpression;
+                    if (expr.nodeType === ParseNodeType.List) {
+                        expr.entries.forEach(listEntryNode => {
+                            if (listEntryNode.nodeType === ParseNodeType.StringList &&
+                                    listEntryNode.strings.length === 1 &&
+                                    listEntryNode.strings[0].nodeType === ParseNodeType.String) {
+
+                                const entryName = listEntryNode.strings[0].value;
+                                if (lookupInfo.symbolTable.get(entryName)) {
+                                    namesToImport.push(entryName);
+                                }
+                            }
+                        });
+
+                        return namesToImport;
+                    }
+                }
+            }
+        }
+
+        // Import all names that don't begin with an underscore.
+        lookupInfo.symbolTable.forEach((_, name) => {
+            if (!name.startsWith('_')) {
+                namesToImport.push(name);
+            }
+        });
+
+        return namesToImport;
+    }
+
     private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
         let reportedUnreachable = false;
 
@@ -1399,6 +1457,16 @@ export class Binder extends ParseTreeWalker {
 
             if (!reportedUnreachable) {
                 this.walk(statement);
+            } else {
+                // If we're within a function, we need to look for unreachable yield
+                // statements because they affect the behavior of the function (making
+                // it a generator) even if they're never executed.
+                if (this._targetFunctionDeclaration && !this._targetFunctionDeclaration.isGenerator) {
+                    const yieldFinder = new YieldFinder();
+                    if (yieldFinder.checkContainsYield(statement)) {
+                        this._targetFunctionDeclaration.isGenerator = true;
+                    }
+                }
             }
         }
 
@@ -1527,6 +1595,15 @@ export class Binder extends ParseTreeWalker {
             case ParseNodeType.MemberAccess: {
                 if (isCodeFlowSupportedForReference(expression)) {
                     expressionList.push(expression);
+                    return true;
+                }
+
+                return false;
+            }
+
+            case ParseNodeType.AssignmentExpression: {
+                if (this._isNarrowingExpression(expression.rightExpression, expressionList)) {
+                    expressionList.push(expression.name);
                     return true;
                 }
 
@@ -2125,17 +2202,28 @@ export class Binder extends ParseTreeWalker {
 
     // Handles some special-case assignment statements that are found
     // within the typings.pyi file.
-    private _handleTypingStubAssignment(node: AssignmentNode) {
+    private _handleTypingStubAssignmentOrAnnotation(node: AssignmentNode | TypeAnnotationNode) {
         if (!this._fileInfo.isTypingStubFile) {
             return false;
         }
 
-        if (node.leftExpression.nodeType !== ParseNodeType.TypeAnnotation ||
-                node.leftExpression.valueExpression.nodeType !== ParseNodeType.Name) {
+        let annotationNode: TypeAnnotationNode;
+
+        if (node.nodeType === ParseNodeType.TypeAnnotation) {
+            annotationNode = node;
+        } else {
+            if (node.leftExpression.nodeType !== ParseNodeType.TypeAnnotation) {
+                return false;
+            }
+
+            annotationNode = node.leftExpression;
+        }
+
+        if (annotationNode.valueExpression.nodeType !== ParseNodeType.Name) {
             return false;
         }
 
-        const assignedNameNode = node.leftExpression.valueExpression;
+        const assignedNameNode = annotationNode.valueExpression;
         const specialTypes: { [name: string]: boolean } = {
             'Tuple': true,
             'Generic': true,
@@ -2158,10 +2246,10 @@ export class Binder extends ParseTreeWalker {
         if (symbol) {
             symbol.addDeclaration({
                 type: DeclarationType.SpecialBuiltInClass,
-                node: node.leftExpression,
+                node: annotationNode,
                 path: this._fileInfo.filePath,
-                range: convertOffsetsToRange(node.leftExpression.start,
-                    TextRange.getEnd(node.leftExpression), this._fileInfo.lines)
+                range: convertOffsetsToRange(annotationNode.start,
+                    TextRange.getEnd(annotationNode), this._fileInfo.lines)
             });
         }
         return true;
@@ -2208,6 +2296,7 @@ export class Binder extends ParseTreeWalker {
                 this._targetFunctionDeclaration.yieldExpressions = [];
             }
             this._targetFunctionDeclaration.yieldExpressions.push(node);
+            this._targetFunctionDeclaration.isGenerator = true;
         }
 
         if (node.expression) {
@@ -2245,3 +2334,23 @@ export class Binder extends ParseTreeWalker {
         return this._fileInfo.diagnosticSink.addWarningWithTextRange(message, textRange);
     }
 }
+
+export class YieldFinder extends ParseTreeWalker {
+    private _containsYield = false;
+
+    checkContainsYield(node: ParseNode) {
+        this.walk(node);
+        return this._containsYield;
+    }
+
+    visitYield(node: YieldNode): boolean {
+        this._containsYield = true;
+        return false;
+    }
+
+    visitYieldFrom(node: YieldFromNode): boolean {
+        this._containsYield = true;
+        return false;
+    }
+}
+

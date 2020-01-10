@@ -62,7 +62,7 @@ export interface ImportResult {
     isLocalTypingsFile?: boolean;
 
     // List of files within the final resolved path that are implicitly
-    // imported as part of the package — used for both traditional and
+    // imported as part of the package - used for both traditional and
     // namespace packages.
     implicitImports: ImplicitImport[];
 }

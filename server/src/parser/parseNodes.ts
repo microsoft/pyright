@@ -10,7 +10,7 @@
 
 import { TextRange } from '../common/textRange';
 import { IdentifierToken, KeywordToken, KeywordType,
-    NumberToken, OperatorType, StringToken, Token, TokenType } from './tokenizerTypes';
+    NumberToken, OperatorType, StringToken, Token } from './tokenizerTypes';
 
 export const enum ParseNodeType {
     Error, // 0
@@ -89,6 +89,7 @@ export const enum ErrorExpressionCategory {
     MissingIn,
     MissingElse,
     MissingExpression,
+    MissingIndexOrSlice,
     MissingDecoratorCallName,
     MissingCallCloseParen,
     MissingIndexCloseBracket,
@@ -167,7 +168,7 @@ export interface IfNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.If;
     testExpression: ExpressionNode;
     ifSuite: SuiteNode;
-    elseSuite ?: SuiteNode | IfNode;
+    elseSuite?: SuiteNode | IfNode;
 }
 
 export namespace IfNode {
@@ -1166,6 +1167,7 @@ export interface NumberNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Number;
     value: number;
     isInteger: boolean;
+    isImaginary: boolean;
 }
 
 export namespace NumberNode {
@@ -1176,7 +1178,8 @@ export namespace NumberNode {
             nodeType: ParseNodeType.Number,
             id: _nextNodeId++,
             value: token.value,
-            isInteger: token.isInteger
+            isInteger: token.isInteger,
+            isImaginary: token.isImaginary
         };
 
         return node;
