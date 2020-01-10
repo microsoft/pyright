@@ -64,12 +64,11 @@ export class LanguageServerBase {
 
     constructor(private _productName: string) {
         this._connection.console.log(`${_productName} language server starting`);
-        this.setupConnection();
-
         // Make the text document manager listen on the connection
         // for open, change and close text document events.
         this._documents.listen(this._connection);
-        
+        // Setup callbacks
+        this.setupConnection();
         // Listen on the connection
         this._connection.listen();
     }
