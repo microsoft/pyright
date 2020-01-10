@@ -9196,9 +9196,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const diagAddendum = new DiagnosticAddendum();
                 if (widenType) {
                     // Handle the widen case.
-                    if (!canAssignType(existingTypeVarMapping, srcType, diagAddendum,
+                    if (canAssignType(existingTypeVarMapping, srcType, diagAddendum,
                             typeVarMap, flags, recursionCount + 1)) {
 
+                        // No need to widen. Stick with the existing type unless it's an Unknown,
+                        // in which case we'll try to replace it with a known type.
+                        if (!isAnyOrUnknown(existingTypeVarMapping) || updatedType.category === TypeCategory.Unknown) {
+                            updatedType = existingTypeVarMapping;
+                        }
+                    } else {
                         if (!canAssignType(srcType, existingTypeVarMapping, new DiagnosticAddendum(),
                                 typeVarMap, flags, recursionCount + 1)) {
 
@@ -9211,6 +9217,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (canAssignType(srcType, existingTypeVarMapping, diagAddendum,
                             typeVarMap, flags, recursionCount + 1)) {
 
+                        // No need to narrow.
                         updatedType = existingTypeVarMapping;
                     } else if (!canAssignType(existingTypeVarMapping, srcType, new DiagnosticAddendum(),
                             typeVarMap, flags, recursionCount + 1)) {
