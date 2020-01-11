@@ -985,8 +985,14 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             }
 
             // Make sure the return types match.
-            const return1Type = type1.details.declaredReturnType;
-            const return2Type = functionType2.details.declaredReturnType;
+            let return1Type = type1.details.declaredReturnType;
+            if (type1.specializedTypes && type1.specializedTypes.returnType) {
+                return1Type = type1.specializedTypes.returnType;
+            }
+            let return2Type = functionType2.details.declaredReturnType;
+            if (functionType2.specializedTypes && functionType2.specializedTypes.returnType) {
+                return2Type = functionType2.specializedTypes.returnType;
+            }
             if (return1Type || return2Type) {
                 if (!return1Type || !return2Type ||
                         !isTypeSame(return1Type, return2Type, recursionCount + 1)) {
