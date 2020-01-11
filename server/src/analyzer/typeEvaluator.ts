@@ -3771,9 +3771,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
     
-        // Special-case a few built-in callse that are often used for
+        // Special-case a few built-in calls that are often used for
         // casting or checking for unknown types.
-        if (['cast', 'isinstance', 'isclass'].some(name => name === type.details.builtInName)) {
+        if (['cast', 'isinstance', 'issubclass'].some(name => name === type.details.builtInName)) {
             skipUnknownArgCheck = true;
         }
 
@@ -3859,7 +3859,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     `Type of argument is unknown`, argParam.errorNode);
             } else if (containsUnknown(simplifiedType, true)) {
                 // Don't report an error if the type is a partially-specialized
-                // class. This comes up frequenlty in cases where a type is passed
+                // class. This comes up frequently in cases where a type is passed
                 // as an argument (e.g. "defaultdict(list)").
 
                 // If the parameter type is also partially unknown, don't report
