@@ -2124,7 +2124,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getTypeFromMemberAccess(node: MemberAccessNode, flags: EvaluatorFlags): TypeResult {
-        const baseTypeResult = getTypeOfExpression(node.leftExpression);
+        const baseTypeResult = getTypeOfExpression(node.leftExpression,
+            undefined, EvaluatorFlags.DoNotSpecialize);
         const memberType = getTypeFromMemberAccessWithBaseType(
             node, baseTypeResult, { method: 'get' }, flags);
 
