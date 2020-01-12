@@ -703,7 +703,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type,
 
         case TypeCategory.TypeVar:
             if (!typeVarMap.has(destType.name)) {
-                typeVarMap.set(destType.name, srcType);
+                typeVarMap.set(destType.name, srcType, typeVarMap.isNarrowable(destType.name));
             }
             break;
     }
@@ -734,7 +734,7 @@ export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] 
             typeArgType = getConcreteTypeFromTypeVar(typeParam);
         }
 
-        typeVarMap.set(typeVarName, typeArgType);
+        typeVarMap.set(typeVarName, typeArgType, false);
     });
 
     return typeVarMap;
