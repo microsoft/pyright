@@ -9974,9 +9974,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return;
         }
 
-        for (const baseClass of classType.details.baseClasses) {
+        const baseClasses: ClassType[] = [];
+        classType.details.baseClasses.forEach(baseClass => {
             if (baseClass.category === TypeCategory.Class) {
-                // Recursively get abstract methods for subclasses.
+                baseClasses.push(baseClass);
+            }
+        });
+
+        // Recursively get abstract methods for subclasses. This is expensive,
+        // so we'll check it only if one or more of the base classes is known
+        // to have abstract methods.
+        if (baseClasses.some(baseClass => ClassType.hasAbstractMethods(baseClass))) {
+            for (const baseClass of baseClasses) {
                 getAbstractMethodsRecursive(baseClass, symbolTable, recursiveCount + 1);
             }
         }
