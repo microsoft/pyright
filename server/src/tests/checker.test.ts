@@ -1047,6 +1047,11 @@ test('Final2', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Final3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final3.py']);
+    validateResults(analysisResults, 12);
+});
+
 test('InferredTypes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inferredTypes1.py']);
     validateResults(analysisResults, 0);

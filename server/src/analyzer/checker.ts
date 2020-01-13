@@ -34,13 +34,14 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { ScopeType } from './scope';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
-import { getLastTypedDeclaredForSymbol } from './symbolUtils';
+import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { TypeEvaluator } from './typeEvaluator';
 import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, isTypeSame,
     NoneType, ObjectType, Type, TypeCategory, UnknownType } from './types';
 import { containsUnknown, derivesFromClassRecursive, doForSubtypes,
     getDeclaredGeneratorReturnType, getDeclaredGeneratorYieldType, getSymbolFromBaseClasses,
     isNoReturnType, isProperty, specializeType, transformTypeObjectToClass } from './typeUtils';
+import { isFinalVariableDeclaration } from './declarationUtils';
 
 export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
@@ -87,6 +88,9 @@ export class Checker extends ParseTreeWalker {
 
         if (classTypeResult) {
             this._validateClassMethods(classTypeResult.classType);
+            
+            this._validateFinalMemberOverrides(classTypeResult.classType);
+            
             if (ClassType.isTypedDictClass(classTypeResult.classType)) {
                 this._validateTypedDictClassSuite(node.suite);
             }
@@ -639,7 +643,52 @@ export class Checker extends ParseTreeWalker {
                 this._conditionallyReportUnusedSymbol(name, symbol, scope.type);
 
                 this._reportIncompatibleDeclarations(name, symbol);
+
+                this._reportMultipleFinalDeclarations(name, symbol);
             });
+        }
+    }
+
+    private _reportMultipleFinalDeclarations(name: string, symbol: Symbol) {
+        if (!isFinalVariable(symbol)) {
+            return;
+        }
+
+        const decls = symbol.getDeclarations();
+        let sawFinal = false;
+        let sawAssignment = false;
+
+        decls.forEach(decl => {
+            if (isFinalVariableDeclaration(decl)) {
+                if (sawFinal) {
+                    this._evaluator.addError(
+                        `'${ name }' was previously declared as Final`,
+                        decl.node
+                    );
+                }
+                sawFinal = true;
+            }
+
+            if (decl.type === DeclarationType.Variable && decl.inferredTypeSource) {
+                if (sawAssignment) {
+                    this._evaluator.addError(
+                        `'${ name }' is declared Final and can be assigned only once`,
+                        decl.node
+                    );
+                }
+                sawAssignment = true;
+            }
+        });
+
+        // If it's not a stub file, an assignment must be provided.
+        if (!sawAssignment && !this._fileInfo.isStubFile) {
+            const firstDecl = decls.find(decl => decl.type === DeclarationType.Variable && decl.isFinal);
+            if (firstDecl) {
+                this._evaluator.addError(
+                    `'${ name }' is declared Final, but value is not assigned`,
+                    firstDecl.node
+                );
+            }
         }
     }
 
@@ -1261,6 +1310,21 @@ export class Checker extends ParseTreeWalker {
                     node.name);
             }
         }
+    }
+
+    // Validates that any overridden member variables are not marked
+    // as Final in parent classes.
+    private _validateFinalMemberOverrides(classType: ClassType) {
+        classType.details.fields.forEach((localSymbol, name) => {
+            const parentSymbol = getSymbolFromBaseClasses(classType, name);
+            if (parentSymbol && isFinalVariable(parentSymbol.symbol)) {
+                const decl = localSymbol.getDeclarations()[0];
+                this._evaluator.addError(
+                    `'${ name }' cannot be redeclared because parent class ` + 
+                    `'${ parentSymbol.class.details.name }' declares it as Final`,
+                    decl.node);
+            }
+        });
     }
 
     // Validates that any overridden methods contain the same signatures

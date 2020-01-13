@@ -1292,7 +1292,7 @@ export class CompletionProvider {
                 return CompletionItemKind.Variable;
 
             case DeclarationType.Variable:
-                return resolvedDeclaration.isConstant ?
+                return resolvedDeclaration.isConstant || resolvedDeclaration.isFinal ?
                     CompletionItemKind.Constant :
                     CompletionItemKind.Variable;
 

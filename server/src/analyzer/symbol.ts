@@ -9,7 +9,7 @@
 * in the program.
 */
 
-import { Declaration } from './declaration';
+import { Declaration, DeclarationType } from './declaration';
 import { areDeclarationsSame, hasTypeForDeclaration } from './declarationUtils';
 import { Type } from './types';
 
@@ -136,8 +136,29 @@ export class Symbol {
             } else {
                 // If the new declaration has a defined type, it should replace
                 // the existing one.
+                const curDecl = this._declarations[declIndex];
                 if (hasTypeForDeclaration(declaration)) {
                     this._declarations[declIndex] = declaration;
+                    if (curDecl.type === DeclarationType.Variable &&
+                            declaration.type === DeclarationType.Variable) {
+
+                        if (!declaration.inferredTypeSource && curDecl.inferredTypeSource) {
+                            declaration.inferredTypeSource = curDecl.inferredTypeSource;
+                        }
+                    }
+                } else if (declaration.type === DeclarationType.Variable) {
+                    // If it's marked "final", this should be reflected in the
+                    // existing declaration. Likewise, if the existing declaration
+                    // doesn't have a type source, add it.
+                    if (curDecl.type === DeclarationType.Variable) {
+                        if (declaration.isFinal) {
+                            curDecl.isFinal = true;
+                        }
+
+                        if (!curDecl.inferredTypeSource && declaration.inferredTypeSource) {
+                            curDecl.inferredTypeSource = declaration.inferredTypeSource;
+                        }
+                    }
                 }
             }
         } else {

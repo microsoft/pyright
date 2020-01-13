@@ -103,7 +103,8 @@ export class HoverProvider {
             }
 
             case DeclarationType.Variable: {
-                const label = resolvedDecl.isConstant ? 'constant' : 'variable';
+                const label = resolvedDecl.isConstant || resolvedDecl.isFinal ?
+                    'constant' : 'variable';
                 this._addResultsPart(parts, `(${ label }) ` + node.value +
                     this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);

@@ -71,6 +71,11 @@ interface DeferredBindingTask {
     callback: () => void;
 }
 
+interface FinalInfo {
+    isFinal: boolean;
+    finalTypeNode?: ExpressionNode;
+}
+
 type NarrowingExpressionNode = NameNode | MemberAccessNode;
 
 export interface BinderResults {
@@ -2030,12 +2035,15 @@ export class Binder extends ParseTreeWalker {
                 const name = target;
                 const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
                 if (symbolWithScope && symbolWithScope.symbol) {
+                    const finalInfo = this._isAnnotationFinal(typeAnnotation);
                     const declaration: VariableDeclaration = {
                         type: DeclarationType.Variable,
                         node: target,
                         isConstant: isConstantName(name.value),
+                        isFinal: finalInfo.isFinal,
                         path: this._fileInfo.filePath,
-                        typeAnnotationNode: typeAnnotation,
+                        typeAnnotationNode: finalInfo.isFinal ?
+                            finalInfo.finalTypeNode : typeAnnotation,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
@@ -2075,12 +2083,15 @@ export class Binder extends ParseTreeWalker {
                         symbol.setIsClassMember();
                     }
 
+                    const finalInfo = this._isAnnotationFinal(typeAnnotation);
                     const declaration: VariableDeclaration = {
                         type: DeclarationType.Variable,
                         node: target.memberName,
                         isConstant: isConstantName(name.value),
+                        isFinal: finalInfo.isFinal,
                         path: this._fileInfo.filePath,
-                        typeAnnotationNode: typeAnnotation,
+                        typeAnnotationNode: finalInfo.isFinal ?
+                            finalInfo.finalTypeNode : typeAnnotation,
                         range: convertOffsetsToRange(target.memberName.start,
                             target.memberName.start + target.memberName.length,
                             this._fileInfo.lines)
@@ -2098,6 +2109,44 @@ export class Binder extends ParseTreeWalker {
                 `Type annotation not supported for this type of expression`,
                 typeAnnotation);
         }
+    }
+
+    // Determines if the specified type annotation expression is a "Final".
+    // It returns two boolean values indicating if the expression is a "Final"
+    // expression and whether it's a "raw" Final with no type arguments.
+    private _isAnnotationFinal(typeAnnotation: ExpressionNode | undefined): FinalInfo {
+        let isFinal = false;
+        let finalTypeNode: ExpressionNode | undefined;
+
+        if (typeAnnotation) {
+            if (typeAnnotation.nodeType == ParseNodeType.Name) {
+                // We need to make an assumption in this code that the symbol "Final"
+                // will resolve to typing.Final. This is because of the poor way
+                // the "Final" support was specified. We need to evaluate it
+                // in the binder before we have a way to resolve symbol names.
+                if (typeAnnotation.value === 'Final') {
+                    isFinal = true;
+                }
+            } else if (typeAnnotation.nodeType === ParseNodeType.MemberAccess) {
+                if (typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
+                    typeAnnotation.leftExpression.value === 'typing' &&
+                    typeAnnotation.memberName.value === 'Final') {
+
+                    isFinal = true;
+                }
+            } else if (typeAnnotation.nodeType === ParseNodeType.Index &&
+                    typeAnnotation.items.items.length === 1) {
+
+                // Recursively call to see if the base expression is "Final".
+                const finalInfo = this._isAnnotationFinal(typeAnnotation.baseExpression);
+                if (finalInfo.isFinal) {
+                    isFinal = true;
+                    finalTypeNode = typeAnnotation.items.items[0];
+                }
+            }
+        }
+
+        return { isFinal, finalTypeNode };
     }
 
     // Determines whether a member access expression is referring to a

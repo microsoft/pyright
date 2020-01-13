@@ -44,7 +44,7 @@ import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { getLastTypedDeclaredForSymbol } from './symbolUtils';
+import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
     FunctionType, FunctionTypeFlags, InheritanceChain, isAnyOrUnknown, isNoneOrNever,
     isPossiblyUnbound, isSameWithoutLiteralValue, isTypeSame, isUnbound, LiteralValue,
@@ -1561,17 +1561,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const varDecl: Declaration | undefined = declarations.find(
             decl => decl.type === DeclarationType.Variable);
-        if (varDecl && varDecl.type === DeclarationType.Variable &&
-            varDecl.isConstant && srcExpression) {
 
-            // A constant variable can be assigned only once. If this isn't the
-            // first assignment, generate an error.
-            if (nameNode !== declarations[0].node) {
-                addDiagnostic(
-                    fileInfo.diagnosticSettings.reportConstantRedefinition,
-                    DiagnosticRule.reportConstantRedefinition,
-                    `'${ nameValue }' is constant and cannot be redefined`,
-                    nameNode);
+        if (varDecl && varDecl.type === DeclarationType.Variable && srcExpression) {
+            if (varDecl.isConstant) {
+                // A constant variable can be assigned only once. If this
+                // isn't the first assignment, generate an error.
+                if (nameNode !== declarations[0].node) {
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportConstantRedefinition,
+                        DiagnosticRule.reportConstantRedefinition,
+                        `'${ nameValue }' is constant and cannot be redefined`,
+                        nameNode);
+                }
             }
         }
 
@@ -1643,16 +1644,30 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     assert(symbol !== undefined);
 
                     const typedDecls = symbol.getDeclarations();
+                    let isFinalVar = isFinalVariable(symbol);
 
-                    // Check for an attempt to overwrite a constant member variable.
+                    // Check for an attempt to overwrite a constant or final member variable.
                     if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable &&
-                        typedDecls[0].isConstant && srcExprNode) {
+                            srcExprNode && node.memberName !== typedDecls[0].node) {
 
-                        if (node.memberName !== typedDecls[0].node) {
+                        if (typedDecls[0].isConstant) {
                             addDiagnostic(
                                 fileInfo.diagnosticSettings.reportConstantRedefinition,
                                 DiagnosticRule.reportConstantRedefinition,
                                 `'${ node.memberName.value }' is constant and cannot be redefined`,
+                                node.memberName);
+                        }
+
+                        // If a Final instance variable is declared in the class body but is
+                        // being assigned within an __init__ method, it's allowed.
+                        const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
+                        if (enclosingFunctionNode && enclosingFunctionNode.name.value === '__init__') {
+                            isFinalVar = false;
+                        }
+
+                        if (isFinalVar) {
+                            addError(
+                                `'${ node.memberName.value }' is declared as Final and cannot be reassigned`,
                                 node.memberName);
                         }
                     }
@@ -5356,10 +5371,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // Creates a ClassVar type.
     function createClassVarType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
         if (!typeArgs || typeArgs.length === 0) {
-            addError(`Expected a type parameter after ClassVar`, errorNode);
+            addError(`Expected a type argument after ClassVar`, errorNode);
             return UnknownType.create();
         } else if (typeArgs.length > 1) {
-            addError(`Expected only one type parameter after ClassVar`, typeArgs[1].node);
+            addError(`Expected only one type argument after ClassVar`, typeArgs[1].node);
             return UnknownType.create();
         }
 
@@ -5373,6 +5388,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return convertClassToObject(type);
+    }
+
+    // Creates a "Final" type.
+    function createFinalType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
+        if (!typeArgs || typeArgs.length === 0) {
+            return AnyType.create();
+        }
+
+        if (typeArgs.length > 1) {
+            addError(`Expected a single type argument after Final`, errorNode);
+        }
+
+        return typeArgs[0].type;
     }
 
     // Creates one of several "special" types that are defined in typing.pyi
@@ -8076,8 +8104,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return createUnionType(typeArgs);
                 }
 
-                case 'Generic':
+                case 'Generic': {
                     return createGenericType(errorNode, classType, typeArgs);
+                }
+
+                case 'Final': {
+                    return createFinalType(errorNode, typeArgs);
+                }
             }
         }
 
@@ -8592,7 +8625,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Infer the type.
         const typesToCombine: Type[] = [];
         const isPrivate = symbol.isPrivateMember();
-        symbol.getDeclarations().forEach(decl => {
+        const decls = symbol.getDeclarations();
+        const isFinalVar = isFinalVariable(symbol);
+
+        decls.forEach(decl => {
             if (pushSymbolResolution(symbol, decl)) {
                 let type = getInferredTypeOfDeclaration(decl);
 
@@ -8606,7 +8642,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     // If the symbol is private or constant, we can retain the literal
                     // value. Otherwise, strip them off to make the type less specific,
                     // allowing other values to be assigned to it in subclasses.
-                    if (!isPrivate && !isConstant) {
+                    if (!isPrivate && !isConstant && !isFinalVar) {
                         type = stripLiteralValue(type);
                     }
                     typesToCombine.push(type);
@@ -9770,7 +9806,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     // When a variable with a declared type is assigned and the declared
-    // type is a union, we may be able to further narrow the type.
+    // type is a union or Any, we may be able to further narrow the type.
     function narrowDeclaredTypeBasedOnAssignedType(declaredType: Type, assignedType: Type): Type {
         const diagAddendum = new DiagnosticAddendum();
 
@@ -9790,6 +9826,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 return subtype;
             });
+        }
+
+        if (isAnyOrUnknown(declaredType)) {
+            return assignedType;
         }
 
         if (!canAssignType(declaredType, assignedType, diagAddendum)) {
