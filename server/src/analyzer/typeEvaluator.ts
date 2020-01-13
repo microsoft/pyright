@@ -9806,7 +9806,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     // When a variable with a declared type is assigned and the declared
-    // type is a union or Any, we may be able to further narrow the type.
+    // type is a union, we may be able to further narrow the type.
     function narrowDeclaredTypeBasedOnAssignedType(declaredType: Type, assignedType: Type): Type {
         const diagAddendum = new DiagnosticAddendum();
 
@@ -9826,10 +9826,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 return subtype;
             });
-        }
-
-        if (isAnyOrUnknown(declaredType)) {
-            return assignedType;
         }
 
         if (!canAssignType(declaredType, assignedType, diagAddendum)) {
