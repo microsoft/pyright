@@ -856,9 +856,9 @@ export class Parser {
 
                 if (this._peekKeywordType() !== KeywordType.Def) {
                     this._addError('Expected function definition after "async"', this._peekToken());
-                    return undefined;
+                } else {
+                    return this._parseFunctionDef(nextToken, decoratorList);
                 }
-                return this._parseFunctionDef(nextToken, decoratorList);
             } else if (nextToken.keywordType === KeywordType.Def) {
                 return this._parseFunctionDef(undefined, decoratorList);
             } else if (nextToken.keywordType === KeywordType.Class) {
@@ -867,7 +867,10 @@ export class Parser {
         }
 
         this._addError('Expected function or class declaration after decorator', this._peekToken());
-        return undefined;
+
+        // Return a dummy class declaration so the completion provider has
+        // some parse nodes to work with.
+        return ClassNode.createDummyForDecorators(decoratorList);
     }
 
     // decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE
@@ -880,9 +883,17 @@ export class Parser {
             const namePart = this._getTokenIfIdentifier();
             if (!namePart) {
                 this._addError('Expected decorator name', this._peekToken());
-                callNameExpr = ErrorNode.create(
-                    this._peekToken(),
-                    ErrorExpressionCategory.MissingDecoratorCallName);
+                if (callNameExpr) {
+                    callNameExpr = ErrorNode.create(
+                        this._peekToken(),
+                        ErrorExpressionCategory.MissingMemberAccessName,
+                        callNameExpr
+                    );
+                } else {
+                    callNameExpr = ErrorNode.create(
+                        this._peekToken(),
+                        ErrorExpressionCategory.MissingDecoratorCallName);
+                }
                 break;
             }
 
