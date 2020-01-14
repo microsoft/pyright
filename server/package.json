@@ -8,11 +8,11 @@
         "start": "npm run start:serverDebug && npm run start:server",
         "start:serverDebug": "npm i && npm run build:serverDebug",
         "start:serverProd": "npm i && npm run build:serverProd",
-        "build": "npm run build:serverProd && npm run build:serverDebug && npm run build:cli",
+        "build": "npm run build:serverProd && npm run build:serverDebug && npm run build:typeshed",
         "build:serverDebug": "tsc",
         "build:serverProd": "npm run installServer && webpack --config webpack.config-server.js",
         "installServer": "node ./customInstallServerIntoExtension.js ../client ./package.json ./tsconfig.json ./package-lock.json",
-        "build:cli": "node ./copyTypeshedFallback.js && npm run eslint && webpack --config webpack.config-cli.js",
+        "build:typeshed": "node ./copyTypeshedFallback.js",
         "eslint": "eslint src/**/*.ts",
         "watch": "tsc --watch",
         "test": "jest"
