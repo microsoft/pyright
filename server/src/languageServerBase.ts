@@ -59,7 +59,7 @@ export class LanguageServerBase {
     private _isDisplayingProgress = false;
     private _defaultWorkspacePath = '<default>';
 
-    constructor(private _productName: string, rootDirectory: string) {
+    constructor(private _productName: string, rootDirectory?: string) {
         this._connection.console.log(`${_productName} language server starting`);
         // Stash the base directory into a global variable.
         rootDirectory = rootDirectory ? rootDirectory : __dirname;
