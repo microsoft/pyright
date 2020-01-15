@@ -45,9 +45,6 @@ interface WorkspaceServiceInstance {
     disableLanguageServices: boolean;
 }
 
-// Stash the base directory into a global variable.
-(global as any).__rootDirectory = getDirectoryPath(__dirname);
-
 export class LanguageServerBase {
     // Create a connection for the server. The connection uses Node's IPC as a transport
     private _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -62,8 +59,11 @@ export class LanguageServerBase {
     private _isDisplayingProgress = false;
     private _defaultWorkspacePath = '<default>';
 
-    constructor(private _productName: string) {
+    constructor(private _productName: string, rootDirectory: string) {
         this._connection.console.log(`${_productName} language server starting`);
+        // Stash the base directory into a global variable.
+        rootDirectory = rootDirectory ? rootDirectory : __dirname;
+        (global as any).__rootDirectory = getDirectoryPath(__dirname);
         // Make the text document manager listen on the connection
         // for open, change and close text document events.
         this._documents.listen(this._connection);
