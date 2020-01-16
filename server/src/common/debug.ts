@@ -1,3 +1,9 @@
+/*
+* debug.ts
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
+*/
+
 import { AnyFunction } from "./core";
 import { stableSort, compareValues } from "./collectionUtils";
 
@@ -26,33 +32,8 @@ export function assert(expression: boolean, message?: string, verboseDebugInfo?:
     }
 }
 
-export function assertEqual<T>(a: T, b: T, msg?: string, msg2?: string): void {
-    if (a !== b) {
-        const message = msg ? msg2 ? `${msg} ${msg2}` : msg : "";
-        fail(`Expected ${a} === ${b}. ${message}`);
-    }
-}
-
-export function assertLessThan(a: number, b: number, msg?: string): void {
-    if (a >= b) {
-        fail(`Expected ${a} < ${b}. ${msg || ""}`);
-    }
-}
-
-export function assertLessThanOrEqual(a: number, b: number): void {
-    if (a > b) {
-        fail(`Expected ${a} <= ${b}`);
-    }
-}
-
-export function assertGreaterThanOrEqual(a: number, b: number): void {
-    if (a < b) {
-        fail(`Expected ${a} >= ${b}`);
-    }
-}
-
 export function fail(message?: string, stackCrawlMark?: AnyFunction): never {
-    debugger;
+    // debugger;
     const e = new Error(message ? `Debug Failure. ${message}` : "Debug Failure.");
     if ((<any>Error).captureStackTrace) {
         (<any>Error).captureStackTrace(e, stackCrawlMark || fail);
