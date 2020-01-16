@@ -12,4 +12,5 @@ dist
 server/out/
 client/out/
 client/server/
-client/typeshed-fallback/**
+client/*.vsix
+

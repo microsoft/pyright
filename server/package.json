@@ -12,7 +12,7 @@
         "build:serverDebug": "tsc",
         "build:serverProd": "npm run installServer && webpack --config webpack.config-server.js",
         "installServer": "node ./customInstallServerIntoExtension.js ../client ./package.json ./tsconfig.json ./package-lock.json",
-        "build:typeshed": "node ./copyTypeshedFallback.js",
+        "build:cli": "node ./copyTypeshedFallback.js && npm run eslint && webpack --config webpack.config-cli.js",
         "eslint": "eslint src/**/*.ts",
         "watch": "tsc --watch",
         "test": "jest"
