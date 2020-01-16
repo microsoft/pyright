@@ -65,7 +65,7 @@ test('UtilsStableSort', () => {
     const sorted = utils.stableSort(data, (a, b) => compareValues(a.Value, b.Value));
 
     let result: string[] = [];
-    utils.forEach(sorted, e => result.push(e.Name));
+    sorted.forEach(e => result.push(e.Name));
 
     assert.deepEqual(result, ["Hello1", "Hello2", "Hello3", "Hello4"])
 });
