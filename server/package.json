@@ -8,7 +8,7 @@
         "start": "npm run start:serverDebug && npm run start:server",
         "start:serverDebug": "npm i && npm run build:serverDebug",
         "start:serverProd": "npm i && npm run build:serverProd",
-        "build": "npm run build:serverProd && npm run build:serverDebug && npm run build:typeshed",
+        "build": "npm run build:serverProd && npm run build:serverDebug && npm run build:cli",
         "build:serverDebug": "tsc",
         "build:serverProd": "npm run installServer && webpack --config webpack.config-server.js",
         "installServer": "node ./customInstallServerIntoExtension.js ../client ./package.json ./tsconfig.json ./package-lock.json",
