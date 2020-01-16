@@ -8,11 +8,16 @@
 */
 
 import * as assert from 'assert';
+import * as path from 'path';
 
-import { combinePaths, ensureTrailingDirectorySeparator, getFileExtension,
+import {
+    combinePaths, ensureTrailingDirectorySeparator, getFileExtension,
     getFileName, getPathComponents,
     getWildcardRegexPattern, getWildcardRoot, hasTrailingDirectorySeparator, stripFileExtension,
-    stripTrailingDirectorySeparator } from '../common/pathUtils';
+    stripTrailingDirectorySeparator,
+    normalizeSlashes,
+    getRegexEscapedSeparator
+} from '../common/pathUtils';
 
 test('getPathComponents1', () => {
     const components = getPathComponents('');
@@ -25,7 +30,7 @@ test('getPathComponents2', () => {
     const components = getPathComponents('/users/');
 
     assert.equal(components.length, 2);
-    assert.equal(components[0], '/');
+    assert.equal(components[0], path.sep);
     assert.equal(components[1], 'users');
 });
 
@@ -33,7 +38,7 @@ test('getPathComponents3', () => {
     const components = getPathComponents('/users/hello.py');
 
     assert.equal(components.length, 3);
-    assert.equal(components[0], '/');
+    assert.equal(components[0], path.sep);
     assert.equal(components[1], 'users');
     assert.equal(components[2], 'hello.py');
 });
@@ -42,7 +47,7 @@ test('getPathComponents4', () => {
     const components = getPathComponents('/users/hello/../');
 
     assert.equal(components.length, 2);
-    assert.equal(components[0], '/');
+    assert.equal(components[0], path.sep);
     assert.equal(components[1], 'users');
 });
 
@@ -57,13 +62,13 @@ test('getPathComponents5', () => {
 test('combinePaths1', () => {
     const path = combinePaths('/user', '1', '2', '3');
 
-    assert.equal(path, '/user/1/2/3');
+    assert.equal(path, normalizeSlashes('/user/1/2/3'));
 });
 
 test('ensureTrailingDirectorySeparator1', () => {
     const path = ensureTrailingDirectorySeparator('hello');
 
-    assert.equal(path, 'hello/');
+    assert.equal(path, normalizeSlashes('hello/'));
 });
 
 test('hasTrailingDirectorySeparator1', () => {
@@ -98,24 +103,25 @@ test('stripFileExtension', () => {
 
 test('getWildcardRegexPattern1', () => {
     const pattern = getWildcardRegexPattern('/users/me', './blah/');
-
-    assert.equal(pattern, '/users/me/blah');
+    const sep = getRegexEscapedSeparator();
+    assert.equal(pattern, `${sep}users${sep}me${sep}blah`);
 });
 
 test('getWildcardRegexPattern2', () => {
     const pattern = getWildcardRegexPattern('/users/me', './**/*.py?/');
+    const sep = getRegexEscapedSeparator();
 
-    assert.equal(pattern, '/users/me(/[^/.][^/]*)*?/[^/]*\\.py[^/]');
+    assert.equal(pattern, `${sep}users${sep}me(${sep}[^${sep}.][^${sep}]*)*?${sep}[^${sep}]*\\.py[^${sep}]`);
 });
 
 test('getWildcardRoot1', () => {
     const path = getWildcardRoot('/users/me', './blah/');
 
-    assert.equal(path, '/users/me/blah');
+    assert.equal(path, normalizeSlashes('/users/me/blah'));
 });
 
 test('getWildcardRoot2', () => {
     const path = getWildcardRoot('/users/me', './**/*.py?/');
 
-    assert.equal(path, '/users/me');
+    assert.equal(path, normalizeSlashes('/users/me'));
 });
