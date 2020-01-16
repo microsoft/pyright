@@ -4,8 +4,8 @@
 * Licensed under the MIT license.
 */
 
-import { AnyFunction } from "./core";
-import { stableSort, compareValues } from "./collectionUtils";
+import { AnyFunction, compareValues } from "./core";
+import { stableSort } from "./collectionUtils";
 
 export const enum AssertionLevel {
     None = 0,

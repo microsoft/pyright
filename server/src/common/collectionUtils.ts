@@ -1,4 +1,10 @@
-import { Comparison, equateValues } from "./core";
+/*
+* collectionUtils.ts
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
+*/
+
+import { Comparison, equateValues, compareValues } from "./core";
 
 export type EqualityComparer<T> = (a: T, b: T) => boolean;
 
@@ -74,7 +80,7 @@ function selectIndex(_: unknown, i: number) {
     return i;
 }
 
-export function indicesOf(array: readonly unknown[]): number[] {
+function indicesOf(array: readonly unknown[]): number[] {
     return array.map(selectIndex);
 }
 
@@ -90,24 +96,6 @@ export function stableSort<T>(array: readonly T[], comparer: Comparer<T>): Sorte
 function stableSortIndices<T>(array: readonly T[], indices: number[], comparer: Comparer<T>) {
     // sort indices by value then position
     indices.sort((x, y) => comparer(array[x], array[y]) || compareValues(x, y));
-}
-
-/**
- * Compare two numeric values for their order relative to each other.
- * To compare strings, use any of the `compareStrings` functions.
- */
-export function compareValues(a: number | undefined, b: number | undefined): Comparison {
-    return compareComparableValues(a, b);
-}
-
-function compareComparableValues(a: string | undefined, b: string | undefined): Comparison;
-function compareComparableValues(a: number | undefined, b: number | undefined): Comparison;
-function compareComparableValues(a: string | number | undefined, b: string | number | undefined) {
-    return a === b ? Comparison.EqualTo :
-        a === undefined ? Comparison.LessThan :
-            b === undefined ? Comparison.GreaterThan :
-                a < b ? Comparison.LessThan :
-                    Comparison.GreaterThan;
 }
 
 /**
@@ -193,13 +181,4 @@ export function binarySearchKey<T, U>(array: readonly T[], key: U, keySelector: 
     }
 
     return ~low;
-}
-
-/** Remove an item by index from an array, moving everything to its right one space left. */
-export function orderedRemoveItemAt<T>(array: T[], index: number): void {
-    // This seems to be faster than either `array.splice(i, 1)` or `array.copyWithin(i, i+ 1)`.
-    for (let i = index; i < array.length - 1; i++) {
-        array[i] = array[i + 1];
-    }
-    array.pop();
 }
