@@ -16,8 +16,21 @@ import {
     getWildcardRegexPattern, getWildcardRoot, hasTrailingDirectorySeparator, stripFileExtension,
     stripTrailingDirectorySeparator,
     normalizeSlashes,
-    getRegexEscapedSeparator
+    getRegexEscapedSeparator,
+    reducePathComponents,
+    combinePathComponents,
+    resolvePaths,
+    comparePaths,
+    containsPath,
+    changeAnyExtension,
+    getAnyExtensionFromPath,
+    getBaseFileName,
+    getRelativePathFromDirectory,
+    comparePathsCaseSensitive,
+    comparePathsCaseInsensitive,
+    isRootedDiskPath
 } from '../common/pathUtils';
+import { Comparison } from '../common/core';
 
 test('getPathComponents1', () => {
     const components = getPathComponents('');
@@ -124,4 +137,144 @@ test('getWildcardRoot2', () => {
     const path = getWildcardRoot('/users/me', './**/*.py?/');
 
     assert.equal(path, normalizeSlashes('/users/me'));
+});
+
+test('reducePathComponentsEmpty', () => {
+    assert.equal(reducePathComponents([]).length, 0);
+});
+
+test('reducePathComponents', () => {
+    assert.deepEqual(reducePathComponents(getPathComponents("/a/b/../c/.")), [path.sep, 'a', 'c']);
+});
+
+test('combinePathComponentsEmpty', () => {
+    assert.equal(combinePathComponents([]), "");
+});
+
+test('combinePathComponentsAbsolute', () => {
+    assert.equal(combinePathComponents(["/", "a", "b"]), normalizeSlashes("/a/b"));
+});
+
+test('combinePathComponents', () => {
+    assert.equal(combinePathComponents(["a", "b"]), normalizeSlashes("a/b"));
+});
+
+test('resolvePath1', () => {
+    assert.equal(resolvePaths("/path", "to", "file.ext"), normalizeSlashes("/path/to/file.ext"));
+});
+
+test('resolvePath2', () => {
+    assert.equal(resolvePaths("/path", "to", "..", "from", "file.ext/"), normalizeSlashes("/path/from/file.ext/"));
+});
+
+test('comparePaths1', () => {
+    assert.equal(comparePaths("/A/B/C", "\\a\\b\\c"), Comparison.LessThan);
+});
+
+test('comparePaths2', () => {
+    assert.equal(comparePaths("/A/B/C", "\\a\\b\\c", true), Comparison.EqualTo);
+});
+
+test('comparePaths3', () => {
+    assert.equal(comparePaths("/A/B/C", "/a/c/../b/./c", true), Comparison.EqualTo);
+});
+
+test('comparePaths4', () => {
+    assert.equal(comparePaths("/a/b/c", "/a/c/../b/./c", "current\\path\\", false), Comparison.EqualTo);
+});
+
+test('comparePaths5', () => {
+    assert.equal(comparePaths("/a/b/c/", "/a/b/c"), Comparison.GreaterThan);
+});
+
+test('containsPath1', () => {
+    assert.equal(containsPath("/a/b/c/", "/a/d/../b/c/./d"), true);
+});
+
+test('containsPath2', () => {
+    assert.equal(containsPath("/", "\\a"), true);
+});
+
+test('containsPath3', () => {
+    assert.equal(containsPath("/a", "/A/B", true), true);
+});
+
+test('changeAnyExtension1', () => {
+    assert.equal(changeAnyExtension("/path/to/file.ext", ".js", [".ext", ".ts"], true), "/path/to/file.js");
+});
+
+test('changeAnyExtension2', () => {
+    assert.equal(changeAnyExtension("/path/to/file.ext", ".js"), "/path/to/file.js");
+});
+
+test('changeAnyExtension3', () => {
+    assert.equal(changeAnyExtension("/path/to/file.ext", ".js", ".ts", false), "/path/to/file.ext");
+});
+
+test('changeAnyExtension1', () => {
+    assert.equal(getAnyExtensionFromPath("/path/to/file.ext"), ".ext");
+});
+
+test('changeAnyExtension2', () => {
+    assert.equal(getAnyExtensionFromPath("/path/to/file.ext", ".ts", true), "");
+});
+
+test('changeAnyExtension3', () => {
+    assert.equal(getAnyExtensionFromPath("/path/to/file.ext", [".ext", ".ts"], true), ".ext");
+});
+
+test('getBaseFileName1', () => {
+    assert.equal(getBaseFileName("/path/to/file.ext"), "file.ext");
+});
+
+test('getBaseFileName2', () => {
+    assert.equal(getBaseFileName("/path/to/"), "to");
+});
+
+test('getBaseFileName3', () => {
+    assert.equal(getBaseFileName("c:/"), "");
+});
+
+test('getBaseFileName4', () => {
+    assert.equal(getBaseFileName("/path/to/file.ext", [".ext"], true), "file");
+});
+
+test('getRelativePathFromDirectory1', () => {
+    assert.equal(getRelativePathFromDirectory("/a", "/a/b/c/d", true), normalizeSlashes("b/c/d"));
+});
+
+test('getRelativePathFromDirectory2', () => {
+    assert.equal(getRelativePathFromDirectory("/a", "/b/c/d", true), normalizeSlashes("../b/c/d"));
+});
+
+test('comparePathsCaseSensitive', () => {
+    assert.equal(comparePathsCaseSensitive("/a/b/C", "/a/b/c"), Comparison.LessThan);
+});
+
+test('comparePathsCaseInsensitive', () => {
+    assert.equal(comparePathsCaseInsensitive("/a/b/C", "/a/b/c"), Comparison.EqualTo);
+});
+
+test('isRootedDiskPath1', () => {
+    assert(isRootedDiskPath(normalizeSlashes("C:/a/b")));
+});
+
+test('isRootedDiskPath2', () => {
+    assert(isRootedDiskPath(normalizeSlashes("/")));
+});
+
+test('isRootedDiskPath3', () => {
+    assert(!isRootedDiskPath(normalizeSlashes("a/b")));
+});
+
+test('isDiskPathRoot1', () => {
+    assert(isRootedDiskPath(normalizeSlashes("/")));
+});
+
+test('isDiskPathRoot2', () => {
+    assert(isRootedDiskPath(normalizeSlashes("c:/")));
+});
+
+test('isDiskPathRoot3', () => {
+    assert(!isRootedDiskPath(normalizeSlashes("c:")));
 });
