@@ -9,7 +9,7 @@ import {
     Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DiagnosticTag,
     DocumentSymbol, ExecuteCommandParams, IConnection, InitializeResult, IPCMessageReader,
     IPCMessageWriter, Location, MarkupKind, ParameterInformation, Position, Range,
-    ResponseError, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
+    ResponseError, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit, RemoteConsole
 } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
@@ -45,9 +45,6 @@ interface WorkspaceServiceInstance {
     disableLanguageServices: boolean;
 }
 
-// Stash the base directory into a global variable.
-(global as any).__rootDirectory = getDirectoryPath(__dirname);
-
 export class LanguageServerBase {
     // Create a connection for the server. The connection uses Node's IPC as a transport
     private _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -62,8 +59,10 @@ export class LanguageServerBase {
     private _isDisplayingProgress = false;
     private _defaultWorkspacePath = '<default>';
 
-    constructor(private _productName: string) {
+    constructor(private _productName: string, rootDirectory?: string) {
         this._connection.console.log(`${_productName} language server starting`);
+        // Stash the base directory into a global variable.
+        (global as any).__rootDirectory = rootDirectory ? rootDirectory : getDirectoryPath(__dirname);
         // Make the text document manager listen on the connection
         // for open, change and close text document events.
         this._documents.listen(this._connection);
@@ -73,9 +72,14 @@ export class LanguageServerBase {
         this._connection.listen();
     }
 
+    // Provides access to logging to the client output window.
+    protected get console(): RemoteConsole {
+        return this._connection.console;
+    }
+
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
-    private createAnalyzerService(name: string): AnalyzerService {
+    private _createAnalyzerService(name: string): AnalyzerService {
         this._connection.console.log(`Starting service instance "${name}"`);
         const service = new AnalyzerService(name, this._connection.console);
 
@@ -202,7 +206,7 @@ export class LanguageServerBase {
                     workspaceName: '',
                     rootPath: '',
                     rootUri: '',
-                    serviceInstance: this.createAnalyzerService(this._defaultWorkspacePath),
+                    serviceInstance: this._createAnalyzerService(this._defaultWorkspacePath),
                     disableLanguageServices: false
                 };
                 this._workspaceMap.set(this._defaultWorkspacePath, defaultWorkspace);
@@ -229,7 +233,7 @@ export class LanguageServerBase {
                         workspaceName: folder.name,
                         rootPath: path,
                         rootUri: folder.uri,
-                        serviceInstance: this.createAnalyzerService(folder.name),
+                        serviceInstance: this._createAnalyzerService(folder.name),
                         disableLanguageServices: false
                     });
                 });
@@ -238,7 +242,7 @@ export class LanguageServerBase {
                     workspaceName: '',
                     rootPath: params.rootPath,
                     rootUri: '',
-                    serviceInstance: this.createAnalyzerService(params.rootPath),
+                    serviceInstance: this._createAnalyzerService(params.rootPath),
                     disableLanguageServices: false
                 });
             }
@@ -596,7 +600,7 @@ export class LanguageServerBase {
                         workspaceName: workspace.name,
                         rootPath,
                         rootUri: workspace.uri,
-                        serviceInstance: this.createAnalyzerService(workspace.name),
+                        serviceInstance: this._createAnalyzerService(workspace.name),
                         disableLanguageServices: false
                     };
                     this._workspaceMap.set(rootPath, newWorkspace);
