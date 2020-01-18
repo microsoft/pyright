@@ -544,8 +544,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     } else if (!node.typeAnnotation && node.strings.length === 1) {
                         // We didn't know at parse time that this string node was going
                         // to be evaluated as a forward-referenced type. We need
-                        // to re-invoke the parser at this stage. This will fill in the
-                        // node.typeAnnotation field.
+                        // to re-invoke the parser at this stage.
                         const expr = parseStringAsTypeAnnotation(node);
                         if (expr) {
                             typeResult = getTypeOfExpression(expr, undefined,

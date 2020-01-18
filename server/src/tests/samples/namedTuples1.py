@@ -33,7 +33,7 @@ NamedTuple2(1, 2, 3)
 
 
 NamedTuple3 = NamedTuple("NamedTuple3", [
-    ('field1', str),
+    ('field1', 'str'), # 'str' should be treated as forward reference
     ('field2', int)
 ])
 NamedTuple3('hello', 2)
