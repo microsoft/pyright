@@ -572,7 +572,7 @@ export function getFileSpec(rootPath: string, fileSpec: string): FileSpec {
 }
 
 export function getRegexEscapedSeparator() {
-    return path.sep === '/' ? '/' : '\\\\';
+    return path.sep === '/' ? '\/' : '\\\\';
 }
 
 /**
