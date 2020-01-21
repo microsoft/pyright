@@ -9,7 +9,7 @@ import {
     Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DiagnosticTag,
     DocumentSymbol, ExecuteCommandParams, IConnection, InitializeResult, IPCMessageReader,
     IPCMessageWriter, Location, MarkupKind, ParameterInformation, Position, Range,
-    ResponseError, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit, RemoteConsole
+    ResponseError, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit, RemoteConsole, ConfigurationItem
 } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
@@ -23,21 +23,16 @@ import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtil
 import { CompletionItemData } from './languageService/completionProvider';
 import { commandOrderImports, commandCreateTypeStub, commandAddMissingOptionalToParam } from './languageService/commands';
 
-interface PythonSettings {
+export interface ServerSettings {
     venvPath?: string;
     pythonPath?: string;
-    analysis?: {
-        typeshedPaths: string[];
-    };
-}
-
-interface PyrightSettings {
-    disableLanguageServices?: boolean;
+    typeshedPath?: string;
     openFilesOnly?: boolean;
     useLibraryCodeForTypes?: boolean;
+    disableLanguageServices?: boolean;
 }
 
-interface WorkspaceServiceInstance {
+export interface WorkspaceServiceInstance {
     workspaceName: string;
     rootPath: string;
     rootUri: string;
@@ -45,7 +40,7 @@ interface WorkspaceServiceInstance {
     disableLanguageServices: boolean;
 }
 
-export class LanguageServerBase {
+export abstract class LanguageServerBase {
     // Create a connection for the server. The connection uses Node's IPC as a transport
     private _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
     // Create a simple text document manager. The text document manager
@@ -72,9 +67,20 @@ export class LanguageServerBase {
         this._connection.listen();
     }
 
+    abstract async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
+
     // Provides access to logging to the client output window.
     protected get console(): RemoteConsole {
         return this._connection.console;
+    }
+
+    protected getConfiguration(workspace: WorkspaceServiceInstance, section: string) {
+        const scopeUri = workspace.rootUri ? workspace.rootUri : undefined;
+        const item: ConfigurationItem = {
+            scopeUri,
+            section
+        }
+        return this._connection.workspace.getConfiguration(item);
     }
 
     // Creates a service instance that's used for analyzing a
@@ -126,44 +132,20 @@ export class LanguageServerBase {
 
     // Creates a service instance that's used for creating type
     // stubs for a specified target library.
-    private createTypeStubService(importName: string,
-        complete: (success: boolean) => void): AnalyzerService {
+    private _createTypeStubService(importName: string): AnalyzerService {
 
         this._connection.console.log('Starting type stub service instance');
-        const service = new AnalyzerService('Type stub',
-            this._connection.console);
+        const service = new AnalyzerService('Type stub', this._connection.console);
 
         service.setMaxAnalysisDuration({
             openFilesTimeInMs: 500,
             noOpenFilesTimeInMs: 500
         });
 
-        service.setCompletionCallback(results => {
-            if (results.filesRequiringAnalysis === 0) {
-                try {
-                    service.writeTypeStub();
-                    service.dispose();
-                    const infoMessage = `Type stub was successfully created for '${importName}'.`;
-                    this._connection.window.showInformationMessage(infoMessage);
-                    complete(true);
-                } catch (err) {
-                    let errMessage = '';
-                    if (err instanceof Error) {
-                        errMessage = ': ' + err.message;
-                    }
-                    errMessage = `An error occurred when creating type stub for '${importName}'` +
-                        errMessage;
-                    this._connection.console.error(errMessage);
-                    this._connection.window.showErrorMessage(errMessage);
-                    complete(false);
-                }
-            }
-        });
-
         return service;
     }
 
-    private handlePostCreateTypeStub() {
+    private _handlePostCreateTypeStub() {
         this._workspaceMap.forEach(workspace => {
             workspace.serviceInstance.handlePostCreateTypeStub();
         });
@@ -609,77 +591,80 @@ export class LanguageServerBase {
             });
         });
 
-        this._connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
-            if (cmdParams.command === commandOrderImports ||
-                cmdParams.command === commandAddMissingOptionalToParam) {
-
-                if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
-                    const docUri = cmdParams.arguments[0];
-                    const otherArgs = cmdParams.arguments.slice(1);
-                    const filePath = this.convertUriToPath(docUri);
-                    const workspace = this.getWorkspaceForFile(filePath);
-                    const editActions = workspace.serviceInstance.performQuickAction(
-                        filePath, cmdParams.command, otherArgs);
-                    if (!editActions) {
-                        return [];
-                    }
-
-                    const edits: TextEdit[] = [];
-                    editActions.forEach(editAction => {
-                        edits.push({
-                            range: this.convertRange(editAction.range),
-                            newText: editAction.replacementText
-                        });
-                    });
-
-                    return edits;
-                }
-            } else if (cmdParams.command === commandCreateTypeStub) {
-                if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
-                    const workspaceRoot = cmdParams.arguments[0];
-                    const importName = cmdParams.arguments[1];
-                    const promise = new Promise<void>((resolve, reject) => {
-                        const serviceInstance = this.createTypeStubService(importName, success => {
-                            if (success) {
-                                this.handlePostCreateTypeStub();
-                                resolve();
-                            } else {
-                                reject();
-                            }
-                        });
-
-                        // Allocate a temporary pseudo-workspace to perform this job.
-                        const workspace: WorkspaceServiceInstance = {
-                            workspaceName: `Create Type Stub ${importName}`,
-                            rootPath: workspaceRoot,
-                            rootUri: this.convertPathToUri(workspaceRoot),
-                            serviceInstance,
-                            disableLanguageServices: true
-                        };
-
-                        this.fetchSettingsForWorkspace(workspace, (pythonSettings, pyrightSettings) => {
-                            this.updateOptionsAndRestartService(workspace, pythonSettings, pyrightSettings, importName);
-                        });
-                    });
-
-                    return promise;
-                }
-            }
-
-            return new ResponseError<string>(1, 'Unsupported command');
-        });
+        this._connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => this._executeCommand(cmdParams));
     }
 
-    private getConfiguration(workspace: WorkspaceServiceInstance, sections: string[]) {
-        const scopeUri = workspace.rootUri ? workspace.rootUri : undefined;
-        return this._connection.workspace.getConfiguration(
-            sections.map(section => {
-                return {
-                    scopeUri,
-                    section
+    private async _executeCommand(cmdParams: ExecuteCommandParams): Promise<any> {
+        if (cmdParams.command === commandOrderImports ||
+            cmdParams.command === commandAddMissingOptionalToParam) {
+
+            if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
+                const docUri = cmdParams.arguments[0];
+                const otherArgs = cmdParams.arguments.slice(1);
+                const filePath = this.convertUriToPath(docUri);
+                const workspace = this.getWorkspaceForFile(filePath);
+                const editActions = workspace.serviceInstance.performQuickAction(
+                    filePath, cmdParams.command, otherArgs);
+                if (!editActions) {
+                    return [];
+                }
+
+                const edits: TextEdit[] = [];
+                editActions.forEach(editAction => {
+                    edits.push({
+                        range: this.convertRange(editAction.range),
+                        newText: editAction.replacementText
+                    });
+                });
+
+                return edits;
+            }
+        }
+        
+        if (cmdParams.command === commandCreateTypeStub) {
+            if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
+                const workspaceRoot = cmdParams.arguments[0];
+                const importName = cmdParams.arguments[1];
+                const service = this._createTypeStubService(importName);
+
+                // Allocate a temporary pseudo-workspace to perform this job.
+                const workspace: WorkspaceServiceInstance = {
+                    workspaceName: `Create Type Stub ${importName}`,
+                    rootPath: workspaceRoot,
+                    rootUri: this.convertPathToUri(workspaceRoot),
+                    serviceInstance: service,
+                    disableLanguageServices: true
                 };
-            })
-        );
+
+                service.setCompletionCallback(results => {
+                    if (results.filesRequiringAnalysis === 0) {
+                        try {
+                            service.writeTypeStub();
+                            service.dispose();
+                            const infoMessage = `Type stub was successfully created for '${importName}'.`;
+                            this._connection.window.showInformationMessage(infoMessage);
+                            this._handlePostCreateTypeStub();
+                        } catch (err) {
+                            let errMessage = '';
+                            if (err instanceof Error) {
+                                errMessage = ': ' + err.message;
+                            }
+                            errMessage = `An error occurred when creating type stub for '${importName}'` +
+                                errMessage;
+                            this._connection.console.error(errMessage);
+                            this._connection.window.showErrorMessage(errMessage);
+                        }
+                    }
+                });
+        
+
+                const serverSettings = await this.getSettings(workspace);
+                this.updateOptionsAndRestartService(workspace, serverSettings, importName);
+                return;
+            }
+        }
+
+        return new ResponseError<string>(1, 'Unsupported command');
     }
 
     private updateSettingsForAllWorkspaces() {
@@ -688,35 +673,18 @@ export class LanguageServerBase {
         });
     }
 
-    private fetchSettingsForWorkspace(workspace: WorkspaceServiceInstance,
-        callback: (pythonSettings: PythonSettings, pyrightSettings: PyrightSettings) => void) {
-
-        const pythonSettingsPromise = this.getConfiguration(workspace, ['python', 'pyright']);
-        pythonSettingsPromise.then((settings: [PythonSettings, PyrightSettings]) => {
-            callback(settings[0], settings[1]);
-        }, () => {
-            // An error occurred trying to read the settings
-            // for this workspace, so ignore.
-        });
-    }
-
-    private updateSettingsForWorkspace(workspace: WorkspaceServiceInstance) {
-        this.fetchSettingsForWorkspace(workspace, (pythonSettings, pyrightSettings) => {
-            this.updateOptionsAndRestartService(workspace, pythonSettings, pyrightSettings);
-
-            workspace.disableLanguageServices = !!pyrightSettings.disableLanguageServices;
-        });
+    private async updateSettingsForWorkspace(workspace: WorkspaceServiceInstance): Promise<void> {
+        const serverSettings = await this.getSettings(workspace);
+        this.updateOptionsAndRestartService(workspace, serverSettings);
+        workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
     }
 
     private updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
-        pythonSettings: PythonSettings, pyrightSettings?: PyrightSettings,
-        typeStubTargetImportName?: string) {
+        serverSettings: ServerSettings, typeStubTargetImportName?: string) {
 
         const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
-        commandLineOptions.checkOnlyOpenFiles = pyrightSettings ?
-            !!pyrightSettings.openFilesOnly : true;
-        commandLineOptions.useLibraryCodeForTypes = pyrightSettings ?
-            !!pyrightSettings.useLibraryCodeForTypes : false;
+        commandLineOptions.checkOnlyOpenFiles = serverSettings.openFilesOnly;
+        commandLineOptions.useLibraryCodeForTypes = serverSettings.useLibraryCodeForTypes;
 
         // Disable watching of source files in the VS Code extension if we're
         // analyzing only open files. The file system watcher code has caused
@@ -724,30 +692,27 @@ export class LanguageServerBase {
         // no benefit when we're in "openFilesOnly" mode.
         commandLineOptions.watch = !commandLineOptions.checkOnlyOpenFiles;
 
-        if (pythonSettings.venvPath) {
+        if (serverSettings.venvPath) {
             commandLineOptions.venvPath = combinePaths(workspace.rootPath || this._rootPath,
-                normalizePath(this.expandPathVariables(pythonSettings.venvPath)));
+                normalizePath(this.expandPathVariables(serverSettings.venvPath)));
         }
 
-        if (pythonSettings.pythonPath) {
+        if (serverSettings.pythonPath) {
             // The Python VS Code extension treats the value "python" specially. This means
             // the local python interpreter should be used rather than interpreting the
             // setting value as a path to the interpreter. We'll simply ignore it in this case.
-            if (pythonSettings.pythonPath.trim() !== 'python') {
+            if (serverSettings.pythonPath.trim() !== 'python') {
                 commandLineOptions.pythonPath = combinePaths(workspace.rootPath || this._rootPath,
-                    normalizePath(this.expandPathVariables(pythonSettings.pythonPath)));
+                    normalizePath(this.expandPathVariables(serverSettings.pythonPath)));
             }
         }
 
-        if (pythonSettings.analysis &&
-            pythonSettings.analysis.typeshedPaths &&
-            pythonSettings.analysis.typeshedPaths.length > 0) {
-
+        if (serverSettings.typeshedPath) {
             // Pyright supports only one typeshed path currently, whereas the
             // official VS Code Python extension supports multiple typeshed paths.
             // We'll use the first one specified and ignore the rest.
             commandLineOptions.typeshedPath =
-                this.expandPathVariables(pythonSettings.analysis.typeshedPaths[0]);
+                this.expandPathVariables(serverSettings.typeshedPath);
         }
 
         if (typeStubTargetImportName) {
