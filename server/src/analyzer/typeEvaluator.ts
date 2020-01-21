@@ -10251,10 +10251,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (param.category === ParameterCategory.Simple) {
-                const paramType = FunctionType.getEffectiveParameterType(type, index);
-                const paramTypeString = recursionCount < maxTypeRecursionCount ?
-                    printType(paramType, recursionCount + 1) : '';
-                paramString += ': ' + paramTypeString;
+                if (param.name) {
+                    const paramType = FunctionType.getEffectiveParameterType(type, index);
+                    const paramTypeString = recursionCount < maxTypeRecursionCount ?
+                        printType(paramType, recursionCount + 1) : '';
+                    paramString += ': ' + paramTypeString;
+                } else {
+                    paramString += '/'
+                }
             }
 
             if (type.details.declaration) {
