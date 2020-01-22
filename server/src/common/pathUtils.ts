@@ -147,6 +147,25 @@ export function makeDirectories(dirPath: string, startingFromDirPath: string) {
     }
 }
 
+export function getFileSize(path: string) {
+    try {
+        const stat = fs.statSync(path);
+        if (stat.isFile()) {
+            return stat.size;
+        }
+    }
+    catch { /*ignore*/ }
+    return 0;
+}
+
+export function fileExists(path: string): boolean {
+    return fileSystemEntryExists(path, FileSystemEntryKind.File);
+}
+
+export function directoryExists(path: string): boolean {
+    return fileSystemEntryExists(path, FileSystemEntryKind.Directory);
+}
+
 export function normalizeSlashes(pathString: string): string {
     const separatorRegExp = /[\\/]/g;
     return pathString.replace(separatorRegExp, path.sep);
@@ -678,4 +697,23 @@ function getPathComponentsRelativeTo(from: string, to: string, stringEqualityCom
         relative.push("..");
     }
     return ["", ...relative, ...components];
+}
+
+const enum FileSystemEntryKind {
+    File,
+    Directory,
+}
+
+function fileSystemEntryExists(path: string, entryKind: FileSystemEntryKind): boolean {
+    try {
+        const stat = fs.statSync(path);
+        switch (entryKind) {
+            case FileSystemEntryKind.File: return stat.isFile();
+            case FileSystemEntryKind.Directory: return stat.isDirectory();
+            default: return false;
+        }
+    }
+    catch (e) {
+        return false;
+    }
 }

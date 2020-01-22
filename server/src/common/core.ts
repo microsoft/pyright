@@ -31,6 +31,9 @@ export function returnUndefined(): undefined { return undefined; }
 /** Returns its argument. */
 export function identity<T>(x: T) { return x; }
 
+/** Returns lower case string */
+export function toLowerCase(x: string) { return x.toLowerCase(); }
+
 export function equateValues<T>(a: T, b: T) { return a === b; }
 
 export type GetCanonicalFileName = (fileName: string) => string;

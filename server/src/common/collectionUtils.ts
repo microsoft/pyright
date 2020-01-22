@@ -6,7 +6,15 @@
 
 import { Comparison, equateValues, compareValues } from "./core";
 
+export const emptyArray: never[] = [] as never[];
 export type EqualityComparer<T> = (a: T, b: T) => boolean;
+
+/**
+ * Tests whether a value is an array.
+ */
+export function isArray(value: any): value is readonly {}[] {
+    return Array.isArray ? Array.isArray(value) : value instanceof Array;
+}
 
 export function contains<T>(array: readonly T[] | undefined, value: T, equalityComparer: EqualityComparer<T> = equateValues): boolean {
     if (array) {
@@ -57,6 +65,55 @@ export function find<T>(array: readonly T[], predicate: (element: T, index: numb
     return undefined;
 }
 
+/**
+ * Gets the actual offset into an array for a relative offset. Negative offsets indicate a
+ * position offset from the end of the array.
+ */
+function toOffset(array: readonly any[], offset: number) {
+    return offset < 0 ? array.length + offset : offset;
+}
+
+/**
+ * Appends a range of value to an array, returning the array.
+ *
+ * @param to The array to which `value` is to be appended. If `to` is `undefined`, a new array
+ * is created if `value` was appended.
+ * @param from The values to append to the array. If `from` is `undefined`, nothing is
+ * appended. If an element of `from` is `undefined`, that element is not appended.
+ * @param start The offset in `from` at which to start copying values.
+ * @param end The offset in `from` at which to stop copying values (non-inclusive).
+ */
+export function addRange<T>(to: T[], from: readonly T[] | undefined, start?: number, end?: number): T[];
+export function addRange<T>(to: T[] | undefined, from: readonly T[] | undefined, start?: number, end?: number): T[] | undefined;
+export function addRange<T>(to: T[] | undefined, from: readonly T[] | undefined, start?: number, end?: number): T[] | undefined {
+    if (from === undefined || from.length === 0) return to;
+    if (to === undefined) return from.slice(start, end);
+    start = start === undefined ? 0 : toOffset(from, start);
+    end = end === undefined ? from.length : toOffset(from, end);
+    for (let i = start; i < end && i < from.length; i++) {
+        if (from[i] !== undefined) {
+            to.push(from[i]);
+        }
+    }
+    return to;
+}
+
+export function insertAt<T>(array: T[], index: number, value: T) {
+    if (index === 0) {
+        array.unshift(value);
+    }
+    else if (index === array.length) {
+        array.push(value);
+    }
+    else {
+        for (let i = array.length; i > index; i--) {
+            array[i] = array[i - 1];
+        }
+        array[index] = value;
+    }
+    return array;
+}
+
 export type Comparer<T> = (a: T, b: T) => Comparison;
 
 /**
@@ -74,6 +131,13 @@ export interface SortedReadonlyArray<T> extends ReadonlyArray<T> {
 
 export interface SortedArray<T> extends Array<T> {
     " __sortedArrayBrand": any;
+}
+
+/**
+     * Returns a new sorted array.
+     */
+export function cloneAndSort<T>(array: readonly T[], comparer?: Comparer<T>): SortedReadonlyArray<T> {
+    return (array.length === 0 ? array : array.slice().sort(comparer)) as SortedReadonlyArray<T>;
 }
 
 function selectIndex(_: unknown, i: number) {
@@ -115,22 +179,41 @@ export function forEach<T, U>(array: readonly T[] | undefined, callback: (elemen
     return undefined;
 }
 
+export function map<T, U>(array: readonly T[], f: (x: T, i: number) => U): U[];
+export function map<T, U>(array: readonly T[] | undefined, f: (x: T, i: number) => U): U[] | undefined;
+export function map<T, U>(array: readonly T[] | undefined, f: (x: T, i: number) => U): U[] | undefined {
+    let result: U[] | undefined;
+    if (array) {
+        return array.map(f);
+    }
+    return result;
+}
+
 export function some<T>(array: readonly T[] | undefined): array is readonly T[];
 export function some<T>(array: readonly T[] | undefined, predicate: (value: T) => boolean): boolean;
 export function some<T>(array: readonly T[] | undefined, predicate?: (value: T) => boolean): boolean {
     if (array) {
         if (predicate) {
-            for (const v of array) {
-                if (predicate(v)) {
-                    return true;
-                }
-            }
+            return array.some(predicate);
         }
         else {
             return array.length > 0;
         }
     }
     return false;
+}
+
+/**
+* Iterates through `array` by index and performs the callback on each element of array until the callback
+* returns a falsey value, then returns false.
+* If no such value is found, the callback is applied to each element of array and `true` is returned.
+*/
+export function every<T>(array: readonly T[], callback: (element: T, index: number) => boolean): boolean {
+    if (array) {
+        return array.every(callback);
+    }
+
+    return true;
 }
 
 /**
@@ -181,4 +264,24 @@ export function binarySearchKey<T, U>(array: readonly T[], key: U, keySelector: 
     }
 
     return ~low;
+}
+
+/**
+ * Flattens an array containing a mix of array or non-array elements.
+ *
+ * @param array The array to flatten.
+ */
+export function flatten<T>(array: T[][] | readonly (T | readonly T[] | undefined)[]): T[] {
+    const result = [];
+    for (const v of array) {
+        if (v) {
+            if (isArray(v)) {
+                addRange(result, v);
+            }
+            else {
+                result.push(v);
+            }
+        }
+    }
+    return result;
 }

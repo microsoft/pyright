@@ -84,6 +84,51 @@ test('UtilsBinarySearchMiss', () => {
     assert.equal(~index, 2);
 });
 
+test('isArray1', () => {
+    const data = [new D(1, "Hello3")];
+    assert(utils.isArray(data));
+});
+
+test('isArray2', () => {
+    const data = {};
+    assert(!utils.isArray(data));
+});
+
+test('addRange1', () => {
+    const data: number[] = [];
+    assert.deepEqual(utils.addRange(data, [1, 2, 3]), [1, 2, 3]);
+});
+
+test('addRange2', () => {
+    const data: number[] = [1, 2, 3];
+    assert.deepEqual(utils.addRange(data, [1, 2, 3, 4], 3, 4), [1, 2, 3, 4]);
+});
+
+test('insertAt1', () => {
+    const data: number[] = [2, 3, 4];
+    assert.deepEqual(utils.insertAt(data, 0, 1), [1, 2, 3, 4]);
+});
+
+test('insertAt2', () => {
+    const data: number[] = [1, 2, 4];
+    assert.deepEqual(utils.insertAt(data, 2, 3), [1, 2, 3, 4]);
+});
+
+test('insertAt3', () => {
+    const data: number[] = [1, 2, 3];
+    assert.deepEqual(utils.insertAt(data, 3, 4), [1, 2, 3, 4]);
+});
+
+test('cloneAndSort', () => {
+    const data: number[] = [3, 2, 1];
+    assert.deepEqual(utils.cloneAndSort(data), [1, 2, 3]);
+});
+
+test('flatten', () => {
+    const data: number[][] = [[1, 2], [3, 4], [5, 6]];
+    assert.deepEqual(utils.flatten(data), [1, 2, 3, 4, 5, 6]);
+});
+
 class B {
     Value: number;
 
