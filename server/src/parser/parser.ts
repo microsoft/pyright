@@ -57,6 +57,7 @@ export class ParseOptions {
 }
 
 export interface ParseResults {
+    text: string;
     parseTree: ModuleNode;
     importedModules: ModuleImport[];
     futureImports: Map<string, boolean>;
@@ -130,6 +131,7 @@ export class Parser {
 
         assert(this._tokenizerOutput !== undefined);
         return {
+            text: fileContents,
             parseTree: moduleNode,
             importedModules: this._importedModules,
             futureImports: this._futureImportMap,
@@ -170,6 +172,7 @@ export class Parser {
 
     private _startNewParse(fileContents: string, textOffset: number, textLength: number,
             parseOptions: ParseOptions, diagSink: DiagnosticSink) {
+        
         this._fileContents = fileContents;
         this._parseOptions = parseOptions;
         this._diagSink = diagSink;

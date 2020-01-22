@@ -990,9 +990,12 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 
     if (type.category === TypeCategory.Function) {
         for (let i = 0; i < type.details.parameters.length; i++) {
-            const paramType = FunctionType.getEffectiveParameterType(type, i);
-            if (containsUnknown(paramType, false, recursionCount + 1)) {
-                return true;
+            // Ignore parameters such as "*" that have no name.
+            if (type.details.parameters[i].name) {
+                const paramType = FunctionType.getEffectiveParameterType(type, i);
+                if (containsUnknown(paramType, false, recursionCount + 1)) {
+                    return true;
+                }
             }
         }
 
