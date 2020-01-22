@@ -4,8 +4,8 @@
  * Implements pyright language server.
  */
 
-import { LanguageServerBase, WorkspaceServiceInstance, ServerSettings } from './languageServerBase';
 import { isArray } from 'util';
+import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 
 class Server extends LanguageServerBase {
     constructor() {
@@ -17,13 +17,13 @@ class Server extends LanguageServerBase {
         try {
             const pythonSection = await this.getConfiguration(workspace, 'python');
             if (pythonSection) {
-                serverSettings.pythonPath = pythonSection['pythonPath'];
-                serverSettings.venvPath = pythonSection['venvPath'];
+                serverSettings.pythonPath = pythonSection.pythonPath;
+                serverSettings.venvPath = pythonSection.venvPath;
             }
-            
+
             const pythonAnalysisSection = await this.getConfiguration(workspace, 'python.analysis');
             if (pythonAnalysisSection) {
-                const typeshedPaths = pythonAnalysisSection['typeshedPaths'];
+                const typeshedPaths = pythonAnalysisSection.typeshedPaths;
                 if (typeshedPaths && isArray(typeshedPaths) && typeshedPaths.length > 0) {
                     serverSettings.typeshedPath = typeshedPaths[0];
                 }
@@ -31,9 +31,9 @@ class Server extends LanguageServerBase {
 
             const pyrightSection = await this.getConfiguration(workspace, 'pyright');
             if (pyrightSection) {
-                serverSettings.openFilesOnly = !!pyrightSection['openFilesOnly'];
-                serverSettings.useLibraryCodeForTypes = !!pyrightSection['useLibraryCodeForTypes'];
-                serverSettings.disableLanguageServices = !!pyrightSection['disableLanguageServices'];
+                serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;
+                serverSettings.useLibraryCodeForTypes = !!pyrightSection.useLibraryCodeForTypes;
+                serverSettings.disableLanguageServices = !!pyrightSection.disableLanguageServices;
             } else {
                 serverSettings.openFilesOnly = true;
                 serverSettings.useLibraryCodeForTypes = false;
