@@ -4,10 +4,17 @@
 * Licensed under the MIT license.
 */
 
-import { FileSystemEntries } from "../../common/pathUtils";
+import * as fs from "fs";
+import * as pathModule from "path";
+import * as os from "os";
+
+import { compareStringsCaseSensitive, compareStringsCaseInsensitive } from "../../common/stringUtils";
+import { directoryExists, FileSystemEntries, combinePaths, getDirectoryPath, fileExists, getFileSize, getFileSystemEntries, resolvePaths } from "../../common/pathUtils";
+import { matchFiles } from "./utils";
+
+export let IO: IO = createNodeIO();
 
 export interface IO {
-    newLine(): string;
     getCurrentDirectory(): string;
     useCaseSensitiveFileNames(): boolean;
     resolvePath(path: string): string | undefined;
@@ -20,7 +27,6 @@ export interface IO {
     fileExists(fileName: string): boolean;
     directoryExists(path: string): boolean;
     deleteFile(fileName: string): void;
-    // enumerateTestFiles(runner: RunnerBase): (string | IFileBasedTest)[];
     listFiles(path: string, filter?: RegExp, options?: {
         recursive?: boolean;
     }): string[];
@@ -32,9 +38,203 @@ export interface IO {
     readDirectory(path: string, extension?: readonly string[],
         exclude?: readonly string[], include?: readonly string[], depth?: number): readonly string[];
     getAccessibleFileSystemEntries(dirname: string): FileSystemEntries;
-    tryEnableSourceMapsForHost?(): void;
     getEnvironmentVariable?(name: string): string;
-    getMemoryUsage?(): number | undefined;
+}
+
+function createNodeIO(): IO {
+    // NodeJS detects "\uFEFF" at the start of the string and *replaces* it with the actual
+    // byte order mark from the specified encoding. Using any other byte order mark does
+    // not actually work.
+    const byteOrderMarkIndicator = "\uFEFF";
+
+    let useCaseSensitiveFileNames = isFileSystemCaseSensitive();
+
+    function isFileSystemCaseSensitive(): boolean {
+        // win32\win64 are case insensitive platforms
+        const platform = os.platform();
+        if (platform === "win32") {
+            return false;
+        }
+        // If this file exists under a different case, we must be case-insensitve.
+        return !fs.existsSync(swapCase(__filename));
+
+        /** Convert all lowercase chars to uppercase, and vice-versa */
+        function swapCase(s: string): string {
+            return s.replace(/\w/g, (ch) => {
+                const up = ch.toUpperCase();
+                return ch === up ? ch.toLowerCase() : up;
+            });
+        }
+    }
+
+    function deleteFile(path: string) {
+        try {
+            fs.unlinkSync(path);
+        }
+        catch { /*ignore*/ }
+    }
+
+    function directoryName(path: string) {
+        const dirPath = pathModule.dirname(path);
+        // Node will just continue to repeat the root path, rather than return null
+        return dirPath === path ? undefined : dirPath;
+    }
+
+    function listFiles(path: string, spec: RegExp, options: { recursive?: boolean } = {}) {
+        function filesInFolder(folder: string): string[] {
+            let paths: string[] = [];
+
+            for (const file of fs.readdirSync(folder)) {
+                const pathToFile = pathModule.join(folder, file);
+                const stat = fs.statSync(pathToFile);
+                if (options.recursive && stat.isDirectory()) {
+                    paths = paths.concat(filesInFolder(pathToFile));
+                }
+                else if (stat.isFile() && (!spec || file.match(spec))) {
+                    paths.push(pathToFile);
+                }
+            }
+
+            return paths;
+        }
+
+        return filesInFolder(path);
+    }
+
+    function getAccessibleFileSystemEntries(dirname: string): FileSystemEntries {
+        try {
+            const entries: string[] = fs.readdirSync(dirname || ".").sort(useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive);
+            const files: string[] = [];
+            const directories: string[] = [];
+            for (const entry of entries) {
+                if (entry === "." || entry === "..") continue;
+                const name = combinePaths(dirname, entry);
+                try {
+                    const stat = fs.statSync(name);
+                    if (!stat) continue;
+                    if (stat.isFile()) {
+                        files.push(entry);
+                    }
+                    else if (stat.isDirectory()) {
+                        directories.push(entry);
+                    }
+                }
+                catch { /*ignore*/ }
+            }
+            return { files, directories };
+        }
+        catch (e) {
+            return { files: [], directories: [] };
+        }
+    }
+
+    function createDirectory(path: string) {
+        try {
+            fs.mkdirSync(path);
+        }
+        catch (e) {
+            if (e.code === "ENOENT") {
+                createDirectory(getDirectoryPath(path));
+                createDirectory(path);
+            }
+            else if (!directoryExists(path)) {
+                throw e;
+            }
+        }
+    }
+
+    function readFile(fileName: string, _encoding?: string): string | undefined {
+        if (!fileExists(fileName)) {
+            return undefined;
+        }
+        const buffer = fs.readFileSync(fileName);
+        let len = buffer.length;
+        if (len >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
+            // Big endian UTF-16 byte order mark detected. Since big endian is not supported by node.js,
+            // flip all byte pairs and treat as little endian.
+            len &= ~1; // Round down to a multiple of 2
+            for (let i = 0; i < len; i += 2) {
+                const temp = buffer[i];
+                buffer[i] = buffer[i + 1];
+                buffer[i + 1] = temp;
+            }
+            return buffer.toString("utf16le", 2);
+        }
+        if (len >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
+            // Little endian UTF-16 byte order mark detected
+            return buffer.toString("utf16le", 2);
+        }
+        if (len >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+            // UTF-8 byte order mark detected
+            return buffer.toString("utf8", 3);
+        }
+        // Default is UTF-8 with no byte order mark
+        return buffer.toString("utf8");
+    }
+
+    function writeFile(fileName: string, data: string, writeByteOrderMark?: boolean): void {
+        // If a BOM is required, emit one
+        if (writeByteOrderMark) {
+            data = byteOrderMarkIndicator + data;
+        }
+
+        let fd: number | undefined;
+
+        try {
+            fd = fs.openSync(fileName, "w");
+            fs.writeSync(fd, data, /*position*/ undefined, "utf8");
+        }
+        finally {
+            if (fd !== undefined) {
+                fs.closeSync(fd);
+            }
+        }
+    }
+
+    function getDirectories(path: string): string[] {
+        return getFileSystemEntries(path).directories;
+    }
+
+    function realpath(path: string): string {
+        try {
+            return fs.realpathSync(path);
+        }
+        catch {
+            return path;
+        }
+    }
+
+    function readDirectory(path: string,
+        extensions?: readonly string[],
+        excludes?: readonly string[],
+        includes?: readonly string[],
+        depth?: number): string[] {
+        return matchFiles(path, extensions, excludes, includes, useCaseSensitiveFileNames, process.cwd(), depth, getAccessibleFileSystemEntries, realpath);
+    }
+
+    return {
+        getCurrentDirectory: () => process.cwd(),
+        useCaseSensitiveFileNames: () => useCaseSensitiveFileNames,
+        resolvePath: (path: string) => pathModule.resolve(path),
+        getFileSize: (path: string) => getFileSize(path),
+        readFile: path => readFile(path),
+        writeFile: (path, content) => writeFile(path, content),
+        directoryName,
+        getDirectories: path => getDirectories(path),
+        createDirectory,
+        fileExists: path => fileExists(path),
+        directoryExists: path => directoryExists(path),
+        deleteFile,
+        listFiles,
+        log: s => console.log(s),
+        args: () => process.argv.slice(2),
+        getExecutingFilePath: () => __filename,
+        getWorkspaceRoot: () => resolvePaths(__dirname, "../../.."),
+        exit: exitCode => process.exit(exitCode),
+        readDirectory: (path, extension, exclude, include, depth) => readDirectory(path, extension, exclude, include, depth),
+        getAccessibleFileSystemEntries,
+        getEnvironmentVariable: name => process.env[name] || "",
+    };
 }
 
 export function bufferFrom(input: string, encoding?: BufferEncoding): Buffer {

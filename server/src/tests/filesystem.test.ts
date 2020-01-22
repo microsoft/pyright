@@ -5,7 +5,9 @@
 */
 
 import * as assert from 'assert';
+import * as io from './harness/io';
 import * as vfs from "./harness/vfs/filesystem";
+import * as factory from "./harness/vfs/factory"
 import { normalizeSlashes, combinePaths } from '../common/pathUtils';
 
 test('CreateVFS', () => {
@@ -133,6 +135,27 @@ test('Diffing', () => {
     // diff between non direct snapshots
     // diff gives test2.txt even though it exist in both snapshot
     assert.equal(countFile(s.diff(fs)!), 1);
+});
+
+test('createFromFileSystem1', () => {
+    const filepath = normalizeSlashes(combinePaths(factory.srcFolder, "test.py"));
+    const content = "# test";
+
+    // file system will map physical file system to virtual one
+    const fs = factory.createFromFileSystem(io.IO, false, { documents: [new factory.TextDocument(filepath, content)], cwd: factory.srcFolder });
+
+    // check existing typeshed folder on virtual path inherited from base snapshot from physical file system
+    const entries = fs.readdirSync(factory.typeshedFolder);
+    assert(entries.length > 0);
+
+    // confirm file
+    assert.equal(fs.readFileSync(filepath, "utf8"), content);
+});
+
+test('createFromFileSystem2', () => {
+    const fs = factory.createFromFileSystem(io.IO, /* ignoreCase */ true, { cwd: factory.srcFolder });
+    const entries = fs.readdirSync(factory.typeshedFolder.toUpperCase());
+    assert(entries.length > 0);
 });
 
 function countFile(files: vfs.FileSet): number {
