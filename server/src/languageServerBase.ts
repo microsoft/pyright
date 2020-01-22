@@ -5,11 +5,11 @@
 */
 
 import {
-    CodeAction, CodeActionKind, Command, createConnection,
-    Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DiagnosticTag,
-    DocumentSymbol, ExecuteCommandParams, IConnection, InitializeResult, IPCMessageReader,
-    IPCMessageWriter, Location, MarkupKind, ParameterInformation, Position, Range,
-    ResponseError, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit, RemoteConsole, ConfigurationItem
+    CodeAction, CodeActionKind, Command, ConfigurationItem,
+    createConnection, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity,
+    DiagnosticTag, DocumentSymbol, ExecuteCommandParams, IConnection, InitializeResult,
+    IPCMessageReader, IPCMessageWriter, Location, MarkupKind, ParameterInformation, Position,
+    Range, RemoteConsole, ResponseError, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
@@ -20,8 +20,8 @@ import {
     DiagnosticCategory, DiagnosticTextPosition, DiagnosticTextRange
 } from './common/diagnostic';
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
+import { commandAddMissingOptionalToParam, commandCreateTypeStub, commandOrderImports } from './languageService/commands';
 import { CompletionItemData } from './languageService/completionProvider';
-import { commandOrderImports, commandCreateTypeStub, commandAddMissingOptionalToParam } from './languageService/commands';
 
 export interface ServerSettings {
     venvPath?: string;
@@ -79,13 +79,13 @@ export abstract class LanguageServerBase {
         const item: ConfigurationItem = {
             scopeUri,
             section
-        }
+        };
         return this._connection.workspace.getConfiguration(item);
     }
 
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
-    private _createAnalyzerService(name: string): AnalyzerService {
+    private createAnalyzerService(name: string): AnalyzerService {
         this._connection.console.log(`Starting service instance "${name}"`);
         const service = new AnalyzerService(name, this._connection.console);
 
@@ -132,7 +132,7 @@ export abstract class LanguageServerBase {
 
     // Creates a service instance that's used for creating type
     // stubs for a specified target library.
-    private _createTypeStubService(importName: string): AnalyzerService {
+    private createTypeStubService(importName: string): AnalyzerService {
 
         this._connection.console.log('Starting type stub service instance');
         const service = new AnalyzerService('Type stub', this._connection.console);
@@ -145,7 +145,7 @@ export abstract class LanguageServerBase {
         return service;
     }
 
-    private _handlePostCreateTypeStub() {
+    private handlePostCreateTypeStub() {
         this._workspaceMap.forEach(workspace => {
             workspace.serviceInstance.handlePostCreateTypeStub();
         });
@@ -188,11 +188,11 @@ export abstract class LanguageServerBase {
                     workspaceName: '',
                     rootPath: '',
                     rootUri: '',
-                    serviceInstance: this._createAnalyzerService(this._defaultWorkspacePath),
+                    serviceInstance: this.createAnalyzerService(this._defaultWorkspacePath),
                     disableLanguageServices: false
                 };
                 this._workspaceMap.set(this._defaultWorkspacePath, defaultWorkspace);
-                this.updateSettingsForWorkspace(defaultWorkspace);
+                this._updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
             }
 
             return defaultWorkspace;
@@ -215,7 +215,7 @@ export abstract class LanguageServerBase {
                         workspaceName: folder.name,
                         rootPath: path,
                         rootUri: folder.uri,
-                        serviceInstance: this._createAnalyzerService(folder.name),
+                        serviceInstance: this.createAnalyzerService(folder.name),
                         disableLanguageServices: false
                     });
                 });
@@ -224,13 +224,10 @@ export abstract class LanguageServerBase {
                     workspaceName: '',
                     rootPath: params.rootPath,
                     rootUri: '',
-                    serviceInstance: this._createAnalyzerService(params.rootPath),
+                    serviceInstance: this.createAnalyzerService(params.rootPath),
                     disableLanguageServices: false
                 });
             }
-
-            this._connection.console.log(`Fetching settings for workspace(s)`);
-            this.updateSettingsForAllWorkspaces();
 
             return {
                 capabilities: {
@@ -260,9 +257,9 @@ export abstract class LanguageServerBase {
             };
         });
 
-        this._connection.onDidChangeConfiguration(() => {
+        this._connection.onDidChangeConfiguration(async _ => {
             this._connection.console.log(`Received updated settings`);
-            this.updateSettingsForAllWorkspaces();
+            await this.updateSettingsForAllWorkspaces();
         });
 
         this._connection.onCodeAction(params => {
@@ -576,17 +573,17 @@ export abstract class LanguageServerBase {
                     this._workspaceMap.delete(rootPath);
                 });
 
-                event.added.forEach(workspace => {
+                event.added.forEach(async workspace => {
                     const rootPath = this.convertUriToPath(workspace.uri);
                     const newWorkspace: WorkspaceServiceInstance = {
                         workspaceName: workspace.name,
                         rootPath,
                         rootUri: workspace.uri,
-                        serviceInstance: this._createAnalyzerService(workspace.name),
+                        serviceInstance: this.createAnalyzerService(workspace.name),
                         disableLanguageServices: false
                     };
                     this._workspaceMap.set(rootPath, newWorkspace);
-                    this.updateSettingsForWorkspace(newWorkspace);
+                    await this._updateSettingsForWorkspace(newWorkspace);
                 });
             });
         });
@@ -620,12 +617,12 @@ export abstract class LanguageServerBase {
                 return edits;
             }
         }
-        
+
         if (cmdParams.command === commandCreateTypeStub) {
             if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
                 const workspaceRoot = cmdParams.arguments[0];
                 const importName = cmdParams.arguments[1];
-                const service = this._createTypeStubService(importName);
+                const service = this.createTypeStubService(importName);
 
                 // Allocate a temporary pseudo-workspace to perform this job.
                 const workspace: WorkspaceServiceInstance = {
@@ -643,7 +640,7 @@ export abstract class LanguageServerBase {
                             service.dispose();
                             const infoMessage = `Type stub was successfully created for '${importName}'.`;
                             this._connection.window.showInformationMessage(infoMessage);
-                            this._handlePostCreateTypeStub();
+                            this.handlePostCreateTypeStub();
                         } catch (err) {
                             let errMessage = '';
                             if (err instanceof Error) {
@@ -656,7 +653,6 @@ export abstract class LanguageServerBase {
                         }
                     }
                 });
-        
 
                 const serverSettings = await this.getSettings(workspace);
                 this.updateOptionsAndRestartService(workspace, serverSettings, importName);
@@ -667,13 +663,14 @@ export abstract class LanguageServerBase {
         return new ResponseError<string>(1, 'Unsupported command');
     }
 
-    private updateSettingsForAllWorkspaces() {
-        this._workspaceMap.forEach(workspace => {
-            this.updateSettingsForWorkspace(workspace);
+    private async updateSettingsForAllWorkspaces(): Promise<void> {
+        const promises = [...this._workspaceMap.values()].map(async workspace => {
+            await this._updateSettingsForWorkspace(workspace);
         });
+        await Promise.all(promises);
     }
 
-    private async updateSettingsForWorkspace(workspace: WorkspaceServiceInstance): Promise<void> {
+    private async _updateSettingsForWorkspace(workspace: WorkspaceServiceInstance): Promise<void> {
         const serverSettings = await this.getSettings(workspace);
         this.updateOptionsAndRestartService(workspace, serverSettings);
         workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
