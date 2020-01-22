@@ -192,7 +192,7 @@ export abstract class LanguageServerBase {
                     disableLanguageServices: false
                 };
                 this._workspaceMap.set(this._defaultWorkspacePath, defaultWorkspace);
-                this._updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
+                this.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
             }
 
             return defaultWorkspace;
@@ -583,7 +583,7 @@ export abstract class LanguageServerBase {
                         disableLanguageServices: false
                     };
                     this._workspaceMap.set(rootPath, newWorkspace);
-                    await this._updateSettingsForWorkspace(newWorkspace);
+                    await this.updateSettingsForWorkspace(newWorkspace);
                 });
             });
         });
@@ -665,12 +665,12 @@ export abstract class LanguageServerBase {
 
     private async updateSettingsForAllWorkspaces(): Promise<void> {
         const promises = [...this._workspaceMap.values()].map(async workspace => {
-            await this._updateSettingsForWorkspace(workspace);
+            await this.updateSettingsForWorkspace(workspace);
         });
         await Promise.all(promises);
     }
 
-    private async _updateSettingsForWorkspace(workspace: WorkspaceServiceInstance): Promise<void> {
+    private async updateSettingsForWorkspace(workspace: WorkspaceServiceInstance): Promise<void> {
         const serverSettings = await this.getSettings(workspace);
         this.updateOptionsAndRestartService(workspace, serverSettings);
         workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
