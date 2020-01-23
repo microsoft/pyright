@@ -4,12 +4,6 @@
 import { URI } from 'vscode-uri';
 import { normalizePath } from './pathUtils';
 
-// https://stackoverflow.com/questions/39877156/how-to-extend-string-prototype-and-use-it-next-in-typescript
-declare interface String {
-  uriToPath(): string;
-  pathToUri(): string;
-}
-
 String.prototype.uriToPath = function(this: string): string {
     const uri = URI.parse(this);
     let convertedPath = normalizePath(uri.path);
