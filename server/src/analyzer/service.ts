@@ -30,7 +30,6 @@ import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import * as PythonPathUtils from './pythonPathUtils';
 
-const _defaultConfigFileName = 'pyrightconfig.json';
 const _isMacintosh = process.platform === 'darwin';
 const _isLinux = process.platform === 'linux';
 
@@ -69,8 +68,9 @@ export class AnalyzerService {
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
     private _lastUserInteractionTime = Date.now();
+    private _configFileName: string;
 
-    constructor(instanceName: string, console?: ConsoleInterface) {
+    constructor(instanceName: string, console?: ConsoleInterface, configFileName?: string) {
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
         this._configOptions = new ConfigOptions(process.cwd());
@@ -78,6 +78,7 @@ export class AnalyzerService {
         this._program = new Program(this._importResolver, this._configOptions, this._console);
         this._executionRootPath = '';
         this._typeStubTargetImportName = undefined;
+        this._configFileName = configFileName || 'pyrightconfig.json';
     }
 
     dispose() {
@@ -237,7 +238,7 @@ export class AnalyzerService {
                     projectRoot = getDirectoryPath(configFilePath);
                 } else {
                     projectRoot = configFilePath;
-                    configFilePath = combinePaths(configFilePath, _defaultConfigFileName);
+                    configFilePath = combinePaths(configFilePath, this._configFileName);
                     if (!fs.existsSync(configFilePath)) {
                         this._console.log(`Configuration file not found at ${ configFilePath }.`);
                         configFilePath = undefined;
@@ -497,7 +498,7 @@ export class AnalyzerService {
 
     private _findConfigFile(searchPath: string): string | undefined {
         return forEachAncestorDirectory(searchPath, ancestor => {
-            const fileName = combinePaths(ancestor, _defaultConfigFileName);
+            const fileName = combinePaths(ancestor, this._configFileName);
             return fs.existsSync(fileName) ? fileName : undefined;
         });
     }
