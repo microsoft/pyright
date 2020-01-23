@@ -8,17 +8,17 @@ import {
     CodeAction, CodeActionKind, Command, ConfigurationItem,
     createConnection, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity,
     DiagnosticTag, DocumentSymbol, ExecuteCommandParams, IConnection, InitializeResult,
-    IPCMessageReader, IPCMessageWriter, Location, MarkupKind, ParameterInformation, Position,
-    Range, RemoteConsole, ResponseError, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
+    IPCMessageReader, IPCMessageWriter, Location, MarkupKind, ParameterInformation,
+    RemoteConsole, ResponseError, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
-import { URI } from 'vscode-uri';
 
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
 import {
-    AddMissingOptionalToParamAction, CreateTypeStubFileAction, Diagnostic as AnalyzerDiagnostic,
-    DiagnosticCategory, DiagnosticTextPosition, DiagnosticTextRange
+    AddMissingOptionalToParamAction, convertRange, CreateTypeStubFileAction,
+    Diagnostic as AnalyzerDiagnostic, DiagnosticCategory, DiagnosticTextPosition, DiagnosticTextRange
 } from './common/diagnostic';
+import './common/extensions';
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
 import { commandAddMissingOptionalToParam, commandCreateTypeStub, commandOrderImports } from './languageService/commands';
 import { CompletionItemData } from './languageService/completionProvider';
@@ -62,7 +62,7 @@ export abstract class LanguageServerBase {
         // for open, change and close text document events.
         this._documents.listen(this._connection);
         // Setup callbacks
-        this.setupConnection();
+        this._setupConnection();
         // Listen on the connection
         this._connection.listen();
     }
@@ -85,7 +85,7 @@ export abstract class LanguageServerBase {
 
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
-    private createAnalyzerService(name: string): AnalyzerService {
+    private _createAnalyzerService(name: string): AnalyzerService {
         this._connection.console.log(`Starting service instance "${name}"`);
         const service = new AnalyzerService(name, this._connection.console);
 
@@ -98,11 +98,11 @@ export abstract class LanguageServerBase {
 
         service.setCompletionCallback(results => {
             results.diagnostics.forEach(fileDiag => {
-                const diagnostics = this.convertDiagnostics(fileDiag.diagnostics);
+                const diagnostics = this._convertDiagnostics(fileDiag.diagnostics);
 
                 // Send the computed diagnostics to the client.
                 this._connection.sendDiagnostics({
-                    uri: this.convertPathToUri(fileDiag.filePath),
+                    uri: fileDiag.filePath.pathToUri(),
                     diagnostics
                 });
 
@@ -132,7 +132,7 @@ export abstract class LanguageServerBase {
 
     // Creates a service instance that's used for creating type
     // stubs for a specified target library.
-    private createTypeStubService(importName: string): AnalyzerService {
+    private _createTypeStubService(importName: string): AnalyzerService {
 
         this._connection.console.log('Starting type stub service instance');
         const service = new AnalyzerService('Type stub', this._connection.console);
@@ -145,13 +145,13 @@ export abstract class LanguageServerBase {
         return service;
     }
 
-    private handlePostCreateTypeStub() {
+    private _handlePostCreateTypeStub() {
         this._workspaceMap.forEach(workspace => {
             workspace.serviceInstance.handlePostCreateTypeStub();
         });
     }
 
-    private getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
+    private _getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
         let bestRootPath: string | undefined;
         let bestInstance: WorkspaceServiceInstance | undefined;
 
@@ -188,11 +188,11 @@ export abstract class LanguageServerBase {
                     workspaceName: '',
                     rootPath: '',
                     rootUri: '',
-                    serviceInstance: this.createAnalyzerService(this._defaultWorkspacePath),
+                    serviceInstance: this._createAnalyzerService(this._defaultWorkspacePath),
                     disableLanguageServices: false
                 };
                 this._workspaceMap.set(this._defaultWorkspacePath, defaultWorkspace);
-                this.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
+                this._updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
             }
 
             return defaultWorkspace;
@@ -201,7 +201,7 @@ export abstract class LanguageServerBase {
         return bestInstance;
     }
 
-    private setupConnection(): void {
+    private _setupConnection(): void {
         // After the server has started the client sends an initialize request. The server receives
         // in the passed params the rootPath of the workspace plus the client capabilities.
         this._connection.onInitialize((params): InitializeResult => {
@@ -210,12 +210,12 @@ export abstract class LanguageServerBase {
             // Create a service instance for each of the workspace folders.
             if (params.workspaceFolders) {
                 params.workspaceFolders.forEach(folder => {
-                    const path = this.convertUriToPath(folder.uri);
+                    const path = folder.uri.uriToPath();
                     this._workspaceMap.set(path, {
                         workspaceName: folder.name,
                         rootPath: path,
                         rootUri: folder.uri,
-                        serviceInstance: this.createAnalyzerService(folder.name),
+                        serviceInstance: this._createAnalyzerService(folder.name),
                         disableLanguageServices: false
                     });
                 });
@@ -224,7 +224,7 @@ export abstract class LanguageServerBase {
                     workspaceName: '',
                     rootPath: params.rootPath,
                     rootUri: '',
-                    serviceInstance: this.createAnalyzerService(params.rootPath),
+                    serviceInstance: this._createAnalyzerService(params.rootPath),
                     disableLanguageServices: false
                 });
             }
@@ -257,21 +257,21 @@ export abstract class LanguageServerBase {
             };
         });
 
-        this._connection.onDidChangeConfiguration(async _ => {
+        this._connection.onDidChangeConfiguration(_ => {
             this._connection.console.log(`Received updated settings`);
-            await this.updateSettingsForAllWorkspaces();
+            this._updateSettingsForAllWorkspaces();
         });
 
         this._connection.onCodeAction(params => {
-            this.recordUserInteractionTime();
+            this._recordUserInteractionTime();
 
             const sortImportsCodeAction = CodeAction.create(
                 'Organize Imports', Command.create('Organize Imports', commandOrderImports),
                 CodeActionKind.SourceOrganizeImports);
             const codeActions: CodeAction[] = [sortImportsCodeAction];
 
-            const filePath = this.convertUriToPath(params.textDocument.uri);
-            const workspace = this.getWorkspaceForFile(filePath);
+            const filePath = params.textDocument.uri.uriToPath();
+            const workspace = this._getWorkspaceForFile(filePath);
             if (!workspace.disableLanguageServices) {
                 const range: DiagnosticTextRange = {
                     start: {
@@ -326,16 +326,16 @@ export abstract class LanguageServerBase {
         });
 
         this._connection.onDefinition(params => {
-            this.recordUserInteractionTime();
+            this._recordUserInteractionTime();
 
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = params.textDocument.uri.uriToPath();
 
             const position: DiagnosticTextPosition = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -344,18 +344,18 @@ export abstract class LanguageServerBase {
                 return undefined;
             }
             return locations.map(loc =>
-                Location.create(this.convertPathToUri(loc.path), this.convertRange(loc.range)));
+                Location.create(loc.path.pathToUri(), convertRange(loc.range)));
         });
 
         this._connection.onReferences(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = params.textDocument.uri.uriToPath();
 
             const position: DiagnosticTextPosition = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -365,15 +365,15 @@ export abstract class LanguageServerBase {
                 return undefined;
             }
             return locations.map(loc =>
-                Location.create(this.convertPathToUri(loc.path), this.convertRange(loc.range)));
+                Location.create(loc.path.pathToUri(), convertRange(loc.range)));
         });
 
         this._connection.onDocumentSymbol(params => {
-            this.recordUserInteractionTime();
+            this._recordUserInteractionTime();
 
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = params.textDocument.uri.uriToPath();
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return undefined;
             }
@@ -397,14 +397,14 @@ export abstract class LanguageServerBase {
         });
 
         this._connection.onHover(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = params.textDocument.uri.uriToPath();
 
             const position: DiagnosticTextPosition = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             const hoverResults = workspace.serviceInstance.getHoverForPosition(filePath, position);
             if (!hoverResults) {
                 return undefined;
@@ -422,19 +422,19 @@ export abstract class LanguageServerBase {
                     kind: MarkupKind.Markdown,
                     value: markupString
                 },
-                range: this.convertRange(hoverResults.range)
+                range: convertRange(hoverResults.range)
             };
         });
 
         this._connection.onSignatureHelp(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = params.textDocument.uri.uriToPath();
 
             const position: DiagnosticTextPosition = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -464,14 +464,14 @@ export abstract class LanguageServerBase {
         });
 
         this._connection.onCompletion(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = params.textDocument.uri.uriToPath();
 
             const position: DiagnosticTextPosition = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -503,14 +503,14 @@ export abstract class LanguageServerBase {
         });
 
         this._connection.onRenameRequest(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = params.textDocument.uri.uriToPath();
 
             const position: DiagnosticTextPosition = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -525,13 +525,13 @@ export abstract class LanguageServerBase {
                 changes: {}
             };
             editActions.forEach(editAction => {
-                const uri = this.convertPathToUri(editAction.filePath);
+                const uri = editAction.filePath.pathToUri();
                 if (edits.changes![uri] === undefined) {
                     edits.changes![uri] = [];
                 }
 
                 const textEdit: TextEdit = {
-                    range: this.convertRange(editAction.range),
+                    range: convertRange(editAction.range),
                     newText: editAction.replacementText
                 };
                 edits.changes![uri].push(textEdit);
@@ -541,8 +541,8 @@ export abstract class LanguageServerBase {
         });
 
         this._connection.onDidOpenTextDocument(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
-            const service = this.getWorkspaceForFile(filePath).serviceInstance;
+            const filePath = params.textDocument.uri.uriToPath();
+            const service = this._getWorkspaceForFile(filePath).serviceInstance;
             service.setFileOpened(
                 filePath,
                 params.textDocument.version,
@@ -550,10 +550,10 @@ export abstract class LanguageServerBase {
         });
 
         this._connection.onDidChangeTextDocument(params => {
-            this.recordUserInteractionTime();
+            this._recordUserInteractionTime();
 
-            const filePath = this.convertUriToPath(params.textDocument.uri);
-            const service = this.getWorkspaceForFile(filePath).serviceInstance;
+            const filePath = params.textDocument.uri.uriToPath();
+            const service = this._getWorkspaceForFile(filePath).serviceInstance;
             service.updateOpenFileContents(
                 filePath,
                 params.textDocument.version,
@@ -561,29 +561,29 @@ export abstract class LanguageServerBase {
         });
 
         this._connection.onDidCloseTextDocument(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
-            const service = this.getWorkspaceForFile(filePath).serviceInstance;
+            const filePath = params.textDocument.uri.uriToPath();
+            const service = this._getWorkspaceForFile(filePath).serviceInstance;
             service.setFileClosed(filePath);
         });
 
         this._connection.onInitialized(() => {
             this._connection.workspace.onDidChangeWorkspaceFolders(event => {
                 event.removed.forEach(workspace => {
-                    const rootPath = this.convertUriToPath(workspace.uri);
+                    const rootPath = workspace.uri.uriToPath();
                     this._workspaceMap.delete(rootPath);
                 });
 
                 event.added.forEach(async workspace => {
-                    const rootPath = this.convertUriToPath(workspace.uri);
+                    const rootPath = workspace.uri.uriToPath();
                     const newWorkspace: WorkspaceServiceInstance = {
                         workspaceName: workspace.name,
                         rootPath,
                         rootUri: workspace.uri,
-                        serviceInstance: this.createAnalyzerService(workspace.name),
+                        serviceInstance: this._createAnalyzerService(workspace.name),
                         disableLanguageServices: false
                     };
                     this._workspaceMap.set(rootPath, newWorkspace);
-                    await this.updateSettingsForWorkspace(newWorkspace);
+                    await this._updateSettingsForWorkspace(newWorkspace);
                 });
             });
         });
@@ -598,8 +598,8 @@ export abstract class LanguageServerBase {
             if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
                 const docUri = cmdParams.arguments[0];
                 const otherArgs = cmdParams.arguments.slice(1);
-                const filePath = this.convertUriToPath(docUri);
-                const workspace = this.getWorkspaceForFile(filePath);
+                const filePath = docUri.uriToPath();
+                const workspace = this._getWorkspaceForFile(filePath);
                 const editActions = workspace.serviceInstance.performQuickAction(
                     filePath, cmdParams.command, otherArgs);
                 if (!editActions) {
@@ -609,7 +609,7 @@ export abstract class LanguageServerBase {
                 const edits: TextEdit[] = [];
                 editActions.forEach(editAction => {
                     edits.push({
-                        range: this.convertRange(editAction.range),
+                        range: convertRange(editAction.range),
                         newText: editAction.replacementText
                     });
                 });
@@ -622,13 +622,13 @@ export abstract class LanguageServerBase {
             if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
                 const workspaceRoot = cmdParams.arguments[0];
                 const importName = cmdParams.arguments[1];
-                const service = this.createTypeStubService(importName);
+                const service = this._createTypeStubService(importName);
 
                 // Allocate a temporary pseudo-workspace to perform this job.
                 const workspace: WorkspaceServiceInstance = {
                     workspaceName: `Create Type Stub ${importName}`,
                     rootPath: workspaceRoot,
-                    rootUri: this.convertPathToUri(workspaceRoot),
+                    rootUri: workspaceRoot.pathToUri(),
                     serviceInstance: service,
                     disableLanguageServices: true
                 };
@@ -640,7 +640,7 @@ export abstract class LanguageServerBase {
                             service.dispose();
                             const infoMessage = `Type stub was successfully created for '${importName}'.`;
                             this._connection.window.showInformationMessage(infoMessage);
-                            this.handlePostCreateTypeStub();
+                            this._handlePostCreateTypeStub();
                         } catch (err) {
                             let errMessage = '';
                             if (err instanceof Error) {
@@ -655,7 +655,7 @@ export abstract class LanguageServerBase {
                 });
 
                 const serverSettings = await this.getSettings(workspace);
-                this.updateOptionsAndRestartService(workspace, serverSettings, importName);
+                this._updateOptionsAndRestartService(workspace, serverSettings, importName);
                 return;
             }
         }
@@ -663,20 +663,19 @@ export abstract class LanguageServerBase {
         return new ResponseError<string>(1, 'Unsupported command');
     }
 
-    private async updateSettingsForAllWorkspaces(): Promise<void> {
-        const promises = [...this._workspaceMap.values()].map(async workspace => {
-            await this.updateSettingsForWorkspace(workspace);
+    private _updateSettingsForAllWorkspaces(): void {
+        this._workspaceMap.forEach(workspace => {
+            this._updateSettingsForWorkspace(workspace).ignoreErrors();
         });
-        await Promise.all(promises);
     }
 
-    private async updateSettingsForWorkspace(workspace: WorkspaceServiceInstance): Promise<void> {
+    private async _updateSettingsForWorkspace(workspace: WorkspaceServiceInstance): Promise<void> {
         const serverSettings = await this.getSettings(workspace);
-        this.updateOptionsAndRestartService(workspace, serverSettings);
+        this._updateOptionsAndRestartService(workspace, serverSettings);
         workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
     }
 
-    private updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
+    private _updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
         serverSettings: ServerSettings, typeStubTargetImportName?: string) {
 
         const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
@@ -691,7 +690,7 @@ export abstract class LanguageServerBase {
 
         if (serverSettings.venvPath) {
             commandLineOptions.venvPath = combinePaths(workspace.rootPath || this._rootPath,
-                normalizePath(this.expandPathVariables(serverSettings.venvPath)));
+                normalizePath(this._expandPathVariables(serverSettings.venvPath)));
         }
 
         if (serverSettings.pythonPath) {
@@ -700,7 +699,7 @@ export abstract class LanguageServerBase {
             // setting value as a path to the interpreter. We'll simply ignore it in this case.
             if (serverSettings.pythonPath.trim() !== 'python') {
                 commandLineOptions.pythonPath = combinePaths(workspace.rootPath || this._rootPath,
-                    normalizePath(this.expandPathVariables(serverSettings.pythonPath)));
+                    normalizePath(this._expandPathVariables(serverSettings.pythonPath)));
             }
         }
 
@@ -709,7 +708,7 @@ export abstract class LanguageServerBase {
             // official VS Code Python extension supports multiple typeshed paths.
             // We'll use the first one specified and ignore the rest.
             commandLineOptions.typeshedPath =
-                this.expandPathVariables(serverSettings.typeshedPath);
+                this._expandPathVariables(serverSettings.typeshedPath);
         }
 
         if (typeStubTargetImportName) {
@@ -722,7 +721,7 @@ export abstract class LanguageServerBase {
     // Expands certain predefined variables supported within VS Code settings.
     // Ideally, VS Code would provide an API for doing this expansion, but
     // it doesn't. We'll handle the most common variables here as a convenience.
-    private expandPathVariables(value: string): string {
+    private _expandPathVariables(value: string): string {
         const regexp = /\$\{(.*?)\}/g;
         return value.replace(regexp, (match: string, name: string) => {
             const trimmedName = name.trim();
@@ -733,7 +732,7 @@ export abstract class LanguageServerBase {
         });
     }
 
-    private convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
+    private _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
         return diags.map(diag => {
             const severity = diag.category === DiagnosticCategory.Error ?
                 DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
@@ -744,7 +743,7 @@ export abstract class LanguageServerBase {
                 source = `${source} (${rule})`;
             }
 
-            const vsDiag = Diagnostic.create(this.convertRange(diag.range), diag.message, severity,
+            const vsDiag = Diagnostic.create(convertRange(diag.range), diag.message, severity,
                 undefined, source);
 
             if (diag.category === DiagnosticCategory.UnusedCode) {
@@ -756,8 +755,8 @@ export abstract class LanguageServerBase {
             if (relatedInfo.length > 0) {
                 vsDiag.relatedInformation = relatedInfo.map(info => {
                     return DiagnosticRelatedInformation.create(
-                        Location.create(this.convertPathToUri(info.filePath),
-                            this.convertRange(info.range)),
+                        Location.create(info.filePath.pathToUri(),
+                            convertRange(info.range)),
                         info.message
                     );
                 });
@@ -767,38 +766,7 @@ export abstract class LanguageServerBase {
         });
     }
 
-    private convertRange(range?: DiagnosticTextRange): Range {
-        if (!range) {
-            return Range.create(this.convertPosition(), this.convertPosition());
-        }
-        return Range.create(this.convertPosition(range.start), this.convertPosition(range.end));
-    }
-
-    private convertPosition(position?: DiagnosticTextPosition): Position {
-        if (!position) {
-            return Position.create(0, 0);
-        }
-        return Position.create(position.line, position.column);
-    }
-
-    private convertUriToPath(uriString: string): string {
-        const uri = URI.parse(uriString);
-        let convertedPath = normalizePath(uri.path);
-
-        // If this is a DOS-style path with a drive letter, remove
-        // the leading slash.
-        if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
-            convertedPath = convertedPath.substr(1);
-        }
-
-        return convertedPath;
-    }
-
-    private convertPathToUri(path: string): string {
-        return URI.file(path).toString();
-    }
-
-    private recordUserInteractionTime() {
+    private _recordUserInteractionTime() {
         // Tell all of the services that the user is actively
         // interacting with one or more editors, so they should
         // back off from performing any work.
