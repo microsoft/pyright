@@ -5,10 +5,12 @@
 */
 
 import * as assert from 'assert';
+import * as factory from "./harness/vfs/factory"
+import * as io from './harness/io';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { CompilerSettings } from './harness/fourslash/fourSlashTypes';
-import { normalizeSlashes } from '../common/pathUtils';
+import { normalizeSlashes, getBaseFileName } from '../common/pathUtils';
 
 test('GlobalOptions', () => {
     const code = `
@@ -195,6 +197,29 @@ test('Multiple Files', () => {
     assert.equal(data.files.filter(f => f.fileName === normalizeSlashes("./src/C.py"))[0].content, getContent("C"));
 });
 
+test('Multiple Files with default name', () => {
+    // only very first one can omit filename
+    const code = `
+////class A:
+////    pass
+
+// @filename: src/B.py
+////class B:
+////    pass
+
+// @filename: src/C.py
+////class C:
+////    pass
+    `
+
+    const data = parseTestData(".", code, "./src/test.py");
+    assert.equal(data.files.length, 3);
+
+    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes("./src/test.py"))[0].content, getContent("A"));
+    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes("./src/B.py"))[0].content, getContent("B"));
+    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes("./src/C.py"))[0].content, getContent("C"));
+});
+
 test('Multiple Files with markers', () => {
     // range can have 1 marker in it
     const code = `
@@ -224,6 +249,30 @@ test('Multiple Files with markers', () => {
     assert(data.markerPositions.get("marker2"));
 
     assert.equal(data.ranges.filter(r => r.marker).length, 2);
+});
+
+test('fourSlashWithFileSystem', () => {
+    const code = `
+// @filename: src/A.py
+////class A:
+////    pass
+
+// @filename: src/B.py
+////class B:
+////    pass
+
+// @filename: src/C.py
+////class C:
+////    pass
+    `
+
+    const data = parseTestData(".", code, "unused");
+    const documents = data.files.map(f => new factory.TextDocument(f.fileName, f.content, new Map<string, string>(Object.entries(f.fileOptions))));
+    const fs = factory.createFromFileSystem(io.IO, /* ignoreCase */ false, { documents: documents, cwd: normalizeSlashes("/") });
+
+    for (const file of data.files) {
+        assert.equal(fs.readFileSync(file.fileName, "utf8"), getContent(getBaseFileName(file.fileName, ".py", false)));
+    }
 });
 
 function getContent(className: string) {
