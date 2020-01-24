@@ -1,5 +1,5 @@
 /*
-* debug.test.ts
+* fourSlashParser.test.ts
 * Copyright (c) Microsoft Corporation.
 * Licensed under the MIT license.
 */
