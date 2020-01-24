@@ -53,8 +53,10 @@ export abstract class LanguageServerBase {
     // Tracks whether we're currently displaying progress.
     private _isDisplayingProgress = false;
     private _defaultWorkspacePath = '<default>';
+    private _configFileName: string | undefined;
 
-    constructor(private _productName: string, rootDirectory?: string) {
+    constructor(private _productName: string, rootDirectory?: string, configFileName?: string) {
+        this._configFileName = configFileName;
         this._connection.console.log(`${_productName} language server starting`);
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = rootDirectory ? rootDirectory : getDirectoryPath(__dirname);
@@ -87,7 +89,7 @@ export abstract class LanguageServerBase {
     // program within a workspace.
     private _createAnalyzerService(name: string): AnalyzerService {
         this._connection.console.log(`Starting service instance "${name}"`);
-        const service = new AnalyzerService(name, this._connection.console);
+        const service = new AnalyzerService(name, this._connection.console, this._configFileName);
 
         // Don't allow the analysis engine to go too long without
         // reporting results. This will keep it responsive.
@@ -135,7 +137,7 @@ export abstract class LanguageServerBase {
     private _createTypeStubService(importName: string): AnalyzerService {
 
         this._connection.console.log('Starting type stub service instance');
-        const service = new AnalyzerService('Type stub', this._connection.console);
+        const service = new AnalyzerService('Type stub', this._connection.console, this._configFileName);
 
         service.setMaxAnalysisDuration({
             openFilesTimeInMs: 500,
