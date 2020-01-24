@@ -16,19 +16,21 @@ import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } fro
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { Diagnostic, DiagnosticTextPosition, DiagnosticTextRange,
-    DocumentTextRange } from '../common/diagnostic';
+import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
-import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
+import {
+    combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
     getFileName, getFileSpec, getFileSystemEntries, isDirectory,
-    normalizePath, stripFileExtension } from '../common/pathUtils';
+    normalizePath, stripFileExtension
+} from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import * as PythonPathUtils from './pythonPathUtils';
+import { LineAndColumn, LineAndColumnRange, DocumentLineAndColumnRange } from '../common/textRange';
 
 const _defaultConfigFileName = 'pyrightconfig.json';
 const _isMacintosh = process.platform === 'darwin';
@@ -103,7 +105,7 @@ export class AnalyzerService {
         this._typeStubTargetImportName = commandLineOptions.typeStubTargetImportName;
 
         this._executionRootPath = normalizePath(combinePaths(
-                commandLineOptions.executionRoot, this._configOptions.projectRoot));
+            commandLineOptions.executionRoot, this._configOptions.projectRoot));
         this._applyConfigOptions();
     }
 
@@ -124,14 +126,14 @@ export class AnalyzerService {
         this._scheduleReanalysis(false);
     }
 
-    getDefinitionForPosition(filePath: string, position: DiagnosticTextPosition):
-            DocumentTextRange[] | undefined {
+    getDefinitionForPosition(filePath: string, position: LineAndColumn):
+        DocumentLineAndColumnRange[] | undefined {
 
         return this._program.getDefinitionsForPosition(filePath, position);
     }
 
-    getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
-            includeDeclaration: boolean): DocumentTextRange[] | undefined {
+    getReferencesForPosition(filePath: string, position: LineAndColumn,
+        includeDeclaration: boolean): DocumentLineAndColumnRange[] | undefined {
 
         return this._program.getReferencesForPosition(filePath, position, includeDeclaration);
     }
@@ -144,20 +146,20 @@ export class AnalyzerService {
         this._program.addSymbolsForWorkspace(symbolList, query);
     }
 
-    getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
-            HoverResults | undefined {
+    getHoverForPosition(filePath: string, position: LineAndColumn):
+        HoverResults | undefined {
 
         return this._program.getHoverForPosition(filePath, position);
     }
 
-    getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition):
-            SignatureHelpResults | undefined {
+    getSignatureHelpForPosition(filePath: string, position: LineAndColumn):
+        SignatureHelpResults | undefined {
 
         return this._program.getSignatureHelpForPosition(filePath, position);
     }
 
-    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
-            workspacePath: string): CompletionList | undefined {
+    getCompletionsForPosition(filePath: string, position: LineAndColumn,
+        workspacePath: string): CompletionList | undefined {
 
         return this._program.getCompletionsForPosition(filePath, position, workspacePath);
     }
@@ -170,8 +172,8 @@ export class AnalyzerService {
         return this._program.performQuickAction(filePath, command, args);
     }
 
-    renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
-            newName: string): FileEditAction[] | undefined {
+    renameSymbolAtPosition(filePath: string, position: LineAndColumn,
+        newName: string): FileEditAction[] | undefined {
 
         return this._program.renameSymbolAtPosition(filePath, position, newName);
     }
@@ -196,7 +198,7 @@ export class AnalyzerService {
         return this._getFileNamesFromFileSpecs();
     }
 
-    getDiagnosticsForRange(filePath: string, range: DiagnosticTextRange): Diagnostic[] {
+    getDiagnosticsForRange(filePath: string, range: LineAndColumnRange): Diagnostic[] {
         return this._program.getDiagnosticsForRange(filePath, this._configOptions, range);
     }
 
@@ -360,7 +362,7 @@ export class AnalyzerService {
                 } else {
                     const importFailureInfo: string[] = [];
                     if (PythonPathUtils.findPythonSearchPaths(configOptions, undefined,
-                            importFailureInfo) === undefined) {
+                        importFailureInfo) === undefined) {
 
                         this._console.log(
                             `site-packages directory cannot be located for venvPath ` +
@@ -551,7 +553,7 @@ export class AnalyzerService {
                 this._configOptions.exclude);
 
             for (const file of matchedFiles) {
-                fileMap.set(file,  file);
+                fileMap.set(file, file);
             }
         });
 
@@ -583,7 +585,7 @@ export class AnalyzerService {
                 // Namespace packages resolve to a directory name, so
                 // don't include those.
                 const resolvedPath = importResult.resolvedPaths[
-                        importResult.resolvedPaths.length - 1];
+                    importResult.resolvedPaths.length - 1];
 
                 // Get the directory that contains the root package.
                 let targetPath = getDirectoryPath(resolvedPath);
@@ -801,12 +803,12 @@ export class AnalyzerService {
 
         if (this._configFilePath) {
             this._configFileWatcher = this._createFileSystemWatcher([this._configFilePath])
-            .on('all', event => {
-                if (this._verboseOutput) {
-                    this._console.log(`Received fs event '${ event }' for config file`);
-                }
-                this._scheduleReloadConfigFile();
-            });
+                .on('all', event => {
+                    if (this._verboseOutput) {
+                        this._console.log(`Received fs event '${ event }' for config file`);
+                    }
+                    this._scheduleReloadConfigFile();
+                });
         }
     }
 

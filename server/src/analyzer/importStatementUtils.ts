@@ -8,7 +8,7 @@
 * import statements in a python source file.
 */
 
-import { DiagnosticTextPosition } from '../common/diagnostic';
+import { LineAndColumn } from '../common/textRange';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -111,7 +111,7 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
 
     // We need to emit a new 'from import' statement.
     let newImportStatement = `from ${ moduleName } import ${ symbolName }`;
-    let insertionPosition: DiagnosticTextPosition;
+    let insertionPosition: LineAndColumn;
     if (importStatements.orderedImports.length > 0) {
         let insertBefore = true;
         let insertionImport = importStatements.orderedImports[0];

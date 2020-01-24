@@ -7,10 +7,10 @@
 * Represents a single edit within a file.
 */
 
-import { DiagnosticTextRange } from './diagnostic';
+import { LineAndColumnRange } from "./textRange";
 
 export interface TextEditAction {
-    range: DiagnosticTextRange;
+    range: LineAndColumnRange;
     replacementText: string;
 }
 

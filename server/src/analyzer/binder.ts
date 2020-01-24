@@ -19,7 +19,8 @@
 import * as assert from 'assert';
 
 import { DiagnosticLevel } from '../common/configOptions';
-import { CreateTypeStubFileAction, getEmptyRange } from '../common/diagnostic';
+import { CreateTypeStubFileAction } from '../common/diagnostic';
+import { getEmptyRange } from '../common/textRange';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';

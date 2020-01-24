@@ -6,73 +6,12 @@
 *
 * Class that represents errors and warnings.
 */
+import { LineAndColumnRange } from "./textRange";
 
 export const enum DiagnosticCategory {
     Error,
     Warning,
     UnusedCode
-}
-
-export interface DiagnosticTextPosition {
-    // Both line and column are zero-based
-    line: number;
-    column: number;
-}
-
-export function comparePositions(a: DiagnosticTextPosition, b: DiagnosticTextPosition) {
-    if (a.line < b.line) {
-        return -1;
-    } else if (a.line > b.line) {
-        return 1;
-    } else if (a.column < b.column) {
-        return -1;
-    } else if (a.column > b.column) {
-        return 1;
-    }
-    return 0;
-}
-
-export function getEmptyPosition(): DiagnosticTextPosition {
-    return {
-        line: 0,
-        column: 0
-    };
-}
-
-export interface DiagnosticTextRange {
-    start: DiagnosticTextPosition;
-    end: DiagnosticTextPosition;
-}
-
-export function doRangesOverlap(a: DiagnosticTextRange, b: DiagnosticTextRange) {
-    if (comparePositions(b.start, a.end) >= 0) {
-        return false;
-    } else if (comparePositions(a.start, b.end) >= 0) {
-        return false;
-    }
-    return true;
-}
-
-export function doesRangeContain(range: DiagnosticTextRange, position: DiagnosticTextPosition) {
-    return comparePositions(range.start, position) >= 0 &&
-        comparePositions(range.end, position) <= 0;
-}
-
-export function rangesAreEqual(a: DiagnosticTextRange, b: DiagnosticTextRange) {
-    return comparePositions(a.start, b.start) === 0 && comparePositions(a.end, b.end) === 0;
-}
-
-export function getEmptyRange(): DiagnosticTextRange {
-    return {
-        start: getEmptyPosition(),
-        end: getEmptyPosition()
-    };
-}
-
-// Represents a range within a particular document.
-export interface DocumentTextRange {
-    path: string;
-    range: DiagnosticTextRange;
 }
 
 export interface DiagnosticAction {
@@ -92,7 +31,7 @@ export interface AddMissingOptionalToParamAction extends DiagnosticAction {
 export interface DiagnosticRelatedInfo {
     message: string;
     filePath: string;
-    range: DiagnosticTextRange;
+    range: LineAndColumnRange;
 }
 
 // Represents a single error or warning.
@@ -102,7 +41,7 @@ export class Diagnostic {
     private _relatedInfo: DiagnosticRelatedInfo[] = [];
 
     constructor(readonly category: DiagnosticCategory, readonly message: string,
-        readonly range: DiagnosticTextRange) {
+        readonly range: LineAndColumnRange) {
     }
 
     addAction(action: DiagnosticAction) {
@@ -125,7 +64,7 @@ export class Diagnostic {
         return this._rule;
     }
 
-    addRelatedInfo(message: string, filePath: string, range: DiagnosticTextRange) {
+    addRelatedInfo(message: string, filePath: string, range: LineAndColumnRange) {
         this._relatedInfo.push({ filePath, message, range });
     }
 

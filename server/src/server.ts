@@ -15,12 +15,17 @@ import { URI } from 'vscode-uri';
 
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
-import { AddMissingOptionalToParamAction, CreateTypeStubFileAction, Diagnostic as AnalyzerDiagnostic,
-    DiagnosticCategory, DiagnosticTextPosition, DiagnosticTextRange } from './common/diagnostic';
+import {
+    AddMissingOptionalToParamAction, CreateTypeStubFileAction, Diagnostic as AnalyzerDiagnostic,
+    DiagnosticCategory
+} from './common/diagnostic';
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
-import { commandAddMissingOptionalToParam, commandCreateTypeStub,
-    commandOrderImports } from './languageService/commands';
+import {
+    commandAddMissingOptionalToParam, commandCreateTypeStub,
+    commandOrderImports
+} from './languageService/commands';
 import { CompletionItemData } from './languageService/completionProvider';
+import { LineAndColumnRange, LineAndColumn } from './common/textRange';
 
 interface PythonSettings {
     venvPath?: string;
@@ -120,7 +125,7 @@ function _createAnalyzerService(name: string): AnalyzerService {
 // Creates a service instance that's used for creating type
 // stubs for a specified target library.
 function _createTypeStubService(importName: string,
-        complete: (success: boolean) => void): AnalyzerService {
+    complete: (success: boolean) => void): AnalyzerService {
 
     _connection.console.log('Starting type stub service instance');
     const service = new AnalyzerService('Type stub',
@@ -286,7 +291,7 @@ _connection.onCodeAction(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
     const workspace = _getWorkspaceForFile(filePath);
     if (!workspace.disableLanguageServices) {
-        const range: DiagnosticTextRange = {
+        const range: LineAndColumnRange = {
             start: {
                 line: params.range.start.line,
                 column: params.range.start.character
@@ -343,7 +348,7 @@ _connection.onDefinition(params => {
 
     const filePath = _convertUriToPath(params.textDocument.uri);
 
-    const position: DiagnosticTextPosition = {
+    const position: LineAndColumn = {
         line: params.position.line,
         column: params.position.character
     };
@@ -363,7 +368,7 @@ _connection.onDefinition(params => {
 _connection.onReferences(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
 
-    const position: DiagnosticTextPosition = {
+    const position: LineAndColumn = {
         line: params.position.line,
         column: params.position.character
     };
@@ -373,7 +378,7 @@ _connection.onReferences(params => {
         return;
     }
     const locations = workspace.serviceInstance.getReferencesForPosition(filePath, position,
-            params.context.includeDeclaration);
+        params.context.includeDeclaration);
     if (!locations) {
         return undefined;
     }
@@ -412,7 +417,7 @@ _connection.onWorkspaceSymbol(params => {
 _connection.onHover(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
 
-    const position: DiagnosticTextPosition = {
+    const position: LineAndColumn = {
         line: params.position.line,
         column: params.position.character
     };
@@ -433,7 +438,7 @@ _connection.onHover(params => {
     return {
         contents: {
             kind: MarkupKind.Markdown,
-           value: markupString
+            value: markupString
         },
         range: _convertRange(hoverResults.range)
     };
@@ -442,7 +447,7 @@ _connection.onHover(params => {
 _connection.onSignatureHelp(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
 
-    const position: DiagnosticTextPosition = {
+    const position: LineAndColumn = {
         line: params.position.line,
         column: params.position.character
     };
@@ -479,7 +484,7 @@ _connection.onSignatureHelp(params => {
 _connection.onCompletion(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
 
-    const position: DiagnosticTextPosition = {
+    const position: LineAndColumn = {
         line: params.position.line,
         column: params.position.character
     };
@@ -518,7 +523,7 @@ _connection.onCompletionResolve(params => {
 _connection.onRenameRequest(params => {
     const filePath = _convertUriToPath(params.textDocument.uri);
 
-    const position: DiagnosticTextPosition = {
+    const position: LineAndColumn = {
         line: params.position.line,
         column: params.position.character
     };
@@ -598,7 +603,7 @@ function updateSettingsForAllWorkspaces() {
 }
 
 function fetchSettingsForWorkspace(workspace: WorkspaceServiceInstance,
-        callback: (pythonSettings: PythonSettings, pyrightSettings: PyrightSettings) => void) {
+    callback: (pythonSettings: PythonSettings, pyrightSettings: PyrightSettings) => void) {
 
     const pythonSettingsPromise = getConfiguration(workspace, ['python', 'pyright']);
     pythonSettingsPromise.then((settings: [PythonSettings, PyrightSettings]) => {
@@ -618,8 +623,8 @@ function updateSettingsForWorkspace(workspace: WorkspaceServiceInstance) {
 }
 
 function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
-        pythonSettings: PythonSettings, pyrightSettings?: PyrightSettings,
-        typeStubTargetImportName?: string) {
+    pythonSettings: PythonSettings, pyrightSettings?: PyrightSettings,
+    typeStubTargetImportName?: string) {
 
     const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
     commandLineOptions.checkOnlyOpenFiles = pyrightSettings ?
@@ -649,8 +654,8 @@ function updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
     }
 
     if (pythonSettings.analysis &&
-            pythonSettings.analysis.typeshedPaths &&
-            pythonSettings.analysis.typeshedPaths.length > 0) {
+        pythonSettings.analysis.typeshedPaths &&
+        pythonSettings.analysis.typeshedPaths.length > 0) {
 
         // Pyright supports only one typeshed path currently, whereas the
         // official VS Code Python extension supports multiple typeshed paths.
@@ -690,7 +695,7 @@ _connection.onInitialized(() => {
 
 _connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => {
     if (cmdParams.command === commandOrderImports ||
-            cmdParams.command === commandAddMissingOptionalToParam) {
+        cmdParams.command === commandAddMissingOptionalToParam) {
 
         if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
             const docUri = cmdParams.arguments[0];
@@ -796,14 +801,14 @@ function _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
     });
 }
 
-function _convertRange(range?: DiagnosticTextRange): Range {
+function _convertRange(range?: LineAndColumnRange): Range {
     if (!range) {
         return Range.create(_convertPosition(), _convertPosition());
     }
     return Range.create(_convertPosition(range.start), _convertPosition(range.end));
 }
 
-function _convertPosition(position?: DiagnosticTextPosition): Position {
+function _convertPosition(position?: LineAndColumn): Position {
     if (!position) {
         return Position.create(0, 0);
     }

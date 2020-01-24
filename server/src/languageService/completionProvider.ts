@@ -26,7 +26,7 @@ import { TypeEvaluator, CallSignatureInfo } from '../analyzer/typeEvaluator';
 import { FunctionType, TypeCategory, ClassType, Type } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
 import { ConfigOptions } from '../common/configOptions';
-import { comparePositions, DiagnosticTextPosition } from '../common/diagnostic';
+import { comparePositions, LineAndColumn } from '../common/textRange';
 import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
@@ -125,7 +125,7 @@ enum SortCategory {
 export interface CompletionItemData {
     filePath: string;
     workspacePath: string;
-    position: DiagnosticTextPosition;
+    position: LineAndColumn;
     autoImportText?: string;
     symbolId?: number;
 }
@@ -156,7 +156,7 @@ export class CompletionProvider {
         private _parseResults: ParseResults,
         private _fileContents: string,
         private _importResolver: ImportResolver,
-        private _position: DiagnosticTextPosition,
+        private _position: LineAndColumn,
         private _filePath: string,
         private _configOptions: ConfigOptions,
         private _importLookup: ImportLookup,
