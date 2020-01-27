@@ -72,7 +72,7 @@ export const srcFolder = normalizeSlashes("/.src");
  * Unless overridden, `/.src` will be the current working directory for the virtual file system.
  */
 export function createFromFileSystem(host: FileSystemResolverHost, ignoreCase: boolean, { documents, files, cwd, time, meta }: FileSystemCreateOptions = {}) {
-    const fs = getBuiltLocal(host, ignoreCase).shadow();
+    const fs = getBuiltLocal(host, meta ? meta[typeshedFolder] : undefined, ignoreCase).shadow();
     if (meta) {
         for (const key of Object.keys(meta)) {
             fs.meta.set(key, meta[key]);
@@ -106,34 +106,38 @@ export function createFromFileSystem(host: FileSystemResolverHost, ignoreCase: b
     return fs;
 }
 
-let builtLocalHost: FileSystemResolverHost | undefined;
-let builtLocalCI: FileSystem | undefined;
-let builtLocalCS: FileSystem | undefined;
+let cacheKey: { host: FileSystemResolverHost, typeshedFolderPath: string | undefined } | undefined;
+let localCIFSCache: FileSystem | undefined;
+let localCSFSCache: FileSystem | undefined;
 
-function getBuiltLocal(host: FileSystemResolverHost, ignoreCase: boolean): FileSystem {
-    if (builtLocalHost !== host) {
-        builtLocalCI = undefined;
-        builtLocalCS = undefined;
-        builtLocalHost = host;
+function getBuiltLocal(host: FileSystemResolverHost, typeshedFolderPath: string | undefined, ignoreCase: boolean): FileSystem {
+    if (cacheKey?.host !== host || cacheKey.typeshedFolderPath != typeshedFolderPath) {
+        localCIFSCache = undefined;
+        localCSFSCache = undefined;
+        cacheKey = { host, typeshedFolderPath };
     }
-    if (!builtLocalCI) {
+    if (!localCIFSCache) {
         const resolver = createResolver(host);
-        builtLocalCI = new FileSystem(/*ignoreCase*/ true, {
+        typeshedFolderPath = typeshedFolderPath ?? path.resolve(host.getWorkspaceRoot(), "../dist/typeshed-fallback");
+        localCIFSCache = new FileSystem(/*ignoreCase*/ true, {
             files: {
-                [typeshedFolder]: new Mount(path.resolve(host.getWorkspaceRoot(), "../dist/typeshed-fallback"), resolver),
+                [typeshedFolder]: new Mount(typeshedFolderPath, resolver),
                 [srcFolder]: {}
             },
             cwd: srcFolder,
             meta: {}
         });
-        builtLocalCI.makeReadonly();
+        localCIFSCache.makeReadonly();
     }
-    if (ignoreCase) return builtLocalCI;
-    if (!builtLocalCS) {
-        builtLocalCS = builtLocalCI.shadow(/*ignoreCase*/ false);
-        builtLocalCS.makeReadonly();
+
+    if (ignoreCase) return localCIFSCache;
+
+    if (!localCSFSCache) {
+        localCSFSCache = localCIFSCache.shadow(/*ignoreCase*/ false);
+        localCSFSCache.makeReadonly();
     }
-    return builtLocalCS;
+
+    return localCSFSCache;
 }
 
 function createResolver(host: FileSystemResolverHost): FileSystemResolver {

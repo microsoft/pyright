@@ -158,6 +158,24 @@ test('createFromFileSystem2', () => {
     assert(entries.length > 0);
 });
 
+test('createFromFileSystemWithCustomTypeshedPath', () => {
+    const invalidpath = normalizeSlashes(combinePaths(io.IO.getWorkspaceRoot(), "../docs"));
+    const fs = factory.createFromFileSystem(io.IO, /* ignoreCase */ false, {
+        cwd: factory.srcFolder, meta: { [factory.typeshedFolder]: invalidpath }
+    });
+
+    const entries = fs.readdirSync(factory.typeshedFolder);
+    assert(entries.filter(e => e.endsWith(".md")).length > 0);
+});
+
+test('createFromFileSystemWithMetadata', () => {
+    const fs = factory.createFromFileSystem(io.IO, /* ignoreCase */ false, {
+        cwd: factory.srcFolder, meta: { "unused": "unused" }
+    });
+
+    assert(fs.existsSync(factory.srcFolder));
+});
+
 function countFile(files: vfs.FileSet): number {
     let count = 0;
     for (const value of Object.values(flatten(files))) {
