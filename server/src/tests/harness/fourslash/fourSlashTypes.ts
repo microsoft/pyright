@@ -5,6 +5,24 @@
 */
 import * as debug from "../../../common/debug";
 
+/** setting file name */
+export const pythonSettingFilename = "python.json";
+
+/** well known global option names */
+export const enum GlobalMetadataOptionNames {
+    projectRoot = "projectroot",
+    ignoreCase = "ignorecase"
+}
+
+/** Any option name not belong to this will become global option */
+export const enum MetadataOptionNames {
+    fileName = "filename",
+    reserved = "reserved"
+}
+
+/** List of allowed file metadata names */
+export const fileMetadataNames = [MetadataOptionNames.fileName, MetadataOptionNames.reserved];
+
 /** all the necessary information to set the right compiler settings */
 export interface CompilerSettings {
     [name: string]: string;
@@ -42,30 +60,12 @@ export interface FourSlashData {
     rangesByText?: MultiMap<Range>;
 }
 
-/** Any option name not belong to this will become global option */
-export const enum MetadataOptionNames {
-    fileName = "filename",
-    reserved = "reserved"
-}
-
-/** List of allowed file metadata names */
-export const fileMetadataNames = [MetadataOptionNames.fileName, MetadataOptionNames.reserved];
-
-/** four slash test types
- * 1. add explanation on what each enum member means
- */
-export const enum FourSlashTestType {
-    Native,
-    // Shims,
-    // ShimsWithPreprocess,
-    // Server
-}
-
 export interface Marker {
     fileName: string;
     position: number;
     data?: {};
 }
+
 export interface Range {
     fileName: string;
     marker?: Marker;
