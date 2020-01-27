@@ -6,7 +6,7 @@
 
 import * as assert from 'assert';
 import * as utils from '../common/collectionUtils';
-import { compareValues } from '../common/core';
+import { compareValues, isArray } from '../common/core';
 
 test('UtilsContainsDefault', () => {
     const data = [1, 2, 3, 4, 5];
@@ -86,12 +86,12 @@ test('UtilsBinarySearchMiss', () => {
 
 test('isArray1', () => {
     const data = [new D(1, "Hello3")];
-    assert(utils.isArray(data));
+    assert(isArray(data));
 });
 
 test('isArray2', () => {
     const data = {};
-    assert(!utils.isArray(data));
+    assert(!isArray(data));
 });
 
 test('addRange1', () => {

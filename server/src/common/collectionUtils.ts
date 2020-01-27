@@ -4,17 +4,10 @@
 * Licensed under the MIT license.
 */
 
-import { Comparison, equateValues, compareValues } from "./core";
+import { Comparison, equateValues, compareValues, isArray } from "./core";
 
 export const emptyArray: never[] = [] as never[];
 export type EqualityComparer<T> = (a: T, b: T) => boolean;
-
-/**
- * Tests whether a value is an array.
- */
-export function isArray(value: any): value is readonly {}[] {
-    return Array.isArray ? Array.isArray(value) : value instanceof Array;
-}
 
 export function contains<T>(array: readonly T[] | undefined, value: T, equalityComparer: EqualityComparer<T> = equateValues): boolean {
     if (array) {
@@ -116,15 +109,6 @@ export function insertAt<T>(array: T[], index: number, value: T) {
 
 export type Comparer<T> = (a: T, b: T) => Comparison;
 
-/**
- * Type of objects whose values are all of the same type.
- * The `in` and `for-in` operators can *not* be safely used,
- * since `Object.prototype` may be modified by outside code.
- */
-export interface MapLike<T> {
-    [index: string]: T;
-}
-
 export interface SortedReadonlyArray<T> extends ReadonlyArray<T> {
     " __sortedArrayBrand": any;
 }
@@ -160,23 +144,6 @@ export function stableSort<T>(array: readonly T[], comparer: Comparer<T>): Sorte
 function stableSortIndices<T>(array: readonly T[], indices: number[], comparer: Comparer<T>) {
     // sort indices by value then position
     indices.sort((x, y) => comparer(array[x], array[y]) || compareValues(x, y));
-}
-
-/**
- * Iterates through 'array' by index and performs the callback on each element of array until the callback
- * returns a truthy value, then returns that value.
- * If no such value is found, the callback is applied to each element of array and undefined is returned.
- */
-export function forEach<T, U>(array: readonly T[] | undefined, callback: (element: T, index: number) => U | undefined): U | undefined {
-    if (array) {
-        for (let i = 0; i < array.length; i++) {
-            const result = callback(array[i], i);
-            if (result) {
-                return result;
-            }
-        }
-    }
-    return undefined;
 }
 
 export function map<T, U>(array: readonly T[], f: (x: T, i: number) => U): U[];

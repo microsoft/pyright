@@ -55,3 +55,42 @@ export function compareComparableValues(a: string | number | undefined, b: strin
 export function compareValues(a: number | undefined, b: number | undefined): Comparison {
     return compareComparableValues(a, b);
 }
+
+/**
+ * Tests whether a value is an array.
+ */
+export function isArray(value: any): value is readonly {}[] {
+    return Array.isArray ? Array.isArray(value) : value instanceof Array;
+}
+
+/**
+ * Tests whether a value is string
+ */
+export function isString(text: unknown): text is string {
+    return typeof text === "string";
+}
+
+export function isNumber(x: unknown): x is number {
+    return typeof x === "number";
+}
+
+const hasOwnProperty = Object.prototype.hasOwnProperty;
+
+/**
+ * Type of objects whose values are all of the same type.
+ * The `in` and `for-in` operators can *not* be safely used,
+ * since `Object.prototype` may be modified by outside code.
+ */
+export interface MapLike<T> {
+    [index: string]: T;
+}
+
+/**
+ * Indicates whether a map-like contains an own property with the specified key.
+ *
+ * @param map A map-like.
+ * @param key A property key.
+ */
+export function hasProperty(map: MapLike<any>, key: string): boolean {
+    return hasOwnProperty.call(map, key);
+}

@@ -7,8 +7,8 @@
 import * as path from 'path'
 import * as debug from '../../common/debug';
 import Char from 'typescript-char';
-import { binarySearch, insertAt, addRange, append, contains, every, map, isArray, emptyArray, flatten, cloneAndSort } from "../../common/collectionUtils";
-import { identity, GetCanonicalFileName, toLowerCase } from "../../common/core";
+import { binarySearch, insertAt, addRange, append, contains, every, map, emptyArray, flatten, cloneAndSort } from "../../common/collectionUtils";
+import { identity, GetCanonicalFileName, toLowerCase, isArray } from "../../common/core";
 import { normalizePath, combinePaths, getPathComponents, stripTrailingDirectorySeparator, isRootedDiskPath, getDirectoryPath, getBaseFileName, containsPath, FileSystemEntries } from '../../common/pathUtils';
 import { getStringComparer, compareStringsCaseSensitive } from '../../common/stringUtils';
 
