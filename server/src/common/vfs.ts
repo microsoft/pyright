@@ -23,6 +23,7 @@ export interface FileWatcher {
 export interface VirtualFileSystem {
     existsSync(path: string): boolean;
     mkdirSync(path: string): void;
+    chdir(path: string): void;
     readdirSync(path: string): string[];
     readFileSync(path: string, encoding?: null): Buffer;
     readFileSync(path: string, encoding: string): string;
@@ -31,6 +32,7 @@ export interface VirtualFileSystem {
     statSync(path: string): Stats;
     unlinkSync(path: string): void;
     realpathSync(path: string): string;
+    getModulePath(): string;
     createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher;
 }
 
@@ -44,6 +46,7 @@ class FileSystem implements VirtualFileSystem {
 
     public existsSync(path: string) { return fs.existsSync(path) }
     public mkdirSync(path: string) { fs.mkdirSync(path); }
+    public chdir(path: string) { process.chdir(path); }
     public readdirSync(path: string) { return fs.readdirSync(path); }
     public readFileSync(path: string, encoding?: null): Buffer;
     public readFileSync(path: string, encoding: string): string;
@@ -53,6 +56,14 @@ class FileSystem implements VirtualFileSystem {
     public statSync(path: string) { return fs.statSync(path); }
     public unlinkSync(path: string) { return fs.unlinkSync(path); }
     public realpathSync(path: string) { return fs.realpathSync(path); }
+
+    public getModulePath(): string {
+        // The entry point to the tool should have set the __rootDirectory
+        // global variable to point to the directory that contains the
+        // typeshed-fallback directory.
+        return (global as any).__rootDirectory;
+    }
+
     public createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher {
         return this._createBaseFileSystemWatcher(paths).on(event, listener);
     }

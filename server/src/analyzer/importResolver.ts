@@ -500,7 +500,7 @@ export class ImportResolver {
 
         // If typeshed directory wasn't found in other locations, use the fallback.
         if (!typeshedPath) {
-            typeshedPath = PythonPathUtils.getTypeShedFallbackPath() || '';
+            typeshedPath = PythonPathUtils.getTypeShedFallbackPath(this.fileSystem.getModulePath()) || '';
         }
 
         typeshedPath = PythonPathUtils.getTypeshedSubdirectory(typeshedPath, isStdLib);

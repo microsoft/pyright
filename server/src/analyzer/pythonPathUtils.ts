@@ -9,17 +9,15 @@
 
 import * as child_process from 'child_process';
 import { ConfigOptions } from '../common/configOptions';
-import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
-    getFileSystemEntries, isDirectory, normalizePath } from '../common/pathUtils';
+import {
+    combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
+    getFileSystemEntries, isDirectory, normalizePath
+} from '../common/pathUtils';
 import { VirtualFileSystem } from '../common/vfs';
 
 const cachedSearchPaths = new Map<string, string[]>();
 
-export function getTypeShedFallbackPath() {
-    // The entry point to the tool should have set the __rootDirectory
-    // global variable to point to the directory that contains the
-    // typeshed-fallback directory.
-    let moduleDirectory = (global as any).__rootDirectory;
+export function getTypeShedFallbackPath(moduleDirectory?: string) {
     if (moduleDirectory) {
         moduleDirectory = normalizePath(moduleDirectory);
         return combinePaths(getDirectoryPath(
@@ -34,8 +32,8 @@ export function getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean)
     return combinePaths(typeshedPath, isStdLib ? 'stdlib' : 'third_party');
 }
 
-export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: ConfigOptions, 
-        venv: string | undefined, importFailureInfo: string[]): string[] | undefined {
+export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: ConfigOptions,
+    venv: string | undefined, importFailureInfo: string[]): string[] | undefined {
 
     importFailureInfo.push('Finding python search paths');
 
@@ -99,8 +97,8 @@ export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: Conf
 }
 
 export function getPythonPathFromPythonInterpreter(fs: VirtualFileSystem,
-        interpreterPath: string | undefined,
-        importFailureInfo: string[]): string[] {
+    interpreterPath: string | undefined,
+    importFailureInfo: string[]): string[] {
 
     const searchKey = interpreterPath || '';
 
@@ -116,9 +114,9 @@ export function getPythonPathFromPythonInterpreter(fs: VirtualFileSystem,
         // Set the working directory to a known location within
         // the extension directory. Otherwise the execution of
         // python can have unintended and surprising results.
-        const moduleDirectory = (global as any).__rootDirectory;
+        const moduleDirectory = fs.getModulePath();
         if (moduleDirectory) {
-            process.chdir(moduleDirectory);
+            fs.chdir(moduleDirectory);
         }
 
         const commandLineArgs: string[] = ['-c', 'import sys, json; json.dump(sys.path, sys.stdout)'];
