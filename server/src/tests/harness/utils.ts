@@ -32,7 +32,7 @@ export function splitContentByNewlines(content: string) {
 export function computeLineStarts(text: string): number[] {
     const maxAsciiCharacter = 0x7F;
 
-    const result: number[] = new Array();
+    const result: number[] = [];
     let pos = 0;
     let lineStart = 0;
     while (pos < text.length) {
@@ -311,7 +311,7 @@ export class Metadata {
 
     constructor(parent?: Metadata) {
         this._parent = parent;
-        this._map = Object.create(parent ? parent._map : null); // eslint-disable-line no-null/no-null
+        this._map = Object.create(parent ? parent._map : null);
     }
 
     public get size(): number {
@@ -358,7 +358,7 @@ export class Metadata {
     }
 
     public clear(): void {
-        this._map = Object.create(this._parent ? this._parent._map : null); // eslint-disable-line no-null/no-null
+        this._map = Object.create(this._parent ? this._parent._map : null);
         this._size = -1;
         this._version++;
     }
@@ -560,7 +560,7 @@ function getFileMatcherPatterns(path: string, excludes: readonly string[] | unde
     const absolutePath = combinePaths(currentDirectory, path);
 
     return {
-        includeFilePatterns: map(getRegularExpressionsForWildcards(includes, absolutePath, "files"), pattern => `^${pattern}$`),
+        includeFilePatterns: map(getRegularExpressionsForWildcards(includes, absolutePath, "files"), pattern => `^${ pattern }$`),
         includeFilePattern: getRegularExpressionForWildcard(includes, absolutePath, "files"),
         includeDirectoryPattern: getRegularExpressionForWildcard(includes, absolutePath, "directories"),
         excludePattern: getRegularExpressionForWildcard(excludes, absolutePath, "exclude"),
@@ -574,10 +574,10 @@ function getRegularExpressionForWildcard(specs: readonly string[] | undefined, b
         return undefined;
     }
 
-    const pattern = patterns.map(pattern => `(${pattern})`).join("|");
+    const pattern = patterns.map(pattern => `(${ pattern })`).join("|");
     // If excluding, match "foo/bar/baz...", but if including, only allow "foo".
     const terminator = usage === "exclude" ? "($|/)" : "$";
-    return `^(${pattern})${terminator}`;
+    return `^(${ pattern })${ terminator }`;
 }
 
 function getRegularExpressionsForWildcards(specs: readonly string[] | undefined, basePath: string, usage: "files" | "directories" | "exclude"): readonly string[] | undefined {
@@ -609,12 +609,12 @@ function indexOfAnyCharCode(text: string, charCodes: readonly number[], start?: 
 
 const wildcardCharCodes = [Char.Asterisk, Char.QuestionMark];
 const commonPackageFolders: readonly string[] = ["node_modules", "bower_components", "jspm_packages"];
-const implicitExcludePathRegexPattern = `(?!(${commonPackageFolders.join("|")})(/|$))`;
+const implicitExcludePathRegexPattern = `(?!(${ commonPackageFolders.join("|") })(/|$))`;
 
 // Reserved characters, forces escaping of any non-word (or digit), non-whitespace character.
 // It may be inefficient (we could just match (/[-[\]{}()*+?.,\\^$|#\s]/g), but this is future
 // proof.
-const reservedCharacterPattern = /[^\w\s\/]/g;
+const reservedCharacterPattern = /[^\w\s/]/g;
 
 const filesMatcher: WildcardMatcher = {
     /**
@@ -628,7 +628,7 @@ const filesMatcher: WildcardMatcher = {
      * Regex for the ** wildcard. Matches any number of subdirectories. When used for including
      * files or directories, does not match subdirectories that start with a . character
      */
-    doubleAsteriskRegexFragment: `(/${implicitExcludePathRegexPattern}[^/.][^/]*)*?`,
+    doubleAsteriskRegexFragment: `(/${ implicitExcludePathRegexPattern }[^/.][^/]*)*?`,
     replaceWildcardCharacter: match => replaceWildcardCharacter(match, filesMatcher.singleAsteriskRegexFragment)
 };
 
@@ -638,7 +638,7 @@ const directoriesMatcher: WildcardMatcher = {
      * Regex for the ** wildcard. Matches any number of subdirectories. When used for including
      * files or directories, does not match subdirectories that start with a . character
      */
-    doubleAsteriskRegexFragment: `(/${implicitExcludePathRegexPattern}[^/.][^/]*)*?`,
+    doubleAsteriskRegexFragment: `(/${ implicitExcludePathRegexPattern }[^/.][^/]*)*?`,
     replaceWildcardCharacter: match => replaceWildcardCharacter(match, directoriesMatcher.singleAsteriskRegexFragment)
 };
 

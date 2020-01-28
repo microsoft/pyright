@@ -16,9 +16,6 @@ export const enum Comparison {
  */
 export type AnyFunction = (...args: never[]) => void;
 
-/** Does nothing. */
-export function noop(_?: {} | null | undefined): void { }
-
 /** Do nothing and return false */
 export function returnFalse(): false { return false; }
 

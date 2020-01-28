@@ -64,7 +64,7 @@ test('UtilsStableSort', () => {
     const data = [new D(2, "Hello3"), new D(1, "Hello1"), new D(2, "Hello4"), new D(1, "Hello2")];
     const sorted = utils.stableSort(data, (a, b) => compareValues(a.Value, b.Value));
 
-    let result: string[] = [];
+    const result: string[] = [];
     sorted.forEach(e => result.push(e.Name));
 
     assert.deepEqual(result, ["Hello1", "Hello2", "Hello3", "Hello4"])
@@ -135,7 +135,7 @@ class B {
     constructor(value: number) {
         this.Value = value;
     }
-};
+}
 
 class D extends B {
     Name: string;

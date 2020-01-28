@@ -13,8 +13,9 @@ import { matchFiles } from "./utils";
 import { createFromRealFileSystem } from '../../common/vfs';
 import { NullConsole } from '../../common/console';
 
-export let IO: IO = createNodeIO();
+export const IO: IO = createNodeIO();
 
+// eslint-disable-next-line @typescript-eslint/interface-name-prefix
 export interface IO {
     getCurrentDirectory(): string;
     useCaseSensitiveFileNames(): boolean;
@@ -49,7 +50,7 @@ function createNodeIO(): IO {
     const byteOrderMarkIndicator = "\uFEFF";
     const vfs = createFromRealFileSystem(new NullConsole());
 
-    let useCaseSensitiveFileNames = isFileSystemCaseSensitive();
+    const useCaseSensitiveFileNames = isFileSystemCaseSensitive();
 
     function isFileSystemCaseSensitive(): boolean {
         // win32\win64 are case insensitive platforms

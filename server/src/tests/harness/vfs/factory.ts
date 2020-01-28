@@ -106,7 +106,7 @@ export function createFromFileSystem(host: FileSystemResolverHost, ignoreCase: b
     return fs;
 }
 
-let cacheKey: { host: FileSystemResolverHost, typeshedFolderPath: string | undefined } | undefined;
+let cacheKey: { host: FileSystemResolverHost; typeshedFolderPath: string | undefined } | undefined;
 let localCIFSCache: FileSystem | undefined;
 let localCSFSCache: FileSystem | undefined;
 
@@ -146,7 +146,7 @@ function createResolver(host: FileSystemResolverHost): FileSystemResolver {
             const { files, directories } = host.getAccessibleFileSystemEntries(path);
             return directories.concat(files);
         },
-        statSync(path: string): { mode: number; size: number; } {
+        statSync(path: string): { mode: number; size: number } {
             if (host.directoryExists(path)) {
                 return { mode: S_IFDIR | 0o777, size: 0 };
             }

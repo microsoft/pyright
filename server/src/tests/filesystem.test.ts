@@ -123,7 +123,7 @@ test('Diffing', () => {
     assert.equal(countFile(fs.diff(fs.shadowRoot!.shadowRoot)!), 2);
 
     // branch out from first snapshot
-    var s = fs.shadowRoot!.shadow();
+    const s = fs.shadowRoot!.shadow();
 
     // "test2.txt" only exist in first snapshot
     assert(!s.existsSync("test2.txt"));

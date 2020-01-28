@@ -4,7 +4,7 @@
 * Licensed under the MIT license.
 */
 
-import { AnyFunction, compareValues } from "./core";
+import { AnyFunction, compareValues, hasProperty } from "./core";
 import { stableSort } from "./collectionUtils";
 
 export const enum AssertionLevel {
@@ -34,15 +34,14 @@ export function assert(expression: boolean, message?: string, verboseDebugInfo?:
 
 export function fail(message?: string, stackCrawlMark?: AnyFunction): never {
     // debugger;
-    const e = new Error(message ? `Debug Failure. ${message}` : "Debug Failure.");
-    if ((<any>Error).captureStackTrace) {
-        (<any>Error).captureStackTrace(e, stackCrawlMark || fail);
+    const e = new Error(message ? `Debug Failure. ${ message }` : "Debug Failure.");
+    if ((Error as any).captureStackTrace) {
+        (Error as any).captureStackTrace(e, stackCrawlMark || fail);
     }
     throw e;
 }
 
 export function assertDefined<T>(value: T | null | undefined, message?: string): T {
-    // eslint-disable-next-line no-null/no-null
     if (value === undefined || value === null) return fail(message);
     return value;
 }
@@ -56,19 +55,19 @@ export function assertEachDefined<T, A extends readonly T[]>(value: A, message?:
 
 export function assertNever(member: never, message = "Illegal value:", stackCrawlMark?: AnyFunction): never {
     const detail = JSON.stringify(member);
-    return fail(`${message} ${detail}`, stackCrawlMark || assertNever);
+    return fail(`${ message } ${ detail }`, stackCrawlMark || assertNever);
 }
 
 export function getFunctionName(func: AnyFunction) {
     if (typeof func !== "function") {
         return "";
     }
-    else if (func.hasOwnProperty("name")) {
-        return (<any>func).name;
+    else if (hasProperty(func, "name")) {
+        return (func as any).name;
     }
     else {
         const text = Function.prototype.toString.call(func);
-        const match = /^function\s+([\w\$]+)\s*\(/.exec(text);
+        const match = /^function\s+([\w$]+)\s*\(/.exec(text);
         return match ? match[1] : "";
     }
 }
@@ -89,7 +88,7 @@ export function formatEnum(value = 0, enumObject: any, isFlags?: boolean) {
                 break;
             }
             if (enumValue !== 0 && enumValue & value) {
-                result = `${result}${result ? "|" : ""}${enumName}`;
+                result = `${ result }${ result ? "|" : "" }${ enumName }`;
                 remainingFlags &= ~enumValue;
             }
         }

@@ -76,14 +76,16 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
                     globalOptions[key] = value;
                 }
                 else {
-                    const normalizedPath = normalizeSlashes(value);
                     switch (key) {
                         case MetadataOptionNames.fileName:
-                            // Found an @FileName directive, if this is not the first then create a new subfile
-                            nextFile();
-                            currentFileName = isRootedDiskPath(normalizedPath) ? normalizedPath : combinePaths(normalizedBasePath, normalizedPath);
-                            currentFileOptions[key] = value;
-                            break;
+                            {
+                                // Found an @FileName directive, if this is not the first then create a new subfile
+                                nextFile();
+                                const normalizedPath = normalizeSlashes(value);
+                                currentFileName = isRootedDiskPath(normalizedPath) ? normalizedPath : combinePaths(normalizedBasePath, normalizedPath);
+                                currentFileOptions[key] = value;
+                                break;
+                            }
                         default:
                             // Add other fileMetadata flag
                             currentFileOptions[key] = value;

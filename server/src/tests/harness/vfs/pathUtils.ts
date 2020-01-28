@@ -118,28 +118,7 @@ export function validate(path: string, flags: ValidationFlags = ValidationFlags.
     return components.length > 1 && trailing ? format(reduce(components)) + sep : format(reduce(components));
 }
 
-// export function isDeclaration(path: string) {
-//     return extname(path, ".d.ts", /*ignoreCase*/ false).length > 0;
-// }
-
-// export function isSourceMap(path: string) {
-//     return extname(path, ".map", /*ignoreCase*/ false).length > 0;
-// }
-
-export function isJson(path: string) {
-    return extname(path, ".json", /*ignoreCase*/ false).length > 0;
-}
-
-// export function isDefaultLibrary(path: string) {
-//     return isDeclaration(path)
-//         && basename(path).startsWith("lib.");
-// }
-
-// export function isTsConfigFile(path: string): boolean {
-//     return path.indexOf("tsconfig") !== -1 && path.indexOf("json") !== -1;
-// }
-
 function getInvalidRootComponentRegExp(): RegExp {
     const escapedSeparator = pu.getRegexEscapedSeparator();
-    return new RegExp(`^(?!(${escapedSeparator}|${escapedSeparator}${escapedSeparator}\w+${escapedSeparator}|[a-zA-Z]:${escapedSeparator}?|)$)`);
+    return new RegExp(`^(?!(${ escapedSeparator }|${ escapedSeparator }${ escapedSeparator }w+${ escapedSeparator }|[a-zA-Z]:${ escapedSeparator }?|)$)`);
 }

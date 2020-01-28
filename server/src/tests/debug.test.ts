@@ -64,8 +64,8 @@ test('DebugAssertEachDefined', () => {
 });
 
 test('DebugAssertNever', () => {
-    const enum MyEnum { A, B, C };
-    let unused = <MyEnum>5;
+    const enum MyEnum { A, B, C }
+    const unused = 5 as MyEnum;
 
     // prevent one from adding new values and forget to add
     // handlers some places
@@ -92,6 +92,6 @@ test('DebugGetFunctionName', () => {
 test('DebugFormatEnum', () => {
     // helper method to add better message in exception around enum
     // const enum require --preserveConstEnums flag to work properly
-    enum MyEnum { A, B, C };
+    enum MyEnum { A, B, C }
     assert(debug.formatEnum(MyEnum.A, MyEnum, false) === "A");
 });

@@ -3,6 +3,7 @@
 * Copyright (c) Microsoft Corporation.
 * Licensed under the MIT license.
 */
+/* eslint-disable no-dupe-class-members */
 
 // except tests, this should be only file that import "fs"
 import * as fs from 'fs';
@@ -41,7 +42,7 @@ class FileSystem implements VirtualFileSystem {
     constructor(private _console: ConsoleInterface) {
     }
 
-    public existsSync(path: string) { return fs.existsSync(path) };
+    public existsSync(path: string) { return fs.existsSync(path) }
     public mkdirSync(path: string) { fs.mkdirSync(path); }
     public readdirSync(path: string) { return fs.readdirSync(path); }
     public readFileSync(path: string, encoding?: null): Buffer;

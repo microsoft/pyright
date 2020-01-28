@@ -128,7 +128,7 @@ test('MarkerWithDataAndName', () => {
     const data = parseTestData(".", code, "test.py");
     assert.equal(data.files[0].content, content);
 
-    var marker = { fileName: "test.py", position: 13, data: { name: "marker1", data1: "1", data2: "2" } };
+    const marker = { fileName: "test.py", position: 13, data: { name: "marker1", data1: "1", data2: "2" } };
     assert.deepEqual(data.markers, [marker]);
     assert.deepEqual(data.markerPositions.get(marker.data.name), marker)
 });
@@ -146,7 +146,7 @@ test('RangeWithMarker', () => {
     const data = parseTestData(".", code, "test.py");
     assert.equal(data.files[0].content, content);
 
-    var marker = { fileName: "test.py", position: 13 };
+    const marker = { fileName: "test.py", position: 13 };
     assert.deepEqual(data.markers, [marker]);
     assert.deepEqual(data.markerPositions.get("marker1"), marker)
 
@@ -166,7 +166,7 @@ test('RangeWithMarkerAndJsonData', () => {
     const data = parseTestData(".", code, "test.py");
     assert.equal(data.files[0].content, content);
 
-    var marker = { fileName: "test.py", position: 13, data: { name: "marker1", data1: "1", data2: "2" } };
+    const marker = { fileName: "test.py", position: 13, data: { name: "marker1", data1: "1", data2: "2" } };
     assert.deepEqual(data.markers, [marker]);
     assert.deepEqual(data.markerPositions.get(marker.data.name), marker)
 
