@@ -75,7 +75,7 @@ export class LanguageServerBase {
         // for open, change and close text document events.
         this._documents.listen(this._connection);
         // Setup callbacks
-        this.setupConnection();
+        this._setupConnection();
         // Listen on the connection
         this._connection.listen();
     }
@@ -100,11 +100,11 @@ export class LanguageServerBase {
 
         service.setCompletionCallback(results => {
             results.diagnostics.forEach(fileDiag => {
-                const diagnostics = this.convertDiagnostics(fileDiag.diagnostics);
+                const diagnostics = this._convertDiagnostics(fileDiag.diagnostics);
 
                 // Send the computed diagnostics to the client.
                 this._connection.sendDiagnostics({
-                    uri: this.convertPathToUri(fileDiag.filePath),
+                    uri: this._convertPathToUri(fileDiag.filePath),
                     diagnostics
                 });
 
@@ -134,7 +134,7 @@ export class LanguageServerBase {
 
     // Creates a service instance that's used for creating type
     // stubs for a specified target library.
-    private createTypeStubService(importName: string,
+    private _createTypeStubService(importName: string,
         complete: (success: boolean) => void): AnalyzerService {
 
         this._connection.console.log('Starting type stub service instance');
@@ -171,13 +171,13 @@ export class LanguageServerBase {
         return service;
     }
 
-    private handlePostCreateTypeStub() {
+    private _handlePostCreateTypeStub() {
         this._workspaceMap.forEach(workspace => {
             workspace.serviceInstance.handlePostCreateTypeStub();
         });
     }
 
-    private getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
+    private _getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
         let bestRootPath: string | undefined;
         let bestInstance: WorkspaceServiceInstance | undefined;
 
@@ -218,7 +218,7 @@ export class LanguageServerBase {
                     disableLanguageServices: false
                 };
                 this._workspaceMap.set(this._defaultWorkspacePath, defaultWorkspace);
-                this.updateSettingsForWorkspace(defaultWorkspace);
+                this._updateSettingsForWorkspace(defaultWorkspace);
             }
 
             return defaultWorkspace;
@@ -227,7 +227,7 @@ export class LanguageServerBase {
         return bestInstance;
     }
 
-    private setupConnection(): void {
+    private _setupConnection(): void {
         // After the server has started the client sends an initialize request. The server receives
         // in the passed params the rootPath of the workspace plus the client capabilities.
         this._connection.onInitialize((params): InitializeResult => {
@@ -236,7 +236,7 @@ export class LanguageServerBase {
             // Create a service instance for each of the workspace folders.
             if (params.workspaceFolders) {
                 params.workspaceFolders.forEach(folder => {
-                    const path = this.convertUriToPath(folder.uri);
+                    const path = this._convertUriToPath(folder.uri);
                     this._workspaceMap.set(path, {
                         workspaceName: folder.name,
                         rootPath: path,
@@ -256,7 +256,7 @@ export class LanguageServerBase {
             }
 
             this._connection.console.log(`Fetching settings for workspace(s)`);
-            this.updateSettingsForAllWorkspaces();
+            this._updateSettingsForAllWorkspaces();
 
             return {
                 capabilities: {
@@ -288,19 +288,19 @@ export class LanguageServerBase {
 
         this._connection.onDidChangeConfiguration(() => {
             this._connection.console.log(`Received updated settings`);
-            this.updateSettingsForAllWorkspaces();
+            this._updateSettingsForAllWorkspaces();
         });
 
         this._connection.onCodeAction(params => {
-            this.recordUserInteractionTime();
+            this._recordUserInteractionTime();
 
             const sortImportsCodeAction = CodeAction.create(
                 'Organize Imports', Command.create('Organize Imports', commandOrderImports),
                 CodeActionKind.SourceOrganizeImports);
             const codeActions: CodeAction[] = [sortImportsCodeAction];
 
-            const filePath = this.convertUriToPath(params.textDocument.uri);
-            const workspace = this.getWorkspaceForFile(filePath);
+            const filePath = this._convertUriToPath(params.textDocument.uri);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (!workspace.disableLanguageServices) {
                 const range: LineAndColumnRange = {
                     start: {
@@ -355,16 +355,16 @@ export class LanguageServerBase {
         });
 
         this._connection.onDefinition(params => {
-            this.recordUserInteractionTime();
+            this._recordUserInteractionTime();
 
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = this._convertUriToPath(params.textDocument.uri);
 
             const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -373,18 +373,18 @@ export class LanguageServerBase {
                 return undefined;
             }
             return locations.map(loc =>
-                Location.create(this.convertPathToUri(loc.path), this.convertRange(loc.range)));
+                Location.create(this._convertPathToUri(loc.path), this._convertRange(loc.range)));
         });
 
         this._connection.onReferences(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = this._convertUriToPath(params.textDocument.uri);
 
             const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -394,15 +394,15 @@ export class LanguageServerBase {
                 return undefined;
             }
             return locations.map(loc =>
-                Location.create(this.convertPathToUri(loc.path), this.convertRange(loc.range)));
+                Location.create(this._convertPathToUri(loc.path), this._convertRange(loc.range)));
         });
 
         this._connection.onDocumentSymbol(params => {
-            this.recordUserInteractionTime();
+            this._recordUserInteractionTime();
 
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = this._convertUriToPath(params.textDocument.uri);
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return undefined;
             }
@@ -426,14 +426,14 @@ export class LanguageServerBase {
         });
 
         this._connection.onHover(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = this._convertUriToPath(params.textDocument.uri);
 
             const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             const hoverResults = workspace.serviceInstance.getHoverForPosition(filePath, position);
             if (!hoverResults) {
                 return undefined;
@@ -451,19 +451,19 @@ export class LanguageServerBase {
                     kind: MarkupKind.Markdown,
                     value: markupString
                 },
-                range: this.convertRange(hoverResults.range)
+                range: this._convertRange(hoverResults.range)
             };
         });
 
         this._connection.onSignatureHelp(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = this._convertUriToPath(params.textDocument.uri);
 
             const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -493,14 +493,14 @@ export class LanguageServerBase {
         });
 
         this._connection.onCompletion(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = this._convertUriToPath(params.textDocument.uri);
 
             const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -532,14 +532,14 @@ export class LanguageServerBase {
         });
 
         this._connection.onRenameRequest(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
+            const filePath = this._convertUriToPath(params.textDocument.uri);
 
             const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
 
-            const workspace = this.getWorkspaceForFile(filePath);
+            const workspace = this._getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -554,13 +554,13 @@ export class LanguageServerBase {
                 changes: {}
             };
             editActions.forEach(editAction => {
-                const uri = this.convertPathToUri(editAction.filePath);
+                const uri = this._convertPathToUri(editAction.filePath);
                 if (edits.changes![uri] === undefined) {
                     edits.changes![uri] = [];
                 }
 
                 const textEdit: TextEdit = {
-                    range: this.convertRange(editAction.range),
+                    range: this._convertRange(editAction.range),
                     newText: editAction.replacementText
                 };
                 edits.changes![uri].push(textEdit);
@@ -570,8 +570,8 @@ export class LanguageServerBase {
         });
 
         this._connection.onDidOpenTextDocument(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
-            const service = this.getWorkspaceForFile(filePath).serviceInstance;
+            const filePath = this._convertUriToPath(params.textDocument.uri);
+            const service = this._getWorkspaceForFile(filePath).serviceInstance;
             service.setFileOpened(
                 filePath,
                 params.textDocument.version,
@@ -579,10 +579,10 @@ export class LanguageServerBase {
         });
 
         this._connection.onDidChangeTextDocument(params => {
-            this.recordUserInteractionTime();
+            this._recordUserInteractionTime();
 
-            const filePath = this.convertUriToPath(params.textDocument.uri);
-            const service = this.getWorkspaceForFile(filePath).serviceInstance;
+            const filePath = this._convertUriToPath(params.textDocument.uri);
+            const service = this._getWorkspaceForFile(filePath).serviceInstance;
             service.updateOpenFileContents(
                 filePath,
                 params.textDocument.version,
@@ -590,20 +590,20 @@ export class LanguageServerBase {
         });
 
         this._connection.onDidCloseTextDocument(params => {
-            const filePath = this.convertUriToPath(params.textDocument.uri);
-            const service = this.getWorkspaceForFile(filePath).serviceInstance;
+            const filePath = this._convertUriToPath(params.textDocument.uri);
+            const service = this._getWorkspaceForFile(filePath).serviceInstance;
             service.setFileClosed(filePath);
         });
 
         this._connection.onInitialized(() => {
             this._connection.workspace.onDidChangeWorkspaceFolders(event => {
                 event.removed.forEach(workspace => {
-                    const rootPath = this.convertUriToPath(workspace.uri);
+                    const rootPath = this._convertUriToPath(workspace.uri);
                     this._workspaceMap.delete(rootPath);
                 });
 
                 event.added.forEach(workspace => {
-                    const rootPath = this.convertUriToPath(workspace.uri);
+                    const rootPath = this._convertUriToPath(workspace.uri);
                     const newWorkspace: WorkspaceServiceInstance = {
                         workspaceName: workspace.name,
                         rootPath,
@@ -612,7 +612,7 @@ export class LanguageServerBase {
                         disableLanguageServices: false
                     };
                     this._workspaceMap.set(rootPath, newWorkspace);
-                    this.updateSettingsForWorkspace(newWorkspace);
+                    this._updateSettingsForWorkspace(newWorkspace);
                 });
             });
         });
@@ -624,8 +624,8 @@ export class LanguageServerBase {
                 if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
                     const docUri = cmdParams.arguments[0];
                     const otherArgs = cmdParams.arguments.slice(1);
-                    const filePath = this.convertUriToPath(docUri);
-                    const workspace = this.getWorkspaceForFile(filePath);
+                    const filePath = this._convertUriToPath(docUri);
+                    const workspace = this._getWorkspaceForFile(filePath);
                     const editActions = workspace.serviceInstance.performQuickAction(
                         filePath, cmdParams.command, otherArgs);
                     if (!editActions) {
@@ -635,7 +635,7 @@ export class LanguageServerBase {
                     const edits: TextEdit[] = [];
                     editActions.forEach(editAction => {
                         edits.push({
-                            range: this.convertRange(editAction.range),
+                            range: this._convertRange(editAction.range),
                             newText: editAction.replacementText
                         });
                     });
@@ -647,9 +647,9 @@ export class LanguageServerBase {
                     const workspaceRoot = cmdParams.arguments[0];
                     const importName = cmdParams.arguments[1];
                     const promise = new Promise<void>((resolve, reject) => {
-                        const serviceInstance = this.createTypeStubService(importName, success => {
+                        const serviceInstance = this._createTypeStubService(importName, success => {
                             if (success) {
-                                this.handlePostCreateTypeStub();
+                                this._handlePostCreateTypeStub();
                                 resolve();
                             } else {
                                 reject();
@@ -660,13 +660,13 @@ export class LanguageServerBase {
                         const workspace: WorkspaceServiceInstance = {
                             workspaceName: `Create Type Stub ${importName}`,
                             rootPath: workspaceRoot,
-                            rootUri: this.convertPathToUri(workspaceRoot),
+                            rootUri: this._convertPathToUri(workspaceRoot),
                             serviceInstance,
                             disableLanguageServices: true
                         };
 
-                        this.fetchSettingsForWorkspace(workspace, (pythonSettings, pyrightSettings) => {
-                            this.updateOptionsAndRestartService(workspace, pythonSettings, pyrightSettings, importName);
+                        this._fetchSettingsForWorkspace(workspace, (pythonSettings, pyrightSettings) => {
+                            this._updateOptionsAndRestartService(workspace, pythonSettings, pyrightSettings, importName);
                         });
                     });
 
@@ -678,7 +678,7 @@ export class LanguageServerBase {
         });
     }
 
-    private getConfiguration(workspace: WorkspaceServiceInstance, sections: string[]) {
+    private _getConfiguration(workspace: WorkspaceServiceInstance, sections: string[]) {
         const scopeUri = workspace.rootUri ? workspace.rootUri : undefined;
         return this._connection.workspace.getConfiguration(
             sections.map(section => {
@@ -690,16 +690,16 @@ export class LanguageServerBase {
         );
     }
 
-    private updateSettingsForAllWorkspaces() {
+    private _updateSettingsForAllWorkspaces() {
         this._workspaceMap.forEach(workspace => {
-            this.updateSettingsForWorkspace(workspace);
+            this._updateSettingsForWorkspace(workspace);
         });
     }
 
-    private fetchSettingsForWorkspace(workspace: WorkspaceServiceInstance,
+    private _fetchSettingsForWorkspace(workspace: WorkspaceServiceInstance,
         callback: (pythonSettings: PythonSettings, pyrightSettings: PyrightSettings) => void) {
 
-        const pythonSettingsPromise = this.getConfiguration(workspace, ['python', 'pyright']);
+        const pythonSettingsPromise = this._getConfiguration(workspace, ['python', 'pyright']);
         pythonSettingsPromise.then((settings: [PythonSettings, PyrightSettings]) => {
             callback(settings[0], settings[1]);
         }, () => {
@@ -708,15 +708,15 @@ export class LanguageServerBase {
         });
     }
 
-    private updateSettingsForWorkspace(workspace: WorkspaceServiceInstance) {
-        this.fetchSettingsForWorkspace(workspace, (pythonSettings, pyrightSettings) => {
-            this.updateOptionsAndRestartService(workspace, pythonSettings, pyrightSettings);
+    private _updateSettingsForWorkspace(workspace: WorkspaceServiceInstance) {
+        this._fetchSettingsForWorkspace(workspace, (pythonSettings, pyrightSettings) => {
+            this._updateOptionsAndRestartService(workspace, pythonSettings, pyrightSettings);
 
             workspace.disableLanguageServices = !!pyrightSettings.disableLanguageServices;
         });
     }
 
-    private updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
+    private _updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
         pythonSettings: PythonSettings, pyrightSettings?: PyrightSettings,
         typeStubTargetImportName?: string) {
 
@@ -734,7 +734,7 @@ export class LanguageServerBase {
 
         if (pythonSettings.venvPath) {
             commandLineOptions.venvPath = combinePaths(workspace.rootPath || this._rootPath,
-                normalizePath(this.expandPathVariables(pythonSettings.venvPath)));
+                normalizePath(this._expandPathVariables(pythonSettings.venvPath)));
         }
 
         if (pythonSettings.pythonPath) {
@@ -743,7 +743,7 @@ export class LanguageServerBase {
             // setting value as a path to the interpreter. We'll simply ignore it in this case.
             if (pythonSettings.pythonPath.trim() !== 'python') {
                 commandLineOptions.pythonPath = combinePaths(workspace.rootPath || this._rootPath,
-                    normalizePath(this.expandPathVariables(pythonSettings.pythonPath)));
+                    normalizePath(this._expandPathVariables(pythonSettings.pythonPath)));
             }
         }
 
@@ -755,7 +755,7 @@ export class LanguageServerBase {
             // official VS Code Python extension supports multiple typeshed paths.
             // We'll use the first one specified and ignore the rest.
             commandLineOptions.typeshedPath =
-                this.expandPathVariables(pythonSettings.analysis.typeshedPaths[0]);
+                this._expandPathVariables(pythonSettings.analysis.typeshedPaths[0]);
         }
 
         if (typeStubTargetImportName) {
@@ -768,7 +768,7 @@ export class LanguageServerBase {
     // Expands certain predefined variables supported within VS Code settings.
     // Ideally, VS Code would provide an API for doing this expansion, but
     // it doesn't. We'll handle the most common variables here as a convenience.
-    private expandPathVariables(value: string): string {
+    private _expandPathVariables(value: string): string {
         const regexp = /\$\{(.*?)\}/g;
         return value.replace(regexp, (match: string, name: string) => {
             const trimmedName = name.trim();
@@ -779,7 +779,7 @@ export class LanguageServerBase {
         });
     }
 
-    private convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
+    private _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
         return diags.map(diag => {
             const severity = diag.category === DiagnosticCategory.Error ?
                 DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
@@ -790,7 +790,7 @@ export class LanguageServerBase {
                 source = `${source} (${rule})`;
             }
 
-            const vsDiag = Diagnostic.create(this.convertRange(diag.range), diag.message, severity,
+            const vsDiag = Diagnostic.create(this._convertRange(diag.range), diag.message, severity,
                 undefined, source);
 
             if (diag.category === DiagnosticCategory.UnusedCode) {
@@ -802,8 +802,8 @@ export class LanguageServerBase {
             if (relatedInfo.length > 0) {
                 vsDiag.relatedInformation = relatedInfo.map(info => {
                     return DiagnosticRelatedInformation.create(
-                        Location.create(this.convertPathToUri(info.filePath),
-                            this.convertRange(info.range)),
+                        Location.create(this._convertPathToUri(info.filePath),
+                            this._convertRange(info.range)),
                         info.message
                     );
                 });
@@ -813,21 +813,21 @@ export class LanguageServerBase {
         });
     }
 
-    private convertRange(range?: LineAndColumnRange): Range {
+    private _convertRange(range?: LineAndColumnRange): Range {
         if (!range) {
-            return Range.create(this.convertPosition(), this.convertPosition());
+            return Range.create(this._convertPosition(), this._convertPosition());
         }
-        return Range.create(this.convertPosition(range.start), this.convertPosition(range.end));
+        return Range.create(this._convertPosition(range.start), this._convertPosition(range.end));
     }
 
-    private convertPosition(position?: LineAndColumn): Position {
+    private _convertPosition(position?: LineAndColumn): Position {
         if (!position) {
             return Position.create(0, 0);
         }
         return Position.create(position.line, position.column);
     }
 
-    private convertUriToPath(uriString: string): string {
+    private _convertUriToPath(uriString: string): string {
         const uri = URI.parse(uriString);
         let convertedPath = normalizePath(uri.path);
 
@@ -840,11 +840,11 @@ export class LanguageServerBase {
         return convertedPath;
     }
 
-    private convertPathToUri(path: string): string {
+    private _convertPathToUri(path: string): string {
         return URI.file(path).toString();
     }
 
-    private recordUserInteractionTime() {
+    private _recordUserInteractionTime() {
         // Tell all of the services that the user is actively
         // interacting with one or more editors, so they should
         // back off from performing any work.
