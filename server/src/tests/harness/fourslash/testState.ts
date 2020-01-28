@@ -74,36 +74,6 @@ export class TestState {
         this.openFile(0);
     }
 
-    private isConfig(file: FourSlashFile, ignoreCase: boolean): boolean {
-        const comparer = getStringComparer(ignoreCase);
-        return comparer(getBaseFileName(file.fileName), pythonSettingFilename) == Comparison.EqualTo;
-    }
-
-    private convertGlobalOptionsToConfigOptions(globalOptions: CompilerSettings): ConfigOptions {
-        const srtRoot: string = GlobalMetadataOptionNames.projectRoot;
-        const projectRoot = normalizeSlashes(globalOptions[srtRoot] ?? ".");
-        const configOptions = new ConfigOptions(projectRoot);
-
-        // add more global options as we need them
-
-        // Always enable "test mode".
-        configOptions.internalTestMode = true;
-        return configOptions;
-    }
-
-    private getFileContent(fileName: string): string {
-        const files = this.testData.files.filter(f => comparePaths(f.fileName, fileName, this.fs.ignoreCase) === Comparison.EqualTo);
-        return files[0].content;
-    }
-
-    private convertPositionToOffset(fileName: string, position: LineAndColumn): number {
-        return -1;
-    }
-
-    private convertOffsetToPosition(fileName: string, offset: number): LineAndColumn {
-        return { line: 0, column: 0 };
-    }
-
     // Entry points from fourslash.ts
     public goToMarker(nameOrMarker: string | Marker = "") {
         const marker = isString(nameOrMarker) ? this.getMarkerByName(nameOrMarker) : nameOrMarker;
@@ -185,6 +155,48 @@ export class TestState {
         this.selectRange({ fileName: this.activeFile.fileName, pos: lineStart, end: lineEnd });
     }
 
+    public goToEachRange(action: (range: Range) => void) {
+        const ranges = this.getRanges();
+        debug.assert(ranges.length > 0);
+        for (const range of ranges) {
+            this.selectRange(range);
+            action(range);
+        }
+    }
+
+    public goToRangeStart({ fileName, pos }: Range) {
+        this.openFile(fileName);
+        this.goToPosition(pos);
+    }
+
+    public getRanges(): Range[] {
+        return this.testData.ranges;
+    }
+
+    public getRangesInFile(fileName = this.activeFile.fileName) {
+        return this.getRanges().filter(r => r.fileName === fileName);
+    }
+
+    public rangesByText(): Map<string, Range[]> {
+        if (this.testData.rangesByText) return this.testData.rangesByText;
+        const result = this.createMultiMap<Range>();
+        this.testData.rangesByText = result;
+        for (const range of this.getRanges()) {
+            const text = this.rangeText(range);
+            result.add(text, range);
+        }
+        return result;
+    }
+
+    public goToBOF() {
+        this.goToPosition(0);
+    }
+
+    public goToEOF() {
+        const len = this.getFileContent(this.activeFile.fileName).length;
+        this.goToPosition(len);
+    }
+
     public moveCaretRight(count = 1) {
         this.currentCaretPosition += count;
         this.currentCaretPosition = Math.min(this.currentCaretPosition, this.getFileContent(this.activeFile.fileName).length);
@@ -199,15 +211,6 @@ export class TestState {
 
         // Let the host know that this file is now open
         // this.languageServiceAdapterHost.openFile(fileToOpen.fileName, content);
-    }
-
-    private raiseError(message: string): never {
-        throw new Error(this.messageAtLastKnownMarker(message));
-    }
-
-    private messageAtLastKnownMarker(message: string) {
-        const locationDescription = this.lastKnownMarker ? this.lastKnownMarker : this.getLineColStringAtPosition(this.currentCaretPosition);
-        return `At ${locationDescription}: ${message}`;
     }
 
     public printCurrentFileState(showWhitespace: boolean, makeCaretVisible: boolean) {
@@ -296,106 +299,6 @@ export class TestState {
         this.checkPostEditInvariants();
     }
 
-    private checkPostEditInvariants() {
-        // blank for now
-    }
-
-    private editScriptAndUpdateMarkers(fileName: string, editStart: number, editEnd: number, newText: string) {
-        // this.languageServiceAdapterHost.editScript(fileName, editStart, editEnd, newText);
-        for (const marker of this.testData.markers) {
-            if (marker.fileName === fileName) {
-                marker.position = updatePosition(marker.position, editStart, editEnd, newText);
-            }
-        }
-
-        for (const range of this.testData.ranges) {
-            if (range.fileName === fileName) {
-                range.pos = updatePosition(range.pos, editStart, editEnd, newText);
-                range.end = updatePosition(range.end, editStart, editEnd, newText);
-            }
-        }
-        this.testData.rangesByText = undefined;
-    }
-
-    private removeWhitespace(text: string): string {
-        return text.replace(/\s/g, "");
-    }
-
-    public goToBOF() {
-        this.goToPosition(0);
-    }
-
-    public goToEOF() {
-        const len = this.getFileContent(this.activeFile.fileName).length;
-        this.goToPosition(len);
-    }
-
-    public goToEachRange(action: (range: Range) => void) {
-        const ranges = this.getRanges();
-        debug.assert(ranges.length > 0);
-        for (const range of ranges) {
-            this.selectRange(range);
-            action(range);
-        }
-    }
-
-    public goToRangeStart({ fileName, pos }: Range) {
-        this.openFile(fileName);
-        this.goToPosition(pos);
-    }
-
-    public getRanges(): Range[] {
-        return this.testData.ranges;
-    }
-
-    public getRangesInFile(fileName = this.activeFile.fileName) {
-        return this.getRanges().filter(r => r.fileName === fileName);
-    }
-
-    public rangesByText(): Map<string, Range[]> {
-        if (this.testData.rangesByText) return this.testData.rangesByText;
-        const result = this.createMultiMap<Range>();
-        this.testData.rangesByText = result;
-        for (const range of this.getRanges()) {
-            const text = this.rangeText(range);
-            result.add(text, range);
-        }
-        return result;
-    }
-
-    private createMultiMap<T>(): MultiMap<T> {
-        const map = new Map<string, T[]>() as MultiMap<T>;
-        map.add = multiMapAdd;
-        map.remove = multiMapRemove;
-
-        return map;
-
-        function multiMapAdd<T>(this: MultiMap<T>, key: string, value: T) {
-            let values = this.get(key);
-            if (values) {
-                values.push(value);
-            }
-            else {
-                this.set(key, values = [value]);
-            }
-            return values;
-        }
-
-        function multiMapRemove<T>(this: MultiMap<T>, key: string, value: T) {
-            const values = this.get(key);
-            if (values) {
-                values.forEach((v, i, arr) => { if (v === value) arr.splice(i, 1) });
-                if (!values.length) {
-                    this.delete(key);
-                }
-            }
-        }
-    }
-
-    private rangeText({ fileName, pos, end }: Range): string {
-        return this.getFileContent(fileName).slice(pos, end);
-    }
-
     public verifyCaretAtMarker(markerName = "") {
         const pos = this.getMarkerByName(markerName);
         if (pos.fileName !== this.activeFile.fileName) {
@@ -435,6 +338,121 @@ export class TestState {
         this.verifyTextMatches(this.rangeText(this.getOnlyRange()), !!includeWhiteSpace, expectedText);
     }
 
+    public getMarkerByName(markerName: string) {
+        const markerPos = this.testData.markerPositions.get(markerName);
+        if (markerPos === undefined) {
+            throw new Error(`Unknown marker "${markerName}" Available markers: ${this.getMarkerNames().map(m => "\"" + m + "\"").join(", ")}`);
+        }
+        else {
+            return markerPos;
+        }
+    }
+
+    public setCancelled(numberOfCalls: number): void {
+        this.cancellationToken.setCancelled(numberOfCalls);
+    }
+
+    public resetCancelled(): void {
+        this.cancellationToken.resetCancelled();
+    }
+
+    private isConfig(file: FourSlashFile, ignoreCase: boolean): boolean {
+        const comparer = getStringComparer(ignoreCase);
+        return comparer(getBaseFileName(file.fileName), pythonSettingFilename) == Comparison.EqualTo;
+    }
+
+    private convertGlobalOptionsToConfigOptions(globalOptions: CompilerSettings): ConfigOptions {
+        const srtRoot: string = GlobalMetadataOptionNames.projectRoot;
+        const projectRoot = normalizeSlashes(globalOptions[srtRoot] ?? ".");
+        const configOptions = new ConfigOptions(projectRoot);
+
+        // add more global options as we need them
+
+        // Always enable "test mode".
+        configOptions.internalTestMode = true;
+        return configOptions;
+    }
+
+    private getFileContent(fileName: string): string {
+        const files = this.testData.files.filter(f => comparePaths(f.fileName, fileName, this.fs.ignoreCase) === Comparison.EqualTo);
+        return files[0].content;
+    }
+
+    private convertPositionToOffset(fileName: string, position: LineAndColumn): number {
+        return -1;
+    }
+
+    private convertOffsetToPosition(fileName: string, offset: number): LineAndColumn {
+        return { line: 0, column: 0 };
+    }
+
+    private raiseError(message: string): never {
+        throw new Error(this.messageAtLastKnownMarker(message));
+    }
+
+    private messageAtLastKnownMarker(message: string) {
+        const locationDescription = this.lastKnownMarker ? this.lastKnownMarker : this.getLineColStringAtPosition(this.currentCaretPosition);
+        return `At ${locationDescription}: ${message}`;
+    }
+
+    private checkPostEditInvariants() {
+        // blank for now
+    }
+
+    private editScriptAndUpdateMarkers(fileName: string, editStart: number, editEnd: number, newText: string) {
+        // this.languageServiceAdapterHost.editScript(fileName, editStart, editEnd, newText);
+        for (const marker of this.testData.markers) {
+            if (marker.fileName === fileName) {
+                marker.position = updatePosition(marker.position, editStart, editEnd, newText);
+            }
+        }
+
+        for (const range of this.testData.ranges) {
+            if (range.fileName === fileName) {
+                range.pos = updatePosition(range.pos, editStart, editEnd, newText);
+                range.end = updatePosition(range.end, editStart, editEnd, newText);
+            }
+        }
+        this.testData.rangesByText = undefined;
+    }
+
+    private removeWhitespace(text: string): string {
+        return text.replace(/\s/g, "");
+    }
+
+    private createMultiMap<T>(): MultiMap<T> {
+        const map = new Map<string, T[]>() as MultiMap<T>;
+        map.add = multiMapAdd;
+        map.remove = multiMapRemove;
+
+        return map;
+
+        function multiMapAdd<T>(this: MultiMap<T>, key: string, value: T) {
+            let values = this.get(key);
+            if (values) {
+                values.push(value);
+            }
+            else {
+                this.set(key, values = [value]);
+            }
+            return values;
+        }
+
+        function multiMapRemove<T>(this: MultiMap<T>, key: string, value: T) {
+            const values = this.get(key);
+            if (values) {
+                values.forEach((v, i, arr) => { if (v === value) arr.splice(i, 1) });
+                if (!values.length) {
+                    this.delete(key);
+                }
+            }
+        }
+    }
+
+    private rangeText({ fileName, pos, end }: Range): string {
+        return this.getFileContent(fileName).slice(pos, end);
+    }
+    
     private getOnlyRange() {
         const ranges = this.getRanges();
         if (ranges.length !== 1) {
@@ -538,24 +556,6 @@ export class TestState {
     private getLineColStringAtPosition(position: number, file: FourSlashFile = this.activeFile) {
         const pos = this.convertOffsetToPosition(file.fileName, position);
         return `line ${(pos.line + 1)}, col ${pos.column}`;
-    }
-
-    public getMarkerByName(markerName: string) {
-        const markerPos = this.testData.markerPositions.get(markerName);
-        if (markerPos === undefined) {
-            throw new Error(`Unknown marker "${markerName}" Available markers: ${this.getMarkerNames().map(m => "\"" + m + "\"").join(", ")}`);
-        }
-        else {
-            return markerPos;
-        }
-    }
-
-    public setCancelled(numberOfCalls: number): void {
-        this.cancellationToken.setCancelled(numberOfCalls);
-    }
-
-    public resetCancelled(): void {
-        this.cancellationToken.resetCancelled();
     }
 }
 

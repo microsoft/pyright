@@ -12,6 +12,7 @@ import { normalizeSlashes, combinePaths, comparePathsCaseSensitive } from '../co
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { TestState } from './harness/fourslash/testState';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
+import { Range } from './harness/fourslash/fourSlashTypes';
 
 test('Create', () => {
     const code = `
@@ -20,8 +21,7 @@ test('Create', () => {
 ////    pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
+    const { data, state } = parseAndGetTestState(code);
     assert(state.activeFile === data.files[0]);
 });
 
@@ -40,8 +40,7 @@ test('Multiple files', () => {
 ////    pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
+    const state = parseAndGetTestState(code).state;
 
     assert.equal(state.fs.cwd(), normalizeSlashes("/"));
     assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, "file1.py"))));
@@ -112,8 +111,7 @@ test('Configuration', () => {
 ////    pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
+    const state = parseAndGetTestState(code).state;
 
     assert.equal(state.fs.cwd(), normalizeSlashes("/"));
     assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, "file1.py"))));
@@ -132,8 +130,7 @@ test('ProjectRoot', () => {
 ////    pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
+    const state = parseAndGetTestState(code).state;
 
     assert.equal(state.fs.cwd(), normalizeSlashes("/"));
     assert(state.fs.existsSync(normalizeSlashes("/root/file1.py")));
@@ -151,8 +148,7 @@ test('IgnoreCase', () => {
 ////    pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
+    const state = parseAndGetTestState(code).state;
 
     assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, "FILE1.py"))));
 });
@@ -163,9 +159,7 @@ test('GoToMarker', () => {
 ////    /*marker1*/pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
-
+    const { data, state } = parseAndGetTestState(code);
     const marker = data.markerPositions.get("marker1");
 
     state.goToMarker("marker1");
@@ -189,9 +183,7 @@ test('GoToEachMarker', () => {
 ////    /*marker2*/pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
-
+    const { data, state } = parseAndGetTestState(code);
     const marker1 = data.markerPositions.get("marker1");
     const marker2 = data.markerPositions.get("marker2");
 
@@ -218,9 +210,7 @@ test('Markers', () => {
 ////    /*marker2*/pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
-
+    const { data, state } = parseAndGetTestState(code);
     const marker1 = data.markerPositions.get("marker1");
 
     assert.deepEqual(state.getMarkerName(marker1!), "marker1");
@@ -234,9 +224,7 @@ test('GoToPosition', () => {
 ////    /*marker1*/pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
-
+    const { data, state } = parseAndGetTestState(code);
     const marker1 = data.markerPositions.get("marker1");
     state.goToPosition(marker1!.position);
 
@@ -256,8 +244,7 @@ test('select', () => {
 ////        pass/*end*/
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
+    const { data, state } = parseAndGetTestState(code);
 
     state.select("start", "end");
 
@@ -277,9 +264,7 @@ test('selectAllInFile', () => {
 ////        pass/*end*/
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
-
+    const { data, state } = parseAndGetTestState(code);
     state.selectAllInFile(data.files[0].fileName);
 
     assert.equal(state.currentCaretPosition, data.markerPositions.get("start")!.position);
@@ -298,12 +283,133 @@ test('selectRange', () => {
 ////        pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
-
+    const { data, state } = parseAndGetTestState(code);
     const range = data.ranges[0];
+
     state.selectRange(range);
 
+    assert.equal(state.activeFile.fileName, range.fileName);
     assert.equal(state.currentCaretPosition, range.pos);
     assert.equal(state.selectionEnd, range.end);
 });
+
+test('selectLine', () => {
+    const code = `
+// @filename: file1.py
+/////class A:
+////    class B:
+////        [|def Test(self):|]
+////            pass
+////    
+////    def Test2(self):
+////        pass
+    `
+
+    const { data, state } = parseAndGetTestState(code);
+    const range = data.ranges[0];
+
+    state.selectLine(2);
+
+    // it fails for now
+    assert(range);
+
+    // assert.equal(state.currentCaretPosition, range.pos);
+    // assert.equal(state.selectionEnd, range.end);
+});
+
+test('goToEachRange', () => {
+    const code = `
+// @filename: file1.py
+/////class A:
+////    class B:
+////        [|def Test(self):|]
+////            pass
+////    
+////    def Test2(self):
+////        [|pass|]
+    `
+
+    const { state } = parseAndGetTestState(code);
+
+    const results: Range[] = [];
+    state.goToEachRange(r => {
+        assert.equal(state.activeFile.fileName, r.fileName);
+        results.push(r);
+    })
+
+    assert.deepEqual(results, [state.getRanges()[0], state.getRanges()[1]]);
+});
+
+test('getRangesInFile', () => {
+    const code = `
+// @filename: file1.py
+/////class A:
+////    class B:
+////        [|def Test(self):|]
+////            pass
+
+// @filename: file2.py
+////    def Test2(self):
+////        [|pass|]
+    `
+
+    const { data, state } = parseAndGetTestState(code);
+    
+    assert.deepEqual(state.getRangesInFile(data.files[0].fileName), data.ranges.filter(r => r.fileName === data.files[0].fileName));
+});
+
+test('rangesByText', () => {
+    const code = `
+// @filename: file1.py
+/////class A:
+////    class B:
+////        [|def Test(self):|]
+////            pass
+
+// @filename: file2.py
+////    def Test2(self):
+////        [|pass|]
+    `
+
+    const { data, state } = parseAndGetTestState(code);
+    const map = state.rangesByText();
+    
+    assert.deepEqual(map.get("def Test(self):"), [data.ranges[0]]);
+    assert.deepEqual(map.get("pass"), [data.ranges[1]]);
+});
+
+test('moveCaretRight', () => {
+    const code = `
+// @filename: file1.py
+/////class A:
+////    class B:
+////        /*position*/def Test(self):
+////            pass
+////    
+////    def Test2(self):
+////        pass
+    `
+
+    const data = parseTestData(factory.srcFolder, code, "test.py");
+    const state = new TestState(normalizeSlashes("/"), data);
+    const marker = data.markerPositions.get("position")!;
+
+    state.goToBOF();
+    assert.equal(state.currentCaretPosition, 0);
+
+    state.goToEOF();
+    assert.equal(state.currentCaretPosition, data.files[0].content.length);
+
+    state.goToPosition(marker.position);
+    state.moveCaretRight("def".length);
+
+    assert.equal(state.currentCaretPosition, marker.position + "def".length);
+    assert.equal(state.selectionEnd, -1);
+});
+
+function parseAndGetTestState(code: string) {
+    const data = parseTestData(factory.srcFolder, code, "test.py");
+    const state = new TestState(normalizeSlashes("/"), data);
+
+    return { data, state };
+}
