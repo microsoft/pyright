@@ -164,49 +164,6 @@ export class CompletionProvider {
         private _moduleSymbolsCallback: () => ModuleSymbolMap) {
     }
 
-    // When the user selects a completion, this callback is invoked,
-    // allowing us to record what was selected. This allows us to
-    // build our MRU cache so we can better predict entries.
-    resolveCompletionItem(completionItem: CompletionItem) {
-        const completionItemData = completionItem.data as CompletionItemData;
-
-        const label = completionItem.label;
-        let autoImportText = '';
-        if (completionItemData.autoImportText) {
-            autoImportText = completionItemData.autoImportText;
-        }
-
-        const curIndex = CompletionProvider._mostRecentCompletions.findIndex(
-            item => item.label === label &&
-            item.autoImportText === autoImportText);
-
-        if (curIndex > 0) {
-            // If there's an existing entry with the same name that's not at the
-            // beginning of the array, remove it.
-            CompletionProvider._mostRecentCompletions = CompletionProvider._mostRecentCompletions.splice(curIndex, 1);
-        }
-
-        if (curIndex !== 0) {
-            // Add to the start of the array.
-            CompletionProvider._mostRecentCompletions.unshift({ label, autoImportText });
-        }
-
-        if (CompletionProvider._mostRecentCompletions.length > maxRecentCompletions) {
-            // Prevent the MRU list from growing indefinitely.
-            CompletionProvider._mostRecentCompletions.pop();
-        }
-
-        if (completionItemData.symbolId) {
-            this._itemToResolve = completionItem;
-
-            // Rerun the completion lookup. It will fill in additional information
-            // about the item to be resolved. We'll ignore the rest of the returned
-            // list. This is a bit wasteful, but all of that information should be
-            // cached, so it's not as bad as it might seem.
-            this.getCompletionsForPosition();
-        }
-    }
-
     getCompletionsForPosition(): CompletionList | undefined {
         const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -320,7 +277,7 @@ export class CompletionProvider {
                 return this._getImportFromCompletions(curNode, priorWord);
             }
 
-            if (isExpressionNode(curNode)) {
+            if (isExpressionNode(curNode) || curNode.nodeType === ParseNodeType.Decorator) {
                 return this._getExpressionCompletions(curNode, priorWord, priorText, postText);
             }
 
@@ -336,6 +293,49 @@ export class CompletionProvider {
         }
 
         return undefined;
+    }
+
+    // When the user selects a completion, this callback is invoked,
+    // allowing us to record what was selected. This allows us to
+    // build our MRU cache so we can better predict entries.
+    resolveCompletionItem(completionItem: CompletionItem) {
+        const completionItemData = completionItem.data as CompletionItemData;
+
+        const label = completionItem.label;
+        let autoImportText = '';
+        if (completionItemData.autoImportText) {
+            autoImportText = completionItemData.autoImportText;
+        }
+
+        const curIndex = CompletionProvider._mostRecentCompletions.findIndex(
+            item => item.label === label &&
+            item.autoImportText === autoImportText);
+
+        if (curIndex > 0) {
+            // If there's an existing entry with the same name that's not at the
+            // beginning of the array, remove it.
+            CompletionProvider._mostRecentCompletions = CompletionProvider._mostRecentCompletions.splice(curIndex, 1);
+        }
+
+        if (curIndex !== 0) {
+            // Add to the start of the array.
+            CompletionProvider._mostRecentCompletions.unshift({ label, autoImportText });
+        }
+
+        if (CompletionProvider._mostRecentCompletions.length > maxRecentCompletions) {
+            // Prevent the MRU list from growing indefinitely.
+            CompletionProvider._mostRecentCompletions.pop();
+        }
+
+        if (completionItemData.symbolId) {
+            this._itemToResolve = completionItem;
+
+            // Rerun the completion lookup. It will fill in additional information
+            // about the item to be resolved. We'll ignore the rest of the returned
+            // list. This is a bit wasteful, but all of that information should be
+            // cached, so it's not as bad as it might seem.
+            this.getCompletionsForPosition();
+        }
     }
 
     private _isWithinComment(offset: number, priorText: string): boolean {
@@ -1292,7 +1292,7 @@ export class CompletionProvider {
                 return CompletionItemKind.Variable;
 
             case DeclarationType.Variable:
-                return resolvedDeclaration.isConstant ?
+                return resolvedDeclaration.isConstant || resolvedDeclaration.isFinal ?
                     CompletionItemKind.Constant :
                     CompletionItemKind.Variable;
 

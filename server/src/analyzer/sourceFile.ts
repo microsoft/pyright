@@ -496,6 +496,7 @@ export class SourceFile {
 
             // Create dummy parse results.
             this._parseResults = {
+                text: '',
                 parseTree: ModuleNode.create({ start: 0, length: 0 }),
                 importedModules: [],
                 futureImports: new Map<string, boolean>(),
@@ -684,7 +685,8 @@ export class SourceFile {
             timingStats.bindTime.timeOperation(() => {
                 this._cleanParseTreeIfRequired();
 
-                const fileInfo = this._buildFileInfo(configOptions, importLookup, builtinsScope);
+                const fileInfo = this._buildFileInfo(configOptions, this._parseResults!.text,
+                    importLookup, builtinsScope);
                 AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
 
                 const binder = new Binder(fileInfo);
@@ -762,8 +764,8 @@ export class SourceFile {
         this._diagnosticVersion++;
     }
 
-    private _buildFileInfo(configOptions: ConfigOptions, importLookup: ImportLookup,
-        builtinsScope?: Scope) {
+    private _buildFileInfo(configOptions: ConfigOptions, fileContents: string,
+            importLookup: ImportLookup, builtinsScope?: Scope) {
 
         assert(this._parseResults !== undefined);
         const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);
@@ -777,6 +779,7 @@ export class SourceFile {
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
             diagnosticSettings: this._diagnosticSettings,
+            fileContents,
             lines: this._parseResults!.tokenizerOutput.lines,
             filePath: this._filePath,
             isStubFile: this._isStubFile,

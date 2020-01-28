@@ -181,7 +181,7 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator: TypeEv
             if (name === '_') {
                 return;
             }
-            symbolKind = declaration.isConstant ?
+            symbolKind = declaration.isConstant || declaration.isFinal ?
                 SymbolKind.Constant : SymbolKind.Variable;
             break;
 

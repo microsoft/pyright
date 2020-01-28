@@ -2,7 +2,8 @@
 
 from typing import Tuple
 
-TupleAlias = Tuple[int, int]
+# Make sure it works with and without forward references.
+TupleAlias = Tuple['int', int]
 
 foo: Tuple[int, int]
 bar: TupleAlias

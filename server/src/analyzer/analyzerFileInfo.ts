@@ -32,6 +32,7 @@ export interface AnalyzerFileInfo {
     diagnosticSink: TextRangeDiagnosticSink;
     executionEnvironment: ExecutionEnvironment;
     diagnosticSettings: DiagnosticSettings;
+    fileContents: string;
     lines: TextRangeCollection<TextRange>;
     filePath: string;
     isStubFile: boolean;

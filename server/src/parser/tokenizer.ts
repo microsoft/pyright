@@ -622,6 +622,7 @@ export class Tokenizer {
                 }
                 radix = 16;
             }
+
             // Try binary => bininteger: "0" ("b" | "B") (["_"] bindigit)+
             if ((this._cs.nextChar === Char.b || this._cs.nextChar === Char.B) && isBinary(this._cs.lookAhead(2))) {
                 this._cs.advance(2);
@@ -631,6 +632,7 @@ export class Tokenizer {
                 }
                 radix = 2;
             }
+
             // Try octal => octinteger: "0" ("o" | "O") (["_"] octdigit)+
             if ((this._cs.nextChar === Char.o || this._cs.nextChar === Char.O) && isOctal(this._cs.lookAhead(2))) {
                 this._cs.advance(2);
@@ -640,11 +642,12 @@ export class Tokenizer {
                 }
                 radix = 8;
             }
+
             if (radix > 0) {
                 const text = this._cs.getText().substr(start, this._cs.position - start);
                 const value = parseInt(text.substr(leadingChars).replace(/_/g, ''), radix);
                 if (!isNaN(value)) {
-                    this._tokens.push(NumberToken.create(start, text.length, value, true, this._getComments()));
+                    this._tokens.push(NumberToken.create(start, text.length, value, true, false, this._getComments()));
                     return true;
                 }
             }
@@ -674,10 +677,16 @@ export class Tokenizer {
         }
 
         if (isDecimalInteger) {
-            const text = this._cs.getText().substr(start, this._cs.position - start);
+            let text = this._cs.getText().substr(start, this._cs.position - start);
             const value = parseInt(text.replace(/_/g, ''), 10);
             if (!isNaN(value)) {
-                this._tokens.push(NumberToken.create(start, text.length, value, true, this._getComments()));
+                let isImaginary = false;
+                if (this._cs.currentChar === Char.j || this._cs.currentChar === Char.J) {
+                    isImaginary = true;
+                    text += String.fromCharCode(this._cs.currentChar);
+                    this._cs.moveNext();
+                }
+                this._tokens.push(NumberToken.create(start, text.length, value, true, isImaginary, this._getComments()));
                 return true;
             }
         }
@@ -687,11 +696,17 @@ export class Tokenizer {
         if (mightBeFloatingPoint ||
             (this._cs.currentChar === Char.Period && this._cs.nextChar >= Char._0 && this._cs.nextChar <= Char._9)) {
             if (this._skipFloatingPointCandidate()) {
-                const text = this._cs.getText().substr(start, this._cs.position - start);
+                let text = this._cs.getText().substr(start, this._cs.position - start);
                 const value = parseFloat(text);
                 if (!isNaN(value)) {
+                    let isImaginary = false;
+                    if (this._cs.currentChar === Char.j || this._cs.currentChar === Char.J) {
+                        isImaginary = true;
+                        text += String.fromCharCode(this._cs.currentChar);
+                        this._cs.moveNext();
+                    }
                     this._tokens.push(NumberToken.create(start, this._cs.position - start, value,
-                        false, this._getComments()));
+                        false, isImaginary, this._getComments()));
                     return true;
                 }
             }

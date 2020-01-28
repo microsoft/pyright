@@ -111,6 +111,11 @@ test('BadToken1', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Complex1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['complex1.py']);
+    validateResults(analysisResults, 0);
+});
+
 test('TypeConstraint1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint1.py']);
 
@@ -149,6 +154,12 @@ test('TypeConstraint6', () => {
 
 test('TypeConstraint7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint7.py']);
+
+    validateResults(analysisResults, 0);
+});
+
+test('TypeConstraint8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint8.py']);
 
     validateResults(analysisResults, 0);
 });
@@ -865,6 +876,24 @@ test('GenericTypes13', () => {
     validateResults(analysisResults, 0);
 });
 
+test('GenericTypes14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes14.py']);
+
+    validateResults(analysisResults, 1);
+});
+
+test('GenericTypes15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes15.py']);
+
+    validateResults(analysisResults, 0);
+});
+
+test('GenericTypes16', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes16.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Protocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol1.py']);
 
@@ -1016,6 +1045,11 @@ test('Final1', () => {
 test('Final2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final2.py']);
     validateResults(analysisResults, 2);
+});
+
+test('Final3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final3.py']);
+    validateResults(analysisResults, 12);
 });
 
 test('InferredTypes1', () => {

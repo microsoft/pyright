@@ -10,7 +10,7 @@
 
 import { TextRange } from '../common/textRange';
 import { IdentifierToken, KeywordToken, KeywordType,
-    NumberToken, OperatorType, StringToken, Token } from './tokenizerTypes';
+    NumberToken, OperatorType, StringToken, Token, TokenType } from './tokenizerTypes';
 
 export const enum ParseNodeType {
     Error, // 0
@@ -449,6 +449,48 @@ export namespace ClassNode {
         suite.parent = node;
 
         extendRange(node, suite);
+
+        return node;
+    }
+
+    // This variant is used to create a dummy class
+    // when the parser encounters decorators with no
+    // function or class declaration.
+    export function createDummyForDecorators(decorators: DecoratorNode[]) {
+        const node: ClassNode = {
+            start: 0,
+            length: 0,
+            nodeType: ParseNodeType.Class,
+            id: _nextNodeId++,
+            decorators,
+            name: {
+                start: 0,
+                length: 0,
+                id: 0,
+                nodeType: ParseNodeType.Name,
+                token: {
+                    type: TokenType.Identifier,
+                    start: 0,
+                    length: 0,
+                    comments: [],
+                    value: ''
+                },
+                value: ''
+            },
+            arguments: [],
+            suite: {
+                start: 0,
+                length: 0,
+                id: 0,
+                nodeType: ParseNodeType.Suite,
+                statements: []
+            }
+        };
+
+        decorators.forEach(decorator => {
+            decorator.parent = node;
+            extendRange(node, decorator);
+        });
 
         return node;
     }
@@ -1167,6 +1209,7 @@ export interface NumberNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Number;
     value: number;
     isInteger: boolean;
+    isImaginary: boolean;
 }
 
 export namespace NumberNode {
@@ -1177,7 +1220,8 @@ export namespace NumberNode {
             nodeType: ParseNodeType.Number,
             id: _nextNodeId++,
             value: token.value,
-            isInteger: token.isInteger
+            isInteger: token.isInteger,
+            isImaginary: token.isImaginary
         };
 
         return node;

@@ -158,6 +158,9 @@ export interface DiagnosticSettings {
 
     // Report when "self" or "cls" parameter is missing or is misnamed.
     reportSelfClsParameterName: DiagnosticLevel;
+
+    // Report implicit concatenation of string literals.
+    reportImplicitStringConcatenation: DiagnosticLevel;
 }
 
 export function cloneDiagnosticSettings(
@@ -214,7 +217,8 @@ export function getDiagLevelSettings() {
         DiagnosticRule.reportUnnecessaryIsInstance,
         DiagnosticRule.reportUnnecessaryCast,
         DiagnosticRule.reportAssertAlwaysTrue,
-        DiagnosticRule.reportSelfClsParameterName
+        DiagnosticRule.reportSelfClsParameterName,
+        DiagnosticRule.reportImplicitStringConcatenation
     ];
 }
 
@@ -256,7 +260,8 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportUnnecessaryIsInstance: 'error',
         reportUnnecessaryCast: 'error',
         reportAssertAlwaysTrue: 'error',
-        reportSelfClsParameterName: 'error'
+        reportSelfClsParameterName: 'error',
+        reportImplicitStringConcatenation: 'none'
     };
 
     return diagSettings;
@@ -300,7 +305,8 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
         reportAssertAlwaysTrue: 'warning',
-        reportSelfClsParameterName: 'warning'
+        reportSelfClsParameterName: 'warning',
+        reportImplicitStringConcatenation: 'none'
     };
 
     return diagSettings;
@@ -671,7 +677,12 @@ export class ConfigOptions {
             // Read the "reportSelfClsParameterName" entry.
             reportSelfClsParameterName: this._convertDiagnosticLevel(
                 configObj.reportSelfClsParameterName, DiagnosticRule.reportSelfClsParameterName,
-                defaultSettings.reportSelfClsParameterName)
+                defaultSettings.reportSelfClsParameterName),
+
+            // Read the "reportImplicitStringConcatenation" entry.
+            reportImplicitStringConcatenation: this._convertDiagnosticLevel(
+                configObj.reportImplicitStringConcatenation, DiagnosticRule.reportImplicitStringConcatenation,
+                defaultSettings.reportImplicitStringConcatenation)
         };
 
         // Read the "venvPath".

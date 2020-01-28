@@ -14,8 +14,9 @@ import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, maxTypeRecursionCount, ModuleType, NeverType, ObjectType,
     OverloadedFunctionType, SpecializedFunctionTypes, Type, TypeCategory,
-    TypeVarMap, TypeVarType, UnknownType } from './types';
+    TypeVarType, UnknownType } from './types';
 import { DeclarationType } from './declaration';
+import { TypeVarMap } from './typeVarMap';
 
 export interface ClassMember {
     // Symbol
@@ -348,7 +349,7 @@ export function specializeType(type: Type, typeVarMap: TypeVarMap | undefined,
     }
 
     // Shortcut if there are no type variables defined.
-    if (typeVarMap && !makeConcrete && typeVarMap.size === 0) {
+    if (typeVarMap && !makeConcrete && typeVarMap.size() === 0) {
         return type;
     }
 
@@ -702,7 +703,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type,
 
         case TypeCategory.TypeVar:
             if (!typeVarMap.has(destType.name)) {
-                typeVarMap.set(destType.name, srcType);
+                typeVarMap.set(destType.name, srcType, typeVarMap.isNarrowable(destType.name));
             }
             break;
     }
@@ -718,7 +719,7 @@ export function buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeV
 }
 
 export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] | undefined): TypeVarMap {
-    const typeArgMap = new Map<string, Type>();
+    const typeVarMap = new TypeVarMap();
     typeParameters.forEach((typeParam, index) => {
         const typeVarName = typeParam.name;
         let typeArgType: Type;
@@ -733,18 +734,10 @@ export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] 
             typeArgType = getConcreteTypeFromTypeVar(typeParam);
         }
 
-        typeArgMap.set(typeVarName, typeArgType);
+        typeVarMap.set(typeVarName, typeArgType, false);
     });
 
-    return typeArgMap;
-}
-
-export function cloneTypeVarMap(typeVarMap: TypeVarMap): TypeVarMap {
-    const newTypeVarMap = new Map<string, Type>();
-    newTypeVarMap.forEach((_, key) => {
-        newTypeVarMap.set(key, typeVarMap.get(key)!);
-    });
-    return newTypeVarMap;
+    return typeVarMap;
 }
 
 export function derivesFromClassRecursive(classType: ClassType, baseClassToFind: ClassType) {
@@ -997,9 +990,12 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 
     if (type.category === TypeCategory.Function) {
         for (let i = 0; i < type.details.parameters.length; i++) {
-            const paramType = FunctionType.getEffectiveParameterType(type, i);
-            if (containsUnknown(paramType, false, recursionCount + 1)) {
-                return true;
+            // Ignore parameters such as "*" that have no name.
+            if (type.details.parameters[i].name) {
+                const paramType = FunctionType.getEffectiveParameterType(type, i);
+                if (containsUnknown(paramType, false, recursionCount + 1)) {
+                    return true;
+                }
             }
         }
 

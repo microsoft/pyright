@@ -35,6 +35,11 @@ export interface FileAnalysisResult {
     warnings: Diagnostic[];
 }
 
+export interface FileParseResult {
+    fileContents: string;
+    parseResults: ParseResults;
+}
+
 export function resolveSampleFilePath(fileName: string): string {
     return path.resolve(path.dirname(module.filename), `./samples/${ fileName }`);
 }
@@ -58,7 +63,7 @@ export function parseText(textToParse: string, diagSink: DiagnosticSink,
 }
 
 export function parseSampleFile(fileName: string, diagSink: DiagnosticSink,
-        execEnvironment = new ExecutionEnvironment('.')): ParseResults {
+        execEnvironment = new ExecutionEnvironment('.')): FileParseResult {
 
     const text = readSampleFile(fileName);
     const parseOptions = new ParseOptions();
@@ -67,11 +72,14 @@ export function parseSampleFile(fileName: string, diagSink: DiagnosticSink,
     }
     parseOptions.pythonVersion = execEnvironment.pythonVersion;
 
-    return parseText(text, diagSink);
+    return {
+        fileContents: text,
+        parseResults: parseText(text, diagSink)
+    };
 }
 
-export function buildAnalyzerFileInfo(filePath: string, parseResults: ParseResults,
-        configOptions: ConfigOptions): AnalyzerFileInfo {
+export function buildAnalyzerFileInfo(filePath: string, fileContents: string,
+        parseResults: ParseResults, configOptions: ConfigOptions): AnalyzerFileInfo {
 
     const analysisDiagnostics = new TextRangeDiagnosticSink(parseResults.tokenizerOutput.lines);
 
@@ -82,6 +90,7 @@ export function buildAnalyzerFileInfo(filePath: string, parseResults: ParseResul
         diagnosticSink: analysisDiagnostics,
         executionEnvironment: configOptions.findExecEnvironment(filePath),
         diagnosticSettings: cloneDiagnosticSettings(configOptions.diagnosticSettings),
+        fileContents,
         lines: parseResults.tokenizerOutput.lines,
         filePath,
         isStubFile: filePath.endsWith('.pyi'),
@@ -99,19 +108,20 @@ export function bindSampleFile(fileName: string,
     const diagSink = new DiagnosticSink();
     const filePath = resolveSampleFilePath(fileName);
     const execEnvironment = configOptions.findExecEnvironment(filePath);
-    const parseResults = parseSampleFile(fileName, diagSink, execEnvironment);
+    const parseInfo = parseSampleFile(fileName, diagSink, execEnvironment);
 
-    const fileInfo = buildAnalyzerFileInfo(filePath, parseResults, configOptions);
+    const fileInfo = buildAnalyzerFileInfo(filePath, parseInfo.fileContents,
+        parseInfo.parseResults, configOptions);
     const binder = new Binder(fileInfo);
-    binder.bindModule(parseResults.parseTree);
+    binder.bindModule(parseInfo.parseResults.parseTree);
 
     // Walk the AST to verify internal consistency.
     const testWalker = new TestWalker();
-    testWalker.walk(parseResults.parseTree);
+    testWalker.walk(parseInfo.parseResults.parseTree);
 
     return {
         filePath,
-        parseResults,
+        parseResults: parseInfo.parseResults,
         errors: fileInfo.diagnosticSink.getErrors(),
         warnings: fileInfo.diagnosticSink.getWarnings()
     };

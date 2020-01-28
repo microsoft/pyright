@@ -57,6 +57,7 @@ export class ParseOptions {
 }
 
 export interface ParseResults {
+    text: string;
     parseTree: ModuleNode;
     importedModules: ModuleImport[];
     futureImports: Map<string, boolean>;
@@ -130,6 +131,7 @@ export class Parser {
 
         assert(this._tokenizerOutput !== undefined);
         return {
+            text: fileContents,
             parseTree: moduleNode,
             importedModules: this._importedModules,
             futureImports: this._futureImportMap,
@@ -170,6 +172,7 @@ export class Parser {
 
     private _startNewParse(fileContents: string, textOffset: number, textLength: number,
             parseOptions: ParseOptions, diagSink: DiagnosticSink) {
+        
         this._fileContents = fileContents;
         this._parseOptions = parseOptions;
         this._diagSink = diagSink;
@@ -856,9 +859,9 @@ export class Parser {
 
                 if (this._peekKeywordType() !== KeywordType.Def) {
                     this._addError('Expected function definition after "async"', this._peekToken());
-                    return undefined;
+                } else {
+                    return this._parseFunctionDef(nextToken, decoratorList);
                 }
-                return this._parseFunctionDef(nextToken, decoratorList);
             } else if (nextToken.keywordType === KeywordType.Def) {
                 return this._parseFunctionDef(undefined, decoratorList);
             } else if (nextToken.keywordType === KeywordType.Class) {
@@ -867,7 +870,10 @@ export class Parser {
         }
 
         this._addError('Expected function or class declaration after decorator', this._peekToken());
-        return undefined;
+
+        // Return a dummy class declaration so the completion provider has
+        // some parse nodes to work with.
+        return ClassNode.createDummyForDecorators(decoratorList);
     }
 
     // decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE
@@ -880,9 +886,17 @@ export class Parser {
             const namePart = this._getTokenIfIdentifier();
             if (!namePart) {
                 this._addError('Expected decorator name', this._peekToken());
-                callNameExpr = ErrorNode.create(
-                    this._peekToken(),
-                    ErrorExpressionCategory.MissingDecoratorCallName);
+                if (callNameExpr) {
+                    callNameExpr = ErrorNode.create(
+                        this._peekToken(),
+                        ErrorExpressionCategory.MissingMemberAccessName,
+                        callNameExpr
+                    );
+                } else {
+                    callNameExpr = ErrorNode.create(
+                        this._peekToken(),
+                        ErrorExpressionCategory.MissingDecoratorCallName);
+                }
                 break;
             }
 
@@ -905,6 +919,7 @@ export class Parser {
             decoratorNode.arguments = this._parseArgList();
             decoratorNode.arguments.forEach(arg => {
                 arg.parent = decoratorNode;
+                extendRange(decoratorNode, arg);
             });
 
             const nextToken = this._peekToken();
