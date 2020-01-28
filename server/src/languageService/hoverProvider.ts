@@ -15,7 +15,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { isProperty } from '../analyzer/typeUtils';
-import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
+import { LineAndColumn, LineAndColumnRange } from '../common/textRange';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNodeType } from '../parser/parseNodes';
@@ -28,11 +28,11 @@ export interface HoverTextPart {
 
 export interface HoverResults {
     parts: HoverTextPart[];
-    range: DiagnosticTextRange;
+    range: LineAndColumnRange;
 }
 
 export class HoverProvider {
-    static getHoverForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
+    static getHoverForPosition(parseResults: ParseResults, position: LineAndColumn,
             evaluator: TypeEvaluator): HoverResults | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);

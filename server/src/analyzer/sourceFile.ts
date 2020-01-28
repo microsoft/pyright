@@ -8,19 +8,19 @@
 */
 
 import * as assert from 'assert';
-import * as fs from 'fs';
 import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 
-import { ConfigOptions, ExecutionEnvironment,
-    getDefaultDiagnosticSettings } from '../common/configOptions';
+import {
+    ConfigOptions, ExecutionEnvironment,
+    getDefaultDiagnosticSettings
+} from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { Diagnostic, DiagnosticCategory, DiagnosticTextPosition,
-    DocumentTextRange, getEmptyRange } from '../common/diagnostic';
+import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
-import { TextRange } from '../common/textRange';
+import { TextRange, getEmptyRange, LineAndColumn, DocumentLineAndColumnRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { CompletionItemData, CompletionProvider, ModuleSymbolMap } from '../languageService/completionProvider';
@@ -46,6 +46,7 @@ import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluator';
+import { VirtualFileSystem } from '../common/vfs';
 
 const _maxImportCyclesPerFile = 4;
 
@@ -139,9 +140,16 @@ export class SourceFile {
     private _typingModulePath?: string;
     private _collectionsModulePath?: string;
 
-    constructor(filePath: string, isTypeshedStubFile: boolean, isThirdPartyImport: boolean,
-            console?: ConsoleInterface) {
+    public readonly fileSystem: VirtualFileSystem;
 
+    constructor(
+        fs: VirtualFileSystem,
+        filePath: string,
+        isTypeshedStubFile: boolean,
+        isThirdPartyImport: boolean,
+        console?: ConsoleInterface) {
+
+        this.fileSystem = fs;
         this._console = console || new StandardConsole();
         this._filePath = filePath;
         this._isStubFile = filePath.endsWith('.pyi');
@@ -154,11 +162,11 @@ export class SourceFile {
         this._isBuiltInStubFile = false;
         if (this._isStubFile) {
             if (this._filePath.endsWith(normalizeSlashes('/collections/__init__.pyi')) ||
-                    fileName === 'builtins.pyi' ||
-                    fileName === '_importlib_modulespec.pyi' ||
-                    fileName === 'dataclasses.pyi' ||
-                    fileName === 'abc.pyi' ||
-                    fileName === 'enum.pyi') {
+                fileName === 'builtins.pyi' ||
+                fileName === '_importlib_modulespec.pyi' ||
+                fileName === 'dataclasses.pyi' ||
+                fileName === 'abc.pyi' ||
+                fileName === 'enum.pyi') {
 
                 this._isBuiltInStubFile = true;
             }
@@ -181,7 +189,7 @@ export class SourceFile {
     // If the prevVersion is specified, the method returns undefined if
     // the diagnostics haven't changed.
     getDiagnostics(options: ConfigOptions, prevDiagnosticVersion?: number):
-            Diagnostic[] | undefined {
+        Diagnostic[] | undefined {
 
         if (this._diagnosticVersion === prevDiagnosticVersion) {
             return undefined;
@@ -302,7 +310,7 @@ export class SourceFile {
         // that of the previous contents.
         try {
             // Read the file's contents.
-            const fileContents = fs.readFileSync(this._filePath, { encoding: 'utf8' });
+            const fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
 
             if (fileContents.length !== this._lastFileContentLength) {
                 return true;
@@ -432,7 +440,7 @@ export class SourceFile {
             try {
                 timingStats.readFileTime.timeOperation(() => {
                     // Read the file's contents.
-                    fileContents = fs.readFileSync(this._filePath, { encoding: 'utf8' });
+                    fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
 
                     // Remember the length and hash for comparison purposes.
                     this._lastFileContentLength = fileContents.length;
@@ -442,7 +450,7 @@ export class SourceFile {
                 diagSink.addError(`Source file could not be read`, getEmptyRange());
                 fileContents = '';
 
-                if (!fs.existsSync(this._filePath)) {
+                if (!this.fileSystem.existsSync(this._filePath)) {
                     this._isFileDeleted = true;
                 }
             }
@@ -521,8 +529,8 @@ export class SourceFile {
         return true;
     }
 
-    getDefinitionsForPosition(position: DiagnosticTextPosition,
-            evaluator: TypeEvaluator): DocumentTextRange[] | undefined {
+    getDefinitionsForPosition(position: LineAndColumn,
+        evaluator: TypeEvaluator): DocumentLineAndColumnRange[] | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -530,11 +538,11 @@ export class SourceFile {
         }
 
         return DefinitionProvider.getDefinitionsForPosition(
-                this._parseResults, position, evaluator);
+            this._parseResults, position, evaluator);
     }
 
-    getReferencesForPosition(position: DiagnosticTextPosition, includeDeclaration: boolean,
-            evaluator: TypeEvaluator): ReferencesResult | undefined {
+    getReferencesForPosition(position: LineAndColumn, includeDeclaration: boolean,
+        evaluator: TypeEvaluator): ReferencesResult | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -546,7 +554,7 @@ export class SourceFile {
     }
 
     addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean,
-            evaluator: TypeEvaluator): void {
+        evaluator: TypeEvaluator): void {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -569,7 +577,7 @@ export class SourceFile {
     }
 
     addSymbolsForDocument(symbolList: SymbolInformation[], evaluator: TypeEvaluator,
-            query?: string) {
+        query?: string) {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -580,8 +588,8 @@ export class SourceFile {
             this._filePath, this._parseResults, evaluator);
     }
 
-    getHoverForPosition(position: DiagnosticTextPosition,
-            evaluator: TypeEvaluator): HoverResults | undefined {
+    getHoverForPosition(position: LineAndColumn,
+        evaluator: TypeEvaluator): HoverResults | undefined {
 
         // If this file hasn't been bound, no hover info is available.
         if (this._isBindingNeeded || !this._parseResults) {
@@ -592,8 +600,8 @@ export class SourceFile {
             this._parseResults, position, evaluator);
     }
 
-    getSignatureHelpForPosition(position: DiagnosticTextPosition,
-            importLookup: ImportLookup, evaluator: TypeEvaluator): SignatureHelpResults | undefined {
+    getSignatureHelpForPosition(position: LineAndColumn,
+        importLookup: ImportLookup, evaluator: TypeEvaluator): SignatureHelpResults | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -604,10 +612,10 @@ export class SourceFile {
             this._parseResults, position, evaluator);
     }
 
-    getCompletionsForPosition(position: DiagnosticTextPosition,
-            workspacePath: string, configOptions: ConfigOptions, importResolver: ImportResolver,
-            importLookup: ImportLookup, evaluator: TypeEvaluator,
-            moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {
+    getCompletionsForPosition(position: LineAndColumn,
+        workspacePath: string, configOptions: ConfigOptions, importResolver: ImportResolver,
+        importLookup: ImportLookup, evaluator: TypeEvaluator,
+        moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -630,10 +638,10 @@ export class SourceFile {
     }
 
     resolveCompletionItem(configOptions: ConfigOptions, importResolver: ImportResolver,
-            importLookup: ImportLookup, evaluator: TypeEvaluator,
-            moduleSymbolsCallback: () => ModuleSymbolMap, completionItem: CompletionItem) {
+        importLookup: ImportLookup, evaluator: TypeEvaluator,
+        moduleSymbolsCallback: () => ModuleSymbolMap, completionItem: CompletionItem) {
 
-        if (!this._parseResults ||  this._fileContents === undefined) {
+        if (!this._parseResults || this._fileContents === undefined) {
             return;
         }
 
@@ -793,9 +801,9 @@ export class SourceFile {
     }
 
     private _resolveImports(importResolver: ImportResolver,
-            moduleImports: ModuleImport[],
-            execEnv: ExecutionEnvironment):
-            [ImportResult[], ImportResult?, string?, string?] {
+        moduleImports: ModuleImport[],
+        execEnv: ExecutionEnvironment):
+        [ImportResult[], ImportResult?, string?, string?] {
 
         const imports: ImportResult[] = [];
 
@@ -812,7 +820,7 @@ export class SourceFile {
 
         // Avoid importing builtins from the builtins.pyi file itself.
         if (builtinsImportResult.resolvedPaths.length === 0 ||
-                builtinsImportResult.resolvedPaths[0] !== this.getFilePath()) {
+            builtinsImportResult.resolvedPaths[0] !== this.getFilePath()) {
             imports.push(builtinsImportResult);
         } else {
             builtinsImportResult = undefined;
@@ -832,7 +840,7 @@ export class SourceFile {
         // Avoid importing typing from the typing.pyi file itself.
         let typingModulePath: string | undefined;
         if (typingImportResult.resolvedPaths.length === 0 ||
-                typingImportResult.resolvedPaths[0] !== this.getFilePath()) {
+            typingImportResult.resolvedPaths[0] !== this.getFilePath()) {
             imports.push(typingImportResult);
             typingModulePath = typingImportResult.resolvedPaths[0];
         }

@@ -15,13 +15,15 @@ import {
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
 import {
-    AddMissingOptionalToParamAction, convertRange, CreateTypeStubFileAction,
-    Diagnostic as AnalyzerDiagnostic, DiagnosticCategory, DiagnosticTextPosition, DiagnosticTextRange
+    AddMissingOptionalToParamAction, CreateTypeStubFileAction,
+    Diagnostic as AnalyzerDiagnostic, DiagnosticCategory,
 } from './common/diagnostic';
 import './common/extensions';
 import { combinePaths, getDirectoryPath, normalizePath } from './common/pathUtils';
 import { commandAddMissingOptionalToParam, commandCreateTypeStub, commandOrderImports } from './languageService/commands';
 import { CompletionItemData } from './languageService/completionProvider';
+import { LineAndColumnRange, LineAndColumn, convertRange } from './common/textRange';
+import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 
 export interface ServerSettings {
     venvPath?: string;
@@ -43,6 +45,7 @@ export interface WorkspaceServiceInstance {
 export abstract class LanguageServerBase {
     // Create a connection for the server. The connection uses Node's IPC as a transport
     private _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+    private _fs: VirtualFileSystem;
     // Create a simple text document manager. The text document manager
     // supports full document sync only.
     private _documents: TextDocuments = new TextDocuments();
@@ -57,7 +60,9 @@ export abstract class LanguageServerBase {
 
     constructor(private _productName: string, rootDirectory?: string, configFileName?: string) {
         this._configFileName = configFileName;
-        this._connection.console.log(`${_productName} language server starting`);
+        this._connection.console.log(`${ _productName } language server starting`);
+        // virtual file system to be used. initialized to real file system by default. but can't be overritten
+        this._fs = createFromRealFileSystem(this._connection.console);
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = rootDirectory ? rootDirectory : getDirectoryPath(__dirname);
         // Make the text document manager listen on the connection
@@ -88,8 +93,8 @@ export abstract class LanguageServerBase {
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
     private _createAnalyzerService(name: string): AnalyzerService {
-        this._connection.console.log(`Starting service instance "${name}"`);
-        const service = new AnalyzerService(name, this._connection.console, this._configFileName);
+        this._connection.console.log(`Starting service instance "${ name }"`);
+        const service = new AnalyzerService(name, this._fs, this._connection.console, undefined, this._configFileName);
 
         // Don't allow the analysis engine to go too long without
         // reporting results. This will keep it responsive.
@@ -118,7 +123,7 @@ export abstract class LanguageServerBase {
 
                         const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
                         this._connection.sendNotification('pyright/reportProgress',
-                            `${results.filesRequiringAnalysis} ${fileOrFiles} to analyze`);
+                            `${ results.filesRequiringAnalysis } ${ fileOrFiles } to analyze`);
                     }
                 } else {
                     if (this._isDisplayingProgress) {
@@ -137,7 +142,7 @@ export abstract class LanguageServerBase {
     private _createTypeStubService(importName: string): AnalyzerService {
 
         this._connection.console.log('Starting type stub service instance');
-        const service = new AnalyzerService('Type stub', this._connection.console, this._configFileName);
+        const service = new AnalyzerService('Type stub', this._fs, this._connection.console, undefined, this._configFileName);
 
         service.setMaxAnalysisDuration({
             openFilesTimeInMs: 500,
@@ -275,7 +280,7 @@ export abstract class LanguageServerBase {
             const filePath = params.textDocument.uri.uriToPath();
             const workspace = this._getWorkspaceForFile(filePath);
             if (!workspace.disableLanguageServices) {
-                const range: DiagnosticTextRange = {
+                const range: LineAndColumnRange = {
                     start: {
                         line: params.range.start.line,
                         column: params.range.start.character
@@ -297,7 +302,7 @@ export abstract class LanguageServerBase {
                         a => a.action === commandCreateTypeStub) as CreateTypeStubFileAction;
                     if (action) {
                         const createTypeStubAction = CodeAction.create(
-                            `Create Type Stub For ‘${action.moduleName}’`,
+                            `Create Type Stub For ‘${ action.moduleName }’`,
                             Command.create('Create Type Stub', commandCreateTypeStub,
                                 workspace.rootPath, action.moduleName),
                             CodeActionKind.QuickFix);
@@ -332,7 +337,7 @@ export abstract class LanguageServerBase {
 
             const filePath = params.textDocument.uri.uriToPath();
 
-            const position: DiagnosticTextPosition = {
+            const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
@@ -352,7 +357,7 @@ export abstract class LanguageServerBase {
         this._connection.onReferences(params => {
             const filePath = params.textDocument.uri.uriToPath();
 
-            const position: DiagnosticTextPosition = {
+            const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
@@ -401,7 +406,7 @@ export abstract class LanguageServerBase {
         this._connection.onHover(params => {
             const filePath = params.textDocument.uri.uriToPath();
 
-            const position: DiagnosticTextPosition = {
+            const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
@@ -431,7 +436,7 @@ export abstract class LanguageServerBase {
         this._connection.onSignatureHelp(params => {
             const filePath = params.textDocument.uri.uriToPath();
 
-            const position: DiagnosticTextPosition = {
+            const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
@@ -468,7 +473,7 @@ export abstract class LanguageServerBase {
         this._connection.onCompletion(params => {
             const filePath = params.textDocument.uri.uriToPath();
 
-            const position: DiagnosticTextPosition = {
+            const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
@@ -507,7 +512,7 @@ export abstract class LanguageServerBase {
         this._connection.onRenameRequest(params => {
             const filePath = params.textDocument.uri.uriToPath();
 
-            const position: DiagnosticTextPosition = {
+            const position: LineAndColumn = {
                 line: params.position.line,
                 column: params.position.character
             };
@@ -628,7 +633,7 @@ export abstract class LanguageServerBase {
 
                 // Allocate a temporary pseudo-workspace to perform this job.
                 const workspace: WorkspaceServiceInstance = {
-                    workspaceName: `Create Type Stub ${importName}`,
+                    workspaceName: `Create Type Stub ${ importName }`,
                     rootPath: workspaceRoot,
                     rootUri: workspaceRoot.pathToUri(),
                     serviceInstance: service,
@@ -640,7 +645,7 @@ export abstract class LanguageServerBase {
                         try {
                             service.writeTypeStub();
                             service.dispose();
-                            const infoMessage = `Type stub was successfully created for '${importName}'.`;
+                            const infoMessage = `Type stub was successfully created for '${ importName }'.`;
                             this._connection.window.showInformationMessage(infoMessage);
                             this._handlePostCreateTypeStub();
                         } catch (err) {
@@ -648,7 +653,7 @@ export abstract class LanguageServerBase {
                             if (err instanceof Error) {
                                 errMessage = ': ' + err.message;
                             }
-                            errMessage = `An error occurred when creating type stub for '${importName}'` +
+                            errMessage = `An error occurred when creating type stub for '${ importName }'` +
                                 errMessage;
                             this._connection.console.error(errMessage);
                             this._connection.window.showErrorMessage(errMessage);
@@ -742,7 +747,7 @@ export abstract class LanguageServerBase {
             let source = this._productName;
             const rule = diag.getRule();
             if (rule) {
-                source = `${source} (${rule})`;
+                source = `${ source } (${ rule })`;
             }
 
             const vsDiag = Diagnostic.create(convertRange(diag.range), diag.message, severity,

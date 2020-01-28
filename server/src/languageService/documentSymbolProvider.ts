@@ -19,7 +19,7 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { isProperty } from '../analyzer/typeUtils';
-import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
+import { LineAndColumn, LineAndColumnRange } from '../common/textRange';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { ClassNode, FunctionNode, ListComprehensionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
@@ -193,12 +193,12 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator: TypeEv
     return symbolKind;
 }
 
-function convertRange(range: DiagnosticTextRange): Range {
+function convertRange(range: LineAndColumnRange): Range {
     return Range.create(convertPosition(range.start),
         convertPosition(range.end));
 }
 
-function convertPosition(position: DiagnosticTextPosition): Position {
+function convertPosition(position: LineAndColumn): Position {
     return Position.create(position.line, position.column);
 }
 

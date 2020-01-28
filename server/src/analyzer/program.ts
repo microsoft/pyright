@@ -13,12 +13,13 @@ import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } fro
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { Diagnostic, DiagnosticTextPosition,
-    DiagnosticTextRange, DocumentTextRange, doRangesOverlap } from '../common/diagnostic';
+import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
-import { combinePaths, getDirectoryPath, getRelativePath, makeDirectories,
-    normalizePath, stripFileExtension } from '../common/pathUtils';
+import {
+    combinePaths, getDirectoryPath, getRelativePath, makeDirectories,
+    normalizePath, stripFileExtension
+} from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
@@ -33,6 +34,7 @@ import { SourceFile } from './sourceFile';
 import { SymbolTable } from './symbol';
 import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
+import { LineAndColumn, LineAndColumnRange, DocumentLineAndColumnRange, doRangesOverlap } from '../common/textRange';
 
 const _maxImportDepth = 256;
 
@@ -81,8 +83,7 @@ export class Program {
     private _importResolver: ImportResolver;
 
     constructor(initialImportResolver: ImportResolver, initialConfigOptions: ConfigOptions,
-            console?: ConsoleInterface) {
-
+        console?: ConsoleInterface) {
         this._console = console || new StandardConsole();
         this._evaluator = createTypeEvaluator(this._lookUpImport);
         this._importResolver = initialImportResolver;
@@ -140,8 +141,8 @@ export class Program {
 
         this._sourceFileList.forEach(fileInfo => {
             if (fileInfo.sourceFile.isParseRequired() ||
-                    fileInfo.sourceFile.isBindingRequired() ||
-                    fileInfo.sourceFile.isCheckingRequired()) {
+                fileInfo.sourceFile.isBindingRequired() ||
+                fileInfo.sourceFile.isCheckingRequired()) {
 
                 if ((!this._configOptions.checkOnlyOpenFiles && fileInfo.isTracked) || fileInfo.isOpenByClient) {
                     sourceFileCount++;
@@ -169,7 +170,7 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        const sourceFile = new SourceFile(filePath, false, false, this._console);
+        const sourceFile = new SourceFile(this._fs, filePath, false, false, this._console);
         sourceFileInfo = {
             sourceFile,
             isTracked: true,
@@ -187,7 +188,7 @@ export class Program {
     setFileOpened(filePath: string, version: number | null, contents: string) {
         let sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
-            const sourceFile = new SourceFile(filePath, false, false, this._console);
+            const sourceFile = new SourceFile(this._fs, filePath, false, false, this._console);
             sourceFileInfo = {
                 sourceFile,
                 isTracked: false,
@@ -388,18 +389,21 @@ export class Program {
                 const typeStubDir = getDirectoryPath(typeStubPath);
 
                 try {
-                    makeDirectories(typeStubDir, typingsPath);
+                    makeDirectories(this._fs, typeStubDir, typingsPath);
                 } catch (e) {
                     const errMsg = `Could not create directory for '${ typeStubDir }'`;
                     throw new Error(errMsg);
                 }
 
                 this._bindFile(sourceFileInfo);
-                const writer = new TypeStubWriter(typeStubPath,
-                    sourceFileInfo.sourceFile, this._evaluator);
+                const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator);
                 writer.write();
             }
         }
+    }
+
+    private get _fs() {
+        return this._importResolver.fileSystem;
     }
 
     private _createNewEvaluator() {
@@ -550,7 +554,7 @@ export class Program {
     // have already been checked (they and their recursive imports have completed the
     // check phase), they are not included in the results.
     private _getImportsRecursive(file: SourceFileInfo, closureMap: Map<string, SourceFileInfo>,
-            recursionCount: number) {
+        recursionCount: number) {
 
         // If the file is already in the closure map, we found a cyclical
         // dependency. Don't recur further.
@@ -576,8 +580,8 @@ export class Program {
     }
 
     private _detectAndReportImportCycles(sourceFileInfo: SourceFileInfo,
-            dependencyChain: SourceFileInfo[] = [],
-            dependencyMap = new Map<string, boolean>()): void {
+        dependencyChain: SourceFileInfo[] = [],
+        dependencyMap = new Map<string, boolean>()): void {
 
         // Don't bother checking for typestub files or third-party files.
         if (sourceFileInfo.sourceFile.isStubFile() || sourceFileInfo.isThirdPartyImport) {
@@ -631,7 +635,7 @@ export class Program {
     }
 
     private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo,
-            markMap: Map<string, boolean>) {
+        markMap: Map<string, boolean>) {
 
         const filePath = sourceFileInfo.sourceFile.getFilePath();
 
@@ -652,7 +656,7 @@ export class Program {
         this._sourceFileList.forEach(sourceFileInfo => {
             if ((!options.checkOnlyOpenFiles && sourceFileInfo.isTracked) || sourceFileInfo.isOpenByClient) {
                 const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
-                        options, sourceFileInfo.diagnosticsVersion);
+                    options, sourceFileInfo.diagnosticsVersion);
                 if (diagnostics !== undefined) {
                     fileDiagnostics.push({
                         filePath: sourceFileInfo.sourceFile.getFilePath(),
@@ -670,7 +674,7 @@ export class Program {
         return fileDiagnostics;
     }
 
-    getDiagnosticsForRange(filePath: string, options: ConfigOptions, range: DiagnosticTextRange): Diagnostic[] {
+    getDiagnosticsForRange(filePath: string, options: ConfigOptions, range: LineAndColumnRange): Diagnostic[] {
         const sourceFile = this.getSourceFile(filePath);
         if (!sourceFile) {
             return [];
@@ -686,8 +690,8 @@ export class Program {
         });
     }
 
-    getDefinitionsForPosition(filePath: string, position: DiagnosticTextPosition):
-            DocumentTextRange[] | undefined {
+    getDefinitionsForPosition(filePath: string, position: LineAndColumn):
+        DocumentLineAndColumnRange[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
@@ -699,8 +703,8 @@ export class Program {
         return sourceFileInfo.sourceFile.getDefinitionsForPosition(position, this._evaluator);
     }
 
-    getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
-            includeDeclaration: boolean): DocumentTextRange[] | undefined {
+    getReferencesForPosition(filePath: string, position: LineAndColumn,
+        includeDeclaration: boolean): DocumentLineAndColumnRange[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
@@ -756,8 +760,8 @@ export class Program {
         }
     }
 
-    getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
-            HoverResults | undefined {
+    getHoverForPosition(filePath: string, position: LineAndColumn):
+        HoverResults | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
@@ -769,8 +773,8 @@ export class Program {
         return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator);
     }
 
-    getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition):
-            SignatureHelpResults | undefined {
+    getSignatureHelpForPosition(filePath: string, position: LineAndColumn):
+        SignatureHelpResults | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
@@ -783,8 +787,8 @@ export class Program {
             position, this._lookUpImport, this._evaluator);
     }
 
-    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
-            workspacePath: string): CompletionList | undefined {
+    getCompletionsForPosition(filePath: string, position: LineAndColumn,
+        workspacePath: string): CompletionList | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
@@ -813,7 +817,7 @@ export class Program {
     }
 
     performQuickAction(filePath: string, command: string,
-            args: any[]): TextEditAction[] | undefined {
+        args: any[]): TextEditAction[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
@@ -826,8 +830,8 @@ export class Program {
             command, args);
     }
 
-    renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
-            newName: string): FileEditAction[] | undefined {
+    renameSymbolAtPosition(filePath: string, position: LineAndColumn,
+        newName: string): FileEditAction[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
@@ -874,7 +878,7 @@ export class Program {
 
         // If a file is no longer tracked or opened, it can
         // be removed from the program.
-        for (let i = 0; i < this._sourceFileList.length; ) {
+        for (let i = 0; i < this._sourceFileList.length;) {
             const fileInfo = this._sourceFileList[i];
             if (!this._isFileNeeded(fileInfo)) {
                 fileDiagnostics.push({
@@ -972,12 +976,12 @@ export class Program {
     }
 
     private _isImportAllowed(importer: SourceFileInfo, importResult: ImportResult,
-            isImportStubFile: boolean): boolean {
+        isImportStubFile: boolean): boolean {
 
         let thirdPartyImportAllowed = this._configOptions.useLibraryCodeForTypes;
 
         if (importResult.importType === ImportType.ThirdParty ||
-                (importer.isThirdPartyImport && importResult.importType === ImportType.Local)) {
+            (importer.isThirdPartyImport && importResult.importType === ImportType.Local)) {
 
             if (this._allowedThirdPartyImports) {
                 if (importResult.isRelative) {
@@ -1015,7 +1019,7 @@ export class Program {
     }
 
     private _updateSourceFileImports(sourceFileInfo: SourceFileInfo,
-            options: ConfigOptions): SourceFileInfo[] {
+        options: ConfigOptions): SourceFileInfo[] {
 
         const filesAdded: SourceFileInfo[] = [];
 
@@ -1086,6 +1090,7 @@ export class Program {
                     importedFileInfo = this._sourceFileMap.get(importPath)!;
                 } else {
                     const sourceFile = new SourceFile(
+                        this._fs,
                         importPath, importInfo.isTypeshedFile,
                         importInfo.isThirdPartyImport, this._console);
                     importedFileInfo = {
