@@ -17,7 +17,7 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
     // List of all the subfiles we've parsed out
     const files: FourSlashFile[] = [];
     // Global options
-    const globalOptions: { [s: string]: string; } = {};
+    const globalOptions: { [s: string]: string } = {};
     // Marker positions
 
     // Split up the input file by line
@@ -71,16 +71,16 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
                 if (!contains(fileMetadataNames, key)) {
                     // Check if the match is already existed in the global options
                     if (globalOptions[key] !== undefined) {
-                        throw new Error(`Global option '${key}' already exists`);
+                        throw new Error(`Global option '${ key }' already exists`);
                     }
                     globalOptions[key] = value;
                 }
                 else {
+                    const normalizedPath = normalizeSlashes(value);
                     switch (key) {
                         case MetadataOptionNames.fileName:
                             // Found an @FileName directive, if this is not the first then create a new subfile
                             nextFile();
-                            const normalizedPath = normalizeSlashes(value);
                             currentFileName = isRootedDiskPath(normalizedPath) ? normalizedPath : combinePaths(normalizedBasePath, normalizedPath);
                             currentFileOptions[key] = value;
                             break;
