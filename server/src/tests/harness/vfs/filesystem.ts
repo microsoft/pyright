@@ -7,6 +7,7 @@
 import * as vpath from "./pathUtils"
 import { SortedMap, Metadata, getIterator, nextResult, closeIterator } from "./../utils";
 import { bufferFrom, createIOError } from "../io";
+import { Listener, FileWatcher } from "../../../common/vfs";
 
 // file type
 export const S_IFMT = 0o170000; // file type
@@ -269,6 +270,11 @@ export class FileSystem {
         const results: string[] = [];
         this._scan(path, this._stat(this._walk(path, /*noFollow*/ true)), axis, traversal, /*noFollow*/ true, results);
         return results;
+    }
+
+    public createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher {
+        // not doing anything for now
+        return { close: () => { } };
     }
 
     private _scan(path: string, stats: Stats, axis: Axis, traversal: Traversal, noFollow: boolean, results: string[]) {
@@ -1422,29 +1428,29 @@ function formatPatchWorker(dirname: string, container: FileSet): string {
         const file = dirname ? vpath.combine(dirname, name) : name;
         // eslint-disable-next-line no-null/no-null
         if (entry === null || entry === undefined || entry instanceof Unlink || entry instanceof Rmdir) {
-            text += `//// [${file}] unlink\r\n`;
+            text += `//// [${ file }] unlink\r\n`;
         }
         else if (entry instanceof Rmdir) {
-            text += `//// [${vpath.addTrailingSeparator(file)}] rmdir\r\n`;
+            text += `//// [${ vpath.addTrailingSeparator(file) }] rmdir\r\n`;
         }
         else if (entry instanceof Directory) {
             text += formatPatchWorker(file, entry.files);
         }
         else if (entry instanceof SameFileContentFile) {
-            text += `//// [${file}] file written with same contents\r\n`;
+            text += `//// [${ file }] file written with same contents\r\n`;
         }
         else if (entry instanceof File) {
             const content = typeof entry.data === "string" ? entry.data : entry.data.toString("utf8");
-            text += `//// [${file}]\r\n${content}\r\n\r\n`;
+            text += `//// [${ file }]\r\n${ content }\r\n\r\n`;
         }
         else if (entry instanceof Link) {
-            text += `//// [${file}] link(${entry.path})\r\n`;
+            text += `//// [${ file }] link(${ entry.path })\r\n`;
         }
         else if (entry instanceof Symlink) {
-            text += `//// [${file}] symlink(${entry.symlink})\r\n`;
+            text += `//// [${ file }] symlink(${ entry.symlink })\r\n`;
         }
         else if (entry instanceof Mount) {
-            text += `//// [${file}] mount(${entry.source})\r\n`;
+            text += `//// [${ file }] mount(${ entry.source })\r\n`;
         }
     }
     return text;

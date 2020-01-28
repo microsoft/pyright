@@ -298,7 +298,7 @@ test('selectLine', () => {
 // @filename: file1.py
 /////class A:
 ////    class B:
-////        [|def Test(self):|]
+////[|        def Test(self):|]
 ////            pass
 ////    
 ////    def Test2(self):
@@ -310,11 +310,8 @@ test('selectLine', () => {
 
     state.selectLine(2);
 
-    // it fails for now
-    assert(range);
-
-    // assert.equal(state.currentCaretPosition, range.pos);
-    // assert.equal(state.selectionEnd, range.end);
+    assert.equal(state.currentCaretPosition, range.pos);
+    assert.equal(state.selectionEnd, range.end);
 });
 
 test('goToEachRange', () => {
@@ -390,8 +387,7 @@ test('moveCaretRight', () => {
 ////        pass
     `
 
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
+    const { data, state } = parseAndGetTestState(code);
     const marker = data.markerPositions.get("position")!;
 
     state.goToBOF();
