@@ -5,14 +5,13 @@
 */
 
 import * as assert from 'assert';
-// import * as io from './harness/io';
-// import * as vfs from "./harness/vfs/filesystem";
 import * as factory from "./harness/vfs/factory"
 import { normalizeSlashes, combinePaths, comparePathsCaseSensitive } from '../common/pathUtils';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { TestState } from './harness/fourslash/testState';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { Range } from './harness/fourslash/fourSlashTypes';
+import { runFourSlashTestContent } from './harness/fourslash/runner';
 
 test('Create', () => {
     const code = `
@@ -369,7 +368,7 @@ test('rangesByText', () => {
     `
 
     const { data, state } = parseAndGetTestState(code);
-    const map = state.rangesByText();
+    const map = state.getRangesByText();
     
     assert.deepEqual(map.get("def Test(self):"), [data.ranges[0]]);
     assert.deepEqual(map.get("pass"), [data.ranges[1]]);
@@ -401,6 +400,25 @@ test('moveCaretRight', () => {
 
     assert.equal(state.currentCaretPosition, marker.position + "def".length);
     assert.equal(state.selectionEnd, -1);
+});
+
+test('runFourSlashTestContent', () => {
+    const code = `
+/// <reference path="fourslash.d.ts" />
+
+// @filename: file1.py
+/////class A:
+////    class B:
+////        /*position*/def Test(self):
+////            pass
+////    
+////    def Test2(self):
+////        pass
+
+helper.getMarkerByName("position");
+    `
+
+    runFourSlashTestContent(normalizeSlashes("/"), "unused.py", code);
 });
 
 function parseAndGetTestState(code: string) {

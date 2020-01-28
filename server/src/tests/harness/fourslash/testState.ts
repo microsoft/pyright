@@ -51,7 +51,7 @@ export class TestState {
         const ignoreCase = testData.globalOptions[strIgnoreCase]?.toUpperCase() === "TRUE";
 
         this._cancellationToken = new TestCancellationToken();
-        let configOptions = this._convertGlobalOptionsToConfigOptions(this.testData.globalOptions);
+        const configOptions = this._convertGlobalOptionsToConfigOptions(this.testData.globalOptions);
 
         const files: vfs.FileSet = {};
         for (const file of testData.files) {
@@ -130,6 +130,16 @@ export class TestState {
         return found!;
     }
 
+    public getMarkerByName(markerName: string) {
+        const markerPos = this.testData.markerPositions.get(markerName);
+        if (markerPos === undefined) {
+            throw new Error(`Unknown marker "${ markerName }" Available markers: ${ this.getMarkerNames().map(m => "\"" + m + "\"").join(", ") }`);
+        }
+        else {
+            return markerPos;
+        }
+    }
+
     public getMarkers(): Marker[] {
         //  Return a copy of the list
         return this.testData.markers.slice(0);
@@ -196,7 +206,7 @@ export class TestState {
         return this.getRanges().filter(r => r.fileName === fileName);
     }
 
-    public rangesByText(): Map<string, Range[]> {
+    public getRangesByText(): Map<string, Range[]> {
         if (this.testData.rangesByText) return this.testData.rangesByText;
         const result = this._createMultiMap<Range>();
         this.testData.rangesByText = result;
@@ -248,7 +258,7 @@ export class TestState {
     }
 
     public deleteChar(count = 1) {
-        let offset = this.currentCaretPosition;
+        const offset = this.currentCaretPosition;
         const ch = "";
 
         const checkCadence = (count >> 2) + 1;
@@ -348,16 +358,6 @@ export class TestState {
 
     public verifyRangeIs(expectedText: string, includeWhiteSpace?: boolean) {
         this._verifyTextMatches(this._rangeText(this._getOnlyRange()), !!includeWhiteSpace, expectedText);
-    }
-
-    public getMarkerByName(markerName: string) {
-        const markerPos = this.testData.markerPositions.get(markerName);
-        if (markerPos === undefined) {
-            throw new Error(`Unknown marker "${ markerName }" Available markers: ${ this.getMarkerNames().map(m => "\"" + m + "\"").join(", ") }`);
-        }
-        else {
-            return markerPos;
-        }
     }
 
     public setCancelled(numberOfCalls: number): void {
@@ -558,7 +558,7 @@ export class TestState {
         }
     }
 
-    private _tryFindFileWorker(name: string): { readonly file: FourSlashFile | undefined; readonly availableNames: readonly string[]; } {
+    private _tryFindFileWorker(name: string): { readonly file: FourSlashFile | undefined; readonly availableNames: readonly string[] } {
         name = normalizePath(name);
 
         // names are stored in the compiler with this relative path, this allows people to use goTo.file on just the fileName
@@ -608,7 +608,7 @@ export class TestState {
     }
 
     private _makeWhitespaceVisible(text: string) {
-        return text.replace(/ /g, "\u00B7").replace(/\r/g, "\u00B6").replace(/\n/g, "\u2193\n").replace(/\t/g, "\u2192\   ");
+        return text.replace(/ /g, "\u00B7").replace(/\r/g, "\u00B6").replace(/\n/g, "\u2193\n").replace(/\t/g, "\u2192   ");
     }
 
     private _updatePosition(position: number, editStart: number, editEnd: number, { length }: string): number {
