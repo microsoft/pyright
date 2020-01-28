@@ -20,6 +20,11 @@ import { NullConsole } from "../../../common/console";
 import { createFromFileSystem } from "../vfs/factory";
 import { LineAndColumn, TextRange } from "../../../common/textRange";
 
+export interface TextChange {
+    span: TextRange;
+    newText: string;
+}
+
 export class TestState {
     private readonly cancellationToken: TestCancellationToken;
     public readonly fs: vfs.FileSystem;
@@ -591,9 +596,4 @@ function differOnlyByWhitespace(a: string, b: string) {
 
 function stripWhitespace(s: string): string {
     return s.replace(/\s/g, "");
-}
-
-export interface TextChange {
-    span: TextRange;
-    newText: string;
 }
