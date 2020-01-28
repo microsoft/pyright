@@ -8,7 +8,6 @@
 */
 
 import * as assert from 'assert';
-import * as fs from 'fs';
 import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 
 import {
@@ -47,6 +46,7 @@ import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluator';
+import { VirtualFileSystem } from '../common/vfs';
 
 const _maxImportCyclesPerFile = 4;
 
@@ -140,9 +140,16 @@ export class SourceFile {
     private _typingModulePath?: string;
     private _collectionsModulePath?: string;
 
-    constructor(filePath: string, isTypeshedStubFile: boolean, isThirdPartyImport: boolean,
+    public readonly fileSystem: VirtualFileSystem;
+
+    constructor(
+        fs: VirtualFileSystem,
+        filePath: string,
+        isTypeshedStubFile: boolean,
+        isThirdPartyImport: boolean,
         console?: ConsoleInterface) {
 
+        this.fileSystem = fs;
         this._console = console || new StandardConsole();
         this._filePath = filePath;
         this._isStubFile = filePath.endsWith('.pyi');
@@ -303,7 +310,7 @@ export class SourceFile {
         // that of the previous contents.
         try {
             // Read the file's contents.
-            const fileContents = fs.readFileSync(this._filePath, { encoding: 'utf8' });
+            const fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
 
             if (fileContents.length !== this._lastFileContentLength) {
                 return true;
@@ -433,7 +440,7 @@ export class SourceFile {
             try {
                 timingStats.readFileTime.timeOperation(() => {
                     // Read the file's contents.
-                    fileContents = fs.readFileSync(this._filePath, { encoding: 'utf8' });
+                    fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
 
                     // Remember the length and hash for comparison purposes.
                     this._lastFileContentLength = fileContents.length;
@@ -443,7 +450,7 @@ export class SourceFile {
                 diagSink.addError(`Source file could not be read`, getEmptyRange());
                 fileContents = '';
 
-                if (!fs.existsSync(this._filePath)) {
+                if (!this.fileSystem.existsSync(this._filePath)) {
                     this._isFileDeleted = true;
                 }
             }

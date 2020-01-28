@@ -84,7 +84,6 @@ export class Program {
 
     constructor(initialImportResolver: ImportResolver, initialConfigOptions: ConfigOptions,
         console?: ConsoleInterface) {
-
         this._console = console || new StandardConsole();
         this._evaluator = createTypeEvaluator(this._lookUpImport);
         this._importResolver = initialImportResolver;
@@ -171,7 +170,7 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        const sourceFile = new SourceFile(filePath, false, false, this._console);
+        const sourceFile = new SourceFile(this._fs, filePath, false, false, this._console);
         sourceFileInfo = {
             sourceFile,
             isTracked: true,
@@ -189,7 +188,7 @@ export class Program {
     setFileOpened(filePath: string, version: number | null, contents: string) {
         let sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
-            const sourceFile = new SourceFile(filePath, false, false, this._console);
+            const sourceFile = new SourceFile(this._fs, filePath, false, false, this._console);
             sourceFileInfo = {
                 sourceFile,
                 isTracked: false,
@@ -390,18 +389,21 @@ export class Program {
                 const typeStubDir = getDirectoryPath(typeStubPath);
 
                 try {
-                    makeDirectories(typeStubDir, typingsPath);
+                    makeDirectories(this._fs, typeStubDir, typingsPath);
                 } catch (e) {
                     const errMsg = `Could not create directory for '${ typeStubDir }'`;
                     throw new Error(errMsg);
                 }
 
                 this._bindFile(sourceFileInfo);
-                const writer = new TypeStubWriter(typeStubPath,
-                    sourceFileInfo.sourceFile, this._evaluator);
+                const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator);
                 writer.write();
             }
         }
+    }
+
+    private get _fs() {
+        return this._importResolver.fileSystem;
     }
 
     private _createNewEvaluator() {
@@ -1088,6 +1090,7 @@ export class Program {
                     importedFileInfo = this._sourceFileMap.get(importPath)!;
                 } else {
                     const sourceFile = new SourceFile(
+                        this._fs,
                         importPath, importInfo.isTypeshedFile,
                         importInfo.isThirdPartyImport, this._console);
                     importedFileInfo = {

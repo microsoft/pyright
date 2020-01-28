@@ -4,13 +4,14 @@
 * Licensed under the MIT license.
 */
 
-import * as fs from "fs";
 import * as pathModule from "path";
 import * as os from "os";
 
 import { compareStringsCaseSensitive, compareStringsCaseInsensitive } from "../../common/stringUtils";
 import { directoryExists, FileSystemEntries, combinePaths, getDirectoryPath, fileExists, getFileSize, getFileSystemEntries, resolvePaths } from "../../common/pathUtils";
 import { matchFiles } from "./utils";
+import { createFromRealFileSystem } from '../../common/vfs';
+import { NullConsole } from '../../common/console';
 
 export let IO: IO = createNodeIO();
 
@@ -46,6 +47,7 @@ function createNodeIO(): IO {
     // byte order mark from the specified encoding. Using any other byte order mark does
     // not actually work.
     const byteOrderMarkIndicator = "\uFEFF";
+    const vfs = createFromRealFileSystem(new NullConsole());
 
     let useCaseSensitiveFileNames = isFileSystemCaseSensitive();
 
@@ -56,7 +58,7 @@ function createNodeIO(): IO {
             return false;
         }
         // If this file exists under a different case, we must be case-insensitve.
-        return !fs.existsSync(swapCase(__filename));
+        return !vfs.existsSync(swapCase(__filename));
 
         /** Convert all lowercase chars to uppercase, and vice-versa */
         function swapCase(s: string): string {
@@ -69,7 +71,7 @@ function createNodeIO(): IO {
 
     function deleteFile(path: string) {
         try {
-            fs.unlinkSync(path);
+            vfs.unlinkSync(path);
         }
         catch { /*ignore*/ }
     }
@@ -84,9 +86,9 @@ function createNodeIO(): IO {
         function filesInFolder(folder: string): string[] {
             let paths: string[] = [];
 
-            for (const file of fs.readdirSync(folder)) {
+            for (const file of vfs.readdirSync(folder)) {
                 const pathToFile = pathModule.join(folder, file);
-                const stat = fs.statSync(pathToFile);
+                const stat = vfs.statSync(pathToFile);
                 if (options.recursive && stat.isDirectory()) {
                     paths = paths.concat(filesInFolder(pathToFile));
                 }
@@ -103,14 +105,14 @@ function createNodeIO(): IO {
 
     function getAccessibleFileSystemEntries(dirname: string): FileSystemEntries {
         try {
-            const entries: string[] = fs.readdirSync(dirname || ".").sort(useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive);
+            const entries: string[] = vfs.readdirSync(dirname || ".").sort(useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive);
             const files: string[] = [];
             const directories: string[] = [];
             for (const entry of entries) {
                 if (entry === "." || entry === "..") continue;
                 const name = combinePaths(dirname, entry);
                 try {
-                    const stat = fs.statSync(name);
+                    const stat = vfs.statSync(name);
                     if (!stat) continue;
                     if (stat.isFile()) {
                         files.push(entry);
@@ -130,24 +132,24 @@ function createNodeIO(): IO {
 
     function createDirectory(path: string) {
         try {
-            fs.mkdirSync(path);
+            vfs.mkdirSync(path);
         }
         catch (e) {
             if (e.code === "ENOENT") {
                 createDirectory(getDirectoryPath(path));
                 createDirectory(path);
             }
-            else if (!directoryExists(path)) {
+            else if (!directoryExists(vfs, path)) {
                 throw e;
             }
         }
     }
 
     function readFile(fileName: string, _encoding?: string): string | undefined {
-        if (!fileExists(fileName)) {
+        if (!fileExists(vfs, fileName)) {
             return undefined;
         }
-        const buffer = fs.readFileSync(fileName);
+        const buffer = vfs.readFileSync(fileName);
         let len = buffer.length;
         if (len >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
             // Big endian UTF-16 byte order mark detected. Since big endian is not supported by node.js,
@@ -178,26 +180,16 @@ function createNodeIO(): IO {
             data = byteOrderMarkIndicator + data;
         }
 
-        let fd: number | undefined;
-
-        try {
-            fd = fs.openSync(fileName, "w");
-            fs.writeSync(fd, data, /*position*/ undefined, "utf8");
-        }
-        finally {
-            if (fd !== undefined) {
-                fs.closeSync(fd);
-            }
-        }
+        vfs.writeFileSync(fileName, data, "utf8");
     }
 
     function getDirectories(path: string): string[] {
-        return getFileSystemEntries(path).directories;
+        return getFileSystemEntries(vfs, path).directories;
     }
 
     function realpath(path: string): string {
         try {
-            return fs.realpathSync(path);
+            return vfs.realpathSync(path);
         }
         catch {
             return path;
@@ -216,14 +208,14 @@ function createNodeIO(): IO {
         getCurrentDirectory: () => process.cwd(),
         useCaseSensitiveFileNames: () => useCaseSensitiveFileNames,
         resolvePath: (path: string) => pathModule.resolve(path),
-        getFileSize: (path: string) => getFileSize(path),
+        getFileSize: (path: string) => getFileSize(vfs, path),
         readFile: path => readFile(path),
         writeFile: (path, content) => writeFile(path, content),
         directoryName,
         getDirectories: path => getDirectories(path),
         createDirectory,
-        fileExists: path => fileExists(path),
-        directoryExists: path => directoryExists(path),
+        fileExists: path => fileExists(vfs, path),
+        directoryExists: path => directoryExists(vfs, path),
         deleteFile,
         listFiles,
         log: s => console.log(s),
@@ -259,7 +251,7 @@ export const IOErrorMessages = Object.freeze({
 });
 
 export function createIOError(code: keyof typeof IOErrorMessages, details = "") {
-    const err: NodeJS.ErrnoException = new Error(`${code}: ${IOErrorMessages[code]} ${details}`);
+    const err: NodeJS.ErrnoException = new Error(`${ code }: ${ IOErrorMessages[code] } ${ details }`);
     err.code = code;
     if (Error.captureStackTrace) Error.captureStackTrace(err, createIOError);
     return err;

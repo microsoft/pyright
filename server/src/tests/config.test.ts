@@ -14,10 +14,11 @@ import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { NullConsole } from '../common/console';
 import { combinePaths, normalizeSlashes, normalizePath } from '../common/pathUtils';
+import { createFromRealFileSystem } from '../common/vfs';
 
 test('FindFilesWithConfigFile', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
-    const service = new AnalyzerService('<default>', new NullConsole());
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(), new NullConsole());
     const commandLineOptions = new CommandLineOptions(cwd, true);
     commandLineOptions.configFilePath = 'src/tests/samples/project1';
 
@@ -25,7 +26,7 @@ test('FindFilesWithConfigFile', () => {
     service.setOptions(commandLineOptions);
 
     // The config file specifies a single file spec (a directory).
-    assert.equal(configOptions.include.length, 1, `failed creating options from ${cwd}`);
+    assert.equal(configOptions.include.length, 1, `failed creating options from ${ cwd }`);
     assert.equal(normalizeSlashes(configOptions.projectRoot),
         normalizeSlashes(combinePaths(cwd, commandLineOptions.configFilePath)));
 
@@ -40,7 +41,7 @@ test('FindFilesWithConfigFile', () => {
 test('FileSpecNotAnArray', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
     commandLineOptions.configFilePath = 'src/tests/samples/project2';
     service.setOptions(commandLineOptions);
@@ -54,7 +55,7 @@ test('FileSpecNotAnArray', () => {
 test('FileSpecNotAString', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
     commandLineOptions.configFilePath = 'src/tests/samples/project3';
     service.setOptions(commandLineOptions);
@@ -68,7 +69,7 @@ test('FileSpecNotAString', () => {
 test('SomeFileSpecsAreInvalid', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
     commandLineOptions.configFilePath = 'src/tests/samples/project4';
     service.setOptions(commandLineOptions);
@@ -77,7 +78,7 @@ test('SomeFileSpecsAreInvalid', () => {
 
     // The config file specifies four file specs in the include array
     // and one in the exclude array.
-    assert.equal(configOptions.include.length, 4, `failed creating options from ${cwd}`);
+    assert.equal(configOptions.include.length, 4, `failed creating options from ${ cwd }`);
     assert.equal(configOptions.exclude.length, 1);
     assert.equal(normalizeSlashes(configOptions.projectRoot),
         normalizeSlashes(combinePaths(cwd, commandLineOptions.configFilePath)));
@@ -91,7 +92,7 @@ test('SomeFileSpecsAreInvalid', () => {
 test('ConfigBadJson', () => {
     const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
     const nullConsole = new NullConsole();
-    const service = new AnalyzerService('<default>', nullConsole);
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
     commandLineOptions.configFilePath = 'src/tests/samples/project5';
     service.setOptions(commandLineOptions);

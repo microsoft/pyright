@@ -26,6 +26,7 @@ import {
 } from './languageService/commands';
 import { CompletionItemData } from './languageService/completionProvider';
 import { LineAndColumnRange, LineAndColumn } from './common/textRange';
+import { createFromRealFileSystem } from './common/vfs';
 
 interface PythonSettings {
     venvPath?: string;
@@ -75,11 +76,14 @@ _documents.listen(_connection);
 
 const _defaultWorkspacePath = '<default>';
 
+// virtual file system to be used. initialized to real file system by default. but can't be overritten
+let _fs = createFromRealFileSystem(_connection.console);
+
 // Creates a service instance that's used for analyzing a
 // program within a workspace.
 function _createAnalyzerService(name: string): AnalyzerService {
     _connection.console.log(`Starting service instance "${ name }"`);
-    const service = new AnalyzerService(name, _connection.console);
+    const service = new AnalyzerService(name, _fs, _connection.console);
 
     // Don't allow the analysis engine to go too long without
     // reporting results. This will keep it responsive.
@@ -128,8 +132,7 @@ function _createTypeStubService(importName: string,
     complete: (success: boolean) => void): AnalyzerService {
 
     _connection.console.log('Starting type stub service instance');
-    const service = new AnalyzerService('Type stub',
-        _connection.console);
+    const service = new AnalyzerService('Type stub', _fs, _connection.console);
 
     service.setMaxAnalysisDuration({
         openFilesTimeInMs: 500,

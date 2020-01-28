@@ -23,6 +23,7 @@ import { DiagnosticCategory } from './common/diagnostic';
 import { LineAndColumnRange } from './common/textRange';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
+import { createFromRealFileSystem } from './common/vfs';
 
 const toolName = 'pyright';
 
@@ -150,8 +151,8 @@ function processArgs() {
     const watch = args.watch !== undefined;
     options.watch = watch;
 
-    const service = new AnalyzerService('<default>', args.outputjson ?
-        new NullConsole() : undefined);
+    const output = args.outputjson ? new NullConsole() : undefined;
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(output), output);
 
     service.setCompletionCallback(results => {
         if (results.fatalErrorOccurred) {
@@ -322,7 +323,7 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
 
                 message += diag.category === DiagnosticCategory.Error ?
                     chalk.red('error') : chalk.green('warning');
-                    message += `: ${ diag.message }`;
+                message += `: ${ diag.message }`;
 
                 const rule = diag.getRule();
                 if (rule) {
