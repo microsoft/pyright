@@ -1,10 +1,11 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-
-declare interface String {
-  uriToPath(): string;
-  pathToUri(): string;
-}
+/*
+* index.d.ts
+* Copyright (c) Microsoft Corporation.
+* Licensed under the MIT license.
+* Author: Eric Traut
+*
+* Global definitions of extension interfaces.
+*/
 
 // tslint:disable-next-line:interface-name
 declare interface Promise<T> {

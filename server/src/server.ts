@@ -1,8 +1,8 @@
 /*
- * server.ts
- *
- * Implements pyright language server.
- */
+* server.ts
+*
+* Implements pyright language server.
+*/
 
 import { isArray } from 'util';
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
