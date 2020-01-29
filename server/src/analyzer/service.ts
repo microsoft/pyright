@@ -47,7 +47,7 @@ export interface AnalysisResults {
 
 export type AnalysisCompleteCallback = (results: AnalysisResults) => void;
 
-const configFileNames = ['pyrightconfig.json', 'mspython.json'];
+const _configFileNames = ['pyrightconfig.json', 'mspython.json'];
 
 export class AnalyzerService {
     private _instanceName: string;
@@ -500,7 +500,7 @@ export class AnalyzerService {
     }
 
     private _findConfigFile(searchPath: string): string | undefined {
-        for(const name of configFileNames) {
+        for(const name of _configFileNames) {
             const fileName = combinePaths(searchPath, name);
             if(fs.existsSync(fileName))
                 return fileName;
