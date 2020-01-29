@@ -364,5 +364,5 @@ export function convertUriToPath(uriString: string): string {
 }
 
 export function convertPathToUri(path: string): string {
-  return URI.file(this).toString();
+  return URI.file(path).toString();
 }
