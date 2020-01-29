@@ -22,6 +22,8 @@ import { LineAndColumn, TextRange } from "../../../common/textRange";
 import { ImportResolver } from "../../../analyzer/importResolver";
 import { Program } from "../../../analyzer/program";
 import { convertPositionToOffset, convertOffsetToPosition } from "../../../common/positionUtils";
+import { Diagnostic, DiagnosticCategory } from "../../../common/diagnostic";
+import { TextRangeCollection } from "../../../common/textRangeCollection";
 
 export interface TextChange {
     span: TextRange;
@@ -30,6 +32,7 @@ export interface TextChange {
 
 export class TestState {
     private readonly _cancellationToken: TestCancellationToken;
+    private readonly _files: string[] = [];
 
     public readonly fs: vfs.FileSystem;
     public readonly importResolver: ImportResolver;
@@ -72,7 +75,6 @@ export class TestState {
             }
         }
 
-
         const fs = createFromFileSystem(io.IO, ignoreCase, { cwd: _basePath, meta: testData.globalOptions });
         fs.apply(files);
 
@@ -88,6 +90,7 @@ export class TestState {
         this.configOptions = configOptions;
         this.importResolver = importResolver;
         this.program = program;
+        this._files.push(...Object.keys(files));
 
         // Open the first file by default
         this.openFile(0);
@@ -208,12 +211,9 @@ export class TestState {
 
     public getRangesByText(): Map<string, Range[]> {
         if (this.testData.rangesByText) return this.testData.rangesByText;
-        const result = this._createMultiMap<Range>();
+        const result = this._createMultiMap<Range>(this.getRanges(), r => this._rangeText(r));
         this.testData.rangesByText = result;
-        for (const range of this.getRanges()) {
-            const text = this._rangeText(range);
-            result.add(text, range);
-        }
+
         return result;
     }
 
@@ -326,6 +326,65 @@ export class TestState {
     public paste(text: string) {
         this._editScriptAndUpdateMarkers(this.activeFile.fileName, this.currentCaretPosition, this.currentCaretPosition, text);
         this._checkPostEditInvariants();
+    }
+
+    public verifyDiagnostics(): void {
+        while (this.program.analyze()) {
+            // Continue to call analyze until it completes. Since we're not
+            // specifying a timeout, it should complete the first time.
+        }
+
+        const sourceFiles = this._files.map(f => this.program.getSourceFile(f));
+        const results = sourceFiles.map((sourceFile, index) => {
+            if (sourceFile) {
+                const diagnostics = sourceFile.getDiagnostics(this.configOptions) || [];
+                const filePath = sourceFile.getFilePath();
+                const value = {
+                    filePath: filePath,
+                    parseResults: sourceFile.getParseResults(),
+                    errors: diagnostics.filter(diag => diag.category === DiagnosticCategory.Error),
+                    warnings: diagnostics.filter(diag => diag.category === DiagnosticCategory.Warning)
+                };
+                return [filePath, value] as [string, typeof value];
+            } else {
+                this._raiseError(`Source file not found for ${ this._files[index] }`);
+            }
+        });
+
+        const resultMap = new Map<string, typeof results[0][1]>(results);
+        const rangeMap = this._createMultiMap<Range>(this.getRanges(), r => r.fileName);
+
+        // expected number of files
+        if (resultMap.size != rangeMap.size) {
+            this._raiseError(`unexpected result ${ results.length }`);
+        }
+
+        for (const [file, values] of rangeMap.entries()) {
+            const categoryMap = this._createMultiMap<Range>(values, r => ((r.marker!.data! as any).category as string));
+            const result = resultMap.get(file)!;
+
+            for (const [category, ranges] of categoryMap.entries()) {
+                verify(
+                    result.parseResults!.tokenizerOutput.lines,
+                    ranges,
+                    category == "error" ? result.errors : category == "warning" ? result.warnings : this._raiseError(`unexpected category ${ category }`));
+            }
+        }
+
+        function verify(lines: TextRangeCollection<TextRange>, expected: Range[], actual: Diagnostic[]) {
+            const expected2 = expected.map(e => TextRange.fromBounds(e.pos, e.end)).sort((a, b) => a.start - b.start);
+            const actual2 = actual.map(a => TextRange.fromBounds(convertPositionToOffset(a.range.start, lines)!, convertPositionToOffset(a.range.end, lines)!)).sort((a, b) => a.start - b.start);
+
+            if (expected2.length != actual2.length) {
+                throw new Error(`contains unexpected result - actual: ${ actual2.length }, expected: ${ expected2.length }`);
+            }
+
+            for (const range of expected2) {
+                if (!actual2.find(v => v.start == range.start && v.length == range.length)) {
+                    throw new Error(`can't find expected range (${ range.start }, ${ range.length })`);
+                }
+            }
+        }
     }
 
     public verifyCaretAtMarker(markerName = "") {
@@ -441,10 +500,16 @@ export class TestState {
         return text.replace(/\s/g, "");
     }
 
-    private _createMultiMap<T>(): MultiMap<T> {
+    private _createMultiMap<T>(values?: T[], getKey?: (t: T) => string): MultiMap<T> {
         const map = new Map<string, T[]>() as MultiMap<T>;
         map.add = multiMapAdd;
         map.remove = multiMapRemove;
+
+        if (values && getKey) {
+            for (const value of values) {
+                map.add(getKey(value), value);
+            }
+        }
 
         return map;
 

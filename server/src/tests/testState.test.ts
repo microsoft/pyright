@@ -350,7 +350,7 @@ test('getRangesInFile', () => {
     `
 
     const { data, state } = parseAndGetTestState(code);
-    
+
     assert.deepEqual(state.getRangesInFile(data.files[0].fileName), data.ranges.filter(r => r.fileName === data.files[0].fileName));
 });
 
@@ -369,7 +369,7 @@ test('rangesByText', () => {
 
     const { data, state } = parseAndGetTestState(code);
     const map = state.getRangesByText();
-    
+
     assert.deepEqual(map.get("def Test(self):"), [data.ranges[0]]);
     assert.deepEqual(map.get("pass"), [data.ranges[1]]);
 });
@@ -407,7 +407,7 @@ test('runFourSlashTestContent', () => {
 /// <reference path="fourslash.d.ts" />
 
 // @filename: file1.py
-/////class A:
+//// class A:
 ////    class B:
 ////        /*position*/def Test(self):
 ////            pass
@@ -419,6 +419,46 @@ helper.getMarkerByName("position");
     `
 
     runFourSlashTestContent(normalizeSlashes("/"), "unused.py", code);
+});
+
+test('CheckerTest', () => {
+    const code = `
+/// <reference path="fourslash.d.ts" />
+
+// @filename: dataclass1.py
+//// # This sample validates the Python 3.7 data class feature.
+//// 
+//// from typing import NamedTuple, Optional
+//// 
+//// class Other:
+////     pass
+//// 
+//// class DataTuple(NamedTuple):
+////     def _m(self):
+////         pass
+////     id: int
+////     aid: Other
+////     valll: str = ''
+////     name: Optional[str] = None
+//// 
+//// d1 = DataTuple(id=1, aid=Other())
+//// d2 = DataTuple(id=1, aid=Other(), valll='v')
+//// d3 = DataTuple(id=1, aid=Other(), name='hello')
+//// d4 = DataTuple(id=1, aid=Other(), name=None)
+//// id = d1.id
+//// 
+//// # This should generate an error because the name argument
+//// # is the incorrect type.
+//// d5 = DataTuple(id=1, aid=Other(), name=[|{|"category": "error"|}3|])
+//// 
+//// # This should generate an error because aid is a required
+//// # parameter and is missing an argument here.
+//// d6 = [|{|"category": "error"|}DataTuple(id=1, name=None|])
+
+helper.verifyDiagnostics();
+    `
+
+    runFourSlashTestContent(factory.srcFolder, "unused.py", code);
 });
 
 function parseAndGetTestState(code: string) {

@@ -278,6 +278,10 @@ export class FileSystem {
         return { close: () => { } };
     }
 
+    public getModulePath(): string {
+        return vpath.normalizeSeparators("/");
+    }
+
     private _scan(path: string, stats: Stats, axis: Axis, traversal: Traversal, noFollow: boolean, results: string[]) {
         if (axis === "ancestors-or-self" || axis === "self" || axis === "descendants-or-self") {
             if (!traversal.accept || traversal.accept(path, stats)) {

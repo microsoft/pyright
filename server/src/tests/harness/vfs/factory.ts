@@ -59,7 +59,7 @@ export interface FileSystemCreateOptions extends FileSystemOptions {
     documents?: readonly TextDocument[];
 }
 
-export const typeshedFolder = normalizeSlashes("/.typeshed");
+export const typeshedFolder = normalizeSlashes("/typeshed-fallback");
 export const libFolder = normalizeSlashes("/.lib");
 export const srcFolder = normalizeSlashes("/.src");
 

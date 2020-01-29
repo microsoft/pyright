@@ -28,7 +28,7 @@ export namespace TextRange {
         if (start < 0) {
             throw new Error('start must be non-negative');
         }
-        if (end >= start) {
+        if (start > end) {
             throw new Error('end must be greater than or equal to start');
         }
         return create(start, end - start);

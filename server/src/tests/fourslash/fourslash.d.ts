@@ -37,6 +37,8 @@ export interface Fourslash {
 
     moveCaretRight(count: number): void;
 
+    verifyDiagnostics(): void;
+
     /* not tested yet
     openFile(indexOrName: number | string, content?: string): void;
     paste(text: string): void;
