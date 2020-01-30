@@ -16,6 +16,10 @@
 * for how markup language and helper is used in fourslash tests, see these 2 tests
 * server\pyright\server\src\tests\fourSlashParser.test.ts
 * server\pyright\server\src\tests\testState.test.ts
+*
+* for debugging, open *.fourslash.ts test file you want to debug, and select "fourslash current file" as debug configuration
+* and set break point in one of TestState methods you are using in the test or set break point on "runCode" above 
+* and hit F5. 
 */
 declare namespace _ {
     interface TextRange {
