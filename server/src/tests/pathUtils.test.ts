@@ -73,15 +73,15 @@ test('getPathComponents5', () => {
 });
 
 test('combinePaths1', () => {
-    const path = combinePaths('/user', '1', '2', '3');
+    const p = combinePaths('/user', '1', '2', '3');
 
-    assert.equal(path, normalizeSlashes('/user/1/2/3'));
+    assert.equal(p, normalizeSlashes('/user/1/2/3'));
 });
 
 test('ensureTrailingDirectorySeparator1', () => {
-    const path = ensureTrailingDirectorySeparator('hello');
+    const p = ensureTrailingDirectorySeparator('hello');
 
-    assert.equal(path, normalizeSlashes('hello/'));
+    assert.equal(p, normalizeSlashes('hello/'));
 });
 
 test('hasTrailingDirectorySeparator1', () => {
@@ -128,15 +128,15 @@ test('getWildcardRegexPattern2', () => {
 });
 
 test('getWildcardRoot1', () => {
-    const path = getWildcardRoot('/users/me', './blah/');
+    const p = getWildcardRoot('/users/me', './blah/');
 
-    assert.equal(path, normalizeSlashes('/users/me/blah'));
+    assert.equal(p, normalizeSlashes('/users/me/blah'));
 });
 
 test('getWildcardRoot2', () => {
-    const path = getWildcardRoot('/users/me', './**/*.py?/');
+    const p = getWildcardRoot('/users/me', './**/*.py?/');
 
-    assert.equal(path, normalizeSlashes('/users/me'));
+    assert.equal(p, normalizeSlashes('/users/me'));
 });
 
 test('reducePathComponentsEmpty', () => {

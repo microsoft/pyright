@@ -59,20 +59,11 @@ function _applyStrictSettings(settings: DiagnosticSettings) {
 }
 
 function _parsePyrightComment(commentValue: string, settings: DiagnosticSettings) {
-    let prefixLength = 0;
     // Is this a pyright or mspython-specific comment?
-    const pyrightPrefix = 'pyright:';
-    if (commentValue.startsWith(pyrightPrefix)) {
-        prefixLength = pyrightPrefix.length;
-    } else {
-        const mspythonPrefix = 'mspython:';
-        if (commentValue.startsWith(mspythonPrefix)) {
-            prefixLength = mspythonPrefix.length;
-        }
-    }
-
-    if (prefixLength > 0) {
-        const operands = commentValue.substr(prefixLength).trim();
+    const validPrefixes = ['pyright:', 'mspython:'];
+    const prefix = validPrefixes.find(p => commentValue.startsWith(p));
+    if (prefix) {
+        const operands = commentValue.substr(prefix.length).trim();
         const operandList = operands.split(',').map(s => s.trim());
 
         // If it contains a "strict" operand, replace the existing

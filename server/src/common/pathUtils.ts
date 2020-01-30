@@ -14,6 +14,7 @@ import { compareValues, Comparison, GetCanonicalFileName, identity } from './cor
 import * as debug from './debug';
 import { getStringComparer, equateStringsCaseInsensitive, equateStringsCaseSensitive, compareStringsCaseSensitive, compareStringsCaseInsensitive } from './stringUtils';
 import { VirtualFileSystem } from './vfs';
+import { URI } from 'vscode-uri';
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -716,4 +717,19 @@ function fileSystemEntryExists(fs: VirtualFileSystem, path: string, entryKind: F
     catch (e) {
         return false;
     }
+}
+
+export function convertUriToPath(uriString: string): string {
+    const uri = URI.parse(uriString);
+    let convertedPath = normalizePath(uri.path);
+    // If this is a DOS-style path with a drive letter, remove
+    // the leading slash.
+    if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
+        convertedPath = convertedPath.substr(1);
+    }
+    return convertedPath;
+}
+
+export function convertPathToUri(path: string): string {
+  return URI.file(path).toString();
 }
