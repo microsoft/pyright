@@ -8,6 +8,7 @@
 */
 
 import * as assert from 'assert';
+import * as path from 'path';
 
 import { combinePaths, ensureTrailingDirectorySeparator, getFileExtension,
     getFileName, getPathComponents,
@@ -25,7 +26,7 @@ test('getPathComponents2', () => {
     const components = getPathComponents('/users/');
 
     assert.equal(components.length, 2);
-    assert.equal(components[0], '/');
+    assert.equal(components[0], path.sep);
     assert.equal(components[1], 'users');
 });
 
@@ -33,7 +34,7 @@ test('getPathComponents3', () => {
     const components = getPathComponents('/users/hello.py');
 
     assert.equal(components.length, 3);
-    assert.equal(components[0], '/');
+    assert.equal(components[0], path.sep);
     assert.equal(components[1], 'users');
     assert.equal(components[2], 'hello.py');
 });
@@ -42,7 +43,7 @@ test('getPathComponents4', () => {
     const components = getPathComponents('/users/hello/../');
 
     assert.equal(components.length, 2);
-    assert.equal(components[0], '/');
+    assert.equal(components[0], path.sep);
     assert.equal(components[1], 'users');
 });
 
@@ -55,15 +56,15 @@ test('getPathComponents5', () => {
 });
 
 test('combinePaths1', () => {
-    const path = combinePaths('/user', '1', '2', '3');
+    const p = combinePaths('/user', '1', '2', '3');
 
-    assert.equal(path, '/user/1/2/3');
+    assert.equal(p, path.join(path.sep, 'user', '1', '2', '3'));
 });
 
 test('ensureTrailingDirectorySeparator1', () => {
-    const path = ensureTrailingDirectorySeparator('hello');
+    const p = ensureTrailingDirectorySeparator('hello');
 
-    assert.equal(path, 'hello/');
+    assert.equal(p, `hello${path.sep}`);
 });
 
 test('hasTrailingDirectorySeparator1', () => {
@@ -109,13 +110,13 @@ test('getWildcardRegexPattern2', () => {
 });
 
 test('getWildcardRoot1', () => {
-    const path = getWildcardRoot('/users/me', './blah/');
+    const p = getWildcardRoot('/users/me', './blah/');
 
-    assert.equal(path, '/users/me/blah');
+    assert.equal(p, path.join(path.sep, 'users', 'me', 'blah'));
 });
 
 test('getWildcardRoot2', () => {
-    const path = getWildcardRoot('/users/me', './**/*.py?/');
+    const p = getWildcardRoot('/users/me', './**/*.py?/');
 
-    assert.equal(path, '/users/me');
+    assert.equal(p, path.join(path.sep, 'users', 'me'));
 });
