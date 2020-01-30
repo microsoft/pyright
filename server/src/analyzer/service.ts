@@ -30,7 +30,6 @@ import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import * as PythonPathUtils from './pythonPathUtils';
 
-const _defaultConfigFileName = 'pyrightconfig.json';
 const _isMacintosh = process.platform === 'darwin';
 const _isLinux = process.platform === 'linux';
 
@@ -47,6 +46,8 @@ export interface AnalysisResults {
 }
 
 export type AnalysisCompleteCallback = (results: AnalysisResults) => void;
+
+const _configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
 
 export class AnalyzerService {
     private _instanceName: string;
@@ -237,15 +238,14 @@ export class AnalyzerService {
                     projectRoot = getDirectoryPath(configFilePath);
                 } else {
                     projectRoot = configFilePath;
-                    configFilePath = combinePaths(configFilePath, _defaultConfigFileName);
-                    if (!fs.existsSync(configFilePath)) {
-                        this._console.log(`Configuration file not found at ${ configFilePath }.`);
-                        configFilePath = undefined;
+                    configFilePath = this._findConfigFile(configFilePath);
+                    if (!configFilePath) {
+                        this._console.log(`Configuration file not found at ${ projectRoot }.`);
                     }
                 }
             }
         } else if (projectRoot) {
-            configFilePath = this._findConfigFile(projectRoot);
+            configFilePath = this._findConfigFileHereOrUp(projectRoot);
             if (configFilePath) {
                 projectRoot = getDirectoryPath(configFilePath);
             } else {
@@ -495,11 +495,17 @@ export class AnalyzerService {
         this._program.markAllFilesDirty(true);
     }
 
+    private _findConfigFileHereOrUp(searchPath: string): string | undefined {
+        return forEachAncestorDirectory(searchPath, ancestor => this._findConfigFile(ancestor));
+    }
+
     private _findConfigFile(searchPath: string): string | undefined {
-        return forEachAncestorDirectory(searchPath, ancestor => {
-            const fileName = combinePaths(ancestor, _defaultConfigFileName);
-            return fs.existsSync(fileName) ? fileName : undefined;
-        });
+        for (const name of _configFileNames) {
+            const fileName = combinePaths(searchPath, name);
+            if (fs.existsSync(fileName))
+                return fileName;
+        }
+        return undefined;
     }
 
     private _parseConfigFile(configPath: string): any | undefined {

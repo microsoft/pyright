@@ -1,11 +1,13 @@
 /*
-* diagnostics.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Class that represents errors and warnings.
-*/
+ * diagnostics.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Class that represents errors and warnings.
+ */
+
+import { Position, Range } from 'vscode-languageserver';
 
 export const enum DiagnosticCategory {
     Error,
@@ -54,8 +56,7 @@ export function doRangesOverlap(a: DiagnosticTextRange, b: DiagnosticTextRange) 
 }
 
 export function doesRangeContain(range: DiagnosticTextRange, position: DiagnosticTextPosition) {
-    return comparePositions(range.start, position) >= 0 &&
-        comparePositions(range.end, position) <= 0;
+    return comparePositions(range.start, position) >= 0 && comparePositions(range.end, position) <= 0;
 }
 
 export function rangesAreEqual(a: DiagnosticTextRange, b: DiagnosticTextRange) {
@@ -67,6 +68,17 @@ export function getEmptyRange(): DiagnosticTextRange {
         start: getEmptyPosition(),
         end: getEmptyPosition()
     };
+}
+
+export function convertRange(range?: DiagnosticTextRange): Range {
+    if (!range) {
+        return Range.create(convertPosition(), convertPosition());
+    }
+    return Range.create(convertPosition(range.start), convertPosition(range.end));
+}
+
+export function convertPosition(position?: DiagnosticTextPosition): Position {
+    return !position ? Position.create(0, 0) : Position.create(position.line, position.column);
 }
 
 // Represents a range within a particular document.
@@ -101,9 +113,7 @@ export class Diagnostic {
     private _rule: string | undefined;
     private _relatedInfo: DiagnosticRelatedInfo[] = [];
 
-    constructor(readonly category: DiagnosticCategory, readonly message: string,
-        readonly range: DiagnosticTextRange) {
-    }
+    constructor(readonly category: DiagnosticCategory, readonly message: string, readonly range: DiagnosticTextRange) {}
 
     addAction(action: DiagnosticAction) {
         if (this._actions === undefined) {

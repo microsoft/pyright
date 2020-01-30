@@ -10,6 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import Char from 'typescript-char';
+import { URI } from 'vscode-uri';
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -349,4 +350,19 @@ export function getFileSpec(rootPath: string, fileSpec: string): FileSpec {
         wildcardRoot,
         regExp
     };
+}
+
+export function convertUriToPath(uriString: string): string {
+    const uri = URI.parse(uriString);
+    let convertedPath = normalizePath(uri.path);
+    // If this is a DOS-style path with a drive letter, remove
+    // the leading slash.
+    if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
+        convertedPath = convertedPath.substr(1);
+    }
+    return convertedPath;
+}
+
+export function convertPathToUri(path: string): string {
+  return URI.file(path).toString();
 }
