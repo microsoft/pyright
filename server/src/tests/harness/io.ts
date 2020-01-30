@@ -8,8 +8,7 @@ import * as pathModule from "path";
 import * as os from "os";
 
 import { compareStringsCaseSensitive, compareStringsCaseInsensitive } from "../../common/stringUtils";
-import { directoryExists, FileSystemEntries, combinePaths, getDirectoryPath, fileExists, getFileSize, getFileSystemEntries, resolvePaths } from "../../common/pathUtils";
-import { matchFiles } from "./utils";
+import { directoryExists, FileSystemEntries, combinePaths, fileExists, getFileSize, resolvePaths } from "../../common/pathUtils";
 import { createFromRealFileSystem } from '../../common/vfs';
 import { NullConsole } from '../../common/console';
 
@@ -17,30 +16,19 @@ export const IO: IO = createNodeIO();
 
 // eslint-disable-next-line @typescript-eslint/interface-name-prefix
 export interface IO {
-    getCurrentDirectory(): string;
     useCaseSensitiveFileNames(): boolean;
-    resolvePath(path: string): string | undefined;
+    getAccessibleFileSystemEntries(dirname: string): FileSystemEntries;
+    directoryExists(path: string): boolean;
+    fileExists(fileName: string): boolean;
     getFileSize(path: string): number;
     readFile(path: string): string | undefined;
+    getWorkspaceRoot(): string;
+
     writeFile(path: string, contents: string): void;
-    directoryName(path: string): string | undefined;
-    getDirectories(path: string): string[];
-    createDirectory(path: string): void;
-    fileExists(fileName: string): boolean;
-    directoryExists(path: string): boolean;
-    deleteFile(fileName: string): void;
     listFiles(path: string, filter?: RegExp, options?: {
         recursive?: boolean;
     }): string[];
     log(text: string): void;
-    args(): string[];
-    getExecutingFilePath(): string;
-    getWorkspaceRoot(): string;
-    exit(exitCode?: number): void;
-    readDirectory(path: string, extension?: readonly string[],
-        exclude?: readonly string[], include?: readonly string[], depth?: number): readonly string[];
-    getAccessibleFileSystemEntries(dirname: string): FileSystemEntries;
-    getEnvironmentVariable?(name: string): string;
 }
 
 function createNodeIO(): IO {
@@ -68,19 +56,6 @@ function createNodeIO(): IO {
                 return ch === up ? ch.toLowerCase() : up;
             });
         }
-    }
-
-    function deleteFile(path: string) {
-        try {
-            vfs.unlinkSync(path);
-        }
-        catch { /*ignore*/ }
-    }
-
-    function directoryName(path: string) {
-        const dirPath = pathModule.dirname(path);
-        // Node will just continue to repeat the root path, rather than return null
-        return dirPath === path ? undefined : dirPath;
     }
 
     function listFiles(path: string, spec: RegExp, options: { recursive?: boolean } = {}) {
@@ -131,21 +106,6 @@ function createNodeIO(): IO {
         }
     }
 
-    function createDirectory(path: string) {
-        try {
-            vfs.mkdirSync(path);
-        }
-        catch (e) {
-            if (e.code === "ENOENT") {
-                createDirectory(getDirectoryPath(path));
-                createDirectory(path);
-            }
-            else if (!directoryExists(vfs, path)) {
-                throw e;
-            }
-        }
-    }
-
     function readFile(fileName: string, _encoding?: string): string | undefined {
         if (!fileExists(vfs, fileName)) {
             return undefined;
@@ -184,49 +144,17 @@ function createNodeIO(): IO {
         vfs.writeFileSync(fileName, data, "utf8");
     }
 
-    function getDirectories(path: string): string[] {
-        return getFileSystemEntries(vfs, path).directories;
-    }
-
-    function realpath(path: string): string {
-        try {
-            return vfs.realpathSync(path);
-        }
-        catch {
-            return path;
-        }
-    }
-
-    function readDirectory(path: string,
-        extensions?: readonly string[],
-        excludes?: readonly string[],
-        includes?: readonly string[],
-        depth?: number): string[] {
-        return matchFiles(path, extensions, excludes, includes, useCaseSensitiveFileNames, process.cwd(), depth, getAccessibleFileSystemEntries, realpath);
-    }
-
     return {
-        getCurrentDirectory: () => process.cwd(),
         useCaseSensitiveFileNames: () => useCaseSensitiveFileNames,
-        resolvePath: (path: string) => pathModule.resolve(path),
         getFileSize: (path: string) => getFileSize(vfs, path),
         readFile: path => readFile(path),
         writeFile: (path, content) => writeFile(path, content),
-        directoryName,
-        getDirectories: path => getDirectories(path),
-        createDirectory,
         fileExists: path => fileExists(vfs, path),
         directoryExists: path => directoryExists(vfs, path),
-        deleteFile,
         listFiles,
         log: s => console.log(s),
-        args: () => process.argv.slice(2),
-        getExecutingFilePath: () => __filename,
         getWorkspaceRoot: () => resolvePaths(__dirname, "../../.."),
-        exit: exitCode => process.exit(exitCode),
-        readDirectory: (path, extension, exclude, include, depth) => readDirectory(path, extension, exclude, include, depth),
         getAccessibleFileSystemEntries,
-        getEnvironmentVariable: name => process.env[name] || "",
     };
 }
 
