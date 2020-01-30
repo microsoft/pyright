@@ -628,7 +628,7 @@ export abstract class LanguageServerBase {
                 const workspace: WorkspaceServiceInstance = {
                     workspaceName: `Create Type Stub ${importName}`,
                     rootPath: workspaceRoot,
-                    rootUri: workspaceRoot.pathToUri(),
+                    rootUri: convertPathToUri(workspaceRoot),
                     serviceInstance: service,
                     disableLanguageServices: true
                 };
