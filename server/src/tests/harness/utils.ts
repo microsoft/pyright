@@ -348,3 +348,7 @@ export function createIOError(code: keyof typeof IOErrorMessages, details = "") 
     if (Error.captureStackTrace) Error.captureStackTrace(err, createIOError);
     return err;
 }
+
+export function stringify(data: any, replacer?: (key: string, value: any) => any): string {
+    return JSON.stringify(data, replacer, 2);
+}

@@ -20,11 +20,11 @@ import { combinePaths, comparePaths, getBaseFileName, normalizePath, normalizeSl
 import { convertOffsetToPosition, convertPositionToOffset } from "../../../common/positionUtils";
 import { getStringComparer } from "../../../common/stringUtils";
 import { LineAndColumn, TextRange } from "../../../common/textRange";
-import { TextRangeCollection } from "../../../common/textRangeCollection";
 import * as host from "../host";
 import { createFromFileSystem } from "../vfs/factory";
 import * as vfs from "../vfs/filesystem";
 import { CompilerSettings, FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker, MultiMap, pythonSettingFilename, Range, TestCancellationToken } from "./fourSlashTypes";
+import { stringify } from "../utils"
 
 export interface TextChange {
     span: TextRange;
@@ -66,7 +66,7 @@ export class TestState {
                     configJson = JSON.parse(file.content);
                 }
                 catch (e) {
-                    throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
+                    throw new Error(`Failed to parse test ${ file.fileName }: ${ e.message }`);
                 }
 
                 configOptions.initializeFromJson(configJson, new NullConsole());
@@ -105,7 +105,7 @@ export class TestState {
 
         const content = this._getFileContent(marker.fileName);
         if (marker.position === -1 || marker.position > content.length) {
-            throw new Error(`Marker "${nameOrMarker}" has been invalidated by unrecoverable edits to the file.`);
+            throw new Error(`Marker "${ nameOrMarker }" has been invalidated by unrecoverable edits to the file.`);
         }
 
         const mName = isString(nameOrMarker) ? nameOrMarker : this.getMarkerName(marker);
@@ -136,7 +136,7 @@ export class TestState {
     public getMarkerByName(markerName: string) {
         const markerPos = this.testData.markerPositions.get(markerName);
         if (markerPos === undefined) {
-            throw new Error(`Unknown marker "${markerName}" Available markers: ${this.getMarkerNames().map(m => "\"" + m + "\"").join(", ")}`);
+            throw new Error(`Unknown marker "${ markerName }" Available markers: ${ this.getMarkerNames().map(m => "\"" + m + "\"").join(", ") }`);
         }
         else {
             return markerPos;
@@ -245,7 +245,7 @@ export class TestState {
     public printCurrentFileState(showWhitespace: boolean, makeCaretVisible: boolean) {
         for (const file of this.testData.files) {
             const active = (this.activeFile === file);
-            host.Host.log(`=== Script (${file.fileName}) ${(active ? "(active, cursor at |)" : "")} ===`);
+            host.Host.log(`=== Script (${ file.fileName }) ${ (active ? "(active, cursor at |)" : "") } ===`);
             let content = this._getFileContent(file.fileName);
             if (active) {
                 content = content.substr(0, this.currentCaretPosition) + (makeCaretVisible ? "|" : "") + content.substr(this.currentCaretPosition);
@@ -328,7 +328,7 @@ export class TestState {
         this._checkPostEditInvariants();
     }
 
-    public verifyDiagnostics(): void {
+    public verifyDiagnostics(map?: { [marker: string]: { category: string; message: string } }): void {
         while (this.program.analyze()) {
             // Continue to call analyze until it completes. Since we're not
             // specifying a timeout, it should complete the first time.
@@ -347,41 +347,58 @@ export class TestState {
                 };
                 return [filePath, value] as [string, typeof value];
             } else {
-                this._raiseError(`Source file not found for ${this._files[index]}`);
+                this._raiseError(`Source file not found for ${ this._files[index] }`);
             }
         });
 
-        const resultMap = new Map<string, typeof results[0][1]>(results);
-        const rangeMap = this._createMultiMap<Range>(this.getRanges(), r => r.fileName);
+        // organize things per file
+        const resultPerFile = new Map<string, typeof results[0][1]>(results);
+        const rangePerFile = this._createMultiMap<Range>(this.getRanges(), r => r.fileName);
 
         // expected number of files
-        if (resultMap.size != rangeMap.size) {
-            this._raiseError(`unexpected result ${results.length}`);
+        if (resultPerFile.size != rangePerFile.size) {
+            this._raiseError(`actual and expected doesn't match - expected: ${ stringify(rangePerFile) }, actual: ${ stringify(rangePerFile) }`);
         }
 
-        for (const [file, values] of rangeMap.entries()) {
-            const categoryMap = this._createMultiMap<Range>(values, r => ((r.marker!.data! as any).category as string));
-            const result = resultMap.get(file)!;
+        for (const [file, ranges] of rangePerFile.entries()) {
+            const rangesPerCategory = this._createMultiMap<Range>(ranges, r => {
+                if (map) {
+                    const name = this.getMarkerName(r.marker!);
+                    return map[name].category;
+                }
 
-            for (const [category, ranges] of categoryMap.entries()) {
-                verify(
-                    result.parseResults!.tokenizerOutput.lines,
-                    ranges,
-                    category == "error" ? result.errors : category == "warning" ? result.warnings : this._raiseError(`unexpected category ${category}`));
-            }
-        }
+                return (r.marker!.data! as any).category as string;
+            });
 
-        function verify(lines: TextRangeCollection<TextRange>, expected: Range[], actual: Diagnostic[]) {
-            const expected2 = expected.map(e => TextRange.fromBounds(e.pos, e.end)).sort((a, b) => a.start - b.start);
-            const actual2 = actual.map(a => TextRange.fromBounds(convertPositionToOffset(a.range.start, lines)!, convertPositionToOffset(a.range.end, lines)!)).sort((a, b) => a.start - b.start);
+            const result = resultPerFile.get(file)!;
+            for (const [category, ranges] of rangesPerCategory.entries()) {
+                const lines = result.parseResults!.tokenizerOutput.lines;
+                const expected = ranges;
+                const actual = category == "error" ? result.errors : category == "warning" ? result.warnings : this._raiseError(`unexpected category ${ category }`);
 
-            if (expected2.length != actual2.length) {
-                throw new Error(`contains unexpected result - actual: ${actual2.length}, expected: ${expected2.length}`);
-            }
+                if (expected.length != actual.length) {
+                    throw new Error(`contains unexpected result - expected: ${ stringify(expected) }, actual: ${ actual }`);
+                }
 
-            for (const range of expected2) {
-                if (!actual2.find(v => v.start == range.start && v.length == range.length)) {
-                    throw new Error(`can't find expected range (${range.start}, ${range.length})`);
+                const rangeOrdered = expected.map(r => [r, TextRange.fromBounds(r.pos, r.end)] as [Range, TextRange]).sort((a, b) => a[1].start - b[1].start);
+                const diagnosticOrdered = actual.map(d => [d, TextRange.fromBounds(convertPositionToOffset(d.range.start, lines)!, convertPositionToOffset(d.range.end, lines)!)] as [Diagnostic, TextRange]).sort((a, b) => a[1].start - b[1].start);
+
+                for (let i = 0; i < rangeOrdered.length; i++) {
+                    const [range, rangeSpan] = rangeOrdered[i];
+                    const [diagnostic, diagnosticSpan] = diagnosticOrdered[i];
+
+                    if (rangeSpan.start !== diagnosticSpan.start || rangeSpan.length !== diagnosticSpan.length) {
+                        throw new Error(`can't find expected range: ${ stringify(range) } from diagnostics ${ stringify(diagnosticOrdered) }`);
+                    }
+
+                    // if map is provided, check messasge as well
+                    if (map) {
+                        const name = this.getMarkerName(range.marker!);
+                        const message = map[name].message;
+                        if (message != diagnostic.message) {
+                            throw new Error(`message doesn't match: ${ message } of ${ name } - ${ stringify(range) }, actual: ${ stringify(diagnostic) }`);
+                        }
+                    }
                 }
             }
         }
@@ -390,10 +407,10 @@ export class TestState {
     public verifyCaretAtMarker(markerName = "") {
         const pos = this.getMarkerByName(markerName);
         if (pos.fileName !== this.activeFile.fileName) {
-            throw new Error(`verifyCaretAtMarker failed - expected to be in file "${pos.fileName}", but was in file "${this.activeFile.fileName}"`);
+            throw new Error(`verifyCaretAtMarker failed - expected to be in file "${ pos.fileName }", but was in file "${ this.activeFile.fileName }"`);
         }
         if (pos.position !== this.currentCaretPosition) {
-            throw new Error(`verifyCaretAtMarker failed - expected to be at marker "/*${markerName}*/, but was at position ${this.currentCaretPosition}(${this._getLineColStringAtPosition(this.currentCaretPosition)})`);
+            throw new Error(`verifyCaretAtMarker failed - expected to be at marker "/*${ markerName }*/, but was at position ${ this.currentCaretPosition }(${ this._getLineColStringAtPosition(this.currentCaretPosition) })`);
         }
     }
 
@@ -472,7 +489,7 @@ export class TestState {
 
     private _messageAtLastKnownMarker(message: string) {
         const locationDescription = this.lastKnownMarker ? this.lastKnownMarker : this._getLineColStringAtPosition(this.currentCaretPosition);
-        return `At ${locationDescription}: ${message}`;
+        return `At ${ locationDescription }: ${ message }`;
     }
 
     private _checkPostEditInvariants() {
@@ -551,14 +568,14 @@ export class TestState {
     private _verifyFileContent(fileName: string, text: string) {
         const actual = this._getFileContent(fileName);
         if (actual !== text) {
-            throw new Error(`verifyFileContent failed:\n${this._showTextDiff(text, actual)}`);
+            throw new Error(`verifyFileContent failed:\n${ this._showTextDiff(text, actual) }`);
         }
     }
 
     private _verifyTextMatches(actualText: string, includeWhitespace: boolean, expectedText: string) {
         const removeWhitespace = (s: string): string => includeWhitespace ? s : this._removeWhitespace(s);
         if (removeWhitespace(actualText) !== removeWhitespace(expectedText)) {
-            this._raiseError(`Actual range text doesn't match expected text.\n${this._showTextDiff(expectedText, actualText)}`);
+            this._raiseError(`Actual range text doesn't match expected text.\n${ this._showTextDiff(expectedText, actualText) }`);
         }
     }
 
@@ -605,7 +622,7 @@ export class TestState {
         if (typeof indexOrName === "number") {
             const index = indexOrName;
             if (index >= this.testData.files.length) {
-                throw new Error(`File index (${index}) in openFile was out of range. There are only ${this.testData.files.length} files in this test.`);
+                throw new Error(`File index (${ index }) in openFile was out of range. There are only ${ this.testData.files.length } files in this test.`);
             }
             else {
                 return this.testData.files[index];
@@ -614,7 +631,7 @@ export class TestState {
         else if (isString(indexOrName)) {
             const { file, availableNames } = this._tryFindFileWorker(indexOrName);
             if (!file) {
-                throw new Error(`No test file named "${indexOrName}" exists. Available file names are: ${availableNames.join(", ")}`);
+                throw new Error(`No test file named "${ indexOrName }" exists. Available file names are: ${ availableNames.join(", ") }`);
             }
             return file;
         }
@@ -648,7 +665,7 @@ export class TestState {
 
     private _getLineColStringAtPosition(position: number, file: FourSlashFile = this.activeFile) {
         const pos = this._convertOffsetToPosition(file.fileName, position);
-        return `line ${(pos.line + 1)}, col ${pos.column}`;
+        return `line ${ (pos.line + 1) }, col ${ pos.column }`;
     }
 
     private _showTextDiff(expected: string, actual: string): string {
@@ -669,7 +686,7 @@ export class TestState {
         const actualMsg = "\x1b[1mActual\x1b[0m\x1b[31m";
         const expectedString = quoted ? "\"" + expected + "\"" : expected;
         const actualString = quoted ? "\"" + actual + "\"" : actual;
-        return `\n${expectMsg}:\n${expectedString}\n\n${actualMsg}:\n${actualString}`;
+        return `\n${ expectMsg }:\n${ expectedString }\n\n${ actualMsg }:\n${ actualString }`;
     }
 
     private _makeWhitespaceVisible(text: string) {
