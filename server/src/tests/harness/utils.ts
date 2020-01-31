@@ -320,3 +320,31 @@ export class Metadata {
         return (text.length >= 3 && text.charAt(0) === "_" && text.charAt(1) === "_" && text.charAt(2) === "_" ? text.slice(1) : text);
     }
 }
+
+export function bufferFrom(input: string, encoding?: BufferEncoding): Buffer {
+    // See https://github.com/Microsoft/TypeScript/issues/25652
+    return Buffer.from && (Buffer.from as Function) !== Int8Array.from
+        ? Buffer.from(input, encoding) : new Buffer(input, encoding);
+}
+
+export const IOErrorMessages = Object.freeze({
+    EACCES: "access denied",
+    EIO: "an I/O error occurred",
+    ENOENT: "no such file or directory",
+    EEXIST: "file already exists",
+    ELOOP: "too many symbolic links encountered",
+    ENOTDIR: "no such directory",
+    EISDIR: "path is a directory",
+    EBADF: "invalid file descriptor",
+    EINVAL: "invalid value",
+    ENOTEMPTY: "directory not empty",
+    EPERM: "operation not permitted",
+    EROFS: "file system is read-only"
+});
+
+export function createIOError(code: keyof typeof IOErrorMessages, details = "") {
+    const err: NodeJS.ErrnoException = new Error(`${ code }: ${ IOErrorMessages[code] } ${ details }`);
+    err.code = code;
+    if (Error.captureStackTrace) Error.captureStackTrace(err, createIOError);
+    return err;
+}

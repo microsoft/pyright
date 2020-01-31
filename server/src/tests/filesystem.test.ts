@@ -7,7 +7,7 @@
  */
 
 import * as assert from 'assert';
-import * as io from './harness/io';
+import * as host from './harness/host';
 import * as vfs from "./harness/vfs/filesystem";
 import * as factory from "./harness/vfs/factory"
 import { normalizeSlashes, combinePaths } from '../common/pathUtils';
@@ -144,7 +144,7 @@ test('createFromFileSystem1', () => {
     const content = "# test";
 
     // file system will map physical file system to virtual one
-    const fs = factory.createFromFileSystem(io.IO, false, { documents: [new factory.TextDocument(filepath, content)], cwd: factory.srcFolder });
+    const fs = factory.createFromFileSystem(host.Host, false, { documents: [new factory.TextDocument(filepath, content)], cwd: factory.srcFolder });
 
     // check existing typeshed folder on virtual path inherited from base snapshot from physical file system
     const entries = fs.readdirSync(factory.typeshedFolder);
@@ -155,14 +155,14 @@ test('createFromFileSystem1', () => {
 });
 
 test('createFromFileSystem2', () => {
-    const fs = factory.createFromFileSystem(io.IO, /* ignoreCase */ true, { cwd: factory.srcFolder });
+    const fs = factory.createFromFileSystem(host.Host, /* ignoreCase */ true, { cwd: factory.srcFolder });
     const entries = fs.readdirSync(factory.typeshedFolder.toUpperCase());
     assert(entries.length > 0);
 });
 
 test('createFromFileSystemWithCustomTypeshedPath', () => {
-    const invalidpath = normalizeSlashes(combinePaths(io.IO.getWorkspaceRoot(), "../docs"));
-    const fs = factory.createFromFileSystem(io.IO, /* ignoreCase */ false, {
+    const invalidpath = normalizeSlashes(combinePaths(host.Host.getWorkspaceRoot(), "../docs"));
+    const fs = factory.createFromFileSystem(host.Host, /* ignoreCase */ false, {
         cwd: factory.srcFolder, meta: { [factory.typeshedFolder]: invalidpath }
     });
 
@@ -171,7 +171,7 @@ test('createFromFileSystemWithCustomTypeshedPath', () => {
 });
 
 test('createFromFileSystemWithMetadata', () => {
-    const fs = factory.createFromFileSystem(io.IO, /* ignoreCase */ false, {
+    const fs = factory.createFromFileSystem(host.Host, /* ignoreCase */ false, {
         cwd: factory.srcFolder, meta: { "unused": "unused" }
     });
 

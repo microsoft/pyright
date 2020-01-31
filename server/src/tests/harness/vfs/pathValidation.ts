@@ -5,7 +5,7 @@
  */
 import { sep } from "path"
 import * as pu from "../../../common/pathUtils"
-import { createIOError } from "../io";
+import { createIOError } from "../utils";
 
 const invalidRootComponentRegExp = getInvalidRootComponentRegExp();
 const invalidNavigableComponentRegExp = /[:*?"<>|]/;

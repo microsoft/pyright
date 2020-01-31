@@ -21,7 +21,7 @@ import { convertOffsetToPosition, convertPositionToOffset } from "../../../commo
 import { getStringComparer } from "../../../common/stringUtils";
 import { LineAndColumn, TextRange } from "../../../common/textRange";
 import { TextRangeCollection } from "../../../common/textRangeCollection";
-import * as io from "../io";
+import * as host from "../host";
 import { createFromFileSystem } from "../vfs/factory";
 import * as vfs from "../vfs/filesystem";
 import { CompilerSettings, FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker, MultiMap, pythonSettingFilename, Range, TestCancellationToken } from "./fourSlashTypes";
@@ -76,7 +76,7 @@ export class TestState {
             }
         }
 
-        const fs = createFromFileSystem(io.IO, ignoreCase, { cwd: _basePath, files: files, meta: testData.globalOptions });
+        const fs = createFromFileSystem(host.Host, ignoreCase, { cwd: _basePath, files: files, meta: testData.globalOptions });
 
         // this should be change to AnalyzerService rather than Program
         const importResolver = new ImportResolver(fs, configOptions);
@@ -245,7 +245,7 @@ export class TestState {
     public printCurrentFileState(showWhitespace: boolean, makeCaretVisible: boolean) {
         for (const file of this.testData.files) {
             const active = (this.activeFile === file);
-            io.IO.log(`=== Script (${file.fileName}) ${(active ? "(active, cursor at |)" : "")} ===`);
+            host.Host.log(`=== Script (${file.fileName}) ${(active ? "(active, cursor at |)" : "")} ===`);
             let content = this._getFileContent(file.fileName);
             if (active) {
                 content = content.substr(0, this.currentCaretPosition) + (makeCaretVisible ? "|" : "") + content.substr(this.currentCaretPosition);
@@ -253,7 +253,7 @@ export class TestState {
             if (showWhitespace) {
                 content = this._makeWhitespaceVisible(content);
             }
-            io.IO.log(content);
+            host.Host.log(content);
         }
     }
 

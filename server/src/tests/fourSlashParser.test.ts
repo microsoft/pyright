@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 import * as factory from "./harness/vfs/factory"
-import * as io from './harness/io';
+import * as host from './harness/host';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { CompilerSettings } from './harness/fourslash/fourSlashTypes';
@@ -271,7 +271,7 @@ test('fourSlashWithFileSystem', () => {
 
     const data = parseTestData(".", code, "unused");
     const documents = data.files.map(f => new factory.TextDocument(f.fileName, f.content, new Map<string, string>(Object.entries(f.fileOptions))));
-    const fs = factory.createFromFileSystem(io.IO, /* ignoreCase */ false, { documents: documents, cwd: normalizeSlashes("/") });
+    const fs = factory.createFromFileSystem(host.Host, /* ignoreCase */ false, { documents: documents, cwd: normalizeSlashes("/") });
 
     for (const file of data.files) {
         assert.equal(fs.readFileSync(file.fileName, "utf8"), getContent(getBaseFileName(file.fileName, ".py", false)));

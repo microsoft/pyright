@@ -8,7 +8,7 @@
 
 import * as ts from "typescript";
 import { combinePaths } from "../../../common/pathUtils";
-import * as io from "../io";
+import * as host from "../host";
 import { parseTestData } from "./fourSlashParser";
 import { TestState } from "./testState";
 
@@ -19,7 +19,7 @@ import { TestState } from "./testState";
  * @param fileName this is the file path where fourslash test file will be read from
  */
 export function runFourSlashTest(basePath: string, fileName: string) {
-    const content = (io.IO.readFile(fileName)!);
+    const content = (host.Host.readFile(fileName)!);
     runFourSlashTestContent(basePath, fileName, content);
 }
 

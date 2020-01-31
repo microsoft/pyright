@@ -8,8 +8,9 @@
 
 import { combinePaths, getDirectoryPath, normalizeSlashes, resolvePaths } from "../../../common/pathUtils";
 import { S_IFDIR, S_IFREG } from "../../../common/vfs";
-import { bufferFrom } from "../io";
-import { FileSystem, FileSystemOptions, FileSystemResolver, FileSystemResolverHost, ModulePath, Mount } from "./filesystem";
+import { TestHost } from "../host";
+import { bufferFrom } from "../utils";
+import { FileSystem, FileSystemOptions, FileSystemResolver, ModulePath, Mount } from "./filesystem";
 
 export class TextDocument {
     public readonly meta: Map<string, string>;
@@ -47,7 +48,7 @@ export const srcFolder = normalizeSlashes("/.src");
  * 
  * all `FileSystemCreateOptions` are optional
  */
-export function createFromFileSystem(host: FileSystemResolverHost, ignoreCase: boolean, { documents, files, cwd, time, meta }: FileSystemCreateOptions = {}) {
+export function createFromFileSystem(host: TestHost, ignoreCase: boolean, { documents, files, cwd, time, meta }: FileSystemCreateOptions = {}) {
     const fs = getBuiltLocal(host, meta ? meta[typeshedFolder] : undefined, ignoreCase).shadow();
     if (meta) {
         for (const key of Object.keys(meta)) {
@@ -82,11 +83,11 @@ export function createFromFileSystem(host: FileSystemResolverHost, ignoreCase: b
     return fs;
 }
 
-let cacheKey: { host: FileSystemResolverHost; typeshedFolderPath: string | undefined } | undefined;
+let cacheKey: { host: TestHost; typeshedFolderPath: string | undefined } | undefined;
 let localCIFSCache: FileSystem | undefined;
 let localCSFSCache: FileSystem | undefined;
 
-function getBuiltLocal(host: FileSystemResolverHost, typeshedFolderPath: string | undefined, ignoreCase: boolean): FileSystem {
+function getBuiltLocal(host: TestHost, typeshedFolderPath: string | undefined, ignoreCase: boolean): FileSystem {
     if (cacheKey?.host !== host || cacheKey.typeshedFolderPath != typeshedFolderPath) {
         localCIFSCache = undefined;
         localCSFSCache = undefined;
@@ -116,7 +117,7 @@ function getBuiltLocal(host: FileSystemResolverHost, typeshedFolderPath: string 
     return localCSFSCache;
 }
 
-function createResolver(host: FileSystemResolverHost): FileSystemResolver {
+function createResolver(host: TestHost): FileSystemResolver {
     return {
         readdirSync(path: string): string[] {
             const { files, directories } = host.getAccessibleFileSystemEntries(path);

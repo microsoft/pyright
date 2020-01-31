@@ -12,10 +12,10 @@ import { directoryExists, FileSystemEntries, combinePaths, fileExists, getFileSi
 import { createFromRealFileSystem } from '../../common/vfs';
 import { NullConsole } from '../../common/console';
 
-export const IO: IO = createNodeIO();
+export const Host: TestHost = createHost();
 
 // eslint-disable-next-line @typescript-eslint/interface-name-prefix
-export interface IO {
+export interface TestHost {
     useCaseSensitiveFileNames(): boolean;
     getAccessibleFileSystemEntries(dirname: string): FileSystemEntries;
     directoryExists(path: string): boolean;
@@ -31,7 +31,7 @@ export interface IO {
     log(text: string): void;
 }
 
-function createNodeIO(): IO {
+function createHost(): TestHost {
     // NodeJS detects "\uFEFF" at the start of the string and *replaces* it with the actual
     // byte order mark from the specified encoding. Using any other byte order mark does
     // not actually work.
@@ -156,32 +156,4 @@ function createNodeIO(): IO {
         getWorkspaceRoot: () => resolvePaths(__dirname, "../../.."),
         getAccessibleFileSystemEntries,
     };
-}
-
-export function bufferFrom(input: string, encoding?: BufferEncoding): Buffer {
-    // See https://github.com/Microsoft/TypeScript/issues/25652
-    return Buffer.from && (Buffer.from as Function) !== Int8Array.from
-        ? Buffer.from(input, encoding) : new Buffer(input, encoding);
-}
-
-export const IOErrorMessages = Object.freeze({
-    EACCES: "access denied",
-    EIO: "an I/O error occurred",
-    ENOENT: "no such file or directory",
-    EEXIST: "file already exists",
-    ELOOP: "too many symbolic links encountered",
-    ENOTDIR: "no such directory",
-    EISDIR: "path is a directory",
-    EBADF: "invalid file descriptor",
-    EINVAL: "invalid value",
-    ENOTEMPTY: "directory not empty",
-    EPERM: "operation not permitted",
-    EROFS: "file system is read-only"
-});
-
-export function createIOError(code: keyof typeof IOErrorMessages, details = "") {
-    const err: NodeJS.ErrnoException = new Error(`${ code }: ${ IOErrorMessages[code] } ${ details }`);
-    err.code = code;
-    if (Error.captureStackTrace) Error.captureStackTrace(err, createIOError);
-    return err;
 }

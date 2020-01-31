@@ -9,7 +9,7 @@
 /* eslint-disable no-dupe-class-members */
 import * as pathUtil from "../../../common/pathUtils";
 import { FileWatcher, Listener, Stats, S_IFDIR, S_IFLNK, S_IFMT, S_IFREG } from "../../../common/vfs";
-import { bufferFrom, createIOError } from "../io";
+import { bufferFrom, createIOError } from "../utils";
 import { closeIterator, getIterator, Metadata, nextResult, SortedMap } from "./../utils";
 import { validate, ValidationFlags } from "./pathValidation";
 
@@ -1180,16 +1180,6 @@ export interface FileSystemResolver {
     statSync(path: string): { mode: number; size: number };
     readdirSync(path: string): string[];
     readFileSync(path: string): Buffer;
-}
-
-export interface FileSystemResolverHost {
-    useCaseSensitiveFileNames(): boolean;
-    getAccessibleFileSystemEntries(path: string): pathUtil.FileSystemEntries;
-    directoryExists(path: string): boolean;
-    fileExists(path: string): boolean;
-    getFileSize(path: string): number;
-    readFile(path: string): string | undefined;
-    getWorkspaceRoot(): string;
 }
 
 /**

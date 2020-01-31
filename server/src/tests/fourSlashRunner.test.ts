@@ -7,7 +7,7 @@
  * register jest tests for them and run
  */
 import * as path from "path";
-import * as io from "./harness/io";
+import * as host from "./harness/host";
 import { normalizeSlashes } from "../common/pathUtils";
 import { runFourSlashTest } from "./harness/fourslash/runner";
 import { srcFolder } from "./harness/vfs/factory";
@@ -16,7 +16,7 @@ describe("fourslash tests", () => {
     const testFiles: string[] = [];
 
     const basePath = path.resolve(path.dirname(module.filename), "fourslash/");
-    for (const file of io.IO.listFiles(basePath, /.*\.fourslash\.ts$/i, { recursive: true })) {
+    for (const file of host.Host.listFiles(basePath, /.*\.fourslash\.ts$/i, { recursive: true })) {
         testFiles.push(file);
     }
 
