@@ -6,11 +6,10 @@
  * Provides a factory to create virtual file system backed by a real file system with some path remapped
  */
 
-import { normalizeSlashes, combinePaths } from "../../../common/pathUtils";
+import { combinePaths, getDirectoryPath, normalizeSlashes, resolvePaths } from "../../../common/pathUtils";
 import { S_IFDIR, S_IFREG } from "../../../common/vfs";
 import { bufferFrom } from "../io";
-import { FileSystem, FileSystemOptions, FileSystemResolver, FileSystemResolverHost, Mount, ModulePath } from "./filesystem";
-import * as path from "./pathUtils";
+import { FileSystem, FileSystemOptions, FileSystemResolver, FileSystemResolverHost, ModulePath, Mount } from "./filesystem";
 
 export class TextDocument {
     public readonly meta: Map<string, string>;
@@ -64,15 +63,15 @@ export function createFromFileSystem(host: FileSystemResolverHost, ignoreCase: b
     }
     if (documents) {
         for (const document of documents) {
-            fs.mkdirpSync(path.dirname(document.file));
+            fs.mkdirpSync(getDirectoryPath(document.file));
             fs.writeFileSync(document.file, document.text, "utf8");
             fs.filemeta(document.file).set("document", document);
             // Add symlinks
             const symlink = document.meta.get("symlink");
             if (symlink) {
                 for (const link of symlink.split(",").map(link => link.trim())) {
-                    fs.mkdirpSync(path.dirname(link));
-                    fs.symlinkSync(path.resolve(fs.cwd(), document.file), link);
+                    fs.mkdirpSync(getDirectoryPath(link));
+                    fs.symlinkSync(resolvePaths(fs.cwd(), document.file), link);
                 }
             }
         }
@@ -95,7 +94,7 @@ function getBuiltLocal(host: FileSystemResolverHost, typeshedFolderPath: string 
     }
     if (!localCIFSCache) {
         const resolver = createResolver(host);
-        typeshedFolderPath = typeshedFolderPath ?? path.resolve(host.getWorkspaceRoot(), "../dist/typeshed-fallback");
+        typeshedFolderPath = typeshedFolderPath ?? resolvePaths(host.getWorkspaceRoot(), "../dist/typeshed-fallback");
         localCIFSCache = new FileSystem(/*ignoreCase*/ true, {
             files: {
                 [typeshedFolder]: new Mount(typeshedFolderPath, resolver),

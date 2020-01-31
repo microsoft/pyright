@@ -7,12 +7,13 @@
  */
 
 /* eslint-disable no-dupe-class-members */
+import * as pathUtil from "../../../common/pathUtils";
 import { FileWatcher, Listener, Stats, S_IFDIR, S_IFLNK, S_IFMT, S_IFREG } from "../../../common/vfs";
 import { bufferFrom, createIOError } from "../io";
 import { closeIterator, getIterator, Metadata, nextResult, SortedMap } from "./../utils";
-import * as vpath from "./pathUtils";
+import { validate, ValidationFlags } from "./pathValidation";
 
-export const ModulePath = vpath.normalizeSeparators("/");
+export const ModulePath = pathUtil.normalizeSlashes("/");
 
 let devCount = 0; // A monotonically increasing count of device ids
 let inoCount = 0; // A monotonically increasing count of inodes
@@ -46,7 +47,7 @@ export class FileSystem {
     constructor(ignoreCase: boolean, options: FileSystemOptions = {}) {
         const { time = -1, files, meta } = options;
         this.ignoreCase = ignoreCase;
-        this.stringComparer = this.ignoreCase ? vpath.compareCaseInsensitive : vpath.compareCaseSensitive;
+        this.stringComparer = this.ignoreCase ? pathUtil.comparePathsCaseInsensitive : pathUtil.comparePathsCaseSensitive;
         this._time = time;
 
         if (meta) {
@@ -60,12 +61,12 @@ export class FileSystem {
         }
 
         let cwd = options.cwd;
-        if ((!cwd || !vpath.isRoot(cwd)) && this._lazy.links) {
+        if ((!cwd || !pathUtil.isDiskPathRoot(cwd)) && this._lazy.links) {
             const iterator = getIterator(this._lazy.links.keys());
             try {
                 for (let i = nextResult(iterator); i; i = nextResult(iterator)) {
                     const name = i.value;
-                    cwd = cwd ? vpath.resolve(name, cwd) : name;
+                    cwd = cwd ? pathUtil.resolvePaths(name, cwd) : name;
                     break;
                 }
             }
@@ -75,7 +76,7 @@ export class FileSystem {
         }
 
         if (cwd) {
-            vpath.validate(cwd, vpath.ValidationFlags.Absolute);
+            validate(cwd, ValidationFlags.Absolute);
             this.mkdirpSync(cwd);
         }
 
@@ -283,7 +284,7 @@ export class FileSystem {
             }
         }
         if (axis === "ancestors-or-self" || axis === "ancestors") {
-            const dirname = vpath.dirname(path);
+            const dirname = pathUtil.getDirectoryPath(path);
             if (dirname !== path) {
                 try {
                     const stats = this._stat(this._walk(dirname, noFollow));
@@ -298,7 +299,7 @@ export class FileSystem {
             if (stats.isDirectory() && (!traversal.traverse || traversal.traverse(path, stats))) {
                 for (const file of this.readdirSync(path)) {
                     try {
-                        const childpath = vpath.combine(path, file);
+                        const childpath = pathUtil.combinePaths(path, file);
                         const stats = this._stat(this._walk(childpath, noFollow));
                         this._scan(childpath, stats, "descendants-or-self", traversal, noFollow, results);
                     }
@@ -318,7 +319,7 @@ export class FileSystem {
     public mountSync(source: string, target: string, resolver: FileSystemResolver) {
         if (this.isReadonly) throw createIOError("EROFS");
 
-        source = vpath.validate(source, vpath.ValidationFlags.Absolute);
+        source = validate(source, ValidationFlags.Absolute);
 
         const { parent, links, node: existingNode, basename } = this._walk(this._resolve(target), /*noFollow*/ true);
         if (existingNode) throw createIOError("EEXIST");
@@ -341,7 +342,7 @@ export class FileSystem {
             }
             else if (stats.isDirectory()) {
                 for (const file of this.readdirSync(path)) {
-                    this.rimrafSync(vpath.combine(path, file));
+                    this.rimrafSync(pathUtil.combinePaths(path, file));
                 }
                 this.rmdirSync(path);
             }
@@ -375,12 +376,12 @@ export class FileSystem {
             try {
                 for (let i = nextResult(iterator); i; i = nextResult(iterator)) {
                     const [name, node] = i.value;
-                    const path = dirname ? vpath.combine(dirname, name) : name;
-                    const marker = vpath.compare(this._cwd, path, this.ignoreCase) === 0 ? "*" : " ";
+                    const path = dirname ? pathUtil.combinePaths(dirname, name) : name;
+                    const marker = pathUtil.comparePaths(this._cwd, path, this.ignoreCase) === 0 ? "*" : " ";
                     if (result) result += "\n";
                     result += marker;
                     if (isDirectory(node)) {
-                        result += vpath.addTrailingSeparator(path);
+                        result += pathUtil.ensureTrailingDirectorySeparator(path);
                         printLinks(path, this._getLinks(node));
                     }
                     else if (isFile(node)) {
@@ -616,7 +617,7 @@ export class FileSystem {
 
         const time = this.time();
         const node = this._mknod(parent.dev, S_IFLNK, /*mode*/ 0o666, time);
-        node.symlink = vpath.validate(target, vpath.ValidationFlags.RelativeOrAbsolute);
+        node.symlink = validate(target, ValidationFlags.RelativeOrAbsolute);
         this._addLink(parent, links, basename, node, time);
     }
 
@@ -911,13 +912,13 @@ export class FileSystem {
                 node.source = undefined;
                 node.resolver = undefined;
                 for (const name of resolver.readdirSync(source)) {
-                    const path = vpath.combine(source, name);
+                    const path = pathUtil.combinePaths(source, name);
                     const stats = resolver.statSync(path);
                     switch (stats.mode & S_IFMT) {
                         case S_IFDIR:
                             {
                                 const dir = this._mknod(node.dev, S_IFDIR, 0o777);
-                                dir.source = vpath.combine(source, name);
+                                dir.source = pathUtil.combinePaths(source, name);
                                 dir.resolver = resolver;
                                 this._addLink(node, links, name, dir);
                                 break;
@@ -925,7 +926,7 @@ export class FileSystem {
                         case S_IFREG:
                             {
                                 const file = this._mknod(node.dev, S_IFREG, 0o666);
-                                file.source = vpath.combine(source, name);
+                                file.source = pathUtil.combinePaths(source, name);
                                 file.resolver = resolver;
                                 file.size = stats.size;
                                 this._addLink(node, links, name, file);
@@ -1022,7 +1023,7 @@ export class FileSystem {
     private _walk(path: string, noFollow?: boolean, onError?: (error: NodeJS.ErrnoException, fragment: WalkResult) => "stop" | "retry" | "throw"): WalkResult | undefined {
         let links = this._getRootLinks();
         let parent: DirectoryInode | undefined;
-        let components = vpath.parse(path);
+        let components = pathUtil.getPathComponents(path);
         let step = 0;
         let depth = 0;
         let retry = false;
@@ -1032,18 +1033,18 @@ export class FileSystem {
             const basename = components[step];
             const node = links.get(basename);
             if (lastStep && (noFollow || !isSymlink(node))) {
-                return { realpath: vpath.format(components), basename, parent, links, node };
+                return { realpath: pathUtil.combinePathComponents(components), basename, parent, links, node };
             }
             if (node === undefined) {
                 if (trapError(createIOError("ENOENT"), node)) continue;
                 return undefined;
             }
             if (isSymlink(node)) {
-                const dirname = vpath.format(components.slice(0, step));
-                const symlink = vpath.resolve(dirname, node.symlink);
+                const dirname = pathUtil.combinePathComponents(components.slice(0, step));
+                const symlink = pathUtil.resolvePaths(dirname, node.symlink);
                 links = this._getRootLinks();
                 parent = undefined;
-                components = vpath.parse(symlink).concat(components.slice(step + 1));
+                components = pathUtil.getPathComponents(symlink).concat(components.slice(step + 1));
                 step = 0;
                 depth++;
                 retry = false;
@@ -1061,7 +1062,7 @@ export class FileSystem {
         }
 
         function trapError(error: NodeJS.ErrnoException, node?: Inode) {
-            const realpath = vpath.format(components.slice(0, step + 1));
+            const realpath = pathUtil.combinePathComponents(components.slice(0, step + 1));
             const basename = components[step];
             const result = !retry && onError ? onError(error, { realpath, basename, parent, links, node }) : "throw";
             if (result === "stop") return false;
@@ -1078,25 +1079,25 @@ export class FileSystem {
      */
     private _resolve(path: string) {
         return this._cwd
-            ? vpath.resolve(this._cwd, vpath.validate(path, vpath.ValidationFlags.RelativeOrAbsolute | vpath.ValidationFlags.AllowWildcard))
-            : vpath.validate(path, vpath.ValidationFlags.Absolute | vpath.ValidationFlags.AllowWildcard);
+            ? pathUtil.resolvePaths(this._cwd, validate(path, ValidationFlags.RelativeOrAbsolute | ValidationFlags.AllowWildcard))
+            : validate(path, ValidationFlags.Absolute | ValidationFlags.AllowWildcard);
     }
 
     private _applyFiles(files: FileSet, dirname: string) {
         const deferred: [Symlink | Link | Mount, string][] = [];
         this._applyFilesWorker(files, dirname, deferred);
         for (const [entry, path] of deferred) {
-            this.mkdirpSync(vpath.dirname(path));
-            this.pushd(vpath.dirname(path));
+            this.mkdirpSync(pathUtil.getDirectoryPath(path));
+            this.pushd(pathUtil.getDirectoryPath(path));
             if (entry instanceof Symlink) {
-                if (this.stringComparer(vpath.dirname(path), path) === 0) {
+                if (this.stringComparer(pathUtil.getDirectoryPath(path), path) === 0) {
                     throw new TypeError("Roots cannot be symbolic links.");
                 }
-                this.symlinkSync(vpath.resolve(dirname, entry.symlink), path);
+                this.symlinkSync(pathUtil.resolvePaths(dirname, entry.symlink), path);
                 this._applyFileExtendedOptions(path, entry);
             }
             else if (entry instanceof Link) {
-                if (this.stringComparer(vpath.dirname(path), path) === 0) {
+                if (this.stringComparer(pathUtil.getDirectoryPath(path), path) === 0) {
                     throw new TypeError("Roots cannot be hard links.");
                 }
                 this.linkSync(entry.path, path);
@@ -1122,20 +1123,20 @@ export class FileSystem {
     private _applyFilesWorker(files: FileSet, dirname: string, deferred: [Symlink | Link | Mount, string][]) {
         for (const key of Object.keys(files)) {
             const value = normalizeFileSetEntry(files[key]);
-            const path = dirname ? vpath.resolve(dirname, key) : key;
-            vpath.validate(path, vpath.ValidationFlags.Absolute);
+            const path = dirname ? pathUtil.resolvePaths(dirname, key) : key;
+            validate(path, ValidationFlags.Absolute);
 
             if (value === null || value === undefined || value instanceof Rmdir || value instanceof Unlink) {
-                if (this.stringComparer(vpath.dirname(path), path) === 0) {
+                if (this.stringComparer(pathUtil.getDirectoryPath(path), path) === 0) {
                     throw new TypeError("Roots cannot be deleted.");
                 }
                 this.rimrafSync(path);
             }
             else if (value instanceof File) {
-                if (this.stringComparer(vpath.dirname(path), path) === 0) {
+                if (this.stringComparer(pathUtil.getDirectoryPath(path), path) === 0) {
                     throw new TypeError("Roots cannot be files.");
                 }
-                this.mkdirpSync(vpath.dirname(path));
+                this.mkdirpSync(pathUtil.getDirectoryPath(path));
                 this.writeFileSync(path, value.data, value.encoding);
                 this._applyFileExtendedOptions(path, value);
             }
@@ -1183,7 +1184,7 @@ export interface FileSystemResolver {
 
 export interface FileSystemResolverHost {
     useCaseSensitiveFileNames(): boolean;
-    getAccessibleFileSystemEntries(path: string): vpath.FileSystemEntries;
+    getAccessibleFileSystemEntries(path: string): pathUtil.FileSystemEntries;
     directoryExists(path: string): boolean;
     fileExists(path: string): boolean;
     getFileSize(path: string): number;
@@ -1372,12 +1373,12 @@ function formatPatchWorker(dirname: string, container: FileSet): string {
     let text = "";
     for (const name of Object.keys(container)) {
         const entry = normalizeFileSetEntry(container[name]);
-        const file = dirname ? vpath.combine(dirname, name) : name;
+        const file = dirname ? pathUtil.combinePaths(dirname, name) : name;
         if (entry === null || entry === undefined || entry instanceof Unlink || entry instanceof Rmdir) {
             text += `//// [${ file }] unlink\r\n`;
         }
         else if (entry instanceof Rmdir) {
-            text += `//// [${ vpath.addTrailingSeparator(file) }] rmdir\r\n`;
+            text += `//// [${ pathUtil.ensureTrailingDirectorySeparator(file) }] rmdir\r\n`;
         }
         else if (entry instanceof Directory) {
             text += formatPatchWorker(file, entry.files);

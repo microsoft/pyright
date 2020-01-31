@@ -3,37 +3,9 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  */
-
-import * as path from "path"
+import { sep } from "path"
 import * as pu from "../../../common/pathUtils"
 import { createIOError } from "../io";
-
-// I am not sure why this is done this way. for now, I am keeping original structure.
-// it might have needed in typescript as a way to mock these operations?
-export import FileSystemEntries = pu.FileSystemEntries;
-
-export import sep = path.sep;
-export import normalizeSeparators = pu.normalizeSlashes;
-export import isAbsolute = pu.isRootedDiskPath;
-export import isRoot = pu.isDiskPathRoot;
-export import hasTrailingSeparator = pu.hasTrailingDirectorySeparator;
-export import addTrailingSeparator = pu.ensureTrailingDirectorySeparator;
-export import stripTrailingSeparator = pu.stripTrailingDirectorySeparator;
-export import normalize = pu.normalizePath;
-export import combine = pu.combinePaths;
-export import parse = pu.getPathComponents;
-export import reduce = pu.reducePathComponents;
-export import format = pu.combinePathComponents;
-export import resolve = pu.resolvePaths;
-export import compare = pu.comparePaths;
-export import compareCaseSensitive = pu.comparePathsCaseSensitive;
-export import compareCaseInsensitive = pu.comparePathsCaseInsensitive;
-export import dirname = pu.getDirectoryPath;
-export import basename = pu.getBaseFileName;
-export import extname = pu.getAnyExtensionFromPath;
-export import relative = pu.getRelativePathFromDirectory;
-export import beneath = pu.containsPath;
-export import changeExtension = pu.changeAnyExtension;
 
 const invalidRootComponentRegExp = getInvalidRootComponentRegExp();
 const invalidNavigableComponentRegExp = /[:*?"<>|]/;
@@ -112,10 +84,10 @@ function validateComponents(components: string[], flags: ValidationFlags, hasTra
 }
 
 export function validate(path: string, flags: ValidationFlags = ValidationFlags.RelativeOrAbsolute) {
-    const components = parse(path);
-    const trailing = hasTrailingSeparator(path);
+    const components = pu.getPathComponents(path);
+    const trailing = pu.hasTrailingDirectorySeparator(path);
     if (!validateComponents(components, flags, trailing)) throw createIOError("ENOENT");
-    return components.length > 1 && trailing ? format(reduce(components)) + sep : format(reduce(components));
+    return components.length > 1 && trailing ? pu.combinePathComponents(pu.reducePathComponents(components)) + sep : pu.combinePathComponents(pu.reducePathComponents(components));
 }
 
 function getInvalidRootComponentRegExp(): RegExp {
