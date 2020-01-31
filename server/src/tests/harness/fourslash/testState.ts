@@ -25,6 +25,7 @@ import { createFromFileSystem } from "../vfs/factory";
 import * as vfs from "../vfs/filesystem";
 import { CompilerSettings, FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker, MultiMap, pythonSettingFilename, Range, TestCancellationToken } from "./fourSlashTypes";
 import { stringify } from "../utils"
+import { stableSort } from "../../../common/collectionUtils";
 
 export interface TextChange {
     span: TextRange;
@@ -380,8 +381,8 @@ export class TestState {
                     throw new Error(`contains unexpected result - expected: ${ stringify(expected) }, actual: ${ actual }`);
                 }
 
-                const rangeOrdered = expected.map(r => [r, TextRange.fromBounds(r.pos, r.end)] as [Range, TextRange]).sort((a, b) => a[1].start - b[1].start);
-                const diagnosticOrdered = actual.map(d => [d, TextRange.fromBounds(convertPositionToOffset(d.range.start, lines)!, convertPositionToOffset(d.range.end, lines)!)] as [Diagnostic, TextRange]).sort((a, b) => a[1].start - b[1].start);
+                const rangeOrdered = stableSort(expected.map(r => [r, TextRange.fromBounds(r.pos, r.end)] as [Range, TextRange]), (a, b) => a[1].start - b[1].start);
+                const diagnosticOrdered = stableSort(actual.map(d => [d, TextRange.fromBounds(convertPositionToOffset(d.range.start, lines)!, convertPositionToOffset(d.range.end, lines)!)] as [Diagnostic, TextRange]), (a, b) => a[1].start - b[1].start);
 
                 for (let i = 0; i < rangeOrdered.length; i++) {
                     const [range, rangeSpan] = rangeOrdered[i];
