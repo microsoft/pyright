@@ -1,8 +1,8 @@
 /*
-* pathUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * pathUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ */
 
 import * as path from "path"
 import * as pu from "../../../common/pathUtils"

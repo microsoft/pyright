@@ -1,8 +1,8 @@
 /*
-* io.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * io.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ */
 
 import * as pathModule from "path";
 import * as os from "os";

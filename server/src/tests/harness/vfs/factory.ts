@@ -1,57 +1,27 @@
 /*
-* factory.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*
-* Provides a way to create virtual file system out of real file system
-*/
+ * factory.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Provides a factory to create virtual file system backed by a real file system with some path remapped
+ */
 
-import * as path from "./pathUtils"
-import { computeLineStarts } from "../utils";
-import { FileSystemOptions, FileSystemResolverHost, FileSystem, FileSystemResolver, Mount, S_IFDIR, S_IFREG } from "./filesystem";
+import { normalizeSlashes, combinePaths } from "../../../common/pathUtils";
+import { S_IFDIR, S_IFREG } from "../../../common/vfs";
 import { bufferFrom } from "../io";
-import { normalizeSlashes } from "../../../common/pathUtils";
+import { FileSystem, FileSystemOptions, FileSystemResolver, FileSystemResolverHost, Mount, ModulePath } from "./filesystem";
+import * as path from "./pathUtils";
 
 export class TextDocument {
     public readonly meta: Map<string, string>;
     public readonly file: string;
     public readonly text: string;
 
-    private _lineStarts: readonly number[] | undefined;
-    private _testFile: TestFile | undefined;
-
     constructor(file: string, text: string, meta?: Map<string, string>) {
         this.file = file;
         this.text = text;
         this.meta = meta || new Map<string, string>();
     }
-
-    public get lineStarts(): readonly number[] {
-        return this._lineStarts || (this._lineStarts = computeLineStarts(this.text));
-    }
-
-    public static fromTestFile(file: TestFile) {
-        return new TextDocument(
-            file.unitName,
-            file.content,
-            file.fileOptions && Object.keys(file.fileOptions)
-                .reduce((meta, key) => meta.set(key, file.fileOptions[key]), new Map<string, string>()));
-    }
-
-    public asTestFile() {
-        return this._testFile || (this._testFile = {
-            unitName: this.file,
-            content: this.text,
-            fileOptions: Array.from(this.meta)
-                .reduce((obj, [key, value]) => (obj[key] = value, obj), {} as Record<string, string>)
-        });
-    }
-}
-
-export interface TestFile {
-    unitName: string;
-    content: string;
-    fileOptions?: any;
 }
 
 export interface FileSystemCreateOptions extends FileSystemOptions {
@@ -59,17 +29,24 @@ export interface FileSystemCreateOptions extends FileSystemOptions {
     documents?: readonly TextDocument[];
 }
 
-export const typeshedFolder = normalizeSlashes("/typeshed-fallback");
-export const libFolder = normalizeSlashes("/.lib");
+export const typeshedFolder = combinePaths(ModulePath, normalizeSlashes("typeshed-fallback"));
 export const srcFolder = normalizeSlashes("/.src");
 
 /**
  * Create a virtual file system from a physical file system using the following path mappings:
  *
- *  - `/.lib` is a directory mapped to `${workspaceRoot}/tests/lib`
+ *  - `/typeshed-fallback` is a directory mapped to `${workspaceRoot}/../dist/typeshed-fallback`
  *  - `/.src` is a virtual directory to be used for tests.
  *
- * Unless overridden, `/.src` will be the current working directory for the virtual file system.
+ * @param host it provides an access to host (real) file system
+ * @param ignoreCase indicates whether we should ignore casing on this file system or not
+ * @param documents initial documents to create in this virtual file system
+ * @param files initial files to create in this virtual file system
+ * @param cwd initial current working directory in this virtual file system
+ * @param time initial time in this virtual file system
+ * @param meta initial metadata in this virtual file system
+ * 
+ * all `FileSystemCreateOptions` are optional
  */
 export function createFromFileSystem(host: FileSystemResolverHost, ignoreCase: boolean, { documents, files, cwd, time, meta }: FileSystemCreateOptions = {}) {
     const fs = getBuiltLocal(host, meta ? meta[typeshedFolder] : undefined, ignoreCase).shadow();

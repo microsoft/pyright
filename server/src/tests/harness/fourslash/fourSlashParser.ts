@@ -1,13 +1,23 @@
 /*
-* fourSlashParser.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * fourSlashParser.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * 
+ * Parse fourslash markup code and return parsed content with marker/range data
+ */
 
-import { Marker, Range, FourSlashFile, FourSlashData, fileMetadataNames, MetadataOptionNames } from "./fourSlashTypes";
-import { isRootedDiskPath, normalizeSlashes, combinePaths } from "../../../common/pathUtils";
 import { contains } from "../../../common/collectionUtils";
+import { combinePaths, isRootedDiskPath, normalizeSlashes } from "../../../common/pathUtils";
+import { fileMetadataNames, FourSlashData, FourSlashFile, Marker, MetadataOptionNames, Range } from "./fourSlashTypes";
 
+/**
+ * Parse given fourslash markup code and return content with markup/range data
+ *
+ * @param basePath this will be combined with given `fileName` to form filepath to this content
+ * @param contents content with fourslash markups.
+ * @param fileName this will be a default filename for the first no named content in `contents`.
+ *                 if content is marked with `@filename`, that will override this given `filename`
+ */
 export function parseTestData(basePath: string, contents: string, fileName: string): FourSlashData {
     const normalizedBasePath = normalizeSlashes(basePath);
 

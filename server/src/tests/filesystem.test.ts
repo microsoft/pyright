@@ -1,8 +1,10 @@
 /*
-* filesystem.test.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * filesystem.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * 
+ * Test and Show how to use virtual file system
+ */
 
 import * as assert from 'assert';
 import * as io from './harness/io';

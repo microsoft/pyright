@@ -1,18 +1,18 @@
 /*
-* vfs.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * vfs.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Defines virtual file system interface that our code will operate upon and
+ * factory method to expose real file system as virtual file system
+ */
+
 /* eslint-disable no-dupe-class-members */
 
-// except tests, this should be only file that import "fs"
+// * NOTE * except tests, this should be only file that import "fs"
 import * as fs from 'fs';
 import * as chokidar from 'chokidar';
-import { Stats } from "../tests/harness/vfs/filesystem";
 import { ConsoleInterface, NullConsole } from './console';
-
-const _isMacintosh = process.platform === 'darwin';
-const _isLinux = process.platform === 'linux';
 
 export type Listener = (eventName: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir', path: string, stats?: Stats) => void;
 
@@ -36,9 +36,78 @@ export interface VirtualFileSystem {
     createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher;
 }
 
+/**
+ * expose real file system as virtual file system
+ * @param console console to log messages
+ */
 export function createFromRealFileSystem(console?: ConsoleInterface): VirtualFileSystem {
     return new FileSystem(console ?? new NullConsole());
 }
+
+// file type
+export const S_IFMT = 0o170000; // file type
+export const S_IFSOCK = 0o140000; // socket
+export const S_IFLNK = 0o120000; // symbolic link
+export const S_IFREG = 0o100000; // regular file
+export const S_IFBLK = 0o060000; // block device
+export const S_IFDIR = 0o040000; // directory
+export const S_IFCHR = 0o020000; // character device
+export const S_IFIFO = 0o010000; // FIFO
+
+export class Stats {
+    public dev: number;
+    public ino: number;
+    public mode: number;
+    public nlink: number;
+    public uid: number;
+    public gid: number;
+    public rdev: number;
+    public size: number;
+    public blksize: number;
+    public blocks: number;
+    public atimeMs: number;
+    public mtimeMs: number;
+    public ctimeMs: number;
+    public birthtimeMs: number;
+    public atime: Date;
+    public mtime: Date;
+    public ctime: Date;
+    public birthtime: Date;
+
+    constructor();
+    constructor(dev: number, ino: number, mode: number, nlink: number, rdev: number, size: number, blksize: number, blocks: number, atimeMs: number, mtimeMs: number, ctimeMs: number, birthtimeMs: number);
+    constructor(dev = 0, ino = 0, mode = 0, nlink = 0, rdev = 0, size = 0, blksize = 0, blocks = 0, atimeMs = 0, mtimeMs = 0, ctimeMs = 0, birthtimeMs = 0) {
+        this.dev = dev;
+        this.ino = ino;
+        this.mode = mode;
+        this.nlink = nlink;
+        this.uid = 0;
+        this.gid = 0;
+        this.rdev = rdev;
+        this.size = size;
+        this.blksize = blksize;
+        this.blocks = blocks;
+        this.atimeMs = atimeMs;
+        this.mtimeMs = mtimeMs;
+        this.ctimeMs = ctimeMs;
+        this.birthtimeMs = birthtimeMs;
+        this.atime = new Date(this.atimeMs);
+        this.mtime = new Date(this.mtimeMs);
+        this.ctime = new Date(this.ctimeMs);
+        this.birthtime = new Date(this.birthtimeMs);
+    }
+
+    public isFile() { return (this.mode & S_IFMT) === S_IFREG; }
+    public isDirectory() { return (this.mode & S_IFMT) === S_IFDIR; }
+    public isSymbolicLink() { return (this.mode & S_IFMT) === S_IFLNK; }
+    public isBlockDevice() { return (this.mode & S_IFMT) === S_IFBLK; }
+    public isCharacterDevice() { return (this.mode & S_IFMT) === S_IFCHR; }
+    public isFIFO() { return (this.mode & S_IFMT) === S_IFIFO; }
+    public isSocket() { return (this.mode & S_IFMT) === S_IFSOCK; }
+}
+
+const _isMacintosh = process.platform === 'darwin';
+const _isLinux = process.platform === 'linux';
 
 class FileSystem implements VirtualFileSystem {
     constructor(private _console: ConsoleInterface) {

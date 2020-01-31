@@ -1,8 +1,11 @@
 /*
-* fourSlashParser.test.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * fourSlashParser.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * 
+ * Tests and show how to use fourslash markup languages
+ * and how to use parseTestData API itself for other unit tests
+ */
 
 import * as assert from 'assert';
 import * as factory from "./harness/vfs/factory"

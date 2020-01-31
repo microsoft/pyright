@@ -1,8 +1,10 @@
 /*
-* testState.test.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * testState.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * 
+ * Tests and show how to use TestState in unit test
+ */
 
 import * as assert from 'assert';
 import * as factory from "./harness/vfs/factory"

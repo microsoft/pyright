@@ -1,8 +1,10 @@
 /*
-* collectionUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * collectionUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Various helper functions around collection/array
+ */
 
 import { Comparison, equateValues, compareValues, isArray } from "./core";
 

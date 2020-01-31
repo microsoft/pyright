@@ -1,11 +1,11 @@
 /*
-* pathUtils.test.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Unit tests for pathUtils module.
-*/
+ * pathUtils.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Unit tests for pathUtils module.
+ */
 
 import * as assert from 'assert';
 import * as path from 'path';

@@ -1,47 +1,11 @@
 /*
-* utils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * utils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ */
 
-import Char from 'typescript-char';
 import { binarySearch, insertAt } from "../../common/collectionUtils";
 import { identity } from "../../common/core";
-
-export function computeLineStarts(text: string): number[] {
-    const maxAsciiCharacter = 0x7F;
-
-    const result: number[] = [];
-    let pos = 0;
-    let lineStart = 0;
-    while (pos < text.length) {
-        const ch = text.charCodeAt(pos);
-        pos++;
-        switch (ch) {
-            case Char.CarriageReturn:
-                if (text.charCodeAt(pos) === Char.LineFeed) {
-                    pos++;
-                }
-            // falls through
-            case Char.LineFeed:
-                result.push(lineStart);
-                lineStart = pos;
-                break;
-            default:
-                if (ch > maxAsciiCharacter && isLineBreak(ch)) {
-                    result.push(lineStart);
-                    lineStart = pos;
-                }
-                break;
-        }
-    }
-    result.push(lineStart);
-    return result;
-}
-
-function isLineBreak(ch: number): boolean {
-    return ch === Char.LineFeed || ch === Char.CarriageReturn;
-}
 
 export interface SortOptions<T> {
     comparer: (a: T, b: T) => number;

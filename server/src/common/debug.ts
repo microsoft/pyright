@@ -1,27 +1,13 @@
 /*
-* debug.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
+ * debug.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Various debug helper methods to show user friendly debugging info
 */
 
 import { AnyFunction, compareValues, hasProperty } from "./core";
 import { stableSort } from "./collectionUtils";
-
-export const enum AssertionLevel {
-    None = 0,
-    Normal = 1,
-    Aggressive = 2,
-    VeryAggressive = 3,
-}
-
-/* eslint-disable prefer-const */
-export let currentAssertionLevel = AssertionLevel.None;
-export let isDebugging = false;
-/* eslint-enable prefer-const */
-
-export function shouldAssert(level: AssertionLevel): boolean {
-    return currentAssertionLevel >= level;
-}
 
 export function assert(expression: boolean, message?: string, verboseDebugInfo?: string | (() => string), stackCrawlMark?: AnyFunction): void {
     if (!expression) {

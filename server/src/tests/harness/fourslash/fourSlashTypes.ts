@@ -1,8 +1,10 @@
 /*
-* fourSlashTypes.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * fourSlashTypes.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Various common types for fourslash test framework
+ */
 import * as debug from "../../../common/debug";
 
 /** setting file name */

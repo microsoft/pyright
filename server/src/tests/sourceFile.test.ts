@@ -1,11 +1,11 @@
 /*
-* sourceFile.test.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Unit tests for pyright sourceFile module.
-*/
+ * sourceFile.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Unit tests for pyright sourceFile module.
+ */
 
 import { ImportResolver } from '../analyzer/importResolver';
 import { SourceFile } from '../analyzer/sourceFile';

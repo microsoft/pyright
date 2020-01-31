@@ -1,8 +1,11 @@
 /*
-* fourslashrunner.test.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * fourslashrunner.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * 
+ * Entry point that will read all *.fourslash.ts files and
+ * register jest tests for them and run
+ */
 import * as path from "path";
 import * as io from "./harness/io";
 import { normalizeSlashes } from "../common/pathUtils";

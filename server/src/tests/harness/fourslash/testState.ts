@@ -1,29 +1,30 @@
 /*
-* testState.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*/
+ * testState.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * 
+ * TestState wraps currently test states and provides a way to query and manipulate
+ * the test states.
+ */
 
-import * as debug from "../../../common/debug"
-import * as io from "../io"
-import * as vfs from "../vfs/filesystem";
 import * as path from "path";
-
 import Char from "typescript-char";
-
-import { TestCancellationToken, Marker, Range, FourSlashFile, FourSlashData, CompilerSettings, GlobalMetadataOptionNames, pythonSettingFilename, MultiMap } from "./fourSlashTypes";
-import { ConfigOptions } from "../../../common/configOptions";
-import { getBaseFileName, normalizeSlashes, normalizePath, combinePaths, comparePaths } from "../../../common/pathUtils";
-import { getStringComparer } from "../../../common/stringUtils";
-import { Comparison, isString, isNumber } from "../../../common/core";
-import { NullConsole } from "../../../common/console";
-import { createFromFileSystem } from "../vfs/factory";
-import { LineAndColumn, TextRange } from "../../../common/textRange";
 import { ImportResolver } from "../../../analyzer/importResolver";
 import { Program } from "../../../analyzer/program";
-import { convertPositionToOffset, convertOffsetToPosition } from "../../../common/positionUtils";
+import { ConfigOptions } from "../../../common/configOptions";
+import { NullConsole } from "../../../common/console";
+import { Comparison, isNumber, isString } from "../../../common/core";
+import * as debug from "../../../common/debug";
 import { Diagnostic, DiagnosticCategory } from "../../../common/diagnostic";
+import { combinePaths, comparePaths, getBaseFileName, normalizePath, normalizeSlashes } from "../../../common/pathUtils";
+import { convertOffsetToPosition, convertPositionToOffset } from "../../../common/positionUtils";
+import { getStringComparer } from "../../../common/stringUtils";
+import { LineAndColumn, TextRange } from "../../../common/textRange";
 import { TextRangeCollection } from "../../../common/textRangeCollection";
+import * as io from "../io";
+import { createFromFileSystem } from "../vfs/factory";
+import * as vfs from "../vfs/filesystem";
+import { CompilerSettings, FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker, MultiMap, pythonSettingFilename, Range, TestCancellationToken } from "./fourSlashTypes";
 
 export interface TextChange {
     span: TextRange;
@@ -65,7 +66,7 @@ export class TestState {
                     configJson = JSON.parse(file.content);
                 }
                 catch (e) {
-                    throw new Error(`Failed to parse test ${ file.fileName }: ${ e.message }`);
+                    throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
                 }
 
                 configOptions.initializeFromJson(configJson, new NullConsole());
@@ -75,8 +76,7 @@ export class TestState {
             }
         }
 
-        const fs = createFromFileSystem(io.IO, ignoreCase, { cwd: _basePath, meta: testData.globalOptions });
-        fs.apply(files);
+        const fs = createFromFileSystem(io.IO, ignoreCase, { cwd: _basePath, files: files, meta: testData.globalOptions });
 
         // this should be change to AnalyzerService rather than Program
         const importResolver = new ImportResolver(fs, configOptions);
@@ -105,7 +105,7 @@ export class TestState {
 
         const content = this._getFileContent(marker.fileName);
         if (marker.position === -1 || marker.position > content.length) {
-            throw new Error(`Marker "${ nameOrMarker }" has been invalidated by unrecoverable edits to the file.`);
+            throw new Error(`Marker "${nameOrMarker}" has been invalidated by unrecoverable edits to the file.`);
         }
 
         const mName = isString(nameOrMarker) ? nameOrMarker : this.getMarkerName(marker);
@@ -136,7 +136,7 @@ export class TestState {
     public getMarkerByName(markerName: string) {
         const markerPos = this.testData.markerPositions.get(markerName);
         if (markerPos === undefined) {
-            throw new Error(`Unknown marker "${ markerName }" Available markers: ${ this.getMarkerNames().map(m => "\"" + m + "\"").join(", ") }`);
+            throw new Error(`Unknown marker "${markerName}" Available markers: ${this.getMarkerNames().map(m => "\"" + m + "\"").join(", ")}`);
         }
         else {
             return markerPos;
@@ -245,7 +245,7 @@ export class TestState {
     public printCurrentFileState(showWhitespace: boolean, makeCaretVisible: boolean) {
         for (const file of this.testData.files) {
             const active = (this.activeFile === file);
-            io.IO.log(`=== Script (${ file.fileName }) ${ (active ? "(active, cursor at |)" : "") } ===`);
+            io.IO.log(`=== Script (${file.fileName}) ${(active ? "(active, cursor at |)" : "")} ===`);
             let content = this._getFileContent(file.fileName);
             if (active) {
                 content = content.substr(0, this.currentCaretPosition) + (makeCaretVisible ? "|" : "") + content.substr(this.currentCaretPosition);
@@ -347,7 +347,7 @@ export class TestState {
                 };
                 return [filePath, value] as [string, typeof value];
             } else {
-                this._raiseError(`Source file not found for ${ this._files[index] }`);
+                this._raiseError(`Source file not found for ${this._files[index]}`);
             }
         });
 
@@ -356,7 +356,7 @@ export class TestState {
 
         // expected number of files
         if (resultMap.size != rangeMap.size) {
-            this._raiseError(`unexpected result ${ results.length }`);
+            this._raiseError(`unexpected result ${results.length}`);
         }
 
         for (const [file, values] of rangeMap.entries()) {
@@ -367,7 +367,7 @@ export class TestState {
                 verify(
                     result.parseResults!.tokenizerOutput.lines,
                     ranges,
-                    category == "error" ? result.errors : category == "warning" ? result.warnings : this._raiseError(`unexpected category ${ category }`));
+                    category == "error" ? result.errors : category == "warning" ? result.warnings : this._raiseError(`unexpected category ${category}`));
             }
         }
 
@@ -376,12 +376,12 @@ export class TestState {
             const actual2 = actual.map(a => TextRange.fromBounds(convertPositionToOffset(a.range.start, lines)!, convertPositionToOffset(a.range.end, lines)!)).sort((a, b) => a.start - b.start);
 
             if (expected2.length != actual2.length) {
-                throw new Error(`contains unexpected result - actual: ${ actual2.length }, expected: ${ expected2.length }`);
+                throw new Error(`contains unexpected result - actual: ${actual2.length}, expected: ${expected2.length}`);
             }
 
             for (const range of expected2) {
                 if (!actual2.find(v => v.start == range.start && v.length == range.length)) {
-                    throw new Error(`can't find expected range (${ range.start }, ${ range.length })`);
+                    throw new Error(`can't find expected range (${range.start}, ${range.length})`);
                 }
             }
         }
@@ -390,10 +390,10 @@ export class TestState {
     public verifyCaretAtMarker(markerName = "") {
         const pos = this.getMarkerByName(markerName);
         if (pos.fileName !== this.activeFile.fileName) {
-            throw new Error(`verifyCaretAtMarker failed - expected to be in file "${ pos.fileName }", but was in file "${ this.activeFile.fileName }"`);
+            throw new Error(`verifyCaretAtMarker failed - expected to be in file "${pos.fileName}", but was in file "${this.activeFile.fileName}"`);
         }
         if (pos.position !== this.currentCaretPosition) {
-            throw new Error(`verifyCaretAtMarker failed - expected to be at marker "/*${ markerName }*/, but was at position ${ this.currentCaretPosition }(${ this._getLineColStringAtPosition(this.currentCaretPosition) })`);
+            throw new Error(`verifyCaretAtMarker failed - expected to be at marker "/*${markerName}*/, but was at position ${this.currentCaretPosition}(${this._getLineColStringAtPosition(this.currentCaretPosition)})`);
         }
     }
 
@@ -472,7 +472,7 @@ export class TestState {
 
     private _messageAtLastKnownMarker(message: string) {
         const locationDescription = this.lastKnownMarker ? this.lastKnownMarker : this._getLineColStringAtPosition(this.currentCaretPosition);
-        return `At ${ locationDescription }: ${ message }`;
+        return `At ${locationDescription}: ${message}`;
     }
 
     private _checkPostEditInvariants() {
@@ -551,14 +551,14 @@ export class TestState {
     private _verifyFileContent(fileName: string, text: string) {
         const actual = this._getFileContent(fileName);
         if (actual !== text) {
-            throw new Error(`verifyFileContent failed:\n${ this._showTextDiff(text, actual) }`);
+            throw new Error(`verifyFileContent failed:\n${this._showTextDiff(text, actual)}`);
         }
     }
 
     private _verifyTextMatches(actualText: string, includeWhitespace: boolean, expectedText: string) {
         const removeWhitespace = (s: string): string => includeWhitespace ? s : this._removeWhitespace(s);
         if (removeWhitespace(actualText) !== removeWhitespace(expectedText)) {
-            this._raiseError(`Actual range text doesn't match expected text.\n${ this._showTextDiff(expectedText, actualText) }`);
+            this._raiseError(`Actual range text doesn't match expected text.\n${this._showTextDiff(expectedText, actualText)}`);
         }
     }
 
@@ -605,7 +605,7 @@ export class TestState {
         if (typeof indexOrName === "number") {
             const index = indexOrName;
             if (index >= this.testData.files.length) {
-                throw new Error(`File index (${ index }) in openFile was out of range. There are only ${ this.testData.files.length } files in this test.`);
+                throw new Error(`File index (${index}) in openFile was out of range. There are only ${this.testData.files.length} files in this test.`);
             }
             else {
                 return this.testData.files[index];
@@ -614,7 +614,7 @@ export class TestState {
         else if (isString(indexOrName)) {
             const { file, availableNames } = this._tryFindFileWorker(indexOrName);
             if (!file) {
-                throw new Error(`No test file named "${ indexOrName }" exists. Available file names are: ${ availableNames.join(", ") }`);
+                throw new Error(`No test file named "${indexOrName}" exists. Available file names are: ${availableNames.join(", ")}`);
             }
             return file;
         }
@@ -648,7 +648,7 @@ export class TestState {
 
     private _getLineColStringAtPosition(position: number, file: FourSlashFile = this.activeFile) {
         const pos = this._convertOffsetToPosition(file.fileName, position);
-        return `line ${ (pos.line + 1) }, col ${ pos.column }`;
+        return `line ${(pos.line + 1)}, col ${pos.column}`;
     }
 
     private _showTextDiff(expected: string, actual: string): string {
@@ -669,7 +669,7 @@ export class TestState {
         const actualMsg = "\x1b[1mActual\x1b[0m\x1b[31m";
         const expectedString = quoted ? "\"" + expected + "\"" : expected;
         const actualString = quoted ? "\"" + actual + "\"" : actual;
-        return `\n${ expectMsg }:\n${ expectedString }\n\n${ actualMsg }:\n${ actualString }`;
+        return `\n${expectMsg}:\n${expectedString}\n\n${actualMsg}:\n${actualString}`;
     }
 
     private _makeWhitespaceVisible(text: string) {

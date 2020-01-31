@@ -1,11 +1,11 @@
 /*
-* testUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Utility functions that are common to a bunch of the tests.
-*/
+ * testUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Utility functions that are common to a bunch of the tests.
+ */
 
 import * as assert from 'assert';
 import * as fs from 'fs';

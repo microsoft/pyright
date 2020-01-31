@@ -1,11 +1,11 @@
 /*
-* config.test.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Unit tests for parsing of pyrightconfig.json files.
-*/
+ * config.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Unit tests for parsing of pyrightconfig.json files.
+ */
 
 import * as assert from 'assert';
 
