@@ -199,7 +199,7 @@ function convertRange(range: LineAndColumnRange): Range {
 }
 
 function convertPosition(position: LineAndColumn): Position {
-    return Position.create(position.line, position.column);
+    return Position.create(position.line, position.character);
 }
 
 function getDocumentSymbolsRecursive(node: AnalyzerNodeInfo.ScopedNode,

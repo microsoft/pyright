@@ -206,8 +206,8 @@ export class CompletionProvider {
         // Get the text on that line prior to the insertion point.
         const lineTextRange = this._parseResults.tokenizerOutput.lines.getItemAt(this._position.line);
         const textOnLine = this._fileContents.substr(lineTextRange.start, lineTextRange.length);
-        const priorText = textOnLine.substr(0, this._position.column);
-        const postText = textOnLine.substr(this._position.column);
+        const priorText = textOnLine.substr(0, this._position.character);
+        const postText = textOnLine.substr(this._position.character);
         const priorWordIndex = priorText.search(/\w+$/);
         const priorWord = priorWordIndex >= 0 ? priorText.substr(priorWordIndex) : '';
 
@@ -433,8 +433,8 @@ export class CompletionProvider {
                 const isSimilar = StringUtils.computeCompletionSimilarity(partialName.value, name) > similarityLimit;
                 if (isSimilar) {
                     const range: Range = {
-                        start: { line: this._position.line, character: this._position.column - partialName.length },
-                        end: { line: this._position.line, character: this._position.column }
+                        start: { line: this._position.line, character: this._position.character - partialName.length },
+                        end: { line: this._position.line, character: this._position.character }
                     };
 
                     const methodSignature = this._printMethodSignature(decl.node) + ':';
@@ -745,14 +745,14 @@ export class CompletionProvider {
 
             completionItem.kind = CompletionItemKind.Text;
             completionItem.sortText = this._makeSortText(SortCategory.LiteralValue, valueWithQuotes);
-            let rangeStartCol = this._position.column;
+            let rangeStartCol = this._position.character;
             if (priorString !== undefined) {
                 rangeStartCol -= priorString.length + 1;
             }
 
             // If the text after the insertion point is the closing quote,
             // replace it.
-            let rangeEndCol = this._position.column;
+            let rangeEndCol = this._position.character;
             if (postText !== undefined) {
                 if (postText.startsWith(quoteCharacter)) {
                     rangeEndCol++;
@@ -1213,8 +1213,8 @@ export class CompletionProvider {
                 completionItem.additionalTextEdits = additionalTextEdits.map(te => {
                     const textEdit: TextEdit = {
                         range: {
-                            start: { line: te.range.start.line, character: te.range.start.column },
-                            end: { line: te.range.end.line, character: te.range.end.column }
+                            start: { line: te.range.start.line, character: te.range.start.character },
+                            end: { line: te.range.end.line, character: te.range.end.character }
                         },
                         newText: te.replacementText
                     };

@@ -318,7 +318,7 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
                 let message = '  ';
                 if (diag.range) {
                     message += chalk.yellow(`${ diag.range.start.line + 1 }`) + ':' +
-                        chalk.yellow(`${ diag.range.start.column + 1 }`) + ' - ';
+                        chalk.yellow(`${ diag.range.start.character + 1 }`) + ' - ';
                 }
 
                 message += diag.category === DiagnosticCategory.Error ?

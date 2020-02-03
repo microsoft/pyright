@@ -180,12 +180,12 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
                 insertBefore ? insertionImport.node.start : TextRange.getEnd(insertionImport.node),
                 parseResults.tokenizerOutput.lines);
         } else {
-            insertionPosition = { line: 0, column: 0 };
+            insertionPosition = { line: 0, character: 0 };
         }
     } else {
         // Insert at or near the top of the file. See if there's a doc string and
         // copyright notice, etc. at the top. If so, move past those.
-        insertionPosition = { line: 0, column: 0 };
+        insertionPosition = { line: 0, character: 0 };
         let addNewLineBefore = false;
 
         for (const statement of parseResults.parseTree.statements) {

@@ -19,7 +19,7 @@ export function convertOffsetToPosition(offset: number, lines: TextRangeCollecti
     if (lines.end === 0) {
         return {
             line: 0,
-            column: 0
+            character: 0
         };
     }
 
@@ -34,7 +34,7 @@ export function convertOffsetToPosition(offset: number, lines: TextRangeCollecti
     assert(lineRange !== undefined);
     return {
         line: itemIndex,
-        column: offset - lineRange.start
+        character: offset - lineRange.start
     };
 }
 
@@ -53,5 +53,5 @@ export function convertPositionToOffset(position: LineAndColumn,
         return undefined;
     }
 
-    return lines.getItemAt(position.line).start + position.column;
+    return lines.getItemAt(position.line).start + position.character;
 }

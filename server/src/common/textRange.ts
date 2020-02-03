@@ -65,7 +65,7 @@ export namespace TextRange {
 export interface LineAndColumn {
     // Both line and column are zero-based
     line: number;
-    column: number;
+    character: number;
 }
 
 export function comparePositions(a: LineAndColumn, b: LineAndColumn) {
@@ -73,9 +73,9 @@ export function comparePositions(a: LineAndColumn, b: LineAndColumn) {
         return -1;
     } else if (a.line > b.line) {
         return 1;
-    } else if (a.column < b.column) {
+    } else if (a.character < b.character) {
         return -1;
-    } else if (a.column > b.column) {
+    } else if (a.character > b.character) {
         return 1;
     }
     return 0;
@@ -84,7 +84,7 @@ export function comparePositions(a: LineAndColumn, b: LineAndColumn) {
 export function getEmptyPosition(): LineAndColumn {
     return {
         line: 0,
-        column: 0
+        character: 0
     };
 }
 
@@ -110,7 +110,7 @@ export function convertRange(range?: LineAndColumnRange): Range {
 }
 
 export function convertPosition(position?: LineAndColumn): Position {
-    return !position ? Position.create(0, 0) : Position.create(position.line, position.column);
+    return !position ? Position.create(0, 0) : Position.create(position.line, position.character);
 }
 
 export function doesRangeContain(range: LineAndColumnRange, position: LineAndColumn) {

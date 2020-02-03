@@ -38,7 +38,7 @@ export function areDeclarationsSame(decl1: Declaration, decl2: Declaration): boo
     }
 
     if (decl1.range.start.line !== decl2.range.start.line ||
-            decl1.range.start.column !== decl2.range.start.column) {
+            decl1.range.start.character !== decl2.range.start.character) {
         return false;
     }
 

@@ -281,11 +281,11 @@ export abstract class LanguageServerBase {
                 const range: LineAndColumnRange = {
                     start: {
                         line: params.range.start.line,
-                        column: params.range.start.character
+                        character: params.range.start.character
                     },
                     end: {
                         line: params.range.end.line,
-                        column: params.range.end.character
+                        character: params.range.end.character
                     }
                 };
 
@@ -337,7 +337,7 @@ export abstract class LanguageServerBase {
 
             const position: LineAndColumn = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -357,7 +357,7 @@ export abstract class LanguageServerBase {
 
             const position: LineAndColumn = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -406,7 +406,7 @@ export abstract class LanguageServerBase {
 
             const position: LineAndColumn = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -436,7 +436,7 @@ export abstract class LanguageServerBase {
 
             const position: LineAndColumn = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -473,7 +473,7 @@ export abstract class LanguageServerBase {
 
             const position: LineAndColumn = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -512,7 +512,7 @@ export abstract class LanguageServerBase {
 
             const position: LineAndColumn = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);

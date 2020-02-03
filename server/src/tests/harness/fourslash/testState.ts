@@ -183,7 +183,7 @@ export class TestState {
     }
 
     public selectLine(index: number) {
-        const lineStart = this._convertPositionToOffset(this.activeFile.fileName, { line: index, column: 0 });
+        const lineStart = this._convertPositionToOffset(this.activeFile.fileName, { line: index, character: 0 });
         const lineEnd = lineStart + this._getLineContent(index).length;
         this.selectRange({ fileName: this.activeFile.fileName, pos: lineStart, end: lineEnd });
     }
@@ -281,8 +281,8 @@ export class TestState {
     }
 
     public deleteLineRange(startIndex: number, endIndexInclusive: number) {
-        const startPos = this._convertPositionToOffset(this.activeFile.fileName, { line: startIndex, column: 0 });
-        const endPos = this._convertPositionToOffset(this.activeFile.fileName, { line: endIndexInclusive + 1, column: 0 });
+        const startPos = this._convertPositionToOffset(this.activeFile.fileName, { line: startIndex, character: 0 });
+        const endPos = this._convertPositionToOffset(this.activeFile.fileName, { line: endIndexInclusive + 1, character: 0 });
         this.replace(startPos, endPos - startPos, "");
     }
 
@@ -586,7 +586,7 @@ export class TestState {
 
     private _getLineContent(index: number) {
         const text = this._getFileContent(this.activeFile.fileName);
-        const pos = this._convertPositionToOffset(this.activeFile.fileName, { line: index, column: 0 });
+        const pos = this._convertPositionToOffset(this.activeFile.fileName, { line: index, character: 0 });
         let startPos = pos, endPos = pos;
 
         while (startPos > 0) {
@@ -666,7 +666,7 @@ export class TestState {
 
     private _getLineColStringAtPosition(position: number, file: FourSlashFile = this.activeFile) {
         const pos = this._convertOffsetToPosition(file.fileName, position);
-        return `line ${ (pos.line + 1) }, col ${ pos.column }`;
+        return `line ${ (pos.line + 1) }, col ${ pos.character }`;
     }
 
     private _showTextDiff(expected: string, actual: string): string {
