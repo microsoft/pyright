@@ -9,7 +9,7 @@
 
 import { Diagnostic, DiagnosticCategory } from './diagnostic';
 import { convertOffsetsToRange } from './positionUtils';
-import { TextRange, LineAndColumnRange } from './textRange';
+import { TextRange, Range } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
 
 // Represents a collection of diagnostics within a file.
@@ -32,15 +32,15 @@ export class DiagnosticSink {
         return prevDiagnostics;
     }
 
-    addError(message: string, range: LineAndColumnRange) {
+    addError(message: string, range: Range) {
         return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Error, message, range));
     }
 
-    addWarning(message: string, range: LineAndColumnRange) {
+    addWarning(message: string, range: Range) {
         return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Warning, message, range));
     }
 
-    addUnusedCode(message: string, range: LineAndColumnRange) {
+    addUnusedCode(message: string, range: Range) {
         return this.addDiagnostic(new Diagnostic(DiagnosticCategory.UnusedCode, message, range));
     }
 

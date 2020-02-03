@@ -12,14 +12,14 @@
 
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { LineAndColumn, DocumentLineAndColumnRange, rangesAreEqual } from '../common/textRange';
+import { Position, DocumentRange, rangesAreEqual } from '../common/textRange';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export class DefinitionProvider {
-    static getDefinitionsForPosition(parseResults: ParseResults, position: LineAndColumn,
-            evaluator: TypeEvaluator): DocumentLineAndColumnRange[] | undefined {
+    static getDefinitionsForPosition(parseResults: ParseResults, position: Position,
+            evaluator: TypeEvaluator): DocumentRange[] | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
@@ -31,7 +31,7 @@ export class DefinitionProvider {
             return undefined;
         }
 
-        const definitions: DocumentLineAndColumnRange[] = [];
+        const definitions: DocumentRange[] = [];
 
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = evaluator.getDeclarationsForNameNode(node);
@@ -51,7 +51,7 @@ export class DefinitionProvider {
         return definitions.length > 0 ? definitions : undefined;
     }
 
-    private static _addIfUnique(definitions: DocumentLineAndColumnRange[], itemToAdd: DocumentLineAndColumnRange) {
+    private static _addIfUnique(definitions: DocumentRange[], itemToAdd: DocumentRange) {
         for (const def of definitions) {
             if (def.path === itemToAdd.path && rangesAreEqual(def.range, itemToAdd.range)) {
                 return;

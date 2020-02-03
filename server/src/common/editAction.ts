@@ -7,10 +7,10 @@
 * Represents a single edit within a file.
 */
 
-import { LineAndColumnRange } from "./textRange";
+import { Range } from "./textRange";
 
 export interface TextEditAction {
-    range: LineAndColumnRange;
+    range: Range;
     replacementText: string;
 }
 

@@ -34,7 +34,7 @@ import { SourceFile } from './sourceFile';
 import { SymbolTable } from './symbol';
 import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
-import { LineAndColumn, LineAndColumnRange, DocumentLineAndColumnRange, doRangesOverlap } from '../common/textRange';
+import { Position, Range, DocumentRange, doRangesOverlap } from '../common/textRange';
 
 const _maxImportDepth = 256;
 
@@ -674,7 +674,7 @@ export class Program {
         return fileDiagnostics;
     }
 
-    getDiagnosticsForRange(filePath: string, options: ConfigOptions, range: LineAndColumnRange): Diagnostic[] {
+    getDiagnosticsForRange(filePath: string, options: ConfigOptions, range: Range): Diagnostic[] {
         const sourceFile = this.getSourceFile(filePath);
         if (!sourceFile) {
             return [];
@@ -690,8 +690,8 @@ export class Program {
         });
     }
 
-    getDefinitionsForPosition(filePath: string, position: LineAndColumn):
-        DocumentLineAndColumnRange[] | undefined {
+    getDefinitionsForPosition(filePath: string, position: Position):
+        DocumentRange[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
@@ -703,8 +703,8 @@ export class Program {
         return sourceFileInfo.sourceFile.getDefinitionsForPosition(position, this._evaluator);
     }
 
-    getReferencesForPosition(filePath: string, position: LineAndColumn,
-        includeDeclaration: boolean): DocumentLineAndColumnRange[] | undefined {
+    getReferencesForPosition(filePath: string, position: Position,
+        includeDeclaration: boolean): DocumentRange[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
@@ -760,7 +760,7 @@ export class Program {
         }
     }
 
-    getHoverForPosition(filePath: string, position: LineAndColumn):
+    getHoverForPosition(filePath: string, position: Position):
         HoverResults | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
@@ -773,7 +773,7 @@ export class Program {
         return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator);
     }
 
-    getSignatureHelpForPosition(filePath: string, position: LineAndColumn):
+    getSignatureHelpForPosition(filePath: string, position: Position):
         SignatureHelpResults | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
@@ -787,7 +787,7 @@ export class Program {
             position, this._lookUpImport, this._evaluator);
     }
 
-    getCompletionsForPosition(filePath: string, position: LineAndColumn,
+    getCompletionsForPosition(filePath: string, position: Position,
         workspacePath: string): CompletionList | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);
@@ -830,7 +830,7 @@ export class Program {
             command, args);
     }
 
-    renameSymbolAtPosition(filePath: string, position: LineAndColumn,
+    renameSymbolAtPosition(filePath: string, position: Position,
         newName: string): FileEditAction[] | undefined {
 
         const sourceFileInfo = this._sourceFileMap.get(filePath);

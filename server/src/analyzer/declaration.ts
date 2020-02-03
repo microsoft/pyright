@@ -9,7 +9,7 @@
 * is explicitly declared).
 */
 
-import { LineAndColumnRange } from '../common/textRange';
+import { Range } from '../common/textRange';
 import { ClassNode, ExpressionNode, FunctionNode, ImportAsNode,
     ImportFromAsNode, ImportFromNode, ModuleNode, NameNode, ParameterNode,
     ParseNode, ReturnNode, StringListNode, TypeAnnotationNode, YieldFromNode,
@@ -38,7 +38,7 @@ export interface DeclarationBase {
     // The file and range within that file that
     // contains the declaration.
     path: string;
-    range: LineAndColumnRange;
+    range: Range;
 }
 
 export interface IntrinsicDeclaration extends DeclarationBase {

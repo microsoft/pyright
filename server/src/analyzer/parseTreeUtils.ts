@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 
-import { LineAndColumn } from '../common/textRange';
+import { Position } from '../common/textRange';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -40,7 +40,7 @@ export function getNodeDepth(node: ParseNode): number {
 }
 
 // Returns the deepest node that contains the specified position.
-export function findNodeByPosition(node: ParseNode, position: LineAndColumn,
+export function findNodeByPosition(node: ParseNode, position: Position,
         lines: TextRangeCollection<TextRange>): ParseNode | undefined {
 
     const offset = convertPositionToOffset(position, lines);

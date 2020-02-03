@@ -6,7 +6,7 @@
 *
 * Class that represents errors and warnings.
 */
-import { LineAndColumnRange } from "./textRange";
+import { Range } from "./textRange";
 
 export const enum DiagnosticCategory {
     Error,
@@ -31,7 +31,7 @@ export interface AddMissingOptionalToParamAction extends DiagnosticAction {
 export interface DiagnosticRelatedInfo {
     message: string;
     filePath: string;
-    range: LineAndColumnRange;
+    range: Range;
 }
 
 // Represents a single error or warning.
@@ -41,7 +41,7 @@ export class Diagnostic {
     private _relatedInfo: DiagnosticRelatedInfo[] = [];
 
     constructor(readonly category: DiagnosticCategory, readonly message: string,
-        readonly range: LineAndColumnRange) {
+        readonly range: Range) {
     }
 
     addAction(action: DiagnosticAction) {
@@ -64,7 +64,7 @@ export class Diagnostic {
         return this._rule;
     }
 
-    addRelatedInfo(message: string, filePath: string, range: LineAndColumnRange) {
+    addRelatedInfo(message: string, filePath: string, range: Range) {
         this._relatedInfo.push({ filePath, message, range });
     }
 

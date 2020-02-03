@@ -19,7 +19,7 @@ import { Diagnostic, DiagnosticCategory } from "../../../common/diagnostic";
 import { combinePaths, comparePaths, getBaseFileName, normalizePath, normalizeSlashes } from "../../../common/pathUtils";
 import { convertOffsetToPosition, convertPositionToOffset } from "../../../common/positionUtils";
 import { getStringComparer } from "../../../common/stringUtils";
-import { LineAndColumn, TextRange } from "../../../common/textRange";
+import { Position, TextRange } from "../../../common/textRange";
 import * as host from "../host";
 import { createFromFileSystem } from "../vfs/factory";
 import * as vfs from "../vfs/filesystem";
@@ -153,7 +153,7 @@ export class TestState {
         return [...this.testData.markerPositions.keys()];
     }
 
-    public goToPosition(positionOrLineAndColumn: number | LineAndColumn) {
+    public goToPosition(positionOrLineAndColumn: number | Position) {
         const pos = isNumber(positionOrLineAndColumn)
             ? positionOrLineAndColumn
             : this._convertPositionToOffset(this.activeFile.fileName, positionOrLineAndColumn);
@@ -467,12 +467,12 @@ export class TestState {
         return files[0].content;
     }
 
-    private _convertPositionToOffset(fileName: string, position: LineAndColumn): number {
+    private _convertPositionToOffset(fileName: string, position: Position): number {
         const result = this._getParseResult(fileName);
         return convertPositionToOffset(position, result.tokenizerOutput.lines)!;
     }
 
-    private _convertOffsetToPosition(fileName: string, offset: number): LineAndColumn {
+    private _convertOffsetToPosition(fileName: string, offset: number): Position {
         const result = this._getParseResult(fileName);
 
         return convertOffsetToPosition(offset, result.tokenizerOutput.lines);

@@ -27,7 +27,7 @@ import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import * as PythonPathUtils from './pythonPathUtils';
-import { LineAndColumn, LineAndColumnRange, DocumentLineAndColumnRange } from '../common/textRange';
+import { Position, Range, DocumentRange } from '../common/textRange';
 import { VirtualFileSystem, FileWatcher } from '../common/vfs';
 
 export { MaxAnalysisTime } from './program';
@@ -122,14 +122,14 @@ export class AnalyzerService {
         this._scheduleReanalysis(false);
     }
 
-    getDefinitionForPosition(filePath: string, position: LineAndColumn):
-        DocumentLineAndColumnRange[] | undefined {
+    getDefinitionForPosition(filePath: string, position: Position):
+        DocumentRange[] | undefined {
 
         return this._program.getDefinitionsForPosition(filePath, position);
     }
 
-    getReferencesForPosition(filePath: string, position: LineAndColumn,
-        includeDeclaration: boolean): DocumentLineAndColumnRange[] | undefined {
+    getReferencesForPosition(filePath: string, position: Position,
+        includeDeclaration: boolean): DocumentRange[] | undefined {
 
         return this._program.getReferencesForPosition(filePath, position, includeDeclaration);
     }
@@ -142,19 +142,19 @@ export class AnalyzerService {
         this._program.addSymbolsForWorkspace(symbolList, query);
     }
 
-    getHoverForPosition(filePath: string, position: LineAndColumn):
+    getHoverForPosition(filePath: string, position: Position):
         HoverResults | undefined {
 
         return this._program.getHoverForPosition(filePath, position);
     }
 
-    getSignatureHelpForPosition(filePath: string, position: LineAndColumn):
+    getSignatureHelpForPosition(filePath: string, position: Position):
         SignatureHelpResults | undefined {
 
         return this._program.getSignatureHelpForPosition(filePath, position);
     }
 
-    getCompletionsForPosition(filePath: string, position: LineAndColumn,
+    getCompletionsForPosition(filePath: string, position: Position,
         workspacePath: string): CompletionList | undefined {
 
         return this._program.getCompletionsForPosition(filePath, position, workspacePath);
@@ -168,7 +168,7 @@ export class AnalyzerService {
         return this._program.performQuickAction(filePath, command, args);
     }
 
-    renameSymbolAtPosition(filePath: string, position: LineAndColumn,
+    renameSymbolAtPosition(filePath: string, position: Position,
         newName: string): FileEditAction[] | undefined {
 
         return this._program.renameSymbolAtPosition(filePath, position, newName);
@@ -194,7 +194,7 @@ export class AnalyzerService {
         return this._getFileNamesFromFileSpecs();
     }
 
-    getDiagnosticsForRange(filePath: string, range: LineAndColumnRange): Diagnostic[] {
+    getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[] {
         return this._program.getDiagnosticsForRange(filePath, this._configOptions, range);
     }
 

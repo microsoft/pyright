@@ -10,7 +10,7 @@
 
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
-import { LineAndColumnRange } from '../common/textRange';
+import { Range } from '../common/textRange';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -99,7 +99,7 @@ export class ImportSorter {
     // If there are other blocks of import statements separated by other statements,
     // we'll ignore these other blocks for now.
     private _getPrimaryReplacementRange(statements: ImportStatementUtils.ImportStatement[]):
-            LineAndColumnRange {
+            Range {
 
         let statementLimit = statements.findIndex(s => s.followsNonImportStatement);
         if (statementLimit < 0) {

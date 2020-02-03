@@ -62,18 +62,24 @@ export namespace TextRange {
     }
 }
 
-export interface LineAndColumn {
+export interface Position {
     // Both line and column are zero-based
     line: number;
     character: number;
 }
 
-export interface LineAndColumnRange {
-    start: LineAndColumn;
-    end: LineAndColumn;
+export interface Range {
+    start: Position;
+    end: Position;
 }
 
-export function comparePositions(a: LineAndColumn, b: LineAndColumn) {
+// Represents a range within a particular document.
+export interface DocumentRange {
+    path: string;
+    range: Range;
+}
+
+export function comparePositions(a: Position, b: Position) {
     if (a.line < b.line) {
         return -1;
     } else if (a.line > b.line) {
@@ -86,14 +92,14 @@ export function comparePositions(a: LineAndColumn, b: LineAndColumn) {
     return 0;
 }
 
-export function getEmptyPosition(): LineAndColumn {
+export function getEmptyPosition(): Position {
     return {
         line: 0,
         character: 0
     };
 }
 
-export function doRangesOverlap(a: LineAndColumnRange, b: LineAndColumnRange) {
+export function doRangesOverlap(a: Range, b: Range) {
     if (comparePositions(b.start, a.end) >= 0) {
         return false;
     } else if (comparePositions(a.start, b.end) >= 0) {
@@ -102,35 +108,29 @@ export function doRangesOverlap(a: LineAndColumnRange, b: LineAndColumnRange) {
     return true;
 }
 
-export function doesRangeContain(range: LineAndColumnRange, position: LineAndColumn) {
+export function doesRangeContain(range: Range, position: Position) {
     return comparePositions(range.start, position) >= 0 &&
         comparePositions(range.end, position) <= 0;
 }
 
-export function rangesAreEqual(a: LineAndColumnRange, b: LineAndColumnRange) {
+export function rangesAreEqual(a: Range, b: Range) {
     return comparePositions(a.start, b.start) === 0 && comparePositions(a.end, b.end) === 0;
 }
 
-export function getEmptyRange(): LineAndColumnRange {
+export function getEmptyRange(): Range {
     return {
         start: getEmptyPosition(),
         end: getEmptyPosition()
     };
 }
 
-// Represents a range within a particular document.
-export interface DocumentLineAndColumnRange {
-    path: string;
-    range: LineAndColumnRange;
-}
-
-export function convertRange(range?: LineAndColumnRange): lsp.Range {
+export function convertRange(range?: Range): lsp.Range {
     if (!range) {
         return lsp.Range.create(convertPosition(), convertPosition());
     }
     return lsp.Range.create(convertPosition(range.start), convertPosition(range.end));
 }
 
-export function convertPosition(position?: LineAndColumn): lsp.Position {
+export function convertPosition(position?: Position): lsp.Position {
     return !position ? lsp.Position.create(0, 0) : lsp.Position.create(position.line, position.character);
 }

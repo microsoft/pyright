@@ -20,7 +20,7 @@ import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSin
 import { TextEditAction } from '../common/editAction';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
-import { TextRange, getEmptyRange, LineAndColumn, DocumentLineAndColumnRange } from '../common/textRange';
+import { TextRange, getEmptyRange, Position, DocumentRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { CompletionItemData, CompletionProvider, ModuleSymbolMap } from '../languageService/completionProvider';
@@ -529,8 +529,8 @@ export class SourceFile {
         return true;
     }
 
-    getDefinitionsForPosition(position: LineAndColumn,
-        evaluator: TypeEvaluator): DocumentLineAndColumnRange[] | undefined {
+    getDefinitionsForPosition(position: Position,
+        evaluator: TypeEvaluator): DocumentRange[] | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -541,7 +541,7 @@ export class SourceFile {
             this._parseResults, position, evaluator);
     }
 
-    getReferencesForPosition(position: LineAndColumn, includeDeclaration: boolean,
+    getReferencesForPosition(position: Position, includeDeclaration: boolean,
         evaluator: TypeEvaluator): ReferencesResult | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
@@ -588,7 +588,7 @@ export class SourceFile {
             this._filePath, this._parseResults, evaluator);
     }
 
-    getHoverForPosition(position: LineAndColumn,
+    getHoverForPosition(position: Position,
         evaluator: TypeEvaluator): HoverResults | undefined {
 
         // If this file hasn't been bound, no hover info is available.
@@ -600,7 +600,7 @@ export class SourceFile {
             this._parseResults, position, evaluator);
     }
 
-    getSignatureHelpForPosition(position: LineAndColumn,
+    getSignatureHelpForPosition(position: Position,
         importLookup: ImportLookup, evaluator: TypeEvaluator): SignatureHelpResults | undefined {
 
         // If we have no completed analysis job, there's nothing to do.
@@ -612,7 +612,7 @@ export class SourceFile {
             this._parseResults, position, evaluator);
     }
 
-    getCompletionsForPosition(position: LineAndColumn,
+    getCompletionsForPosition(position: Position,
         workspacePath: string, configOptions: ConfigOptions, importResolver: ImportResolver,
         importLookup: ImportLookup, evaluator: TypeEvaluator,
         moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {

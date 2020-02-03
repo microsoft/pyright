@@ -20,7 +20,7 @@ import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
 import { NullConsole } from './common/console';
 import { DiagnosticCategory } from './common/diagnostic';
-import { LineAndColumnRange } from './common/textRange';
+import { Range } from './common/textRange';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
 import { createFromRealFileSystem } from './common/vfs';
@@ -45,7 +45,7 @@ interface PyrightJsonDiagnostic {
     file: string;
     severity: 'error' | 'warning';
     message: string;
-    range: LineAndColumnRange;
+    range: Range;
 }
 
 interface PyrightJsonSummary {

@@ -10,11 +10,11 @@
 
 import * as assert from 'assert';
 
-import { LineAndColumn, LineAndColumnRange, TextRange } from './textRange';
+import { Position, Range, TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
 
 // Translates a file offset into a line/column pair.
-export function convertOffsetToPosition(offset: number, lines: TextRangeCollection<TextRange>): LineAndColumn {
+export function convertOffsetToPosition(offset: number, lines: TextRangeCollection<TextRange>): Position {
     // Handle the case where the file is empty.
     if (lines.end === 0) {
         return {
@@ -40,14 +40,14 @@ export function convertOffsetToPosition(offset: number, lines: TextRangeCollecti
 
 // Translates a start/end file offset into a pair of line/column positions.
 export function convertOffsetsToRange(startOffset: number, endOffset: number,
-    lines: TextRangeCollection<TextRange>): LineAndColumnRange {
+    lines: TextRangeCollection<TextRange>): Range {
     const start = convertOffsetToPosition(startOffset, lines);
     const end = convertOffsetToPosition(endOffset, lines);
     return { start, end };
 }
 
 // Translates a position (line and col) into a file offset.
-export function convertPositionToOffset(position: LineAndColumn,
+export function convertPositionToOffset(position: Position,
     lines: TextRangeCollection<TextRange>): number | undefined {
     if (position.line >= lines.count) {
         return undefined;

@@ -22,7 +22,7 @@ import './common/extensions';
 import { combinePaths, convertPathToUri, convertUriToPath, getDirectoryPath, normalizePath } from './common/pathUtils';
 import { commandAddMissingOptionalToParam, commandCreateTypeStub, commandOrderImports } from './languageService/commands';
 import { CompletionItemData } from './languageService/completionProvider';
-import { LineAndColumnRange, LineAndColumn, convertRange } from './common/textRange';
+import { Range, Position, convertRange } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 
 export interface ServerSettings {
@@ -278,7 +278,7 @@ export abstract class LanguageServerBase {
             const filePath = convertUriToPath(params.textDocument.uri);
             const workspace = this._getWorkspaceForFile(filePath);
             if (!workspace.disableLanguageServices) {
-                const range: LineAndColumnRange = {
+                const range: Range = {
                     start: {
                         line: params.range.start.line,
                         character: params.range.start.character
@@ -335,7 +335,7 @@ export abstract class LanguageServerBase {
 
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: LineAndColumn = {
+            const position: Position = {
                 line: params.position.line,
                 character: params.position.character
             };
@@ -355,7 +355,7 @@ export abstract class LanguageServerBase {
         this._connection.onReferences(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: LineAndColumn = {
+            const position: Position = {
                 line: params.position.line,
                 character: params.position.character
             };
@@ -404,7 +404,7 @@ export abstract class LanguageServerBase {
         this._connection.onHover(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: LineAndColumn = {
+            const position: Position = {
                 line: params.position.line,
                 character: params.position.character
             };
@@ -434,7 +434,7 @@ export abstract class LanguageServerBase {
         this._connection.onSignatureHelp(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: LineAndColumn = {
+            const position: Position = {
                 line: params.position.line,
                 character: params.position.character
             };
@@ -471,7 +471,7 @@ export abstract class LanguageServerBase {
         this._connection.onCompletion(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: LineAndColumn = {
+            const position: Position = {
                 line: params.position.line,
                 character: params.position.character
             };
@@ -510,7 +510,7 @@ export abstract class LanguageServerBase {
         this._connection.onRenameRequest(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: LineAndColumn = {
+            const position: Position = {
                 line: params.position.line,
                 character: params.position.character
             };
