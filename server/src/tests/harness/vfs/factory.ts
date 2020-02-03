@@ -7,10 +7,9 @@
  */
 
 import { combinePaths, getDirectoryPath, normalizeSlashes, resolvePaths } from "../../../common/pathUtils";
-import { S_IFDIR, S_IFREG } from "../../../common/vfs";
 import { TestHost } from "../host";
 import { bufferFrom } from "../utils";
-import { FileSystem, FileSystemOptions, FileSystemResolver, ModulePath, Mount } from "./filesystem";
+import { FileSystem, FileSystemOptions, FileSystemResolver, ModulePath, Mount, S_IFDIR, S_IFREG } from "./filesystem";
 
 export class TextDocument {
     public readonly meta: Map<string, string>;

@@ -8,7 +8,7 @@
 
 /* eslint-disable no-dupe-class-members */
 import * as pathUtil from "../../../common/pathUtils";
-import { FileWatcher, Listener, Stats, S_IFDIR, S_IFLNK, S_IFMT, S_IFREG } from "../../../common/vfs";
+import { FileWatcher, Listener, } from "../../../common/vfs";
 import { bufferFrom, createIOError } from "../utils";
 import { closeIterator, getIterator, Metadata, nextResult, SortedMap } from "./../utils";
 import { validate, ValidationFlags } from "./pathValidation";
@@ -1248,6 +1248,18 @@ export class Symlink {
     }
 }
 
+// file type
+// these should be only used inside of test code. it is export just because mock file system is separated into
+// 2 files. this and factory.ts file. actual value doesn't matter
+export const S_IFMT = 0o170000; // file type
+export const S_IFSOCK = 0o140000; // socket
+export const S_IFLNK = 0o120000; // symbolic link
+export const S_IFREG = 0o100000; // regular file
+export const S_IFBLK = 0o060000; // block device
+export const S_IFDIR = 0o040000; // directory
+export const S_IFCHR = 0o020000; // character device
+export const S_IFIFO = 0o010000; // FIFO
+
 /** Extended options for mounting a virtual copy of an external file system via a `FileSet` */
 export class Mount {
     public readonly source: string;
@@ -1391,4 +1403,56 @@ function formatPatchWorker(dirname: string, container: FileSet): string {
         }
     }
     return text;
+}
+
+class Stats {
+    public dev: number;
+    public ino: number;
+    public mode: number;
+    public nlink: number;
+    public uid: number;
+    public gid: number;
+    public rdev: number;
+    public size: number;
+    public blksize: number;
+    public blocks: number;
+    public atimeMs: number;
+    public mtimeMs: number;
+    public ctimeMs: number;
+    public birthtimeMs: number;
+    public atime: Date;
+    public mtime: Date;
+    public ctime: Date;
+    public birthtime: Date;
+
+    constructor();
+    constructor(dev: number, ino: number, mode: number, nlink: number, rdev: number, size: number, blksize: number, blocks: number, atimeMs: number, mtimeMs: number, ctimeMs: number, birthtimeMs: number);
+    constructor(dev = 0, ino = 0, mode = 0, nlink = 0, rdev = 0, size = 0, blksize = 0, blocks = 0, atimeMs = 0, mtimeMs = 0, ctimeMs = 0, birthtimeMs = 0) {
+        this.dev = dev;
+        this.ino = ino;
+        this.mode = mode;
+        this.nlink = nlink;
+        this.uid = 0;
+        this.gid = 0;
+        this.rdev = rdev;
+        this.size = size;
+        this.blksize = blksize;
+        this.blocks = blocks;
+        this.atimeMs = atimeMs;
+        this.mtimeMs = mtimeMs;
+        this.ctimeMs = ctimeMs;
+        this.birthtimeMs = birthtimeMs;
+        this.atime = new Date(this.atimeMs);
+        this.mtime = new Date(this.mtimeMs);
+        this.ctime = new Date(this.ctimeMs);
+        this.birthtime = new Date(this.birthtimeMs);
+    }
+
+    public isFile() { return (this.mode & S_IFMT) === S_IFREG; }
+    public isDirectory() { return (this.mode & S_IFMT) === S_IFDIR; }
+    public isSymbolicLink() { return (this.mode & S_IFMT) === S_IFLNK; }
+    public isBlockDevice() { return (this.mode & S_IFMT) === S_IFBLK; }
+    public isCharacterDevice() { return (this.mode & S_IFMT) === S_IFCHR; }
+    public isFIFO() { return (this.mode & S_IFMT) === S_IFIFO; }
+    public isSocket() { return (this.mode & S_IFMT) === S_IFSOCK; }
 }
