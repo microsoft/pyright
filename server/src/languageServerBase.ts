@@ -20,7 +20,7 @@ import {
 } from './common/diagnostic';
 import './common/extensions';
 import { combinePaths, getDirectoryPath, normalizePath, convertUriToPath, convertPathToUri } from './common/pathUtils';
-import { commandAddMissingOptionalToParam, commandCreateTypeStub, commandOrderImports } from './languageService/commands';
+import { commandAddMissingOptionalToParam, commandCreateTypeStub, commandOrderImports } from '../../common/commands';
 import { CompletionItemData } from './languageService/completionProvider';
 
 export interface ServerSettings {

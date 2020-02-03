@@ -15,7 +15,7 @@ import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { commandAddMissingOptionalToParam, commandOrderImports } from './commands';
+import { commandAddMissingOptionalToParam, commandOrderImports } from '../../../common/commands';
 import { ImportSorter } from './importSorter';
 
 export function performQuickAction(command: string, args: any[],

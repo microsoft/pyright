@@ -11,10 +11,17 @@
 		"rootDir": ".",
 		"outDir": "out",
 		"lib": [ "es2016" ],
-		"sourceMap": true
+		"sourceMap": true,
+		"baseUrl": "./",
+		"paths": {
+			"@commands/*": [ "../common/commands" ]
+		}
 	},
 	"exclude": [
 		"node_modules",
 		"server"
+	],
+	"references": [
+		{ "path": "../common" }
 	]
 }
