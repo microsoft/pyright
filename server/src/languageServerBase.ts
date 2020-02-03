@@ -22,8 +22,9 @@ import './common/extensions';
 import { combinePaths, convertPathToUri, convertUriToPath, getDirectoryPath, normalizePath } from './common/pathUtils';
 import { commandAddMissingOptionalToParam, commandCreateTypeStub, commandOrderImports } from './languageService/commands';
 import { CompletionItemData } from './languageService/completionProvider';
-import { Range, Position, convertRange } from './common/textRange';
+import { Range, Position } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
+import { convertRange } from './languageService/vscodelspUtils';
 
 export interface ServerSettings {
     venvPath?: string;

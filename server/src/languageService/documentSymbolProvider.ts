@@ -18,7 +18,7 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { isProperty } from '../analyzer/typeUtils';
-import { convertRange } from '../common/textRange';
+import { convertRange } from '../languageService/vscodelspUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { ClassNode, FunctionNode, ListComprehensionNode, ModuleNode, ParseNode } from '../parser/parseNodes';

@@ -6,7 +6,6 @@
 *
 * Specifies the range of text within a larger string.
 */
-import * as lsp from 'vscode-languageserver';
 
 export interface TextRange {
     start: number;
@@ -122,15 +121,4 @@ export function getEmptyRange(): Range {
         start: getEmptyPosition(),
         end: getEmptyPosition()
     };
-}
-
-export function convertRange(range?: Range): lsp.Range {
-    if (!range) {
-        return lsp.Range.create(convertPosition(), convertPosition());
-    }
-    return lsp.Range.create(convertPosition(range.start), convertPosition(range.end));
-}
-
-export function convertPosition(position?: Position): lsp.Position {
-    return !position ? lsp.Position.create(0, 0) : lsp.Position.create(position.line, position.character);
 }
