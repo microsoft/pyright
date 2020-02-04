@@ -7,9 +7,9 @@
 * Class that represents errors and warnings.
 */
 
-import { Diagnostic, DiagnosticCategory, DiagnosticTextRange } from './diagnostic';
+import { Diagnostic, DiagnosticCategory } from './diagnostic';
 import { convertOffsetsToRange } from './positionUtils';
-import { TextRange } from './textRange';
+import { TextRange, Range } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
 
 // Represents a collection of diagnostics within a file.
@@ -32,15 +32,15 @@ export class DiagnosticSink {
         return prevDiagnostics;
     }
 
-    addError(message: string, range: DiagnosticTextRange) {
+    addError(message: string, range: Range) {
         return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Error, message, range));
     }
 
-    addWarning(message: string, range: DiagnosticTextRange) {
+    addWarning(message: string, range: Range) {
         return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Warning, message, range));
     }
 
-    addUnusedCode(message: string, range: DiagnosticTextRange) {
+    addUnusedCode(message: string, range: Range) {
         return this.addDiagnostic(new Diagnostic(DiagnosticCategory.UnusedCode, message, range));
     }
 

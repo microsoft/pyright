@@ -8,7 +8,7 @@
 * import statements in a python source file.
 */
 
-import { DiagnosticTextPosition } from '../common/diagnostic';
+import { Position } from '../common/textRange';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -111,7 +111,7 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
 
     // We need to emit a new 'from import' statement.
     let newImportStatement = `from ${ moduleName } import ${ symbolName }`;
-    let insertionPosition: DiagnosticTextPosition;
+    let insertionPosition: Position;
     if (importStatements.orderedImports.length > 0) {
         let insertBefore = true;
         let insertionImport = importStatements.orderedImports[0];
@@ -180,12 +180,12 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
                 insertBefore ? insertionImport.node.start : TextRange.getEnd(insertionImport.node),
                 parseResults.tokenizerOutput.lines);
         } else {
-            insertionPosition = { line: 0, column: 0 };
+            insertionPosition = { line: 0, character: 0 };
         }
     } else {
         // Insert at or near the top of the file. See if there's a doc string and
         // copyright notice, etc. at the top. If so, move past those.
-        insertionPosition = { line: 0, column: 0 };
+        insertionPosition = { line: 0, character: 0 };
         let addNewLineBefore = false;
 
         for (const statement of parseResults.parseTree.statements) {

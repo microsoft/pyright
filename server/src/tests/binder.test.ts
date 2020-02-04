@@ -1,11 +1,11 @@
 /*
-* binder.test.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Unit tests for pyright name binder.
-*/
+ * binder.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Unit tests for pyright name binder.
+ */
 
 import * as assert from 'assert';
 

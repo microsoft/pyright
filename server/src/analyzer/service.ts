@@ -7,31 +7,28 @@
 * A persistent service that is able to analyze a collection of
 * Python files.
 */
-
 import * as assert from 'assert';
-import * as chokidar from 'chokidar';
-import * as fs from 'fs';
 import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { Diagnostic, DiagnosticTextPosition, DiagnosticTextRange,
-    DocumentTextRange } from '../common/diagnostic';
+import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
-import { combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
+import {
+    combinePaths, FileSpec, forEachAncestorDirectory, getDirectoryPath,
     getFileName, getFileSpec, getFileSystemEntries, isDirectory,
-    normalizePath, stripFileExtension } from '../common/pathUtils';
+    normalizePath, stripFileExtension
+} from '../common/pathUtils';
 import { Duration, timingStats } from '../common/timing';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import * as PythonPathUtils from './pythonPathUtils';
-
-const _isMacintosh = process.platform === 'darwin';
-const _isLinux = process.platform === 'linux';
+import { Position, Range, DocumentRange } from '../common/textRange';
+import { VirtualFileSystem, FileWatcher } from '../common/vfs';
 
 export { MaxAnalysisTime } from './program';
 
@@ -59,10 +56,10 @@ export class AnalyzerService {
     private _typeStubTargetPath: string | undefined;
     private _typeStubTargetIsSingleFile = false;
     private _console: ConsoleInterface;
-    private _sourceFileWatcher: fs.FSWatcher | undefined;
+    private _sourceFileWatcher: FileWatcher | undefined;
     private _reloadConfigTimer: any;
     private _configFilePath: string | undefined;
-    private _configFileWatcher: fs.FSWatcher | undefined;
+    private _configFileWatcher: FileWatcher | undefined;
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
     private _watchForSourceChanges = false;
     private _verboseOutput = false;
@@ -71,11 +68,11 @@ export class AnalyzerService {
     private _requireTrackedFileUpdate = true;
     private _lastUserInteractionTime = Date.now();
 
-    constructor(instanceName: string, console?: ConsoleInterface) {
+    constructor(instanceName: string, fs: VirtualFileSystem, console?: ConsoleInterface, configOptions?: ConfigOptions) {
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
-        this._configOptions = new ConfigOptions(process.cwd());
-        this._importResolver = new ImportResolver(this._configOptions);
+        this._configOptions = configOptions ?? new ConfigOptions(process.cwd());
+        this._importResolver = new ImportResolver(fs, this._configOptions);
         this._program = new Program(this._importResolver, this._configOptions, this._console);
         this._executionRootPath = '';
         this._typeStubTargetImportName = undefined;
@@ -104,7 +101,7 @@ export class AnalyzerService {
         this._typeStubTargetImportName = commandLineOptions.typeStubTargetImportName;
 
         this._executionRootPath = normalizePath(combinePaths(
-                commandLineOptions.executionRoot, this._configOptions.projectRoot));
+            commandLineOptions.executionRoot, this._configOptions.projectRoot));
         this._applyConfigOptions();
     }
 
@@ -125,14 +122,14 @@ export class AnalyzerService {
         this._scheduleReanalysis(false);
     }
 
-    getDefinitionForPosition(filePath: string, position: DiagnosticTextPosition):
-            DocumentTextRange[] | undefined {
+    getDefinitionForPosition(filePath: string, position: Position):
+        DocumentRange[] | undefined {
 
         return this._program.getDefinitionsForPosition(filePath, position);
     }
 
-    getReferencesForPosition(filePath: string, position: DiagnosticTextPosition,
-            includeDeclaration: boolean): DocumentTextRange[] | undefined {
+    getReferencesForPosition(filePath: string, position: Position,
+        includeDeclaration: boolean): DocumentRange[] | undefined {
 
         return this._program.getReferencesForPosition(filePath, position, includeDeclaration);
     }
@@ -145,20 +142,20 @@ export class AnalyzerService {
         this._program.addSymbolsForWorkspace(symbolList, query);
     }
 
-    getHoverForPosition(filePath: string, position: DiagnosticTextPosition):
-            HoverResults | undefined {
+    getHoverForPosition(filePath: string, position: Position):
+        HoverResults | undefined {
 
         return this._program.getHoverForPosition(filePath, position);
     }
 
-    getSignatureHelpForPosition(filePath: string, position: DiagnosticTextPosition):
-            SignatureHelpResults | undefined {
+    getSignatureHelpForPosition(filePath: string, position: Position):
+        SignatureHelpResults | undefined {
 
         return this._program.getSignatureHelpForPosition(filePath, position);
     }
 
-    getCompletionsForPosition(filePath: string, position: DiagnosticTextPosition,
-            workspacePath: string): CompletionList | undefined {
+    getCompletionsForPosition(filePath: string, position: Position,
+        workspacePath: string): CompletionList | undefined {
 
         return this._program.getCompletionsForPosition(filePath, position, workspacePath);
     }
@@ -171,8 +168,8 @@ export class AnalyzerService {
         return this._program.performQuickAction(filePath, command, args);
     }
 
-    renameSymbolAtPosition(filePath: string, position: DiagnosticTextPosition,
-            newName: string): FileEditAction[] | undefined {
+    renameSymbolAtPosition(filePath: string, position: Position,
+        newName: string): FileEditAction[] | undefined {
 
         return this._program.renameSymbolAtPosition(filePath, position, newName);
     }
@@ -197,7 +194,7 @@ export class AnalyzerService {
         return this._getFileNamesFromFileSpecs();
     }
 
-    getDiagnosticsForRange(filePath: string, range: DiagnosticTextRange): Diagnostic[] {
+    getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[] {
         return this._program.getDiagnosticsForRange(filePath, this._configOptions, range);
     }
 
@@ -230,7 +227,7 @@ export class AnalyzerService {
             // or a file.
             configFilePath = combinePaths(commandLineOptions.executionRoot,
                 normalizePath(commandLineOptions.configFilePath));
-            if (!fs.existsSync(configFilePath)) {
+            if (!this._fs.existsSync(configFilePath)) {
                 this._console.log(`Configuration file not found at ${ configFilePath }.`);
                 configFilePath = commandLineOptions.executionRoot;
             } else {
@@ -350,7 +347,7 @@ export class AnalyzerService {
         // Do some sanity checks on the specified settings and report missing
         // or inconsistent information.
         if (configOptions.venvPath) {
-            if (!fs.existsSync(configOptions.venvPath) || !isDirectory(configOptions.venvPath)) {
+            if (!this._fs.existsSync(configOptions.venvPath) || !isDirectory(this._fs, configOptions.venvPath)) {
                 this._console.log(
                     `venvPath ${ configOptions.venvPath } is not a valid directory.`);
             }
@@ -358,15 +355,13 @@ export class AnalyzerService {
             if (configOptions.defaultVenv) {
                 const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.defaultVenv);
 
-                if (!fs.existsSync(fullVenvPath) || !isDirectory(fullVenvPath)) {
+                if (!this._fs.existsSync(fullVenvPath) || !isDirectory(this._fs, fullVenvPath)) {
                     this._console.log(
                         `venv ${ configOptions.defaultVenv } subdirectory not found ` +
                         `in venv path ${ configOptions.venvPath }.`);
                 } else {
                     const importFailureInfo: string[] = [];
-                    if (PythonPathUtils.findPythonSearchPaths(configOptions, undefined,
-                            importFailureInfo) === undefined) {
-
+                    if (PythonPathUtils.findPythonSearchPaths(this._fs, configOptions, undefined, importFailureInfo) === undefined) {
                         this._console.log(
                             `site-packages directory cannot be located for venvPath ` +
                             `${ configOptions.venvPath } and venv ${ configOptions.defaultVenv }.`);
@@ -381,8 +376,7 @@ export class AnalyzerService {
             }
         } else {
             const importFailureInfo: string[] = [];
-            const pythonPaths = PythonPathUtils.getPythonPathFromPythonInterpreter(
-                configOptions.pythonPath, importFailureInfo);
+            const pythonPaths = PythonPathUtils.getPythonPathFromPythonInterpreter(this._fs, configOptions.pythonPath, importFailureInfo);
             if (pythonPaths.length === 0) {
                 if (configOptions.verboseOutput) {
                     this._console.log(
@@ -418,14 +412,14 @@ export class AnalyzerService {
         }
 
         if (configOptions.typeshedPath) {
-            if (!fs.existsSync(configOptions.typeshedPath) || !isDirectory(configOptions.typeshedPath)) {
+            if (!this._fs.existsSync(configOptions.typeshedPath) || !isDirectory(this._fs, configOptions.typeshedPath)) {
                 this._console.log(
                     `typeshedPath ${ configOptions.typeshedPath } is not a valid directory.`);
             }
         }
 
         if (configOptions.typingsPath) {
-            if (!fs.existsSync(configOptions.typingsPath) || !isDirectory(configOptions.typingsPath)) {
+            if (!this._fs.existsSync(configOptions.typingsPath) || !isDirectory(this._fs, configOptions.typingsPath)) {
                 this._console.log(
                     `typingsPath ${ configOptions.typingsPath } is not a valid directory.`);
             }
@@ -463,8 +457,8 @@ export class AnalyzerService {
 
         try {
             // Generate a new typings directory if necessary.
-            if (!fs.existsSync(typingsPath)) {
-                fs.mkdirSync(typingsPath);
+            if (!this._fs.existsSync(typingsPath)) {
+                this._fs.mkdirSync(typingsPath);
             }
         } catch (e) {
             const errMsg = `Could not create typings directory '${ typingsPath }'`;
@@ -476,8 +470,8 @@ export class AnalyzerService {
         const typingsSubdirPath = combinePaths(typingsPath, typeStubInputTargetParts[0]);
         try {
             // Generate a new typings subdirectory if necessary.
-            if (!fs.existsSync(typingsSubdirPath)) {
-                fs.mkdirSync(typingsSubdirPath);
+            if (!this._fs.existsSync(typingsSubdirPath)) {
+                this._fs.mkdirSync(typingsSubdirPath);
             }
         } catch (e) {
             const errMsg = `Could not create typings subdirectory '${ typingsSubdirPath }'`;
@@ -500,6 +494,10 @@ export class AnalyzerService {
         this._program.markAllFilesDirty(true);
     }
 
+    private get _fs() {
+        return this._importResolver.fileSystem;
+    }
+
     private _findConfigFileHereOrUp(searchPath: string): string | undefined {
         return forEachAncestorDirectory(searchPath, ancestor => this._findConfigFile(ancestor));
     }
@@ -507,7 +505,7 @@ export class AnalyzerService {
     private _findConfigFile(searchPath: string): string | undefined {
         for (const name of _configFileNames) {
             const fileName = combinePaths(searchPath, name);
-            if (fs.existsSync(fileName)) {
+            if (this._fs.existsSync(fileName)) {
                 return fileName;
             }
         }
@@ -521,7 +519,7 @@ export class AnalyzerService {
         while (true) {
             // Attempt to read the config file contents.
             try {
-                configContents = fs.readFileSync(configPath, { encoding: 'utf8' });
+                configContents = this._fs.readFileSync(configPath, 'utf8');
             } catch {
                 this._console.log(`Config file "${ configPath }" could not be read.`);
                 this._reportConfigParseError();
@@ -563,7 +561,7 @@ export class AnalyzerService {
                 this._configOptions.exclude);
 
             for (const file of matchedFiles) {
-                fileMap.set(file,  file);
+                fileMap.set(file, file);
             }
         });
 
@@ -595,7 +593,7 @@ export class AnalyzerService {
                 // Namespace packages resolve to a directory name, so
                 // don't include those.
                 const resolvedPath = importResult.resolvedPaths[
-                        importResult.resolvedPaths.length - 1];
+                    importResult.resolvedPaths.length - 1];
 
                 // Get the directory that contains the root package.
                 let targetPath = getDirectoryPath(resolvedPath);
@@ -611,7 +609,7 @@ export class AnalyzerService {
                     }
                 }
 
-                if (isDirectory(targetPath)) {
+                if (isDirectory(this._fs, targetPath)) {
                     this._typeStubTargetPath = targetPath;
                 }
 
@@ -662,7 +660,7 @@ export class AnalyzerService {
         const results: string[] = [];
 
         const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
-            const { files, directories } = getFileSystemEntries(absolutePath);
+            const { files, directories } = getFileSystemEntries(this._fs, absolutePath);
 
             for (const file of files) {
                 const filePath = combinePaths(absolutePath, file);
@@ -689,7 +687,7 @@ export class AnalyzerService {
 
             if (!this._isInExcludePath(includeSpec.wildcardRoot, exclude)) {
                 try {
-                    const stat = fs.statSync(includeSpec.wildcardRoot);
+                    const stat = this._fs.statSync(includeSpec.wildcardRoot);
                     if (stat.isFile()) {
                         if (includeFileRegex.test(includeSpec.wildcardRoot)) {
                             results.push(includeSpec.wildcardRoot);
@@ -741,7 +739,7 @@ export class AnalyzerService {
                     this._console.log(`Adding fs watcher for directories:\n ${ fileList.join('\n') }`);
                 }
 
-                this._sourceFileWatcher = this._createFileSystemWatcher(fileList).on('all', (event, path) => {
+                this._sourceFileWatcher = this._fs.createFileSystemWatcher(fileList, 'all', (event, path) => {
                     if (this._verboseOutput) {
                         this._console.log(`Received fs event '${ event }' for path '${ path }'`);
                     }
@@ -766,59 +764,17 @@ export class AnalyzerService {
         }
     }
 
-    private _createFileSystemWatcher(paths: string[]): chokidar.FSWatcher {
-        // The following options are copied from VS Code source base. It also
-        // uses chokidar for its file watching.
-        const watcherOptions: chokidar.WatchOptions = {
-            ignoreInitial: true,
-            ignorePermissionErrors: true,
-            followSymlinks: true, // this is the default of chokidar and supports file events through symlinks
-            interval: 1000, // while not used in normal cases, if any error causes chokidar to fallback to polling, increase its intervals
-            binaryInterval: 1000,
-            disableGlobbing: true // fix https://github.com/Microsoft/vscode/issues/4586
-        };
-
-        if (_isMacintosh) {
-            // Explicitly disable on MacOS because it uses up large amounts of memory
-            // and CPU for large file hierarchies, resulting in instability and crashes.
-            watcherOptions.usePolling = false;
-        }
-
-        const excludes: string[] = [];
-        if (_isMacintosh || _isLinux) {
-            if (paths.some(path => path === '' || path === '/')) {
-                excludes.push('/dev/**');
-                if (_isLinux) {
-                    excludes.push('/proc/**', '/sys/**');
-                }
-            }
-        }
-        watcherOptions.ignored = excludes;
-
-        const watcher = chokidar.watch(paths, watcherOptions);
-        watcher.on('error', _ => {
-            this._console.log('Error returned from file system watcher.');
-        });
-
-        // Detect if for some reason the native watcher library fails to load
-        if (_isMacintosh && !watcher.options.useFsEvents) {
-            this._console.log('Watcher could not use native fsevents library. File system watcher disabled.');
-        }
-
-        return watcher;
-    }
-
     private _updateConfigFileWatcher() {
         this._removeConfigFileWatcher();
 
         if (this._configFilePath) {
-            this._configFileWatcher = this._createFileSystemWatcher([this._configFilePath])
-            .on('all', event => {
-                if (this._verboseOutput) {
-                    this._console.log(`Received fs event '${ event }' for config file`);
-                }
-                this._scheduleReloadConfigFile();
-            });
+            this._configFileWatcher = this._fs.createFileSystemWatcher([this._configFilePath],
+                'all', event => {
+                    if (this._verboseOutput) {
+                        this._console.log(`Received fs event '${ event }' for config file`);
+                    }
+                    this._scheduleReloadConfigFile();
+                });
         }
     }
 
@@ -859,7 +815,7 @@ export class AnalyzerService {
     private _applyConfigOptions() {
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
-        this._importResolver = new ImportResolver(this._configOptions);
+        this._importResolver = new ImportResolver(this._fs, this._configOptions);
         this._program.setImportResolver(this._importResolver);
 
         this._updateSourceFileWatchers();

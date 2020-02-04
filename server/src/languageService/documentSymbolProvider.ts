@@ -8,8 +8,7 @@
 * source file document.
 */
 
-import { DocumentSymbol, Location, Position, Range, SymbolInformation,
-    SymbolKind } from 'vscode-languageserver';
+import { DocumentSymbol, Location, SymbolInformation, SymbolKind } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
@@ -19,7 +18,6 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { isProperty } from '../analyzer/typeUtils';
-import { DiagnosticTextPosition, DiagnosticTextRange } from '../common/diagnostic';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { ClassNode, FunctionNode, ListComprehensionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
@@ -37,7 +35,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
     private _evaluator: TypeEvaluator;
 
     constructor(filePath: string, parseResults: ParseResults, symbolInfoResults: SymbolInformation[],
-            query: string | undefined, evaluator: TypeEvaluator) {
+        query: string | undefined, evaluator: TypeEvaluator) {
 
         super();
         this._filePath = filePath;
@@ -103,7 +101,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
     }
 
     private _addSymbolInformationFromDeclaration(name: string, declaration: Declaration,
-            containerName?: string) {
+        containerName?: string) {
 
         if (declaration.path !== this._filePath) {
             return;
@@ -123,7 +121,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
 
         const location: Location = {
             uri: URI.file(this._filePath).toString(),
-            range: convertRange(declaration.range)
+            range: declaration.range
         };
 
         const symbolKind = getSymbolKind(name, declaration, this._evaluator);
@@ -193,18 +191,9 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator: TypeEv
     return symbolKind;
 }
 
-function convertRange(range: DiagnosticTextRange): Range {
-    return Range.create(convertPosition(range.start),
-        convertPosition(range.end));
-}
-
-function convertPosition(position: DiagnosticTextPosition): Position {
-    return Position.create(position.line, position.column);
-}
-
 function getDocumentSymbolsRecursive(node: AnalyzerNodeInfo.ScopedNode,
-        docSymbolResults: DocumentSymbol[], parseResults: ParseResults,
-        evaluator: TypeEvaluator) {
+    docSymbolResults: DocumentSymbol[], parseResults: ParseResults,
+    evaluator: TypeEvaluator) {
 
     const scope = AnalyzerNodeInfo.getScope(node);
     if (!scope) {
@@ -230,8 +219,8 @@ function getDocumentSymbolsRecursive(node: AnalyzerNodeInfo.ScopedNode,
 }
 
 function getDocumentSymbolRecursive(name: string, declaration: Declaration,
-        evaluator: TypeEvaluator, parseResults: ParseResults,
-        docSymbolResults: DocumentSymbol[]) {
+    evaluator: TypeEvaluator, parseResults: ParseResults,
+    docSymbolResults: DocumentSymbol[]) {
 
     if (declaration.type === DeclarationType.Alias) {
         return;
@@ -242,19 +231,19 @@ function getDocumentSymbolRecursive(name: string, declaration: Declaration,
         return;
     }
 
-    const selectionRange = convertRange(declaration.range);
+    const selectionRange = declaration.range;
     let range = selectionRange;
     const children: DocumentSymbol[] = [];
 
     if (declaration.type === DeclarationType.Class ||
-            declaration.type === DeclarationType.Function) {
+        declaration.type === DeclarationType.Function) {
 
         getDocumentSymbolsRecursive(declaration.node, children, parseResults, evaluator);
 
         const nameRange = convertOffsetsToRange(declaration.node.start,
             declaration.node.name.start + declaration.node.length,
             parseResults.tokenizerOutput.lines);
-        range = convertRange(nameRange);
+        range = nameRange;
     }
 
     const symbolInfo: DocumentSymbol = {
@@ -270,7 +259,7 @@ function getDocumentSymbolRecursive(name: string, declaration: Declaration,
 
 export class DocumentSymbolProvider {
     static addSymbolsForDocument(symbolList: SymbolInformation[], query: string | undefined,
-            filePath: string, parseResults: ParseResults, evaluator: TypeEvaluator) {
+        filePath: string, parseResults: ParseResults, evaluator: TypeEvaluator) {
 
         const symbolTreeWalker = new FindSymbolTreeWalker(filePath, parseResults,
             symbolList, query, evaluator);
@@ -278,7 +267,7 @@ export class DocumentSymbolProvider {
     }
 
     static addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[],
-            parseResults: ParseResults, evaluator: TypeEvaluator) {
+        parseResults: ParseResults, evaluator: TypeEvaluator) {
 
         getDocumentSymbolsRecursive(parseResults.parseTree, symbolList, parseResults, evaluator);
     }

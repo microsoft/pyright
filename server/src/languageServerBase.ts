@@ -15,13 +15,15 @@ import {
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
 import {
-    AddMissingOptionalToParamAction, convertRange, CreateTypeStubFileAction,
-    Diagnostic as AnalyzerDiagnostic, DiagnosticCategory, DiagnosticTextPosition, DiagnosticTextRange
+    AddMissingOptionalToParamAction, CreateTypeStubFileAction,
+    Diagnostic as AnalyzerDiagnostic, DiagnosticCategory
 } from './common/diagnostic';
 import './common/extensions';
 import { combinePaths, convertPathToUri, convertUriToPath, getDirectoryPath, normalizePath } from './common/pathUtils';
 import { CommandId } from './definitions/commands';
 import { CompletionItemData } from './languageService/completionProvider';
+import { Range, Position } from './common/textRange';
+import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 
 export interface ServerSettings {
     venvPath?: string;
@@ -43,6 +45,7 @@ export interface WorkspaceServiceInstance {
 export abstract class LanguageServerBase {
     // Create a connection for the server. The connection uses Node's IPC as a transport
     private _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+    private _fs: VirtualFileSystem;
     // Create a simple text document manager. The text document manager
     // supports full document sync only.
     private _documents: TextDocuments = new TextDocuments();
@@ -55,7 +58,9 @@ export abstract class LanguageServerBase {
     private _defaultWorkspacePath = '<default>';
 
     constructor(private _productName: string, rootDirectory?: string) {
-        this._connection.console.log(`${_productName} language server starting`);
+        this._connection.console.log(`${ _productName } language server starting`);
+        // virtual file system to be used. initialized to real file system by default. but can't be overritten
+        this._fs = createFromRealFileSystem(this._connection.console);
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = rootDirectory ? rootDirectory : getDirectoryPath(__dirname);
         // Make the text document manager listen on the connection
@@ -86,8 +91,8 @@ export abstract class LanguageServerBase {
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
     private _createAnalyzerService(name: string): AnalyzerService {
-        this._connection.console.log(`Starting service instance "${name}"`);
-        const service = new AnalyzerService(name, this._connection.console);
+        this._connection.console.log(`Starting service instance "${ name }"`);
+        const service = new AnalyzerService(name, this._fs, this._connection.console);
 
         // Don't allow the analysis engine to go too long without
         // reporting results. This will keep it responsive.
@@ -116,7 +121,7 @@ export abstract class LanguageServerBase {
 
                         const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
                         this._connection.sendNotification('pyright/reportProgress',
-                            `${results.filesRequiringAnalysis} ${fileOrFiles} to analyze`);
+                            `${ results.filesRequiringAnalysis } ${ fileOrFiles } to analyze`);
                     }
                 } else {
                     if (this._isDisplayingProgress) {
@@ -135,7 +140,7 @@ export abstract class LanguageServerBase {
     private _createTypeStubService(importName: string): AnalyzerService {
 
         this._connection.console.log('Starting type stub service instance');
-        const service = new AnalyzerService('Type stub', this._connection.console);
+        const service = new AnalyzerService('Type stub', this._fs, this._connection.console);
 
         service.setMaxAnalysisDuration({
             openFilesTimeInMs: 500,
@@ -273,14 +278,14 @@ export abstract class LanguageServerBase {
             const filePath = convertUriToPath(params.textDocument.uri);
             const workspace = this._getWorkspaceForFile(filePath);
             if (!workspace.disableLanguageServices) {
-                const range: DiagnosticTextRange = {
+                const range: Range = {
                     start: {
                         line: params.range.start.line,
-                        column: params.range.start.character
+                        character: params.range.start.character
                     },
                     end: {
                         line: params.range.end.line,
-                        column: params.range.end.character
+                        character: params.range.end.character
                     }
                 };
 
@@ -330,9 +335,9 @@ export abstract class LanguageServerBase {
 
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -344,15 +349,15 @@ export abstract class LanguageServerBase {
                 return undefined;
             }
             return locations.map(loc =>
-                Location.create(convertPathToUri(loc.path), convertRange(loc.range)));
+                Location.create(convertPathToUri(loc.path), loc.range));
         });
 
         this._connection.onReferences(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -365,7 +370,7 @@ export abstract class LanguageServerBase {
                 return undefined;
             }
             return locations.map(loc =>
-                Location.create(convertPathToUri(loc.path), convertRange(loc.range)));
+                Location.create(convertPathToUri(loc.path), loc.range));
         });
 
         this._connection.onDocumentSymbol(params => {
@@ -399,9 +404,9 @@ export abstract class LanguageServerBase {
         this._connection.onHover(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -422,16 +427,16 @@ export abstract class LanguageServerBase {
                     kind: MarkupKind.Markdown,
                     value: markupString
                 },
-                range: convertRange(hoverResults.range)
+                range: hoverResults.range
             };
         });
 
         this._connection.onSignatureHelp(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -466,9 +471,9 @@ export abstract class LanguageServerBase {
         this._connection.onCompletion(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -505,9 +510,9 @@ export abstract class LanguageServerBase {
         this._connection.onRenameRequest(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this._getWorkspaceForFile(filePath);
@@ -531,7 +536,7 @@ export abstract class LanguageServerBase {
                 }
 
                 const textEdit: TextEdit = {
-                    range: convertRange(editAction.range),
+                    range: editAction.range,
                     newText: editAction.replacementText
                 };
                 edits.changes![uri].push(textEdit);
@@ -609,7 +614,7 @@ export abstract class LanguageServerBase {
                 const edits: TextEdit[] = [];
                 editActions.forEach(editAction => {
                     edits.push({
-                        range: convertRange(editAction.range),
+                        range: editAction.range,
                         newText: editAction.replacementText
                     });
                 });
@@ -626,7 +631,7 @@ export abstract class LanguageServerBase {
 
                 // Allocate a temporary pseudo-workspace to perform this job.
                 const workspace: WorkspaceServiceInstance = {
-                    workspaceName: `Create Type Stub ${importName}`,
+                    workspaceName: `Create Type Stub ${ importName }`,
                     rootPath: workspaceRoot,
                     rootUri: convertPathToUri(workspaceRoot),
                     serviceInstance: service,
@@ -638,7 +643,7 @@ export abstract class LanguageServerBase {
                         try {
                             service.writeTypeStub();
                             service.dispose();
-                            const infoMessage = `Type stub was successfully created for '${importName}'.`;
+                            const infoMessage = `Type stub was successfully created for '${ importName }'.`;
                             this._connection.window.showInformationMessage(infoMessage);
                             this._handlePostCreateTypeStub();
                         } catch (err) {
@@ -646,7 +651,7 @@ export abstract class LanguageServerBase {
                             if (err instanceof Error) {
                                 errMessage = ': ' + err.message;
                             }
-                            errMessage = `An error occurred when creating type stub for '${importName}'` +
+                            errMessage = `An error occurred when creating type stub for '${ importName }'` +
                                 errMessage;
                             this._connection.console.error(errMessage);
                             this._connection.window.showErrorMessage(errMessage);
@@ -740,10 +745,10 @@ export abstract class LanguageServerBase {
             let source = this._productName;
             const rule = diag.getRule();
             if (rule) {
-                source = `${source} (${rule})`;
+                source = `${ source } (${ rule })`;
             }
 
-            const vsDiag = Diagnostic.create(convertRange(diag.range), diag.message, severity,
+            const vsDiag = Diagnostic.create(diag.range, diag.message, severity,
                 undefined, source);
 
             if (diag.category === DiagnosticCategory.UnusedCode) {
@@ -755,8 +760,7 @@ export abstract class LanguageServerBase {
             if (relatedInfo.length > 0) {
                 vsDiag.relatedInformation = relatedInfo.map(info => {
                     return DiagnosticRelatedInformation.create(
-                        Location.create(convertPathToUri(info.filePath),
-                            convertRange(info.range)),
+                        Location.create(convertPathToUri(info.filePath), info.range),
                         info.message
                     );
                 });
