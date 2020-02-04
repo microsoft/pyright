@@ -18,7 +18,6 @@ import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { isProperty } from '../analyzer/typeUtils';
-import { convertRange } from '../languageService/vscodelspUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { ClassNode, FunctionNode, ListComprehensionNode, ModuleNode, ParseNode } from '../parser/parseNodes';
@@ -122,7 +121,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
 
         const location: Location = {
             uri: URI.file(this._filePath).toString(),
-            range: convertRange(declaration.range)
+            range: declaration.range
         };
 
         const symbolKind = getSymbolKind(name, declaration, this._evaluator);
@@ -232,7 +231,7 @@ function getDocumentSymbolRecursive(name: string, declaration: Declaration,
         return;
     }
 
-    const selectionRange = convertRange(declaration.range);
+    const selectionRange = declaration.range;
     let range = selectionRange;
     const children: DocumentSymbol[] = [];
 
@@ -244,7 +243,7 @@ function getDocumentSymbolRecursive(name: string, declaration: Declaration,
         const nameRange = convertOffsetsToRange(declaration.node.start,
             declaration.node.name.start + declaration.node.length,
             parseResults.tokenizerOutput.lines);
-        range = convertRange(nameRange);
+        range = nameRange;
     }
 
     const symbolInfo: DocumentSymbol = {

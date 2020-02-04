@@ -24,7 +24,6 @@ import { commandAddMissingOptionalToParam, commandCreateTypeStub, commandOrderIm
 import { CompletionItemData } from './languageService/completionProvider';
 import { Range, Position } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
-import { convertRange } from './languageService/vscodelspUtils';
 
 export interface ServerSettings {
     venvPath?: string;
@@ -350,7 +349,7 @@ export abstract class LanguageServerBase {
                 return undefined;
             }
             return locations.map(loc =>
-                Location.create(convertPathToUri(loc.path), convertRange(loc.range)));
+                Location.create(convertPathToUri(loc.path), loc.range));
         });
 
         this._connection.onReferences(params => {
@@ -371,7 +370,7 @@ export abstract class LanguageServerBase {
                 return undefined;
             }
             return locations.map(loc =>
-                Location.create(convertPathToUri(loc.path), convertRange(loc.range)));
+                Location.create(convertPathToUri(loc.path), loc.range));
         });
 
         this._connection.onDocumentSymbol(params => {
@@ -428,7 +427,7 @@ export abstract class LanguageServerBase {
                     kind: MarkupKind.Markdown,
                     value: markupString
                 },
-                range: convertRange(hoverResults.range)
+                range: hoverResults.range
             };
         });
 
@@ -537,7 +536,7 @@ export abstract class LanguageServerBase {
                 }
 
                 const textEdit: TextEdit = {
-                    range: convertRange(editAction.range),
+                    range: editAction.range,
                     newText: editAction.replacementText
                 };
                 edits.changes![uri].push(textEdit);
@@ -615,7 +614,7 @@ export abstract class LanguageServerBase {
                 const edits: TextEdit[] = [];
                 editActions.forEach(editAction => {
                     edits.push({
-                        range: convertRange(editAction.range),
+                        range: editAction.range,
                         newText: editAction.replacementText
                     });
                 });
@@ -749,7 +748,7 @@ export abstract class LanguageServerBase {
                 source = `${ source } (${ rule })`;
             }
 
-            const vsDiag = Diagnostic.create(convertRange(diag.range), diag.message, severity,
+            const vsDiag = Diagnostic.create(diag.range, diag.message, severity,
                 undefined, source);
 
             if (diag.category === DiagnosticCategory.UnusedCode) {
@@ -761,8 +760,7 @@ export abstract class LanguageServerBase {
             if (relatedInfo.length > 0) {
                 vsDiag.relatedInformation = relatedInfo.map(info => {
                     return DiagnosticRelatedInformation.create(
-                        Location.create(convertPathToUri(info.filePath),
-                            convertRange(info.range)),
+                        Location.create(convertPathToUri(info.filePath), info.range),
                         info.message
                     );
                 });
