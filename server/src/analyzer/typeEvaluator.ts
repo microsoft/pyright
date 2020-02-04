@@ -63,7 +63,7 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique,
     transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 import { Parser, ParseOptions } from '../parser/parser';
-import { CommandId } from '../definitions/commands';
+import { CommandId } from '../commands/commands';
 
 interface TypeResult {
     type: Type;

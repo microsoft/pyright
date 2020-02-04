@@ -16,7 +16,7 @@ import { ExtensionContext, commands, TextEditor, Range, Position, TextEditorEdit
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind,
 	TextEdit } from 'vscode-languageclient';
 import { ProgressReporting } from './progress';
-import { CommandId } from '../../server/src/definitions/commands';
+import { CommandId } from '../../server/src/commands/commands';
 
 export function activate(context: ExtensionContext) {
 	const bundlePath = context.asAbsolutePath(path.join('server', 'server.bundle.js'));

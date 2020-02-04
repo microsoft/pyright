@@ -10,12 +10,12 @@
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { CommandId } from '../commands/commands';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { CommandId } from '../definitions/commands';
 import { ImportSorter } from './importSorter';
 
 export function performQuickAction(command: string, args: any[],
