@@ -94,7 +94,7 @@ function getBuiltLocal(host: TestHost, typeshedFolderPath: string | undefined, i
     }
     if (!localCIFSCache) {
         const resolver = createResolver(host);
-        typeshedFolderPath = typeshedFolderPath ?? resolvePaths(host.getWorkspaceRoot(), "../dist/typeshed-fallback");
+        typeshedFolderPath = typeshedFolderPath ?? resolvePaths(host.getWorkspaceRoot(), "../client/typeshed-fallback");
         localCIFSCache = new FileSystem(/*ignoreCase*/ true, {
             files: {
                 [typeshedFolder]: new Mount(typeshedFolderPath, resolver),
