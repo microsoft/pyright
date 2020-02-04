@@ -47,6 +47,8 @@ export interface AnalysisResults {
 
 export type AnalysisCompleteCallback = (results: AnalysisResults) => void;
 
+const _configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
+
 export class AnalyzerService {
     private _instanceName: string;
     private _program: Program;
@@ -68,9 +70,8 @@ export class AnalyzerService {
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
     private _lastUserInteractionTime = Date.now();
-    private _configFileName: string;
 
-    constructor(instanceName: string, console?: ConsoleInterface, configFileName?: string) {
+    constructor(instanceName: string, console?: ConsoleInterface) {
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
         this._configOptions = new ConfigOptions(process.cwd());
@@ -78,7 +79,6 @@ export class AnalyzerService {
         this._program = new Program(this._importResolver, this._configOptions, this._console);
         this._executionRootPath = '';
         this._typeStubTargetImportName = undefined;
-        this._configFileName = configFileName || 'pyrightconfig.json';
     }
 
     dispose() {
@@ -238,15 +238,14 @@ export class AnalyzerService {
                     projectRoot = getDirectoryPath(configFilePath);
                 } else {
                     projectRoot = configFilePath;
-                    configFilePath = combinePaths(configFilePath, this._configFileName);
-                    if (!fs.existsSync(configFilePath)) {
-                        this._console.log(`Configuration file not found at ${ configFilePath }.`);
-                        configFilePath = undefined;
+                    configFilePath = this._findConfigFile(configFilePath);
+                    if (!configFilePath) {
+                        this._console.log(`Configuration file not found at ${ projectRoot }.`);
                     }
                 }
             }
         } else if (projectRoot) {
-            configFilePath = this._findConfigFile(projectRoot);
+            configFilePath = this._findConfigFileHereOrUp(projectRoot);
             if (configFilePath) {
                 projectRoot = getDirectoryPath(configFilePath);
             } else {
@@ -342,6 +341,11 @@ export class AnalyzerService {
         configOptions.verboseOutput = !!commandLineOptions.verboseOutput;
         configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
         configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
+
+        // If there was no typings path specified, use a default path.
+        if (configOptions.typingsPath === undefined) {
+            configOptions.typingsPath = normalizePath(combinePaths(configOptions.projectRoot, 'typings'));
+        }
 
         // Do some sanity checks on the specified settings and report missing
         // or inconsistent information.
@@ -496,11 +500,18 @@ export class AnalyzerService {
         this._program.markAllFilesDirty(true);
     }
 
+    private _findConfigFileHereOrUp(searchPath: string): string | undefined {
+        return forEachAncestorDirectory(searchPath, ancestor => this._findConfigFile(ancestor));
+    }
+
     private _findConfigFile(searchPath: string): string | undefined {
-        return forEachAncestorDirectory(searchPath, ancestor => {
-            const fileName = combinePaths(ancestor, this._configFileName);
-            return fs.existsSync(fileName) ? fileName : undefined;
-        });
+        for (const name of _configFileNames) {
+            const fileName = combinePaths(searchPath, name);
+            if (fs.existsSync(fileName)) {
+                return fileName;
+            }
+        }
+        return undefined;
     }
 
     private _parseConfigFile(configPath: string): any | undefined {

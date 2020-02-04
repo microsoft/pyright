@@ -59,7 +59,7 @@
         },
         "configuration": {
             "type": "object",
-            "title": "Pyright Configuration",
+            "title": "Pyright",
             "properties": {
                 "python.analysis.typeshedPaths": {
                     "type": "array",
