@@ -15,16 +15,16 @@ import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { commandAddMissingOptionalToParam, commandOrderImports } from './commands';
+import { CommandId } from '../definitions/commands';
 import { ImportSorter } from './importSorter';
 
 export function performQuickAction(command: string, args: any[],
         parseResults: ParseResults) {
 
-    if (command === commandOrderImports) {
+    if (command === CommandId.orderImports) {
         const importSorter = new ImportSorter(parseResults);
         return importSorter.sort();
-    } else if (command === commandAddMissingOptionalToParam) {
+    } else if (command === CommandId.addMissingOptionalToParam) {
         if (args.length >= 1) {
             const nodeOffset = parseInt(args[0], 10);
             return _addMissingOptionalToParam(parseResults, nodeOffset);

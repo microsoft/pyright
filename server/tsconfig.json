@@ -10,9 +10,11 @@
 		"moduleResolution": "node",
 		"sourceMap": true,
 		"lib" : [ "es2016" ],
-		"outDir": "../client/server"
+		"outDir": "../client/server",
+		"composite": true
 	},
 	"exclude": [
 		"node_modules"
-	]
+	],
+	"references": []
 }
