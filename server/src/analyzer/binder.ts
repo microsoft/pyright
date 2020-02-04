@@ -18,7 +18,7 @@
 
 import * as assert from 'assert';
 
-import { CommandId } from '../commands/commands';
+import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
 import { CreateTypeStubFileAction, getEmptyRange } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -209,7 +209,7 @@ export class Binder extends ParseTreeWalker {
                     if (diagnostic) {
                         // Add a diagnostic action for resolving this diagnostic.
                         const createTypeStubAction: CreateTypeStubFileAction = {
-                            action: CommandId.createTypeStub,
+                            action: Commands.createTypeStub,
                             moduleName: importResult.importName
                         };
                         diagnostic.addAction(createTypeStubAction);

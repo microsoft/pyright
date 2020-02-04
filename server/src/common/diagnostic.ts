@@ -8,7 +8,7 @@
  */
 
 import { Position, Range } from 'vscode-languageserver';
-import { CommandId } from '../commands/commands';
+import { Commands } from '../commands/commands';
 
 export const enum DiagnosticCategory {
     Error,
@@ -93,12 +93,12 @@ export interface DiagnosticAction {
 }
 
 export interface CreateTypeStubFileAction extends DiagnosticAction {
-    action: CommandId.createTypeStub;
+    action: Commands.createTypeStub;
     moduleName: string;
 }
 
 export interface AddMissingOptionalToParamAction extends DiagnosticAction {
-    action: CommandId.addMissingOptionalToParam;
+    action: Commands.addMissingOptionalToParam;
     offsetOfTypeNode: number;
 }
 

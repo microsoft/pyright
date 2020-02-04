@@ -16,6 +16,7 @@
 
 import * as assert from 'assert';
 
+import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
 import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum,
     getEmptyRange } from '../common/diagnostic';
@@ -30,6 +31,7 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
     NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
     SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode,
     YieldFromNode, YieldNode } from '../parser/parseNodes';
+import { ParseOptions, Parser } from '../parser/parser';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -62,8 +64,6 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique,
     specializeType, stripFirstParameter, stripLiteralTypeArgsValue, stripLiteralValue,
     transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
-import { Parser, ParseOptions } from '../parser/parser';
-import { CommandId } from '../commands/commands';
 
 interface TypeResult {
     type: Type;
@@ -6195,7 +6195,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                         if (isNoneWithoutOptional) {
                             const addOptionalAction: AddMissingOptionalToParamAction = {
-                                action: CommandId.addMissingOptionalToParam,
+                                action: Commands.addMissingOptionalToParam,
                                 offsetOfTypeNode: param.typeAnnotation.start + 1
                             };
                             if (diag) {

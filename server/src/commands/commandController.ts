@@ -6,7 +6,7 @@
 
 import { ExecuteCommandParams, ResponseError } from 'vscode-languageserver';
 import { LanguageServerBase } from '../languageServerBase';
-import { CommandId } from './commands';
+import { Commands } from './commands';
 import { CreateTypeStubCommand } from './createTypeStub';
 import { QuickActionCommand } from './quickActionCommand';
 
@@ -24,10 +24,10 @@ export class CommandController implements ServerCommand {
     }
 
     async execute(cmdParams: ExecuteCommandParams): Promise<any> {
-        if (cmdParams.command === CommandId.orderImports || cmdParams.command === CommandId.addMissingOptionalToParam) {
+        if (cmdParams.command === Commands.orderImports || cmdParams.command === Commands.addMissingOptionalToParam) {
             return this._quickAction.execute(cmdParams);
         }
-        if (cmdParams.command === CommandId.createTypeStub) {
+        if (cmdParams.command === Commands.createTypeStub) {
             return this._createStub.execute(cmdParams);
         }
         return new ResponseError<string>(1, 'Unsupported command');

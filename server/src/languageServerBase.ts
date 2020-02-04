@@ -14,7 +14,7 @@ import {
 
 import { AnalyzerService } from './analyzer/service';
 import { CommandController, ServerCommand } from './commands/commandController';
-import { CommandId } from './commands/commands';
+import { Commands } from './commands/commands';
 import { CommandLineOptions } from './common/commandLineOptions';
 import {
     AddMissingOptionalToParamAction, convertRange, CreateTypeStubFileAction,
@@ -203,7 +203,7 @@ export abstract class LanguageServerBase {
             this._recordUserInteractionTime();
 
             const sortImportsCodeAction = CodeAction.create(
-                'Organize Imports', Command.create('Organize Imports', CommandId.orderImports),
+                'Organize Imports', Command.create('Organize Imports', Commands.orderImports),
                 CodeActionKind.SourceOrganizeImports);
             const codeActions: CodeAction[] = [sortImportsCodeAction];
 
@@ -224,16 +224,16 @@ export abstract class LanguageServerBase {
                 const diags = workspace.serviceInstance.getDiagnosticsForRange(filePath, range);
                 const typeStubDiag = diags.find(d => {
                     const actions = d.getActions();
-                    return actions && actions.find(a => a.action === CommandId.createTypeStub);
+                    return actions && actions.find(a => a.action === Commands.createTypeStub);
                 });
 
                 if (typeStubDiag) {
                     const action = typeStubDiag.getActions()!.find(
-                        a => a.action === CommandId.createTypeStub) as CreateTypeStubFileAction;
+                        a => a.action === Commands.createTypeStub) as CreateTypeStubFileAction;
                     if (action) {
                         const createTypeStubAction = CodeAction.create(
                             `Create Type Stub For ‘${action.moduleName}’`,
-                            Command.create('Create Type Stub', CommandId.createTypeStub,
+                            Command.create('Create Type Stub', Commands.createTypeStub,
                                 workspace.rootPath, action.moduleName),
                             CodeActionKind.QuickFix);
                         codeActions.push(createTypeStubAction);
@@ -242,16 +242,16 @@ export abstract class LanguageServerBase {
 
                 const addOptionalDiag = diags.find(d => {
                     const actions = d.getActions();
-                    return actions && actions.find(a => a.action === CommandId.addMissingOptionalToParam);
+                    return actions && actions.find(a => a.action === Commands.addMissingOptionalToParam);
                 });
 
                 if (addOptionalDiag) {
                     const action = addOptionalDiag.getActions()!.find(
-                        a => a.action === CommandId.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
+                        a => a.action === Commands.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
                     if (action) {
                         const addMissingOptionalAction = CodeAction.create(
                             `Add 'Optional' to type annotation`,
-                            Command.create(`Add 'Optional' to type annotation`, CommandId.addMissingOptionalToParam,
+                            Command.create(`Add 'Optional' to type annotation`, Commands.addMissingOptionalToParam,
                                 action.offsetOfTypeNode),
                             CodeActionKind.QuickFix);
                         codeActions.push(addMissingOptionalAction);

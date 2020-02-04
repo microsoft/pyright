@@ -10,7 +10,7 @@
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { CommandId } from '../commands/commands';
+import { Commands } from '../commands/commands';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -21,10 +21,10 @@ import { ImportSorter } from './importSorter';
 export function performQuickAction(command: string, args: any[],
         parseResults: ParseResults) {
 
-    if (command === CommandId.orderImports) {
+    if (command === Commands.orderImports) {
         const importSorter = new ImportSorter(parseResults);
         return importSorter.sort();
-    } else if (command === CommandId.addMissingOptionalToParam) {
+    } else if (command === Commands.addMissingOptionalToParam) {
         if (args.length >= 1) {
             const nodeOffset = parseInt(args[0], 10);
             return _addMissingOptionalToParam(parseResults, nodeOffset);
